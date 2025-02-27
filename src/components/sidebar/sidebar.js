@@ -4,7 +4,7 @@ import { RxDashboard } from "react-icons/rx";
 import { FaRegUser } from "react-icons/fa6";
 import { IoKeypadOutline } from "react-icons/io5";
 import { TiFlowSwitch } from "react-icons/ti";
-import { MdOutlineSupportAgent } from "react-icons/md";
+import { MdOutlineSupportAgent, MdEmail } from "react-icons/md";
 import logo from "../../image/wcf_logo.png";
 import "./sidebar.css";
 
@@ -193,7 +193,7 @@ const Sidebar = ({ isSidebarOpen }) => {
                 <div className="menu-item">
                   <RxDashboard className="menu-icon" />
                   {isSidebarOpen && (
-                    <span className="menu-text">Dashboard</span>
+                    <span className="menu-text">Home</span>
                   )}
                 </div>
               </NavLink>
@@ -219,6 +219,17 @@ const Sidebar = ({ isSidebarOpen }) => {
                   {isSidebarOpen && (
                     <span className="menu-text">Extension</span>
                   )}
+                </div>
+              </NavLink>
+              <NavLink
+                to="/message"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <MdEmail className="menu-icon" />
+                  {isSidebarOpen && <span className="menu-text">Message</span>}
                 </div>
               </NavLink>
             </>

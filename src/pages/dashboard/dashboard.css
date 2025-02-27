@@ -21,17 +21,28 @@
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
 }
 
+/* .phone-navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between; 
+  width: 100%; 
+  padding: 0px 20px; 
+  height: 50px;
+  border-radius: 10px;
+  background-color: var(--sidebar-color);
+} */
+
 .phone-modal-overlay {
   position: fixed;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: flex-start; /* Align at the top of the screen */
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  z-index: 1000;
 }
 
 .phone-modal-content {
@@ -40,6 +51,7 @@
   border-radius: 8px;
   width: 400px;
   text-align: center;
+  position: absolute; /* Absolute position */
 }
 
 .phone-actions button {
@@ -56,8 +68,180 @@
   background-color: #45a049;
 }
 
-.phone-navbar {
-  margin-bottom: 20px;
-  width: 100%;
+.call-status{
+  display: flex;
+  align-items: center;
+}
+
+.dashboard-single-agent{
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100% !important;
+}
+
+.single-agent-card{
   background-color: var(--sidebar-color);
+  border-radius: 10px;
+  padding: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  height: auto;
+  margin-bottom: 20px;
+  width: 250px;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.single-agent-head{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  border-bottom: 1px solid black;
+  padding-bottom: 10px;
+}
+
+.single-agent-level{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+
+.single-agent-level-left{
+  display: flex;
+  align-items: center;
+  justify-content: start;
+  gap: 20px;
+}
+
+.login-summary{
+  width: 30%;
+  background-color: var(--sidebar-color);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.chat{
+  width: 70%;
+  background-color: var(--sidebar-color);
+  border-radius: 10px;
+  padding: 10px;
+  height: auto;
+}
+
+.dashboard-single-agent-row_two{
+  display: flex;
+  align-items: start;
+  gap: 10px;
+}
+
+.login-summary-title{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  border-bottom: 1px dotted black;
+  padding-bottom: 10px;
+}
+
+/* ttt */
+.phone-navbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between; /* Distribute icons across the navbar */
+  width: 100%; /* Full width of the screen */
+  padding: 0px 20px; /* Optional: Add padding for spacing on the sides */
+  height: 50px;
+  border-radius: 10px;
+  background-color: var(--sidebar-color);
+}
+
+.phone-btn-call{
+  background-color: var(--hover-color);
+  font-size: 30px;
+  cursor: pointer;
+  padding: 3px;
+  border-radius: 5px;
+  color: #4caf50;
+}
+
+.phone-btn-call:hover{
+  background-color: #45a049;
+  transition: ease-in-out 0.5s;
+  color: #fff;
+}
+
+.phone-dropdown {
+  position: absolute;
+  z-index: 1000;
+  background-color: var(--hover-color);
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+  width: 300px;
+}
+
+.phone-dropdown-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.phone-dropdown-content button {
+  background-color: #4caf50;
+  color: white;
+  padding: 5px 10px;
+  margin-bottom: 5px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.phone-dropdown-content button:hover {
+  background-color: #45a049;
+}
+
+.keypad-container {
+  margin-top: 10px;
+  text-align: center;
+}
+
+.dial-input {
+  width: auto;
+  padding: 10px;
+  margin-bottom: 10px;
+  font-size: 18px;
+  text-align: center;
+}
+
+.keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-gap: 5px;
+}
+
+.keypad button {
+  padding: 10px;
+  font-size: 12px;
+  background-color: var(--text-color);
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.keypad button:hover {
+  background-color: var(--active-color);
+}
+
+.phone-action-btn{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.phone-action-btn-row{
+  background-color: grey !important;
+  padding: 15px !important;
 }

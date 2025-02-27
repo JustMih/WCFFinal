@@ -1,14 +1,37 @@
-import React, { useState } from "react";
-import { FaPhoneAlt } from "react-icons/fa"; // Phone icon
+import React, { useState, useRef } from "react";
 import Card from "../../components/card/card";
-import { MdOutlineSupportAgent, MdCloudQueue } from "react-icons/md";
+import {
+  MdOutlineSupportAgent,
+  MdCloudQueue,
+  MdOutlineLocalPhone,
+  MdOutlineEmail,
+  MdOutlinePhoneInTalk,
+} from "react-icons/md";
 import { VscRefresh } from "react-icons/vsc";
 import { CiNoWaitingSign } from "react-icons/ci";
+import { TiTickOutline } from "react-icons/ti";
+import { FiPhoneIncoming } from "react-icons/fi";
+import { TbPhoneCheck, TbPhoneX } from "react-icons/tb";
+import { HiPhoneOutgoing, HiOutlineMailOpen } from "react-icons/hi";
+import { BsCollection } from "react-icons/bs";
+import { RiMailUnreadLine } from "react-icons/ri";
+import { FaEraser } from "react-icons/fa";
+import {
+  IoLogoWhatsapp,
+  IoMdLogIn,
+  IoMdCloseCircleOutline,
+} from "react-icons/io";
+import { FaHandHolding } from "react-icons/fa";
+import { FaPersonWalkingArrowRight } from "react-icons/fa6";
 import Modal from "./phone-modal"; // Import Modal component
+import CallChart from "../../components/call-chart/call-chart";
 import "./dashboard.css";
 
 const Dashboard = () => {
-  const [modalOpen, setModalOpen] = useState(false); // State to control modal visibility
+  const [dropdownOpen, setDropdownOpen] = useState(false); // State to control dropdown visibility
+  const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 }); // State for dropdown position
+
+  const buttonRef = useRef(null); // Ref for the phone button
 
   const agentActivity = {
     Talking: 0,
@@ -44,23 +67,256 @@ const Dashboard = () => {
 
   const role = localStorage.getItem("role");
 
+  // Function to open dropdown and position it below the button
+  const toggleDropdown = () => {
+    if (buttonRef.current) {
+      const buttonRect = buttonRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: buttonRect.bottom + window.scrollY + 10, // position below button with some margin
+        left: buttonRect.left + window.scrollX,
+      });
+    }
+    setDropdownOpen((prev) => !prev); // Toggle dropdown visibility
+  };
+
   return (
     <div className="p-6">
       {role === "agent" ? (
-        <>
+        <div className="agent-body">
           {/* agent call here */}
           <h3>Agent</h3>
           {/* Phone Icon to trigger the modal */}
           <div className="phone-navbar">
-            <FaPhoneAlt
-              onClick={() => setModalOpen(true)}
-              style={{ cursor: "pointer", fontSize: "30px" }}
+            {/* phone icon here */}
+            <MdOutlineLocalPhone
+              className="phone-btn-call"
+              ref={buttonRef} // Attach ref to button
+              onClick={toggleDropdown}
+              // style={{ cursor: "pointer", fontSize: "30px" }}
             />
+            <div className="call-status">
+              <TiTickOutline style={{ cursor: "pointer", fontSize: "20px" }} />
+              Ready
+            </div>
           </div>
-
-          {/* Modal will be shown if modalOpen is true */}
-          {modalOpen && <Modal closeModal={() => setModalOpen(false)} />}
-        </>
+          <div className="dashboard-single-agent">
+            <div className="single-agent-card">
+              <div className="single-agent-head">
+                <FiPhoneIncoming fontSize={15} />
+                In-Bound Calls
+              </div>
+              <div className="single-agent-level">
+                <div className="single-agent-level-left">
+                  <FiPhoneIncoming fontSize={15} color="green" />
+                  Calls
+                </div>
+                20
+              </div>
+              <div className="single-agent-level">
+                <div className="single-agent-level-left">
+                  <TbPhoneCheck fontSize={15} />
+                  Answered
+                </div>
+                10
+              </div>
+              <div className="single-agent-level">
+                <div className="single-agent-level-left">
+                  <TbPhoneX fontSize={15} color="red" />
+                  Dropped
+                </div>
+                20
+              </div>
+            </div>
+            <div className="single-agent-card">
+              <div className="single-agent-head">
+                <HiPhoneOutgoing fontSize={15} />
+                Out-Bound Calls
+              </div>
+              <div className="single-agent-level">
+                <div className="single-agent-level-left">
+                  <FiPhoneIncoming fontSize={15} color="green" />
+                  Calls
+                </div>
+                20
+              </div>
+              <div className="single-agent-level">
+                <div className="single-agent-level-left">
+                  <TbPhoneCheck fontSize={15} />
+                  Answered
+                </div>
+                10
+              </div>
+              <div className="single-agent-level">
+                <div className="single-agent-level-left">
+                  <TbPhoneX fontSize={15} color="red" />
+                  Dropped
+                </div>
+                20
+              </div>
+            </div>
+            <div className="single-agent-card">
+              <div className="single-agent-head">
+                <MdOutlineEmail fontSize={15} />
+                Emails
+              </div>
+              <div className="single-agent-level">
+                <div className="single-agent-level-left">
+                  <BsCollection fontSize={15} color="green" />
+                  Total
+                </div>
+                20
+              </div>
+              <div className="single-agent-level">
+                <div className="single-agent-level-left">
+                  <HiOutlineMailOpen fontSize={15} />
+                  Opened
+                </div>
+                10
+              </div>
+              <div className="single-agent-level">
+                <div className="single-agent-level-left">
+                  <RiMailUnreadLine fontSize={15} color="red" />
+                  Closed
+                </div>
+                20
+              </div>
+            </div>
+            <div className="single-agent-card">
+              <div className="single-agent-head">
+                <IoLogoWhatsapp fontSize={15} color="green" />
+                Whatsapp
+              </div>
+              <div className="single-agent-level">
+                <div className="single-agent-level-left">
+                  <BsCollection fontSize={15} color="green" />
+                  Total
+                </div>
+                20
+              </div>
+              <div className="single-agent-level">
+                <div className="single-agent-level-left">
+                  <HiOutlineMailOpen fontSize={15} />
+                  Opened
+                </div>
+                10
+              </div>
+              <div className="single-agent-level">
+                <div className="single-agent-level-left">
+                  <RiMailUnreadLine fontSize={15} color="red" />
+                  Closed
+                </div>
+                20
+              </div>
+            </div>
+          </div>
+          <div className="dashboard-single-agent-row_two">
+            <div className="login-summary">
+              <div className="login-summary-title">
+                <IoMdLogIn />
+                <h4>Login Summary</h4>
+              </div>
+              <div className="single-agent-level">
+                <div className="single-agent-level-left">
+                  <CiNoWaitingSign fontSize={20} color="red" />
+                  Idle Time
+                </div>
+                00:03:34
+              </div>
+              <div className="single-agent-level">
+                <div className="single-agent-level-left">
+                  <MdOutlinePhoneInTalk fontSize={20} color="green" />
+                  Talk Time
+                </div>
+                00:03:34
+              </div>
+              <div className="single-agent-level">
+                <div className="single-agent-level-left">
+                  <FaHandHolding fontSize={20} color="black" />
+                  Hold Time
+                </div>
+                00:03:34
+              </div>
+              <div className="single-agent-level">
+                <div className="single-agent-level-left">
+                  <IoMdCloseCircleOutline fontSize={20} color="red" />
+                  Break Time
+                </div>
+                00:03:34
+              </div>
+              <div className="single-agent-level">
+                <div className="single-agent-level-left">
+                  <FaPersonWalkingArrowRight fontSize={20} color="green" />
+                  Login Time
+                </div>
+                00:03:34
+              </div>
+            </div>
+            <div className="chat">
+              {/* simple chat here */}
+              <CallChart />
+            </div>
+          </div>
+          {/* Dropdown will be shown if dropdownOpen is true */}
+          {dropdownOpen && (
+            <div
+              className="phone-dropdown"
+              style={{
+                top: `${dropdownPosition.top}px`,
+                left: `${dropdownPosition.left}px`,
+              }}
+            >
+              <div className="phone-dropdown-content">
+                <div className="keypad-container">
+                  <input
+                    type="text"
+                    className="dial-input"
+                    placeholder="Dial number"
+                  />
+                  <div className="keypad">
+                    <button>1</button>
+                    <button>2</button>
+                    <button>3</button>
+                    <button>4</button>
+                    <button>5</button>
+                    <button>6</button>
+                    <button>7</button>
+                    <button>8</button>
+                    <button>9</button>
+                    <button>*</button>
+                    <button>0</button>
+                    <button>#</button>
+                    <button style={{ backgroundColor: "green" }}>OK</button>
+                    <button>+</button>
+                    <button>
+                      <FaEraser />
+                    </button>
+                  </div>
+                </div>
+                <div className="phone-action-btn">
+                  <button
+                    onClick={toggleDropdown}
+                    className="phone-action-btn-row"
+                  >
+                    Mute
+                  </button>
+                  <button
+                    onClick={toggleDropdown}
+                    className="phone-action-btn-row"
+                  >
+                    Hold
+                  </button>
+                  <button
+                    onClick={toggleDropdown}
+                    className="phone-action-btn-row"
+                  >
+                    Transfer
+                  </button>
+                </div>
+              </div>
+              {/* Keypad for MicroSIP */}
+            </div>
+          )}
+        </div>
       ) : (
         <>
           <h3 className="title">Dashboard</h3>

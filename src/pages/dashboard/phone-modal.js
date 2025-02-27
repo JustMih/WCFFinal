@@ -1,9 +1,13 @@
 import React from "react";
 
-const Modal = ({ closeModal }) => {
+const Modal = ({ closeModal, position }) => {
   return (
     <div className="phone-modal-overlay" onClick={closeModal}>
-      <div className="phone-modal-content" onClick={(e) => e.stopPropagation()}>
+      <div
+        className="phone-modal-content"
+        onClick={(e) => e.stopPropagation()}
+        style={{ top: `${position.top}px`, left: `${position.left}px` }} // Apply position dynamically
+      >
         <h2>Best Virtual Dialer & Phone System</h2>
         <p>Here you can make calls, transfer calls, and perform other tasks.</p>
         <div className="phone-phone-actions">
