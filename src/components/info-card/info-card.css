@@ -1,0 +1,49 @@
+/* info-card.css */
+
+.info-card {
+  background-color: var(--sidebar-color);
+  border-bottom: 1px solid var(--active-color);
+  border-radius: 2px;
+  padding: 10px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  flex: 1 1 200px; /* Allow the card to take up 200px, and grow/shrink based on screen */
+  margin: 8px; /* Space between the cards */
+  min-width: 180px; /* Set minimum width */
+}
+
+.info-card .info-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+}
+
+.info-card .count {
+  font-size: 1rem;
+  font-family: var(--font-family);
+  font-weight: normal;
+  color: var(--text-color);
+}
+
+.info-card .title {
+  font-size: 0.875rem;
+  font-family: var(--font-family);
+  color: var(--textgray-color);
+}
+
+.info-card .icon {
+  color: var(--text-color);
+  font-size: 1rem;
+}
+
+/* Responsive styles */
+@media (max-width: 1024px) {
+  .info-card {
+    flex: 1 1 calc(50% - 16px); /* 2 cards per row on medium screens */
+  }
+}
+
+@media (max-width: 600px) {
+  .info-card {
+    flex: 1 1 100%; /* 1 card per row on small screens */
+  }
+}

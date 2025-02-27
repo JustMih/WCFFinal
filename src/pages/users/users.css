@@ -1,0 +1,117 @@
+/* General Container Styling */
+.user-table-container {
+  width: 100%;
+  margin: 0px auto;
+  font-family: var(--font-family);
+}
+
+.table-title {
+  text-align: left;
+  color: var(--text-color);
+  margin-bottom: 10px;
+}
+
+.controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.search-input {
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  width: 200px;
+}
+
+.add-user-button {
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 5px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.add-user-button:hover {
+  background-color: #0056b3;
+}
+
+/* Table Styling */
+.user-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.user-table th, .user-table td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+
+.user-table th {
+  background: #f4f4f4;
+  font-weight: bold;
+}
+
+.user-table tbody tr:hover {
+  background: #f1f1f1;
+}
+
+/* Pagination Styling */
+.pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.pagination button {
+  border: none;
+  background: #f4f4f4;
+  padding: 5px 10px;
+  margin: 0 2px;
+  cursor: pointer;
+  border-radius: 3px;
+}
+
+.pagination button.active {
+  background: #007bff;
+  color: white;
+}
+
+/* Action Buttons Styling */
+.edit-button, .activated-button, .deactivated-button, .reset-button, .delete-button {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.activated-button { background: #28a745; }
+.deactivated-button { background: #dc3545; }
+.reset-button { background: #ffc107; }
+.delete-button { background: #dc3545; }
+
+.action-buttons {
+  display: flex;
+  gap: 5px;
+}
+
+.modal-action-button {
+  display: flex;
+  justify-content: space-between;
+}
+
+.add-user-button {
+  width: auto;
+}
