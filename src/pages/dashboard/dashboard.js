@@ -51,7 +51,7 @@ const Dashboard = () => {
           {/* agent call here */}
           <h3>Agent</h3>
           {/* Phone Icon to trigger the modal */}
-          <div className="navbar">
+          <div className="phone-navbar">
             <FaPhoneAlt
               onClick={() => setModalOpen(true)}
               style={{ cursor: "pointer", fontSize: "30px" }}
