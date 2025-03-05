@@ -198,30 +198,6 @@ const Sidebar = ({ isSidebarOpen }) => {
                 </div>
               </NavLink>
               <NavLink
-                to="/did"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <IoKeypadOutline className="menu-icon" />
-                  {isSidebarOpen && <span className="menu-text">Dids</span>}
-                </div>
-              </NavLink>
-              <NavLink
-                to="/extension"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <TiFlowSwitch className="menu-icon" />
-                  {isSidebarOpen && (
-                    <span className="menu-text">Extension</span>
-                  )}
-                </div>
-              </NavLink>
-              <NavLink
                 to="/message"
                 className={({ isActive }) =>
                   isActive ? "menu-item active-link" : "menu-item"
