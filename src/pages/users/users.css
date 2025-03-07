@@ -115,3 +115,9 @@
 .add-user-button {
   width: auto;
 }
+
+.user-modal-action-buttons{
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
