@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import baseURL from "../../config"
+import {baseURL} from "../../config";
 import logo from "../../image/wcf_logo.png"
 import "./login.css";
 
@@ -15,7 +15,7 @@ export default function Login() {
     const loginData = { email, password };
 
     try {
-      const response = await fetch("http://localhost:5010/api/auth/login", {
+      const response = await fetch(`${baseURL}/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
