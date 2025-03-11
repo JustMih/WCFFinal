@@ -30,7 +30,7 @@ const Sidebar = ({ isSidebarOpen }) => {
                   )}
                 </div>
               </NavLink>
-              <NavLink
+              {/* <NavLink
                 to="/did"
                 className={({ isActive }) =>
                   isActive ? "menu-item active-link" : "menu-item"
@@ -40,7 +40,7 @@ const Sidebar = ({ isSidebarOpen }) => {
                   <IoKeypadOutline className="menu-icon" />
                   {isSidebarOpen && <span className="menu-text">Dids</span>}
                 </div>
-              </NavLink>
+              </NavLink> */}
               <NavLink
                 to="/extension"
                 className={({ isActive }) =>

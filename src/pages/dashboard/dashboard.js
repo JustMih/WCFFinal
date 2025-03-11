@@ -137,7 +137,9 @@ const Dashboard = () => {
               {/* Add dropdown for status */}
               <select
                 value={agentActivites}
-                onChange={(e) => setAgentActivities(e.target.value)}
+                onChange={(e) => {
+                  setAgentActivities(e.target.value)
+                }}
                 className="status-dropdown"
               >
                 <option value="Ready">Ready</option>
