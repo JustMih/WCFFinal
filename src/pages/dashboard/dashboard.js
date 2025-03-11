@@ -34,7 +34,7 @@ const Dashboard = () => {
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 }); // State for dropdown position
   const [phoneNumber, setPhoneNumber] = useState(""); // State to store the dialed number
   const [callStatus, setCallStatus] = useState(""); // State to track call status
-  const [agentActivites, setAgentActivities] = useState(""); // State to store agent activities
+  const [agentActivites, setAgentActivities] = useState("Ready"); // State to store agent activities
 
   const buttonRef = useRef(null); // Ref for the phone button
 
@@ -137,9 +137,7 @@ const Dashboard = () => {
               {/* Add dropdown for status */}
               <select
                 value={agentActivites}
-                onChange={(e) => {
-                  setAgentActivities(e.target.value)
-                }}
+                onChange={(e) => setAgentActivities(e.target.value)}
                 className="status-dropdown"
               >
                 <option value="Ready">Ready</option>
