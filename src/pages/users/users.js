@@ -152,99 +152,6 @@ const Users = () => {
     setSnackbarOpen(false);
   };
 
-  // const handleActivateUser = async (userId) => {
-  //   try {
-  //     const response = await fetch(`${baseURL}/users/${userId}/activate`, {
-  //       method: "PUT",
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //         Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-  //       },
-  //     });
-  //     if (!response.ok) {
-  //       throw new Error("Failed to activate user");
-  //     }
-  //     fetchUsers();
-  //     setSnackbarMessage("User Activated successfully!");
-  //     setSnackbarSeverity("success");
-  //     setSnackbarOpen(true);
-  //   } catch (error) {
-  //     setError(error.message);
-  //     setSnackbarMessage("Error Activated user.");
-  //     setSnackbarSeverity("error");
-  //     setSnackbarOpen(true);
-  //   }
-  // };
-
-  // const handleDeactivateUser = async (userId) => {
-  //   try {
-  //     const response = await fetch(`${baseURL}/users/${userId}/deactivate`, {
-  //       method: "PUT",
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //         Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-  //       },
-  //     });
-  //     if (!response.ok) {
-  //       throw new Error("Failed to deactivate user");
-  //     }
-  //     fetchUsers();
-  //     setSnackbarMessage("User De-activated successfully!");
-  //     setSnackbarSeverity("success");
-  //     setSnackbarOpen(true);
-  //   } catch (error) {
-  //     setError(error.message);
-  //     setSnackbarMessage("Error De-activated user.");
-  //     setSnackbarSeverity("error");
-  //     setSnackbarOpen(true);
-  //   }
-  // };
-
-  // const handleResetPassword = async (userId) => {
-  //   try {
-  //     const response = await fetch(
-  //       `${baseURL}/users/${userId}/reset-password`,
-  //       {
-  //         method: "PUT",
-  //         headers: {
-  //           "Content-Type": "application/json",
-  //           Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-  //         },
-  //       }
-  //     );
-  //     if (!response.ok) {
-  //       throw new Error("Failed to reset password");
-  //     }
-  //     fetchUsers();
-  //     setSnackbarMessage("User Reset Password successfully!");
-  //     setSnackbarSeverity("success");
-  //     setSnackbarOpen(true);
-  //   } catch (error) {
-  //     setError(error.message);
-  //     setSnackbarMessage("Error Reset Password user.");
-  //     setSnackbarSeverity("error");
-  //     setSnackbarOpen(true);
-  //   }
-  // };
-
-  // const handleDeleteUser = async (userId) => {
-  //   try {
-  //     const response = await fetch(`${baseURL}/users/${userId}`, {
-  //       method: "DELETE",
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //         Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-  //       },
-  //     });
-  //     if (!response.ok) {
-  //       throw new Error("Failed to delete user");
-  //     }
-  //     fetchUsers();
-  //   } catch (error) {
-  //     setError(error.message);
-  //   }
-  // };
-
   const handleConfirmAction = (action, userId) => {
     setActionType(action);
     setUserIdForAction(userId);
@@ -266,7 +173,7 @@ const Users = () => {
               },
             }
           );
-        } else if (actionType === "deactivate") {
+        } else if (actionType === "de-activate") {
           response = await fetch(
             `${baseURL}/users/${userIdForAction}/deactivate`,
             {
@@ -277,7 +184,7 @@ const Users = () => {
               },
             }
           );
-        } else if (actionType === "resetPassword") {
+        } else if (actionType === "reset-password") {
           response = await fetch(
             `${baseURL}/users/${userIdForAction}/reset-password`,
             {
@@ -410,7 +317,7 @@ const Users = () => {
                 <Tooltip title="Deactivate User">
                   <button
                     className="deactivated-button"
-                    onClick={() => handleConfirmAction("deactivate", user.id)}
+                    onClick={() => handleConfirmAction("de-activate", user.id)}
                   >
                     <HiMiniLockClosed />
                   </button>
@@ -420,7 +327,7 @@ const Users = () => {
                   <button
                     className="reset-button"
                     onClick={() =>
-                      handleConfirmAction("resetPassword", user.id)
+                      handleConfirmAction("reset-password", user.id)
                     }
                   >
                     <RxReset />

@@ -10,6 +10,7 @@ import Did from "./pages/did/did";
 import Extension from "./pages/extension/extension";
 import Agents from "./pages/agents/agents";
 import Message from "./pages/Message/message";
+import CallComponent from "./pages/test-call";
 import PrivateRoute from "./auth/private-route/privateRoute"; // Import the PrivateRoute
 import "./themes/themes.css";
 
@@ -75,6 +76,10 @@ function App() {
                 <Route
                   path="/message"
                   element={<PrivateRoute element={<Message />} />}
+                />
+                <Route
+                  path="/call"
+                  element={<CallComponent />}
                 />
               </Routes>
             </div>

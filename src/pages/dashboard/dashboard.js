@@ -15,6 +15,7 @@ import { TbPhoneCheck, TbPhoneX } from "react-icons/tb";
 import { HiPhoneOutgoing, HiOutlineMailOpen } from "react-icons/hi";
 import { BsCollection } from "react-icons/bs";
 import { RiMailUnreadLine } from "react-icons/ri";
+import { baseURL } from "../../config";
 import { FaEraser } from "react-icons/fa";
 import {
   IoLogoWhatsapp,
@@ -30,6 +31,8 @@ import "./dashboard.css";
 const Dashboard = () => {
   const [dropdownOpen, setDropdownOpen] = useState(false); // State to control dropdown visibility
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 }); // State for dropdown position
+  const [phoneNumber, setPhoneNumber] = useState(""); // State to store the dialed number
+  const [callStatus, setCallStatus] = useState(""); // State to track call status
 
   const buttonRef = useRef(null); // Ref for the phone button
 
@@ -77,6 +80,36 @@ const Dashboard = () => {
       });
     }
     setDropdownOpen((prev) => !prev); // Toggle dropdown visibility
+  };
+
+  const handleCall = async () => {
+    if (!phoneNumber) {
+      setCallStatus("Please enter a phone number.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${baseURL}/ami/call`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        },
+        body: JSON.stringify({
+          channel: "1001", // Replace with dynamic channel if necessary
+          number: phoneNumber,
+        }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setCallStatus("Call initiated successfully.");
+      } else {
+        setCallStatus(`Error: ${data.error}`);
+      }
+    } catch (error) {
+      setCallStatus(`Call failed: ${error.message}`);
+    }
   };
 
   return (
@@ -256,6 +289,10 @@ const Dashboard = () => {
               <CallChart />
             </div>
           </div>
+          {/* Call Status Display */}
+          <div className="call-status-display">
+            {callStatus && <p>{callStatus}</p>}
+          </div>
           {/* Dropdown will be shown if dropdownOpen is true */}
           {dropdownOpen && (
             <div
@@ -271,49 +308,80 @@ const Dashboard = () => {
                     type="text"
                     className="dial-input"
                     placeholder="Dial number"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
                   />
                   <div className="keypad">
-                    <button>1</button>
-                    <button>2</button>
-                    <button>3</button>
-                    <button>4</button>
-                    <button>5</button>
-                    <button>6</button>
-                    <button>7</button>
-                    <button>8</button>
-                    <button>9</button>
-                    <button>*</button>
-                    <button>0</button>
-                    <button>#</button>
-                    <button style={{ backgroundColor: "green" }}>OK</button>
-                    <button>+</button>
-                    <button>
+                    <button onClick={() => setPhoneNumber(phoneNumber + "1")}>
+                      1
+                    </button>
+                    <button onClick={() => setPhoneNumber(phoneNumber + "2")}>
+                      2
+                    </button>
+                    <button onClick={() => setPhoneNumber(phoneNumber + "3")}>
+                      3
+                    </button>
+                    <button onClick={() => setPhoneNumber(phoneNumber + "4")}>
+                      4
+                    </button>
+                    <button onClick={() => setPhoneNumber(phoneNumber + "5")}>
+                      5
+                    </button>
+                    <button onClick={() => setPhoneNumber(phoneNumber + "6")}>
+                      6
+                    </button>
+                    <button onClick={() => setPhoneNumber(phoneNumber + "7")}>
+                      7
+                    </button>
+                    <button onClick={() => setPhoneNumber(phoneNumber + "8")}>
+                      8
+                    </button>
+                    <button onClick={() => setPhoneNumber(phoneNumber + "9")}>
+                      9
+                    </button>
+                    <button onClick={() => setPhoneNumber(phoneNumber + "*")}>
+                      *
+                    </button>
+                    <button onClick={() => setPhoneNumber(phoneNumber + "0")}>
+                      0
+                    </button>
+                    <button onClick={() => setPhoneNumber(phoneNumber + "#")}>
+                      #
+                    </button>
+                    <button
+                      style={{ backgroundColor: "green" }}
+                      onClick={handleCall}
+                    >
+                      OK
+                    </button>
+                    <button
+                      // onClick={() => setPhoneNumber("")}
+                    >
                       <FaEraser />
                     </button>
                   </div>
                 </div>
                 <div className="phone-action-btn">
                   <button
-                    onClick={toggleDropdown}
+                    // onClick={toggleDropdown}
                     className="phone-action-btn-row"
                   >
                     Mute
                   </button>
                   <button
-                    onClick={toggleDropdown}
+                    // onClick={toggleDropdown}
                     className="phone-action-btn-row"
                   >
                     Hold
                   </button>
                   <button
-                    onClick={toggleDropdown}
+                    // onClick={toggleDropdown}
                     className="phone-action-btn-row"
                   >
                     Transfer
                   </button>
                 </div>
               </div>
-              {/* Keypad for MicroSIP */}
             </div>
           )}
         </div>

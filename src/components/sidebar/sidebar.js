@@ -54,6 +54,17 @@ const Sidebar = ({ isSidebarOpen }) => {
                   )}
                 </div>
               </NavLink>
+              {/* <NavLink
+                to="/call"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <MdOutlineSupportAgent className="menu-icon" />
+                  {isSidebarOpen && <span className="menu-text">Call Test</span>}
+                </div>
+              </NavLink> */}
               <NavLink
                 to="/agents"
                 className={({ isActive }) =>
@@ -192,9 +203,7 @@ const Sidebar = ({ isSidebarOpen }) => {
               >
                 <div className="menu-item">
                   <RxDashboard className="menu-icon" />
-                  {isSidebarOpen && (
-                    <span className="menu-text">Home</span>
-                  )}
+                  {isSidebarOpen && <span className="menu-text">Home</span>}
                 </div>
               </NavLink>
               <NavLink
