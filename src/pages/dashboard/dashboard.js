@@ -22,6 +22,7 @@ import {
   IoMdLogIn,
   IoMdCloseCircleOutline,
 } from "react-icons/io";
+import { CgUnavailable } from "react-icons/cg";
 import { FaHandHolding } from "react-icons/fa";
 import { FaPersonWalkingArrowRight } from "react-icons/fa6";
 import Modal from "./phone-modal"; // Import Modal component
@@ -33,6 +34,7 @@ const Dashboard = () => {
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 }); // State for dropdown position
   const [phoneNumber, setPhoneNumber] = useState(""); // State to store the dialed number
   const [callStatus, setCallStatus] = useState(""); // State to track call status
+  const [agentActivites, setAgentActivities] = useState(""); // State to store agent activities
 
   const buttonRef = useRef(null); // Ref for the phone button
 
@@ -116,7 +118,6 @@ const Dashboard = () => {
     <div className="p-6">
       {role === "agent" ? (
         <div className="agent-body">
-          {/* agent call here */}
           <h3>Agent</h3>
           {/* Phone Icon to trigger the modal */}
           <div className="phone-navbar">
@@ -125,11 +126,24 @@ const Dashboard = () => {
               className="phone-btn-call"
               ref={buttonRef} // Attach ref to button
               onClick={toggleDropdown}
-              // style={{ cursor: "pointer", fontSize: "30px" }}
             />
+            {/* mode status here */}
             <div className="call-status">
-              <TiTickOutline style={{ cursor: "pointer", fontSize: "20px" }} />
-              Ready
+              {agentActivites === "Ready" ? (
+                <TiTickOutline style={{ fontSize: "30px", color: "green" }} />
+              ) : (
+                <CgUnavailable style={{ fontSize: "30px", color: "red" }} />
+              )}
+              {/* Add dropdown for status */}
+              <select
+                value={agentActivites}
+                onChange={(e) => setAgentActivities(e.target.value)}
+                className="status-dropdown"
+              >
+                <option value="Ready">Ready</option>
+                <option value="Breakfast">Breakfast</option>
+                <option value="Lunch">Lunch</option>
+              </select>
             </div>
           </div>
           <div className="dashboard-single-agent">
@@ -355,7 +369,7 @@ const Dashboard = () => {
                       OK
                     </button>
                     <button
-                      // onClick={() => setPhoneNumber("")}
+                    // onClick={() => setPhoneNumber("")}
                     >
                       <FaEraser />
                     </button>

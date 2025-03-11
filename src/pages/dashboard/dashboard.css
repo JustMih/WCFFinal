@@ -245,3 +245,44 @@
   background-color: grey !important;
   padding: 15px !important;
 }
+
+/* Dropdown styling */
+.status-dropdown {
+  background-color: #f1f1f1;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  padding: 10px 10px;
+  font-size: 16px;
+  color: #333;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  outline: none;
+}
+
+.status-dropdown:focus {
+  border-color: #45a049;
+}
+
+.status-dropdown option {
+  background-color: #f1f1f1;
+  color: #333;
+}
+
+/* For when the dropdown is hovered */
+.status-dropdown:hover {
+  background-color: #e9e9e9;
+}
+
+/* Adjusting the position to match the parent container */
+.phone-navbar .call-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.status-dropdown {
+  margin-left: 10px;
+  padding: 5px;
+  width: 150px;
+}
+
