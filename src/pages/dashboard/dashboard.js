@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Card from "../../components/card/card";
 import {
   MdOutlineSupportAgent,
@@ -14,6 +14,7 @@ import { FiPhoneIncoming } from "react-icons/fi";
 import { TbPhoneCheck, TbPhoneX } from "react-icons/tb";
 import { HiPhoneOutgoing, HiOutlineMailOpen } from "react-icons/hi";
 import { BsCollection } from "react-icons/bs";
+import { UserAgent } from "sip.js"; // Correct SIP.js import
 import { RiMailUnreadLine } from "react-icons/ri";
 import { baseURL } from "../../config";
 import { FaEraser } from "react-icons/fa";
@@ -34,7 +35,9 @@ const Dashboard = () => {
   const [dropdownPosition, setDropdownPosition] = useState({ top: 0, left: 0 }); // State for dropdown position
   const [phoneNumber, setPhoneNumber] = useState(""); // State to store the dialed number
   const [callStatus, setCallStatus] = useState(""); // State to track call status
-  const [agentActivites, setAgentActivities] = useState("Ready"); // State to store agent activities
+  const [agentActivites, setAgentActivities] = useState(""); // State to store agent activities
+  const [sipClient, setSipClient] = useState(null);
+  const [sipSession, setSipSession] = useState(null); // State to store SIP.js session
 
   const buttonRef = useRef(null); // Ref for the phone button
 
@@ -77,13 +80,52 @@ const Dashboard = () => {
     if (buttonRef.current) {
       const buttonRect = buttonRef.current.getBoundingClientRect();
       setDropdownPosition({
-        top: buttonRect.bottom + window.scrollY + 10, // position below button with some margin
+        top: buttonRect.bottom + window.scrollY + 10,
         left: buttonRect.left + window.scrollX,
       });
     }
-    setDropdownOpen((prev) => !prev); // Toggle dropdown visibility
+    setDropdownOpen((prev) => !prev);
   };
 
+  // Set up SIP.js client when the component is mounted
+  useEffect(() => {
+    const configuration = {
+      uri: "sip:1004@10.52.0.19",
+      wsServers: ["ws://10.52.0.19:5061"], // Update this to use the correct WebSocket URL
+      traceSip: true,
+      authorizationUser: "1004",
+      password: "sip12345",
+    };
+
+    console.log(
+      "WebSocket URL before initialization:",
+      configuration.wsServers
+    );
+
+    if (!configuration.wsServers || configuration.wsServers.length === 0) {
+      console.error("WebSocket URL is not defined!");
+    }
+
+    const userAgent = new UserAgent(configuration);
+    setSipClient(userAgent);
+
+    userAgent.on("registered", () => {
+      console.log("SIP Client registered with Asterisk");
+    });
+
+    userAgent.on("unregistered", () => {
+      console.log("SIP Client unregistered");
+    });
+
+    return () => {
+      if (userAgent) {
+        userAgent.stop(); // Cleanup when the component is unmounted
+      }
+    };
+  }, []);
+
+
+  // Handle the call initiation
   const handleCall = async () => {
     if (!phoneNumber) {
       setCallStatus("Please enter a phone number.");
@@ -91,27 +133,36 @@ const Dashboard = () => {
     }
 
     try {
-      const response = await fetch(`${baseURL}/ami/call`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-        },
-        body: JSON.stringify({
-          channel: "1001", // Replace with dynamic channel if necessary
-          number: phoneNumber,
-        }),
+      const session = sipClient.invite(
+        `sip:${phoneNumber}@your-asterisk-server-ip`,
+        {
+          media: {
+            constraints: { audio: true },
+            render: { remote: document.getElementById("remoteAudio") },
+          },
+        }
+      );
+      setSipSession(session);
+      setCallStatus("Call initiated.");
+      session.on("accepted", () => {
+        setCallStatus("Call accepted.");
       });
-
-      const data = await response.json();
-      if (response.ok) {
-        setCallStatus("Call initiated successfully.");
-      } else {
-        setCallStatus(`Error: ${data.error}`);
-      }
+      session.on("terminated", () => {
+        setCallStatus("Call terminated.");
+      });
     } catch (error) {
-      setCallStatus(`Call failed: ${error.message}`);
+      setCallStatus(`Error: ${error.message}`);
     }
+  };
+
+  // Handle number input for the dialer
+  const handleDialButton = (digit) => {
+    setPhoneNumber(phoneNumber + digit);
+  };
+
+  // Handle eraser button
+  const handleEraser = () => {
+    setPhoneNumber(phoneNumber.slice(0, -1));
   };
 
   return (
@@ -326,74 +377,24 @@ const Dashboard = () => {
                     onChange={(e) => setPhoneNumber(e.target.value)}
                   />
                   <div className="keypad">
-                    <button onClick={() => setPhoneNumber(phoneNumber + "1")}>
-                      1
-                    </button>
-                    <button onClick={() => setPhoneNumber(phoneNumber + "2")}>
-                      2
-                    </button>
-                    <button onClick={() => setPhoneNumber(phoneNumber + "3")}>
-                      3
-                    </button>
-                    <button onClick={() => setPhoneNumber(phoneNumber + "4")}>
-                      4
-                    </button>
-                    <button onClick={() => setPhoneNumber(phoneNumber + "5")}>
-                      5
-                    </button>
-                    <button onClick={() => setPhoneNumber(phoneNumber + "6")}>
-                      6
-                    </button>
-                    <button onClick={() => setPhoneNumber(phoneNumber + "7")}>
-                      7
-                    </button>
-                    <button onClick={() => setPhoneNumber(phoneNumber + "8")}>
-                      8
-                    </button>
-                    <button onClick={() => setPhoneNumber(phoneNumber + "9")}>
-                      9
-                    </button>
-                    <button onClick={() => setPhoneNumber(phoneNumber + "*")}>
-                      *
-                    </button>
-                    <button onClick={() => setPhoneNumber(phoneNumber + "0")}>
-                      0
-                    </button>
-                    <button onClick={() => setPhoneNumber(phoneNumber + "#")}>
-                      #
-                    </button>
+                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, "*", 0, "#"].map((digit) => (
+                      <button
+                        key={digit}
+                        onClick={() => handleDialButton(digit)}
+                      >
+                        {digit}
+                      </button>
+                    ))}
                     <button
                       style={{ backgroundColor: "green" }}
                       onClick={handleCall}
                     >
                       OK
                     </button>
-                    <button
-                    // onClick={() => setPhoneNumber("")}
-                    >
+                    <button onClick={handleEraser}>
                       <FaEraser />
                     </button>
                   </div>
-                </div>
-                <div className="phone-action-btn">
-                  <button
-                    // onClick={toggleDropdown}
-                    className="phone-action-btn-row"
-                  >
-                    Mute
-                  </button>
-                  <button
-                    // onClick={toggleDropdown}
-                    className="phone-action-btn-row"
-                  >
-                    Hold
-                  </button>
-                  <button
-                    // onClick={toggleDropdown}
-                    className="phone-action-btn-row"
-                  >
-                    Transfer
-                  </button>
                 </div>
               </div>
             </div>
