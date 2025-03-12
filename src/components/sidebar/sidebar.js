@@ -5,6 +5,7 @@ import { FaRegUser } from "react-icons/fa6";
 import { IoKeypadOutline } from "react-icons/io5";
 import { TiFlowSwitch } from "react-icons/ti";
 import { MdOutlineSupportAgent } from "react-icons/md";
+import { BiSolidVideoRecording } from "react-icons/bi";
 import logo from "../../image/wcf_logo.png";
 import "./sidebar.css";
 
@@ -63,6 +64,17 @@ const Sidebar = ({ isSidebarOpen }) => {
                 <div className="menu-item">
                   <MdOutlineSupportAgent className="menu-icon" />
                   {isSidebarOpen && <span className="menu-text">Agents</span>}
+                </div>
+              </NavLink>
+              <NavLink
+                to="/crm"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <BiSolidVideoRecording className="menu-icon" />
+                  {isSidebarOpen && <span className="menu-text">CRM</span>}
                 </div>
               </NavLink>
               <NavLink
@@ -129,6 +141,17 @@ const Sidebar = ({ isSidebarOpen }) => {
                 </div>
               </NavLink>
               <NavLink
+                to="/crm"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <MdOutlineSupportAgent className="menu-icon" />
+                  {isSidebarOpen && <span className="menu-text">CRM</span>}
+                </div>
+              </NavLink>
+              <NavLink
                 to="/users"
                 className={({ isActive }) =>
                   isActive ? "menu-item active-link" : "menu-item"
@@ -180,6 +203,17 @@ const Sidebar = ({ isSidebarOpen }) => {
                   )}
                 </div>
               </NavLink>
+              <NavLink
+                to="/crm"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <MdOutlineSupportAgent className="menu-icon" />
+                  {isSidebarOpen && <span className="menu-text">CRM</span>}
+                </div>
+              </NavLink>
             </>
           )}
           {role === "agent" && (
@@ -219,6 +253,16 @@ const Sidebar = ({ isSidebarOpen }) => {
                   {isSidebarOpen && (
                     <span className="menu-text">Extension</span>
                   )}
+                </div>
+              </NavLink><NavLink
+                to="/crm"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <MdOutlineSupportAgent className="menu-icon" />
+                  {isSidebarOpen && <span className="menu-text">CRM</span>}
                 </div>
               </NavLink>
             </>

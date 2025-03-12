@@ -30,6 +30,7 @@ export default function Login() {
         localStorage.setItem("authToken", data.token);
         localStorage.setItem("username", data.user.name);
         localStorage.setItem("role", data.user.role);
+        localStorage.setItem("userId", data.user.userId);
         // Redirect to the dashboard or main page
         window.location.href = "/";
       } else {
