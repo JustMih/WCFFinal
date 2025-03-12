@@ -4,12 +4,9 @@ import { RxDashboard } from "react-icons/rx";
 import { FaRegUser } from "react-icons/fa6";
 import { IoKeypadOutline } from "react-icons/io5";
 import { TiFlowSwitch } from "react-icons/ti";
-<<<<<<< HEAD
-import { MdOutlineSupportAgent } from "react-icons/md";
+// import { MdOutlineSupportAgent } from "react-icons/md";
 import { BiSolidVideoRecording } from "react-icons/bi";
-=======
 import { MdOutlineSupportAgent, MdEmail } from "react-icons/md";
->>>>>>> 41de4372970264eb8257e59a3dca24f33ff9e781
 import logo from "../../image/wcf_logo.png";
 import "./sidebar.css";
 
