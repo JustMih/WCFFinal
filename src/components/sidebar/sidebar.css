@@ -10,7 +10,7 @@
 }
 
 .logo {
-  height: 60px;
+  height: 40px;
   display: block;
   margin: 10px auto; /* Centers the logo */
   transition: opacity 0.3s ease;

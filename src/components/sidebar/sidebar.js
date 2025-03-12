@@ -4,8 +4,12 @@ import { RxDashboard } from "react-icons/rx";
 import { FaRegUser } from "react-icons/fa6";
 import { IoKeypadOutline } from "react-icons/io5";
 import { TiFlowSwitch } from "react-icons/ti";
+<<<<<<< HEAD
 import { MdOutlineSupportAgent } from "react-icons/md";
 import { BiSolidVideoRecording } from "react-icons/bi";
+=======
+import { MdOutlineSupportAgent, MdEmail } from "react-icons/md";
+>>>>>>> 41de4372970264eb8257e59a3dca24f33ff9e781
 import logo from "../../image/wcf_logo.png";
 import "./sidebar.css";
 
@@ -31,7 +35,7 @@ const Sidebar = ({ isSidebarOpen }) => {
                   )}
                 </div>
               </NavLink>
-              <NavLink
+              {/* <NavLink
                 to="/did"
                 className={({ isActive }) =>
                   isActive ? "menu-item active-link" : "menu-item"
@@ -41,7 +45,7 @@ const Sidebar = ({ isSidebarOpen }) => {
                   <IoKeypadOutline className="menu-icon" />
                   {isSidebarOpen && <span className="menu-text">Dids</span>}
                 </div>
-              </NavLink>
+              </NavLink> */}
               <NavLink
                 to="/extension"
                 className={({ isActive }) =>
@@ -55,6 +59,17 @@ const Sidebar = ({ isSidebarOpen }) => {
                   )}
                 </div>
               </NavLink>
+              {/* <NavLink
+                to="/call"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <MdOutlineSupportAgent className="menu-icon" />
+                  {isSidebarOpen && <span className="menu-text">Call Test</span>}
+                </div>
+              </NavLink> */}
               <NavLink
                 to="/agents"
                 className={({ isActive }) =>
@@ -226,33 +241,18 @@ const Sidebar = ({ isSidebarOpen }) => {
               >
                 <div className="menu-item">
                   <RxDashboard className="menu-icon" />
-                  {isSidebarOpen && (
-                    <span className="menu-text">Dashboard</span>
-                  )}
+                  {isSidebarOpen && <span className="menu-text">Home</span>}
                 </div>
               </NavLink>
               <NavLink
-                to="/did"
+                to="/message"
                 className={({ isActive }) =>
                   isActive ? "menu-item active-link" : "menu-item"
                 }
               >
                 <div className="menu-item">
-                  <IoKeypadOutline className="menu-icon" />
-                  {isSidebarOpen && <span className="menu-text">Dids</span>}
-                </div>
-              </NavLink>
-              <NavLink
-                to="/extension"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <TiFlowSwitch className="menu-icon" />
-                  {isSidebarOpen && (
-                    <span className="menu-text">Extension</span>
-                  )}
+                  <MdEmail className="menu-icon" />
+                  {isSidebarOpen && <span className="menu-text">Message</span>}
                 </div>
               </NavLink><NavLink
                 to="/crm"

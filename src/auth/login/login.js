@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import baseURL from "../../config"
-import logo from "../../image/wcf_logo.png"
+import { baseURL } from "../../config";
+import logo from "../../image/wcf_logo.png";
 import "./login.css";
 
 export default function Login() {
@@ -15,7 +15,7 @@ export default function Login() {
     const loginData = { email, password };
 
     try {
-      const response = await fetch("http://localhost:5010/api/auth/login", {
+      const response = await fetch(`${baseURL}/auth/login`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -26,8 +26,11 @@ export default function Login() {
       const data = await response.json();
 
       if (response.ok) {
-        // On successful login, save the token and username in localStorage
-        localStorage.setItem("authToken", data.token);
+        // On successful login, save the token, username, and expiration time in localStorage
+        const token = data.token;
+        const tokenExpiration = new Date().getTime() + 3600 * 1000; // Token expires in 1 hour (3600 seconds)
+
+        localStorage.setItem("authToken", token);
         localStorage.setItem("username", data.user.name);
         localStorage.setItem("role", data.user.role);
         localStorage.setItem("userId", data.user.userId);
@@ -42,10 +45,33 @@ export default function Login() {
     }
   };
 
+  // Automatically log out the user if the token is expired
+  React.useEffect(() => {
+    const checkTokenExpiration = () => {
+      const tokenExpiration = localStorage.getItem("tokenExpiration");
+      const currentTime = new Date().getTime();
+
+      if (tokenExpiration && currentTime > tokenExpiration) {
+        // Token has expired
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("username");
+        localStorage.removeItem("role");
+        localStorage.removeItem("tokenExpiration");
+
+        // Redirect to login page
+        window.location.href = "/login";
+      }
+    };
+
+    // Check token expiration every minute
+    const intervalId = setInterval(checkTokenExpiration, 60000);
+
+    return () => clearInterval(intervalId); // Cleanup the interval when the component is unmounted
+  }, []);
+
   return (
     <div className="login">
       <div className="login-box">
-        {/* <h1 className="title">Login</h1> */}
         <img src={logo} alt="avatar" className="logo" />
         <form onSubmit={handleSubmit}>
           <div className="textbox">

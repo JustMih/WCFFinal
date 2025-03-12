@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import "./users.css"; // External CSS file for styling
 import { FaArrowRight, FaPlus } from "react-icons/fa";
+import { FaRegQuestionCircle } from "react-icons/fa";
 import { AiFillEdit } from "react-icons/ai";
 import { HiMiniLockClosed, HiMiniLockOpen } from "react-icons/hi2";
 import { RxReset } from "react-icons/rx";
@@ -42,6 +43,9 @@ const Users = () => {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [actionType, setActionType] = useState(""); // Type of action (activate, deactivate, etc.)
+  const [userIdForAction, setUserIdForAction] = useState(null); // ID of the user for the action
 
   const fetchUsers = async () => {
     try {
@@ -148,96 +152,75 @@ const Users = () => {
     setSnackbarOpen(false);
   };
 
-  const handleActivateUser = async (userId) => {
-    try {
-      const response = await fetch(`${baseURL}/users/${userId}/activate`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-        },
-      });
-      if (!response.ok) {
-        throw new Error("Failed to activate user");
-      }
-      fetchUsers();
-      setSnackbarMessage("User Activated successfully!");
-      setSnackbarSeverity("success");
-      setSnackbarOpen(true);
-    } catch (error) {
-      setError(error.message);
-      setSnackbarMessage("Error Activated user.");
-      setSnackbarSeverity("error");
-      setSnackbarOpen(true);
-    }
+  const handleConfirmAction = (action, userId) => {
+    setActionType(action);
+    setUserIdForAction(userId);
+    setShowConfirmModal(true);
   };
 
-  const handleDeactivateUser = async (userId) => {
-    try {
-      const response = await fetch(`${baseURL}/users/${userId}/deactivate`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-        },
-      });
-      if (!response.ok) {
-        throw new Error("Failed to deactivate user");
-      }
-      fetchUsers();
-      setSnackbarMessage("User De-activated successfully!");
-      setSnackbarSeverity("success");
-      setSnackbarOpen(true);
-    } catch (error) {
-      setError(error.message);
-      setSnackbarMessage("Error De-activated user.");
-      setSnackbarSeverity("error");
-      setSnackbarOpen(true);
-    }
-  };
-
-  const handleResetPassword = async (userId) => {
-    try {
-      const response = await fetch(
-        `${baseURL}/users/${userId}/reset-password`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-          },
+  const handleConfirm = async () => {
+    if (actionType && userIdForAction) {
+      try {
+        let response;
+        if (actionType === "activate") {
+          response = await fetch(
+            `${baseURL}/users/${userIdForAction}/activate`,
+            {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+              },
+            }
+          );
+        } else if (actionType === "de-activate") {
+          response = await fetch(
+            `${baseURL}/users/${userIdForAction}/deactivate`,
+            {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+              },
+            }
+          );
+        } else if (actionType === "reset-password") {
+          response = await fetch(
+            `${baseURL}/users/${userIdForAction}/reset-password`,
+            {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+              },
+            }
+          );
+        } else if (actionType === "delete") {
+          response = await fetch(`${baseURL}/users/${userIdForAction}`, {
+            method: "DELETE",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+            },
+          });
         }
-      );
-      if (!response.ok) {
-        throw new Error("Failed to reset password");
-      }
-      fetchUsers();
-      setSnackbarMessage("User Reset Password successfully!");
-      setSnackbarSeverity("success");
-      setSnackbarOpen(true);
-    } catch (error) {
-      setError(error.message);
-      setSnackbarMessage("Error Reset Password user.");
-      setSnackbarSeverity("error");
-      setSnackbarOpen(true);
-    }
-  };
 
-  const handleDeleteUser = async (userId) => {
-    try {
-      const response = await fetch(`${baseURL}/users/${userId}`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-        },
-      });
-      if (!response.ok) {
-        throw new Error("Failed to delete user");
+        if (!response.ok) {
+          throw new Error(`Failed to ${actionType} user`);
+        }
+
+        fetchUsers(); // Reload the users after action
+        setSnackbarMessage(`User ${actionType}d successfully!`);
+        setSnackbarSeverity("success");
+        setSnackbarOpen(true);
+      } catch (error) {
+        setError(error.message);
+        setSnackbarMessage(`Error ${actionType} user.`);
+        setSnackbarSeverity("error");
+        setSnackbarOpen(true);
+      } finally {
+        setShowConfirmModal(false); // Close the confirmation modal
       }
-      fetchUsers();
-    } catch (error) {
-      setError(error.message);
     }
   };
 
@@ -325,31 +308,36 @@ const Users = () => {
                 <Tooltip title="Activate User">
                   <button
                     className="activated-button"
-                    onClick={() => handleActivateUser(user.id)}
+                    onClick={() => handleConfirmAction("activate", user.id)}
                   >
                     <HiMiniLockOpen />
                   </button>
                 </Tooltip>
+
                 <Tooltip title="Deactivate User">
                   <button
                     className="deactivated-button"
-                    onClick={() => handleDeactivateUser(user.id)}
+                    onClick={() => handleConfirmAction("de-activate", user.id)}
                   >
                     <HiMiniLockClosed />
                   </button>
                 </Tooltip>
+
                 <Tooltip title="Reset User Password">
                   <button
                     className="reset-button"
-                    onClick={() => handleResetPassword(user.id)}
+                    onClick={() =>
+                      handleConfirmAction("reset-password", user.id)
+                    }
                   >
                     <RxReset />
                   </button>
                 </Tooltip>
+
                 <Tooltip title="Delete User">
                   <button
                     className="delete-button"
-                    onClick={() => handleDeleteUser(user.id)}
+                    onClick={() => handleConfirmAction("delete", user.id)}
                   >
                     <MdDeleteForever />
                   </button>
@@ -376,7 +364,7 @@ const Users = () => {
         )}
       </div>
 
-      {/* Add User Modal */}
+      {/* Add and Update User Modal */}
       <Modal open={showModal} onClose={handleCloseModal}>
         <Box
           sx={{
@@ -463,6 +451,38 @@ const Users = () => {
               variant="outlined"
               color="secondary"
               onClick={handleCloseModal}
+            >
+              Cancel
+            </Button>
+          </div>
+        </Box>
+      </Modal>
+
+      {/* Activate, De-Activate, Delete and Reset Password */}
+      <Modal open={showConfirmModal} onClose={() => setShowConfirmModal(false)}>
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: "auto",
+            borderRadius: "10px",
+            bgcolor: "white",
+            boxShadow: 24,
+            p: 4,
+          }}
+        >
+          <FaRegQuestionCircle style={{ fontSize: 50, color: "red" }} />
+          <p>Are you sure you want to {actionType} this user?</p>
+          <div className="user-modal-action-buttons">
+            <Button variant="contained" color="primary" onClick={handleConfirm}>
+              Confirm
+            </Button>
+            <Button
+              variant="outlined"
+              color="secondary"
+              onClick={() => setShowConfirmModal(false)}
             >
               Cancel
             </Button>
