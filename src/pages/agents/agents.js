@@ -1,13 +1,71 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { MdOutlineSupportAgent, MdPhonePaused } from "react-icons/md";
 import { CiLogin, CiLogout } from "react-icons/ci";
 import { BiSolidLeftDownArrowCircle } from "react-icons/bi";
 import { VscVmActive } from "react-icons/vsc";
 import { AiOutlinePauseCircle } from "react-icons/ai";
 import { SiTransmission } from "react-icons/si";
+import { baseURL } from "../../config";
 import "./agents.css";
 
 export default function Agents() {
+  const [totalAgents, setTotalAgents] = useState(null);
+  const [onlineAgents, setOnlineAgents] = useState(null);
+  const [offlineAgents, setOfflineAgents] = useState(null);
+  useEffect(() => {
+    agentsCount();
+    onlineAgent();
+    offlineAgent();
+  }, []);
+
+  const agentsCount = async () => {
+    try {
+      const response = await fetch(`${baseURL}/users/agents`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        },
+      });
+      const data = await response.json();
+      setTotalAgents(data.count);
+      // console.log("agents list", data.count);
+    } catch (err) {
+      console.log("Error fetching agents", err);
+    }
+  };
+  const onlineAgent = async () => {
+    try {
+      const response = await fetch(`${baseURL}/users/agents-online`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          // Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        },
+      });
+      const data = await response.json();
+      setOnlineAgents(data.agentCount);
+      // console.log("online agents", data.agentCount);
+    } catch (error) {
+      console.log("Error fetching online agents", error);
+    }
+  };
+  const offlineAgent = async () => {
+    try {
+      const response = await fetch(`${baseURL}/users/agents-offline`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          // Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        },
+      });
+      const data = await response.json();
+      setOfflineAgents(data.agentCount);
+      // console.log("offline agents", data.agentCount);
+    } catch (error) {
+      console.log("Error fetching offline agents", error);
+    }
+  };
   return (
     <div className="p-6">
       <h3 className="agent-title">Agents Statistics</h3>
@@ -16,7 +74,7 @@ export default function Agents() {
           <div className="agent-card-icon">
             <div className="agent-data">
               <MdOutlineSupportAgent />
-              <p className="agent-value">5</p>
+              <p className="agent-value">{totalAgents}</p>
             </div>
             <h4>Total Agents</h4>
           </div>
@@ -25,7 +83,7 @@ export default function Agents() {
           <div className="agent-card-icon">
             <div className="agent-data">
               <CiLogin />
-              <p className="agent-value">3</p>
+              <p className="agent-value">{onlineAgents}</p>
             </div>
             <h4>Logged In</h4>
           </div>
@@ -34,7 +92,7 @@ export default function Agents() {
           <div className="agent-card-icon">
             <div className="agent-data">
               <CiLogout />
-              <p className="agent-value">2</p>
+              <p className="agent-value">{offlineAgents}</p>
             </div>
             <h4>Logged Off</h4>
           </div>
@@ -104,8 +162,7 @@ export default function Agents() {
               <th>RNA</th>
             </tr>
           </thead>
-          <tbody>
-          </tbody>
+          <tbody></tbody>
         </table>
       </div>
     </div>

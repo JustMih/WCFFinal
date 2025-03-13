@@ -26,7 +26,6 @@ import {
 import { CgUnavailable } from "react-icons/cg";
 import { FaHandHolding } from "react-icons/fa";
 import { FaPersonWalkingArrowRight } from "react-icons/fa6";
-import Modal from "./phone-modal"; // Import Modal component
 import CallChart from "../../components/call-chart/call-chart";
 import "./dashboard.css";
 
@@ -88,42 +87,45 @@ const Dashboard = () => {
   };
 
   // Set up SIP.js client when the component is mounted
-  useEffect(() => {
-    const configuration = {
-      uri: "sip:1004@10.52.0.19",
-      wsServers: ["ws://10.52.0.19:5061"], // Update this to use the correct WebSocket URL
-      traceSip: true,
-      authorizationUser: "1004",
-      password: "sip12345",
-    };
+  // useEffect(() => {
+  //   const configuration = {
+  //     uri: "sip:1004@10.52.0.19",
+  //     wsServers: ["ws://10.52.0.19:5061"], // Update this to use the correct WebSocket URL
+  //     traceSip: true,
+  //     authorizationUser: "1004",
+  //     password: "sip12345",
+  //   };
 
-    console.log(
-      "WebSocket URL before initialization:",
-      configuration.wsServers
-    );
+  //   console.log(
+  //     "WebSocket URL before initialization:",
+  //     configuration.wsServers
+  //   );
 
-    if (!configuration.wsServers || configuration.wsServers.length === 0) {
-      console.error("WebSocket URL is not defined!");
-    }
+  //   if (!configuration.wsServers || configuration.wsServers.length === 0) {
+  //     console.error("WebSocket URL is not defined!");
+  //   }
 
-    const userAgent = new UserAgent(configuration);
-    setSipClient(userAgent);
+  //   const userAgent = new UserAgent(configuration);
+  //   setSipClient(userAgent);
 
-    userAgent.on("registered", () => {
-      console.log("SIP Client registered with Asterisk");
-    });
+  //   userAgent.on("registered", () => {
+  //     console.log("SIP Client registered with Asterisk");
+  //   });
 
-    userAgent.on("unregistered", () => {
-      console.log("SIP Client unregistered");
-    });
+  //   userAgent.on("unregistered", () => {
+  //     console.log("SIP Client unregistered");
+  //   });
 
-    return () => {
-      if (userAgent) {
-        userAgent.stop(); // Cleanup when the component is unmounted
-      }
-    };
-  }, []);
+  //   userAgent.on("registrationFailed", (error) => {
+  //     console.error("Registration failed:", error);
+  //   });
 
+  //   return () => {
+  //     if (userAgent) {
+  //       userAgent.stop(); // Cleanup when the component is unmounted
+  //     }
+  //   };
+  // }, []);
 
   // Handle the call initiation
   const handleCall = async () => {
@@ -134,7 +136,7 @@ const Dashboard = () => {
 
     try {
       const session = sipClient.invite(
-        `sip:${phoneNumber}@your-asterisk-server-ip`,
+        `sip:${phoneNumber}@10.52.0.19`,
         {
           media: {
             constraints: { audio: true },
