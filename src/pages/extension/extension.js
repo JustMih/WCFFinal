@@ -78,26 +78,26 @@ const Extension = () => {
   };
 
   // Fetch users for selecting userId
-  const fetchUsers = async () => {
-    try {
-      const response = await fetch(`${baseURL}/users/agents`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
-        },
-      });
+ const fetchUsers = async () => {
+   try {
+     const response = await fetch(`${baseURL}/users/agents`, {
+       method: "GET",
+       headers: {
+         "Content-Type": "application/json",
+         Authorization: `Bearer ${authToken}`,
+       },
+     });
 
-      if (!response.ok) throw new Error("Failed to fetch users");
+     if (!response.ok) throw new Error("Failed to fetch users");
 
-      const data = await response.json();
-      setUsers(data || []); // Ensure users is always an array
-      // console.log("user", data);
-    } catch (error) {
-      console.error("Error:", error);
-      showSnackbar("Failed to fetch users", "error");
-    }
-  };
+     const data = await response.json();
+     setUsers(Array.isArray(data) ? data : []); // Ensure users is always an array
+   } catch (error) {
+     console.error("Error:", error);
+     showSnackbar("Failed to fetch users", "error");
+   }
+ };
+
 
   const handleCloseModal = () => {
     setShowModal(false);

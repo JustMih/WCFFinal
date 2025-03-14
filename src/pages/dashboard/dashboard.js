@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, use } from "react";
 import Card from "../../components/card/card";
 import {
   MdOutlineSupportAgent,
@@ -36,6 +36,7 @@ const Dashboard = () => {
   const [callStatus, setCallStatus] = useState(""); // State to track call status
   const [agentActivites, setAgentActivities] = useState(""); // State to store agent activities
   const [sipClient, setSipClient] = useState(null);
+  const [loginTime, setLoginTime] = useState("");
   const [sipSession, setSipSession] = useState(null); // State to store SIP.js session
 
   const buttonRef = useRef(null); // Ref for the phone button
@@ -73,6 +74,7 @@ const Dashboard = () => {
   };
 
   const role = localStorage.getItem("role");
+  const userId = localStorage.getItem("userId");
 
   // Function to open dropdown and position it below the button
   const toggleDropdown = () => {
@@ -86,46 +88,87 @@ const Dashboard = () => {
     setDropdownOpen((prev) => !prev);
   };
 
-  // Set up SIP.js client when the component is mounted
-  // useEffect(() => {
-  //   const configuration = {
-  //     uri: "sip:1004@10.52.0.19",
-  //     wsServers: ["ws://10.52.0.19:5061"], // Update this to use the correct WebSocket URL
-  //     traceSip: true,
-  //     authorizationUser: "1004",
-  //     password: "sip12345",
-  //   };
+  // Function to initialize the SIP client
+  // Function to initialize SIP client
+  const initializeSIPClient = () => {
+    const configuration = {
+      uri: "sip:1004@10.52.0.19",
+      // wsServers: ["ws://10.52.0.19:8088"], // Ensure the WebSocket URL is correct
+      traceSip: true,
+      authorizationUser: "1004",
+      password: "sip12345",
+    };
 
-  //   console.log(
-  //     "WebSocket URL before initialization:",
-  //     configuration.wsServers
-  //   );
+    console.log(
+      "WebSocket URL before initialization:",
+      configuration.wsServers
+    );
 
-  //   if (!configuration.wsServers || configuration.wsServers.length === 0) {
-  //     console.error("WebSocket URL is not defined!");
-  //   }
+    // Check if the WebSocket URL is valid before proceeding
+    if (
+      !configuration.wsServers ||
+      configuration.wsServers.length === 0 ||
+      !configuration.wsServers[0]
+    ) {
+      console.error("Invalid or empty WebSocket URL");
+      return;
+    }
 
-  //   const userAgent = new UserAgent(configuration);
-  //   setSipClient(userAgent);
+    const userAgent = new UserAgent(configuration);
+    setSipClient(userAgent);
 
-  //   userAgent.on("registered", () => {
-  //     console.log("SIP Client registered with Asterisk");
-  //   });
+    userAgent.on("registered", () => {
+      console.log("SIP Client registered with Asterisk");
+    });
 
-  //   userAgent.on("unregistered", () => {
-  //     console.log("SIP Client unregistered");
-  //   });
+    userAgent.on("unregistered", () => {
+      console.log("SIP Client unregistered");
+    });
 
-  //   userAgent.on("registrationFailed", (error) => {
-  //     console.error("Registration failed:", error);
-  //   });
+    userAgent.on("registrationFailed", (error) => {
+      console.error("Registration failed:", error);
+    });
 
-  //   return () => {
-  //     if (userAgent) {
-  //       userAgent.stop(); // Cleanup when the component is unmounted
-  //     }
-  //   };
-  // }, []);
+    return userAgent;
+  };
+
+  // Fetch the login time of the agent
+  useEffect(() => {
+    if (role === "agent" && userId) {
+      getAgentLoginTime();
+      const userAgent = initializeSIPClient();
+
+      // Cleanup on component unmount
+      return () => {
+        if (userAgent) {
+          userAgent.stop();
+        }
+      };
+    }
+  }, [role, userId]);
+
+  const getAgentLoginTime = async () => {
+    try {
+      const response = await fetch(`${baseURL}/auth/login-time`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId }),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        // Format the login time to get only the time part
+        const time = new Date(data.loginTime).toLocaleTimeString(); // Get only time (e.g., "7:33:05 AM")
+        setLoginTime(time); // Set the formatted time
+      } else {
+        console.error("Failed to fetch login time:", data.message);
+      }
+    } catch (error) {
+      console.error("Error fetching login time:", error);
+    }
+  };
 
   // Handle the call initiation
   const handleCall = async () => {
@@ -135,15 +178,12 @@ const Dashboard = () => {
     }
 
     try {
-      const session = sipClient.invite(
-        `sip:${phoneNumber}@10.52.0.19`,
-        {
-          media: {
-            constraints: { audio: true },
-            render: { remote: document.getElementById("remoteAudio") },
-          },
-        }
-      );
+      const session = sipClient.invite(`sip:${phoneNumber}@10.52.0.19`, {
+        media: {
+          constraints: { audio: true },
+          render: { remote: document.getElementById("remoteAudio") },
+        },
+      });
       setSipSession(session);
       setCallStatus("Call initiated.");
       session.on("accepted", () => {
@@ -346,9 +386,9 @@ const Dashboard = () => {
               <div className="single-agent-level">
                 <div className="single-agent-level-left">
                   <FaPersonWalkingArrowRight fontSize={20} color="green" />
-                  Login Time
+                  Last Login Time
                 </div>
-                00:03:34
+                {loginTime || "Loading..."}
               </div>
             </div>
             <div className="chat">

@@ -12,6 +12,7 @@ import Agents from "./pages/agents/agents";
 import Message from "./pages/Message/message";
 import CallComponent from "./pages/test-call";
 import PrivateRoute from "./auth/private-route/privateRoute"; // Import the PrivateRoute
+import { baseURL } from "./config";
 import "./themes/themes.css";
 
 function App() {
@@ -26,12 +27,50 @@ function App() {
     setDarkMode(!isDarkMode);
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("username");
-    localStorage.removeItem("role");
-    window.location.href = "/login"; // Redirect to login page
+  const handleLogout = async () => {
+    try {
+      // Get the userId from localStorage (assuming it is stored there)
+      const userId = localStorage.getItem("userId");
+
+      // If userId is not found, log the user out immediately
+      if (!userId) {
+        console.error("User ID is not available.");
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("username");
+        localStorage.removeItem("role");
+        localStorage.removeItem("userId");
+        localStorage.removeItem("tokenExpiration");
+        window.location.href = "/login"; // Redirect to login page
+        return;
+      }
+
+      // Send the logout request to the API
+      const response = await fetch(`${baseURL}/auth/logout`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ userId }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to log out");
+      }
+
+      // Remove items from localStorage after successful logout
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("username");
+      localStorage.removeItem("role");
+      localStorage.removeItem("userId");
+      localStorage.removeItem("tokenExpiration");
+
+      // Redirect to login page after successful logout
+      window.location.href = "/login";
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
   };
+
 
   const currentTheme = isDarkMode ? "dark-mode" : "light-mode";
 

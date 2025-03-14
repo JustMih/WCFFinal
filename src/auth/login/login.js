@@ -34,6 +34,7 @@ export default function Login() {
         localStorage.setItem("username", data.user.name);
         localStorage.setItem("role", data.user.role);
         localStorage.setItem("tokenExpiration", tokenExpiration); // Save expiration time
+        localStorage.setItem("userId", data.user.id);
 
         // Redirect to the dashboard or main page
         window.location.href = "/";
