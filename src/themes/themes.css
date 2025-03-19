@@ -1,0 +1,33 @@
+/* Light Mode */
+.light-mode {
+  --dashboard-text: #000000;
+  --font-family: 'Andale Mono', monospace;
+  --background-color: #f5f6f9; /* Light background */
+  --text-color: #1a1a1a; /* Dark text */
+  --sidebar-color: #ffffff; /* White sidebar */
+  --hover-color: #e0dfdc; /* Light hover effect */
+  --active-color: #6366f1; /* Blue for active links */
+  --card-background-color: #ffffff; /* White cards */
+  --button-background-color: #6366f1; /* Blue buttons */
+  --button-text-color: #ffffff; /* White button text */
+  --chart-line-color: #3b82f6; /* Light blue for line charts */
+  --badge-color: #e11d48; /* Red for badges */
+  --textgray-color: #6b7280; /* Gray for text */
+}
+
+/* Dark Mode */
+.dark-mode {
+  --dashboard-text: #000000;
+  --font-family: 'Andale Mono', monospace;
+  --background-color: #2f3045; /* Dark background */
+  --text-color: #e8e6e3; /* Light text */
+  --sidebar-color: #25263a; /* Dark sidebar */
+  --hover-color: #44413f; /* Dark hover effect */
+  --active-color: #6366f1; /* Blue for active links */
+  --card-background-color: #3a3b57; /* Darker cards */
+  --button-background-color: #6366f1; /* Blue buttons */
+  --button-text-color: #ffffff; /* White text for buttons */
+  --chart-line-color: #818cf8; /* Soft blue for line charts */
+  --badge-color: #e11d48; /* Red for badges */
+  --textgray-color: #9ca3af; /* Light gray for text */
+}
