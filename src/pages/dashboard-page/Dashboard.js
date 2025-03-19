@@ -7,6 +7,7 @@ import CallCenterDashboard from "../call-center-pages/call-center-dashboard/call
 import CRMDashboard from "../crm-pages/crm-dashboard/CRMDashboard";
 import CallCenterUsers from "../call-center-pages/call-center-users/CallCenterUsers";
 import CallCenterAgents from "../call-center-pages/call-center-agents/CallCenterAgents";
+import CallCenterExtensions from "../call-center-pages/call-center-extensions/CallCenterExtensions";
 import PrivateRoute from "../../auth/private-routes/PrivateRoutes";
 import "../../themes/themes.css";
 import "./dashboard.css";
@@ -68,6 +69,10 @@ export default function Dashboard() {
                 <Route
                   path="/agents"
                   element={<PrivateRoute element={<CallCenterAgents />} />}
+                />
+                <Route
+                  path="/extension"
+                  element={<PrivateRoute element={<CallCenterExtensions />} />}
                 />
                 <Route
                   path="/users"

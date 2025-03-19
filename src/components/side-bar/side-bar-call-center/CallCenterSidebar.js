@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom";
 import { RxDashboard } from "react-icons/rx";
 import { MdOutlineSupportAgent } from "react-icons/md";
 import { FaRegUser } from "react-icons/fa6";
+import { TiFlowSwitch } from "react-icons/ti";
 import logo from "../../../asserts/images/logo.png";
 import "./callCenterSidebar.css";
 
@@ -28,6 +29,17 @@ export default function CallCenterSidebar({ isSidebarOpen }) {
                 {isSidebarOpen && (
                   <span className="menu-text">Call Center Dashboard</span>
                 )}
+              </div>
+            </NavLink>
+            <NavLink
+              to="/extension"
+              className={({ isActive }) =>
+                isActive ? "menu-item active-link" : "menu-item"
+              }
+            >
+              <div className="menu-item">
+                <TiFlowSwitch className="menu-icon" />
+                {isSidebarOpen && <span className="menu-text">Extension</span>}
               </div>
             </NavLink>
             <NavLink
