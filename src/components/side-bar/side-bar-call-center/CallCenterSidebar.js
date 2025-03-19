@@ -7,7 +7,7 @@ import { TiFlowSwitch } from "react-icons/ti";
 import logo from "../../../asserts/images/logo.png";
 import "./callCenterSidebar.css";
 
-export default function CallCenterSidebar({ isSidebarOpen }) {
+export default function CallCenterSidebar({ isSidebarOpen, role }) {
   return (
     <aside
       className={`call-center-sidebar ${isSidebarOpen ? "open" : "closed"}`}
@@ -17,54 +17,110 @@ export default function CallCenterSidebar({ isSidebarOpen }) {
       )}
       <ul>
         <li>
-          <>
-            <NavLink
-              to="/"
-              className={({ isActive }) =>
-                isActive ? "menu-item active-link" : "menu-item"
-              }
-            >
-              <div className="menu-item">
-                <RxDashboard className="menu-icon" />
-                {isSidebarOpen && (
-                  <span className="menu-text">Call Center Dashboard</span>
-                )}
-              </div>
-            </NavLink>
-            <NavLink
-              to="/extension"
-              className={({ isActive }) =>
-                isActive ? "menu-item active-link" : "menu-item"
-              }
-            >
-              <div className="menu-item">
-                <TiFlowSwitch className="menu-icon" />
-                {isSidebarOpen && <span className="menu-text">Extension</span>}
-              </div>
-            </NavLink>
-            <NavLink
-              to="/agents"
-              className={({ isActive }) =>
-                isActive ? "menu-item active-link" : "menu-item"
-              }
-            >
-              <div className="menu-item">
-                <MdOutlineSupportAgent className="menu-icon" />
-                {isSidebarOpen && <span className="menu-text">Agents</span>}
-              </div>
-            </NavLink>
-            <NavLink
-              to="/users"
-              className={({ isActive }) =>
-                isActive ? "menu-item active-link" : "menu-item"
-              }
-            >
-              <div className="menu-item">
-                <FaRegUser className="menu-icon" />
-                {isSidebarOpen && <span className="menu-text">Users</span>}
-              </div>
-            </NavLink>
-          </>
+          {role === "admin" && (
+            <>
+              <NavLink
+                to="/"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <RxDashboard className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">Call Center Dashboard</span>
+                  )}
+                </div>
+              </NavLink>
+              <NavLink
+                to="/extension"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <TiFlowSwitch className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">Extension</span>
+                  )}
+                </div>
+              </NavLink>
+              <NavLink
+                to="/agents"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <MdOutlineSupportAgent className="menu-icon" />
+                  {isSidebarOpen && <span className="menu-text">Agents</span>}
+                </div>
+              </NavLink>
+              <NavLink
+                to="/users"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <FaRegUser className="menu-icon" />
+                  {isSidebarOpen && <span className="menu-text">Users</span>}
+                </div>
+              </NavLink>
+            </>
+          )}
+          {role === "super-admin" && (
+            <>
+              <NavLink
+                to="/"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <RxDashboard className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">Call Center Dashboard</span>
+                  )}
+                </div>
+              </NavLink>
+              <NavLink
+                to="/extension"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <TiFlowSwitch className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">Extension</span>
+                  )}
+                </div>
+              </NavLink>
+              <NavLink
+                to="/agents"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <MdOutlineSupportAgent className="menu-icon" />
+                  {isSidebarOpen && <span className="menu-text">Agents</span>}
+                </div>
+              </NavLink>
+              <NavLink
+                to="/users"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <FaRegUser className="menu-icon" />
+                  {isSidebarOpen && <span className="menu-text">Users</span>}
+                </div>
+              </NavLink>
+            </>
+          )}
         </li>
       </ul>
     </aside>

@@ -55,7 +55,7 @@ export default function Dashboard() {
       />
       <div className="layout">
         {activeSystem === "call-center" && (
-          <CallCenterSidebar isSidebarOpen={isSidebarOpen} />
+          <CallCenterSidebar isSidebarOpen={isSidebarOpen} role={role} />
         )}
         {activeSystem === "crm" && <CRMSidebar isSidebarOpen={isSidebarOpen} />}
         <div className="main-content">
