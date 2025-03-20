@@ -8,13 +8,13 @@ import Dashboard from "./pages/dashboard-page/Dashboard";
 import "./App.css";
 
 function App() {
-
+  const role = localStorage.getItem("role");
   return (
     <div className="app">
       <Routes>
         <Route path="/login" element={<Login />} />
       </Routes>
-      <Dashboard />
+      {role ? (<Dashboard />) : ("")}
     </div>
   );
 }

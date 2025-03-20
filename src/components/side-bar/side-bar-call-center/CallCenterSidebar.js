@@ -17,7 +17,7 @@ export default function CallCenterSidebar({ isSidebarOpen, role }) {
       )}
       <ul>
         <li>
-          {role === "admin" && (
+          {(role === "admin" || role === "super-admin") && (
             <>
               <NavLink
                 to="/"
@@ -28,7 +28,7 @@ export default function CallCenterSidebar({ isSidebarOpen, role }) {
                 <div className="menu-item">
                   <RxDashboard className="menu-icon" />
                   {isSidebarOpen && (
-                    <span className="menu-text">Call Center Dashboard</span>
+                    <span className="menu-text">Admin Dashboard</span>
                   )}
                 </div>
               </NavLink>
@@ -69,7 +69,7 @@ export default function CallCenterSidebar({ isSidebarOpen, role }) {
               </NavLink>
             </>
           )}
-          {role === "super-admin" && (
+          {role === "agent" && (
             <>
               <NavLink
                 to="/"
@@ -80,43 +80,8 @@ export default function CallCenterSidebar({ isSidebarOpen, role }) {
                 <div className="menu-item">
                   <RxDashboard className="menu-icon" />
                   {isSidebarOpen && (
-                    <span className="menu-text">Call Center Dashboard</span>
+                    <span className="menu-text">Agent Dashboard</span>
                   )}
-                </div>
-              </NavLink>
-              <NavLink
-                to="/extension"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <TiFlowSwitch className="menu-icon" />
-                  {isSidebarOpen && (
-                    <span className="menu-text">Extension</span>
-                  )}
-                </div>
-              </NavLink>
-              <NavLink
-                to="/agents"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <MdOutlineSupportAgent className="menu-icon" />
-                  {isSidebarOpen && <span className="menu-text">Agents</span>}
-                </div>
-              </NavLink>
-              <NavLink
-                to="/users"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <FaRegUser className="menu-icon" />
-                  {isSidebarOpen && <span className="menu-text">Users</span>}
                 </div>
               </NavLink>
             </>

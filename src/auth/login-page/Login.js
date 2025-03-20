@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { ImSpinner9 } from "react-icons/im";
 import wcf_image from "../../asserts/images/wcf_image.jpg";
 import wcf_logo from "../../asserts/images/logo.png";
 import { TextField, Button } from "@mui/material";
@@ -9,8 +10,10 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleLogin = async (e) => {
+    setIsLoading(true);
     e.preventDefault();
     const loginData = { email, password };
     try {
@@ -40,6 +43,7 @@ export default function Login() {
     } catch (err) {
       setError("Network error. Please try again.");
     }
+    setIsLoading(false);
   };
 
   return (
@@ -73,7 +77,14 @@ export default function Login() {
               required
             />
             <Button type="submit" className="login-button">
-              Login
+              {isLoading ? (
+                <>
+                  <ImSpinner9 style={{ marginRight: 5 }} />
+                  waiting...
+                </>
+              ) : (
+                "Login"
+              )}
             </Button>
             {error && <p className="error">{error}</p>}
           </form>
