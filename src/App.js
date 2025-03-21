@@ -1,8 +1,4 @@
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-} from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Login from "./auth/login-page/Login";
 import Dashboard from "./pages/dashboard-page/Dashboard";
 import "./App.css";
@@ -14,7 +10,7 @@ function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
       </Routes>
-      {role ? (<Dashboard />) : ("")}
+      {role ? <Dashboard /> : ""}
     </div>
   );
 }
