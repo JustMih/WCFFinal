@@ -13,9 +13,10 @@ export default function AgentsDashboard() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [phoneStatus, setPhoneStatus] = useState("Idle");
   const [websocket, setWebSocket] = useState(null);
-  const [channelId, setChannelId] = useState(null); // Track active channelId for hangup
+  const [channelId, setChannelId] = useState(null);
+  const [incomingCall, setIncomingCall] = useState(null);
+  const [ringAudio] = useState(new Audio("/ringtone.mp3")); // Local ringtone file
 
-  // ARI Configuration Constants
   const ariUser = "admin";
   const ariPassword = "@Ttcl123";
   const stasisApp = "myapp";
@@ -26,10 +27,9 @@ export default function AgentsDashboard() {
 
   const handleDial = async () => {
     if (phoneNumber) {
-      const originateUrl = `/ari/channels`;
+      const originateUrl = "/ari/channels";
 
       try {
-        console.log("Dialing:", phoneNumber);
         const response = await fetch(originateUrl, {
           method: "POST",
           headers: {
@@ -39,15 +39,15 @@ export default function AgentsDashboard() {
           body: JSON.stringify({
             endpoint: `PJSIP/${phoneNumber}`,
             app: stasisApp,
-            callerId: "1002"
-          })
+            callerId: "Aisha",
+          }),
         });
 
         if (response.ok) {
           const data = await response.json();
           console.log("Call originated:", data);
           setPhoneStatus("Dialing");
-          setChannelId(data.id); // Save channelId for hangup
+          setChannelId(data.id);
         } else {
           const text = await response.text();
           console.error("Failed to originate call:", text);
@@ -70,14 +70,15 @@ export default function AgentsDashboard() {
       const response = await fetch(hangupUrl, {
         method: "DELETE",
         headers: {
-          Authorization: "Basic " + btoa(`${ariUser}:${ariPassword}`)
-        }
+          Authorization: "Basic " + btoa(`${ariUser}:${ariPassword}`),
+        },
       });
 
       if (response.ok) {
         console.log("Call ended successfully");
         setPhoneStatus("Idle");
-        setChannelId(null); // Reset after hangup
+        setChannelId(null);
+        stopRingtone();
       } else {
         const text = await response.text();
         console.error("Failed to end call:", text);
@@ -87,7 +88,67 @@ export default function AgentsDashboard() {
     }
   };
 
+  const handleAcceptCall = async () => {
+    if (!incomingCall) return;
+    const answerUrl = `/ari/channels/${incomingCall.id}/answer`;
+
+    try {
+      const response = await fetch(answerUrl, {
+        method: "POST",
+        headers: {
+          Authorization: "Basic " + btoa(`${ariUser}:${ariPassword}`),
+        },
+      });
+
+      if (response.ok) {
+        console.log("Call answered");
+        setPhoneStatus("In Call");
+        setChannelId(incomingCall.id);
+        setIncomingCall(null);
+        stopRingtone();
+      } else {
+        const text = await response.text();
+        console.error("Failed to answer call:", text);
+      }
+    } catch (error) {
+      console.error("Error answering call:", error);
+    }
+  };
+
+  const handleRejectCall = async () => {
+    if (!incomingCall) return;
+    const hangupUrl = `/ari/channels/${incomingCall.id}`;
+
+    try {
+      const response = await fetch(hangupUrl, {
+        method: "DELETE",
+        headers: {
+          Authorization: "Basic " + btoa(`${ariUser}:${ariPassword}`),
+        },
+      });
+
+      if (response.ok) {
+        console.log("Call rejected");
+        setIncomingCall(null);
+        stopRingtone();
+      } else {
+        const text = await response.text();
+        console.error("Failed to reject call:", text);
+      }
+    } catch (error) {
+      console.error("Error rejecting call:", error);
+    }
+  };
+
+  const stopRingtone = () => {
+    ringAudio.pause();
+    ringAudio.currentTime = 0;
+  };
+
   useEffect(() => {
+    ringAudio.loop = true;
+    ringAudio.volume = 0.7;
+
     const wsUrl = `ws://10.52.0.19:8088/ari/events?app=${stasisApp}&api_key=${ariUser}:${ariPassword}`;
     const ws = new WebSocket(wsUrl);
     setWebSocket(ws);
@@ -101,13 +162,25 @@ export default function AgentsDashboard() {
       console.log("ARI Event:", event);
 
       if (event.type === "StasisStart") {
-        setPhoneStatus("In Call");
-        if (event.channel && event.channel.id) {
-          setChannelId(event.channel.id);
-        }
+        const channel = event.channel;
+        console.log("Channel Direction:", channel.direction);
+
+        // Always trigger popup for debug purposes
+        console.log("📞 Incoming or Outgoing Call from:", channel.caller.number);
+        setIncomingCall(channel);
+
+        ringAudio.play()
+          .then(() => console.log("🔔 Ringtone playing"))
+          .catch(err => console.error("🔇 Ringtone failed:", err));
+
+        setPhoneStatus("Ringing");
+        setChannelId(channel.id);
+
       } else if (event.type === "StasisEnd" || event.type === "ChannelDestroyed") {
         setPhoneStatus("Idle");
         setChannelId(null);
+        setIncomingCall(null);
+        stopRingtone();
       }
     };
 
@@ -121,6 +194,7 @@ export default function AgentsDashboard() {
 
     return () => {
       ws.close();
+      stopRingtone();
     };
   }, []);
 
@@ -181,6 +255,19 @@ export default function AgentsDashboard() {
               Dial
             </Button>
           </div>
+        </div>
+      )}
+
+      {incomingCall && (
+        <div className="incoming-call-popup">
+          <h4>Incoming Call</h4>
+          <p>From: {incomingCall.caller.number}</p>
+          <Button variant="contained" color="primary" onClick={handleAcceptCall} style={{ marginRight: "10px" }}>
+            Accept
+          </Button>
+          <Button variant="contained" color="secondary" onClick={handleRejectCall}>
+            Reject
+          </Button>
         </div>
       )}
     </div>
