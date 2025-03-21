@@ -46,17 +46,6 @@ export default function CallCenterSidebar({ isSidebarOpen, role }) {
                 </div>
               </NavLink>
               <NavLink
-                to="/agents"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <MdOutlineSupportAgent className="menu-icon" />
-                  {isSidebarOpen && <span className="menu-text">Agents</span>}
-                </div>
-              </NavLink>
-              <NavLink
                 to="/users"
                 className={({ isActive }) =>
                   isActive ? "menu-item active-link" : "menu-item"
@@ -82,6 +71,34 @@ export default function CallCenterSidebar({ isSidebarOpen, role }) {
                   {isSidebarOpen && (
                     <span className="menu-text">Agent Dashboard</span>
                   )}
+                </div>
+              </NavLink>
+            </>
+          )}
+          {role === "supervisor" && (
+            <>
+              <NavLink
+                to="/"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <RxDashboard className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">Supervisor Dashboard</span>
+                  )}
+                </div>
+              </NavLink>
+              <NavLink
+                to="/agents"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <MdOutlineSupportAgent className="menu-icon" />
+                  {isSidebarOpen && <span className="menu-text">Agents</span>}
                 </div>
               </NavLink>
             </>

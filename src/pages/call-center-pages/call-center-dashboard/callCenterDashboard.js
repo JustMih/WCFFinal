@@ -6,7 +6,7 @@ export default function callCenterDashboard() {
   const role = localStorage.getItem("role");
   return (
     <>
-      {(role === "super-admin" || role === "admin") && (<AdminAndSuperAdminDashboard />)}
+      {(role === "super-admin" || role === "admin" || role === "supervisor") && (<AdminAndSuperAdminDashboard />)}
       {role === "agent" && (<AgentsDashboard />)}
     </>
   );

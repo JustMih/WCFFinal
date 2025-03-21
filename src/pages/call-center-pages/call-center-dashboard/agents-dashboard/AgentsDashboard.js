@@ -39,7 +39,7 @@ export default function AgentsDashboard() {
           body: JSON.stringify({
             endpoint: `PJSIP/${phoneNumber}`,
             app: stasisApp,
-            callerId: "1002"
+            callerId: "1007"
           })
         });
 

@@ -24,7 +24,7 @@ export default function Dashboard() {
     if (storedSystem) {
       setActiveSystem(storedSystem);
     } else {
-      if (role === "admin" || role === "super-admin" || role === "agent") {
+      if (role === "admin" || role === "super-admin" || role === "agent" || role === "supervisor") {
         setActiveSystem("call-center");
       } else if (role === "attendee") {
         setActiveSystem("crm");

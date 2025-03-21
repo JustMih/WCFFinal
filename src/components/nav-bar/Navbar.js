@@ -63,12 +63,13 @@ export default function Navbar({
   };
 
   const canAccessCallCenter =
-    role === "admin" || role === "super-admin" || role === "agent";
+    role === "admin" || role === "super-admin" || role === "agent" || role === "supervisor";
   const canAccessCRM =
     role === "admin" ||
     role === "super-admin" ||
     role === "agent" ||
-    role === "attendee";
+    role === "attendee" ||
+    role === "supervisor";
 
   const handleSystemSwitch = (system) => {
     localStorage.setItem("activeSystem", system); // Save active system to localStorage
