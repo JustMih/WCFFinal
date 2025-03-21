@@ -1,65 +1,126 @@
 import React, { useState, useEffect } from "react";
-import { MdOutlineLocalPhone } from "react-icons/md";
+import { MdOutlineLocalPhone, MdPauseCircleOutline, MdLocalPhone } from "react-icons/md";
 import { HiMiniSpeakerWave } from "react-icons/hi2";
-import { MdPauseCircleOutline } from "react-icons/md";
-import { MdLocalPhone } from "react-icons/md";
 import { IoKeypadOutline } from "react-icons/io5";
 import { BsFillMicMuteFill } from "react-icons/bs";
 import { TextField, Button } from "@mui/material";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
-import JsSIP from "jssip";
 import "./agentsDashboard.css";
 
 export default function AgentsDashboard() {
   const [showPhonePopup, setShowPhonePopup] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [session, setSession] = useState(null);
   const [phoneStatus, setPhoneStatus] = useState("Idle");
+  const [websocket, setWebSocket] = useState(null);
+  const [channelId, setChannelId] = useState(null); // Track active channelId for hangup
 
-  // Setup JsSIP configuration
-  const socket = new JsSIP.WebSocketInterface("wss://10.52.0.19:5066/ws"); // Use your Asterisk WebSocket URL
-  const configuration = {
-    sockets: [socket],
-    uri: "sip:1002@10.52.0.19", // Replace with your SIP extension
-    password: "sip12345", // Replace with your SIP password
-    trace_sip: true,
-  };
-
-  const userAgent = new JsSIP.UA(configuration);
+  // ARI Configuration Constants
+  const ariUser = "admin";
+  const ariPassword = "@Ttcl123";
+  const stasisApp = "myapp";
 
   const togglePhonePopup = () => {
     setShowPhonePopup(!showPhonePopup);
   };
 
-  const handleDial = () => {
+  const handleDial = async () => {
     if (phoneNumber) {
-      const session = userAgent.call(`sip:${phoneNumber}@10.52.0.19`, {
-        mediaConstraints: { audio: true, video: false },
+      const originateUrl = `/ari/channels`;
+
+      try {
+        console.log("Dialing:", phoneNumber);
+        const response = await fetch(originateUrl, {
+          method: "POST",
+          headers: {
+            Authorization: "Basic " + btoa(`${ariUser}:${ariPassword}`),
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            endpoint: `PJSIP/${phoneNumber}`,
+            app: stasisApp,
+            callerId: "1002"
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log("Call originated:", data);
+          setPhoneStatus("Dialing");
+          setChannelId(data.id); // Save channelId for hangup
+        } else {
+          const text = await response.text();
+          console.error("Failed to originate call:", text);
+        }
+      } catch (error) {
+        console.error("Error originating call:", error);
+      }
+    }
+  };
+
+  const handleEndCall = async () => {
+    if (!channelId) {
+      console.warn("No active call to hang up.");
+      return;
+    }
+
+    const hangupUrl = `/ari/channels/${channelId}`;
+
+    try {
+      const response = await fetch(hangupUrl, {
+        method: "DELETE",
+        headers: {
+          Authorization: "Basic " + btoa(`${ariUser}:${ariPassword}`)
+        }
       });
-      setSession(session);
-      setPhoneStatus("Dialing");
-    }
-  };
 
-  const handleEndCall = () => {
-    if (session) {
-      session.terminate();
-      setPhoneStatus("Idle");
-    }
-  };
-
-  const handleAudioToggle = () => {
-    if (session) {
-      session.toggleMute();
+      if (response.ok) {
+        console.log("Call ended successfully");
+        setPhoneStatus("Idle");
+        setChannelId(null); // Reset after hangup
+      } else {
+        const text = await response.text();
+        console.error("Failed to end call:", text);
+      }
+    } catch (error) {
+      console.error("Error ending call:", error);
     }
   };
 
   useEffect(() => {
-    userAgent.start();
+    const wsUrl = `ws://10.52.0.19:8088/ari/events?app=${stasisApp}&api_key=${ariUser}:${ariPassword}`;
+    const ws = new WebSocket(wsUrl);
+    setWebSocket(ws);
+
+    ws.onopen = () => {
+      console.log("Connected to ARI WebSocket");
+    };
+
+    ws.onmessage = (message) => {
+      const event = JSON.parse(message.data);
+      console.log("ARI Event:", event);
+
+      if (event.type === "StasisStart") {
+        setPhoneStatus("In Call");
+        if (event.channel && event.channel.id) {
+          setChannelId(event.channel.id);
+        }
+      } else if (event.type === "StasisEnd" || event.type === "ChannelDestroyed") {
+        setPhoneStatus("Idle");
+        setChannelId(null);
+      }
+    };
+
+    ws.onerror = (error) => {
+      console.error("WebSocket Error:", error);
+    };
+
+    ws.onclose = () => {
+      console.log("ARI WebSocket closed");
+    };
 
     return () => {
-      userAgent.stop();
+      ws.close();
     };
   }, []);
 
@@ -68,10 +129,7 @@ export default function AgentsDashboard() {
       <div className="agent-body">
         <h3>Agent</h3>
         <div className="phone-navbar">
-          <MdOutlineLocalPhone
-            className="phone-btn-call"
-            onClick={togglePhonePopup}
-          />
+          <MdOutlineLocalPhone className="phone-btn-call" onClick={togglePhonePopup} />
         </div>
       </div>
 
@@ -79,9 +137,7 @@ export default function AgentsDashboard() {
         <div className="phone-popup">
           <div className="phone-popup-header">
             <span>Calls</span>
-            <button onClick={togglePhonePopup} className="close-popup-btn">
-              X
-            </button>
+            <button onClick={togglePhonePopup} className="close-popup-btn">X</button>
           </div>
           <div className="phone-popup-body">
             <TextField
@@ -96,77 +152,32 @@ export default function AgentsDashboard() {
             <div className="phone-action-btn">
               <Tooltip title="Loud speaker">
                 <IconButton>
-                  <HiMiniSpeakerWave
-                    fontSize={15}
-                    style={{
-                      backgroundColor: "grey",
-                      padding: 10,
-                      borderRadius: "50%",
-                      color: "white",
-                    }}
-                  />
+                  <HiMiniSpeakerWave fontSize={15} style={iconStyle("grey")} />
                 </IconButton>
               </Tooltip>
               <Tooltip title="Pause Phone">
                 <IconButton>
-                  <MdPauseCircleOutline
-                    fontSize={15}
-                    style={{
-                      backgroundColor: "#3c8aba",
-                      padding: 10,
-                      borderRadius: "50%",
-                      color: "white",
-                    }}
-                  />
+                  <MdPauseCircleOutline fontSize={15} style={iconStyle("#3c8aba")} />
                 </IconButton>
               </Tooltip>
               <Tooltip title="Keypad">
                 <IconButton>
-                  <IoKeypadOutline
-                    fontSize={15}
-                    style={{
-                      backgroundColor: "#939488",
-                      padding: 10,
-                      borderRadius: "50%",
-                      color: "white",
-                    }}
-                  />
+                  <IoKeypadOutline fontSize={15} style={iconStyle("#939488")} />
                 </IconButton>
               </Tooltip>
               <Tooltip title="End Call">
                 <IconButton onClick={handleEndCall}>
-                  <MdLocalPhone
-                    fontSize={15}
-                    style={{
-                      backgroundColor: "red",
-                      padding: 10,
-                      borderRadius: "50%",
-                      color: "white",
-                    }}
-                  />
+                  <MdLocalPhone fontSize={15} style={iconStyle("red")} />
                 </IconButton>
               </Tooltip>
               <Tooltip title="Mute Speaker">
-                <IconButton onClick={handleAudioToggle}>
-                  <BsFillMicMuteFill
-                    fontSize={15}
-                    style={{
-                      backgroundColor: "grey",
-                      padding: 10,
-                      borderRadius: "50%",
-                      color: "white",
-                    }}
-                  />
+                <IconButton>
+                  <BsFillMicMuteFill fontSize={15} style={iconStyle("grey")} />
                 </IconButton>
               </Tooltip>
             </div>
             <div className="work-number">Work number: +1 714-628-XXXX</div>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleDial}
-              disabled={phoneStatus === "Dialing"}
-            >
+            <Button variant="contained" color="primary" onClick={handleDial} disabled={phoneStatus === "Dialing"}>
               Dial
             </Button>
           </div>
@@ -175,3 +186,10 @@ export default function AgentsDashboard() {
     </div>
   );
 }
+
+const iconStyle = (bgColor) => ({
+  backgroundColor: bgColor,
+  padding: 10,
+  borderRadius: "50%",
+  color: "white",
+});
