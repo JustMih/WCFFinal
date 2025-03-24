@@ -10,7 +10,11 @@ import {
   Button,
 } from "@mui/material";
 
-const socket = io("http://10.57.0.16:5070"); // Connect to backend
+// live
+// const socket = io("http://10.57.0.16:5070"); // Connect to backend
+
+// test
+const socket = io("http://127.0.0.1:5070"); // Connect to backend
 
 const CallCenterAgentChat = () => {
   const [message, setMessage] = useState("");
@@ -24,16 +28,44 @@ const CallCenterAgentChat = () => {
 
   useEffect(() => {
     fetchSupervisors();
-    if (agentId) {
-      socket.emit("register", agentId); // Register agent with socket server
+    if (agentId && selectedSupervisor) {
+      fetchMessages();
     }
 
+    socket.emit("register", agentId);
+
     socket.on("private_message", (data) => {
-      setMessages((prev) => [...prev, data]);
+      if (data.receiverId === agentId || data.senderId === agentId) {
+        setMessages((prev) => [...prev, data]); // Update messages in real-time
+      }
     });
 
     return () => socket.off("private_message");
-  }, [agentId]);
+  }, [agentId, selectedSupervisor]);
+
+  const fetchMessages = async () => {
+    try {
+      const response = await fetch(
+        `${baseURL}/messages/${agentId}/${selectedSupervisor}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch messages");
+      }
+
+      const data = await response.json();
+      setMessages(data); // Load previous messages
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+    }
+  };
 
   const fetchSupervisors = async () => {
     try {
@@ -115,6 +147,7 @@ const CallCenterAgentChat = () => {
                 : styles.supervisorMessage
             }
           >
+            <strong>{msg.senderId === agentId ? "You" : "Supervisor"}:</strong>{" "}
             {msg.message}
           </p>
         ))}
@@ -144,7 +177,7 @@ const CallCenterAgentChat = () => {
 
 const styles = {
   chatContainer: {
-    width: "400px",
+    width: "100%",
     padding: "15px",
     border: "1px solid #ccc",
     borderRadius: "10px",

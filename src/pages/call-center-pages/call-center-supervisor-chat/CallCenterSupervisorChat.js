@@ -9,7 +9,11 @@ import {
 } from "@mui/material";
 import { baseURL } from "../../../config";
 
-const socket = io("http://10.57.0.16:5070");
+// live
+// const socket = io("http://10.57.0.16:5070");
+
+// test
+const socket = io("http://127.0.0.1:5070"); // Connect to backend
 
 const CallCenterSupervisorChat = () => {
   const [messages, setMessages] = useState([]);
@@ -23,19 +27,44 @@ const CallCenterSupervisorChat = () => {
 
   useEffect(() => {
     fetchAgents();
+    if (supervisorId && selectedAgent) {
+      fetchMessages();
+    }
+
     socket.emit("register", supervisorId);
 
     socket.on("private_message", (data) => {
-      setMessages((prev) => [...prev, data]);
-
-      // Extract agent ID if not already added
-      if (!agents.includes(data.senderId)) {
-        setAgents((prevAgents) => [...new Set([...prevAgents, data.senderId])]);
+      if (data.receiverId === supervisorId || data.senderId === supervisorId) {
+        setMessages((prev) => [...prev, data]); // Update messages in real-time
       }
     });
 
     return () => socket.off("private_message");
-  }, [supervisorId, agents]);
+  }, [supervisorId, selectedAgent]);
+
+  const fetchMessages = async () => {
+    try {
+      const response = await fetch(
+        `${baseURL}/messages/${supervisorId}/${selectedAgent}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch messages");
+      }
+
+      const data = await response.json();
+      setMessages(data); // Load previous messages
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+    }
+  };
 
   const fetchAgents = async () => {
     try {
@@ -127,6 +156,12 @@ const CallCenterSupervisorChat = () => {
                   : styles.agentMessage
               }
             >
+              <strong>
+                {msg.senderId === supervisorId
+                  ? "You"
+                  : `Agent ${msg.senderId}`}
+                :
+              </strong>{" "}
               {msg.message}
             </p>
           ))}
@@ -156,7 +191,7 @@ const CallCenterSupervisorChat = () => {
 
 const styles = {
   chatContainer: {
-    width: "400px",
+    width: "100%",
     padding: "15px",
     border: "1px solid #ccc",
     borderRadius: "10px",
@@ -164,7 +199,7 @@ const styles = {
     backgroundColor: "#f9f9f9",
   },
   chatBox: {
-    height: "250px",
+    height: "200px",
     overflowY: "scroll",
     border: "1px solid #ddd",
     borderRadius: "5px",
