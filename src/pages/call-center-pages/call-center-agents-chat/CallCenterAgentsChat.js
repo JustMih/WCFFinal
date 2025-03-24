@@ -11,10 +11,10 @@ import {
 } from "@mui/material";
 
 // live
-// const socket = io("http://10.57.0.16:5070"); // Connect to backend
+const socket = io("http://10.57.0.16:5070"); // Connect to backend
 
 // test
-const socket = io("http://127.0.0.1:5070"); // Connect to backend
+// const socket = io("http://127.0.0.1:5070"); // Connect to backend
 
 const CallCenterAgentChat = () => {
   const [message, setMessage] = useState("");
