@@ -33,6 +33,9 @@ export default function CallCenterAgent() {
   const fetchAgentsByCategory = async (category) => {
     let endpoint = "";
     switch (category) {
+      case "all-agents":
+        endpoint = "agents";
+        break;
       case "online":
         endpoint = "agents-online";
         break;
@@ -204,10 +207,13 @@ export default function CallCenterAgent() {
     }
   };
   return (
-    <div>
+    <div className="call-center-agent-container">
       <h3 className="call-center-agent-title">Agents Statistics</h3>
       <div className="call-center-agent-summary">
-        <div className="call-center-agent-card">
+        <div
+          className="call-center-agent-card"
+          onClick={() => fetchAgentsByCategory("all-agents")}
+        >
           <div className="call-center-agent-card-icon">
             <div className="call-center-agent-data">
               <MdOutlineSupportAgent />
@@ -303,26 +309,6 @@ export default function CallCenterAgent() {
           </div>
         </div>
       </div>
-      {/* <div className="call-center-agent-table-container">
-        <table className="call-center-agent-table">
-          <thead>
-            <tr>
-              <th>Sn</th>
-              <th>ID</th>
-              <th>Ext</th>
-              <th>Name</th>
-              <th>Status</th>
-              <th>Login Duration</th>
-              <th>Pause Duration</th>
-              <th>Mission Duration</th>
-              <th>Agent Actions</th>
-              <th>Calls</th>
-              <th>RNA</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div> */}
       {selectedCategory && (
         <div className="call-center-agent-table-container">
           <h3>
@@ -343,7 +329,22 @@ export default function CallCenterAgent() {
                   <td>{index + 1}</td>
                   <td>{agent.name}</td>
                   <td>{agent.email}</td>
-                  <td>{agent.status}</td>
+                  <td>
+                    <div
+                      style={{
+                        backgroundColor:
+                          agent.status === "offline" ? "#f2c0bd" : "#d0f2d4",
+                        borderRadius: 50,
+                        color: "black",
+                        width: "40%",
+                        margin: 0,
+                        padding: 3,
+                        textAlign: "center",
+                      }}
+                    >
+                      {agent.status}
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

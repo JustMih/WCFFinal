@@ -15,7 +15,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
         <li>
           <>
             <NavLink
-              to="/"
+              to="/dashboard"
               className={({ isActive }) =>
                 isActive ? "menu-item active-link" : "menu-item"
               }

@@ -8,6 +8,9 @@ import CRMDashboard from "../crm-pages/crm-dashboard/CRMDashboard";
 import CallCenterUsers from "../call-center-pages/call-center-users/CallCenterUsers";
 import CallCenterAgents from "../call-center-pages/call-center-agents/CallCenterAgents";
 import CallCenterExtensions from "../call-center-pages/call-center-extensions/CallCenterExtensions";
+import CallCenterAgentsLogs from "../call-center-pages/call-center-agents-logs/CallCenterAgentsLogs";
+import CallCenterSupervisorChat from "../call-center-pages/call-center-supervisor-chat/CallCenterSupervisorChat";
+import CallCenterAgentChat from "../call-center-pages/call-center-agents-chat/CallCenterAgentsChat";
 import PrivateRoute from "../../auth/private-routes/PrivateRoutes";
 import "../../themes/themes.css";
 import "./dashboard.css";
@@ -63,7 +66,7 @@ export default function Dashboard() {
             {activeSystem === "call-center" && (
               <>
                 <Route
-                  path="*"
+                  path="/dashboard"
                   element={<PrivateRoute element={<CallCenterDashboard />} />}
                 />
                 <Route
@@ -78,13 +81,27 @@ export default function Dashboard() {
                   path="/users"
                   element={<PrivateRoute element={<CallCenterUsers />} />}
                 />
+                <Route
+                  path="/agents-logs"
+                  element={<PrivateRoute element={<CallCenterAgentsLogs />} />}
+                />
+                <Route
+                  path="/supervisor-chat"
+                  element={
+                    <PrivateRoute element={<CallCenterSupervisorChat />} />
+                  }
+                />
+                <Route
+                  path="/agent-chat"
+                  element={<PrivateRoute element={<CallCenterAgentChat />} />}
+                />
               </>
             )}
 
             {activeSystem === "crm" && (
               <>
                 <Route
-                  path="*"
+                  path="/dashboard"
                   element={<PrivateRoute element={<CRMDashboard />} />}
                 />
               </>
