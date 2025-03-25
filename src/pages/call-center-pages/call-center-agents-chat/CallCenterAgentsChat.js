@@ -46,7 +46,7 @@ const CallCenterAgentChat = () => {
   const fetchMessages = async () => {
     try {
       const response = await fetch(
-        `${baseURL}/messages/${agentId}/${selectedSupervisor}`,
+        `${baseURL}/users/messages/${agentId}/${selectedSupervisor}`,
         {
           method: "GET",
           headers: {
@@ -135,42 +135,47 @@ const CallCenterAgentChat = () => {
           </Select>
         )}
       </FormControl>
+      <div style={styles.chatMinContainer}>
+        {/* Chat Messages Box */}
+        <div style={styles.chatBox}>
+          {messages.map((msg, index) => (
+            <p
+              key={index}
+              style={
+                msg.senderId === agentId
+                  ? styles.agentMessage
+                  : styles.supervisorMessage
+              }
+            >
+              <strong>
+                {msg.senderId === agentId ? "You" : "Supervisor"}:
+              </strong>{" "}
+              {msg.message}
+            </p>
+          ))}
+        </div>
 
-      {/* Chat Messages Box */}
-      <div style={styles.chatBox}>
-        {messages.map((msg, index) => (
-          <p
-            key={index}
-            style={
-              msg.senderId === agentId
-                ? styles.agentMessage
-                : styles.supervisorMessage
-            }
+        <div style={styles.inputBox}>
+          {/* Message Input */}
+          <input
+            type="text"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Type a message..."
+            style={styles.input}
+          />
+
+          {/* Send Button */}
+          <Button
+            onClick={sendMessage}
+            variant="contained"
+            color="primary"
+            style={styles.sendButton}
           >
-            <strong>{msg.senderId === agentId ? "You" : "Supervisor"}:</strong>{" "}
-            {msg.message}
-          </p>
-        ))}
+            Send
+          </Button>
+        </div>
       </div>
-
-      {/* Message Input */}
-      <input
-        type="text"
-        value={message}
-        onChange={(e) => setMessage(e.target.value)}
-        placeholder="Type a message..."
-        style={styles.input}
-      />
-
-      {/* Send Button */}
-      <Button
-        onClick={sendMessage}
-        variant="contained"
-        color="primary"
-        style={styles.sendButton}
-      >
-        Send
-      </Button>
     </div>
   );
 };
@@ -185,13 +190,14 @@ const styles = {
     backgroundColor: "#f9f9f9",
   },
   chatBox: {
-    height: "250px",
+    height: "500px",
     overflowY: "scroll",
     border: "1px solid #ddd",
     borderRadius: "5px",
     padding: "10px",
     backgroundColor: "#fff",
     textAlign: "left",
+    width: "60%"
   },
   agentMessage: {
     textAlign: "right",
@@ -206,6 +212,18 @@ const styles = {
     padding: "8px",
     borderRadius: "5px",
     margin: "5px 0",
+  },
+  chatMinContainer: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  inputBox: {
+    width: "40%",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "start",
+    padding: "20px",
   },
   input: {
     width: "80%",

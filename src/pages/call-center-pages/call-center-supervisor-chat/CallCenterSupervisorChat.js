@@ -45,7 +45,7 @@ const CallCenterSupervisorChat = () => {
   const fetchMessages = async () => {
     try {
       const response = await fetch(
-        `${baseURL}/messages/${supervisorId}/${selectedAgent}`,
+        `${baseURL}/users/messages/${supervisorId}/${selectedAgent}`,
         {
           method: "GET",
           headers: {
@@ -116,7 +116,6 @@ const CallCenterSupervisorChat = () => {
   return (
     <div style={styles.chatContainer}>
       <h2>Supervisor Chat</h2>
-
       {/* Dropdown to Select Agent */}
       <FormControl style={{ width: "100%", marginBottom: "10px" }}>
         <InputLabel>Select Agent</InputLabel>
@@ -139,52 +138,53 @@ const CallCenterSupervisorChat = () => {
           )}
         </Select>
       </FormControl>
+      <div style={styles.chatMinContainer}>
+        <div style={styles.chatBox}>
+          {messages
+            .filter(
+              (msg) =>
+                msg.senderId === selectedAgent ||
+                msg.receiverId === selectedAgent
+            )
+            .map((msg, index) => (
+              <p
+                key={index}
+                style={
+                  msg.senderId === supervisorId
+                    ? styles.supervisorMessage
+                    : styles.agentMessage
+                }
+              >
+                <strong>
+                  {msg.senderId === supervisorId
+                    ? "You"
+                    : `Agent ${msg.User.name}`}
+                  :
+                </strong>{" "}
+                {msg.message}
+              </p>
+            ))}
+        </div>
+        <div style={styles.inputBox}>
+          <input
+            type="text"
+            value={reply}
+            onChange={(e) => setReply(e.target.value)}
+            placeholder="Type a reply..."
+            style={styles.input}
+          />
 
-      {/* Chat Messages */}
-      <div style={styles.chatBox}>
-        {messages
-          .filter(
-            (msg) =>
-              msg.senderId === selectedAgent || msg.receiverId === selectedAgent
-          )
-          .map((msg, index) => (
-            <p
-              key={index}
-              style={
-                msg.senderId === supervisorId
-                  ? styles.supervisorMessage
-                  : styles.agentMessage
-              }
-            >
-              <strong>
-                {msg.senderId === supervisorId
-                  ? "You"
-                  : `Agent ${msg.senderId}`}
-                :
-              </strong>{" "}
-              {msg.message}
-            </p>
-          ))}
+          {/* Send Button */}
+          <Button
+            onClick={sendReply}
+            variant="contained"
+            color="primary"
+            style={styles.sendButton}
+          >
+            Send
+          </Button>
+        </div>
       </div>
-
-      {/* Input for Reply */}
-      <input
-        type="text"
-        value={reply}
-        onChange={(e) => setReply(e.target.value)}
-        placeholder="Type a reply..."
-        style={styles.input}
-      />
-
-      {/* Send Button */}
-      <Button
-        onClick={sendReply}
-        variant="contained"
-        color="primary"
-        style={styles.sendButton}
-      >
-        Send
-      </Button>
     </div>
   );
 };
@@ -199,13 +199,14 @@ const styles = {
     backgroundColor: "#f9f9f9",
   },
   chatBox: {
-    height: "200px",
+    height: "500px",
     overflowY: "scroll",
     border: "1px solid #ddd",
     borderRadius: "5px",
     padding: "10px",
     backgroundColor: "#fff",
     textAlign: "left",
+    width: "60%"
   },
   agentMessage: {
     textAlign: "right",
@@ -213,6 +214,7 @@ const styles = {
     padding: "8px",
     borderRadius: "5px",
     margin: "5px 0",
+    width: "auto"
   },
   supervisorMessage: {
     textAlign: "left",
@@ -220,6 +222,18 @@ const styles = {
     padding: "8px",
     borderRadius: "5px",
     margin: "5px 0",
+  },
+  chatMinContainer:{
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  inputBox: {
+    width: "40%",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "start",
+    padding: "20px"
   },
   input: {
     width: "80%",
@@ -229,7 +243,7 @@ const styles = {
     margin: "10px 0",
   },
   sendButton: {
-    padding: "8px 15px",
+    padding: "5px 10px",
     background: "#007bff",
     color: "white",
     borderRadius: "5px",
