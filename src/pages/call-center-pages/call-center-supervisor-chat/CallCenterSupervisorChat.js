@@ -10,10 +10,10 @@ import {
 import { baseURL } from "../../../config";
 
 // live
-const socket = io("http://10.57.0.16:5070");
+// const socket = io("http://10.57.0.16:5070");
 
 // test
-// const socket = io("http://127.0.0.1:5070"); // Connect to backend
+const socket = io("http://127.0.0.1:5070"); // Connect to backend
 
 const CallCenterSupervisorChat = () => {
   const [messages, setMessages] = useState([]);
@@ -158,7 +158,7 @@ const CallCenterSupervisorChat = () => {
                 <strong>
                   {msg.senderId === supervisorId
                     ? "You"
-                    : `Agent ${msg.User.name}`}
+                    : `Agent ${msg.senderId}`}
                   :
                 </strong>{" "}
                 {msg.message}
