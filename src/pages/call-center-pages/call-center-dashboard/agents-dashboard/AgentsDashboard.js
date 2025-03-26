@@ -1,143 +1,105 @@
-import React, { useState, useEffect } from "react";
-import { MdOutlineLocalPhone, MdPauseCircleOutline, MdLocalPhone } from "react-icons/md";
+import React, { useState, useEffect, useRef } from "react";
+import {
+  MdOutlineLocalPhone,
+  MdPauseCircleOutline,
+  MdLocalPhone,
+} from "react-icons/md";
 import { HiMiniSpeakerWave } from "react-icons/hi2";
 import { IoKeypadOutline } from "react-icons/io5";
 import { BsFillMicMuteFill } from "react-icons/bs";
-import { TextField, Button } from "@mui/material";
+import { TextField, Button, Dialog, DialogTitle, DialogContent } from "@mui/material";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
+import {
+  UserAgent,
+  Inviter,
+  Invitation,
+  Registerer,
+  SessionState,
+  URI,
+} from "sip.js";
 import "./agentsDashboard.css";
 
 export default function AgentsDashboard() {
   const [showPhonePopup, setShowPhonePopup] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [phoneStatus, setPhoneStatus] = useState("Idle");
-  const [websocket, setWebSocket] = useState(null);
-  const [channelId, setChannelId] = useState(null);
+  const [userAgent, setUserAgent] = useState(null);
+  const [session, setSession] = useState(null);
   const [incomingCall, setIncomingCall] = useState(null);
-  const [ringAudio] = useState(new Audio("/ringtone.mp3")); // Local ringtone file
+  const [ringAudio] = useState(new Audio("/ringtone.mp3"));
+  const [remoteAudio] = useState(new Audio());
+  const [callDuration, setCallDuration] = useState(0);
+  const [isMuted, setIsMuted] = useState(false);
+  const [isSpeakerOn, setIsSpeakerOn] = useState(true);
+  const [isOnHold, setIsOnHold] = useState(false);
+  const [showKeypad, setShowKeypad] = useState(false);
+  const timerRef = useRef(null);
 
-  const ariUser = "admin";
-  const ariPassword = "@Ttcl123";
-  const stasisApp = "myapp";
+  const sipConfig = {
+    uri: UserAgent.makeURI("sip:webrtc_user@10.52.0.19"),
+    transportOptions: {
+      server: "ws://10.52.0.19:8088/ws",
+    },
+    authorizationUsername: "webrtc_user",
+    authorizationPassword: "sip12345",
+    sessionDescriptionHandlerFactoryOptions: {
+      constraints: { audio: true, video: false },
+      peerConnectionOptions: {
+        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+      },
+    },
+  };
 
   const togglePhonePopup = () => {
     setShowPhonePopup(!showPhonePopup);
   };
 
-  const handleDial = async () => {
-    if (phoneNumber) {
-      const originateUrl = "/ari/channels";
+  useEffect(() => {
+    ringAudio.loop = true;
+    ringAudio.volume = 0.7;
+    remoteAudio.autoplay = true;
 
-      try {
-        const response = await fetch(originateUrl, {
-          method: "POST",
-          headers: {
-            Authorization: "Basic " + btoa(`${ariUser}:${ariPassword}`),
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            endpoint: `PJSIP/${phoneNumber}`,
-            app: stasisApp,
-            callerId: "Aisha",
-          }),
-        });
+    navigator.mediaDevices
+      .getUserMedia({ audio: true })
+      .then(() => console.log("🎤 Microphone access granted"))
+      .catch((error) => console.error("❌ Microphone access denied:", error));
 
-        if (response.ok) {
-          const data = await response.json();
-          console.log("Call originated:", data);
-          setPhoneStatus("Dialing");
-          setChannelId(data.id);
-        } else {
-          const text = await response.text();
-          console.error("Failed to originate call:", text);
-        }
-      } catch (error) {
-        console.error("Error originating call:", error);
-      }
-    }
-  };
+    const ua = new UserAgent(sipConfig);
+    const registerer = new Registerer(ua);
+    setUserAgent(ua);
 
-  const handleEndCall = async () => {
-    if (!channelId) {
-      console.warn("No active call to hang up.");
-      return;
-    }
-
-    const hangupUrl = `/ari/channels/${channelId}`;
-
-    try {
-      const response = await fetch(hangupUrl, {
-        method: "DELETE",
-        headers: {
-          Authorization: "Basic " + btoa(`${ariUser}:${ariPassword}`),
-        },
-      });
-
-      if (response.ok) {
-        console.log("Call ended successfully");
+    ua.start()
+      .then(() => {
+        registerer.register();
+        console.log("✅ SIP UA Registered");
         setPhoneStatus("Idle");
-        setChannelId(null);
-        stopRingtone();
-      } else {
-        const text = await response.text();
-        console.error("Failed to end call:", text);
-      }
-    } catch (error) {
-      console.error("Error ending call:", error);
-    }
-  };
-
-  const handleAcceptCall = async () => {
-    if (!incomingCall) return;
-    const answerUrl = `/ari/channels/${incomingCall.id}/answer`;
-
-    try {
-      const response = await fetch(answerUrl, {
-        method: "POST",
-        headers: {
-          Authorization: "Basic " + btoa(`${ariUser}:${ariPassword}`),
-        },
+      })
+      .catch((error) => {
+        console.error("❌ UA failed to start:", error);
+        setPhoneStatus("Connection Failed");
       });
 
-      if (response.ok) {
-        console.log("Call answered");
-        setPhoneStatus("In Call");
-        setChannelId(incomingCall.id);
-        setIncomingCall(null);
-        stopRingtone();
-      } else {
-        const text = await response.text();
-        console.error("Failed to answer call:", text);
-      }
-    } catch (error) {
-      console.error("Error answering call:", error);
-    }
-  };
+    ua.delegate = {
+      onInvite: (invitation) => {
+        console.log("📞 Incoming call");
+        setIncomingCall(invitation);
+        setPhonePopupVisible(true);
+        setPhoneStatus("Ringing");
+        ringAudio.play().catch((err) => console.error("🔇 Ringtone error:", err));
+      },
+    };
 
-  const handleRejectCall = async () => {
-    if (!incomingCall) return;
-    const hangupUrl = `/ari/channels/${incomingCall.id}`;
+    return () => {
+      registerer.unregister().catch(console.error);
+      ua.stop();
+      stopRingtone();
+      stopTimer();
+    };
+  }, []);
 
-    try {
-      const response = await fetch(hangupUrl, {
-        method: "DELETE",
-        headers: {
-          Authorization: "Basic " + btoa(`${ariUser}:${ariPassword}`),
-        },
-      });
-
-      if (response.ok) {
-        console.log("Call rejected");
-        setIncomingCall(null);
-        stopRingtone();
-      } else {
-        const text = await response.text();
-        console.error("Failed to reject call:", text);
-      }
-    } catch (error) {
-      console.error("Error rejecting call:", error);
-    }
+  const setPhonePopupVisible = (visible) => {
+    setShowPhonePopup(visible);
   };
 
   const stopRingtone = () => {
@@ -145,58 +107,232 @@ export default function AgentsDashboard() {
     ringAudio.currentTime = 0;
   };
 
-  useEffect(() => {
-    ringAudio.loop = true;
-    ringAudio.volume = 0.7;
-
-    const wsUrl = `ws://10.52.0.19:8088/ari/events?app=${stasisApp}&api_key=${ariUser}:${ariPassword}`;
-    const ws = new WebSocket(wsUrl);
-    setWebSocket(ws);
-
-    ws.onopen = () => {
-      console.log("Connected to ARI WebSocket");
-    };
-
-    ws.onmessage = (message) => {
-      const event = JSON.parse(message.data);
-      console.log("ARI Event:", event);
-
-      if (event.type === "StasisStart") {
-        const channel = event.channel;
-        console.log("Channel Direction:", channel.direction);
-
-        // Always trigger popup for debug purposes
-        console.log("📞 Incoming or Outgoing Call from:", channel.caller.number);
-        setIncomingCall(channel);
-
-        ringAudio.play()
-          .then(() => console.log("🔔 Ringtone playing"))
-          .catch(err => console.error("🔇 Ringtone failed:", err));
-
-        setPhoneStatus("Ringing");
-        setChannelId(channel.id);
-
-      } else if (event.type === "StasisEnd" || event.type === "ChannelDestroyed") {
-        setPhoneStatus("Idle");
-        setChannelId(null);
-        setIncomingCall(null);
-        stopRingtone();
+  const toggleMute = () => {
+    if (!session) return;
+    const pc = session.sessionDescriptionHandler.peerConnection;
+    pc.getSenders().forEach((sender) => {
+      if (sender.track && sender.track.kind === "audio") {
+        sender.track.enabled = !sender.track.enabled;
+        setIsMuted(!sender.track.enabled);
       }
-    };
+    });
+  };
 
-    ws.onerror = (error) => {
-      console.error("WebSocket Error:", error);
-    };
+  const toggleSpeaker = () => {
+    if (remoteAudio.setSinkId) {
+      const deviceId = isSpeakerOn ? "communications" : "default";
+      remoteAudio
+        .setSinkId(deviceId)
+        .then(() => {
+          setIsSpeakerOn(!isSpeakerOn);
+        })
+        .catch((err) => console.warn("🔇 Failed to change output device:", err));
+    } else {
+      console.warn("Audio output device selection not supported.");
+    }
+  };
 
-    ws.onclose = () => {
-      console.log("ARI WebSocket closed");
-    };
+  const toggleHold = () => {
+    if (!session) return;
+    const pc = session.sessionDescriptionHandler.peerConnection;
+    const senders = pc.getSenders();
 
-    return () => {
-      ws.close();
+    if (isOnHold) {
+      senders.forEach((sender) => {
+        if (sender.track && sender.track.kind === "audio") {
+          sender.track.enabled = true;
+        }
+      });
+    } else {
+      senders.forEach((sender) => {
+        if (sender.track && sender.track.kind === "audio") {
+          sender.track.enabled = false;
+        }
+      });
+    }
+    setIsOnHold(!isOnHold);
+  };
+
+  const sendDTMF = (digit) => {
+    if (session && session.sessionDescriptionHandler) {
+      const dtmfSender = session.sessionDescriptionHandler.peerConnection
+        .getSenders()
+        .find((sender) => sender.dtmf);
+
+      if (dtmfSender && dtmfSender.dtmf) {
+        dtmfSender.dtmf.insertDTMF(digit);
+        console.log("📲 Sent DTMF digit:", digit);
+      }
+    }
+  };
+
+  const handleAcceptCall = () => {
+    if (!incomingCall) return;
+
+    incomingCall
+      .accept({
+        sessionDescriptionHandlerOptions: {
+          constraints: { audio: true, video: false },
+          peerConnectionOptions: {
+            iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+          },
+        },
+      })
+      .then(() => {
+        setSession(incomingCall);
+        setIncomingCall(null);
+        setPhoneStatus("In Call");
+        stopRingtone();
+        startTimer();
+
+        incomingCall.stateChange.addListener((state) => {
+          if (state === SessionState.Established) {
+            console.log("📞 Call accepted and media flowing");
+            attachMediaStream(incomingCall);
+          } else if (state === SessionState.Terminated) {
+            console.log("📴 Call ended after accept");
+            setPhoneStatus("Idle");
+            setSession(null);
+            setIncomingCall(null);
+            remoteAudio.srcObject = null;
+            stopTimer();
+          }
+        });
+      })
+      .catch((error) => {
+        console.error("❌ Failed to accept call:", error);
+        setPhoneStatus("Idle");
+      });
+  };
+
+  const handleRejectCall = () => {
+    if (!incomingCall) return;
+    incomingCall.reject().catch(console.error);
+    setIncomingCall(null);
+    setPhoneStatus("Idle");
+    stopRingtone();
+  };
+
+  const handleEndCall = () => {
+    if (session) {
+      session.bye().catch(console.error);
+      setSession(null);
+      setPhoneStatus("Idle");
+      remoteAudio.srcObject = null;
       stopRingtone();
-    };
-  }, []);
+      stopTimer();
+    } else if (incomingCall) {
+      incomingCall.reject().catch(console.error);
+      setIncomingCall(null);
+      setPhoneStatus("Idle");
+      stopRingtone();
+    }
+  };
+
+  const handleDial = () => {
+    if (!userAgent || !phoneNumber) return;
+
+    const target = `sip:${phoneNumber}@10.52.0.19`;
+    const targetURI = UserAgent.makeURI(target);
+    if (!targetURI) return;
+
+    const inviter = new Inviter(userAgent, targetURI, {
+      sessionDescriptionHandlerOptions: {
+        constraints: { audio: true, video: false },
+        peerConnectionOptions: {
+          iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+        },
+      },
+    });
+
+    setSession(inviter);
+
+    inviter.invite()
+      .then(() => {
+        setPhoneStatus("Dialing");
+        inviter.stateChange.addListener((state) => {
+          if (state === SessionState.Established) {
+            console.log("📞 Outgoing call established");
+            setPhoneStatus("In Call");
+            attachMediaStream(inviter);
+            startTimer();
+          } else if (state === SessionState.Terminated) {
+            console.log("📴 Call ended");
+            setPhoneStatus("Idle");
+            setSession(null);
+            remoteAudio.srcObject = null;
+            stopTimer();
+          }
+        });
+      })
+      .catch((error) => {
+        console.error("❌ Call failed:", error);
+        setPhoneStatus("Call Failed");
+      });
+  };
+
+  const attachMediaStream = (sipSession) => {
+    const remoteStream = new MediaStream();
+    sipSession.sessionDescriptionHandler.peerConnection
+      .getReceivers()
+      .forEach((receiver) => {
+        if (receiver.track) remoteStream.addTrack(receiver.track);
+      });
+    remoteAudio.srcObject = remoteStream;
+    remoteAudio.play().catch((err) => console.error("🔇 Audio playback failed:", err));
+  };
+
+  const startTimer = () => {
+    stopTimer();
+    timerRef.current = setInterval(() => {
+      setCallDuration((prev) => prev + 1);
+    }, 1000);
+  };
+
+  const stopTimer = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    setCallDuration(0);
+  };
+
+  const formatDuration = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    const hrs = Math.floor(mins / 60);
+    const pad = (n) => String(n).padStart(2, "0");
+    return hrs > 0
+      ? `${pad(hrs)}:${pad(mins % 60)}:${pad(secs)}`
+      : `${pad(mins)}:${pad(secs)}`;
+  };
+
+  const iconStyle = (bgColor) => ({
+    backgroundColor: bgColor,
+    padding: 10,
+    borderRadius: "50%",
+    color: "white",
+  });
+
+  const renderKeypad = () => (
+    <Dialog open={showKeypad} onClose={() => setShowKeypad(false)}>
+      <DialogTitle>Dialpad</DialogTitle>
+      <DialogContent>
+        <div className="keypad">
+          {["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"].map((digit) => (
+            <Button
+              key={digit}
+              variant="outlined"
+              onClick={() => sendDTMF(digit)}
+              style={{ margin: 5, width: 50, height: 50 }}
+            >
+              {digit}
+            </Button>
+          ))}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 
   return (
     <div className="p-6">
@@ -210,32 +346,39 @@ export default function AgentsDashboard() {
       {showPhonePopup && (
         <div className="phone-popup">
           <div className="phone-popup-header">
-            <span>Calls</span>
+            <span>{phoneStatus === "In Call" ? "Call in Progress" : "Phone"}</span>
             <button onClick={togglePhonePopup} className="close-popup-btn">X</button>
           </div>
           <div className="phone-popup-body">
-            <TextField
-              label="Phone Number"
-              variant="outlined"
-              fullWidth
-              margin="normal"
-              required
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-            />
+            {phoneStatus === "In Call" && (
+              <p>Call Duration: {formatDuration(callDuration)}</p>
+            )}
+
+            {phoneStatus !== "In Call" && (
+              <TextField
+                label="Phone Number"
+                variant="outlined"
+                fullWidth
+                margin="normal"
+                required
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+              />
+            )}
+
             <div className="phone-action-btn">
-              <Tooltip title="Loud speaker">
-                <IconButton>
-                  <HiMiniSpeakerWave fontSize={15} style={iconStyle("grey")} />
+              <Tooltip title="Toggle Speaker">
+                <IconButton onClick={toggleSpeaker}>
+                  <HiMiniSpeakerWave fontSize={15} style={iconStyle(isSpeakerOn ? "green" : "grey")} />
                 </IconButton>
               </Tooltip>
-              <Tooltip title="Pause Phone">
-                <IconButton>
-                  <MdPauseCircleOutline fontSize={15} style={iconStyle("#3c8aba")} />
+              <Tooltip title={isOnHold ? "Resume Call" : "Hold Call"}>
+                <IconButton onClick={toggleHold}>
+                  <MdPauseCircleOutline fontSize={15} style={iconStyle(isOnHold ? "orange" : "#3c8aba")} />
                 </IconButton>
               </Tooltip>
               <Tooltip title="Keypad">
-                <IconButton>
+                <IconButton onClick={() => setShowKeypad(true)}>
                   <IoKeypadOutline fontSize={15} style={iconStyle("#939488")} />
                 </IconButton>
               </Tooltip>
@@ -244,32 +387,47 @@ export default function AgentsDashboard() {
                   <MdLocalPhone fontSize={15} style={iconStyle("red")} />
                 </IconButton>
               </Tooltip>
-              <Tooltip title="Mute Speaker">
-                <IconButton>
-                  <BsFillMicMuteFill fontSize={15} style={iconStyle("grey")} />
+              <Tooltip title={isMuted ? "Unmute Mic" : "Mute Mic"}>
+                <IconButton onClick={toggleMute}>
+                  <BsFillMicMuteFill fontSize={15} style={iconStyle(isMuted ? "orange" : "grey")} />
                 </IconButton>
               </Tooltip>
             </div>
-            <div className="work-number">Work number: +1 714-628-XXXX</div>
-            <Button variant="contained" color="primary" onClick={handleDial} disabled={phoneStatus === "Dialing"}>
-              Dial
-            </Button>
+
+            {phoneStatus !== "In Call" && (
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleDial}
+                disabled={phoneStatus === "Dialing" || phoneStatus === "Ringing"}
+              >
+                Dial
+              </Button>
+            )}
+
+            {incomingCall && phoneStatus !== "In Call" && (
+              <>
+                <p>
+                  From: {incomingCall.remoteIdentity.displayName || incomingCall.remoteIdentity.uri.user}
+                </p>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleAcceptCall}
+                  style={{ marginRight: "10px" }}
+                >
+                  Accept
+                </Button>
+                <Button variant="contained" color="secondary" onClick={handleRejectCall}>
+                  Reject
+                </Button>
+              </>
+            )}
           </div>
         </div>
       )}
 
-      {incomingCall && (
-        <div className="incoming-call-popup">
-          <h4>Incoming Call</h4>
-          <p>From: {incomingCall.caller.number}</p>
-          <Button variant="contained" color="primary" onClick={handleAcceptCall} style={{ marginRight: "10px" }}>
-            Accept
-          </Button>
-          <Button variant="contained" color="secondary" onClick={handleRejectCall}>
-            Reject
-          </Button>
-        </div>
-      )}
+      {renderKeypad()}
     </div>
   );
 }
