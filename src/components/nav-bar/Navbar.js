@@ -36,7 +36,7 @@ export default function Navbar({
         localStorage.removeItem("userId");
         localStorage.removeItem("tokenExpiration");
         localStorage.removeItem("activeSystem");
-        window.location.href = "/login";
+        window.location.href = "/";
         return;
       }
       const response = await fetch(`${baseURL}/auth/logout`, {
@@ -56,19 +56,20 @@ export default function Navbar({
       localStorage.removeItem("userId");
       localStorage.removeItem("tokenExpiration");
       localStorage.removeItem("activeSystem");
-      window.location.href = "/login";
+      window.location.href = "/";
     } catch (error) {
       console.error("Error logging out:", error);
     }
   };
 
   const canAccessCallCenter =
-    role === "admin" || role === "super-admin" || role === "agent";
+    role === "admin" || role === "super-admin" || role === "agent" || role === "supervisor";
   const canAccessCRM =
     role === "admin" ||
     role === "super-admin" ||
     role === "agent" ||
-    role === "attendee";
+    role === "attendee" ||
+    role === "supervisor";
 
   const handleSystemSwitch = (system) => {
     localStorage.setItem("activeSystem", system); // Save active system to localStorage

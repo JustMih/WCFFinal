@@ -417,6 +417,11 @@ export default function CallCenterUsers() {
               <MenuItem value="agent">Agent</MenuItem>
               <MenuItem value="attendee">Attendee</MenuItem>
               <MenuItem value="coordinator">Coordinator</MenuItem>
+              <MenuItem value="head-of-unit">Head of Unit</MenuItem>
+              <MenuItem value="manager">Manager</MenuItem>
+              <MenuItem value="director">Director</MenuItem>
+              <MenuItem value="director-general">Direct General</MenuItem>
+              <MenuItem value="focal-person">Focal Person</MenuItem>
             </Select>
           </FormControl>
           <FormControlLabel

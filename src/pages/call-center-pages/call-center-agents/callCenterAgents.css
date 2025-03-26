@@ -1,3 +1,8 @@
+.call-center-agent-container {
+  width: 100%;
+  margin: 0px auto;
+  font-family: var(--font-family);
+}
 .call-center-agent-title {
   font-size: 20px;
   margin-bottom: 10px;
@@ -16,7 +21,7 @@
 .call-center-agent-card {
   background-color: var(--sidebar-color);
   border-radius: 10px;
-  padding: 10px;
+  padding: 1px 10px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
   text-align: center;
   height: auto;
@@ -33,7 +38,7 @@
 .call-center-agent-card-icon {
   font-size: 30px;
   color: var(--active-color);
-  margin-bottom: 10px;
+  margin-bottom: 5px;
   display: flex;
   align-items: start;
   flex-direction: column;
@@ -46,15 +51,15 @@
   justify-content: space-between;
 }
 
-.call-center-agent-value{
-    font-size: 20px;
+.call-center-agent-value {
+  font-size: 20px;
 }
 
-h4{
-    font-size: 15px;
-    font-weight: 200;
-    padding: 0px;
-    margin: 0px;
+h4 {
+  font-size: 15px;
+  font-weight: 200;
+  padding: 0px;
+  margin: 0px;
 }
 
 /* Table Styling */
@@ -74,7 +79,8 @@ h4{
   overflow: hidden;
 }
 
-.call-center-agent-table th, .call-center-agent-table td {
+.call-center-agent-table th,
+.call-center-agent-table td {
   padding: 12px;
   text-align: left;
   border-bottom: 1px solid #ddd;
