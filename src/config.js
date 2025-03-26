@@ -2,4 +2,4 @@
 //  export const baseURL = "http://localhost:5070/api";
 
 // on test server
-  export const baseURL = "http://10.57.0.16:5070/api";
+  export const baseURL = "http://10.52.0.19:5070/api";
