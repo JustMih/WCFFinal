@@ -1,15 +1,16 @@
-.phone-navbar{
+
+.phone-navbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 100%; 
-  padding: 0px 20px; 
+  width: 100%;
+  padding: 0px 20px;
   height: 50px;
   border-radius: 10px;
   background-color: var(--sidebar-color);
 }
 
-.phone-btn-call{
+.phone-btn-call {
   background-color: var(--hover-color);
   font-size: 30px;
   cursor: pointer;
@@ -17,9 +18,23 @@
   border-radius: 5px;
   color: #4caf50;
 }
+.out-phone-btn-call {
+  background-color: var(--hover-color);
+  font-size: 30px;
+  cursor: pointer;
+  padding: 3px;
+  border-radius: 5px;
+  color: #af4c4c;
+}
 
-.phone-btn-call:hover{
+.phone-btn-call:hover {
   background-color: #45a049;
+  transition: ease-in-out 0.5s;
+  color: #fff;
+}
+
+.out-phone-btn-call:hover {
+  background-color: #a04545;
   transition: ease-in-out 0.5s;
   color: #fff;
 }
@@ -56,11 +71,11 @@
   color: #333;
 }
 
-.phone-action-btn{
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 1px;
+.phone-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
 }
 
 .incoming-call-popup {
@@ -70,7 +85,7 @@
   background: white;
   padding: 20px;
   border: 2px solid green;
-  box-shadow: 0 0 10px rgba(0,0,0,0.3);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
   z-index: 999;
   text-align: center;
   border-radius: 8px;

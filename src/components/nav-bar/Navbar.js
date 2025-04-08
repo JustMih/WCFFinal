@@ -35,6 +35,7 @@ export default function Navbar({
         localStorage.removeItem("role");
         localStorage.removeItem("userId");
         localStorage.removeItem("tokenExpiration");
+        localStorage.removeItem("agentStatus");
         localStorage.removeItem("activeSystem");
         window.location.href = "/";
         return;
@@ -56,6 +57,7 @@ export default function Navbar({
       localStorage.removeItem("userId");
       localStorage.removeItem("tokenExpiration");
       localStorage.removeItem("activeSystem");
+      localStorage.removeItem("agentStatus");
       window.location.href = "/";
     } catch (error) {
       console.error("Error logging out:", error);

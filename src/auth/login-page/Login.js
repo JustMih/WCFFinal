@@ -39,6 +39,7 @@ export default function Login() {
          localStorage.setItem("role", data.user.role);
          localStorage.setItem("tokenExpiration", tokenExpiration); // Save expiration time
          localStorage.setItem("userId", data.user.id);
+         localStorage.setItem("agentStatus", "ready");
          window.location.href = "/dashboard";
        } else {
          setError(data.message || "An error occurred. Please try again.");

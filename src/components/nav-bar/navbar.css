@@ -6,6 +6,10 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  position: fixed; /* Fix the navbar at the top */
+  top: 0; /* Align with the top of the screen */
+  width: 100%; /* Ensure it spans the full width of the screen */
+  z-index: 1000; /* Optional: Ensure the navbar stays on top of other content */
 }
 .navbar-left {
   display: flex;
@@ -24,6 +28,7 @@
 .navbar-right {
   display: flex;
   align-items: center;
+  margin-right: 20px;
 }
 .theme-button {
   background: none;
