@@ -1,10 +1,11 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
 import { RxDashboard } from "react-icons/rx";
-import { MdOutlineSupportAgent } from "react-icons/md";
+import { MdOutlineSupportAgent, MdOutlineAudiotrack } from "react-icons/md";
+import { TbActivityHeartbeat, TbLogs } from "react-icons/tb";
 import { FaRegUser } from "react-icons/fa6";
 import { TiFlowSwitch } from "react-icons/ti";
-import { TbLogs } from "react-icons/tb";
+import { GiVrHeadset } from "react-icons/gi";
 import { BsChatRightTextFill } from "react-icons/bs";
 import logo from "../../../asserts/images/logo.png";
 import "./callCenterSidebar.css";
@@ -56,6 +57,43 @@ export default function CallCenterSidebar({ isSidebarOpen, role }) {
                 <div className="menu-item">
                   <FaRegUser className="menu-icon" />
                   {isSidebarOpen && <span className="menu-text">Users</span>}
+                </div>
+              </NavLink>
+              <NavLink
+                to="/ivr"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <GiVrHeadset className="menu-icon" />
+                  {isSidebarOpen && <span className="menu-text">IVR's</span>}
+                </div>
+              </NavLink>
+              <NavLink
+                to="/ivr-voices"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <MdOutlineAudiotrack className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">IVR's Voices</span>
+                  )}
+                </div>
+              </NavLink>
+              <NavLink
+                to="/ivr-action"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <TbActivityHeartbeat className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">IVR's Actions</span>
+                  )}
                 </div>
               </NavLink>
             </>

@@ -14,6 +14,9 @@ import CallCenterAgentChat from "../call-center-pages/call-center-agents-chat/Ca
 import PrivateRoute from "../../auth/private-routes/PrivateRoutes";
 import "../../themes/themes.css";
 import "./dashboard.css";
+import CallCenterIvr from "../call-center-pages/cal-center-ivr/CallCenterIvr";
+import CallCenterIvrActions from "../call-center-pages/call-center-ivr-actions/CallCenterIvrActions";
+import CallCenterWCFIvr from "../call-center-pages/call-center-wcf-ivrs/CallCenterWCFIvr";
 
 export default function Dashboard() {
   const [isDarkMode, setDarkMode] = useState(false);
@@ -90,6 +93,18 @@ export default function Dashboard() {
                   element={
                     <PrivateRoute element={<CallCenterSupervisorChat />} />
                   }
+                />
+                <Route
+                  path="/ivr"
+                  element={<PrivateRoute element={<CallCenterWCFIvr />} />}
+                />
+                <Route
+                  path="/ivr-voices"
+                  element={<PrivateRoute element={<CallCenterIvr />} />}
+                />
+                <Route
+                  path="/ivr-action"
+                  element={<PrivateRoute element={<CallCenterIvrActions />} />}
                 />
                 <Route
                   path="/agent-chat"
