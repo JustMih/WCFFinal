@@ -3,6 +3,8 @@ import {
   MdOutlineLocalPhone,
   MdPauseCircleOutline,
   MdLocalPhone,
+  MdOutlineEmail,
+  MdOutlinePhoneInTalk,
 } from "react-icons/md";
 import { HiMiniSpeakerWave } from "react-icons/hi2";
 import { IoKeypadOutline } from "react-icons/io5";
@@ -28,6 +30,8 @@ import { TbEmergencyBed } from "react-icons/tb";
 import { MdOutlineFollowTheSigns } from "react-icons/md";
 import { GiTrafficLightsReadyToGo } from "react-icons/gi";
 import { FiPhoneOff } from "react-icons/fi";
+import { CiNoWaitingSign } from "react-icons/ci";
+import { FaPersonWalkingArrowRight } from "react-icons/fa6";
 import {
   UserAgent,
   Inviter,
@@ -39,6 +43,19 @@ import {
 import { Alert, Snackbar } from "@mui/material";
 import { baseURL } from "../../../../config";
 import "./agentsDashboard.css";
+
+import { FiPhoneIncoming } from "react-icons/fi";
+import { TbPhoneCheck, TbPhoneX } from "react-icons/tb";
+import { HiPhoneOutgoing, HiOutlineMailOpen } from "react-icons/hi";
+import { BsCollection } from "react-icons/bs";
+import { RiMailUnreadLine } from "react-icons/ri";
+import {
+  IoLogoWhatsapp,
+  IoMdLogIn,
+  IoMdCloseCircleOutline,
+} from "react-icons/io";
+import { FaHandHolding } from "react-icons/fa";
+import CallChart from "../../../../components/agent-chat/AgentChat";
 
 export default function AgentsDashboard() {
   const [showPhonePopup, setShowPhonePopup] = useState(false);
@@ -66,6 +83,8 @@ export default function AgentsDashboard() {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("warning"); // could be "success", "error", "info", "warning"
+  // const [loginTime, setLoginTime] = useState("");
+  
 
   const timerRef = useRef(null);
 
@@ -74,7 +93,6 @@ export default function AgentsDashboard() {
     setSnackbarSeverity(severity);
     setSnackbarOpen(true);
   };
-
 
   const timeIntervals = {
     breakfast: 15 * 60, // 15 minutes in seconds
@@ -538,19 +556,21 @@ export default function AgentsDashboard() {
           ) : (
             <>
               <FiPhoneOff className="out-phone-btn-call" />
-              <h4
-                style={{
-                  backgroundColor: "red",
-                  color: "white",
-                  padding: "7px",
-                  borderRadius: "15px",
-                }}
-              >
-                {agentStatus.toUpperCase()}
-              </h4>
-              <span style={{ color: "black", marginLeft: "10px" }}>
-                Time Remaining: {formatRemainingTime(timeRemaining)}
-              </span>
+              <div>
+                <h4
+                  style={{
+                    backgroundColor: "red",
+                    color: "white",
+                    padding: "7px",
+                    borderRadius: "15px",
+                  }}
+                >
+                  {agentStatus.toUpperCase()}
+                </h4>
+                <span style={{ color: "black", marginLeft: "10px" }}>
+                  Time Remaining: {formatRemainingTime(timeRemaining)}
+                </span>
+              </div>
             </>
           )}
           <Tooltip title="Agent Emergency">
@@ -565,6 +585,163 @@ export default function AgentsDashboard() {
               <Avatar sx={{ width: 32, height: 32 }}>E</Avatar>
             </IconButton>
           </Tooltip>
+        </div>
+        <div className="dashboard-single-agent">
+          <div className="single-agent-card">
+            <div className="single-agent-head">
+              <FiPhoneIncoming fontSize={15} />
+              In-Bound Calls
+            </div>
+            <div className="single-agent-level">
+              <div className="single-agent-level-left">
+                <FiPhoneIncoming fontSize={15} color="green" />
+                Calls
+              </div>
+              20
+            </div>
+            <div className="single-agent-level">
+              <div className="single-agent-level-left">
+                <TbPhoneCheck fontSize={15} />
+                Answered
+              </div>
+              10
+            </div>
+            <div className="single-agent-level">
+              <div className="single-agent-level-left">
+                <TbPhoneX fontSize={15} color="red" />
+                Dropped
+              </div>
+              20
+            </div>
+          </div>
+          <div className="single-agent-card">
+            <div className="single-agent-head">
+              <HiPhoneOutgoing fontSize={15} />
+              Out-Bound Calls
+            </div>
+            <div className="single-agent-level">
+              <div className="single-agent-level-left">
+                <FiPhoneIncoming fontSize={15} color="green" />
+                Calls
+              </div>
+              20
+            </div>
+            <div className="single-agent-level">
+              <div className="single-agent-level-left">
+                <TbPhoneCheck fontSize={15} />
+                Answered
+              </div>
+              10
+            </div>
+            <div className="single-agent-level">
+              <div className="single-agent-level-left">
+                <TbPhoneX fontSize={15} color="red" />
+                Dropped
+              </div>
+              20
+            </div>
+          </div>
+          <div className="single-agent-card">
+            <div className="single-agent-head">
+              <MdOutlineEmail fontSize={15} />
+              Emails
+            </div>
+            <div className="single-agent-level">
+              <div className="single-agent-level-left">
+                <BsCollection fontSize={15} color="green" />
+                Total
+              </div>
+              20
+            </div>
+            <div className="single-agent-level">
+              <div className="single-agent-level-left">
+                <HiOutlineMailOpen fontSize={15} />
+                Opened
+              </div>
+              10
+            </div>
+            <div className="single-agent-level">
+              <div className="single-agent-level-left">
+                <RiMailUnreadLine fontSize={15} color="red" />
+                Closed
+              </div>
+              20
+            </div>
+          </div>
+          <div className="single-agent-card">
+            <div className="single-agent-head">
+              <IoLogoWhatsapp fontSize={15} color="green" />
+              Whatsapp
+            </div>
+            <div className="single-agent-level">
+              <div className="single-agent-level-left">
+                <BsCollection fontSize={15} color="green" />
+                Total
+              </div>
+              20
+            </div>
+            <div className="single-agent-level">
+              <div className="single-agent-level-left">
+                <HiOutlineMailOpen fontSize={15} />
+                Opened
+              </div>
+              10
+            </div>
+            <div className="single-agent-level">
+              <div className="single-agent-level-left">
+                <RiMailUnreadLine fontSize={15} color="red" />
+                Closed
+              </div>
+              20
+            </div>
+          </div>
+        </div>
+        <div className="dashboard-single-agent-row_two">
+          <div className="login-summary">
+            <div className="login-summary-title">
+              <IoMdLogIn />
+              <h4>Login Summary</h4>
+            </div>
+            <div className="single-agent-level">
+              <div className="single-agent-level-left">
+                <CiNoWaitingSign fontSize={20} color="red" />
+                Idle Time
+              </div>
+              00:03:34
+            </div>
+            <div className="single-agent-level">
+              <div className="single-agent-level-left">
+                <MdOutlinePhoneInTalk fontSize={20} color="green" />
+                Talk Time
+              </div>
+              00:03:34
+            </div>
+            <div className="single-agent-level">
+              <div className="single-agent-level-left">
+                <FaHandHolding fontSize={20} color="black" />
+                Hold Time
+              </div>
+              00:03:34
+            </div>
+            <div className="single-agent-level">
+              <div className="single-agent-level-left">
+                <IoMdCloseCircleOutline fontSize={20} color="red" />
+                Break Time
+              </div>
+              00:03:34
+            </div>
+            <div className="single-agent-level">
+              <div className="single-agent-level-left">
+                <FaPersonWalkingArrowRight fontSize={20} color="green" />
+                Last Login Time
+              </div>
+              {/* {loginTime || "Loading..."} */}
+            </div>
+          </div>
+          <div className="chat">
+            {/* simple chat here */}
+            <CallChart />
+          </div>
         </div>
       </div>
 
@@ -776,7 +953,6 @@ export default function AgentsDashboard() {
     </div>
   );
 }
-
 
 const iconStyle = (bgColor) => ({
   backgroundColor: bgColor,

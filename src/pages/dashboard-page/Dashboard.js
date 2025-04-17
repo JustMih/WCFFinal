@@ -22,6 +22,7 @@ import CallCenterIvrDTMFMapping from "../call-center-pages/cal-center-ivr/CallCe
 
 
 
+import Message from "../call-center-pages/call-center-social-message/CallCenterSocialMessage";
 
 export default function Dashboard() {
   const [isDarkMode, setDarkMode] = useState(false);
@@ -121,6 +122,10 @@ export default function Dashboard() {
               />
 
 
+                <Route
+                  path="/social-message"
+                  element={<PrivateRoute element={<Message />} />}
+                />
               </>
             )}
 

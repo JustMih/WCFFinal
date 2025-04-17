@@ -191,6 +191,19 @@ export default function CallCenterSidebar({ isSidebarOpen, role }) {
                   )}
                 </div>
               </NavLink>
+              <NavLink
+                to="/social-message"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <BsChatRightTextFill className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">Social Notifications</span>
+                  )}
+                </div>
+              </NavLink>
             </>
           )}
         </li>

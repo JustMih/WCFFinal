@@ -90,3 +90,77 @@
   text-align: center;
   border-radius: 8px;
 }
+
+.dashboard-single-agent{
+  margin-top: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100% !important;
+}
+
+.single-agent-card{
+  background-color: var(--sidebar-color);
+  border-radius: 10px;
+  padding: 10px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  height: auto;
+  margin-bottom: 20px;
+  width: 250px;
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.single-agent-head{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  border-bottom: 1px solid black;
+  padding-bottom: 10px;
+}
+
+.single-agent-level{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 20px;
+}
+
+.single-agent-level-left{
+  display: flex;
+  align-items: center;
+  justify-content: start;
+  gap: 20px;
+}
+
+.login-summary{
+  width: 30%;
+  background-color: var(--sidebar-color);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.chat{
+  width: 70%;
+  background-color: var(--sidebar-color);
+  border-radius: 10px;
+  padding: 10px;
+  height: auto;
+}
+
+.dashboard-single-agent-row_two{
+  display: flex;
+  align-items: start;
+  gap: 10px;
+}
+
+.login-summary-title{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  border-bottom: 1px dotted black;
+  padding-bottom: 10px;
+}
