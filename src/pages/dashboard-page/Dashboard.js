@@ -17,6 +17,11 @@ import "./dashboard.css";
 import CallCenterIvr from "../call-center-pages/cal-center-ivr/CallCenterIvr";
 import CallCenterIvrActions from "../call-center-pages/call-center-ivr-actions/CallCenterIvrActions";
 import CallCenterWCFIvr from "../call-center-pages/call-center-wcf-ivrs/CallCenterWCFIvr";
+import CallCenterIvrDTMFMapping from "../call-center-pages/cal-center-ivr/CallCenterIvrActions";
+
+
+
+
 
 export default function Dashboard() {
   const [isDarkMode, setDarkMode] = useState(false);
@@ -110,8 +115,15 @@ export default function Dashboard() {
                   path="/agent-chat"
                   element={<PrivateRoute element={<CallCenterAgentChat />} />}
                 />
+              <Route
+                path="/ivr-dtmf-mappings"
+                element={<PrivateRoute element={<CallCenterIvrDTMFMapping />} />}
+              />
+
+
               </>
             )}
+
 
             {activeSystem === "crm" && (
               <>
