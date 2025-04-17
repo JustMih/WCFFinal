@@ -17,6 +17,7 @@ import "./dashboard.css";
 import CallCenterIvr from "../call-center-pages/cal-center-ivr/CallCenterIvr";
 import CallCenterIvrActions from "../call-center-pages/call-center-ivr-actions/CallCenterIvrActions";
 import CallCenterWCFIvr from "../call-center-pages/call-center-wcf-ivrs/CallCenterWCFIvr";
+import Message from "../call-center-pages/call-center-social-message/CallCenterSocialMessage";
 
 export default function Dashboard() {
   const [isDarkMode, setDarkMode] = useState(false);
@@ -109,6 +110,10 @@ export default function Dashboard() {
                 <Route
                   path="/agent-chat"
                   element={<PrivateRoute element={<CallCenterAgentChat />} />}
+                />
+                <Route
+                  path="/social-message"
+                  element={<PrivateRoute element={<Message />} />}
                 />
               </>
             )}
