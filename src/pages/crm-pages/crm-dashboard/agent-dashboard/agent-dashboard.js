@@ -10,12 +10,13 @@ import {
   Snackbar,
   TextField,
   Tooltip,
-  Typography
+  Typography,
 } from "@mui/material";
 import { FaEye, FaPlus } from "react-icons/fa";
 import { FiSettings } from "react-icons/fi";
 import ColumnSelector from "../../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../../config";
+import { MdOutlineSupportAgent } from "react-icons/md";
 import "./agent-dashboard.css";
 
 export default function AgentCRM() {
@@ -24,15 +25,15 @@ export default function AgentCRM() {
     lastName: "",
     phoneNumber: "",
     nidaNumber: "",
-    requester: "", // <== matches updated select
+    requester: "",
     institution: "",
     region: "",
     district: "",
-    channel: "", // <== matches updated select
-    category: "", // can be used elsewhere if needed
-    functionId: "", // Subject
+    channel: "",
+    category: "",
+    functionId: "",
     description: "",
-    status: "Open"
+    status: "Open",
   });
 
   const [formErrors, setFormErrors] = useState({});
@@ -44,14 +45,14 @@ export default function AgentCRM() {
       lastName: "Last Name",
       phoneNumber: "Phone Number",
       nidaNumber: "NIDA Number",
-      requester: "Requester", // ❌ NOT part of formData
+      requester: "Requester",
       institution: "Institution",
       region: "Region",
       district: "District",
-      channel: "Channel", // ❌ NOT part of formData
+      channel: "Channel",
       category: "Category",
       functionId: "Subject",
-      description: "Description"
+      description: "Description",
     };
 
     const errors = {};
@@ -65,29 +66,25 @@ export default function AgentCRM() {
     });
 
     if (missing.length > 0) {
-      setFormErrors(errors); // Show red borders and messages
-
-      // Open error modal
+      setFormErrors(errors);
       setModal({
         isOpen: true,
         type: "error",
-        message: `Please fill the required fields before submitting.`
+        message: `Please fill the required fields before submitting.`,
       });
-
-      // Don't close showModal — keep it open
       return;
     }
 
-    setFormErrors({}); // Clear errors
+    setFormErrors({});
 
     try {
       const response = await fetch(`${baseURL}/ticket/create-ticket`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("authToken")}`
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(formData),
       });
 
       const data = await response.json();
@@ -96,14 +93,14 @@ export default function AgentCRM() {
         setModal({
           isOpen: true,
           type: "success",
-          message: `Ticket created successfully: ${data.ticket.ticket_id}`
+          message: `Ticket created successfully: ${data.ticket.ticket_id}`,
         });
-        setShowModal(false); // Close form modal only on success
+        setShowModal(false);
       } else {
         setModal({
           isOpen: true,
           type: "error",
-          message: data.message || "Ticket creation failed."
+          message: data.message || "Ticket creation failed.",
         });
       }
     } catch (error) {
@@ -111,7 +108,7 @@ export default function AgentCRM() {
       setModal({
         isOpen: true,
         type: "error",
-        message: `Network error. Please try again later.`
+        message: `Network error. Please try again later.`,
       });
     }
   };
@@ -122,38 +119,11 @@ export default function AgentCRM() {
     setModal({ isOpen: false, type: "", message: "" });
   };
 
-  // const handleSubmit = async (e) => {
-  //   e.preventDefault();
-
-  //   try {
-  //     const response = await fetch(`${baseURL}/ticket/create-ticket`, {
-  //       method: 'POST',
-  //       headers: {
-  //         'Content-Type': 'application/json',
-  //         Authorization: `Bearer ${localStorage.getItem("authToken")}`
-  //       },
-  //       body: JSON.stringify(formData)
-  //     });
-
-  //     const data = await response.json();
-
-  //     if (response.ok) {
-  //       alert(`Ticket created successfully: ${data.ticket.ticket_id}`);
-  //       setShowModal(false);
-  //     } else {
-  //       alert(data.message || "Failed to create ticket.");
-  //     }
-  //   } catch (error) {
-  //     console.error("Error creating ticket:", error);
-  //     alert("An error occurred. Check network or server.");
-  //   }
-  // };
-
   const [ticketStats, setTicketStats] = useState({
     totalComplaints: 0,
     pendingRating: 0,
     ratedMajor: 0,
-    ratedMinor: 0
+    ratedMinor: 0,
   });
   const [customerTickets, setCustomerTickets] = useState([]);
   const [userId, setUserId] = useState("");
@@ -166,14 +136,14 @@ export default function AgentCRM() {
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
-    severity: "info"
+    severity: "info",
   });
-  const [activeColumns, setActiveColumns] = useState([]); // Initialized empty, updated by ColumnSelector
+  const [activeColumns, setActiveColumns] = useState([]);
   const [functionData, setFunctionData] = useState([]);
   const [selectedFunction, setSelectedFunction] = useState("");
   const [selectedSection, setSelectedSection] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(5);
+  const [itemsPerPage, setItemsPerPage] = useState(5); // Added setItemsPerPage
 
   // Fetch userId and tickets on mount
   useEffect(() => {
@@ -188,8 +158,8 @@ export default function AgentCRM() {
       try {
         const res = await fetch(`${baseURL}/section/functions-data`, {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("authToken")}`
-          }
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          },
         });
         const json = await res.json();
         setFunctionData(json.data || []);
@@ -206,8 +176,8 @@ export default function AgentCRM() {
       const response = await fetch(`${baseURL}/ticket/all-customer-tickets`, {
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json"
-        }
+          "Content-Type": "application/json",
+        },
       });
       const result = await response.json();
       if (response.ok && Array.isArray(result.tickets)) {
@@ -224,25 +194,22 @@ export default function AgentCRM() {
       totalComplaints: tickets.length,
       pendingRating: tickets.filter((t) => !t.complaintType).length,
       ratedMajor: tickets.filter((t) => t.complaintType === "Major").length,
-      ratedMinor: tickets.filter((t) => t.complaintType === "Minor").length
+      ratedMinor: tickets.filter((t) => t.complaintType === "Minor").length,
     });
   };
 
-  //  Form Input Change Handler on submit
   const handleChange = async (e) => {
     const { name, value } = e.target;
 
-    // Always update the form
     setFormData((prev) => ({ ...prev, [name]: value }));
 
-    // Perform custom actions based on input name of function data
     if (name === "functionId") {
       try {
         const token = localStorage.getItem("authToken");
         const response = await fetch(
           `${baseURL}/section/functions-data/${value}`,
           {
-            headers: { Authorization: `Bearer ${token}` }
+            headers: { Authorization: `Bearer ${token}` },
           }
         );
         if (response.ok) {
@@ -258,56 +225,6 @@ export default function AgentCRM() {
       }
     }
   };
-
-  //  Submit Handler for ticket submission
-  // const handleSubmit = async (e) => {
-  //   e.preventDefault();
-  //   try {
-  //     const token = localStorage.getItem("authToken");
-  //     const response = await fetch(`${baseURL}/tickets`, {
-  //       method: "POST",
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //         Authorization: `Bearer ${token}`
-  //       },
-  //       body: JSON.stringify(formData)
-  //     });
-  //     const result = await response.json();
-  //     if (response.ok) {
-  //       setSnackbar({
-  //         open: true,
-  //         message: "Ticket created successfully!",
-  //         severity: "success"
-  //       });
-  //       setFormData({
-  //         firstName: "",
-  //         lastName: "",
-  //         phoneNumber: "",
-  //         nidaNumber: "",
-  //         region: "",
-  //         district: "",
-  //         title: "",
-  //         description: "",
-  //         complaintType: "",
-  //         status: "Open",
-  //         functionId: ""
-  //       });
-  //       fetchCustomerTickets();
-  //     } else {
-  //       setSnackbar({
-  //         open: true,
-  //         message: result.message || "Failed to create ticket",
-  //         severity: "error"
-  //       });
-  //     }
-  //   } catch (error) {
-  //     setSnackbar({
-  //       open: true,
-  //       message: "Error creating ticket: " + error.message,
-  //       severity: "error"
-  //     });
-  //   }
-  // };
 
   const filteredTickets = customerTickets.filter((t) => {
     const s = search.trim().toLowerCase();
@@ -384,7 +301,7 @@ export default function AgentCRM() {
             year: "numeric",
             hour: "2-digit",
             minute: "2-digit",
-            hour12: true
+            hour12: true,
           })}
         </td>
       )}
@@ -400,51 +317,86 @@ export default function AgentCRM() {
     </tr>
   );
 
-  const [tickets, setTicket] = useState([]);
-  const [ticketsPerPage] = useState(5);
-
-  const indexOfLastTicket = currentPage * ticketsPerPage;
-  const indexOfFirstTicket = indexOfLastTicket - ticketsPerPage;
-  const currentUsers = filteredTickets.slice(
-    indexOfFirstTicket,
-    indexOfLastTicket
-  );
-
   return (
     <div className="user-table-container">
+      <h3 className="admin-title">CRM Agent Dashboard</h3>
+      <div className="admin-summary">
+        <div className="admin-card">
+          <div className="admin-card-icon">
+            <div className="admin-data">
+              <MdOutlineSupportAgent />
+              <p className="admin-value">10</p>
+            </div>
+            <h4>Total Tickets</h4>
+          </div>
+        </div>
+        <div className="admin-card">
+          <div className="admin-card-icon">
+            <div className="admin-data">
+              <MdOutlineSupportAgent />
+              <p className="admin-value">10</p>
+            </div>
+            <h4>Opened Tickets</h4>
+          </div>
+        </div>
+        <div className="admin-card">
+          <div className="admin-card-icon">
+            <div className="admin-data">
+              <MdOutlineSupportAgent />
+              <p className="admin-value">10</p>
+            </div>
+            <h4>On progress Tickets</h4>
+          </div>
+        </div>
+        <div className="admin-card">
+          <div className="admin-card-icon">
+            <div className="admin-data">
+              <MdOutlineSupportAgent />
+              <p className="admin-value">10</p>
+            </div>
+            <h4>Closed Tickets</h4>
+          </div>
+        </div>
+      </div>
+
       {/* Ticket List */}
       <div className="ticket-table-container">
         <div
           style={{
             display: "flex",
             justifyContent: "space-between",
-            alignItems: "center"
+            alignItems: "center",
           }}
         >
-          <h2>Tickets</h2>
+          <h3>All Customer Tickets</h3>
           <Tooltip title="Columns Settings and Export" arrow>
             <IconButton onClick={() => setColumnModalOpen(true)}>
               <FiSettings size={20} />
             </IconButton>
           </Tooltip>
         </div>
-
         <div
-          className="controls"
-          // style={{ display: "flex", justifyContent: "space-between", alignItems: "center"
-          //  }}
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            alignItems: "center",
+            gap: "16px",
+            justifyContent: "space-between",
+            marginBottom: "20px",
+          }}
         >
-          <div>
-            <label style={{ marginRight: "8px" }}>
+          {/* Show per page */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <label>
               <strong>Show:</strong>
             </label>
             <select
               className="filter-select"
-              value={itemsPerPage}
+              value={itemsPerPage === filteredTickets.length ? "All" : itemsPerPage}
               onChange={(e) => {
                 const value = e.target.value;
-                itemsPerPage(
-                  value === "All" ? tickets.length : parseInt(value)
+                setItemsPerPage(
+                  value === "All" ? filteredTickets.length : parseInt(value)
                 );
                 setCurrentPage(1);
               }}
@@ -457,6 +409,8 @@ export default function AgentCRM() {
               <option value="All">All</option>
             </select>
           </div>
+
+          {/* Search and Filter */}
           <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
             <input
               className="search-input"
@@ -475,20 +429,13 @@ export default function AgentCRM() {
               <option value="Closed">Closed</option>
             </select>
           </div>
-        </div>
-        <div className="controls">
-          <input
-            type="text"
-            placeholder="Search by name..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="search-input"
-          />
+
+          {/* New Ticket Button */}
           <button
             className="add-user-button"
             onClick={() => setShowModal(true)}
           >
-            <FaPlus /> New Ticket
+            <FaPlus style={{ marginRight: "6px" }} /> New Ticket
           </button>
         </div>
 
@@ -512,21 +459,17 @@ export default function AgentCRM() {
 
         {/* Pagination */}
         <div className="pagination">
-          {Array.from(
-            { length: Math.ceil(filteredTickets.length / ticketsPerPage) },
-            (_, i) => (
-              <button
-                key={i + 1}
-                onClick={() => setCurrentPage(i + 1)}
-                className={currentPage === i + 1 ? "active" : ""}
-              >
-                {i + 1}
-              </button>
-            )
-          )}
+          {Array.from({ length: totalPages }, (_, i) => (
+            <button
+              key={i + 1}
+              onClick={() => setCurrentPage(i + 1)}
+              className={currentPage === i + 1 ? "active" : ""}
+            >
+              {i + 1}
+            </button>
+          ))}
         </div>
       </div>
-      {/*End of pagination  */}
 
       {/* Ticket Creation Modal */}
       <Modal open={showModal} onClose={() => setShowModal(false)}>
@@ -542,7 +485,7 @@ export default function AgentCRM() {
             bgcolor: "background.paper",
             boxShadow: 24,
             borderRadius: 3,
-            p: 4
+            p: 4,
           }}
         >
           <button
@@ -554,7 +497,7 @@ export default function AgentCRM() {
               background: "transparent",
               border: "none",
               fontSize: "1.25rem",
-              cursor: "pointer"
+              cursor: "pointer",
             }}
             aria-label="Close"
           >
@@ -579,7 +522,7 @@ export default function AgentCRM() {
                     padding: "4px 8px",
                     border: formErrors.firstName
                       ? "1px solid red"
-                      : "1px solid #ccc"
+                      : "1px solid #ccc",
                   }}
                 />
                 {formErrors.firstName && (
@@ -602,7 +545,7 @@ export default function AgentCRM() {
                     padding: "4px 8px",
                     border: formErrors.lastName
                       ? "1px solid red"
-                      : "1px solid #ccc"
+                      : "1px solid #ccc",
                   }}
                 />
                 {formErrors.lastName && (
@@ -629,7 +572,7 @@ export default function AgentCRM() {
                     padding: "4px 8px",
                     border: formErrors.phoneNumber
                       ? "1px solid red"
-                      : "1px solid #ccc"
+                      : "1px solid #ccc",
                   }}
                 />
                 {formErrors.phoneNumber && (
@@ -654,7 +597,7 @@ export default function AgentCRM() {
                     padding: "4px 8px",
                     border: formErrors.nidaNumber
                       ? "1px solid red"
-                      : "1px solid #ccc"
+                      : "1px solid #ccc",
                   }}
                 />
                 {formErrors.nidaNumber && (
@@ -680,16 +623,16 @@ export default function AgentCRM() {
                     width: "100%",
                     border: formErrors.requester
                       ? "1px solid red"
-                      : "1px solid #ccc"
+                      : "1px solid #ccc",
                   }}
                 >
                   <option value="">Select..</option>
                   <option value="Employer">Employer</option>
                   <option value="Employee">Employee</option>
                 </select>
-                {formErrors.category && (
+                {formErrors.requester && (
                   <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.category}
+                    {formErrors.requester}
                   </span>
                 )}
               </div>
@@ -707,7 +650,7 @@ export default function AgentCRM() {
                     padding: "4px 8px",
                     border: formErrors.institution
                       ? "1px solid red"
-                      : "1px solid #ccc"
+                      : "1px solid #ccc",
                   }}
                 />
                 {formErrors.institution && (
@@ -731,9 +674,7 @@ export default function AgentCRM() {
                     height: "32px",
                     fontSize: "0.875rem",
                     padding: "4px 8px",
-                    border: formErrors.region
-                      ? "1px solid red"
-                      : "1px solid #ccc"
+                    border: formErrors.region ? "1px solid red" : "1px solid #ccc",
                   }}
                 />
                 {formErrors.region && (
@@ -756,7 +697,7 @@ export default function AgentCRM() {
                     padding: "4px 8px",
                     border: formErrors.district
                       ? "1px solid red"
-                      : "1px solid #ccc"
+                      : "1px solid #ccc",
                   }}
                 />
                 {formErrors.district && (
@@ -782,7 +723,7 @@ export default function AgentCRM() {
                     width: "100%",
                     border: formErrors.category
                       ? "1px solid red"
-                      : "1px solid #ccc"
+                      : "1px solid #ccc",
                   }}
                 >
                   <option value="">Select Category</option>
@@ -802,7 +743,7 @@ export default function AgentCRM() {
                 <label style={{ fontSize: "0.875rem" }}>Channel:</label>
                 <select
                   name="channel"
-                  value={formData.requester}
+                  value={formData.channel} // Fixed: Use formData.channel
                   onChange={handleChange}
                   style={{
                     height: "32px",
@@ -811,16 +752,16 @@ export default function AgentCRM() {
                     width: "100%",
                     border: formErrors.channel
                       ? "1px solid red"
-                      : "1px solid #ccc"
+                      : "1px solid #ccc",
                   }}
                 >
                   <option value="">Select Channel</option>
                   <option value="Call">Call</option>
                   <option value="Email">Email</option>
                 </select>
-                {formErrors.functionId && (
+                {formErrors.channel && (
                   <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.functionId}
+                    {formErrors.channel}
                   </span>
                 )}
               </div>
@@ -841,7 +782,7 @@ export default function AgentCRM() {
                     width: "100%",
                     border: formErrors.functionId
                       ? "1px solid red"
-                      : "1px solid #ccc"
+                      : "1px solid #ccc",
                   }}
                 >
                   <option value="">Select Subject</option>
@@ -867,7 +808,7 @@ export default function AgentCRM() {
                     height: "32px",
                     fontSize: "0.875rem",
                     padding: "4px 8px",
-                    backgroundColor: "#f5f5f5"
+                    backgroundColor: "#f5f5f5",
                   }}
                 />
               </div>
@@ -881,7 +822,7 @@ export default function AgentCRM() {
                     height: "32px",
                     fontSize: "0.875rem",
                     padding: "4px 8px",
-                    backgroundColor: "#f5f5f5"
+                    backgroundColor: "#f5f5f5",
                   }}
                 />
               </div>
@@ -902,7 +843,7 @@ export default function AgentCRM() {
                   resize: "vertical",
                   border: formErrors.description
                     ? "1px solid red"
-                    : "1px solid #ccc"
+                    : "1px solid #ccc",
                 }}
               />
               {formErrors.description && (
@@ -918,7 +859,7 @@ export default function AgentCRM() {
                 display: "flex",
                 justifyContent: "flex-end",
                 gap: "10px",
-                marginTop: "1.5rem"
+                marginTop: "1.5rem",
               }}
             >
               <button
@@ -949,7 +890,7 @@ export default function AgentCRM() {
             bgcolor: "background.paper",
             boxShadow: 24,
             borderRadius: 2,
-            p: 3
+            p: 3,
           }}
         >
           {selectedTicket && (
@@ -966,7 +907,7 @@ export default function AgentCRM() {
                   <Typography>
                     <strong>Name:</strong>{" "}
                     {`${selectedTicket.first_name || "N/A"} ${
-                      selectedTicket.middle_name || " "
+                      selectedTicket.middle_name || ""
                     } ${selectedTicket.last_name || "N/A"}`}
                   </Typography>
                 </Grid>
@@ -1028,12 +969,6 @@ export default function AgentCRM() {
                     <strong>Channel:</strong> {selectedTicket.channel || "N/A"}
                   </Typography>
                 </Grid>
-                {/* <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Complaint Type:</strong>{" "}
-                    {selectedTicket.complaintType || "Unrated"}
-                  </Typography>
-                </Grid> */}
                 <Grid item xs={12} sm={6}>
                   <Typography>
                     <strong>Rated:</strong>{" "}
@@ -1044,7 +979,7 @@ export default function AgentCRM() {
                             ? "red"
                             : selectedTicket.complaint_type === "Minor"
                             ? "orange"
-                            : "inherit"
+                            : "inherit",
                       }}
                     >
                       {selectedTicket.complaint_type || "Unrated"}
@@ -1061,7 +996,7 @@ export default function AgentCRM() {
                             ? "green"
                             : selectedTicket.status === "Closed"
                             ? "gray"
-                            : "blue"
+                            : "blue",
                       }}
                     >
                       {selectedTicket.status || "N/A"}
@@ -1098,7 +1033,7 @@ export default function AgentCRM() {
                             year: "numeric",
                             hour: "numeric",
                             minute: "2-digit",
-                            hour12: true
+                            hour12: true,
                           }
                         )
                       : "N/A"}
@@ -1130,7 +1065,7 @@ export default function AgentCRM() {
         open={columnModalOpen}
         onClose={() => setColumnModalOpen(false)}
         data={customerTickets}
-        onColumnsChange={setActiveColumns} // Receive selected columns from ColumnSelector
+        onColumnsChange={setActiveColumns}
       />
 
       {/* Snackbar */}
