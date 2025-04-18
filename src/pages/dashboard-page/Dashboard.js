@@ -30,9 +30,18 @@ export default function Dashboard() {
     if (storedSystem) {
       setActiveSystem(storedSystem);
     } else {
-      if (role === "admin" || role === "super-admin" || role === "agent" || role === "supervisor") {
+      if (
+        role === "admin" ||
+        role === "super-admin" ||
+        role === "agent" ||
+        role === "supervisor"
+      ) {
         setActiveSystem("call-center");
-      } else if (role === "attendee") {
+      } else if (
+        role === "attendee" ||
+        role === "agent" ||
+        role === "coordinator"
+      ) {
         setActiveSystem("crm");
       }
     }
@@ -63,7 +72,10 @@ export default function Dashboard() {
         {activeSystem === "call-center" && (
           <CallCenterSidebar isSidebarOpen={isSidebarOpen} role={role} />
         )}
-        {activeSystem === "crm" && <CRMSidebar isSidebarOpen={isSidebarOpen} />}
+        {/* where side bar seen according to role */}
+        {activeSystem === "crm" && (
+          <CRMSidebar isSidebarOpen={isSidebarOpen} role={role} />
+        )}
         <div className="main-content">
           <Routes>
             {activeSystem === "call-center" && (

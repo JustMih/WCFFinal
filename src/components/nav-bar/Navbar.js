@@ -71,6 +71,7 @@ export default function Navbar({
     role === "super-admin" ||
     role === "agent" ||
     role === "attendee" ||
+    role === "coordinator" ||
     role === "supervisor";
 
   const handleSystemSwitch = (system) => {

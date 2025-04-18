@@ -182,6 +182,60 @@ export default function CallCenterSidebar({ isSidebarOpen, role }) {
               </NavLink>
             </>
           )}
+          {role === "coordinator" && (
+            <>
+              <NavLink
+                to="/dashboard"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <RxDashboard className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">Supervisor Dashboard</span>
+                  )}
+                </div>
+              </NavLink>
+              <NavLink
+                to="/agents"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <MdOutlineSupportAgent className="menu-icon" />
+                  {isSidebarOpen && <span className="menu-text">Agents</span>}
+                </div>
+              </NavLink>
+              <NavLink
+                to="/agents-logs"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <TbLogs className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">Agents Logs</span>
+                  )}
+                </div>
+              </NavLink>
+              <NavLink
+                to="/supervisor-chat"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <BsChatRightTextFill className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">Agents Chat</span>
+                  )}
+                </div>
+              </NavLink>
+            </>
+          )}
         </li>
       </ul>
     </aside>

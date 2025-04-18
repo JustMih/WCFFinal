@@ -1,10 +1,15 @@
 import React from 'react'
+import AgentsDashboard from '../crm-dashboard/agent-dashboard/agent-dashboard';
 
 export default function CRMDashboard() {
-  return (
-      <div>
-        <h1>CRM Dashboard</h1>
-        <p>Welcome to the CRM dashboard</p>
-    </div>
-  )
+  const role = localStorage.getItem("role");
+   return (
+     <>
+       {/* {(role === "super-admin" || role === "admin") && (
+         <AdminAndSuperAdminDashboard />
+       )} */}
+       {role === "agent" && <AgentsDashboard />}
+       {/* {role === "supervisor" && (<SupervisorDashboard />)} */}
+     </>
+   );
 }
