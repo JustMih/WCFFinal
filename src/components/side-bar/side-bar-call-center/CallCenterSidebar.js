@@ -96,6 +96,17 @@ export default function CallCenterSidebar({ isSidebarOpen, role }) {
                   )}
                 </div>
               </NavLink>
+              <NavLink
+              to="/ivr-dtmf-mappings"
+              className={({ isActive }) => (isActive ? "active" : "")}
+            >
+               <div className="menu-item">
+                  <TbActivityHeartbeat className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">IVR's Mapping</span>
+                  )}
+                </div>
+            </NavLink>
             </>
           )}
           {role === "agent" && (
