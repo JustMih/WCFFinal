@@ -96,7 +96,32 @@ export default function CallCenterSidebar({ isSidebarOpen, role }) {
                   )}
                 </div>
               </NavLink>
+              <NavLink
+              to="/ivr-dtmf-mappings"
+              className={({ isActive }) => (isActive ? "active" : "")}
+            >
+               <div className="menu-item">
+                  <TbActivityHeartbeat className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">IVR's Mapping</span>
+                  )}
+                </div>
+            </NavLink>
+            <NavLink
+                to="/recorded-sounds"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <MdOutlineAudiotrack className="menu-icon" />
+                  {isSidebarOpen && <span className="menu-text">Recorded Sounds</span>}
+                </div>
+              </NavLink>
+
             </>
+
+            
           )}
           {role === "agent" && (
             <>
@@ -177,6 +202,19 @@ export default function CallCenterSidebar({ isSidebarOpen, role }) {
                   <BsChatRightTextFill className="menu-icon" />
                   {isSidebarOpen && (
                     <span className="menu-text">Agents Chat</span>
+                  )}
+                </div>
+              </NavLink>
+              <NavLink
+                to="/social-message"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <BsChatRightTextFill className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">Social Notifications</span>
                   )}
                 </div>
               </NavLink>
