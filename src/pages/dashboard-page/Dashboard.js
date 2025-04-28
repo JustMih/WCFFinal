@@ -5,6 +5,13 @@ import CallCenterSidebar from "../../components/side-bar/side-bar-call-center/Ca
 import CRMSidebar from "../../components/side-bar/side-bar-crm/CRMSidebar";
 import CallCenterDashboard from "../call-center-pages/call-center-dashboard/callCenterDashboard";
 import CRMDashboard from "../crm-pages/crm-dashboard/CRMDashboard";
+import CRMAssignedTickets from "../crm-pages/crm-tickets/assigned";
+import CRMOpenedTickets from "../crm-pages/crm-tickets/ticket";
+import CRMCarriedForawardTickets from "../crm-pages/crm-tickets/carried-forward";
+import CRMOverdueTickets from "../crm-pages/crm-tickets/overdue";
+import CRMClosedTickets from "../crm-pages/crm-tickets/closed";
+import CRMCoordinatorTickets from "../crm-pages/crm-dashboard/crm-coordinator-dashboard/crm-coordinator-dashboard";
+import CRMTotalTickets from "../crm-pages/crm-tickets/total";
 import CallCenterUsers from "../call-center-pages/call-center-users/CallCenterUsers";
 import CallCenterAgents from "../call-center-pages/call-center-agents/CallCenterAgents";
 import CallCenterExtensions from "../call-center-pages/call-center-extensions/CallCenterExtensions";
@@ -32,7 +39,7 @@ export default function Dashboard() {
     } else {
       if (role === "admin" || role === "super-admin" || role === "agent" || role === "supervisor") {
         setActiveSystem("call-center");
-      } else if (role === "attendee") {
+      } else if (role === "attendee" || role === "coordinator") {
         setActiveSystem("crm");
       }
     }
@@ -118,6 +125,38 @@ export default function Dashboard() {
                 <Route
                   path="/dashboard"
                   element={<PrivateRoute element={<CRMDashboard />} />}
+                />
+                <Route
+                  path="/ticket/opened"
+                  element={<PrivateRoute element={<CRMAssignedTickets />} />}
+                />
+                <Route
+                  path="/ticket/assigned"
+                  element={<PrivateRoute element={<CRMOpenedTickets />} />}
+                />
+                <Route
+                  path="/ticket/inprogress"
+                  element={<PrivateRoute element={<CRMOpenedTickets />} />}
+                />
+                <Route
+                  path="/ticket/carried-forward"
+                  element={<PrivateRoute element={<CRMCarriedForawardTickets />} />}
+                />
+                <Route
+                  path="/ticket/closed"
+                  element={<PrivateRoute element={<CRMClosedTickets />} />}
+                />
+                <Route
+                  path="/ticket/overdue"
+                  element={<PrivateRoute element={<CRMOverdueTickets />} />}
+                />
+                <Route
+                  path="/ticket/total"
+                  element={<PrivateRoute element={<CRMTotalTickets />} />}
+                />
+                <Route
+                  path="/coordinator"
+                  element={<PrivateRoute element={<CRMCoordinatorTickets />} />}
                 />
               </>
             )}
