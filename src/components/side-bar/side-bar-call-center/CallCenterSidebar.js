@@ -107,7 +107,21 @@ export default function CallCenterSidebar({ isSidebarOpen, role }) {
                   )}
                 </div>
             </NavLink>
+            <NavLink
+                to="/recorded-sounds"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <MdOutlineAudiotrack className="menu-icon" />
+                  {isSidebarOpen && <span className="menu-text">Recorded Sounds</span>}
+                </div>
+              </NavLink>
+
             </>
+
+            
           )}
           {role === "agent" && (
             <>

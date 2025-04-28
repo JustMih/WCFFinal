@@ -18,6 +18,9 @@ import CallCenterIvr from "../call-center-pages/cal-center-ivr/CallCenterIvr";
 import CallCenterIvrActions from "../call-center-pages/call-center-ivr-actions/CallCenterIvrActions";
 import CallCenterWCFIvr from "../call-center-pages/call-center-wcf-ivrs/CallCenterWCFIvr";
 import CallCenterIvrDTMFMapping from "../call-center-pages/cal-center-ivr/CallCenterIvrActions";
+import RecordedSounds from "../call-center-pages/cal-center-ivr/RecordedSounds";
+ 
+
 
 
 
@@ -120,6 +123,7 @@ export default function Dashboard() {
                 path="/ivr-dtmf-mappings"
                 element={<PrivateRoute element={<CallCenterIvrDTMFMapping />} />}
               />
+              <Route path="/recorded-sounds" element={<RecordedSounds />} />
 
 
                 <Route
