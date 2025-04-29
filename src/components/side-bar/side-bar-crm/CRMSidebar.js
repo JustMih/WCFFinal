@@ -75,7 +75,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
     <aside className={`crm-sidebar ${isSidebarOpen ? "open" : "closed"}`}>
       {isSidebarOpen && <img src={logo} alt="Avatar" className="crm-sidebar-logo" />}
       <ul>
-        {role === "agent" && (
+        {role === "agent"  && (
           <>
             <li>
               <NavLink
@@ -88,7 +88,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                 </div>
               </NavLink>
 
-              <NavLink
+              {/* <NavLink
                 to="/message"
                 className={({ isActive }) => (isActive ? "menu-item active-link" : "menu-item")}
               >
@@ -96,7 +96,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                   <MdEmail className="menu-icon" />
                   {isSidebarOpen && <span className="menu-text">Message</span>}
                 </div>
-              </NavLink>
+              </NavLink> */}
 
               <div
                 className={`menu-item ${window.location.pathname.startsWith("/ticket") ? "active-link" : ""}`}
@@ -143,7 +143,74 @@ export default function CRMSidebar({ isSidebarOpen }) {
             </li>
           </>
         )}
+   {role==="attendee" && (
+          <>
+            <li>
+              <NavLink
+                to="/dashboard"
+                className={({ isActive }) => (isActive ? "menu-item active-link" : "menu-item")}
+              >
+                <div className="menu-item">
+                  <RxDashboard className="menu-icon" />
+                  {isSidebarOpen && <span className="menu-text">Attendee Dashboard</span>}
+                </div>
+              </NavLink>
 
+              {/* <NavLink
+                to="/message"
+                className={({ isActive }) => (isActive ? "menu-item active-link" : "menu-item")}
+              >
+                <div className="menu-item">
+                  <MdEmail className="menu-icon" />
+                  {isSidebarOpen && <span className="menu-text">Message</span>}
+                </div>
+              </NavLink> */}
+
+              <div
+                className={`menu-item ${window.location.pathname.startsWith("/ticket") ? "active-link" : ""}`}
+                onClick={toggleAgentsDropdown}
+                style={{ cursor: "pointer" }}
+              >
+                <MdOutlineSupportAgent className="menu-icon" />
+                {isSidebarOpen && (
+                  <span className="menu-text">
+                    Ticket {isAgentsOpen ? <FaChevronUp /> : <FaChevronDown />}
+                  </span>
+                )}
+              </div>
+
+              {isSidebarOpen && isAgentsOpen && (
+                <div className="dropdown-menu submenu">
+                  {[ 
+                    { label: "Opened Tickets", to: "/ticket/opened", value: ticketStats.open },
+                    { label: "Assigned Tickets", to: "/ticket/assigned", value: ticketStats.assigned },
+                    { label: "In Progress", to: "/ticket/in-progress", value: ticketStats.inProgress },
+                    { label: "Carried Forward", to: "/ticket/carried-forward", value: ticketStats.carriedForward },
+                    { label: "Closed Tickets", to: "/ticket/closed", value: ticketStats.closed },
+                    { label: "Overdue", to: "/ticket/overdue", value: ticketStats.overdue },
+                    { label: "Total Tickets", to: "/ticket/all", value: ticketStats.total },
+                  ].map((item, idx) => (
+                    <NavLink
+                      key={idx}
+                      to={item.to}
+                      className={({ isActive }) => (isActive ? "dropdown-item active-link" : "dropdown-item")}
+                    >
+                      <div className="metric-row">
+                        <span className="metric-label">{item.label}</span>
+                        <span className="metric-value">{item.value}</span>
+                      </div>
+                    </NavLink>
+                  ))}
+                  {fetchError && (
+                    <div className="section error-message">
+                      <span style={{ color: "red", padding: "0 1rem" }}>{fetchError}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </li>
+          </>
+        )}
 {role === "coordinator" && (
   <>
     {/* <li>

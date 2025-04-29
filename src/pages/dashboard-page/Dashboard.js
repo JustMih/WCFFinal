@@ -7,11 +7,12 @@ import CallCenterDashboard from "../call-center-pages/call-center-dashboard/call
 import CRMDashboard from "../crm-pages/crm-dashboard/CRMDashboard";
 import CRMAssignedTickets from "../crm-pages/crm-tickets/assigned";
 import CRMOpenedTickets from "../crm-pages/crm-tickets/ticket";
+import CRMInProgressTickets from "../crm-pages/crm-tickets/inprogress";
 import CRMCarriedForawardTickets from "../crm-pages/crm-tickets/carried-forward";
 import CRMOverdueTickets from "../crm-pages/crm-tickets/overdue";
 import CRMClosedTickets from "../crm-pages/crm-tickets/closed";
-import CRMCoordinatorTickets from "../crm-pages/crm-dashboard/crm-coordinator-dashboard/crm-coordinator-dashboard";
 import CRMTotalTickets from "../crm-pages/crm-tickets/total";
+import CRMCoordinatorTickets from "../crm-pages/crm-dashboard/crm-coordinator-dashboard/crm-coordinator-dashboard";
 import CallCenterUsers from "../call-center-pages/call-center-users/CallCenterUsers";
 import CallCenterAgents from "../call-center-pages/call-center-agents/CallCenterAgents";
 import CallCenterExtensions from "../call-center-pages/call-center-extensions/CallCenterExtensions";
@@ -149,15 +150,15 @@ export default function Dashboard() {
                 />
                 <Route
                   path="/ticket/opened"
-                  element={<PrivateRoute element={<CRMAssignedTickets />} />}
+                  element={<PrivateRoute element={<CRMOpenedTickets />} />}
                 />
                 <Route
                   path="/ticket/assigned"
-                  element={<PrivateRoute element={<CRMOpenedTickets />} />}
+                  element={<PrivateRoute element={<CRMAssignedTickets />} />}
                 />
                 <Route
-                  path="/ticket/inprogress"
-                  element={<PrivateRoute element={<CRMOpenedTickets />} />}
+                  path="/ticket/in-progress"
+                  element={<PrivateRoute element={<CRMInProgressTickets />} />}
                 />
                 <Route
                   path="/ticket/carried-forward"
@@ -172,7 +173,7 @@ export default function Dashboard() {
                   element={<PrivateRoute element={<CRMOverdueTickets />} />}
                 />
                 <Route
-                  path="/ticket/total"
+                  path="/ticket/all"
                   element={<PrivateRoute element={<CRMTotalTickets />} />}
                 />
                 <Route

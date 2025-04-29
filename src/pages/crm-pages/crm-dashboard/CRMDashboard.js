@@ -13,7 +13,7 @@ export default function CRMDashboard() {
      <>
        {(role === "agent") && (<AgentDashboard /> )}
        {role === "coordinator" && <CoordinatorDashboard />}
-       {role === "attendee" && <AttendeeDashboard />}
+       {role === "attendee" && <AgentDashboard />}
        {/* {role === "supervisor" && (<SupervisorDashboard />)} */}
      </>
    );
