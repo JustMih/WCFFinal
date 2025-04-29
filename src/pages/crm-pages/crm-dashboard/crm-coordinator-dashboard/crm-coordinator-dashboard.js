@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from "react";
+
+// React Icons
 import { FaEye, FaRegCheckCircle } from "react-icons/fa";
 import { FiSettings } from "react-icons/fi";
 import { HiOutlineUserAdd } from "react-icons/hi";
-import { MdOutlineSupportAgent } from "react-icons/md";
+import { MdSwapHoriz, MdOutlineSupportAgent, MdAutoAwesomeMotion, MdDisabledVisible, MdImportExport } from "react-icons/md";
 import { TbArrowsExchange } from "react-icons/tb";
 import { CiImport } from "react-icons/ci";
+
+// MUI Components
 import {
   Alert,
   Box,
@@ -14,12 +18,19 @@ import {
   Modal,
   Snackbar,
   Tooltip,
-  Typography
+  Typography,
 } from "@mui/material";
+
+// Custom Components
 import Card from "../../../../components/card/card";
 import ColumnSelector from "../../../../components/colums-select/ColumnSelector";
+
+// Config
 import { baseURL } from "../../../../config";
+
+// Styles
 import "./crm-coordinator-dashboard.css";
+
 export default function CoordinatorDashboard() {
     const [tickets, setTickets] = useState([]);
     const [userId, setUserId] = useState("");
@@ -272,37 +283,36 @@ export default function CoordinatorDashboard() {
       <div className="coordinator-dashboard-container">
         <h2 className="title">Coordinator Dashboard</h2>
   
-        {/* Cards */}
-        <div className="dashboard">
-          <div className="cards-container">
-            <Card
-              title="New Tickets"
-              data={newTickets}
-              color="#ceedea"
-              icon={<MdOutlineSupportAgent fontSize={35} />}
-            />
-            <Card
-              title="Channeled Tickets"
-              data={totalTickets}
-              color="#bce8be"
-              icon={<MdOutlineSupportAgent fontSize={35} />}
-            />
-          </div>
-          <div className="cards-container">
-            <Card
-              title="Converted Tickets"
-              data={convertedTickets}
-              color="#b9c9ff"
-              icon={<TbArrowsExchange fontSize={35} />}
-            />
-            <Card
-              title="Ticket Status"
-              data={ticketStatus}
-              color="#ffc4dd"
-              icon={<CiImport fontSize={35} />}
-            />
-          </div>
-        </div>
+        {/* Cards */}<div className="crm-dashboard">
+  <div className="crm-cards-container">
+    <Card
+      title="New Tickets"
+      data={newTickets}
+      color="#ceedea"
+      icon={<MdOutlineSupportAgent fontSize={35} />}
+    />
+    <Card
+      title="Channeled Tickets"
+      data={totalTickets}
+      color="#bce8be"
+      icon={<MdOutlineSupportAgent fontSize={35} />}
+    />
+  </div>
+  <div className="crm-cards-container">
+    <Card
+      title="Converted Tickets"
+      data={convertedTickets}
+      color="#b9c9ff"
+      icon={<MdSwapHoriz fontSize={35} />}
+    />
+    <Card
+      title="Ticket Status"
+      data={ticketStatus}
+      color="#ffc4dd"
+      icon={<MdImportExport fontSize={35} />}
+    />
+  </div>
+</div>
   
         {/* Table */}
         <div style={{ overflowX: "auto", width: "100%" }}>
