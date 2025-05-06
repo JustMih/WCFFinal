@@ -242,7 +242,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
       >
         <div className="menu-item">
           <MdOutlineSupportAgent className="menu-icon" />
-          {isSidebarOpen && <span className="menu-text">Coordinator</span>}
+          {isSidebarOpen && <span className="menu-text">Coordinator Dashboard</span>}
         </div>
       </NavLink>
     </li>
