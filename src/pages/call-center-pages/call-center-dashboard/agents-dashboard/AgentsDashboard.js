@@ -132,10 +132,10 @@ export default function AgentsDashboard() {
     ringAudio.volume = 0.7;
     remoteAudio.autoplay = true;
 
-    navigator.mediaDevices
-      .getUserMedia({ audio: true })
-      .then(() => console.log("🎤 Microphone access granted"))
-      .catch((error) => console.error("❌ Microphone access denied:", error));
+    // navigator.mediaDevices
+    //   .getUserMedia({ audio: true })
+    //   .then(() => console.log("🎤 Microphone access granted"))
+    //   .catch((error) => console.error("❌ Microphone access denied:", error));
 
     const ua = new UserAgent(sipConfig);
     const registerer = new Registerer(ua);
