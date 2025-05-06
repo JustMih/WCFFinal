@@ -3,9 +3,9 @@ const express = require('express');
 const http = require('http');
 const socketIo = require('socket.io');
 
-const ARI_URL = 'http://10.52.0.19:8088';
-const ARI_USER = 'admin';
-const ARI_PASS = '@Ttcl123';
+// const ARI_URL = 'http://10.52.0.19:8088';
+// const ARI_USER = 'admin';
+// const ARI_PASS = '@Ttcl123';
 
 const app = express();
 const server = http.createServer(app);
