@@ -339,7 +339,7 @@ const AgentCRM = () => {
         setModal({
           isOpen: true,
           type: "success",
-          message: `Ticket created successfully: ${data.ticket.ticket_id}`,
+          message: `Ticket created successfully`,
         });
         setShowModal(false);
         setFormData({
