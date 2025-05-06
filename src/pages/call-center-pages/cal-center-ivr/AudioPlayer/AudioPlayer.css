@@ -1,0 +1,28 @@
+.audio-player-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .play-button {
+    background: #4a6fa5;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+  }
+  
+  .play-button:hover {
+    background: #3a5a8f;
+  }
+  
+  .audio-duration {
+    font-size: 0.8rem;
+    color: #666;
+  }

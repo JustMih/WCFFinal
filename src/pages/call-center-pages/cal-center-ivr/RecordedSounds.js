@@ -1,20 +1,44 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
- 
-//import { baseURL } from "../../../config";
+import { baseURL } from "../../../config";
+import AudioPlayer from "./AudioPlayer/AudioPlayer";
 export default function RecordedSounds() {
   const [voiceNotes, setVoiceNotes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
- useEffect(() => {
-  axios.get("http://10.52.0.19:5070/api/voice-notes")
-    .then(response => {
-      console.log("Fetched voice notes:", response.data);  // Add this
-      setVoiceNotes(response.data.voiceNotes || []);
-    })
-    .catch(error => {
-      console.error("Error fetching voice notes:", error);
-    });
-}, []);
+  useEffect(() => {
+    const fetchVoiceNotes = async () => {
+      try {
+        setLoading(true);
+        const response = await axios.get(`${baseURL}/api/voice-notes`, {
+          withCredentials: true, // If using cookies/sessions
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        console.log("Full API response:", response);
+        setVoiceNotes(response.data.voiceNotes || []);
+      } catch (err) {
+        console.error("API Error:", {
+          message: err.message,
+          config: err.config,
+          response: err.response?.data
+        });
+        setError(`Failed to load: ${err.response?.status || 'Network error'}`);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVoiceNotes();
+  }, []);
+
+  if (loading) return <div>Loading voice notes...</div>;
+  if (error) return <div className="error">{error}</div>;
+  if (!voiceNotes.length) return <div>No voice notes found</div>;
 
   return (
     <div>
@@ -36,12 +60,22 @@ export default function RecordedSounds() {
               <td>{note.recording_path}</td>
               <td>{note.clid}</td>
               <td>{new Date(note.created_at).toLocaleString()}</td>
-              <td>
-                <audio controls>
-                  <source src={`http://10.52.0.19:5070${note.recording_path}`} type="audio/wav" />
-                  Your browser does not support the audio element.
-                </audio>
-              </td>
+              {/* <td>
+              <audio controls>
+  <source 
+    src={`${baseURL}/sounds/custom/${note.recording_path.split('/custom/')[1]}`} 
+    type="audio/wav" 
+  />
+  Your browser does not support the audio element.
+</audio>
+
+              </td> */}
+                   <td>
+                   
+<AudioPlayer 
+  src={`${baseURL}/sounds/${note.playable_path || note.recording_path.replace('/var/lib/asterisk/sounds/', '')}`} 
+/>
+                  </td>
             </tr>
           ))}
         </tbody>
