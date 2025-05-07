@@ -1,0 +1,49 @@
+.voice-notes-container {
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  .voice-notes-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+  }
+  
+  .voice-notes-table th, 
+  .voice-notes-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #ddd;
+  }
+  
+  .voice-notes-table th {
+    background-color: #f2f2f2;
+    font-weight: bold;
+  }
+  
+  .audio-player {
+    max-width: 300px;
+  }
+  
+  .loading {
+    padding: 20px;
+    text-align: center;
+    font-style: italic;
+    color: #666;
+  }
+  
+  .error {
+    padding: 20px;
+    text-align: center;
+    color: #d32f2f;
+    background-color: #ffebee;
+    border-radius: 4px;
+  }
+  
+  .no-notes {
+    padding: 20px;
+    text-align: center;
+    font-style: italic;
+    color: #666;
+  }

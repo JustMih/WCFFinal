@@ -1,17 +1,12 @@
 import React, { useState, useEffect } from "react";
-import { Modal, Box, Typography, Button, TextField } from "@mui/material";
-import { DateTimePicker } from "@mui/x-date-pickers/DateTimePicker";
-import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
-import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { Modal, Box, Typography, Button } from "@mui/material";
 import Papa from "papaparse";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { format } from "date-fns";
-import "./ColumnSelector.css"
 
 const exportableColumns = [
-  { key: "id", label: "#" },
-  { key: "fullName", label: "Full Name" },
+  { key: "id", label: "#" }, // Row number, not UUID
+  { key: "fullName", label: "Full Name" }, // composed from first_name, middle_name, last_name
   { key: "phone_number", label: "Phone" },
   { key: "nida_number", label: "NIDA" },
   { key: "employer", label: "Employer" },
@@ -28,8 +23,8 @@ const exportableColumns = [
   { key: "assigned_to_role", label: "Assigned Role" },
   { key: "status", label: "Status" },
   { key: "created_at", label: "Created At" },
-  { key: "date_of_resolution", label: "Resolution Date" },
-  { key: "date_of_feedback", label: "Feedback Date" },
+  { key: "date_of_resolution", label: "Date of Resolution" },
+  { key: "date_of_feedback", label: "Date of Feedback" },
   { key: "date_of_review_resolution", label: "Review Date" },
   { key: "resolution_details", label: "Resolution Details" },
   { key: "aging_days", label: "Aging (Days)" },
@@ -37,36 +32,19 @@ const exportableColumns = [
   { key: "assignedTo.name", label: "Assigned To" },
   { key: "attendedBy.name", label: "Attended By" },
   { key: "ratedBy.name", label: "Rated By" },
-  { key: "functionData.name", label: "Function   " },
+  { key: "functionData.name", label: "Function Name" } // if functionData has a name
 ];
+
 
 const defaultColumns = ["id", "fullName", "phone_number", "status"];
 
 export default function ColumnSelector({ open, onClose, data, onColumnsChange }) {
   const [selectedColumns, setSelectedColumns] = useState(defaultColumns);
-  const [startDate, setStartDate] = useState(null);
-  const [endDate, setEndDate] = useState(null);
-  const [filteredData, setFilteredData] = useState(data);
 
   // Update parent whenever selectedColumns changes
   useEffect(() => {
     onColumnsChange(selectedColumns);
   }, [selectedColumns, onColumnsChange]);
-
-  // Filter data based on date range whenever data, startDate, or endDate changes
-  useEffect(() => {
-    if (!startDate || !endDate) {
-      setFilteredData(data);
-      return;
-    }
-
-    const filtered = data.filter((ticket) => {
-      const ticketDate = new Date(ticket.created_at);
-      return ticketDate >= startDate && ticketDate <= endDate;
-    });
-
-    setFilteredData(filtered);
-  }, [data, startDate, endDate]);
 
   const toggleSelectAll = () => {
     const optionalKeys = exportableColumns.map((col) => col.key);
@@ -75,47 +53,49 @@ export default function ColumnSelector({ open, onClose, data, onColumnsChange })
 
   const formatDate = (dateString) => {
     if (!dateString) return "N/A";
-    return format(new Date(dateString), "dd-MMM-yyyy hh:mm a");
+  
+    return new Date(dateString).toLocaleString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true
+    });
   };
+  
 
   const exportToCSV = () => {
-    const csvData = filteredData.map((ticket, index) => {
+    const csvData = data.map((ticket, index) => {
       const row = {};
-
+  
       selectedColumns.forEach((col) => {
         let value;
-
-        if (col === "created_at") {
-          value = formatDate(ticket.created_at);
+  
+        if (col === "createdAt") {
+          value = formatDate(ticket.createdAt);
         } else if (col === "createdBy.name") {
           value = ticket.createdBy?.name || "N/A";
-        } else if (col === "assignedTo.name") {
-          value = ticket.assignedTo?.name || "N/A";
-        } else if (col === "attendedBy.name") {
-          value = ticket.attendedBy?.name || "N/A";
-        } else if (col === "ratedBy.name") {
-          value = ticket.ratedBy?.name || "N/A";
-        } else if (col === "functionData.name") {
-          value = ticket.functionData?.name || "N/A";
         } else if (col === "id") {
           value = index + 1;
         } else if (col === "fullName") {
-          value = `${ticket.first_name || ""} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim();
+          value = `${ticket.firstName || ""} ${ticket.middleName || ""} ${ticket.lastName || ""}`.trim();
         } else {
           value = ticket[col] || "N/A";
         }
-
+  
+        // Wrap long numbers as text for Excel
         if (["nida_number", "phone_number"].includes(col)) {
           value = `="${value}"`;
         }
-
+  
         const label = exportableColumns.find((c) => c.key === col)?.label || col;
         row[label] = value;
       });
-
+  
       return row;
     });
-
+  
     const csv = Papa.unparse(csvData);
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -125,7 +105,7 @@ export default function ColumnSelector({ open, onClose, data, onColumnsChange })
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-
+  
     onClose();
   };
 
@@ -133,42 +113,29 @@ export default function ColumnSelector({ open, onClose, data, onColumnsChange })
     const doc = new jsPDF({
       orientation: selectedColumns.length > 5 ? "landscape" : "portrait",
     });
-
-    doc.text("Tickets Report", 14, 10);
-
-    if (startDate && endDate) {
-      doc.setFontSize(10);
-      doc.text(
-        `Filtered: ${formatDate(startDate)} to ${formatDate(endDate)}`,
-        14,
-        20
-      );
-    }
-
+  
+    doc.text("Tickets Report", 40, 30);
+  
     const headers = [selectedColumns.map((col) => exportableColumns.find((c) => c.key === col)?.label || col)];
-
-    const dataRows = filteredData.map((ticket, index) =>
+  
+    const dataRows = data.map((ticket, index) =>
       selectedColumns.map((col) => {
         if (col === "createdBy.name") return ticket.createdBy?.name || "N/A";
-        if (col === "assignedTo.name") return ticket.assignedTo?.name || "N/A";
-        if (col === "attendedBy.name") return ticket.attendedBy?.name || "N/A";
-        if (col === "ratedBy.name") return ticket.ratedBy?.name || "N/A";
-        if (col === "functionData.name") return ticket.functionData?.name || "N/A";
         if (col === "id") return index + 1;
-        if (col === "fullName") return `${ticket.first_name || ""} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim();
-        if (col === "created_at") return formatDate(ticket.created_at);
+        if (col === "fullName") return `${ticket.firstName || ""} ${ticket.middleName || ""} ${ticket.lastName || ""}`.trim();
+        if (col === "createdAt") return formatDate(ticket.createdAt);
         return ticket[col] || "N/A";
       })
     );
-
+  
     autoTable(doc, {
-      startY: startDate && endDate ? 25 : 15,
+      startY: 40,
       head: headers,
       body: dataRows,
       styles: { fontSize: 8 },
       headStyles: { fillColor: [22, 160, 133] },
     });
-
+  
     doc.save("tickets-report.pdf");
     onClose();
   };
@@ -186,48 +153,10 @@ export default function ColumnSelector({ open, onClose, data, onColumnsChange })
           boxShadow: 24,
           borderRadius: 2,
           p: 3,
-          maxHeight: "80vh",
-          overflowY: "auto",
         }}
       >
         <Typography variant="h6" sx={{ mb: 2 }}>
           Column Selection & Export
-        </Typography>
-
-        {/* Date and Time Filter Section */}
-        <LocalizationProvider dateAdapter={AdapterDateFns}>
-          <Box sx={{ mb: 3, display: "flex", gap: 2, flexWrap: "wrap" }}>
-            <DateTimePicker
-              label="Start Date & Time"
-              value={startDate}
-              onChange={(newValue) => setStartDate(newValue)}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  size="small"
-                  sx={{ width: { xs: "70%", sm: "150px" } }}
-                />
-              )}
-            />
-            <DateTimePicker
-              label="End Date & Time"
-              value={endDate}
-              onChange={(newValue) => setEndDate(newValue)}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  size="small"
-                  sx={{ width: { xs: "70%", sm: "150px" } }}
-                />
-              )}
-              minDateTime={startDate} // Prevent selecting an end date before start date
-            />
-          </Box>
-        </LocalizationProvider>
-
-        {/* Column Selection Section */}
-        <Typography variant="subtitle1" sx={{ mb: 1 }}>
-          Select Columns to Export
         </Typography>
         <div
           style={{
@@ -245,9 +174,7 @@ export default function ColumnSelector({ open, onClose, data, onColumnsChange })
                 key={col.key}
                 onClick={() =>
                   setSelectedColumns((prev) =>
-                    prev.includes(col.key)
-                      ? prev.filter((k) => k !== col.key)
-                      : [...prev, col.key]
+                    prev.includes(col.key) ? prev.filter((k) => k !== col.key) : [...prev, col.key]
                   )
                 }
                 style={{
@@ -269,9 +196,7 @@ export default function ColumnSelector({ open, onClose, data, onColumnsChange })
             );
           })}
         </div>
-
-        {/* Action Buttons */}
-        <Box sx={{ display: "flex", justifyContent: "space-between", mt: 2 }}>
+        <Box sx={{ display: "flex", justifyContent: "space-between" }}>
           <Button variant="outlined" size="small" onClick={toggleSelectAll}>
             {selectedColumns.length === exportableColumns.length ? "Deselect All" : "Select All"}
           </Button>
