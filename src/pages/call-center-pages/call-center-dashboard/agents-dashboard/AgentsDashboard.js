@@ -106,7 +106,7 @@ export default function AgentsDashboard() {
   const sipConfig = {
     uri: UserAgent.makeURI("sip:webrtc_user@10.52.0.19"),
     transportOptions: {
-      server: "ws://10.52.0.19:8088/ws",
+      server: "wss://10.52.0.19:8089/ws",
     },
     authorizationUsername: "webrtc_user",
     authorizationPassword: "sip12345",
