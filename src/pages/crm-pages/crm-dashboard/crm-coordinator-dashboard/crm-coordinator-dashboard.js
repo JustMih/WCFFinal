@@ -50,6 +50,13 @@ export default function CoordinatorDashboard() {
       severity: "info"
     });
   
+    // Initialize activeColumns with default columns if empty
+    useEffect(() => {
+      if (activeColumns.length === 0) {
+        setActiveColumns(["id", "fullName", "phone_number", "status", "subject", "category", "assigned_to_role", "createdAt"]);
+      }
+    }, [activeColumns]);
+  
     const categories = ["Complaint", "Congrats", "Suggestion"];
   
     // Card data
@@ -329,6 +336,13 @@ export default function CoordinatorDashboard() {
                 <FiSettings size={20} />
               </IconButton>
             </Tooltip>
+            <Button
+              variant="outlined"
+              onClick={() => setIsColumnModalOpen(true)}
+              startIcon={<FiSettings />}
+            >
+              Open Column Settings
+            </Button>
           </div>
           {/* Filters */}
           <div

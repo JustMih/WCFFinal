@@ -955,7 +955,7 @@ const AgentCRM = () => {
                 )}
               </div>
 
-              {/* <div className="modal-form-group">
+              <div className="modal-form-group">
                 <label style={{ fontSize: "0.875rem" }}>Sub-section:</label>
                 <input
                   value={selectedFunction}
@@ -981,7 +981,7 @@ const AgentCRM = () => {
                     backgroundColor: "#f5f5f5",
                   }}
                 />
-              </div> */}
+              </div>
             </div>
 
             {/* Description */}

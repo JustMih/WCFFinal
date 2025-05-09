@@ -111,9 +111,9 @@ export default function CoordinatorDashboard() {
   const updateTicketStats = (tickets) => {
     setTicketStats({
       totalComplaints: tickets.length,
-      pendingRating: tickets.filter((t) => !t.complaintType).length,
-      ratedMajor: tickets.filter((t) => t.complaintType === "Major").length,
-      ratedMinor: tickets.filter((t) => t.complaintType === "Minor").length
+      pendingRating: tickets.filter((t) => !t.complaint_rating).length,
+      ratedMajor: tickets.filter((t) => t.complaint_rating === "Major").length,
+      ratedMinor: tickets.filter((t) => t.complaint_rating === "Minor").length
     });
   };
 
@@ -126,7 +126,7 @@ export default function CoordinatorDashboard() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ complaintType: rating, userId: userId }) // "Minor" or "Major"
+        body: JSON.stringify({ complaint_rating: rating, userId: userId }) // "Minor" or "Major"
       });
 
       if (!response.ok) {
@@ -715,7 +715,7 @@ export default function CoordinatorDashboard() {
                   <td>{`${ticket.firstName} ${ticket.lastName}`}</td>
                   <td>{ticket.phone_number}</td>
                   <td>{ticket.status}</td>
-                  <td>{ticket.complaintType || "Unrated"}</td>
+                  <td>{ticket.complaint_rating || "Unrated"}</td>
                   <td>
                     <div className="action-buttons">
                       <button
@@ -903,7 +903,7 @@ export default function CoordinatorDashboard() {
                 <Grid item xs={12} sm={6}>
                   <Typography variant="body1">
                     <strong>Complaint Type:</strong>{" "}
-                    {selectedTicket.complaintType || "Unrated"}
+                    {selectedTicket.complaint_rating || "Unrated"}
                   </Typography>
                 </Grid>
 
