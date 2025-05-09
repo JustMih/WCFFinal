@@ -24,6 +24,9 @@ import {
 import ColumnSelector from "../../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../../config";
 import "./crm-agent-dashboard.css";
+import TicketActions from "../../../../components/ticket/TicketActions";
+import TicketFilters from "../../../../components/ticket/TicketFilters";
+import TicketDetailsModal from "../../../../components/ticket/TicketDetailsModal";
 
 const AgentCRM = () => {
   // State for form data
@@ -59,6 +62,9 @@ const AgentCRM = () => {
   // State for ticket details modal
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
+  const [comment, setComment] = useState("");
+  const [ticketComments, setTicketComments] = useState([]);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   // State for function data and selections
   const [functionData, setFunctionData] = useState([]);
@@ -138,6 +144,17 @@ const AgentCRM = () => {
   const role = localStorage.getItem("role");
   const userId = localStorage.getItem("userId");
   const token = localStorage.getItem("authToken");
+
+  const [ticketAttachments, setTicketAttachments] = useState({});
+
+  const [filters, setFilters] = useState({
+    search: "",
+    status: "",
+    priority: "",
+    category: "",
+    startDate: null,
+    endDate: null,
+  });
 
   // Fetch function data for subject selection
   useEffect(() => {
@@ -386,6 +403,8 @@ const AgentCRM = () => {
   const openDetailsModal = (ticket) => {
     setSelectedTicket(ticket);
     setShowDetailsModal(true);
+    fetchTicketComments(ticket.id);
+    fetchTicketAttachments(ticket.id);
   };
 
   const filteredTickets = customerTickets.filter((t) => {
@@ -481,6 +500,298 @@ const AgentCRM = () => {
     </div>
   );
 
+  // Add new function to handle status update
+  const handleStatusUpdate = async (ticketId, newStatus) => {
+    try {
+      setIsUpdating(true);
+      const response = await fetch(`${baseURL}/ticket/${ticketId}/status`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ status: newStatus }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update status");
+      }
+
+      setSnackbar({
+        open: true,
+        message: "Status updated successfully",
+        severity: "success",
+      });
+
+      // Refresh ticket data
+      fetchCustomerTickets();
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: error.message,
+        severity: "error",
+      });
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // Add new function to handle comment submission
+  const handleCommentSubmit = async (e) => {
+    e.preventDefault();
+    if (!comment.trim()) return;
+
+    try {
+      const response = await fetch(`${baseURL}/ticket/${selectedTicket.id}/comment`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          comment: comment.trim(),
+          userId: userId,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to add comment");
+      }
+
+      // Add new comment to the list
+      const newComment = {
+        id: Date.now(), // temporary ID
+        comment: comment.trim(),
+        createdBy: { name: localStorage.getItem("userName") },
+        createdAt: new Date().toISOString(),
+      };
+      setTicketComments([newComment, ...ticketComments]);
+      setComment("");
+
+      setSnackbar({
+        open: true,
+        message: "Comment added successfully",
+        severity: "success",
+      });
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: error.message,
+        severity: "error",
+      });
+    }
+  };
+
+  // Add function to fetch comments
+  const fetchTicketComments = async (ticketId) => {
+    try {
+      const response = await fetch(`${baseURL}/ticket/${ticketId}/comments`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setTicketComments(data.comments || []);
+      }
+    } catch (error) {
+      console.error("Error fetching comments:", error);
+    }
+  };
+
+  // Add new function to handle priority change
+  const handlePriorityChange = async (ticketId, priority) => {
+    try {
+      const response = await fetch(`${baseURL}/ticket/${ticketId}/priority`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ priority }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to update priority");
+      }
+
+      setSnackbar({
+        open: true,
+        message: "Priority updated successfully",
+        severity: "success",
+      });
+
+      // Update local state
+      setCustomerTickets((prevTickets) =>
+        prevTickets.map((ticket) =>
+          ticket.id === ticketId ? { ...ticket, priority } : ticket
+        )
+      );
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: error.message,
+        severity: "error",
+      });
+    }
+  };
+
+  // Add new function to handle file upload
+  const handleFileUpload = async (formData) => {
+    try {
+      const response = await fetch(`${baseURL}/ticket/attachment`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to upload file");
+      }
+
+      const data = await response.json();
+      
+      // Update local state
+      setTicketAttachments((prev) => ({
+        ...prev,
+        [formData.get("ticketId")]: [
+          ...(prev[formData.get("ticketId")] || []),
+          data.attachment,
+        ],
+      }));
+
+      setSnackbar({
+        open: true,
+        message: "File uploaded successfully",
+        severity: "success",
+      });
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: error.message,
+        severity: "error",
+      });
+      throw error;
+    }
+  };
+
+  // Add new function to handle file deletion
+  const handleFileDelete = async (ticketId, fileId) => {
+    try {
+      const response = await fetch(`${baseURL}/ticket/attachment/${fileId}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to delete file");
+      }
+
+      // Update local state
+      setTicketAttachments((prev) => ({
+        ...prev,
+        [ticketId]: prev[ticketId].filter((file) => file.id !== fileId),
+      }));
+
+      setSnackbar({
+        open: true,
+        message: "File deleted successfully",
+        severity: "success",
+      });
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: error.message,
+        severity: "error",
+      });
+    }
+  };
+
+  // Add function to fetch attachments
+  const fetchTicketAttachments = async (ticketId) => {
+    try {
+      const response = await fetch(`${baseURL}/ticket/${ticketId}/attachments`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setTicketAttachments((prev) => ({
+          ...prev,
+          [ticketId]: data.attachments || [],
+        }));
+      }
+    } catch (error) {
+      console.error("Error fetching attachments:", error);
+    }
+  };
+
+  // Add function to handle filter changes
+  const handleFilterChange = (newFilters) => {
+    setFilters(newFilters);
+  };
+
+  // Add function to filter tickets
+  const getFilteredTickets = () => {
+    return customerTickets.filter((ticket) => {
+      // Search filter
+      if (filters.search) {
+        const searchTerm = filters.search.toLowerCase();
+        const searchableFields = [
+          ticket.title,
+          ticket.description,
+          ticket.customerName,
+          ticket.phoneNumber,
+          ticket.nidaNumber,
+        ];
+        if (!searchableFields.some((field) => 
+          field && field.toLowerCase().includes(searchTerm)
+        )) {
+          return false;
+        }
+      }
+
+      // Status filter
+      if (filters.status && ticket.status !== filters.status) {
+        return false;
+      }
+
+      // Priority filter
+      if (filters.priority && ticket.priority !== filters.priority) {
+        return false;
+      }
+
+      // Category filter
+      if (filters.category && ticket.category !== filters.category) {
+        return false;
+      }
+
+      // Date range filter
+      if (filters.startDate) {
+        const ticketDate = new Date(ticket.created_at);
+        if (ticketDate < filters.startDate) {
+          return false;
+        }
+      }
+
+      if (filters.endDate) {
+        const ticketDate = new Date(ticket.created_at);
+        const endDate = new Date(filters.endDate);
+        endDate.setHours(23, 59, 59, 999);
+        if (ticketDate > endDate) {
+          return false;
+        }
+      }
+
+      return true;
+    });
+  };
+
   if (loading) {
     return (
       <div className="p-6">
@@ -501,6 +812,14 @@ const AgentCRM = () => {
     <div className="p-6">
       <h3 className="title">CRM Dashboard</h3>
 
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+        <button
+          className="add-user-button"
+          onClick={() => setShowModal(true)}
+        >
+          <FaPlus /> New Ticket
+        </button>
+      </div>
       {/* Card Dashboard Section */}
       <div className="crm-dashboard">
         <div className="crm-cards-container">
@@ -532,6 +851,12 @@ const AgentCRM = () => {
           />
         </div>
       </div>
+
+      {/* Add TicketFilters component */}
+      <TicketFilters
+        onFilterChange={handleFilterChange}
+        initialFilters={filters}
+      />
 
       {/* Ticket Table Section */}
       <div className="user-table-container">
@@ -580,7 +905,7 @@ const AgentCRM = () => {
               <input
                 className="search-input"
                 type="text"
-                placeholder="Search by phone or NIDA"
+                placeholder="Search by phone or NIDA..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -593,20 +918,14 @@ const AgentCRM = () => {
                 <option value="Open">Open</option>
                 <option value="Closed">Closed</option>
               </select>
-              <button
-                className="add-user-button"
-                onClick={() => setShowModal(true)}
-              >
-                <FaPlus /> New Ticket
-              </button>
             </div>
           </div>
 
           <table className="user-table">
             <thead>{renderTableHeader()}</thead>
             <tbody>
-              {paginatedTickets.length > 0 ? (
-                paginatedTickets.map((ticket, i) => renderTableRow(ticket, i))
+              {getFilteredTickets().length > 0 ? (
+                getFilteredTickets().map((ticket, i) => renderTableRow(ticket, i))
               ) : (
                 <tr>
                   <td
@@ -655,13 +974,13 @@ const AgentCRM = () => {
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            width: { xs: "90%", sm: 600 },
+            width: { xs: "95%", sm: 500 },
             maxHeight: "90vh",
             overflowY: "auto",
             bgcolor: "background.paper",
             boxShadow: 24,
             borderRadius: 3,
-            p: 4,
+            p: 3,
           }}
         >
           <button
@@ -680,544 +999,214 @@ const AgentCRM = () => {
             ×
           </button>
 
-          <div className="modal-form-container">
-            <h2 className="modal-title">New Ticket</h2>
+          <Typography variant="h6" align="center" sx={{ fontWeight: 700, mb: 2 }}>
+            New Ticket
+          </Typography>
+          <Divider sx={{ mb: 2 }} />
 
-            {/* First Row */}
-            <div className="modal-form-row">
-              <div className="modal-form-group">
-                <label style={{ fontSize: "0.875rem" }}>First Name:</label>
-                <input
+          <form onSubmit={handleSubmit}>
+            <Grid container spacing={2}>
+              {/* First Row: Name Fields */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="First Name"
                   name="firstName"
                   value={formData.firstName}
                   onChange={handleChange}
-                  placeholder="Enter first name"
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    border: formErrors.firstName ? "1px solid red" : "1px solid #ccc",
-                  }}
+                  fullWidth
+                  size="small"
+                  error={!!formErrors.firstName}
+                  helperText={formErrors.firstName}
                 />
-                {formErrors.firstName && (
-                  <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.firstName}
-                  </span>
-                )}
-              </div>
-
-              <div className="modal-form-group">
-                <label style={{ fontSize: "0.875rem" }}>Last Name:</label>
-                <input
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Last Name"
                   name="lastName"
                   value={formData.lastName}
                   onChange={handleChange}
-                  placeholder="Enter last name"
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    border: formErrors.lastName ? "1px solid red" : "1px solid #ccc",
-                  }}
+                  fullWidth
+                  size="small"
+                  error={!!formErrors.lastName}
+                  helperText={formErrors.lastName}
                 />
-                {formErrors.lastName && (
-                  <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.lastName}
-                  </span>
-                )}
-              </div>
-            </div>
+              </Grid>
 
-            {/* Phone & NIDA */}
-            <div className="modal-form-row">
-              <div className="modal-form-group">
-                <label style={{ fontSize: "0.875rem" }}>Phone Number:</label>
-                <input
-                  type="tel"
+              {/* Phone & NIDA */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Phone Number"
                   name="phoneNumber"
                   value={formData.phoneNumber}
                   onChange={handleChange}
-                  placeholder="Enter phone number"
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    border: formErrors.phoneNumber ? "1px solid red" : "1px solid #ccc",
-                  }}
+                  fullWidth
+                  size="small"
+                  error={!!formErrors.phoneNumber}
+                  helperText={formErrors.phoneNumber}
                 />
-                {formErrors.phoneNumber && (
-                  <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.phoneNumber}
-                  </span>
-                )}
-              </div>
-
-              <div className="modal-form-group">
-                <label style={{ fontSize: "0.875rem" }}>
-                  National Identification Number:
-                </label>
-                <input
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="National Identification Number"
                   name="nidaNumber"
                   value={formData.nidaNumber}
                   onChange={handleChange}
-                  placeholder="Enter NIN number"
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    border: formErrors.nidaNumber ? "1px solid red" : "1px solid #ccc",
-                  }}
+                  fullWidth
+                  size="small"
+                  error={!!formErrors.nidaNumber}
+                  helperText={formErrors.nidaNumber}
                 />
-                {formErrors.nidaNumber && (
-                  <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.nidaNumber}
-                  </span>
-                )}
-              </div>
-            </div>
+              </Grid>
 
-            {/* Requester & Institution */}
-            <div className="modal-form-row">
-              <div className="modal-form-group">
-                <label style={{ fontSize: "0.875rem" }}>Requester:</label>
-                <select
+              {/* Requester & Institution */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Requester"
                   name="requester"
                   value={formData.requester}
                   onChange={handleChange}
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    width: "100%",
-                    border: formErrors.requester ? "1px solid red" : "1px solid #ccc",
-                  }}
-                >
-                  <option value="">Select..</option>
-                  <option value="Employer">Employer</option>
-                  <option value="Employee">Employee</option>
-                </select>
-                {formErrors.requester && (
-                  <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.requester}
-                  </span>
-                )}
-              </div>
-
-              <div className="modal-form-group">
-                <label style={{ fontSize: "0.875rem" }}>Institution:</label>
-                <input
+                  fullWidth
+                  size="small"
+                  error={!!formErrors.requester}
+                  helperText={formErrors.requester}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Institution"
                   name="institution"
                   value={formData.institution}
                   onChange={handleChange}
-                  placeholder="Enter Institution"
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    border: formErrors.institution ? "1px solid red" : "1px solid #ccc",
-                  }}
+                  fullWidth
+                  size="small"
+                  error={!!formErrors.institution}
+                  helperText={formErrors.institution}
                 />
-                {formErrors.institution && (
-                  <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.institution}
-                  </span>
-                )}
-              </div>
-            </div>
+              </Grid>
 
-            {/* Region & District */}
-            <div className="modal-form-row">
-              <div className="modal-form-group">
-                <label style={{ fontSize: "0.875rem" }}>Region:</label>
-                <input
+              {/* Region & District */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Region"
                   name="region"
                   value={formData.region}
                   onChange={handleChange}
-                  placeholder="Enter region"
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    border: formErrors.region ? "1px solid red" : "1px solid #ccc",
-                  }}
+                  fullWidth
+                  size="small"
+                  error={!!formErrors.region}
+                  helperText={formErrors.region}
                 />
-                {formErrors.region && (
-                  <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.region}
-                  </span>
-                )}
-              </div>
-
-              <div className="modal-form-group">
-                <label style={{ fontSize: "0.875rem" }}>District:</label>
-                <input
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="District"
                   name="district"
                   value={formData.district}
                   onChange={handleChange}
-                  placeholder="Enter district"
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    border: formErrors.district ? "1px solid red" : "1px solid #ccc",
-                  }}
+                  fullWidth
+                  size="small"
+                  error={!!formErrors.district}
+                  helperText={formErrors.district}
                 />
-                {formErrors.district && (
-                  <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.district}
-                  </span>
-                )}
-              </div>
-            </div>
+              </Grid>
 
-            {/* Category & Channel */}
-            <div className="modal-form-row">
-              <div className="modal-form-group" style={{ flex: 1 }}>
-                <label style={{ fontSize: "0.875rem" }}>Category:</label>
-                <select
+              {/* Category & Channel */}
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Category"
                   name="category"
                   value={formData.category}
                   onChange={handleChange}
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    width: "100%",
-                    border: formErrors.category ? "1px solid red" : "1px solid #ccc",
-                  }}
-                >
-                  <option value="">Select Category</option>
-                  <option value="Inquiry">Inquiry</option>
-                  <option value="Complaint">Complaint</option>
-                  <option value="Suggestion">Suggestion</option>
-                  <option value="Compliment">Compliment</option>
-                </select>
-                {formErrors.category && (
-                  <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.category}
-                  </span>
-                )}
-              </div>
-
-              <div className="modal-form-group" style={{ flex: 1 }}>
-                <label style={{ fontSize: "0.875rem" }}>Channel:</label>
-                <select
+                  size="small"
+                  error={!!formErrors.category}
+                  helperText={formErrors.category}
+                  sx={{ width: '150px' }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  label="Channel"
                   name="channel"
                   value={formData.channel}
                   onChange={handleChange}
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    width: "100%",
-                    border: formErrors.channel ? "1px solid red" : "1px solid #ccc",
-                  }}
-                >
-                  <option value="">Select Channel</option>
-                  <option value="Call">Call</option>
-                  <option value="Email">Email</option>
-                </select>
-                {formErrors.channel && (
-                  <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.channel}
-                  </span>
-                )}
-              </div>
-            </div>
+                  size="small"
+                  error={!!formErrors.channel}
+                  helperText={formErrors.channel}
+                  sx={{ width: '150px' }}
+                />
+              </Grid>
 
-            {/* Subject, Sub-section, Section */}
-            <div className="modal-form-row">
-              <div className="modal-form-group" style={{ flex: 1 }}>
-                <label style={{ fontSize: "0.875rem" }}>Subject:</label>
-                <select
+              {/* Subject, Sub-section, Section */}
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  label="Subject"
                   name="functionId"
                   value={formData.functionId}
                   onChange={handleChange}
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    width: "100%",
-                    border: formErrors.functionId ? "1px solid red" : "1px solid #ccc",
-                  }}
-                >
-                  <option value="">Select Subject</option>
-                  {functionData.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-                {formErrors.functionId && (
-                  <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.functionId}
-                  </span>
-                )}
-              </div>
-
-              <div className="modal-form-group">
-                <label style={{ fontSize: "0.875rem" }}>Sub-section:</label>
-                <input
-                  value={selectedFunction}
-                  readOnly
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    backgroundColor: "#f5f5f5",
-                  }}
+                  size="small"
+                  error={!!formErrors.functionId}
+                  helperText={formErrors.functionId}
+                  sx={{ width: '150px' }}
                 />
-              </div>
-
-              <div className="modal-form-group">
-                <label style={{ fontSize: "0.875rem" }}>Section:</label>
-                <input
-                  value={selectedSection}
-                  readOnly
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    backgroundColor: "#f5f5f5",
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Description */}
-            <div className="modal-form-group">
-              <label style={{ fontSize: "0.875rem" }}>Description:</label>
-              <textarea
-                rows="2"
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
-                placeholder="Detailed descriptions.."
-                style={{
-                  fontSize: "0.875rem",
-                  padding: "8px",
-                  resize: "vertical",
-                  border: formErrors.description ? "1px solid red" : "1px solid #ccc",
-                }}
-              />
-              {formErrors.description && (
-                <span style={{ color: "red", fontSize: "0.75rem" }}>
-                  {formErrors.description}
-                </span>
-              )}
-            </div>
-
-            {/* Submit */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: "10px",
-                marginTop: "1.5rem",
-              }}
-            >
-              <button
-                className="cancel-btn"
-                onClick={() => setShowModal(false)}
-              >
-                Cancel
-              </button>
-              <button className="submit-btn" onClick={handleSubmit}>
-                Submit Ticket
-              </button>
-            </div>
-          </div>
-        </Box>
-      </Modal>
-
-      {/* Ticket Details Modal */}
-      <Modal open={showDetailsModal} onClose={() => setShowDetailsModal(false)}>
-        <Box
-          sx={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: { xs: "90%", sm: 500 },
-            maxHeight: "80vh",
-            overflowY: "auto",
-            bgcolor: "background.paper",
-            boxShadow: 24,
-            borderRadius: 2,
-            p: 3,
-          }}
-        >
-          {selectedTicket && (
-            <>
-              <Typography
-                variant="h5"
-                sx={{ fontWeight: "bold", color: "#1976d2" }}
-              >
-                Tickets Details
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Name:</strong>{" "}
-                    {`${selectedTicket.first_name || "N/A"} ${
-                      selectedTicket.middle_name || " "
-                    } ${selectedTicket.last_name || "N/A"}`}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Phone:</strong>{" "}
-                    {selectedTicket.phone_number || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>NIN:</strong> {selectedTicket.nida_number || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Employer:</strong>{" "}
-                    {selectedTicket.employer || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Region:</strong> {selectedTicket.region || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>District:</strong>{" "}
-                    {selectedTicket.district || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Category:</strong> {selectedTicket.category || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Subject:</strong>{" "}
-                    {selectedTicket.functionData?.name || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Section:</strong>{" "}
-                    {selectedTicket.functionData?.parentFunction?.section?.name ||
-                      "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Sub-section:</strong>{" "}
-                    {selectedTicket.functionData?.parentFunction?.name || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Channel:</strong> {selectedTicket.channel || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Rated:</strong>{" "}
-                    <span
-                      style={{
-                        color:
-                          selectedTicket.complaint_type === "Major"
-                            ? "red"
-                            : selectedTicket.complaint_type === "Minor"
-                            ? "orange"
-                            : "inherit",
-                      }}
-                    >
-                      {selectedTicket.complaint_type || "Unrated"}
-                    </span>
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Status:</strong>{" "}
-                    <span
-                      style={{
-                        color:
-                          selectedTicket.status === "Open"
-                            ? "green"
-                            : selectedTicket.status === "Closed"
-                            ? "gray"
-                            : "blue",
-                      }}
-                    >
-                      {selectedTicket.status || "N/A"}
-                    </span>
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Assigned To:</strong>{" "}
-                    {selectedTicket.assigned_to_id || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Assigned Role:</strong>{" "}
-                    {selectedTicket.assigned_to_role || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Created By:</strong>{" "}
-                    {selectedTicket?.createdBy?.name || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Created At:</strong>{" "}
-                    {selectedTicket.created_at
-                      ? new Date(selectedTicket.created_at).toLocaleString(
-                          "en-US",
-                          {
-                            month: "numeric",
-                            day: "numeric",
-                            year: "numeric",
-                            hour: "numeric",
-                            minute: "2-digit",
-                            hour12: true,
-                          }
-                        )
-                      : "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <Typography>
-                    <strong>Description:</strong>{" "}
-                    {selectedTicket.description || "N/A"}
-                  </Typography>
-                </Grid>
               </Grid>
-              <Box sx={{ mt: 3, textAlign: "right" }}>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={() => setShowDetailsModal(false)}
-                >
-                  Close
-                </Button>
-              </Box>
-            </>
-          )}
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  label="Sub-section"
+                  value={selectedFunction}
+                  size="small"
+                  InputProps={{ readOnly: true }}
+                  sx={{ width: '150px' }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={4}>
+                <TextField
+                  label="Section"
+                  value={selectedSection}
+                  size="small"
+                  InputProps={{ readOnly: true }}
+                  sx={{ width: '150px' }}
+                />
+              </Grid>
+
+              {/* Description */}
+              <Grid item xs={12}>
+                <TextField
+                  label="Description"
+                  name="description"
+                  value={formData.description}
+                  onChange={handleChange}
+                  fullWidth
+                  multiline
+                  minRows={2}
+                  size="small"
+                  error={!!formErrors.description}
+                  helperText={formErrors.description}
+                />
+              </Grid>
+            </Grid>
+            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2, mt: 3 }}>
+              <Button variant="outlined" onClick={() => setShowModal(false)}>
+                Cancel
+              </Button>
+              <Button variant="contained" type="submit">
+                Submit Ticket
+              </Button>
+            </Box>
+          </form>
         </Box>
       </Modal>
+
+      <TicketDetailsModal
+        open={showDetailsModal}
+        onClose={() => setShowDetailsModal(false)}
+        ticket={selectedTicket}
+      />
 
       {/* Column Selector Modal */}
       <ColumnSelector
         open={columnModalOpen}
         onClose={() => setColumnModalOpen(false)}
-        data={customerTickets}
+        data={getFilteredTickets()}
         onColumnsChange={setActiveColumns}
       />
 
