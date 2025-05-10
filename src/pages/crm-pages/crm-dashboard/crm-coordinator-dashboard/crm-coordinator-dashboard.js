@@ -174,7 +174,11 @@ export default function CoordinatorDashboard() {
             message: `Rated as ${rating}`,
             severity: "success"
           });
-          fetchTickets();
+          // Refresh both tickets and dashboard counts
+          await Promise.all([
+            fetchTickets(),
+            fetchDashboardCounts(userId)
+          ]);
         } else {
           throw new Error("Failed to rate ticket.");
         }
@@ -199,23 +203,28 @@ export default function CoordinatorDashboard() {
         const payload = { ticketId };
         if (category) payload.category = category;
         if (unitId) payload.responsible_unit_id = unitId;
-        const response = await fetch(`${baseURL}/coordinator/${ticketId}/convert-or-forward-ticket`,
-          {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`
-            },
-            body: JSON.stringify(payload)
-          }
-        );
+        const response = await fetch(`${baseURL}/coordinator/${ticketId}/convert-or-forward-ticket`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify(payload)
+        });
         if (response.ok) {
           setSnackbar({
             open: true,
             message: "Ticket updated successfully",
             severity: "success"
           });
-          fetchTickets();
+          // Refresh both tickets and dashboard counts
+          await Promise.all([
+            fetchTickets(),
+            fetchDashboardCounts(userId)
+          ]);
+          // Clear the form selections
+          setConvertCategory(prev => ({ ...prev, [ticketId]: '' }));
+          setForwardUnit(prev => ({ ...prev, [ticketId]: '' }));
         } else {
           throw new Error("Failed to update ticket.");
         }
@@ -223,6 +232,30 @@ export default function CoordinatorDashboard() {
         setSnackbar({ open: true, message: error.message, severity: "error" });
       }
     };
+  
+    // Add a refresh function that can be called periodically
+    const refreshData = async () => {
+      if (userId) {
+        await Promise.all([
+          fetchTickets(),
+          fetchDashboardCounts(userId)
+        ]);
+      }
+    };
+  
+    // Add useEffect for periodic refresh
+    useEffect(() => {
+      if (userId) {
+        // Initial fetch
+        refreshData();
+  
+        // Set up periodic refresh every 30 seconds
+        const refreshInterval = setInterval(refreshData, 30000);
+  
+        // Cleanup interval on component unmount
+        return () => clearInterval(refreshInterval);
+      }
+    }, [userId]); // Only re-run if userId changes
   
     const openModal = (ticket) => {
       setSelectedTicket(ticket);
@@ -364,13 +397,6 @@ export default function CoordinatorDashboard() {
                 <FiSettings size={20} />
               </IconButton>
             </Tooltip>
-            <Button
-              variant="outlined"
-              onClick={() => setIsColumnModalOpen(true)}
-              startIcon={<FiSettings />}
-            >
-              Open Column Settings
-            </Button>
           </div>
           {/* Filters */}
           <div
