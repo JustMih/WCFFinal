@@ -17,6 +17,7 @@ import {
 import ColumnSelector from "../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../config";
 import "./ticket.css";
+import AdvancedFilterButton from '../../../components/AdvancedFilterButton';
 
 export default function Crm() {
   const [agentTickets, setAgentTickets] = useState([]);
@@ -267,11 +268,7 @@ export default function Crm() {
           }}
         >
           <h2>In-progress Tickets List</h2>
-          <Tooltip title="Columns Settings and Export" arrow>
-            <IconButton onClick={() => setIsColumnModalOpen(true)}>
-              <FiSettings size={20} />
-            </IconButton>
-          </Tooltip>
+          <AdvancedFilterButton onClick={() => setIsColumnModalOpen(true)} />
         </div>
 
         <div className="controls">

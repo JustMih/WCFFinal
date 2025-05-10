@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import {
   MdOutlineSupportAgent,
   MdAutoAwesomeMotion,
-  MdDisabledVisible,
+  MdDisabledVisible
 } from "react-icons/md";
 import { FaEye, FaPlus } from "react-icons/fa";
 import { FaUsersLine } from "react-icons/fa6";
@@ -19,7 +19,7 @@ import {
   Snackbar,
   TextField,
   Tooltip,
-  Typography,
+  Typography
 } from "@mui/material";
 import ColumnSelector from "../../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../../config";
@@ -43,7 +43,7 @@ const AgentCRM = () => {
     category: "",
     functionId: "",
     description: "",
-    status: "Open",
+    status: "Open"
   });
 
   // State for form errors
@@ -53,7 +53,7 @@ const AgentCRM = () => {
   const [modal, setModal] = useState({
     isOpen: false,
     type: "",
-    message: "",
+    message: ""
   });
 
   // State for ticket creation modal
@@ -76,7 +76,7 @@ const AgentCRM = () => {
     totalComplaints: 0,
     pendingRating: 0,
     ratedMajor: 0,
-    ratedMinor: 0,
+    ratedMinor: 0
   });
 
   // State for customer tickets
@@ -96,14 +96,14 @@ const AgentCRM = () => {
     "subject",
     "category",
     "assigned_to_role",
-    "created_at",
+    "created_at"
   ]);
 
   // State for snackbar
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
-    severity: "info",
+    severity: "info"
   });
 
   // State for card dashboard
@@ -112,30 +112,30 @@ const AgentCRM = () => {
       "Open Tickets": 0,
       "In Progress": 0,
       "Closed Tickets": 0,
-      "Overdue": 0,
-      "Total": 0,
+      Overdue: 0,
+      Total: 0
     },
     ticketQueue: {
       "New Tickets": 0,
-      "Assigned": 0,
+      Assigned: 0,
       "In/Hour": 0,
       "Resolved/Hour": 0,
-      "Total": 0,
+      Total: 0
     },
     ticketWait: {
       "Longest Wait": "00:00",
       "Avg Wait": "00:00",
       "Max Wait": "00:00",
-      "Pending": 0,
-      "Total": 0,
+      Pending: 0,
+      Total: 0
     },
     unresolvedTickets: {
       "Last Hour": 0,
       "Avg Delay": "00:00",
       "Max Delay": "00:00",
       "SLA Breaches": 0,
-      "Total": 0,
-    },
+      Total: 0
+    }
   });
 
   const [loading, setLoading] = useState(true);
@@ -148,12 +148,12 @@ const AgentCRM = () => {
   const [ticketAttachments, setTicketAttachments] = useState({});
 
   const [filters, setFilters] = useState({
-    search: '',
-    nidaSearch: '',
-    priority: '',
-    category: '',
+    search: "",
+    nidaSearch: "",
+    priority: "",
+    category: "",
     startDate: null,
-    endDate: null,
+    endDate: null
   });
 
   // Fetch function data for subject selection
@@ -162,8 +162,8 @@ const AgentCRM = () => {
       try {
         const res = await fetch(`${baseURL}/section/functions-data`, {
           headers: {
-            Authorization: `Bearer ${token}`,
-          },
+            Authorization: `Bearer ${token}`
+          }
         });
         const json = await res.json();
         setFunctionData(json.data || []);
@@ -192,8 +192,8 @@ const AgentCRM = () => {
       const response = await fetch(`${baseURL}/ticket/all-customer-tickets`, {
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+          "Content-Type": "application/json"
+        }
       });
       const result = await response.json();
       if (response.ok && Array.isArray(result.tickets)) {
@@ -212,8 +212,8 @@ const AgentCRM = () => {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+          "Content-Type": "application/json"
+        }
       });
 
       if (!response.ok) {
@@ -229,30 +229,30 @@ const AgentCRM = () => {
           "Open Tickets": stats.open || 0,
           "In Progress": stats.inProgress || 0,
           "Closed Tickets": stats.closed || 0,
-          "Overdue": stats.overdue || 0,
-          "Total": stats.total || 0,
+          Overdue: stats.overdue || 0,
+          Total: stats.total || 0
         },
         ticketQueue: {
           "New Tickets": stats.newTickets || 0,
-          "Assigned": stats.assigned || 0,
+          Assigned: stats.assigned || 0,
           "In/Hour": stats.inHour || 0,
           "Resolved/Hour": stats.resolvedHour || 0,
-          "Total": stats.total || 0,
+          Total: stats.total || 0
         },
         ticketWait: {
           "Longest Wait": stats.longestWait || "00:00",
           "Avg Wait": stats.avgWait || "00:00",
           "Max Wait": stats.maxWait || "00:00",
-          "Pending": stats.pending || 0,
-          "Total": stats.total || 0,
+          Pending: stats.pending || 0,
+          Total: stats.total || 0
         },
         unresolvedTickets: {
           "Last Hour": stats.lastHour || 0,
           "Avg Delay": stats.avgDelay || "00:00",
           "Max Delay": stats.maxDelay || "00:00",
           "SLA Breaches": stats.slaBreaches || 0,
-          "Total": stats.overdue || 0,
-        },
+          Total: stats.overdue || 0
+        }
       });
     } catch (err) {
       setError(err.message || "Failed to load dashboard data.");
@@ -266,7 +266,7 @@ const AgentCRM = () => {
       totalComplaints: tickets.length,
       pendingRating: tickets.filter((t) => !t.complaintType).length,
       ratedMajor: tickets.filter((t) => t.complaintType === "Major").length,
-      ratedMinor: tickets.filter((t) => t.complaintType === "Minor").length,
+      ratedMinor: tickets.filter((t) => t.complaintType === "Minor").length
     });
   };
 
@@ -282,7 +282,7 @@ const AgentCRM = () => {
         const response = await fetch(
           `${baseURL}/section/functions-data/${value}`,
           {
-            headers: { Authorization: `Bearer ${token}` },
+            headers: { Authorization: `Bearer ${token}` }
           }
         );
         if (response.ok) {
@@ -315,7 +315,7 @@ const AgentCRM = () => {
       channel: "Channel",
       category: "Category",
       functionId: "Subject",
-      description: "Description",
+      description: "Description"
     };
 
     const errors = {};
@@ -333,7 +333,7 @@ const AgentCRM = () => {
       setModal({
         isOpen: true,
         type: "error",
-        message: `Please fill the required fields before submitting.`,
+        message: `Please fill the required fields before submitting.`
       });
       return;
     }
@@ -345,9 +345,9 @@ const AgentCRM = () => {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(formData)
       });
 
       const data = await response.json();
@@ -356,7 +356,7 @@ const AgentCRM = () => {
         setModal({
           isOpen: true,
           type: "success",
-          message: `Ticket created successfully`,
+          message: `Ticket created successfully`
         });
         setShowModal(false);
         setFormData({
@@ -372,14 +372,14 @@ const AgentCRM = () => {
           category: "",
           functionId: "",
           description: "",
-          status: "Open",
+          status: "Open"
         });
         fetchCustomerTickets();
       } else {
         setModal({
           isOpen: true,
           type: "error",
-          message: data.message || "Ticket creation failed.",
+          message: data.message || "Ticket creation failed."
         });
       }
     } catch (error) {
@@ -387,7 +387,7 @@ const AgentCRM = () => {
       setModal({
         isOpen: true,
         type: "error",
-        message: `Network error. Please try again later.`,
+        message: `Network error. Please try again later.`
       });
     }
   };
@@ -420,9 +420,11 @@ const AgentCRM = () => {
       // Status (from table controls)
       const matchesStatus = !filterStatus || ticket.status === filterStatus;
       // Priority (from TicketFilters)
-      const matchesPriority = !filters.priority || ticket.priority === filters.priority;
+      const matchesPriority =
+        !filters.priority || ticket.priority === filters.priority;
       // Category (from TicketFilters)
-      const matchesCategory = !filters.category || ticket.category === filters.category;
+      const matchesCategory =
+        !filters.category || ticket.category === filters.category;
       // Date range (from TicketFilters)
       let matchesDate = true;
       if (filters.startDate) {
@@ -435,7 +437,13 @@ const AgentCRM = () => {
         endDate.setHours(23, 59, 59, 999);
         if (ticketDate > endDate) matchesDate = false;
       }
-      return matchesSearch && matchesStatus && matchesPriority && matchesCategory && matchesDate;
+      return (
+        matchesSearch &&
+        matchesStatus &&
+        matchesPriority &&
+        matchesCategory &&
+        matchesDate
+      );
     });
   };
 
@@ -472,7 +480,9 @@ const AgentCRM = () => {
       )}
       {activeColumns.includes("phone_number") && <td>{ticket.phone_number}</td>}
       {activeColumns.includes("status") && <td>{ticket.status}</td>}
-      {activeColumns.includes("subject") && <td>{ticket.functionData?.name}</td>}
+      {activeColumns.includes("subject") && (
+        <td>{ticket.functionData?.name}</td>
+      )}
       {activeColumns.includes("category") && <td>{ticket.category}</td>}
       {activeColumns.includes("assigned_to_role") && (
         <td>{ticket.assigned_to_role}</td>
@@ -485,7 +495,7 @@ const AgentCRM = () => {
             year: "numeric",
             hour: "2-digit",
             minute: "2-digit",
-            hour12: true,
+            hour12: true
           })}
         </td>
       )}
@@ -529,9 +539,9 @@ const AgentCRM = () => {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: newStatus })
       });
 
       if (!response.ok) {
@@ -541,7 +551,7 @@ const AgentCRM = () => {
       setSnackbar({
         open: true,
         message: "Status updated successfully",
-        severity: "success",
+        severity: "success"
       });
 
       // Refresh ticket data
@@ -550,7 +560,7 @@ const AgentCRM = () => {
       setSnackbar({
         open: true,
         message: error.message,
-        severity: "error",
+        severity: "error"
       });
     } finally {
       setIsUpdating(false);
@@ -563,17 +573,20 @@ const AgentCRM = () => {
     if (!comment.trim()) return;
 
     try {
-      const response = await fetch(`${baseURL}/ticket/${selectedTicket.id}/comment`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          comment: comment.trim(),
-          userId: userId,
-        }),
-      });
+      const response = await fetch(
+        `${baseURL}/ticket/${selectedTicket.id}/comment`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            comment: comment.trim(),
+            userId: userId
+          })
+        }
+      );
 
       if (!response.ok) {
         throw new Error("Failed to add comment");
@@ -584,7 +597,7 @@ const AgentCRM = () => {
         id: Date.now(), // temporary ID
         comment: comment.trim(),
         createdBy: { name: localStorage.getItem("userName") },
-        createdAt: new Date().toISOString(),
+        createdAt: new Date().toISOString()
       };
       setTicketComments([newComment, ...ticketComments]);
       setComment("");
@@ -592,13 +605,13 @@ const AgentCRM = () => {
       setSnackbar({
         open: true,
         message: "Comment added successfully",
-        severity: "success",
+        severity: "success"
       });
     } catch (error) {
       setSnackbar({
         open: true,
         message: error.message,
-        severity: "error",
+        severity: "error"
       });
     }
   };
@@ -608,8 +621,8 @@ const AgentCRM = () => {
     try {
       const response = await fetch(`${baseURL}/ticket/${ticketId}/comments`, {
         headers: {
-          Authorization: `Bearer ${token}`,
-        },
+          Authorization: `Bearer ${token}`
+        }
       });
       const data = await response.json();
       if (response.ok) {
@@ -627,9 +640,9 @@ const AgentCRM = () => {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ priority }),
+        body: JSON.stringify({ priority })
       });
 
       if (!response.ok) {
@@ -639,7 +652,7 @@ const AgentCRM = () => {
       setSnackbar({
         open: true,
         message: "Priority updated successfully",
-        severity: "success",
+        severity: "success"
       });
 
       // Update local state
@@ -652,7 +665,7 @@ const AgentCRM = () => {
       setSnackbar({
         open: true,
         message: error.message,
-        severity: "error",
+        severity: "error"
       });
     }
   };
@@ -663,9 +676,9 @@ const AgentCRM = () => {
       const response = await fetch(`${baseURL}/ticket/attachment`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${token}`
         },
-        body: formData,
+        body: formData
       });
 
       if (!response.ok) {
@@ -673,26 +686,26 @@ const AgentCRM = () => {
       }
 
       const data = await response.json();
-      
+
       // Update local state
       setTicketAttachments((prev) => ({
         ...prev,
         [formData.get("ticketId")]: [
           ...(prev[formData.get("ticketId")] || []),
-          data.attachment,
-        ],
+          data.attachment
+        ]
       }));
 
       setSnackbar({
         open: true,
         message: "File uploaded successfully",
-        severity: "success",
+        severity: "success"
       });
     } catch (error) {
       setSnackbar({
         open: true,
         message: error.message,
-        severity: "error",
+        severity: "error"
       });
       throw error;
     }
@@ -704,8 +717,8 @@ const AgentCRM = () => {
       const response = await fetch(`${baseURL}/ticket/attachment/${fileId}`, {
         method: "DELETE",
         headers: {
-          Authorization: `Bearer ${token}`,
-        },
+          Authorization: `Bearer ${token}`
+        }
       });
 
       if (!response.ok) {
@@ -715,19 +728,19 @@ const AgentCRM = () => {
       // Update local state
       setTicketAttachments((prev) => ({
         ...prev,
-        [ticketId]: prev[ticketId].filter((file) => file.id !== fileId),
+        [ticketId]: prev[ticketId].filter((file) => file.id !== fileId)
       }));
 
       setSnackbar({
         open: true,
         message: "File deleted successfully",
-        severity: "success",
+        severity: "success"
       });
     } catch (error) {
       setSnackbar({
         open: true,
         message: error.message,
-        severity: "error",
+        severity: "error"
       });
     }
   };
@@ -735,16 +748,19 @@ const AgentCRM = () => {
   // Add function to fetch attachments
   const fetchTicketAttachments = async (ticketId) => {
     try {
-      const response = await fetch(`${baseURL}/ticket/${ticketId}/attachments`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      const response = await fetch(
+        `${baseURL}/ticket/${ticketId}/attachments`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
       const data = await response.json();
       if (response.ok) {
         setTicketAttachments((prev) => ({
           ...prev,
-          [ticketId]: data.attachments || [],
+          [ticketId]: data.attachments || []
         }));
       }
     } catch (error) {
@@ -779,11 +795,14 @@ const AgentCRM = () => {
     <div className="p-6">
       <h3 className="title">CRM Dashboard</h3>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
-        <button
-          className="add-user-button"
-          onClick={() => setShowModal(true)}
-        >
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          marginBottom: "1rem"
+        }}
+      >
+        <button className="add-user-button" onClick={() => setShowModal(true)}>
           <FaPlus /> New Ticket
         </button>
       </div>
@@ -833,7 +852,7 @@ const AgentCRM = () => {
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              marginBottom: "16px",
+              marginBottom: "16px"
             }}
           >
             <h2>All Customer Tickets</h2>
@@ -998,7 +1017,8 @@ const AgentCRM = () => {
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Typography>
-                    <strong>Category:</strong> {selectedTicket.category || "N/A"}
+                    <strong>Category:</strong>{" "}
+                    {selectedTicket.category || "N/A"}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -1010,7 +1030,8 @@ const AgentCRM = () => {
                 <Grid item xs={12} sm={6}>
                   <Typography>
                     <strong>Section:</strong>{" "}
-                    {selectedTicket.functionData?.parentFunction?.section?.name || "N/A"}
+                    {selectedTicket.functionData?.parentFunction?.section
+                      ?.name || "N/A"}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -1122,358 +1143,410 @@ const AgentCRM = () => {
       </Modal>
       {/* Ticket Creation Modal */}
       <Modal open={showModal} onClose={() => setShowModal(false)}>
-  <Box
-    sx={{
-      position: "absolute",
-      top: "50%",
-      left: "50%",
-      transform: "translate(-50%, -50%)",
-      width: { xs: "90%", sm: 600 },
-      maxHeight: "90vh",
-      overflowY: "auto",
-      bgcolor: "background.paper",
-      boxShadow: 24,
-      borderRadius: 3,
-      p: 4
-    }}
-  >
-    <button
-      onClick={() => setShowModal(false)}
-      style={{
-        position: "absolute",
-        top: 6,
-        right: 12,
-        background: "transparent",
-        border: "none",
-        fontSize: "1.25rem",
-        cursor: "pointer"
-      }}
-      aria-label="Close"
-    >
-      ×
-    </button>
-
-    <div className="modal-form-container">
-      <h2 className="modal-title">New Ticket</h2>
-
-      {/* First Row */}
-      <div className="modal-form-row">
-        <div className="modal-form-group">
-          <label style={{ fontSize: "0.875rem" }}>First Name:</label>
-          <input
-            name="firstName"
-            value={formData.firstName}
-            onChange={handleChange}
-            placeholder="Enter first name"
-            style={{
-              height: "32px",
-              fontSize: "0.875rem",
-              padding: "4px 8px",
-              border: formErrors.firstName ? "1px solid red" : "1px solid #ccc"
-            }}
-          />
-          {formErrors.firstName && (
-            <span style={{ color: "red", fontSize: "0.75rem" }}>{formErrors.firstName}</span>
-          )}
-        </div>
-
-        <div className="modal-form-group">
-          <label style={{ fontSize: "0.875rem" }}>Last Name:</label>
-          <input
-            name="lastName"
-            value={formData.lastName}
-            onChange={handleChange}
-            placeholder="Enter last name"
-            style={{
-              height: "32px",
-              fontSize: "0.875rem",
-              padding: "4px 8px",
-              border: formErrors.lastName ? "1px solid red" : "1px solid #ccc"
-            }}
-          />
-          {formErrors.lastName && (
-            <span style={{ color: "red", fontSize: "0.75rem" }}>{formErrors.lastName}</span>
-          )}
-        </div>
-      </div>
-
-      {/* Phone & NIDA */}
-      <div className="modal-form-row">
-        <div className="modal-form-group">
-          <label style={{ fontSize: "0.875rem" }}>Phone Number:</label>
-          <input
-            type="tel"
-            name="phoneNumber"
-            value={formData.phoneNumber}
-            onChange={handleChange}
-            placeholder="Enter phone number"
-            style={{
-              height: "32px",
-              fontSize: "0.875rem",
-              padding: "4px 8px",
-              border: formErrors.phoneNumber ? "1px solid red" : "1px solid #ccc"
-            }}
-          />
-          {formErrors.phoneNumber && (
-            <span style={{ color: "red", fontSize: "0.75rem" }}>{formErrors.phoneNumber}</span>
-          )}
-        </div>
-
-        <div className="modal-form-group">
-          <label style={{ fontSize: "0.875rem" }}>National Identification Number:</label>
-          <input
-            name="nidaNumber"
-            value={formData.nidaNumber}
-            onChange={handleChange}
-            placeholder="Enter NIN number"
-            style={{
-              height: "32px",
-              fontSize: "0.875rem",
-              padding: "4px 8px",
-              border: formErrors.nidaNumber ? "1px solid red" : "1px solid #ccc"
-            }}
-          />
-          {formErrors.nidaNumber && (
-            <span style={{ color: "red", fontSize: "0.75rem" }}>{formErrors.nidaNumber}</span>
-          )}
-        </div>
-      </div>
-
-      {/* Requester & Institution */}
-      <div className="modal-form-row">
-        <div className="modal-form-group">
-          <label style={{ fontSize: "0.875rem" }}>Requester:</label>
-          <select
-            name="requester"
-            value={formData.requester}
-            onChange={handleChange}
-            style={{
-              height: "32px",
-              fontSize: "0.875rem",
-              padding: "4px 8px",
-              width: "100%",
-              border: formErrors.requester ? "1px solid red" : "1px solid #ccc"
-            }}
-          >
-            <option value="">Select..</option>
-            <option value="Employer">Employer</option>
-            <option value="Employee">Employee</option>
-          </select>
-          {formErrors.category && (
-            <span style={{ color: "red", fontSize: "0.75rem" }}>{formErrors.category}</span>
-          )}
-        </div>
-
-        <div className="modal-form-group">
-          <label style={{ fontSize: "0.875rem" }}>Institution:</label>
-          <input
-            name="institution"
-            value={formData.institution}
-            onChange={handleChange}
-            placeholder="Enter Institution"
-            style={{
-              height: "32px",
-              fontSize: "0.875rem",
-              padding: "4px 8px",
-              border: formErrors.institution ? "1px solid red" : "1px solid #ccc"
-            }}
-          />
-          {formErrors.institution && (
-            <span style={{ color: "red", fontSize: "0.75rem" }}>{formErrors.institution}</span>
-          )}
-        </div>
-      </div>
-
-      {/* Region & District */}
-      <div className="modal-form-row">
-        <div className="modal-form-group">
-          <label style={{ fontSize: "0.875rem" }}>Region:</label>
-          <input
-            name="region"
-            value={formData.region}
-            onChange={handleChange}
-            placeholder="Enter region"
-            style={{
-              height: "32px",
-              fontSize: "0.875rem",
-              padding: "4px 8px",
-              border: formErrors.region ? "1px solid red" : "1px solid #ccc"
-            }}
-          />
-          {formErrors.region && (
-            <span style={{ color: "red", fontSize: "0.75rem" }}>{formErrors.region}</span>
-          )}
-        </div>
-
-        <div className="modal-form-group">
-          <label style={{ fontSize: "0.875rem" }}>District:</label>
-          <input
-            name="district"
-            value={formData.district}
-            onChange={handleChange}
-            placeholder="Enter district"
-            style={{
-              height: "32px",
-              fontSize: "0.875rem",
-              padding: "4px 8px",
-              border: formErrors.district ? "1px solid red" : "1px solid #ccc"
-            }}
-          />
-          {formErrors.district && (
-            <span style={{ color: "red", fontSize: "0.75rem" }}>{formErrors.district}</span>
-          )}
-        </div>
-      </div>
-
-      {/* Category & Channel */}
-      <div className="modal-form-row">
-        <div className="modal-form-group" style={{ flex: 1 }}>
-          <label style={{ fontSize: "0.875rem" }}>Category:</label>
-          <select
-            name="category"
-            value={formData.category}
-            onChange={handleChange}
-            style={{
-              height: "32px",
-              fontSize: "0.875rem",
-              padding: "4px 8px",
-              width: "100%",
-              border: formErrors.category ? "1px solid red" : "1px solid #ccc"
-            }}
-          >
-            <option value="">Select Category</option>
-            <option value="Inquiry">Inquiry</option>
-            <option value="Complaint">Complaint</option>
-            <option value="Suggestion">Suggestion</option>
-            <option value="Compliment">Compliment</option>
-          </select>
-          {formErrors.category && (
-            <span style={{ color: "red", fontSize: "0.75rem" }}>{formErrors.category}</span>
-          )}
-        </div>
-
-        <div className="modal-form-group" style={{ flex: 1 }}>
-          <label style={{ fontSize: "0.875rem" }}>Channel:</label>
-          <select
-            name="channel"
-            value={formData.requester}
-  onChange={handleChange}
-            style={{
-              height: "32px",
-              fontSize: "0.875rem",
-              padding: "4px 8px",
-              width: "100%",
-              border: formErrors.channel ? "1px solid red" : "1px solid #ccc"
-            }}
-          >
-            <option value="">Select Channel</option>
-            <option value="Call">Call</option>
-            <option value="Email">Email</option>
-          </select>
-          {formErrors.functionId && (
-            <span style={{ color: "red", fontSize: "0.75rem" }}>{formErrors.functionId}</span>
-          )}
-        </div>
-      </div>
-
-      {/* Subject, Sub-section, Section */}
-      <div className="modal-form-row">
-        <div className="modal-form-group" style={{ flex: 1 }}>
-          <label style={{ fontSize: "0.875rem" }}>Subject:</label>
-          <select
-            name="functionId"
-            value={formData.functionId}
-            onChange={handleChange}
-            style={{
-              height: "32px",
-              fontSize: "0.875rem",
-              padding: "4px 8px",
-              width: "100%",
-              border: formErrors.functionId ? "1px solid red" : "1px solid #ccc"
-            }}
-          >
-            <option value="">Select Subject</option>
-            {functionData.map((item) => (
-              <option key={item.id} value={item.id}>{item.name}</option>
-            ))}
-          </select>
-          {formErrors.functionId && (
-            <span style={{ color: "red", fontSize: "0.75rem" }}>{formErrors.functionId}</span>
-          )}
-        </div>
-
-        <div className="modal-form-group">
-          <label style={{ fontSize: "0.875rem" }}>Sub-section:</label>
-          <input
-            value={selectedFunction}
-            readOnly
-            style={{
-              height: "32px",
-              fontSize: "0.875rem",
-              padding: "4px 8px",
-              backgroundColor: "#f5f5f5"
-            }}
-          />
-        </div>
-
-        <div className="modal-form-group">
-          <label style={{ fontSize: "0.875rem" }}>Section:</label>
-          <input
-            value={selectedSection}
-            readOnly
-            style={{
-              height: "32px",
-              fontSize: "0.875rem",
-              padding: "4px 8px",
-              backgroundColor: "#f5f5f5"
-            }}
-          />
-        </div>
-      </div>
-
-      {/* Description */}
-      <div className="modal-form-group">
-        <label style={{ fontSize: "0.875rem" }}>Description:</label>
-        <textarea
-          rows="2"
-          name="description"
-          value={formData.description}
-          onChange={handleChange}
-          placeholder="Detailed descriptions.."
-          style={{
-            fontSize: "0.875rem",
-            padding: "8px",
-            resize: "vertical",
-            border: formErrors.description ? "1px solid red" : "1px solid #ccc"
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: { xs: "90%", sm: 600 },
+            maxHeight: "90vh",
+            overflowY: "auto",
+            bgcolor: "background.paper",
+            boxShadow: 24,
+            borderRadius: 3,
+            p: 4
           }}
-        />
-        {formErrors.description && (
-          <span style={{ color: "red", fontSize: "0.75rem" }}>{formErrors.description}</span>
-        )}
-      </div>
-
-      {/* Submit */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          gap: "10px",
-          marginTop: "1.5rem"
-        }}
-      >
-        <button
-          className="cancel-btn"
-          onClick={() => setShowModal(false)}
         >
-          Cancel
-        </button>
-        <button className="submit-btn" onClick={handleSubmit}>
-          Submit Ticket
-        </button>
-      </div>
-    </div>
-  </Box>
-</Modal>
+          <button
+            onClick={() => setShowModal(false)}
+            style={{
+              position: "absolute",
+              top: 6,
+              right: 12,
+              background: "transparent",
+              border: "none",
+              fontSize: "1.25rem",
+              cursor: "pointer"
+            }}
+            aria-label="Close"
+          >
+            ×
+          </button>
+
+          <div className="modal-form-container">
+            <h2 className="modal-title">New Ticket</h2>
+
+            {/* First Row */}
+            <div className="modal-form-row">
+              <div className="modal-form-group">
+                <label style={{ fontSize: "0.875rem" }}>First Name:</label>
+                <input
+                  name="firstName"
+                  value={formData.firstName}
+                  onChange={handleChange}
+                  placeholder="Enter first name"
+                  style={{
+                    height: "32px",
+                    fontSize: "0.875rem",
+                    padding: "4px 8px",
+                    border: formErrors.firstName
+                      ? "1px solid red"
+                      : "1px solid #ccc"
+                  }}
+                />
+                {formErrors.firstName && (
+                  <span style={{ color: "red", fontSize: "0.75rem" }}>
+                    {formErrors.firstName}
+                  </span>
+                )}
+              </div>
+
+              <div className="modal-form-group">
+                <label style={{ fontSize: "0.875rem" }}>Last Name:</label>
+                <input
+                  name="lastName"
+                  value={formData.lastName}
+                  onChange={handleChange}
+                  placeholder="Enter last name"
+                  style={{
+                    height: "32px",
+                    fontSize: "0.875rem",
+                    padding: "4px 8px",
+                    border: formErrors.lastName
+                      ? "1px solid red"
+                      : "1px solid #ccc"
+                  }}
+                />
+                {formErrors.lastName && (
+                  <span style={{ color: "red", fontSize: "0.75rem" }}>
+                    {formErrors.lastName}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Phone & NIDA */}
+            <div className="modal-form-row">
+              <div className="modal-form-group">
+                <label style={{ fontSize: "0.875rem" }}>Phone Number:</label>
+                <input
+                  type="tel"
+                  name="phoneNumber"
+                  value={formData.phoneNumber}
+                  onChange={handleChange}
+                  placeholder="Enter phone number"
+                  style={{
+                    height: "32px",
+                    fontSize: "0.875rem",
+                    padding: "4px 8px",
+                    border: formErrors.phoneNumber
+                      ? "1px solid red"
+                      : "1px solid #ccc"
+                  }}
+                />
+                {formErrors.phoneNumber && (
+                  <span style={{ color: "red", fontSize: "0.75rem" }}>
+                    {formErrors.phoneNumber}
+                  </span>
+                )}
+              </div>
+
+              <div className="modal-form-group">
+                <label style={{ fontSize: "0.875rem" }}>
+                  National Identification Number:
+                </label>
+                <input
+                  name="nidaNumber"
+                  value={formData.nidaNumber}
+                  onChange={handleChange}
+                  placeholder="Enter NIN number"
+                  style={{
+                    height: "32px",
+                    fontSize: "0.875rem",
+                    padding: "4px 8px",
+                    border: formErrors.nidaNumber
+                      ? "1px solid red"
+                      : "1px solid #ccc"
+                  }}
+                />
+                {formErrors.nidaNumber && (
+                  <span style={{ color: "red", fontSize: "0.75rem" }}>
+                    {formErrors.nidaNumber}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Requester & Institution */}
+            <div className="modal-form-row">
+              <div className="modal-form-group">
+                <label style={{ fontSize: "0.875rem" }}>Requester:</label>
+                <select
+                  name="requester"
+                  value={formData.requester}
+                  onChange={handleChange}
+                  style={{
+                    height: "32px",
+                    fontSize: "0.875rem",
+                    padding: "4px 8px",
+                    width: "100%",
+                    border: formErrors.requester
+                      ? "1px solid red"
+                      : "1px solid #ccc"
+                  }}
+                >
+                  <option value="">Select..</option>
+                  <option value="Employer">Employer</option>
+                  <option value="Employee">Employee</option>
+                </select>
+                {formErrors.category && (
+                  <span style={{ color: "red", fontSize: "0.75rem" }}>
+                    {formErrors.category}
+                  </span>
+                )}
+              </div>
+
+              <div className="modal-form-group">
+                <label style={{ fontSize: "0.875rem" }}>Institution:</label>
+                <input
+                  name="institution"
+                  value={formData.institution}
+                  onChange={handleChange}
+                  placeholder="Enter Institution"
+                  style={{
+                    height: "32px",
+                    fontSize: "0.875rem",
+                    padding: "4px 8px",
+                    border: formErrors.institution
+                      ? "1px solid red"
+                      : "1px solid #ccc"
+                  }}
+                />
+                {formErrors.institution && (
+                  <span style={{ color: "red", fontSize: "0.75rem" }}>
+                    {formErrors.institution}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Region & District */}
+            <div className="modal-form-row">
+              <div className="modal-form-group">
+                <label style={{ fontSize: "0.875rem" }}>Region:</label>
+                <input
+                  name="region"
+                  value={formData.region}
+                  onChange={handleChange}
+                  placeholder="Enter region"
+                  style={{
+                    height: "32px",
+                    fontSize: "0.875rem",
+                    padding: "4px 8px",
+                    border: formErrors.region
+                      ? "1px solid red"
+                      : "1px solid #ccc"
+                  }}
+                />
+                {formErrors.region && (
+                  <span style={{ color: "red", fontSize: "0.75rem" }}>
+                    {formErrors.region}
+                  </span>
+                )}
+              </div>
+
+              <div className="modal-form-group">
+                <label style={{ fontSize: "0.875rem" }}>District:</label>
+                <input
+                  name="district"
+                  value={formData.district}
+                  onChange={handleChange}
+                  placeholder="Enter district"
+                  style={{
+                    height: "32px",
+                    fontSize: "0.875rem",
+                    padding: "4px 8px",
+                    border: formErrors.district
+                      ? "1px solid red"
+                      : "1px solid #ccc"
+                  }}
+                />
+                {formErrors.district && (
+                  <span style={{ color: "red", fontSize: "0.75rem" }}>
+                    {formErrors.district}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Category & Channel */}
+            <div className="modal-form-row">
+              <div className="modal-form-group" style={{ flex: 1 }}>
+                <label style={{ fontSize: "0.875rem" }}>Category:</label>
+                <select
+                  name="category"
+                  value={formData.category}
+                  onChange={handleChange}
+                  style={{
+                    height: "32px",
+                    fontSize: "0.875rem",
+                    padding: "4px 8px",
+                    width: "100%",
+                    border: formErrors.category
+                      ? "1px solid red"
+                      : "1px solid #ccc"
+                  }}
+                >
+                  <option value="">Select Category</option>
+                  <option value="Inquiry">Inquiry</option>
+                  <option value="Complaint">Complaint</option>
+                  <option value="Suggestion">Suggestion</option>
+                  <option value="Compliment">Compliment</option>
+                </select>
+                {formErrors.category && (
+                  <span style={{ color: "red", fontSize: "0.75rem" }}>
+                    {formErrors.category}
+                  </span>
+                )}
+              </div>
+
+              <div className="modal-form-group" style={{ flex: 1 }}>
+                <label style={{ fontSize: "0.875rem" }}>Channel:</label>
+                <select
+                  name="channel"
+                  value={formData.requester}
+                  onChange={handleChange}
+                  style={{
+                    height: "32px",
+                    fontSize: "0.875rem",
+                    padding: "4px 8px",
+                    width: "100%",
+                    border: formErrors.channel
+                      ? "1px solid red"
+                      : "1px solid #ccc"
+                  }}
+                >
+                  <option value="">Select Channel</option>
+                  <option value="Call">Call</option>
+                  <option value="Email">Email</option>
+                </select>
+                {formErrors.functionId && (
+                  <span style={{ color: "red", fontSize: "0.75rem" }}>
+                    {formErrors.functionId}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Subject, Sub-section, Section */}
+            <div className="modal-form-row">
+              <div className="modal-form-group" style={{ flex: 1 }}>
+                <label style={{ fontSize: "0.875rem" }}>Subject:</label>
+                <select
+                  name="functionId"
+                  value={formData.functionId}
+                  onChange={handleChange}
+                  style={{
+                    height: "32px",
+                    fontSize: "0.875rem",
+                    padding: "4px 8px",
+                    width: "100%",
+                    border: formErrors.functionId
+                      ? "1px solid red"
+                      : "1px solid #ccc"
+                  }}
+                >
+                  <option value="">Select Subject</option>
+                  {functionData.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+                {formErrors.functionId && (
+                  <span style={{ color: "red", fontSize: "0.75rem" }}>
+                    {formErrors.functionId}
+                  </span>
+                )}
+              </div>
+
+              <div className="modal-form-group">
+                <label style={{ fontSize: "0.875rem" }}>Sub-section:</label>
+                <input
+                  value={selectedFunction}
+                  readOnly
+                  style={{
+                    height: "32px",
+                    fontSize: "0.875rem",
+                    padding: "4px 8px",
+                    backgroundColor: "#f5f5f5"
+                  }}
+                />
+              </div>
+
+              <div className="modal-form-group">
+                <label style={{ fontSize: "0.875rem" }}>Section:</label>
+                <input
+                  value={selectedSection}
+                  readOnly
+                  style={{
+                    height: "32px",
+                    fontSize: "0.875rem",
+                    padding: "4px 8px",
+                    backgroundColor: "#f5f5f5"
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Description */}
+            <div className="modal-form-group">
+              <label style={{ fontSize: "0.875rem" }}>Description:</label>
+              <textarea
+                rows="2"
+                name="description"
+                value={formData.description}
+                onChange={handleChange}
+                placeholder="Detailed descriptions.."
+                style={{
+                  fontSize: "0.875rem",
+                  padding: "8px",
+                  resize: "vertical",
+                  border: formErrors.description
+                    ? "1px solid red"
+                    : "1px solid #ccc"
+                }}
+              />
+              {formErrors.description && (
+                <span style={{ color: "red", fontSize: "0.75rem" }}>
+                  {formErrors.description}
+                </span>
+              )}
+            </div>
+
+            {/* Submit */}
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "flex-end",
+                gap: "10px",
+                marginTop: "1.5rem"
+              }}
+            >
+              <button
+                className="cancel-btn"
+                onClick={() => setShowModal(false)}
+              >
+                Cancel
+              </button>
+              <button className="submit-btn" onClick={handleSubmit}>
+                Submit Ticket
+              </button>
+            </div>
+          </div>
+        </Box>
+      </Modal>
       <TicketDetailsModal
         open={showDetailsModal}
         onClose={() => setShowDetailsModal(false)}

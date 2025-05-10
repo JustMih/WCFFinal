@@ -9,6 +9,7 @@ import "./crmSidebar.css";
 
 export default function CRMSidebar({ isSidebarOpen }) {
   const [isAgentsOpen, setIsAgentsOpen] = useState(false);
+  const [openSection, setOpenSection] = useState(null);
   const [ticketStats, setTicketStats] = useState({
     total: 0,
     open: 0,
@@ -41,13 +42,6 @@ export default function CRMSidebar({ isSidebarOpen }) {
     }
   });
   const [fetchError, setFetchError] = useState(null);
-  const [collapsedSections, setCollapsedSections] = useState({
-    newTickets: true,
-    convertedTickets: true,
-    channeledTickets: true,
-    ticketStatus: true,
-    agentTickets: true
-  });
 
   const role = localStorage.getItem("role");
 
@@ -86,7 +80,6 @@ export default function CRMSidebar({ isSidebarOpen }) {
       const data = await response.json();
       
       if (role === "coordinator" && data.data) {
-        // Update coordinator-specific stats
         setTicketStats({
           ...ticketStats,
           newTickets: data.data.newTickets || {},
@@ -95,7 +88,6 @@ export default function CRMSidebar({ isSidebarOpen }) {
           ticketStatus: data.data.ticketStatus || {}
         });
       } else if (data.ticketStats) {
-        // Update regular ticket stats
         setTicketStats({ ...data.ticketStats });
       } else {
         setFetchError("No ticketStats in response");
@@ -114,10 +106,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
   };
 
   const toggleSection = (section) => {
-    setCollapsedSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));
+    setOpenSection(openSection === section ? null : section);
   };
 
   useEffect(() => {
@@ -168,35 +157,37 @@ export default function CRMSidebar({ isSidebarOpen }) {
                 <div className="dropdown-menu submenu">
                   <div className="menu-section">
                     <div 
-                      className={`section-header ${collapsedSections.agentTickets ? 'collapsed' : ''}`}
+                      className={`section-header ${openSection === 'agentTickets' ? '' : 'collapsed'}`}
                       onClick={() => toggleSection('agentTickets')}
                     >
                       <span className="section-title">Ticket Overview</span>
                       <span className="section-count">{ticketStats.total || 0}</span>
                     </div>
-                    <div className="section-items">
-                      {[ 
-                        { label: "Opened Tickets", to: "/ticket/opened", value: ticketStats.open, icon: "🔓" },
-                        { label: "Assigned Tickets", to: "/ticket/assigned", value: ticketStats.assigned, icon: "📋" },
-                        { label: "In Progress", to: "/ticket/in-progress", value: ticketStats.inProgress, icon: "⏳" },
-                        { label: "Carried Forward", to: "/ticket/carried-forward", value: ticketStats.carriedForward, icon: "↪️" },
-                        { label: "Closed Tickets", to: "/ticket/closed", value: ticketStats.closed, icon: "🔒" },
-                        { label: "Overdue", to: "/ticket/overdue", value: ticketStats.overdue, icon: "⚠️" },
-                        { label: "Total Tickets", to: "/ticket/all", value: ticketStats.total, icon: "📊" },
-                      ].map((item, idx) => (
-                        <NavLink
-                          key={idx}
-                          to={item.to}
-                          className={({ isActive }) => (isActive ? "dropdown-item active-link" : "dropdown-item")}
-                        >
-                          <div className="metric-row">
-                            <span className="metric-icon">{item.icon}</span>
-                            <span className="metric-label">{item.label}</span>
-                            <span className="metric-value">{item.value}</span>
-                          </div>
-                        </NavLink>
-                      ))}
-                    </div>
+                    {openSection === 'agentTickets' && (
+                      <div className="section-items">
+                        {[ 
+                          { label: "Opened Tickets", to: "/ticket/opened", value: ticketStats.open, icon: "🔓" },
+                          { label: "Assigned Tickets", to: "/ticket/assigned", value: ticketStats.assigned, icon: "📋" },
+                          { label: "In Progress", to: "/ticket/in-progress", value: ticketStats.inProgress, icon: "⏳" },
+                          { label: "Carried Forward", to: "/ticket/carried-forward", value: ticketStats.carriedForward, icon: "↪️" },
+                          { label: "Closed Tickets", to: "/ticket/closed", value: ticketStats.closed, icon: "🔒" },
+                          { label: "Overdue", to: "/ticket/overdue", value: ticketStats.overdue, icon: "⚠️" },
+                          { label: "Total Tickets", to: "/ticket/all", value: ticketStats.total, icon: "📊" },
+                        ].map((item, idx) => (
+                          <NavLink
+                            key={idx}
+                            to={item.to}
+                            className={({ isActive }) => (isActive ? "dropdown-item active-link" : "dropdown-item")}
+                          >
+                            <div className="metric-row">
+                              <span className="metric-icon">{item.icon}</span>
+                              <span className="metric-label">{item.label}</span>
+                              <span className="metric-value">{item.value}</span>
+                            </div>
+                          </NavLink>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   {fetchError && (
                     <div className="section error-message">
@@ -280,7 +271,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
   <>
     <li>
       <NavLink
-        to="/coordinator"
+        to="/dashboard"
         className={({ isActive }) => (isActive ? "menu-item active-link" : "menu-item")}
       >
         <div className="menu-item">
@@ -306,68 +297,72 @@ export default function CRMSidebar({ isSidebarOpen }) {
         <div className="dropdown-menu submenu coordinator-menu">
           <div className="menu-section">
             <div 
-              className={`section-header ${collapsedSections.newTickets ? 'collapsed' : ''}`}
+              className={`section-header ${openSection === 'newTickets' ? '' : 'collapsed'}`}
               onClick={() => toggleSection('newTickets')}
             >
               <span className="section-title">New Tickets</span>
               <span className="section-count">{ticketStats.newTickets?.["New Tickets"] || 0}</span>
             </div>
-            <div className="section-items">
-              {[
-                { label: "Complaints", to: "/coordinator/ticket/new/complaints", value: ticketStats.newTickets?.Complaints || 0, icon: "📝" },
-                { label: "New Tickets", to: "/coordinator/ticket/new/tickets", value: ticketStats.newTickets?.["New Tickets"] || 0, icon: "🆕" },
-                { label: "Escalated", to: "/coordinator/ticket/new/escalated", value: ticketStats.newTickets?.["Escalated Tickets"] || 0, icon: "⚠️" }
-              ].map((item, idx) => (
-                <NavLink
-                  key={idx}
-                  to={item.to}
-                  className={({ isActive }) => (isActive ? "dropdown-item active-link" : "dropdown-item")}
-                >
-                  <div className="metric-row">
-                    <span className="metric-icon">{item.icon}</span>
-                    <span className="metric-label">{item.label}</span>
-                    <span className="metric-value">{item.value}</span>
-                  </div>
-                </NavLink>
-              ))}
-            </div>
+            {openSection === 'newTickets' && (
+              <div className="section-items">
+                {[
+                  { label: "Complaints", to: `/coordinator/complaints`, value: ticketStats.newTickets?.Complaints || 0, icon: "📝" },
+                  { label: "New Tickets", to: `/coordinator/new`, value: ticketStats.newTickets?.["New Tickets"] || 0, icon: "🆕" },
+                  { label: "Escalated", to: `/coordinator/escalated`, value: ticketStats.newTickets?.["Escalated Tickets"] || 0, icon: "⚠️" }
+                ].map((item, idx) => (
+                  <NavLink
+                    key={idx}
+                    to={item.to}
+                    className={({ isActive }) => (isActive ? "dropdown-item active-link" : "dropdown-item")}
+                  >
+                    <div className="metric-row">
+                      <span className="metric-icon">{item.icon}</span>
+                      <span className="metric-label">{item.label}</span>
+                      <span className="metric-value">{item.value}</span>
+                    </div>
+                  </NavLink>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="menu-section">
             <div 
-              className={`section-header ${collapsedSections.convertedTickets ? 'collapsed' : ''}`}
+              className={`section-header ${openSection === 'convertedTickets' ? '' : 'collapsed'}`}
               onClick={() => toggleSection('convertedTickets')}
             >
-              <span className="section-title">Converted Tickets</span>
+              <span className="section-title">Tickets Category</span>
               <span className="section-count">
                 {Object.values(ticketStats.convertedTickets || {}).reduce((a, b) => a + b, 0)}
               </span>
             </div>
-            <div className="section-items">
-              {[
-                { label: "Inquiries", to: "/coordinator/ticket/converted/inquiries", value: ticketStats.convertedTickets?.Inquiries || 0, icon: "❓" },
-                { label: "Complaints", to: "/coordinator/ticket/converted/complaints", value: ticketStats.convertedTickets?.Complaints || 0, icon: "📋" },
-                { label: "Suggestions", to: "/coordinator/ticket/converted/suggestions", value: ticketStats.convertedTickets?.Suggestions || 0, icon: "💡" },
-                { label: "Complements", to: "/coordinator/ticket/converted/complements", value: ticketStats.convertedTickets?.Complements || 0, icon: "⭐" }
-              ].map((item, idx) => (
-                <NavLink
-                  key={idx}
-                  to={item.to}
-                  className={({ isActive }) => (isActive ? "dropdown-item active-link" : "dropdown-item")}
-                >
-                  <div className="metric-row">
-                    <span className="metric-icon">{item.icon}</span>
-                    <span className="metric-label">{item.label}</span>
-                    <span className="metric-value">{item.value}</span>
-                  </div>
-                </NavLink>
-              ))}
-            </div>
+            {openSection === 'convertedTickets' && (
+              <div className="section-items">
+                {[
+                  { label: "Inquiries", to: "/coordinator/inquiries", value: ticketStats.convertedTickets?.Inquiries || 0, icon: "❓" },
+                  { label: "Complaints", to: "/coordinator/converted-complaints", value: ticketStats.convertedTickets?.Complaints || 0, icon: "📋" },
+                  { label: "Suggestions", to: "/coordinator/suggestions", value: ticketStats.convertedTickets?.Suggestions || 0, icon: "💡" },
+                  { label: "Complements", to: "/coordinator/complements", value: ticketStats.convertedTickets?.Complements || 0, icon: "⭐" }
+                ].map((item, idx) => (
+                  <NavLink
+                    key={idx}
+                    to={item.to}
+                    className={({ isActive }) => (isActive ? "dropdown-item active-link" : "dropdown-item")}
+                  >
+                    <div className="metric-row">
+                      <span className="metric-icon">{item.icon}</span>
+                      <span className="metric-label">{item.label}</span>
+                      <span className="metric-value">{item.value}</span>
+                    </div>
+                  </NavLink>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="menu-section">
             <div 
-              className={`section-header ${collapsedSections.channeledTickets ? 'collapsed' : ''}`}
+              className={`section-header ${openSection === 'channeledTickets' ? '' : 'collapsed'}`}
               onClick={() => toggleSection('channeledTickets')}
             >
               <span className="section-title">Channeled Tickets</span>
@@ -375,29 +370,31 @@ export default function CRMSidebar({ isSidebarOpen }) {
                 {Object.values(ticketStats.channeledTickets || {}).reduce((a, b) => a + b, 0)}
               </span>
             </div>
-            <div className="section-items">
-              {[
-                { label: "Directorate", to: "/coordinator/ticket/channeled/directorate", value: ticketStats.channeledTickets?.Directorate || 0, icon: "🏢" },
-                { label: "Units", to: "/coordinator/ticket/channeled/units", value: ticketStats.channeledTickets?.Units || 0, icon: "👥" }
-              ].map((item, idx) => (
-                <NavLink
-                  key={idx}
-                  to={item.to}
-                  className={({ isActive }) => (isActive ? "dropdown-item active-link" : "dropdown-item")}
-                >
-                  <div className="metric-row">
-                    <span className="metric-icon">{item.icon}</span>
-                    <span className="metric-label">{item.label}</span>
-                    <span className="metric-value">{item.value}</span>
-                  </div>
-                </NavLink>
-              ))}
-            </div>
+            {openSection === 'channeledTickets' && (
+              <div className="section-items">
+                {[
+                  { label: "Directorate", to: "/coordinator/directorate", value: ticketStats.channeledTickets?.Directorate || 0, icon: "🏢" },
+                  { label: "Units", to: "/coordinator/units", value: ticketStats.channeledTickets?.Units || 0, icon: "👥" }
+                ].map((item, idx) => (
+                  <NavLink
+                    key={idx}
+                    to={item.to}
+                    className={({ isActive }) => (isActive ? "dropdown-item active-link" : "dropdown-item")}
+                  >
+                    <div className="metric-row">
+                      <span className="metric-icon">{item.icon}</span>
+                      <span className="metric-label">{item.label}</span>
+                      <span className="metric-value">{item.value}</span>
+                    </div>
+                  </NavLink>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="menu-section">
             <div 
-              className={`section-header ${collapsedSections.ticketStatus ? 'collapsed' : ''}`}
+              className={`section-header ${openSection === 'ticketStatus' ? '' : 'collapsed'}`}
               onClick={() => toggleSection('ticketStatus')}
             >
               <span className="section-title">Ticket Status</span>
@@ -405,27 +402,29 @@ export default function CRMSidebar({ isSidebarOpen }) {
                 {Object.values(ticketStats.ticketStatus || {}).reduce((a, b) => a + b, 0)}
               </span>
             </div>
-            <div className="section-items">
-              {[
-                { label: "Open", to: "/coordinator/ticket/status/open", value: ticketStats.ticketStatus?.Open || 0, icon: "🔓" },
-                { label: "On Progress", to: "/coordinator/ticket/status/progress", value: ticketStats.ticketStatus?.["On Progress"] || 0, icon: "⏳" },
-                { label: "Closed", to: "/coordinator/ticket/status/closed", value: ticketStats.ticketStatus?.Closed || 0, icon: "🔒" },
-                { label: "Minor", to: "/coordinator/ticket/status/minor", value: ticketStats.ticketStatus?.Minor || 0, icon: "⚪" },
-                { label: "Major", to: "/coordinator/ticket/status/major", value: ticketStats.ticketStatus?.Major || 0, icon: "🔴" }
-              ].map((item, idx) => (
-                <NavLink
-                  key={idx}
-                  to={item.to}
-                  className={({ isActive }) => (isActive ? "dropdown-item active-link" : "dropdown-item")}
-                >
-                  <div className="metric-row">
-                    <span className="metric-icon">{item.icon}</span>
-                    <span className="metric-label">{item.label}</span>
-                    <span className="metric-value">{item.value}</span>
-                  </div>
-                </NavLink>
-              ))}
-            </div>
+            {openSection === 'ticketStatus' && (
+              <div className="section-items">
+                {[
+                  { label: "Open", to: `/coordinator/open`, value: ticketStats.ticketStatus?.Open || 0, icon: "🔓" },
+                  { label: "On Progress", to: "/coordinator/on-progress", value: ticketStats.ticketStatus?.["On Progress"] || 0, icon: "⏳" },
+                  { label: "Closed", to: `/coordinator/closed`, value: ticketStats.ticketStatus?.Closed || 0, icon: "🔒" },
+                  { label: "Minor", to: "/coordinator/minor", value: ticketStats.ticketStatus?.Minor || 0, icon: "⚪" },
+                  { label: "Major", to: "/coordinator/major", value: ticketStats.ticketStatus?.Major || 0, icon: "🔴" }
+                ].map((item, idx) => (
+                  <NavLink
+                    key={idx}
+                    to={item.to}
+                    className={({ isActive }) => (isActive ? "dropdown-item active-link" : "dropdown-item")}
+                  >
+                    <div className="metric-row">
+                      <span className="metric-icon">{item.icon}</span>
+                      <span className="metric-label">{item.label}</span>
+                      <span className="metric-value">{item.value}</span>
+                    </div>
+                  </NavLink>
+                ))}
+              </div>
+            )}
           </div>
 
           {fetchError && (
