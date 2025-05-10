@@ -43,7 +43,7 @@ const TicketDetailsModal = ({ open, onClose, ticket }) => {
     ["Name", `${ticket.first_name || "N/A"} ${ticket.middle_name || ""} ${ticket.last_name || "N/A"}`],
     ["Phone", ticket.phone_number || "N/A"],
     ["NIN", ticket.nida_number || "N/A"],
-    ["Employer", ticket.employer || "N/A"],
+    ["Requester", ticket.requester || "N/A"],
     ["Region", ticket.region || "N/A"],
     ["District", ticket.district || "N/A"],
     ["Category", ticket.category || "N/A"],
@@ -55,7 +55,7 @@ const TicketDetailsModal = ({ open, onClose, ticket }) => {
     ["Status", ticket.status || "N/A"],
     ["Assigned To", ticket.assigned_to_id || "N/A"],
     ["Assigned Role", ticket.assigned_to_role || "N/A"],
-    ["Created By", ticket.createdBy?.name || "N/A"],
+    ["Created By", ticket.creator?.name || "N/A"],
     ["Created At", formatDate(ticket.created_at)]
   ];
 

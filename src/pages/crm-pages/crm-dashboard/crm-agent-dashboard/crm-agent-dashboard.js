@@ -148,10 +148,10 @@ const AgentCRM = () => {
   const [ticketAttachments, setTicketAttachments] = useState({});
 
   const [filters, setFilters] = useState({
-    search: "",
-    status: "",
-    priority: "",
-    category: "",
+    search: '',
+    nidaSearch: '',
+    priority: '',
+    category: '',
     startDate: null,
     endDate: null,
   });
@@ -407,18 +407,39 @@ const AgentCRM = () => {
     fetchTicketAttachments(ticket.id);
   };
 
-  const filteredTickets = customerTickets.filter((t) => {
-    const s = search.trim().toLowerCase();
-    return (
-      (!s ||
-        t.phone_number?.toLowerCase().includes(s) ||
-        t.nida_number?.toLowerCase().includes(s) ||
-        t.firstName?.toLowerCase().includes(s) ||
-        t.lastName?.toLowerCase().includes(s)) &&
-      (!filterStatus || t.status === filterStatus)
-    );
-  });
+  const getFilteredTickets = () => {
+    return customerTickets.filter((ticket) => {
+      // Search by phone or NIDA (from table controls)
+      const s = search.trim().toLowerCase();
+      const matchesSearch =
+        !s ||
+        ticket.phone_number?.toLowerCase().includes(s) ||
+        ticket.nida_number?.toLowerCase().includes(s) ||
+        ticket.firstName?.toLowerCase().includes(s) ||
+        ticket.lastName?.toLowerCase().includes(s);
+      // Status (from table controls)
+      const matchesStatus = !filterStatus || ticket.status === filterStatus;
+      // Priority (from TicketFilters)
+      const matchesPriority = !filters.priority || ticket.priority === filters.priority;
+      // Category (from TicketFilters)
+      const matchesCategory = !filters.category || ticket.category === filters.category;
+      // Date range (from TicketFilters)
+      let matchesDate = true;
+      if (filters.startDate) {
+        const ticketDate = new Date(ticket.created_at);
+        if (ticketDate < filters.startDate) matchesDate = false;
+      }
+      if (filters.endDate) {
+        const ticketDate = new Date(ticket.created_at);
+        const endDate = new Date(filters.endDate);
+        endDate.setHours(23, 59, 59, 999);
+        if (ticketDate > endDate) matchesDate = false;
+      }
+      return matchesSearch && matchesStatus && matchesPriority && matchesCategory && matchesDate;
+    });
+  };
 
+  const filteredTickets = getFilteredTickets();
   const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
   const paginatedTickets = filteredTickets.slice(
     (currentPage - 1) * itemsPerPage,
@@ -733,63 +754,9 @@ const AgentCRM = () => {
 
   // Add function to handle filter changes
   const handleFilterChange = (newFilters) => {
-    setFilters(newFilters);
-  };
-
-  // Add function to filter tickets
-  const getFilteredTickets = () => {
-    return customerTickets.filter((ticket) => {
-      // Search filter
-      if (filters.search) {
-        const searchTerm = filters.search.toLowerCase();
-        const searchableFields = [
-          ticket.title,
-          ticket.description,
-          ticket.customerName,
-          ticket.phoneNumber,
-          ticket.nidaNumber,
-        ];
-        if (!searchableFields.some((field) => 
-          field && field.toLowerCase().includes(searchTerm)
-        )) {
-          return false;
-        }
-      }
-
-      // Status filter
-      if (filters.status && ticket.status !== filters.status) {
-        return false;
-      }
-
-      // Priority filter
-      if (filters.priority && ticket.priority !== filters.priority) {
-        return false;
-      }
-
-      // Category filter
-      if (filters.category && ticket.category !== filters.category) {
-        return false;
-      }
-
-      // Date range filter
-      if (filters.startDate) {
-        const ticketDate = new Date(ticket.created_at);
-        if (ticketDate < filters.startDate) {
-          return false;
-        }
-      }
-
-      if (filters.endDate) {
-        const ticketDate = new Date(ticket.created_at);
-        const endDate = new Date(filters.endDate);
-        endDate.setHours(23, 59, 59, 999);
-        if (ticketDate > endDate) {
-          return false;
-        }
-      }
-
-      return true;
-    });
+    const { status, ...rest } = newFilters;
+    setFilters(rest);
+    setCurrentPage(1);
   };
 
   if (loading) {
@@ -924,8 +891,8 @@ const AgentCRM = () => {
           <table className="user-table">
             <thead>{renderTableHeader()}</thead>
             <tbody>
-              {getFilteredTickets().length > 0 ? (
-                getFilteredTickets().map((ticket, i) => renderTableRow(ticket, i))
+              {paginatedTickets.length > 0 ? (
+                paginatedTickets.map((ticket, i) => renderTableRow(ticket, i))
               ) : (
                 <tr>
                   <td
@@ -966,236 +933,547 @@ const AgentCRM = () => {
         </div>
       </div>
 
-      {/* Ticket Creation Modal */}
-      <Modal open={showModal} onClose={() => setShowModal(false)}>
+      {/* Ticket Details Modal */}
+      <Modal open={showDetailsModal} onClose={() => setShowDetailsModal(false)}>
         <Box
           sx={{
             position: "absolute",
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            width: { xs: "95%", sm: 500 },
-            maxHeight: "90vh",
+            width: { xs: "90%", sm: 500 },
+            maxHeight: "80vh",
             overflowY: "auto",
             bgcolor: "background.paper",
             boxShadow: 24,
-            borderRadius: 3,
-            p: 3,
+            borderRadius: 2,
+            p: 3
           }}
         >
-          <button
-            onClick={() => setShowModal(false)}
-            style={{
-              position: "absolute",
-              top: 6,
-              right: 12,
-              background: "transparent",
-              border: "none",
-              fontSize: "1.25rem",
-              cursor: "pointer",
-            }}
-            aria-label="Close"
-          >
-            ×
-          </button>
-
-          <Typography variant="h6" align="center" sx={{ fontWeight: 700, mb: 2 }}>
-            New Ticket
-          </Typography>
-          <Divider sx={{ mb: 2 }} />
-
-          <form onSubmit={handleSubmit}>
-            <Grid container spacing={2}>
-              {/* First Row: Name Fields */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="First Name"
-                  name="firstName"
-                  value={formData.firstName}
-                  onChange={handleChange}
-                  fullWidth
-                  size="small"
-                  error={!!formErrors.firstName}
-                  helperText={formErrors.firstName}
-                />
+          {selectedTicket && (
+            <>
+              <Typography
+                variant="h5"
+                sx={{ fontWeight: "bold", color: "#1976d2" }}
+              >
+                Tickets Details
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              <Grid container spacing={2}>
+                <Grid item xs={12} sm={6}>
+                  <Typography>
+                    <strong>Name:</strong>{" "}
+                    {`${selectedTicket.first_name || "N/A"} ${
+                      selectedTicket.middle_name || " "
+                    } ${selectedTicket.last_name || "N/A"}`}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography>
+                    <strong>Phone:</strong>{" "}
+                    {selectedTicket.phone_number || "N/A"}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography>
+                    <strong>NIN:</strong> {selectedTicket.nida_number || "N/A"}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography>
+                    <strong>Employer:</strong>{" "}
+                    {selectedTicket.employer || "N/A"}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography>
+                    <strong>Region:</strong> {selectedTicket.region || "N/A"}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography>
+                    <strong>District:</strong>{" "}
+                    {selectedTicket.district || "N/A"}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography>
+                    <strong>Category:</strong> {selectedTicket.category || "N/A"}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography>
+                    <strong>Subject:</strong>{" "}
+                    {selectedTicket.functionData?.name || "N/A"}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography>
+                    <strong>Section:</strong>{" "}
+                    {selectedTicket.functionData?.parentFunction?.section?.name || "N/A"}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography>
+                    <strong>Sub-section:</strong>{" "}
+                    {selectedTicket.functionData?.parentFunction?.name || "N/A"}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography>
+                    <strong>Channel:</strong> {selectedTicket.channel || "N/A"}
+                  </Typography>
+                </Grid>
+                {/* <Grid item xs={12} sm={6}>
+                  <Typography>
+                    <strong>Complaint Type:</strong>{" "}
+                    {selectedTicket.complaintType || "Unrated"}
+                  </Typography>
+                </Grid> */}
+                <Grid item xs={12} sm={6}>
+                  <Typography>
+                    <strong>Rated:</strong>{" "}
+                    <span
+                      style={{
+                        color:
+                          selectedTicket.complaint_type === "Major"
+                            ? "red"
+                            : selectedTicket.complaint_type === "Minor"
+                            ? "orange"
+                            : "inherit"
+                      }}
+                    >
+                      {selectedTicket.complaint_type || "Unrated"}
+                    </span>
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography>
+                    <strong>Status:</strong>{" "}
+                    <span
+                      style={{
+                        color:
+                          selectedTicket.status === "Open"
+                            ? "green"
+                            : selectedTicket.status === "Closed"
+                            ? "gray"
+                            : "blue"
+                      }}
+                    >
+                      {selectedTicket.status || "N/A"}
+                    </span>
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography>
+                    <strong>Assigned To:</strong>{" "}
+                    {selectedTicket.assigned_to_id || "N/A"}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography>
+                    <strong>Assigned Role:</strong>{" "}
+                    {selectedTicket.assigned_to_role || "N/A"}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography>
+                    <strong>Created By:</strong>{" "}
+                    {selectedTicket?.creator?.name || "N/A"}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography>
+                    <strong>Created At:</strong>{" "}
+                    {selectedTicket.created_at
+                      ? new Date(selectedTicket.created_at).toLocaleString(
+                          "en-US",
+                          {
+                            month: "numeric",
+                            day: "numeric",
+                            year: "numeric",
+                            hour: "numeric",
+                            minute: "2-digit",
+                            hour12: true
+                          }
+                        )
+                      : "N/A"}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography>
+                    <strong>Description:</strong>{" "}
+                    {selectedTicket.description || "N/A"}
+                  </Typography>
+                </Grid>
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Last Name"
-                  name="lastName"
-                  value={formData.lastName}
-                  onChange={handleChange}
-                  fullWidth
-                  size="small"
-                  error={!!formErrors.lastName}
-                  helperText={formErrors.lastName}
-                />
-              </Grid>
-
-              {/* Phone & NIDA */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Phone Number"
-                  name="phoneNumber"
-                  value={formData.phoneNumber}
-                  onChange={handleChange}
-                  fullWidth
-                  size="small"
-                  error={!!formErrors.phoneNumber}
-                  helperText={formErrors.phoneNumber}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="National Identification Number"
-                  name="nidaNumber"
-                  value={formData.nidaNumber}
-                  onChange={handleChange}
-                  fullWidth
-                  size="small"
-                  error={!!formErrors.nidaNumber}
-                  helperText={formErrors.nidaNumber}
-                />
-              </Grid>
-
-              {/* Requester & Institution */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Requester"
-                  name="requester"
-                  value={formData.requester}
-                  onChange={handleChange}
-                  fullWidth
-                  size="small"
-                  error={!!formErrors.requester}
-                  helperText={formErrors.requester}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Institution"
-                  name="institution"
-                  value={formData.institution}
-                  onChange={handleChange}
-                  fullWidth
-                  size="small"
-                  error={!!formErrors.institution}
-                  helperText={formErrors.institution}
-                />
-              </Grid>
-
-              {/* Region & District */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Region"
-                  name="region"
-                  value={formData.region}
-                  onChange={handleChange}
-                  fullWidth
-                  size="small"
-                  error={!!formErrors.region}
-                  helperText={formErrors.region}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="District"
-                  name="district"
-                  value={formData.district}
-                  onChange={handleChange}
-                  fullWidth
-                  size="small"
-                  error={!!formErrors.district}
-                  helperText={formErrors.district}
-                />
-              </Grid>
-
-              {/* Category & Channel */}
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Category"
-                  name="category"
-                  value={formData.category}
-                  onChange={handleChange}
-                  size="small"
-                  error={!!formErrors.category}
-                  helperText={formErrors.category}
-                  sx={{ width: '150px' }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Channel"
-                  name="channel"
-                  value={formData.channel}
-                  onChange={handleChange}
-                  size="small"
-                  error={!!formErrors.channel}
-                  helperText={formErrors.channel}
-                  sx={{ width: '150px' }}
-                />
-              </Grid>
-
-              {/* Subject, Sub-section, Section */}
-              <Grid item xs={12} sm={4}>
-                <TextField
-                  label="Subject"
-                  name="functionId"
-                  value={formData.functionId}
-                  onChange={handleChange}
-                  size="small"
-                  error={!!formErrors.functionId}
-                  helperText={formErrors.functionId}
-                  sx={{ width: '150px' }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <TextField
-                  label="Sub-section"
-                  value={selectedFunction}
-                  size="small"
-                  InputProps={{ readOnly: true }}
-                  sx={{ width: '150px' }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={4}>
-                <TextField
-                  label="Section"
-                  value={selectedSection}
-                  size="small"
-                  InputProps={{ readOnly: true }}
-                  sx={{ width: '150px' }}
-                />
-              </Grid>
-
-              {/* Description */}
-              <Grid item xs={12}>
-                <TextField
-                  label="Description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  fullWidth
-                  multiline
-                  minRows={2}
-                  size="small"
-                  error={!!formErrors.description}
-                  helperText={formErrors.description}
-                />
-              </Grid>
-            </Grid>
-            <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2, mt: 3 }}>
-              <Button variant="outlined" onClick={() => setShowModal(false)}>
-                Cancel
-              </Button>
-              <Button variant="contained" type="submit">
-                Submit Ticket
-              </Button>
-            </Box>
-          </form>
+              <Box sx={{ mt: 3, textAlign: "right" }}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={() => setShowDetailsModal(false)}
+                >
+                  Close
+                </Button>
+              </Box>
+            </>
+          )}
         </Box>
       </Modal>
+      {/* Ticket Creation Modal */}
+      <Modal open={showModal} onClose={() => setShowModal(false)}>
+  <Box
+    sx={{
+      position: "absolute",
+      top: "50%",
+      left: "50%",
+      transform: "translate(-50%, -50%)",
+      width: { xs: "90%", sm: 600 },
+      maxHeight: "90vh",
+      overflowY: "auto",
+      bgcolor: "background.paper",
+      boxShadow: 24,
+      borderRadius: 3,
+      p: 4
+    }}
+  >
+    <button
+      onClick={() => setShowModal(false)}
+      style={{
+        position: "absolute",
+        top: 6,
+        right: 12,
+        background: "transparent",
+        border: "none",
+        fontSize: "1.25rem",
+        cursor: "pointer"
+      }}
+      aria-label="Close"
+    >
+      ×
+    </button>
 
+    <div className="modal-form-container">
+      <h2 className="modal-title">New Ticket</h2>
+
+      {/* First Row */}
+      <div className="modal-form-row">
+        <div className="modal-form-group">
+          <label style={{ fontSize: "0.875rem" }}>First Name:</label>
+          <input
+            name="firstName"
+            value={formData.firstName}
+            onChange={handleChange}
+            placeholder="Enter first name"
+            style={{
+              height: "32px",
+              fontSize: "0.875rem",
+              padding: "4px 8px",
+              border: formErrors.firstName ? "1px solid red" : "1px solid #ccc"
+            }}
+          />
+          {formErrors.firstName && (
+            <span style={{ color: "red", fontSize: "0.75rem" }}>{formErrors.firstName}</span>
+          )}
+        </div>
+
+        <div className="modal-form-group">
+          <label style={{ fontSize: "0.875rem" }}>Last Name:</label>
+          <input
+            name="lastName"
+            value={formData.lastName}
+            onChange={handleChange}
+            placeholder="Enter last name"
+            style={{
+              height: "32px",
+              fontSize: "0.875rem",
+              padding: "4px 8px",
+              border: formErrors.lastName ? "1px solid red" : "1px solid #ccc"
+            }}
+          />
+          {formErrors.lastName && (
+            <span style={{ color: "red", fontSize: "0.75rem" }}>{formErrors.lastName}</span>
+          )}
+        </div>
+      </div>
+
+      {/* Phone & NIDA */}
+      <div className="modal-form-row">
+        <div className="modal-form-group">
+          <label style={{ fontSize: "0.875rem" }}>Phone Number:</label>
+          <input
+            type="tel"
+            name="phoneNumber"
+            value={formData.phoneNumber}
+            onChange={handleChange}
+            placeholder="Enter phone number"
+            style={{
+              height: "32px",
+              fontSize: "0.875rem",
+              padding: "4px 8px",
+              border: formErrors.phoneNumber ? "1px solid red" : "1px solid #ccc"
+            }}
+          />
+          {formErrors.phoneNumber && (
+            <span style={{ color: "red", fontSize: "0.75rem" }}>{formErrors.phoneNumber}</span>
+          )}
+        </div>
+
+        <div className="modal-form-group">
+          <label style={{ fontSize: "0.875rem" }}>National Identification Number:</label>
+          <input
+            name="nidaNumber"
+            value={formData.nidaNumber}
+            onChange={handleChange}
+            placeholder="Enter NIN number"
+            style={{
+              height: "32px",
+              fontSize: "0.875rem",
+              padding: "4px 8px",
+              border: formErrors.nidaNumber ? "1px solid red" : "1px solid #ccc"
+            }}
+          />
+          {formErrors.nidaNumber && (
+            <span style={{ color: "red", fontSize: "0.75rem" }}>{formErrors.nidaNumber}</span>
+          )}
+        </div>
+      </div>
+
+      {/* Requester & Institution */}
+      <div className="modal-form-row">
+        <div className="modal-form-group">
+          <label style={{ fontSize: "0.875rem" }}>Requester:</label>
+          <select
+            name="requester"
+            value={formData.requester}
+            onChange={handleChange}
+            style={{
+              height: "32px",
+              fontSize: "0.875rem",
+              padding: "4px 8px",
+              width: "100%",
+              border: formErrors.requester ? "1px solid red" : "1px solid #ccc"
+            }}
+          >
+            <option value="">Select..</option>
+            <option value="Employer">Employer</option>
+            <option value="Employee">Employee</option>
+          </select>
+          {formErrors.category && (
+            <span style={{ color: "red", fontSize: "0.75rem" }}>{formErrors.category}</span>
+          )}
+        </div>
+
+        <div className="modal-form-group">
+          <label style={{ fontSize: "0.875rem" }}>Institution:</label>
+          <input
+            name="institution"
+            value={formData.institution}
+            onChange={handleChange}
+            placeholder="Enter Institution"
+            style={{
+              height: "32px",
+              fontSize: "0.875rem",
+              padding: "4px 8px",
+              border: formErrors.institution ? "1px solid red" : "1px solid #ccc"
+            }}
+          />
+          {formErrors.institution && (
+            <span style={{ color: "red", fontSize: "0.75rem" }}>{formErrors.institution}</span>
+          )}
+        </div>
+      </div>
+
+      {/* Region & District */}
+      <div className="modal-form-row">
+        <div className="modal-form-group">
+          <label style={{ fontSize: "0.875rem" }}>Region:</label>
+          <input
+            name="region"
+            value={formData.region}
+            onChange={handleChange}
+            placeholder="Enter region"
+            style={{
+              height: "32px",
+              fontSize: "0.875rem",
+              padding: "4px 8px",
+              border: formErrors.region ? "1px solid red" : "1px solid #ccc"
+            }}
+          />
+          {formErrors.region && (
+            <span style={{ color: "red", fontSize: "0.75rem" }}>{formErrors.region}</span>
+          )}
+        </div>
+
+        <div className="modal-form-group">
+          <label style={{ fontSize: "0.875rem" }}>District:</label>
+          <input
+            name="district"
+            value={formData.district}
+            onChange={handleChange}
+            placeholder="Enter district"
+            style={{
+              height: "32px",
+              fontSize: "0.875rem",
+              padding: "4px 8px",
+              border: formErrors.district ? "1px solid red" : "1px solid #ccc"
+            }}
+          />
+          {formErrors.district && (
+            <span style={{ color: "red", fontSize: "0.75rem" }}>{formErrors.district}</span>
+          )}
+        </div>
+      </div>
+
+      {/* Category & Channel */}
+      <div className="modal-form-row">
+        <div className="modal-form-group" style={{ flex: 1 }}>
+          <label style={{ fontSize: "0.875rem" }}>Category:</label>
+          <select
+            name="category"
+            value={formData.category}
+            onChange={handleChange}
+            style={{
+              height: "32px",
+              fontSize: "0.875rem",
+              padding: "4px 8px",
+              width: "100%",
+              border: formErrors.category ? "1px solid red" : "1px solid #ccc"
+            }}
+          >
+            <option value="">Select Category</option>
+            <option value="Inquiry">Inquiry</option>
+            <option value="Complaint">Complaint</option>
+            <option value="Suggestion">Suggestion</option>
+            <option value="Compliment">Compliment</option>
+          </select>
+          {formErrors.category && (
+            <span style={{ color: "red", fontSize: "0.75rem" }}>{formErrors.category}</span>
+          )}
+        </div>
+
+        <div className="modal-form-group" style={{ flex: 1 }}>
+          <label style={{ fontSize: "0.875rem" }}>Channel:</label>
+          <select
+            name="channel"
+            value={formData.requester}
+  onChange={handleChange}
+            style={{
+              height: "32px",
+              fontSize: "0.875rem",
+              padding: "4px 8px",
+              width: "100%",
+              border: formErrors.channel ? "1px solid red" : "1px solid #ccc"
+            }}
+          >
+            <option value="">Select Channel</option>
+            <option value="Call">Call</option>
+            <option value="Email">Email</option>
+          </select>
+          {formErrors.functionId && (
+            <span style={{ color: "red", fontSize: "0.75rem" }}>{formErrors.functionId}</span>
+          )}
+        </div>
+      </div>
+
+      {/* Subject, Sub-section, Section */}
+      <div className="modal-form-row">
+        <div className="modal-form-group" style={{ flex: 1 }}>
+          <label style={{ fontSize: "0.875rem" }}>Subject:</label>
+          <select
+            name="functionId"
+            value={formData.functionId}
+            onChange={handleChange}
+            style={{
+              height: "32px",
+              fontSize: "0.875rem",
+              padding: "4px 8px",
+              width: "100%",
+              border: formErrors.functionId ? "1px solid red" : "1px solid #ccc"
+            }}
+          >
+            <option value="">Select Subject</option>
+            {functionData.map((item) => (
+              <option key={item.id} value={item.id}>{item.name}</option>
+            ))}
+          </select>
+          {formErrors.functionId && (
+            <span style={{ color: "red", fontSize: "0.75rem" }}>{formErrors.functionId}</span>
+          )}
+        </div>
+
+        <div className="modal-form-group">
+          <label style={{ fontSize: "0.875rem" }}>Sub-section:</label>
+          <input
+            value={selectedFunction}
+            readOnly
+            style={{
+              height: "32px",
+              fontSize: "0.875rem",
+              padding: "4px 8px",
+              backgroundColor: "#f5f5f5"
+            }}
+          />
+        </div>
+
+        <div className="modal-form-group">
+          <label style={{ fontSize: "0.875rem" }}>Section:</label>
+          <input
+            value={selectedSection}
+            readOnly
+            style={{
+              height: "32px",
+              fontSize: "0.875rem",
+              padding: "4px 8px",
+              backgroundColor: "#f5f5f5"
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Description */}
+      <div className="modal-form-group">
+        <label style={{ fontSize: "0.875rem" }}>Description:</label>
+        <textarea
+          rows="2"
+          name="description"
+          value={formData.description}
+          onChange={handleChange}
+          placeholder="Detailed descriptions.."
+          style={{
+            fontSize: "0.875rem",
+            padding: "8px",
+            resize: "vertical",
+            border: formErrors.description ? "1px solid red" : "1px solid #ccc"
+          }}
+        />
+        {formErrors.description && (
+          <span style={{ color: "red", fontSize: "0.75rem" }}>{formErrors.description}</span>
+        )}
+      </div>
+
+      {/* Submit */}
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "flex-end",
+          gap: "10px",
+          marginTop: "1.5rem"
+        }}
+      >
+        <button
+          className="cancel-btn"
+          onClick={() => setShowModal(false)}
+        >
+          Cancel
+        </button>
+        <button className="submit-btn" onClick={handleSubmit}>
+          Submit Ticket
+        </button>
+      </div>
+    </div>
+  </Box>
+</Modal>
       <TicketDetailsModal
         open={showDetailsModal}
         onClose={() => setShowDetailsModal(false)}

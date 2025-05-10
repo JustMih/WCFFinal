@@ -17,6 +17,7 @@ import {
 import ColumnSelector from "../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../config";
 import "./ticket.css";
+import TicketFilters from '../../../components/ticket/TicketFilters';
 
 export default function Crm() {
   const [agentTickets, setAgentTickets] = useState([]);
@@ -42,6 +43,14 @@ export default function Crm() {
     "createdAt",
   ]);
   const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState({
+    search: '',
+    nidaSearch: '',
+    priority: '',
+    category: '',
+    startDate: null,
+    endDate: null,
+  });
 
   useEffect(() => {
     const userId = localStorage.getItem("userId");
@@ -156,14 +165,32 @@ export default function Crm() {
     setModal({ isOpen: false, type: "", message: "" });
   };
 
+  const handleFilterChange = (newFilters) => {
+    const { status, ...rest } = newFilters;
+    setFilters(rest);
+    setCurrentPage(1);
+  };
+
   const filteredTickets = agentTickets.filter((ticket) => {
     const searchValue = search.toLowerCase();
-    const phone = (ticket.phone_number || "").toLowerCase();
-    const nida = (ticket.nida_number || "").toLowerCase();
-    return (
-      (phone.includes(searchValue) || nida.includes(searchValue)) &&
-      (!filterStatus || ticket.status === filterStatus)
-    );
+    const phone = (ticket.phone_number || '').toLowerCase();
+    const nida = (ticket.nida_number || '').toLowerCase();
+    const matchesSearch = !searchValue || phone.includes(searchValue) || nida.includes(searchValue);
+    const matchesStatus = !filterStatus || ticket.status === filterStatus;
+    const matchesPriority = !filters.priority || ticket.priority === filters.priority;
+    const matchesCategory = !filters.category || ticket.category === filters.category;
+    let matchesDate = true;
+    if (filters.startDate) {
+      const ticketDate = new Date(ticket.created_at);
+      if (ticketDate < filters.startDate) matchesDate = false;
+    }
+    if (filters.endDate) {
+      const ticketDate = new Date(ticket.created_at);
+      const endDate = new Date(filters.endDate);
+      endDate.setHours(23, 59, 59, 999);
+      if (ticketDate > endDate) matchesDate = false;
+    }
+    return matchesSearch && matchesStatus && matchesPriority && matchesCategory && matchesDate;
   });
 
   const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
@@ -257,6 +284,7 @@ export default function Crm() {
 
   return (
     <div className="coordinator-dashboard-container">
+      <TicketFilters onFilterChange={handleFilterChange} initialFilters={filters} />
       <div style={{ overflowX: "auto", width: "100%" }}>
         <div
           style={{

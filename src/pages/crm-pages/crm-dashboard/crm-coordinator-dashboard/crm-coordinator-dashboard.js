@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import axios from "axios";
 
 // React Icons
 import { FaEye, FaRegCheckCircle } from "react-icons/fa";
@@ -49,6 +50,7 @@ export default function CoordinatorDashboard() {
       message: "",
       severity: "info"
     });
+    const [loading, setLoading] = useState(false);
   
     // Initialize activeColumns with default columns if empty
     useEffect(() => {
@@ -66,25 +68,10 @@ export default function CoordinatorDashboard() {
       ratedMajor: tickets.filter((t) => t.complaintType === "Major").length,
       ratedMinor: tickets.filter((t) => t.complaintType === "Minor").length
     };
-    const totalTickets = { Directorate: 2, Units: 4 };
-    const newTickets = {
-      Complaints: 12,
-      "New Tickets": 20,
-      "Escalated Tickets": 20
-    };
-    const convertedTickets = {
-      Inquiries: 0,
-      Complaints: 6,
-      Suggestions: 8,
-      Complements: 4
-    };
-    const ticketStatus = {
-      Open: 90,
-      "On Progress": 20,
-      Closed: 30,
-      Minor: 0,
-      Major: 3
-    };
+    const [totalTickets, setTotalTickets] = useState({ Directorate: 0, Units: 0 });
+    const [newTickets, setNewTickets] = useState({ Complaints: 0, "New Tickets": 0, "Escalated Tickets": 0 });
+    const [convertedTickets, setConvertedTickets] = useState({ Inquiries: 0, Complaints: 0, Suggestions: 0, Complements: 0 });
+    const [ticketStatus, setTicketStatus] = useState({ Open: 0, "On Progress": 0, Closed: 0, Minor: 0, Major: 0 });
   
     // Fetch userId on mount
     useEffect(() => {
@@ -99,6 +86,7 @@ export default function CoordinatorDashboard() {
         });
       } else {
         fetchTickets();
+        fetchDashboardCounts();
       }
     }, []);
   
@@ -125,6 +113,31 @@ export default function CoordinatorDashboard() {
           message: `Error fetching tickets: ${error.message}`,
           severity: "error"
         });
+      }
+    };
+  
+    const fetchDashboardCounts = async () => {
+      setLoading(true);
+      const token = localStorage.getItem("authToken");
+      try {
+        const response = await fetch(`${baseURL}/coordinator/dashboard-counts/${userId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const result = await response.json();
+        const data = result.data;
+
+        setNewTickets(data.newTickets);
+        setConvertedTickets(data.convertedTickets);
+        setTotalTickets(data.channeledTickets);
+        setTicketStatus(data.ticketStatus);
+      } catch (error) {
+        setSnackbar({
+          open: true,
+          message: `Error fetching dashboard counts: ${error.message}`,
+          severity: "error"
+        });
+      } finally {
+        setLoading(false);
       }
     };
   
