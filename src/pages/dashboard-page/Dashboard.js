@@ -12,7 +12,7 @@ import CRMCarriedForawardTickets from "../crm-pages/crm-tickets/carried-forward"
 import CRMOverdueTickets from "../crm-pages/crm-tickets/overdue";
 import CRMClosedTickets from "../crm-pages/crm-tickets/closed";
 import CRMTotalTickets from "../crm-pages/crm-tickets/total";
-import CRMCoordinatorTickets from "../crm-pages/crm-dashboard/crm-coordinator-dashboard/crm-coordinator-dashboard";
+import CRMCoordinatorTickets from "../crm-pages/crm-coordinator-tickets/crm-coordinator-tickets";
 import CallCenterUsers from "../call-center-pages/call-center-users/CallCenterUsers";
 import CallCenterAgents from "../call-center-pages/call-center-agents/CallCenterAgents";
 import CallCenterExtensions from "../call-center-pages/call-center-extensions/CallCenterExtensions";
