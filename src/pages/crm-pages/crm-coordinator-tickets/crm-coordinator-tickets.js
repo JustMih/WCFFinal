@@ -1,12 +1,42 @@
-import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { baseURL } from '../../../config';
+import React, { useState, useEffect } from "react";
+import { useParams } from "react-router-dom";
+import { FiSettings } from "react-icons/fi";
+import {
+  Box,
+  Button,
+  Grid,
+  IconButton,
+  Modal,
+  Tooltip,
+  Typography,
+  Divider
+} from "@mui/material";
+import ColumnSelector from "../../../components/colums-select/ColumnSelector";
+import { baseURL } from "../../../config";
+import "../crm-tickets/ticket.css";
 
-const CRMCoordinatorTickets = () => {
+export default function CRMCoordinatorTickets() {
   const { status } = useParams();
   const [tickets, setTickets] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(5);
+  const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [activeColumns, setActiveColumns] = useState([
+    "id",
+    "fullName",
+    "phone_number",
+    "status",
+    "subject",
+    "category",
+    "assigned_to_role",
+    "createdAt"
+  ]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchTickets();
@@ -16,57 +46,312 @@ const CRMCoordinatorTickets = () => {
   const fetchTickets = async () => {
     try {
       setLoading(true);
-      const userId = localStorage.getItem('userId');
-      const token = localStorage.getItem('authToken');
+      const token = localStorage.getItem("authToken");
       const response = await fetch(`${baseURL}/coordinator/tickets?status=${status}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
       });
       if (!response.ok) {
-        throw new Error('Failed to fetch tickets');
+        throw new Error("Failed to fetch tickets");
       }
       const data = await response.json();
       setTickets(data.tickets || []);
+      setError(null);
     } catch (err) {
       setError(err.message);
+      setTickets([]);
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) return <div>Loading...</div>;
-  if (error) return <div>Error: {error}</div>;
+  const openModal = (ticket) => {
+    setSelectedTicket(ticket);
+    setIsModalOpen(true);
+  };
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedTicket(null);
+  };
+
+  const filteredTickets = tickets.filter((ticket) => {
+    const searchValue = search.toLowerCase();
+    const phone = (ticket.phone_number || "").toLowerCase();
+    const nida = (ticket.nida_number || "").toLowerCase();
+    return (
+      (phone.includes(searchValue) || nida.includes(searchValue)) &&
+      (!filterStatus || ticket.status === filterStatus)
+    );
+  });
+
+  const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
+  const paginatedTickets = filteredTickets.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const renderTableHeader = () => (
+    <tr>
+      {activeColumns.includes("id") && <th>#</th>}
+      {activeColumns.includes("fullName") && <th>Full Name</th>}
+      {activeColumns.includes("phone_number") && <th>Phone</th>}
+      {activeColumns.includes("status") && <th>Status</th>}
+      {activeColumns.includes("subject") && <th>Subject</th>}
+      {activeColumns.includes("category") && <th>Category</th>}
+      {activeColumns.includes("assigned_to_role") && <th>Assigned Role</th>}
+      {activeColumns.includes("createdAt") && <th>Created At</th>}
+      <th>Actions</th>
+    </tr>
+  );
+
+  const renderTableRow = (ticket, index) => (
+    <tr key={ticket.id || index}>
+      {activeColumns.includes("id") && (
+        <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
+      )}
+      {activeColumns.includes("fullName") && (
+        <td>{`${ticket.first_name || ""} ${ticket.middle_name || ""} ${ticket.last_name || ""}`}</td>
+      )}
+      {activeColumns.includes("phone_number") && (
+        <td>{ticket.phone_number || "N/A"}</td>
+      )}
+      {activeColumns.includes("status") && (
+        <td>
+          <span
+            style={{
+              color:
+                ticket.status === "Open"
+                  ? "green"
+                  : ticket.status === "Closed"
+                  ? "gray"
+                  : "blue",
+            }}
+          >
+            {ticket.status || "N/A"}
+          </span>
+        </td>
+      )}
+      {activeColumns.includes("subject") && <td>{ticket.subject || "N/A"}</td>}
+      {activeColumns.includes("category") && <td>{ticket.category || "N/A"}</td>}
+      {activeColumns.includes("assigned_to_role") && (
+        <td>{ticket.assigned_to_role || "N/A"}</td>
+      )}
+      {activeColumns.includes("createdAt") && (
+        <td>
+          {ticket.created_at
+            ? new Date(ticket.created_at).toLocaleString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true,
+              })
+            : "N/A"}
+        </td>
+      )}
+      <td>
+        <Tooltip title="Ticket Details">
+          <button
+            className="view-ticket-details-btn"
+            onClick={() => openModal(ticket)}
+          >
+            <FiSettings />
+          </button>
+        </Tooltip>
+      </td>
+    </tr>
+  );
+
+  if (loading) {
+    return (
+      <div className="p-6">
+        <h3 className="title">Loading...</h3>
+      </div>
+    );
+  }
 
   return (
-    <div className="coordinator-tickets">
-      <h2>Coordinator Tickets - {status}</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>Phone</th>
-            <th>Category</th>
-            <th>Status</th>
-            <th>Created At</th>
-          </tr>
-        </thead>
-        <tbody>
-          {tickets.map(ticket => (
-            <tr key={ticket.id}>
-              <td>{ticket.id}</td>
-              <td>{`${ticket.first_name} ${ticket.last_name}`}</td>
-              <td>{ticket.phone_number}</td>
-              <td>{ticket.category}</td>
-              <td>{ticket.status}</td>
-              <td>{new Date(ticket.created_at).toLocaleString()}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="coordinator-dashboard-container">
+      <div style={{ overflowX: "auto", width: "100%" }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "16px",
+          }}
+        >
+          <h2>Coordinator Tickets - {status}</h2>
+          <Tooltip title="Columns Settings and Export" arrow>
+            <IconButton onClick={() => setIsColumnModalOpen(true)}>
+              <FiSettings size={20} />
+            </IconButton>
+          </Tooltip>
+        </div>
+
+        <div className="controls">
+          <div>
+            <label style={{ marginRight: "8px" }}>
+              <strong>Show:</strong>
+            </label>
+            <select
+              className="filter-select"
+              value={itemsPerPage}
+              onChange={(e) => {
+                const value = e.target.value;
+                setItemsPerPage(
+                  value === "All" ? filteredTickets.length : parseInt(value)
+                );
+                setCurrentPage(1);
+              }}
+            >
+              {[5, 10, 25, 50, 100].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+              <option value="All">All</option>
+            </select>
+          </div>
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
+            <input
+              className="search-input"
+              type="text"
+              placeholder="Search by phone or NIDA..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+            <select
+              className="filter-select"
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+            >
+              <option value="">All</option>
+              <option value="Open">Open</option>
+              <option value="Closed">Closed</option>
+            </select>
+          </div>
+        </div>
+
+        <table className="user-table">
+          <thead>{renderTableHeader()}</thead>
+          <tbody>
+            {paginatedTickets.length > 0 ? (
+              paginatedTickets.map((ticket, i) => renderTableRow(ticket, i))
+            ) : (
+              <tr>
+                <td
+                  colSpan={activeColumns.length + 1}
+                  style={{ textAlign: "center", color: "red" }}
+                >
+                  {error || "No tickets found for this status."}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+
+        <div style={{ marginTop: "16px", textAlign: "center" }}>
+          <Button
+            variant="outlined"
+            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+            disabled={currentPage === 1}
+            sx={{ marginRight: 1 }}
+          >
+            Previous
+          </Button>
+          <span>
+            Page {currentPage} of {totalPages}
+          </span>
+          <Button
+            variant="outlined"
+            onClick={() =>
+              setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+            }
+            disabled={currentPage === totalPages}
+            sx={{ marginLeft: 1 }}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
+
+      {/* Details Modal */}
+      <Modal
+        open={isModalOpen}
+        onClose={closeModal}
+        aria-labelledby="ticket-details-title"
+        aria-describedby="ticket-details-description"
+      >
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: { xs: "90%", sm: 600 },
+            maxHeight: "85vh",
+            overflowY: "auto",
+            bgcolor: "background.paper",
+            boxShadow: 24,
+            borderRadius: 2,
+            p: 3,
+          }}
+        >
+          {selectedTicket && (
+            <>
+              <Typography
+                id="ticket-details-title"
+                variant="h5"
+                sx={{ fontWeight: "bold", color: "#1976d2" }}
+              >
+                Ticket Details
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              <Grid container spacing={2} id="ticket-details-description">
+                <Grid item xs={12} sm={6}>
+                  <Typography>
+                    <strong>Name:</strong> {`${selectedTicket.first_name || "N/A"} ${selectedTicket.middle_name || "N/A"} ${selectedTicket.last_name || "N/A"}`}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography>
+                    <strong>Phone:</strong> {selectedTicket.phone_number || "N/A"}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography>
+                    <strong>NIDA:</strong> {selectedTicket.nida_number || "N/A"}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography>
+                    <strong>Category:</strong> {selectedTicket.category || "N/A"}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography>
+                    <strong>Status:</strong> {selectedTicket.status || "N/A"}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <Typography>
+                    <strong>Created At:</strong> {selectedTicket.created_at ? new Date(selectedTicket.created_at).toLocaleString("en-GB") : "N/A"}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography>
+                    <strong>Description:</strong> {selectedTicket.description || "N/A"}
+                  </Typography>
+                </Grid>
+              </Grid>
+            </>
+          )}
+        </Box>
+      </Modal>
     </div>
   );
-};
-
-export default CRMCoordinatorTickets; 
+} 
