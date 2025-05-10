@@ -77,18 +77,21 @@ export default function CoordinatorDashboard() {
     useEffect(() => {
       const id = localStorage.getItem("userId");
       const token = localStorage.getItem("authToken");
-      setUserId(id);
-      if (!token) {
+    
+      if (!id || !token) {
         setSnackbar({
           open: true,
           message: "Please log in to access tickets.",
           severity: "error"
         });
-      } else {
-        fetchTickets();
-        fetchDashboardCounts();
+        return;
       }
+    
+      setUserId(id); // Set state for other uses
+      fetchTickets();
+      fetchDashboardCounts(id); // pass id directly
     }, []);
+    
   
     const fetchTickets = async () => {
       try {
@@ -116,21 +119,34 @@ export default function CoordinatorDashboard() {
       }
     };
   
-    const fetchDashboardCounts = async () => {
+    const fetchDashboardCounts = async (id) => {
       setLoading(true);
       const token = localStorage.getItem("authToken");
+    
       try {
-        const response = await fetch(`${baseURL}/coordinator/dashboard-counts/${userId}`, {
+        const response = await fetch(`${baseURL}/coordinator/dashboard-counts/${id}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        const result = await response.json();
-        const data = result.data;
-
-        setNewTickets(data.newTickets);
-        setConvertedTickets(data.convertedTickets);
-        setTotalTickets(data.channeledTickets);
-        setTicketStatus(data.ticketStatus);
+    
+        const responseText = await response.text();
+        let result;
+        try {
+          result = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error('Failed to parse response as JSON:', responseText);
+          throw new Error(`Invalid JSON response from server: ${parseError.message}`);
+        }
+    
+        if (result.data) {
+          setNewTickets(result.data.newTickets);
+          setConvertedTickets(result.data.convertedTickets);
+          setTotalTickets(result.data.channeledTickets);
+          setTicketStatus(result.data.ticketStatus);
+        } else {
+          throw new Error('No data received from server');
+        }
       } catch (error) {
+        console.error('Dashboard counts error:', error);
         setSnackbar({
           open: true,
           message: `Error fetching dashboard counts: ${error.message}`,
@@ -140,7 +156,7 @@ export default function CoordinatorDashboard() {
         setLoading(false);
       }
     };
-  
+    
     const handleRating = async (ticketId, rating) => {
       try {
         const token = localStorage.getItem("authToken");
@@ -183,8 +199,7 @@ export default function CoordinatorDashboard() {
         const payload = { ticketId };
         if (category) payload.category = category;
         if (unitId) payload.responsible_unit_id = unitId;
-        const response = await fetch(
-          `${baseURL}/coordinator/${ticketId}/convert-or-forward-ticket`,
+        const response = await fetch(`${baseURL}/coordinator/${ticketId}/convert-or-forward-ticket`,
           {
             method: "PUT",
             headers: {
