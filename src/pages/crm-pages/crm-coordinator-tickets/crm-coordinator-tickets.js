@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { FiSettings } from "react-icons/fi";
+import { FaEye } from "react-icons/fa";
 import {
   Box,
   Button,
@@ -159,7 +160,7 @@ export default function CRMCoordinatorTickets() {
             className="view-ticket-details-btn"
             onClick={() => openModal(ticket)}
           >
-            <FiSettings />
+            <FaEye />
           </button>
         </Tooltip>
       </td>
