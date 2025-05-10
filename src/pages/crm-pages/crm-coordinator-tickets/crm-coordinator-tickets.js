@@ -26,7 +26,7 @@ export default function CRMCoordinatorTickets() {
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
-  const [activeColumns, setActiveColumns] = useState([
+  const DEFAULT_COLUMNS = [
     "id",
     "fullName",
     "phone_number",
@@ -35,7 +35,8 @@ export default function CRMCoordinatorTickets() {
     "category",
     "assigned_to_role",
     "createdAt"
-  ]);
+  ];
+  const [activeColumns, setActiveColumns] = useState(DEFAULT_COLUMNS);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -164,6 +165,14 @@ export default function CRMCoordinatorTickets() {
       </td>
     </tr>
   );
+
+  const handleColumnsChange = (selectedColumns) => {
+    if (selectedColumns.length === 0) {
+      setActiveColumns(DEFAULT_COLUMNS);
+    } else {
+      setActiveColumns(selectedColumns);
+    }
+  };
 
   if (loading) {
     return (
@@ -352,6 +361,13 @@ export default function CRMCoordinatorTickets() {
           )}
         </Box>
       </Modal>
+
+      <ColumnSelector
+        open={isColumnModalOpen}
+        onClose={() => setIsColumnModalOpen(false)}
+        data={tickets}
+        onColumnsChange={handleColumnsChange}
+      />
     </div>
   );
 } 
