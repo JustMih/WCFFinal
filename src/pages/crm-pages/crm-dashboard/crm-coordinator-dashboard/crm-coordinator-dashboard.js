@@ -264,6 +264,8 @@ export default function CoordinatorDashboard() {
   const handleConvertOrForward = async (ticketId) => {
     const category = convertCategory[ticketId];
     const unitId = forwardUnit[ticketId];
+    const userId = localStorage.getItem("userId"); // ✅ Add this
+  
     if (!category && !unitId) {
       setSnackbar({
         open: true,
@@ -272,11 +274,14 @@ export default function CoordinatorDashboard() {
       });
       return;
     }
+  
     try {
       const token = localStorage.getItem("authToken");
-      const payload = { ticketId };
+  
+      const payload = { userId }; // ✅ Pass correct body
       if (category) payload.category = category;
       if (unitId) payload.responsible_unit_id = unitId;
+  
       const response = await fetch(
         `${baseURL}/coordinator/${ticketId}/convert-or-forward-ticket`,
         {
@@ -288,24 +293,25 @@ export default function CoordinatorDashboard() {
           body: JSON.stringify(payload)
         }
       );
+  
       if (response.ok) {
         setSnackbar({
           open: true,
           message: "Ticket updated successfully",
           severity: "success"
         });
-        // Refresh both tickets and dashboard counts
         await Promise.all([fetchTickets(), fetchDashboardCounts(userId)]);
-        // Clear the form selections
         setConvertCategory((prev) => ({ ...prev, [ticketId]: "" }));
         setForwardUnit((prev) => ({ ...prev, [ticketId]: "" }));
       } else {
-        throw new Error("Failed to update ticket.");
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to update ticket.");
       }
     } catch (error) {
       setSnackbar({ open: true, message: error.message, severity: "error" });
     }
   };
+  
 
   // Add a refresh function that can be called periodically
   const refreshData = async () => {

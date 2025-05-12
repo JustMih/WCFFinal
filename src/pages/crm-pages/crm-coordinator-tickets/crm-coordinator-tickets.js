@@ -10,7 +10,9 @@ import {
   Modal,
   Tooltip,
   Typography,
-  Divider
+  Divider,
+  Snackbar,
+  Alert
 } from "@mui/material";
 import ColumnSelector from "../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../config";
@@ -39,9 +41,15 @@ export default function CRMCoordinatorTickets() {
   ];
   const [activeColumns, setActiveColumns] = useState(DEFAULT_COLUMNS);
   const [loading, setLoading] = useState(true);
+  const [convertCategory, setConvertCategory] = useState({});
+  const [forwardUnit, setForwardUnit] = useState({});
+  const [units, setUnits] = useState([]);
+  const categories = ["Complaint", "Congrats", "Suggestion"];
+  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "info" });
 
   useEffect(() => {
     fetchTickets();
+    fetchUnits();
     // eslint-disable-next-line
   }, [status]);
 
@@ -65,6 +73,19 @@ export default function CRMCoordinatorTickets() {
       setTickets([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchUnits = async () => {
+    const token = localStorage.getItem("authToken");
+    try {
+      const res = await fetch(`${baseURL}/section/units-data`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const json = await res.json();
+      setUnits(json.data || []);
+    } catch (err) {
+      // Optionally handle error
     }
   };
 
@@ -174,6 +195,47 @@ export default function CRMCoordinatorTickets() {
       setActiveColumns(selectedColumns);
     }
   };
+
+  const handleConvertOrForward = async (ticketId) => {
+    const userId = localStorage.getItem("userId");
+    const token = localStorage.getItem("authToken");
+    const category = convertCategory[ticketId];
+    const responsible_unit_id = forwardUnit[ticketId];
+
+    if (!category && !responsible_unit_id) {
+      setSnackbar({ open: true, message: "Select either category or unit to forward", severity: "warning" });
+      return;
+    }
+
+    const payload = { userId };
+    if (category) payload.category = category;
+    if (responsible_unit_id) payload.responsible_unit_id = responsible_unit_id;
+
+    try {
+      const response = await fetch(`${baseURL}/coordinator/${ticketId}/convert-or-forward-ticket`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      if (response.ok) {
+        setSnackbar({ open: true, message: "Ticket updated successfully", severity: "success" });
+        fetchTickets();
+        setConvertCategory((prev) => ({ ...prev, [ticketId]: "" }));
+        setForwardUnit((prev) => ({ ...prev, [ticketId]: "" }));
+      } else {
+        const errorData = await response.json();
+        console.log("Backend error:", errorData);
+        setSnackbar({ open: true, message: errorData.message || "Failed to update ticket.", severity: "error" });
+      }
+    } catch (error) {
+      setSnackbar({ open: true, message: error.message, severity: "error" });
+    }
+  };
+
+  const handleSnackbarClose = () => setSnackbar({ ...snackbar, open: false });
 
   if (loading) {
     return (
@@ -358,6 +420,40 @@ export default function CRMCoordinatorTickets() {
                   </Typography>
                 </Grid>
               </Grid>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 2 }}>
+                <select
+                  style={{ padding: "4px 8px", fontSize: "0.8rem", height: "32px", borderRadius: "4px" }}
+                  value={convertCategory[selectedTicket.id] || ""}
+                  onChange={(e) =>
+                    setConvertCategory((prev) => ({ ...prev, [selectedTicket.id]: e.target.value }))
+                  }
+                >
+                  <option value="">Convert To</option>
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+                <Button size="small" variant="contained" onClick={() => handleConvertOrForward(selectedTicket.id)}>
+                  Convert
+                </Button>
+              </Box>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 1 }}>
+                <select
+                  style={{ padding: "4px 8px", fontSize: "0.8rem", height: "32px", borderRadius: "4px" }}
+                  value={forwardUnit[selectedTicket.id] || ""}
+                  onChange={(e) =>
+                    setForwardUnit((prev) => ({ ...prev, [selectedTicket.id]: e.target.value }))
+                  }
+                >
+                  <option value="">To Unit</option>
+                  {units.map((unit) => (
+                    <option key={unit.id} value={unit.id}>{unit.name}</option>
+                  ))}
+                </select>
+                <Button size="small" variant="contained" onClick={() => handleConvertOrForward(selectedTicket.id)}>
+                  Forward
+                </Button>
+              </Box>
             </>
           )}
         </Box>
@@ -369,6 +465,15 @@ export default function CRMCoordinatorTickets() {
         data={tickets}
         onColumnsChange={handleColumnsChange}
       />
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
+      </Snackbar>
     </div>
   );
 } 

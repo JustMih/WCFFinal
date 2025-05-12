@@ -341,13 +341,20 @@ const AgentCRM = () => {
     setFormErrors({});
 
     try {
+      // Get the selected function name to use as subject
+      const selectedFunction = functionData.find(f => f.id === formData.functionId);
+      const ticketData = {
+        ...formData,
+        subject: selectedFunction ? selectedFunction.name : ''
+      };
+
       const response = await fetch(`${baseURL}/ticket/create-ticket`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(ticketData)
       });
 
       const data = await response.json();
@@ -979,12 +986,18 @@ const AgentCRM = () => {
               </Typography>
               <Divider sx={{ mb: 2 }} />
               <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
+                {/* <Grid item xs={12} sm={6}>
                   <Typography>
                     <strong>Name:</strong>{" "}
                     {`${selectedTicket.first_name || "N/A"} ${
                       selectedTicket.middle_name || " "
                     } ${selectedTicket.last_name || "N/A"}`}
+                  </Typography>
+                </Grid> */}
+                <Grid item xs={12} sm={6}>
+                  <Typography>
+                    <strong>Ticket Number:</strong>{" "}
+                    {selectedTicket.ticket_id || "N/A"}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} sm={6}>
