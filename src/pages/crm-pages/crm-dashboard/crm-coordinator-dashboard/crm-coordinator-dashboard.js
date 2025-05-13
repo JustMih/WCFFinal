@@ -88,11 +88,10 @@ export default function CoordinatorDashboard() {
   }, [activeColumns]);
 
   const categories = [
-    "Complaint",
-    "Congrats",
-    "Compliment",
-    "Inquery",
-    "Suggestion"
+    "Inquiry",
+    // "Suggestion",
+    // "Compliment",
+    // "Congrats"
   ];
 
   // Card data
@@ -107,18 +106,18 @@ export default function CoordinatorDashboard() {
     Units: 0
   });
   const [newTickets, setNewTickets] = useState({
-    Complaints: 0,
     "New Tickets": 0,
+    // "New Tickets": 0,
     "Escalated Tickets": 0
   });
   const [convertedTickets, setConvertedTickets] = useState({
-    Inquiries: 0,
+    // Inquiries: 0,
     Complaints: 0,
     Suggestions: 0,
     Complements: 0
   });
   const [ticketStatus, setTicketStatus] = useState({
-    Open: 0,
+    // Open: 0,
     "On Progress": 0,
     Closed: 0,
     Minor: 0,
@@ -263,25 +262,39 @@ export default function CoordinatorDashboard() {
 
   const handleConvertOrForward = async (ticketId) => {
     const category = convertCategory[ticketId];
-    const unitId = forwardUnit[ticketId];
-    const userId = localStorage.getItem("userId"); // ✅ Add this
-  
-    if (!category && !unitId) {
+    const unitName = forwardUnit[ticketId];
+    const userId = localStorage.getItem("userId");
+
+    console.log('Debug values:', {
+      ticketId,
+      category,
+      unitName,
+      convertCategory,
+      forwardUnit
+    });
+
+    // Validate that at least one option is selected
+    if (!category && !unitName) {
       setSnackbar({
         open: true,
-        message: "Select either category or unit to forward",
+        message: "Please select either a category to convert to, or a unit to forward to, or both",
         severity: "warning"
       });
       return;
     }
-  
+
     try {
       const token = localStorage.getItem("authToken");
-  
-      const payload = { userId }; // ✅ Pass correct body
-      if (category) payload.category = category;
-      if (unitId) payload.responsible_unit_id = unitId;
-  
+
+      // Prepare the payload to match backend expectations
+      const payload = { 
+        userId,
+        responsible_unit_name: unitName || undefined,
+        category: category || undefined
+      };
+
+      console.log('Sending payload:', payload);
+
       const response = await fetch(
         `${baseURL}/coordinator/${ticketId}/convert-or-forward-ticket`,
         {
@@ -293,25 +306,54 @@ export default function CoordinatorDashboard() {
           body: JSON.stringify(payload)
         }
       );
-  
+
+      const data = await response.json();
+
       if (response.ok) {
         setSnackbar({
           open: true,
-          message: "Ticket updated successfully",
+          message: data.message || "Ticket updated successfully",
           severity: "success"
         });
         await Promise.all([fetchTickets(), fetchDashboardCounts(userId)]);
-        setConvertCategory((prev) => ({ ...prev, [ticketId]: "" }));
-        setForwardUnit((prev) => ({ ...prev, [ticketId]: "" }));
+        // Clear both states after successful update
+        setConvertCategory((prev) => {
+          const newState = { ...prev };
+          delete newState[ticketId];
+          return newState;
+        });
+        setForwardUnit((prev) => {
+          const newState = { ...prev };
+          delete newState[ticketId];
+          return newState;
+        });
       } else {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to update ticket.");
+        throw new Error(data.message || "Failed to update ticket");
       }
     } catch (error) {
-      setSnackbar({ open: true, message: error.message, severity: "error" });
+      console.error("Error updating ticket:", error);
+      setSnackbar({ 
+        open: true, 
+        message: error.message || "Failed to update ticket", 
+        severity: "error" 
+      });
     }
   };
-  
+
+  // Update the select handlers to properly set state
+  const handleCategoryChange = (ticketId, value) => {
+    setConvertCategory(prev => ({
+      ...prev,
+      [ticketId]: value
+    }));
+  };
+
+  const handleUnitChange = (ticketId, value) => {
+    setForwardUnit(prev => ({
+      ...prev,
+      [ticketId]: value
+    }));
+  };
 
   // Add a refresh function that can be called periodically
   const refreshData = async () => {
@@ -461,9 +503,26 @@ export default function CoordinatorDashboard() {
           }
         });
         const json = await res.json();
-        setUnits(json.data || []);
+        
+        if (json.data && Array.isArray(json.data)) {
+          // Ensure each unit has the required fields
+          const validUnits = json.data.filter(unit => unit.id && unit.name);
+          setUnits(validUnits);
+        } else {
+          console.error("Invalid units data received:", json);
+          setSnackbar({
+            open: true,
+            message: "Failed to load units data",
+            severity: "error"
+          });
+        }
       } catch (err) {
-        console.error("Fetch error:", err);
+        console.error("Error fetching units:", err);
+        setSnackbar({
+          open: true,
+          message: "Failed to load units",
+          severity: "error"
+        });
       }
     };
     fetchUnits();
@@ -697,9 +756,9 @@ export default function CoordinatorDashboard() {
                 <Grid item xs={12} sm={6}>
                   <Typography>
                     <strong>Name:</strong>{" "}
-                    {`${selectedTicket.firstName || "N/A"} ${
-                      selectedTicket.middleName || "N/A"
-                    } ${selectedTicket.lastName || "N/A"}`}
+                    {`${selectedTicket.first_name || "N/A"} ${
+                      selectedTicket.middle_name || "N/A"
+                    } ${selectedTicket.last_name || "N/A"}`}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -737,8 +796,8 @@ export default function CoordinatorDashboard() {
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Typography>
-                    <strong>Sub-category:</strong>{" "}
-                    {selectedTicket.sub_category || "N/A"}
+                    <strong>Category:</strong>{" "}
+                    {selectedTicket.category || "N/A"}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -746,12 +805,12 @@ export default function CoordinatorDashboard() {
                     <strong>Channel:</strong> {selectedTicket.channel || "N/A"}
                   </Typography>
                 </Grid>
-                <Grid item xs={12} sm={6}>
+                {/* <Grid item xs={12} sm={6}>
                   <Typography>
                     <strong>Complaint Type:</strong>{" "}
                     {selectedTicket.complaintType || "Unrated"}
                   </Typography>
-                </Grid>
+                </Grid> */}
                 <Grid item xs={12} sm={6}>
                   <Typography>
                     <strong>Rated:</strong>{" "}
@@ -854,37 +913,34 @@ export default function CoordinatorDashboard() {
                 >
                   Major
                 </Button>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <select
-                    style={{
-                      padding: "4px 8px",
-                      fontSize: "0.8rem",
-                      height: "32px",
-                      borderRadius: "4px"
-                    }}
-                    value={convertCategory[selectedTicket.id] || ""}
-                    onChange={(e) =>
-                      setConvertCategory((prev) => ({
-                        ...prev,
-                        [selectedTicket.id]: e.target.value
-                      }))
-                    }
-                  >
-                    <option value="">Convert To</option>
-                    {categories.map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
-                  <Button
-                    size="small"
-                    variant="contained"
-                    onClick={() => handleConvertOrForward(selectedTicket.id)}
-                  >
-                    Convert
-                  </Button>
-                </Box>
+                {selectedTicket && selectedTicket.category === "Complaint" && (
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                    <select
+                      style={{
+                        padding: "4px 8px",
+                        fontSize: "0.8rem",
+                        height: "32px",
+                        borderRadius: "4px"
+                      }}
+                      value={convertCategory[selectedTicket.id] || ""}
+                      onChange={(e) => handleCategoryChange(selectedTicket.id, e.target.value)}
+                    >
+                      <option value="">Convert To</option>
+                      {categories.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      onClick={() => handleConvertOrForward(selectedTicket.id)}
+                    >
+                      Convert
+                    </Button>
+                  </Box>
+                )}
                 <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                   <select
                     style={{
@@ -894,16 +950,11 @@ export default function CoordinatorDashboard() {
                       borderRadius: "4px"
                     }}
                     value={forwardUnit[selectedTicket.id] || ""}
-                    onChange={(e) =>
-                      setForwardUnit((prev) => ({
-                        ...prev,
-                        [selectedTicket.id]: e.target.value
-                      }))
-                    }
+                    onChange={(e) => handleUnitChange(selectedTicket.id, e.target.value)}
                   >
                     <option value="">To Unit</option>
                     {units.map((unit) => (
-                      <option key={unit.id} value={unit.id}>
+                      <option key={unit.name} value={unit.name}>
                         {unit.name}
                       </option>
                     ))}
