@@ -11,7 +11,7 @@ export default function RecordedSounds() {
     const fetchVoiceNotes = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`${baseURL}/api/voice-notes`, {
+        const response = await axios.get(`${baseURL}/voice-notes`, {
           withCredentials: true, // If using cookies/sessions
           headers: {
             'Accept': 'application/json',
@@ -70,12 +70,19 @@ export default function RecordedSounds() {
 </audio>
 
               </td> */}
-                   <td>
-                   
-<AudioPlayer 
-  src={`${baseURL}/sounds/${note.playable_path || note.recording_path.replace('/var/lib/asterisk/sounds/', '')}`} 
-/>
-                  </td>
+<td>
+  <audio controls>
+    <source 
+     src={`http://10.52.0.19:5070/audio/${note.recording_path.split('/custom/')[1].replace('.wav', '.mp3')}`}
+
+      type="audio/wav" 
+    />
+    Your browser does not support the audio element.
+  </audio>
+</td>
+
+
+
             </tr>
           ))}
         </tbody>

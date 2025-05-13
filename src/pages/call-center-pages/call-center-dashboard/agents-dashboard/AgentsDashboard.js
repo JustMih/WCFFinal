@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import IncomingCallModal from "../../../../components/IncomingCallModal";
+// import IncomingCallModal from "../../../../components/IncomingCallModal";
+import AttendedTransferControls from "../../../../components/AttendedTransferControls";
 
 import {
   MdOutlineLocalPhone,
@@ -62,11 +63,13 @@ import CallChart from "../../../../components/agent-chat/AgentChat";
 
 export default function AgentsDashboard() {
   const [showPhonePopup, setShowPhonePopup] = useState(false);
-  const [incomingModalOpen, setIncomingModalOpen] = useState(false);
+  const [consultSession, setConsultSession] = useState(null); // The target agent session
+  const [isTransferring, setIsTransferring] = useState(false);
   const [callerId, setCallerId] = useState("");
   const autoRejectTimerRef = useRef(null);
   const [missedCalls, setMissedCalls] = useState([]);
   const [missedOpen, setMissedOpen] = useState(false);
+  const [transferTarget, setTransferTarget] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [phoneStatus, setPhoneStatus] = useState("Idle");
   const [userAgent, setUserAgent] = useState(null);
@@ -111,13 +114,16 @@ export default function AgentsDashboard() {
     emergency: userDefinedTimes.emergency * 60 || 20 * 60, // default 20 minutes if not set
   };
 
+  const extension = localStorage.getItem("extension");
+  const sipPassword = localStorage.getItem("sipPassword");
+
   const sipConfig = {
-    uri: UserAgent.makeURI("sip:webrtc_user@10.52.0.19"),
+    uri: UserAgent.makeURI(`sip:${extension}@10.52.0.19`),
     transportOptions: {
       server: "wss://10.52.0.19:8089/ws",
     },
-    authorizationUsername: "webrtc_user",
-    authorizationPassword: "sip12345",
+    authorizationUsername: extension,
+    authorizationPassword: sipPassword,
     sessionDescriptionHandlerFactoryOptions: {
       constraints: { audio: true, video: false },
       peerConnectionOptions: {
@@ -125,6 +131,7 @@ export default function AgentsDashboard() {
       },
     },
   };
+
 
   const togglePhonePopup = () => {
     setShowPhonePopup(!showPhonePopup);
@@ -140,11 +147,6 @@ export default function AgentsDashboard() {
     ringAudio.loop = true;
     ringAudio.volume = 0.7;
     remoteAudio.autoplay = true;
-
-    // navigator.mediaDevices
-    //   .getUserMedia({ audio: true })
-    //   .then(() => console.log("🎤 Microphone access granted"))
-    //   .catch((error) => console.error("❌ Microphone access denied:", error));
 
     const ua = new UserAgent(sipConfig);
     const registerer = new Registerer(ua);
@@ -170,7 +172,7 @@ export default function AgentsDashboard() {
           invitation.remoteIdentity.uri.user ||
           "Unknown Caller"
         );
-        setIncomingModalOpen(true);
+        setShowPhonePopup(true);
         setPhoneStatus("Ringing");
         ringAudio.play().catch((err) => console.error("🔇 Ringtone error:", err));
 
@@ -183,7 +185,7 @@ export default function AgentsDashboard() {
             stopRingtone();
             clearTimeout(autoRejectTimerRef.current); // ✅ VERY IMPORTANT
             setIncomingCall(null);
-            setIncomingModalOpen(false); // ✅ Close Modal if caller hangs up
+            setShowPhonePopup(false); // ✅ Close Modal if caller hangs up
             setPhoneStatus("Idle");
 
             // Optionally if missed
@@ -201,7 +203,7 @@ export default function AgentsDashboard() {
             console.log("⏰ No answer within 20 seconds, auto-rejecting...");
             incomingCall.reject().catch(console.error);
             addMissedCall(callerId);
-            setIncomingModalOpen(false);
+            setShowPhonePopup(false);
             setPhoneStatus("Idle");
             stopRingtone();
             setIncomingCall(null);
@@ -248,7 +250,7 @@ export default function AgentsDashboard() {
       window.removeEventListener('click', unlockAudio);
     };
   }, []);
-  
+
   useEffect(() => {
     const savedMissedCalls = localStorage.getItem("missedCalls");
     if (savedMissedCalls) {
@@ -259,7 +261,7 @@ export default function AgentsDashboard() {
       setMissedCalls(parsed);
     }
   }, []);
-  
+
 
   const setPhonePopupVisible = (visible) => {
     setShowPhonePopup(visible);
@@ -338,13 +340,89 @@ export default function AgentsDashboard() {
       localStorage.setItem("missedCalls", JSON.stringify(updated));
       return updated;
     });
-  
+
     setSnackbarMessage(`📞 Missed Call from ${caller}`);
     setSnackbarSeverity("warning");
     setSnackbarOpen(true);
   };
-  
 
+  const handleAttendedTransferDial = () => {
+    if (!userAgent || !transferTarget) return;
+  
+    const targetURI = UserAgent.makeURI(`sip:${transferTarget}@10.52.0.19`);
+    if (!targetURI) {
+      console.error("Invalid transfer target URI");
+      return;
+    }
+  
+    const inviter = new Inviter(userAgent, targetURI, {
+      sessionDescriptionHandlerOptions: {
+        constraints: { audio: true, video: false },
+      },
+    });
+  
+    setConsultSession(inviter);
+    setIsTransferring(true);
+    setPhoneStatus("Consulting");
+  
+    // Put original call on hold
+    toggleHold();
+  
+    inviter
+      .invite()
+      .then(() => {
+        inviter.stateChange.addListener((state) => {
+          if (state === SessionState.Terminated) {
+            console.log("🛑 Consult call ended");
+            setConsultSession(null);
+            setIsTransferring(false);
+            setPhoneStatus("In Call");
+            toggleHold(); // Resume original call
+          }
+        });
+      })
+      .catch((err) => {
+        console.error("❌ Consult call failed:", err);
+        setIsTransferring(false);
+        setConsultSession(null);
+        setPhoneStatus("In Call");
+        toggleHold();
+      });
+  };
+
+  const completeAttendedTransfer = () => {
+    if (!session || !consultSession) return;
+  
+    session
+      .refer(consultSession.remoteIdentity.uri)
+      .then(() => {
+        console.log("🔁 Attended transfer completed");
+        setSnackbarMessage(`🔁 Call transferred to ${transferTarget}`);
+        setSnackbarSeverity("success");
+        setSnackbarOpen(true);
+        handleEndCall(); // Hang up original call
+      })
+      .catch((err) => {
+        console.error("❌ Transfer failed:", err);
+        setSnackbarMessage("❌ Transfer failed");
+        setSnackbarSeverity("error");
+        setSnackbarOpen(true);
+      });
+  
+    setIsTransferring(false);
+    setConsultSession(null);
+  };
+
+  const cancelAttendedTransfer = () => {
+    if (consultSession) {
+      consultSession.bye().catch(console.error);
+      setConsultSession(null);
+    }
+    setIsTransferring(false);
+    setPhoneStatus("In Call");
+    toggleHold(); // Resume the original call
+  };
+  
   const handleAcceptCall = () => {
     if (!incomingCall) return;
     clearTimeout(autoRejectTimerRef.current);
@@ -360,7 +438,7 @@ export default function AgentsDashboard() {
       .then(() => {
         setSession(incomingCall);
         setIncomingCall(null);
-        // setIncomingModalOpen(false); // ✅ Close Modal
+        // setShowPhonePopup(false); // ✅ Close Modal
         setPhoneStatus("In Call");
         stopRingtone();
         startTimer();
@@ -382,7 +460,7 @@ export default function AgentsDashboard() {
       .catch((error) => {
         console.error("❌ Failed to accept call:", error);
         setPhoneStatus("Idle");
-        setIncomingModalOpen(false); // ✅ Even if failed, close modal
+        setShowPhonePopup(false); // ✅ Even if failed, close modal
       });
   };
 
@@ -392,7 +470,7 @@ export default function AgentsDashboard() {
     incomingCall.reject().catch(console.error);
     addMissedCall(callerId);
     setIncomingCall(null);
-    setIncomingModalOpen(false); // ✅ Close Modal
+    setShowPhonePopup(false); // ✅ Close Modal
     setPhoneStatus("Idle");
     stopRingtone();
   };
@@ -405,7 +483,7 @@ export default function AgentsDashboard() {
       remoteAudio.srcObject = null;
       stopRingtone();
       stopTimer();
-      setIncomingModalOpen(false);  // ✅ Close the modal properly
+      setShowPhonePopup(false);  // ✅ Close the modal properly
       setIncomingCall(null);        // ✅ Clear any call info
     } else if (incomingCall) {
       incomingCall.reject().catch(console.error);
@@ -413,7 +491,7 @@ export default function AgentsDashboard() {
       setPhoneStatus("Idle");
       stopRingtone();
       stopTimer();
-      setIncomingModalOpen(false); // ✅ Close the modal even if rejected
+      setShowPhonePopup(false); // ✅ Close the modal even if rejected
     }
   };
 
@@ -447,7 +525,7 @@ export default function AgentsDashboard() {
       .invite()
       .then(() => {
         setPhoneStatus("Dialing");
-        setIncomingModalOpen(false); // Close any existing incoming modal
+        setShowPhonePopup(false); // Close any existing incoming modal
         inviter.stateChange.addListener((state) => {
           if (state === SessionState.Established) {
             console.log("📞 Callback call established");
@@ -516,6 +594,33 @@ export default function AgentsDashboard() {
         setPhoneStatus("Call Failed");
       });
   };
+
+  const handleBlindTransfer = () => {
+    if (!session || !transferTarget) return;
+
+    const targetURI = UserAgent.makeURI(`sip:${transferTarget}@10.52.0.19`);
+    if (!targetURI) {
+      console.error("Invalid transfer target URI");
+      return;
+    }
+
+    session
+      .refer(targetURI)
+      .then(() => {
+        console.log(`🔁 Call transferred to ${transferTarget}`);
+        setSnackbarMessage(`🔁 Call transferred to ${transferTarget}`);
+        setSnackbarSeverity("success");
+        setSnackbarOpen(true);
+        handleEndCall(); // Optionally end the session on agent's side
+      })
+      .catch((err) => {
+        console.error("❌ Call transfer failed:", err);
+        setSnackbarMessage("❌ Transfer failed");
+        setSnackbarSeverity("error");
+        setSnackbarOpen(true);
+      });
+  };
+
 
   const attachMediaStream = (sipSession) => {
     const remoteStream = new MediaStream();
@@ -1037,8 +1142,18 @@ export default function AgentsDashboard() {
           </div>
           <div className="phone-popup-body">
             {phoneStatus === "In Call" && (
-              <p>Call Duration: {formatDuration(callDuration)}</p>
+              <AttendedTransferControls
+                isTransferring={isTransferring}
+                transferTarget={transferTarget}
+                setTransferTarget={setTransferTarget}
+                handleAttendedTransferDial={handleAttendedTransferDial}
+                completeAttendedTransfer={completeAttendedTransfer}
+                cancelAttendedTransfer={cancelAttendedTransfer}
+                session={session}
+                callDuration={callDuration}
+              />
             )}
+
 
             {phoneStatus !== "In Call" && (
               <TextField
@@ -1192,15 +1307,7 @@ export default function AgentsDashboard() {
           {snackbarMessage}
         </Alert>
       </Snackbar>
-      <IncomingCallModal
-        open={incomingModalOpen}
-        caller={callerId}
-        onAccept={handleAcceptCall}
-        onReject={handleRejectCall}
-        onHangup={handleEndCall}
-        phoneStatus={phoneStatus}
-        callDurationFormatted={formatDuration(callDuration)}
-      />
+
 
 
     </div>

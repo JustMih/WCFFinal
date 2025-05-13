@@ -19,7 +19,6 @@ const AudioPlayer = ({ src }) => {
 
     const audio = audioRef.current;
     audio?.addEventListener('loadedmetadata', updateDuration);
-    
     return () => {
       audio?.removeEventListener('loadedmetadata', updateDuration);
     };
