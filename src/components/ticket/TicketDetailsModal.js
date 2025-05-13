@@ -47,16 +47,21 @@ const TicketDetailsModal = ({ open, onClose, ticket }) => {
     ["Region", ticket.region || "N/A"],
     ["District", ticket.district || "N/A"],
     ["Category", ticket.category || "N/A"],
-    ["Subject", ticket.functionData?.name || "N/A"],
-    ["Section", ticket.functionData?.parentFunction?.section?.name || "N/A"],
-    ["Sub-section", ticket.functionData?.parentFunction?.name || "N/A"],
+    ["Subject", ticket.subject || "N/A"],
+    ["Section", ticket.responsibleSection?.name || "N/A"],
+    ["Function", ticket.responsibleSection?.functions?.[0]?.name || "N/A"],
+    ["Function Data", ticket.responsibleSection?.functions?.[0]?.functionData?.[0]?.name || "N/A"],
     ["Channel", ticket.channel || "N/A"],
     ["Rated", ticket.complaint_type || "Unrated"],
     ["Status", ticket.status || "N/A"],
-    ["Assigned To", ticket.assigned_to_id || "N/A"],
+    ["Assigned To", ticket.assignee?.name || "N/A"],
     ["Assigned Role", ticket.assigned_to_role || "N/A"],
     ["Created By", ticket.creator?.name || "N/A"],
-    ["Created At", formatDate(ticket.created_at)]
+    ["Created At", formatDate(ticket.created_at)],
+    ["Attended By", ticket.attendedBy?.name || "N/A"],
+    ["Rated By", ticket.ratedBy?.name || "N/A"],
+    ["Converted By", ticket.convertedBy?.name || "N/A"],
+    ["Forwarded By", ticket.forwardedBy?.name || "N/A"]
   ];
 
   return (
@@ -67,7 +72,7 @@ const TicketDetailsModal = ({ open, onClose, ticket }) => {
           top: "50%",
           left: "50%",
           transform: "translate(-50%, -50%)",
-          width: { xs: "90%", sm: 500 },
+          width: { xs: "90%", sm: 600 },
           maxHeight: "80vh",
           overflowY: "auto",
           bgcolor: "background.paper",
