@@ -12,7 +12,7 @@ import CRMCarriedForawardTickets from "../crm-pages/crm-tickets/carried-forward"
 import CRMOverdueTickets from "../crm-pages/crm-tickets/overdue";
 import CRMClosedTickets from "../crm-pages/crm-tickets/closed";
 import CRMTotalTickets from "../crm-pages/crm-tickets/total";
-import CRMCoordinatorTickets from "../crm-pages/crm-dashboard/crm-coordinator-dashboard/crm-coordinator-dashboard";
+import CRMCoordinatorTickets from "../crm-pages/crm-coordinator-tickets/crm-coordinator-tickets";
 import CallCenterUsers from "../call-center-pages/call-center-users/CallCenterUsers";
 import CallCenterAgents from "../call-center-pages/call-center-agents/CallCenterAgents";
 import CallCenterExtensions from "../call-center-pages/call-center-extensions/CallCenterExtensions";
@@ -27,12 +27,6 @@ import CallCenterIvrActions from "../call-center-pages/call-center-ivr-actions/C
 import CallCenterWCFIvr from "../call-center-pages/call-center-wcf-ivrs/CallCenterWCFIvr";
 import CallCenterIvrDTMFMapping from "../call-center-pages/cal-center-ivr/CallCenterIvrActions";
 import RecordedSounds from "../call-center-pages/cal-center-ivr/RecordedSounds";
- 
-
-
-
-
-
 import Message from "../call-center-pages/call-center-social-message/CallCenterSocialMessage";
 
 export default function Dashboard() {
@@ -135,13 +129,11 @@ export default function Dashboard() {
                   path="/agent-chat"
                   element={<PrivateRoute element={<CallCenterAgentChat />} />}
                 />
-              <Route
-                path="/ivr-dtmf-mappings"
-                element={<PrivateRoute element={<CallCenterIvrDTMFMapping />} />}
-              />
-              <Route path="/recorded-sounds" element={<RecordedSounds />} />
-
-
+                <Route
+                  path="/ivr-dtmf-mappings"
+                  element={<PrivateRoute element={<CallCenterIvrDTMFMapping />} />}
+                />
+                <Route path="/recorded-sounds" element={<RecordedSounds />} />
                 <Route
                   path="/social-message"
                   element={<PrivateRoute element={<Message />} />}
@@ -149,13 +141,16 @@ export default function Dashboard() {
               </>
             )}
 
-
             {activeSystem === "crm" && (
               <>
                 <Route
                   path="/dashboard"
                   element={<PrivateRoute element={<CRMDashboard />} />}
                 />
+                {/* <Route
+                  path="/coordinator-dashboard"
+                  element={<PrivateRoute element={<CRMCoordinatorTickets />} />}
+                /> */}
                 <Route
                   path="/ticket/opened"
                   element={<PrivateRoute element={<CRMOpenedTickets />} />}
@@ -185,7 +180,7 @@ export default function Dashboard() {
                   element={<PrivateRoute element={<CRMTotalTickets />} />}
                 />
                 <Route
-                  path="/coordinator"
+                  path="/coordinator/:status"
                   element={<PrivateRoute element={<CRMCoordinatorTickets />} />}
                 />
               </>
