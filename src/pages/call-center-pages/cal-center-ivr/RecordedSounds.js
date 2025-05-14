@@ -14,20 +14,20 @@ export default function RecordedSounds() {
         const response = await axios.get(`${baseURL}/api/voice-notes`, {
           withCredentials: true, // If using cookies/sessions
           headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-          }
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
         });
-        
+
         console.log("Full API response:", response);
         setVoiceNotes(response.data.voiceNotes || []);
       } catch (err) {
         console.error("API Error:", {
           message: err.message,
           config: err.config,
-          response: err.response?.data
+          response: err.response?.data,
         });
-        setError(`Failed to load: ${err.response?.status || 'Network error'}`);
+        setError(`Failed to load: ${err.response?.status || "Network error"}`);
       } finally {
         setLoading(false);
       }
@@ -54,7 +54,7 @@ export default function RecordedSounds() {
           </tr>
         </thead>
         <tbody>
-          {voiceNotes.map(note => (
+          {voiceNotes.map((note) => (
             <tr key={note.id}>
               <td>{note.id}</td>
               <td>{note.recording_path}</td>
@@ -70,12 +70,14 @@ export default function RecordedSounds() {
 </audio>
 
               </td> */}
-                   <td>
-                   
-<AudioPlayer 
-  src={`${baseURL}/sounds/${note.playable_path || note.recording_path.replace('/var/lib/asterisk/sounds/', '')}`} 
-/>
-                  </td>
+              <td>
+                <AudioPlayer
+                  src={`${baseURL}/sounds/${
+                    note.playable_path ||
+                    note.recording_path.replace("/var/lib/asterisk/sounds/", "")
+                  }`}
+                />
+              </td>
             </tr>
           ))}
         </tbody>
