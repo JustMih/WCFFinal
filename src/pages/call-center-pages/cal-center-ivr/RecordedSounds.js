@@ -11,7 +11,7 @@ export default function RecordedSounds() {
     const fetchVoiceNotes = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`${baseURL}/api/voice-notes`, {
+        const response = await axios.get(`${baseURL}/voice-notes`, {
           withCredentials: true, // If using cookies/sessions
           headers: {
             Accept: "application/json",
