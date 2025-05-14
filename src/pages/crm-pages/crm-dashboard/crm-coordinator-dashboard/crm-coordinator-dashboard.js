@@ -19,7 +19,8 @@ import { CiImport } from "react-icons/ci";
 import {
   Alert,
   Box,
-  Button,
+  Button,  
+  Divider,
   Grid,
   IconButton,
   Modal,
@@ -538,6 +539,38 @@ export default function CoordinatorDashboard() {
     setCurrentPage(1);
   };
 
+  // Place this above the return statement, inside the component but outside JSX:
+  const details = selectedTicket ? [
+    ["Name", `${selectedTicket.first_name || "N/A"} ${selectedTicket.middle_name || "N/A"} ${selectedTicket.last_name || "N/A"}`],
+    ["Phone", selectedTicket.phone_number || "N/A"],
+    ["NIN", selectedTicket.nida_number || "N/A"],
+    ["Institution", selectedTicket.institution || "N/A"],
+    ["Region", selectedTicket.region || "N/A"],
+    ["District", selectedTicket.district || "N/A"],
+    ["Subject", selectedTicket.subject || "N/A"],
+    ["Category", selectedTicket.category || "N/A"],
+    ["Channel", selectedTicket.channel || "N/A"],
+    ["Rated", selectedTicket.complaint_type || "N/A"],
+    ["Status", selectedTicket.status || "N/A"],
+    ["Created By", selectedTicket?.createdBy?.name || "N/A"],
+    ["Assigned To (User ID)", selectedTicket.assigned_to_id || "N/A"],
+    ["Assigned Role", selectedTicket.assigned_to_role || "N/A"],
+    ["Created At", selectedTicket.created_at
+      ? new Date(selectedTicket.created_at).toLocaleString("en-US", {
+          month: "numeric",
+          day: "numeric",
+          year: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true
+        })
+      : "N/A"],
+  ] : [];
+  const detailPairs = [];
+  for (let i = 0; i < details.length; i += 2) {
+    detailPairs.push([details[i], details[i + 1]]);
+  }
+
   return (
     <div className="coordinator-dashboard-container">
       <h2 className="title">Coordinator Dashboard</h2>
@@ -726,257 +759,208 @@ export default function CoordinatorDashboard() {
           </Button>
         </div>
       </div>
+{/* Ticket Details Modal */}
+<Modal open={isModalOpen} onClose={() => setIsModalOpen(false)}>
+  <Box
+    sx={{
+      position: "absolute",
+      top: "50%",
+      left: "50%",
+      transform: "translate(-50%, -50%)",
+      width: { xs: "90%", sm: 500 },
+      maxHeight: "80vh",
+      overflowY: "auto",
+      bgcolor: "background.paper",
+      boxShadow: 24,
+      borderRadius: 2,
+      p: 3
+    }}
+  >
+    {selectedTicket && (
+      <>
+        <Typography
+          variant="h5"
+          sx={{ fontWeight: "bold", color: "#1976d2" }}
+        >
+          Ticket Details
+        </Typography>
+        <Divider sx={{ mb: 2 }} />
 
-      {/* Ticket Details Modal */}
-      <Modal open={isModalOpen} onClose={() => setIsModalOpen(false)}>
+        {/* Two-Column Ticket Fields */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "16px" }}>
+          <div style={{ flex: "1 1 45%" }}>
+            <Typography><strong>Name:</strong> {`${selectedTicket.first_name || "N/A"} ${selectedTicket.middle_name || "N/A"} ${selectedTicket.last_name || "N/A"}`}</Typography>
+          </div>
+          <div style={{ flex: "1 1 45%" }}>
+            <Typography><strong>Phone:</strong> {selectedTicket.phone_number || "N/A"}</Typography>
+          </div>
+
+          <div style={{ flex: "1 1 45%" }}>
+            <Typography><strong>NIDA:</strong> {selectedTicket.nida_number || "N/A"}</Typography>
+          </div>
+          <div style={{ flex: "1 1 45%" }}>
+            <Typography><strong>Institution:</strong> {selectedTicket.institution || "N/A"}</Typography>
+          </div>
+
+          <div style={{ flex: "1 1 45%" }}>
+            <Typography><strong>Region:</strong> {selectedTicket.region || "N/A"}</Typography>
+          </div>
+          <div style={{ flex: "1 1 45%" }}>
+            <Typography><strong>District:</strong> {selectedTicket.district || "N/A"}</Typography>
+          </div>
+
+          <div style={{ flex: "1 1 45%" }}>
+            <Typography><strong>Subject:</strong> {selectedTicket.subject || "N/A"}</Typography>
+          </div>
+          <div style={{ flex: "1 1 45%" }}>
+            <Typography><strong>Category:</strong> {selectedTicket.category || "N/A"}</Typography>
+          </div>
+
+          <div style={{ flex: "1 1 45%" }}>
+            <Typography><strong>Channel:</strong> {selectedTicket.channel || "N/A"}</Typography>
+          </div>
+          <div style={{ flex: "1 1 45%" }}>
+            <Typography>
+              <strong>Rated:</strong>{" "}
+              <span style={{
+                color: selectedTicket.complaint_type === "Major" ? "red" :
+                       selectedTicket.complaint_type === "Minor" ? "orange" :
+                       "inherit"
+              }}>
+                {selectedTicket.complaint_type || "N/A"}
+              </span>
+            </Typography>
+          </div>
+
+          <div style={{ flex: "1 1 45%" }}>
+            <Typography>
+              <strong>Status:</strong>{" "}
+              <span style={{
+                color: selectedTicket.status === "Open" ? "green" :
+                       selectedTicket.status === "Closed" ? "gray" :
+                       "blue"
+              }}>
+                {selectedTicket.status || "N/A"}
+              </span>
+            </Typography>
+          </div>
+          <div style={{ flex: "1 1 45%" }}>
+            <Typography><strong>Created By:</strong> {selectedTicket?.createdBy?.name || "N/A"}</Typography>
+          </div>
+
+          <div style={{ flex: "1 1 45%" }}>
+            <Typography><strong>Assigned To (User ID):</strong> {selectedTicket.assigned_to_id || "N/A"}</Typography>
+          </div>
+          <div style={{ flex: "1 1 45%" }}>
+            <Typography><strong>Assigned Role:</strong> {selectedTicket.assigned_to_role || "N/A"}</Typography>
+          </div>
+
+          <div style={{ flex: "1 1 45%" }}>
+            <Typography><strong>Created At:</strong> {selectedTicket.created_at ? new Date(selectedTicket.created_at).toLocaleString("en-US", {
+              month: "numeric", day: "numeric", year: "numeric",
+              hour: "numeric", minute: "2-digit", hour12: true
+            }) : "N/A"}</Typography>
+          </div>
+
+          <div style={{ flex: "1 1 100%" }}>
+            <Typography><strong>Description:</strong> {selectedTicket.description || "N/A"}</Typography>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
         <Box
           sx={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: { xs: "90%", sm: 600 },
-            maxHeight: "85vh",
-            overflowY: "auto",
-            bgcolor: "background.paper",
-            boxShadow: 24,
-            borderRadius: 2,
-            p: 3
+            mt: 3,
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 2,
+            alignItems: "center"
           }}
         >
-          {selectedTicket && (
-            <>
-              <Typography
-                variant="h5"
-                sx={{ fontWeight: "bold", color: "#1976d2" }}
-              >
-                Ticket Details
-              </Typography>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Name:</strong>{" "}
-                    {`${selectedTicket.first_name || "N/A"} ${
-                      selectedTicket.middle_name || "N/A"
-                    } ${selectedTicket.last_name || "N/A"}`}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Phone:</strong>{" "}
-                    {selectedTicket.phone_number || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>NIDA:</strong> {selectedTicket.nida_number || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Institution:</strong>{" "}
-                    {selectedTicket.institution || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Region:</strong> {selectedTicket.region || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>District:</strong>{" "}
-                    {selectedTicket.district || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Subject:</strong> {selectedTicket.subject || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Category:</strong>{" "}
-                    {selectedTicket.category || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Channel:</strong> {selectedTicket.channel || "N/A"}
-                  </Typography>
-                </Grid>
-                {/* <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Complaint Type:</strong>{" "}
-                    {selectedTicket.complaintType || "Unrated"}
-                  </Typography>
-                </Grid> */}
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Rated:</strong>{" "}
-                    <span
-                      style={{
-                        color:
-                          selectedTicket.complaint_type === "Major"
-                            ? "red"
-                            : selectedTicket.complaint_type === "Minor"
-                            ? "orange"
-                            : "inherit"
-                      }}
-                    >
-                      {selectedTicket.complaint_type || "N/A"}
-                    </span>
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Status:</strong>{" "}
-                    <span
-                      style={{
-                        color:
-                          selectedTicket.status === "Open"
-                            ? "green"
-                            : selectedTicket.status === "Closed"
-                            ? "gray"
-                            : "blue"
-                      }}
-                    >
-                      {selectedTicket.status || "N/A"}
-                    </span>
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Created By:</strong>{" "}
-                    {selectedTicket?.createdBy?.name || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Assigned To (User ID):</strong>{" "}
-                    {selectedTicket.assigned_to_id || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Assigned Role:</strong>{" "}
-                    {selectedTicket.assigned_to_role || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Created At:</strong>{" "}
-                    {selectedTicket.created_at
-                      ? new Date(selectedTicket.created_at).toLocaleString(
-                          "en-US",
-                          {
-                            month: "numeric",
-                            day: "numeric",
-                            year: "numeric",
-                            hour: "numeric",
-                            minute: "2-digit",
-                            hour12: true
-                          }
-                        )
-                      : "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <Typography>
-                    <strong>Description:</strong>{" "}
-                    {selectedTicket.description || "N/A"}
-                  </Typography>
-                </Grid>
-              </Grid>
-              <Box
-                sx={{
-                  mt: 3,
-                  display: "flex",
-                  flexWrap: "wrap",
-                  gap: 2,
-                  alignItems: "center"
+          <Button
+            size="small"
+            variant="contained"
+            color="primary"
+            onClick={() => handleRating(selectedTicket.id, "Minor")}
+          >
+            Minor
+          </Button>
+          <Button
+            size="small"
+            variant="contained"
+            color="primary"
+            onClick={() => handleRating(selectedTicket.id, "Major")}
+          >
+            Major
+          </Button>
+
+          {selectedTicket.category === "Complaint" && (
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <select
+                style={{
+                  padding: "4px 8px",
+                  fontSize: "0.8rem",
+                  height: "32px",
+                  borderRadius: "4px"
                 }}
+                value={convertCategory[selectedTicket.id] || ""}
+                onChange={(e) =>
+                  handleCategoryChange(selectedTicket.id, e.target.value)
+                }
               >
-                <Button
-                  size="small"
-                  variant="contained"
-                  color="primary"
-                  onClick={() => handleRating(selectedTicket.id, "Minor")}
-                >
-                  Minor
-                </Button>
-                <Button
-                  size="small"
-                  variant="contained"
-                  color="primary"
-                  onClick={() => handleRating(selectedTicket.id, "Major")}
-                >
-                  Major
-                </Button>
-                {selectedTicket && selectedTicket.category === "Complaint" && (
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <select
-                      style={{
-                        padding: "4px 8px",
-                        fontSize: "0.8rem",
-                        height: "32px",
-                        borderRadius: "4px"
-                      }}
-                      value={convertCategory[selectedTicket.id] || ""}
-                      onChange={(e) => handleCategoryChange(selectedTicket.id, e.target.value)}
-                    >
-                      <option value="">Convert To</option>
-                      {categories.map((cat) => (
-                        <option key={cat} value={cat}>
-                          {cat}
-                        </option>
-                      ))}
-                    </select>
-                    <Button
-                      size="small"
-                      variant="contained"
-                      onClick={() => handleConvertOrForward(selectedTicket.id)}
-                    >
-                      Convert
-                    </Button>
-                  </Box>
-                )}
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <select
-                    style={{
-                      padding: "4px 8px",
-                      fontSize: "0.8rem",
-                      height: "32px",
-                      borderRadius: "4px"
-                    }}
-                    value={forwardUnit[selectedTicket.id] || ""}
-                    onChange={(e) => handleUnitChange(selectedTicket.id, e.target.value)}
-                  >
-                    <option value="">To Unit</option>
-                    {units.map((unit) => (
-                      <option key={unit.name} value={unit.name}>
-                        {unit.name}
-                      </option>
-                    ))}
-                  </select>
-                  <Button
-                    size="small"
-                    variant="contained"
-                    onClick={() => handleConvertOrForward(selectedTicket.id)}
-                  >
-                    Forward
-                  </Button>
-                </Box>
-              </Box>
-              <Box sx={{ mt: 2, textAlign: "right" }}>
-                <Button color="primary" onClick={() => setIsModalOpen(false)}>
-                  Close
-                </Button>
-              </Box>
-            </>
+                <option value="">Convert To</option>
+                {categories.map((cat) => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+              <Button
+                size="small"
+                variant="contained"
+                onClick={() => handleConvertOrForward(selectedTicket.id)}
+              >
+                Convert
+              </Button>
+            </Box>
           )}
+
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <select
+              style={{
+                padding: "4px 8px",
+                fontSize: "0.8rem",
+                height: "32px",
+                borderRadius: "4px"
+              }}
+              value={forwardUnit[selectedTicket.id] || ""}
+              onChange={(e) =>
+                handleUnitChange(selectedTicket.id, e.target.value)
+              }
+            >
+              <option value="">To Unit</option>
+              {units.map((unit) => (
+                <option key={unit.name} value={unit.name}>{unit.name}</option>
+              ))}
+            </select>
+            <Button
+              size="small"
+              variant="contained"
+              onClick={() => handleConvertOrForward(selectedTicket.id)}
+            >
+              Forward
+            </Button>
+          </Box>
         </Box>
-      </Modal>
+
+        {/* Close Button */}
+        <Box sx={{ mt: 2, textAlign: "right" }}>
+          <Button color="primary" onClick={() => setIsModalOpen(false)}>
+            Close
+          </Button>
+        </Box>
+      </>
+    )}
+  </Box>
+</Modal>
 
       {/* Column Selector */}
       <ColumnSelector

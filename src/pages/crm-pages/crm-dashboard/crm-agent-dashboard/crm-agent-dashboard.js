@@ -271,30 +271,20 @@ const AgentCRM = () => {
   };
 
   // Handle form input changes
-  const handleChange = async (e) => {
+  const handleChange = (e) => {
     const { name, value } = e.target;
-
     setFormData((prev) => ({ ...prev, [name]: value }));
 
     if (name === "functionId") {
-      try {
-        const token = localStorage.getItem("authToken");
-        const response = await fetch(
-          `${baseURL}/section/functions-data/${value}`,
-          {
-            headers: { Authorization: `Bearer ${token}` }
-          }
-        );
-        if (response.ok) {
-          const result = await response.json();
-          setSelectedFunction(result.data.function || "");
-          setSelectedSection(result.data.section || "");
-        } else {
-          setSelectedFunction("");
-          setSelectedSection("");
-        }
-      } catch (err) {
-        console.error("Fetch error:", err);
+      // Find the selected functionData object
+      const selectedFunctionData = functionData.find((item) => item.id === value);
+      if (selectedFunctionData) {
+        // Use new structure: function and function.section
+        setSelectedFunction(selectedFunctionData.function?.name || "");
+        setSelectedSection(selectedFunctionData.function?.section?.name || "");
+      } else {
+        setSelectedFunction("");
+        setSelectedSection("");
       }
     }
   };
@@ -799,7 +789,7 @@ const AgentCRM = () => {
   }
 
   return (
-    <div className="p-6">
+    <div className="main--content">
       <h3 className="title">CRM Dashboard</h3>
 
       <div
@@ -1036,21 +1026,17 @@ const AgentCRM = () => {
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Typography>
-                    <strong>Subject:</strong>{" "}
-                    {selectedTicket.functionData?.name || "N/A"}
+                    <strong>Section:</strong> {selectedTicket.functionData?.function?.section?.name || "N/A"}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Typography>
-                    <strong>Section:</strong>{" "}
-                    {selectedTicket.functionData?.parentFunction?.section
-                      ?.name || "N/A"}
+                    <strong>Sub-section:</strong> {selectedTicket.functionData?.function?.name || "N/A"}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Typography>
-                    <strong>Sub-section:</strong>{" "}
-                    {selectedTicket.functionData?.parentFunction?.name || "N/A"}
+                    <strong>Subject:</strong> {selectedTicket.functionData?.name || "N/A"}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} sm={6}>
