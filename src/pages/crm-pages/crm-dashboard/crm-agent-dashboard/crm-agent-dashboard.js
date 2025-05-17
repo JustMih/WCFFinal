@@ -509,7 +509,7 @@ const AgentCRM = () => {
         <button
           className="view-ticket-details-btn"
           title="View"
-          onClick={() => openDetailsModal(ticket)}
+          onClick={() => handleDetailsClick(ticket)}
         >
           <FaEye />
         </button>
@@ -781,8 +781,8 @@ const AgentCRM = () => {
     setCurrentPage(1);
   };
 
-  // Update handlePhoneSearch to search by phone or NIDA
-  const handlePhoneSearch = async (searchValue) => {
+  // Update handlePhoneSearch to accept a selectedTicketFromTable parameter
+  const handlePhoneSearch = async (searchValue, selectedTicketFromTable = null) => {
     try {
       // Try phone number search first
       let response = await fetch(`${baseURL}/ticket/search-by-phone/${searchValue}`, {
@@ -793,7 +793,12 @@ const AgentCRM = () => {
       let data = await response.json();
       if (data.found) {
         setFoundTickets(data.tickets);
-        setExistingTicketsModal(true);
+        if (selectedTicketFromTable) {
+          setSelectedTicket(selectedTicketFromTable);
+          setShowDetailsModal(true);
+        } else {
+          setExistingTicketsModal(true);
+        }
         return;
       }
       // If not found, try NIDA number search (if you have such an endpoint)
@@ -805,7 +810,12 @@ const AgentCRM = () => {
       data = await response.json();
       if (data.found) {
         setFoundTickets(data.tickets);
-        setExistingTicketsModal(true);
+        if (selectedTicketFromTable) {
+          setSelectedTicket(selectedTicketFromTable);
+          setShowDetailsModal(true);
+        } else {
+          setExistingTicketsModal(true);
+        }
       } else {
         setNewTicketConfirmationModal(true);
       }
@@ -817,6 +827,12 @@ const AgentCRM = () => {
         severity: "error"
       });
     }
+  };
+
+  // Add handler for Details button in ticket table
+  const handleDetailsClick = (ticket) => {
+    const searchValue = ticket.phone_number || ticket.nida_number;
+    handlePhoneSearch(searchValue, ticket);
   };
 
   // Update: Pre-fill form with previous ticket details if available
