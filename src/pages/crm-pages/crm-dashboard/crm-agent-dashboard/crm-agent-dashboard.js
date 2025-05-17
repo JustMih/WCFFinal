@@ -4,7 +4,7 @@ import {
   MdAutoAwesomeMotion,
   MdDisabledVisible
 } from "react-icons/md";
-import { FaEye, FaPlus } from "react-icons/fa";
+import { FaEye, FaPlus, FaSearch } from "react-icons/fa";
 import { FaUsersLine } from "react-icons/fa6";
 import { GrLineChart } from "react-icons/gr";
 import { FiSettings } from "react-icons/fi";
@@ -155,6 +155,12 @@ const AgentCRM = () => {
     startDate: null,
     endDate: null
   });
+
+  // Add new state for phone search
+  const [phoneSearch, setPhoneSearch] = useState("");
+  const [existingTicketsModal, setExistingTicketsModal] = useState(false);
+  const [newTicketConfirmationModal, setNewTicketConfirmationModal] = useState(false);
+  const [foundTickets, setFoundTickets] = useState([]);
 
   // Fetch function data for subject selection
   useEffect(() => {
@@ -772,6 +778,56 @@ const AgentCRM = () => {
     setCurrentPage(1);
   };
 
+  // Update handlePhoneSearch to search by phone or NIDA
+  const handlePhoneSearch = async (searchValue) => {
+    try {
+      // Try phone number search first
+      let response = await fetch(`${baseURL}/ticket/search-by-phone/${searchValue}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      let data = await response.json();
+      if (data.found) {
+        setFoundTickets(data.tickets);
+        setExistingTicketsModal(true);
+        return;
+      }
+      // If not found, try NIDA number search (if you have such an endpoint)
+      response = await fetch(`${baseURL}/ticket/search-by-nida/${searchValue}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      data = await response.json();
+      if (data.found) {
+        setFoundTickets(data.tickets);
+        setExistingTicketsModal(true);
+      } else {
+        setNewTicketConfirmationModal(true);
+      }
+    } catch (error) {
+      console.error('Error searching tickets:', error);
+      setSnackbar({
+        open: true,
+        message: "Error searching tickets",
+        severity: "error"
+      });
+    }
+  };
+
+  // Add new function to handle new ticket confirmation
+  const handleNewTicketConfirmation = (confirmed) => {
+    if (confirmed) {
+      setShowModal(true);
+      setFormData(prev => ({
+        ...prev,
+        phoneNumber: phoneSearch
+      }));
+    }
+    setNewTicketConfirmationModal(false);
+  };
+
   if (loading) {
     return (
       <div className="p-6">
@@ -803,6 +859,138 @@ const AgentCRM = () => {
           <FaPlus /> New Ticket
         </button>
       </div>
+      {/* Full-width Phone/NIDA Search Section */}
+      <div style={{ display: "flex", gap: "10px", marginBottom: "1rem" }}>
+        <input
+          className="search-input"
+          type="text"
+          placeholder="Search by phone or NIDA..."
+          value={phoneSearch}
+          onChange={(e) => setPhoneSearch(e.target.value)}
+          onKeyPress={(e) => {
+            if (e.key === 'Enter') handlePhoneSearch(phoneSearch);
+          }}
+          style={{ flex: 1 }}
+        />
+        <button
+          className="add-user-button"
+          style={{ minWidth: 50, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => handlePhoneSearch(phoneSearch)}
+          aria-label="Search"
+        >
+          <FaSearch />
+        </button>
+      </div>
+
+      {/* Existing Tickets Modal */}
+      <Modal
+        open={existingTicketsModal}
+        onClose={() => setExistingTicketsModal(false)}
+      >
+        <Box sx={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: { xs: "90%", sm: 600 },
+          maxHeight: "80vh",
+          overflowY: "auto",
+          bgcolor: "background.paper",
+          boxShadow: 24,
+          borderRadius: 2,
+          p: 3
+        }}>
+          <Typography variant="h6" component="h2" gutterBottom>
+            Existing Tickets for {phoneSearch}
+          </Typography>
+          <Divider sx={{ mb: 2 }} />
+          
+          {foundTickets.map((ticket) => (
+            <Box key={ticket.id} sx={{ mb: 2, p: 2, border: "1px solid #eee", borderRadius: 1 }}>
+              <Typography variant="subtitle1">
+                Ticket ID: {ticket.ticket_id}
+              </Typography>
+              <Typography>
+                Status: {ticket.status}
+              </Typography>
+              <Typography>
+                Created: {new Date(ticket.created_at).toLocaleDateString()}
+              </Typography>
+              <Button
+                variant="contained"
+                size="small"
+                onClick={() => {
+                  setExistingTicketsModal(false);
+                  openDetailsModal(ticket);
+                }}
+                sx={{ mt: 1 }}
+              >
+                View Details
+              </Button>
+            </Box>
+          ))}
+          
+          <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end", gap: 1 }}>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => {
+                setExistingTicketsModal(false);
+                setNewTicketConfirmationModal(true);
+              }}
+            >
+              Create New Ticket
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => setExistingTicketsModal(false)}
+            >
+              Close
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
+
+      {/* New Ticket Confirmation Modal */}
+      <Modal
+        open={newTicketConfirmationModal}
+        onClose={() => setNewTicketConfirmationModal(false)}
+      >
+        <Box sx={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: { xs: "90%", sm: 400 },
+          bgcolor: "background.paper",
+          boxShadow: 24,
+          borderRadius: 2,
+          p: 3
+        }}>
+          <Typography variant="h6" component="h2" gutterBottom>
+            No Existing Tickets Found
+          </Typography>
+          <Typography sx={{ mb: 2 }}>
+            Would you like to create a new ticket for {phoneSearch}?
+          </Typography>
+          <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => handleNewTicketConfirmation(true)}
+            >
+              Yes, Create Ticket
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => handleNewTicketConfirmation(false)}
+            >
+              No, Cancel
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
+
       {/* Card Dashboard Section */}
       <div className="crm-dashboard">
         <div className="crm-cards-container">
@@ -949,197 +1137,166 @@ const AgentCRM = () => {
         </div>
       </div>
 
-      {/* Ticket Details Modal */}
+      {/* Split Ticket Details & History Modal */}
       <Modal open={showDetailsModal} onClose={() => setShowDetailsModal(false)}>
         <Box
           sx={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: { xs: "90%", sm: 500 },
-            maxHeight: "80vh",
-            overflowY: "auto",
-            bgcolor: "background.paper",
+            display: 'flex',
+            flexDirection: 'row',
+            width: 900,
+            maxWidth: '95vw',
+            minHeight: 400,
+            bgcolor: 'background.paper',
             boxShadow: 24,
             borderRadius: 2,
-            p: 3
+            p: 0
           }}
         >
-          {selectedTicket && (
-            <>
-              <Typography
-                variant="h5"
-                sx={{ fontWeight: "bold", color: "#1976d2" }}
-              >
-                Tickets Details
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              <Grid container spacing={2}>
-                {/* <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Name:</strong>{" "}
-                    {`${selectedTicket.first_name || "N/A"} ${
-                      selectedTicket.middle_name || " "
-                    } ${selectedTicket.last_name || "N/A"}`}
-                  </Typography>
-                </Grid> */}
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Ticket Number:</strong>{" "}
-                    {selectedTicket.ticket_id || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Phone:</strong>{" "}
-                    {selectedTicket.phone_number || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>NIN:</strong> {selectedTicket.nida_number || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Employer:</strong>{" "}
-                    {selectedTicket.employer || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Region:</strong> {selectedTicket.region || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>District:</strong>{" "}
-                    {selectedTicket.district || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Category:</strong>{" "}
-                    {selectedTicket.category || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Section:</strong> {selectedTicket.functionData?.function?.section?.name || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Sub-section:</strong> {selectedTicket.functionData?.function?.name || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Subject:</strong> {selectedTicket.functionData?.name || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Channel:</strong> {selectedTicket.channel || "N/A"}
-                  </Typography>
-                </Grid>
-                {/* <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Complaint Type:</strong>{" "}
-                    {selectedTicket.complaintType || "Unrated"}
-                  </Typography>
-                </Grid> */}
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Rated:</strong>{" "}
-                    <span
-                      style={{
-                        color:
-                          selectedTicket.complaint_type === "Major"
-                            ? "red"
-                            : selectedTicket.complaint_type === "Minor"
-                            ? "orange"
-                            : "inherit"
-                      }}
-                    >
-                      {selectedTicket.complaint_type || "Unrated"}
-                    </span>
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Status:</strong>{" "}
-                    <span
-                      style={{
-                        color:
-                          selectedTicket.status === "Open"
-                            ? "green"
-                            : selectedTicket.status === "Closed"
-                            ? "gray"
-                            : "blue"
-                      }}
-                    >
-                      {selectedTicket.status || "N/A"}
-                    </span>
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Assigned To:</strong>{" "}
-                    {selectedTicket.assigned_to_id || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Assigned Role:</strong>{" "}
-                    {selectedTicket.assigned_to_role || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Created By:</strong>{" "}
-                    {selectedTicket?.creator?.name || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Created At:</strong>{" "}
-                    {selectedTicket.created_at
-                      ? new Date(selectedTicket.created_at).toLocaleString(
-                          "en-US",
-                          {
-                            month: "numeric",
-                            day: "numeric",
-                            year: "numeric",
-                            hour: "numeric",
-                            minute: "2-digit",
-                            hour12: true
-                          }
-                        )
-                      : "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <Typography>
-                    <strong>Description:</strong>{" "}
-                    {selectedTicket.description || "N/A"}
-                  </Typography>
-                </Grid>
-              </Grid>
-              <Box sx={{ mt: 3, textAlign: "right" }}>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={() => setShowDetailsModal(false)}
+          {/* Left: Ticket Details */}
+          <Box sx={{ flex: 2, p: 3, borderRight: '1px solid #eee', overflowY: 'auto', maxHeight: '80vh' }}>
+            {selectedTicket && (
+              <>
+                <Typography
+                  variant="h5"
+                  sx={{ fontWeight: "bold", color: "#1976d2" }}
                 >
-                  Close
-                </Button>
-              </Box>
-            </>
-          )}
+                  Ticket Details
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <Typography>
+                      <strong>Ticket Number:</strong> {selectedTicket.ticket_id || "N/A"}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography>
+                      <strong>Phone:</strong> {selectedTicket.phone_number || "N/A"}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography>
+                      <strong>NIN:</strong> {selectedTicket.nida_number || "N/A"}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography>
+                      <strong>Employer:</strong> {selectedTicket.employer || "N/A"}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography>
+                      <strong>Region:</strong> {selectedTicket.region || "N/A"}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography>
+                      <strong>District:</strong> {selectedTicket.district || "N/A"}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography>
+                      <strong>Category:</strong> {selectedTicket.category || "N/A"}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography>
+                      <strong>Section:</strong> {selectedTicket.functionData?.function?.section?.name || "N/A"}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography>
+                      <strong>Sub-section:</strong> {selectedTicket.functionData?.function?.name || "N/A"}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography>
+                      <strong>Subject:</strong> {selectedTicket.functionData?.name || "N/A"}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography>
+                      <strong>Channel:</strong> {selectedTicket.channel || "N/A"}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography>
+                      <strong>Rated:</strong> <span style={{ color: selectedTicket.complaint_type === "Major" ? "red" : selectedTicket.complaint_type === "Minor" ? "orange" : "inherit" }}>{selectedTicket.complaint_type || "Unrated"}</span>
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography>
+                      <strong>Status:</strong> <span style={{ color: selectedTicket.status === "Open" ? "green" : selectedTicket.status === "Closed" ? "gray" : "blue" }}>{selectedTicket.status || "N/A"}</span>
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography>
+                      <strong>Assigned To:</strong> {selectedTicket.assigned_to_id || "N/A"}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography>
+                      <strong>Assigned Role:</strong> {selectedTicket.assigned_to_role || "N/A"}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography>
+                      <strong>Created By:</strong> {selectedTicket?.creator?.name || "N/A"}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography>
+                      <strong>Created At:</strong> {selectedTicket.created_at ? new Date(selectedTicket.created_at).toLocaleString("en-US", { month: "numeric", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) : "N/A"}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Typography>
+                      <strong>Description:</strong> {selectedTicket.description || "N/A"}
+                    </Typography>
+                  </Grid>
+                </Grid>
+                <Box sx={{ mt: 3, textAlign: "right" }}>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={() => setShowDetailsModal(false)}
+                  >
+                    Close
+                  </Button>
+                </Box>
+              </>
+            )}
+          </Box>
+          {/* Right: Ticket History */}
+          <Box sx={{ flex: 1, p: 3, overflowY: 'auto', maxHeight: '80vh', minWidth: 250 }}>
+            <Typography variant="h6" gutterBottom>Ticket History</Typography>
+            <Divider sx={{ mb: 2 }} />
+            {foundTickets && foundTickets.length > 0 ? (
+              foundTickets.map(ticket => (
+                <Box
+                  key={ticket.id}
+                  sx={{
+                    mb: 1,
+                    p: 1,
+                    borderRadius: 1,
+                    bgcolor: selectedTicket?.id === ticket.id ? '#e3f2fd' : undefined,
+                    cursor: 'pointer',
+                    border: selectedTicket?.id === ticket.id ? '2px solid #1976d2' : '1px solid #eee',
+                  }}
+                  onClick={() => openDetailsModal(ticket)}
+                >
+                  <Typography variant="subtitle2">Ticket ID: {ticket.ticket_id}</Typography>
+                  <Typography>Status: {ticket.status}</Typography>
+                  <Typography variant="caption">{new Date(ticket.created_at).toLocaleDateString()}</Typography>
+                </Box>
+              ))
+            ) : (
+              <Typography>No ticket history found.</Typography>
+            )}
+          </Box>
         </Box>
       </Modal>
+
       {/* Ticket Creation Modal */}
       <Modal open={showModal} onClose={() => setShowModal(false)}>
         <Box
@@ -1414,7 +1571,7 @@ const AgentCRM = () => {
                 <label style={{ fontSize: "0.875rem" }}>Channel:</label>
                 <select
                   name="channel"
-                  value={formData.requester}
+                  value={formData.channel}
                   onChange={handleChange}
                   style={{
                     height: "32px",
@@ -1430,9 +1587,9 @@ const AgentCRM = () => {
                   <option value="Call">Call</option>
                   <option value="Email">Email</option>
                 </select>
-                {formErrors.functionId && (
+                {formErrors.channel && (
                   <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.functionId}
+                    {formErrors.channel}
                   </span>
                 )}
               </div>
@@ -1546,11 +1703,6 @@ const AgentCRM = () => {
           </div>
         </Box>
       </Modal>
-      <TicketDetailsModal
-        open={showDetailsModal}
-        onClose={() => setShowDetailsModal(false)}
-        ticket={selectedTicket}
-      />
 
       {/* Column Selector Modal */}
       <ColumnSelector
