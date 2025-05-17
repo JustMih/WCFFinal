@@ -162,6 +162,9 @@ const AgentCRM = () => {
   const [newTicketConfirmationModal, setNewTicketConfirmationModal] = useState(false);
   const [foundTickets, setFoundTickets] = useState([]);
 
+  // Add submitAction state to control ticket status
+  const [submitAction, setSubmitAction] = useState("open"); // "open" or "closed"
+
   // Fetch function data for subject selection
   useEffect(() => {
     const fetchData = async () => {
@@ -337,11 +340,11 @@ const AgentCRM = () => {
     setFormErrors({});
 
     try {
-      // Get the selected function name to use as subject
       const selectedFunction = functionData.find(f => f.id === formData.functionId);
       const ticketData = {
         ...formData,
-        subject: selectedFunction ? selectedFunction.name : ''
+        subject: selectedFunction ? selectedFunction.name : '',
+        status: submitAction === "closed" ? "Closed" : "Open"
       };
 
       const response = await fetch(`${baseURL}/ticket/create-ticket`, {
@@ -816,14 +819,35 @@ const AgentCRM = () => {
     }
   };
 
-  // Add new function to handle new ticket confirmation
+  // Update: Pre-fill form with previous ticket details if available
   const handleNewTicketConfirmation = (confirmed) => {
     if (confirmed) {
+      // If there are previous tickets, use the most recent one to pre-fill
+      if (foundTickets && foundTickets.length > 0) {
+        const prev = foundTickets[0]; // most recent ticket
+        setFormData({
+          firstName: prev.first_name || "",
+          lastName: prev.last_name || "",
+          phoneNumber: prev.phone_number || phoneSearch,
+          nidaNumber: prev.nida_number || "",
+          requester: prev.requester || "",
+          institution: prev.institution || "",
+          region: prev.region || "",
+          district: prev.district || "",
+          channel: prev.channel || "",
+          category: prev.category || "",
+          functionId: prev.function_id || "",
+          description: "",
+          status: "Open"
+        });
+      } else {
+        // fallback: just pre-fill phone number
+        setFormData(prev => ({
+          ...prev,
+          phoneNumber: phoneSearch
+        }));
+      }
       setShowModal(true);
-      setFormData(prev => ({
-        ...prev,
-        phoneNumber: phoneSearch
-      }));
     }
     setNewTicketConfirmationModal(false);
   };
@@ -1164,96 +1188,27 @@ const AgentCRM = () => {
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
                 <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
-                    <Typography>
-                      <strong>Ticket Number:</strong> {selectedTicket.ticket_id || "N/A"}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Typography>
-                      <strong>Phone:</strong> {selectedTicket.phone_number || "N/A"}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Typography>
-                      <strong>NIN:</strong> {selectedTicket.nida_number || "N/A"}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Typography>
-                      <strong>Employer:</strong> {selectedTicket.employer || "N/A"}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Typography>
-                      <strong>Region:</strong> {selectedTicket.region || "N/A"}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Typography>
-                      <strong>District:</strong> {selectedTicket.district || "N/A"}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Typography>
-                      <strong>Category:</strong> {selectedTicket.category || "N/A"}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Typography>
-                      <strong>Section:</strong> {selectedTicket.functionData?.function?.section?.name || "N/A"}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Typography>
-                      <strong>Sub-section:</strong> {selectedTicket.functionData?.function?.name || "N/A"}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Typography>
-                      <strong>Subject:</strong> {selectedTicket.functionData?.name || "N/A"}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Typography>
-                      <strong>Channel:</strong> {selectedTicket.channel || "N/A"}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Typography>
-                      <strong>Rated:</strong> <span style={{ color: selectedTicket.complaint_type === "Major" ? "red" : selectedTicket.complaint_type === "Minor" ? "orange" : "inherit" }}>{selectedTicket.complaint_type || "Unrated"}</span>
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Typography>
-                      <strong>Status:</strong> <span style={{ color: selectedTicket.status === "Open" ? "green" : selectedTicket.status === "Closed" ? "gray" : "blue" }}>{selectedTicket.status || "N/A"}</span>
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Typography>
-                      <strong>Assigned To:</strong> {selectedTicket.assigned_to_id || "N/A"}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Typography>
-                      <strong>Assigned Role:</strong> {selectedTicket.assigned_to_role || "N/A"}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Typography>
-                      <strong>Created By:</strong> {selectedTicket?.creator?.name || "N/A"}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <Typography>
-                      <strong>Created At:</strong> {selectedTicket.created_at ? new Date(selectedTicket.created_at).toLocaleString("en-US", { month: "numeric", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) : "N/A"}
-                    </Typography>
-                  </Grid>
-                  <Grid item xs={12}>
-                    <Typography>
-                      <strong>Description:</strong> {selectedTicket.description || "N/A"}
-                    </Typography>
-                  </Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Ticket Number:</strong> {selectedTicket.ticket_id || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Status:</strong> <span style={{ color: selectedTicket.status === "Open" ? "green" : selectedTicket.status === "Closed" ? "gray" : "blue" }}>{selectedTicket.status || "N/A"}</span></Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>First Name:</strong> {selectedTicket.first_name || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Last Name:</strong> {selectedTicket.last_name || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Phone:</strong> {selectedTicket.phone_number || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>NIDA:</strong> {selectedTicket.nida_number || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Requester:</strong> {selectedTicket.requester || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Institution:</strong> {selectedTicket.institution || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Region:</strong> {selectedTicket.region || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>District:</strong> {selectedTicket.district || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Channel:</strong> {selectedTicket.channel || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Category:</strong> {selectedTicket.category || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Section:</strong> {selectedTicket.functionData?.function?.section?.name || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Sub-section:</strong> {selectedTicket.functionData?.function?.name || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Subject:</strong> {selectedTicket.functionData?.name || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Rated:</strong> <span style={{ color: selectedTicket.complaint_type === "Major" ? "red" : selectedTicket.complaint_type === "Minor" ? "orange" : "inherit" }}>{selectedTicket.complaint_type || "Unrated"}</span></Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Assigned To:</strong> {selectedTicket.assigned_to_id || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Assigned Role:</strong> {selectedTicket.assigned_to_role || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Created By:</strong> {selectedTicket?.creator?.name || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Created At:</strong> {selectedTicket.created_at ? new Date(selectedTicket.created_at).toLocaleString("en-US", { month: "numeric", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) : "N/A"}</Typography></Grid>
+                  <Grid item xs={12}><Typography><strong>Description:</strong> {selectedTicket.description || "N/A"}</Typography></Grid>
                 </Grid>
                 <Box sx={{ mt: 3, textAlign: "right" }}>
                   <Button
@@ -1282,17 +1237,67 @@ const AgentCRM = () => {
                     bgcolor: selectedTicket?.id === ticket.id ? '#e3f2fd' : undefined,
                     cursor: 'pointer',
                     border: selectedTicket?.id === ticket.id ? '2px solid #1976d2' : '1px solid #eee',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
                   }}
                   onClick={() => openDetailsModal(ticket)}
                 >
-                  <Typography variant="subtitle2">Ticket ID: {ticket.ticket_id}</Typography>
-                  <Typography>Status: {ticket.status}</Typography>
-                  <Typography variant="caption">{new Date(ticket.created_at).toLocaleDateString()}</Typography>
+                  <div>
+                    <Typography variant="subtitle2">Ticket ID: {ticket.ticket_id}</Typography>
+                    <Typography variant="caption">{new Date(ticket.created_at).toLocaleDateString()}</Typography>
+                  </div>
+                  <div>
+                    <span style={{
+                      padding: '2px 8px',
+                      borderRadius: '8px',
+                      color: 'white',
+                      background: ticket.status === 'Closed' ? 'gray' : ticket.status === 'Open' ? 'green' : 'blue',
+                      fontSize: '0.8em'
+                    }}>
+                      {ticket.status}
+                    </span>
+                  </div>
                 </Box>
               ))
             ) : (
               <Typography>No ticket history found.</Typography>
             )}
+            {/* Add Create New Ticket button */}
+            <Box sx={{ mt: 2, textAlign: 'center' }}>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={() => {
+                  // Pre-fill with selected ticket or most recent
+                  let prev = selectedTicket;
+                  if (!prev && foundTickets && foundTickets.length > 0) prev = foundTickets[0];
+                  if (prev) {
+                    setFormData({
+                      firstName: prev.first_name || "",
+                      lastName: prev.last_name || "",
+                      phoneNumber: prev.phone_number || phoneSearch,
+                      nidaNumber: prev.nida_number || "",
+                      requester: prev.requester || "",
+                      institution: prev.institution || "",
+                      region: prev.region || "",
+                      district: prev.district || "",
+                      channel: prev.channel || "",
+                      category: prev.category || "",
+                      functionId: prev.function_id || "",
+                      description: "",
+                      status: "Open"
+                    });
+                  } else {
+                    setFormData(prev => ({ ...prev, phoneNumber: phoneSearch }));
+                  }
+                  setShowModal(true);
+                  setShowDetailsModal(false);
+                }}
+              >
+                Create New Ticket
+              </Button>
+            </Box>
           </Box>
         </Box>
       </Modal>
@@ -1453,8 +1458,10 @@ const AgentCRM = () => {
                   }}
                 >
                   <option value="">Select..</option>
-                  <option value="Employer">Employer</option>
                   <option value="Employee">Employee</option>
+                  <option value="Employer">Employer</option>
+                  <option value="Pensioners">Pensioners</option>
+                  <option value="Stakeholders">Stakeholders</option>
                 </select>
                 {formErrors.category && (
                   <span style={{ color: "red", fontSize: "0.75rem" }}>
@@ -1696,8 +1703,24 @@ const AgentCRM = () => {
               >
                 Cancel
               </button>
-              <button className="submit-btn" onClick={handleSubmit}>
-                Submit Ticket
+              <button
+                className="submit-btn"
+                onClick={(e) => {
+                  setSubmitAction("open");
+                  handleSubmit(e);
+                }}
+              >
+                Submit to Backoffice
+              </button>
+              <button
+                className="close-btn"
+                style={{ background: "gray", color: "white" }}
+                onClick={(e) => {
+                  setSubmitAction("closed");
+                  handleSubmit(e);
+                }}
+              >
+                Close Ticket
               </button>
             </div>
           </div>
