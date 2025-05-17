@@ -44,7 +44,7 @@ import {
   URI,
 } from "sip.js";
 import { Alert, Snackbar } from "@mui/material";
-import { io } from "socket.io-client";
+// import { io } from "socket.io-client";
 import { baseURL } from "../../../../config";
 import "./agentsDashboard.css";
 import { FiPhoneCall } from "react-icons/fi";
@@ -96,7 +96,7 @@ export default function AgentsDashboard() {
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("warning"); // could be "success", "error", "info", "warning"
   // const [loginTime, setLoginTime] = useState("");
-  const socket = io(baseURL.replace("/api", ""));
+  // const socket = io(baseURL.replace("/api", ""));
 
 
   const timerRef = useRef(null);
@@ -350,26 +350,26 @@ export default function AgentsDashboard() {
 
   const handleAttendedTransferDial = () => {
     if (!userAgent || !transferTarget) return;
-  
+
     const targetURI = UserAgent.makeURI(`sip:${transferTarget}@10.52.0.19`);
     if (!targetURI) {
       console.error("Invalid transfer target URI");
       return;
     }
-  
+
     const inviter = new Inviter(userAgent, targetURI, {
       sessionDescriptionHandlerOptions: {
         constraints: { audio: true, video: false },
       },
     });
-  
+
     setConsultSession(inviter);
     setIsTransferring(true);
     setPhoneStatus("Consulting");
-  
+
     // Put original call on hold
     toggleHold();
-  
+
     inviter
       .invite()
       .then(() => {
@@ -394,7 +394,7 @@ export default function AgentsDashboard() {
 
   const completeAttendedTransfer = () => {
     if (!session || !consultSession) return;
-  
+
     session
       .refer(consultSession.remoteIdentity.uri)
       .then(() => {
@@ -410,7 +410,7 @@ export default function AgentsDashboard() {
         setSnackbarSeverity("error");
         setSnackbarOpen(true);
       });
-  
+
     setIsTransferring(false);
     setConsultSession(null);
   };
@@ -424,11 +424,11 @@ export default function AgentsDashboard() {
     setPhoneStatus("In Call");
     toggleHold(); // Resume the original call
   };
-  
+
   const handleAcceptCall = () => {
     if (!incomingCall) return;
     clearTimeout(autoRejectTimerRef.current);
-  
+
     incomingCall
       .accept({
         sessionDescriptionHandlerOptions: {
@@ -444,16 +444,16 @@ export default function AgentsDashboard() {
         setPhoneStatus("In Call");
         stopRingtone();
         startTimer();
-  
+
         // ✅ Emit call status after SIP accepts the call
-        socket.emit("callStatusUpdate", {
-          callId: incomingCall.id || `${Date.now()}`,
-          agentId: localStorage.getItem("userId"),
-          status: "In Call",
-          caller: callerId,
-          startTime: new Date().toISOString(),
-        });
-  
+        // socket.emit("callStatusUpdate", {
+        //   callId: incomingCall.id || `${Date.now()}`,
+        //   agentId: localStorage.getItem("userId"),
+        //   status: "In Call",
+        //   caller: callerId,
+        //   startTime: new Date().toISOString(),
+        // });
+
         incomingCall.stateChange.addListener((state) => {
           if (state === SessionState.Established) {
             console.log("📞 Call accepted and media flowing");
@@ -474,7 +474,7 @@ export default function AgentsDashboard() {
         setShowPhonePopup(false);
       });
   };
-  
+
 
   const handleRejectCall = () => {
     if (!incomingCall) return;
@@ -489,14 +489,14 @@ export default function AgentsDashboard() {
 
   const handleEndCall = () => {
     const agentId = localStorage.getItem("userId");
-  
+
     if (session) {
-      socket.emit("callStatusUpdate", {
-        callId: session.id || `${Date.now()}`,
-        agentId,
-        status: "Idle",
-      });
-  
+      // socket.emit("callStatusUpdate", {
+      //   callId: session.id || `${Date.now()}`,
+      //   agentId,
+      //   status: "Idle",
+      // });
+
       session.bye().catch(console.error);
       setSession(null);
       setPhoneStatus("Idle");
@@ -507,13 +507,13 @@ export default function AgentsDashboard() {
       setIncomingCall(null);
     } else if (incomingCall) {
       incomingCall.reject().catch(console.error);
-  
-      socket.emit("callStatusUpdate", {
-        callId: incomingCall.id || `${Date.now()}`,
-        agentId,
-        status: "Idle",
-      });
-  
+
+      // socket.emit("callStatusUpdate", {
+      //   callId: incomingCall.id || `${Date.now()}`,
+      //   agentId,
+      //   status: "Idle",
+      // });
+
       setIncomingCall(null);
       setPhoneStatus("Idle");
       stopRingtone();
@@ -521,23 +521,23 @@ export default function AgentsDashboard() {
       setShowPhonePopup(false);
     }
   };
-  
+
   const handleRedial = (number) => {
     if (!userAgent) {
       console.error("User Agent not ready yet.");
       return;
     }
-  
+
     console.log(`📲 Redialing missed caller: ${number}`);
-  
+
     const target = `sip:${number}@10.52.0.19`;
     const targetURI = UserAgent.makeURI(target);
-  
+
     if (!targetURI) {
       console.error("Invalid target URI");
       return;
     }
-  
+
     const inviter = new Inviter(userAgent, targetURI, {
       sessionDescriptionHandlerOptions: {
         constraints: { audio: true, video: false },
@@ -546,23 +546,23 @@ export default function AgentsDashboard() {
         },
       },
     });
-  
+
     setSession(inviter);
-  
+
     inviter
       .invite()
       .then(() => {
         setPhoneStatus("Dialing");
         setShowPhonePopup(false);
-  
-        socket.emit("callStatusUpdate", {
-          callId: inviter.id || `${Date.now()}`,
-          agentId: localStorage.getItem("userId"),
-          status: "Dialing",
-          caller: number, // ✅ use `number` from argument
-          startTime: new Date().toISOString(),
-        });
-  
+
+        // socket.emit("callStatusUpdate", {
+        //   callId: inviter.id || `${Date.now()}`,
+        //   agentId: localStorage.getItem("userId"),
+        //   status: "Dialing",
+        //   caller: number, // ✅ use `number` from argument
+        //   startTime: new Date().toISOString(),
+        // });
+
         inviter.stateChange.addListener((state) => {
           if (state === SessionState.Established) {
             console.log("📞 Callback call established");
@@ -575,13 +575,13 @@ export default function AgentsDashboard() {
             setSession(null);
             remoteAudio.srcObject = null;
             stopTimer();
-  
+
             // ✅ Emit end of call
-            socket.emit("callStatusUpdate", {
-              callId: inviter.id || `${Date.now()}`,
-              agentId: localStorage.getItem("userId"),
-              status: "Idle",
-            });
+            // socket.emit("callStatusUpdate", {
+            //   callId: inviter.id || `${Date.now()}`,
+            //   agentId: localStorage.getItem("userId"),
+            //   status: "Idle",
+            // });
           }
         });
       })
@@ -589,19 +589,19 @@ export default function AgentsDashboard() {
         console.error("❌ Callback failed:", error);
         setPhoneStatus("Call Failed");
       });
-  
+
     setSnackbarMessage(`📲 Dialing back ${number}`);
     setSnackbarSeverity("info");
     setSnackbarOpen(true);
   };
-  
+
   const handleDial = () => {
     if (!userAgent || !phoneNumber) return;
-  
+
     const target = `sip:${phoneNumber}@10.52.0.19`;
     const targetURI = UserAgent.makeURI(target);
     if (!targetURI) return;
-  
+
     const inviter = new Inviter(userAgent, targetURI, {
       sessionDescriptionHandlerOptions: {
         constraints: { audio: true, video: false },
@@ -610,23 +610,23 @@ export default function AgentsDashboard() {
         },
       },
     });
-  
+
     setSession(inviter);
-  
+
     inviter
       .invite()
       .then(() => {
         setPhoneStatus("Dialing");
-  
+
         // ✅ Emit after SIP call is officially initiated
-        socket.emit("callStatusUpdate", {
-          callId: inviter.id || `${Date.now()}`,
-          agentId: localStorage.getItem("userId"),
-          status: "Dialing",
-          caller: phoneNumber,
-          startTime: new Date().toISOString(),
-        });
-  
+        // socket.emit("callStatusUpdate", {
+        //   callId: inviter.id || `${Date.now()}`,
+        //   agentId: localStorage.getItem("userId"),
+        //   status: "Dialing",
+        //   caller: phoneNumber,
+        //   startTime: new Date().toISOString(),
+        // });
+
         inviter.stateChange.addListener((state) => {
           if (state === SessionState.Established) {
             console.log("📞 Outgoing call established");
@@ -639,13 +639,13 @@ export default function AgentsDashboard() {
             setSession(null);
             remoteAudio.srcObject = null;
             stopTimer();
-  
+
             // 🔁 Emit idle status
-            socket.emit("callStatusUpdate", {
-              callId: inviter.id || `${Date.now()}`,
-              agentId: localStorage.getItem("userId"),
-              status: "Idle",
-            });
+            // socket.emit("callStatusUpdate", {
+            //   callId: inviter.id || `${Date.now()}`,
+            //   agentId: localStorage.getItem("userId"),
+            //   status: "Idle",
+            // });
           }
         });
       })
@@ -654,7 +654,7 @@ export default function AgentsDashboard() {
         setPhoneStatus("Call Failed");
       });
   };
-  
+
   const handleBlindTransfer = () => {
     if (!session || !transferTarget) return;
 
@@ -1202,16 +1202,27 @@ export default function AgentsDashboard() {
           </div>
           <div className="phone-popup-body">
             {phoneStatus === "In Call" && (
-              <AttendedTransferControls
-                isTransferring={isTransferring}
-                transferTarget={transferTarget}
-                setTransferTarget={setTransferTarget}
-                handleAttendedTransferDial={handleAttendedTransferDial}
-                completeAttendedTransfer={completeAttendedTransfer}
-                cancelAttendedTransfer={cancelAttendedTransfer}
-                session={session}
-                callDuration={callDuration}
-              />
+              <>
+                <p>Call Duration: {formatDuration(callDuration)}</p>
+                <TextField
+                  label="Transfer To (Extension)"
+                  variant="outlined"
+                  fullWidth
+                  margin="normal"
+                  value={transferTarget}
+                  onChange={(e) => setTransferTarget(e.target.value)}
+                />
+                <Button
+                  variant="contained"
+                  color="secondary"
+                  onClick={handleBlindTransfer}
+                  disabled={!session || !transferTarget}
+                  fullWidth
+                  style={{ marginTop: "10px" }}
+                >
+                  Transfer Call
+                </Button>
+              </>
             )}
 
 
