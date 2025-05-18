@@ -119,8 +119,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
         <img src={logo} alt="Avatar" className="crm-sidebar-logo" />
       )}
       <ul>
-        {role === "agent" ||
-          ("attendee" && (
+        {(role === "agent"  || role === "attendee") && (
             <>
               <li>
                 <NavLink
@@ -259,7 +258,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                 )}
               </li>
             </>
-          ))}
+          )}
         {/* {role === "attendee" && (
           <>
             <li>

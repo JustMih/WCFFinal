@@ -165,6 +165,10 @@ const AgentCRM = () => {
   // Add submitAction state to control ticket status
   const [submitAction, setSubmitAction] = useState("open"); // "open" or "closed"
 
+  // Notification modal state
+  const [showNotifyModal, setShowNotifyModal] = useState(false);
+  const [notifyMessage, setNotifyMessage] = useState("");
+
   // Fetch function data for subject selection
   useEffect(() => {
     const fetchData = async () => {
@@ -1229,6 +1233,14 @@ const AgentCRM = () => {
                 <Box sx={{ mt: 3, textAlign: "right" }}>
                   <Button
                     variant="contained"
+                    color="secondary"
+                    sx={{ mr: 2 }}
+                    onClick={() => setShowNotifyModal(true)}
+                  >
+                    Notify User
+                  </Button>
+                  <Button
+                    variant="contained"
                     color="primary"
                     onClick={() => setShowDetailsModal(false)}
                   >
@@ -1315,6 +1327,45 @@ const AgentCRM = () => {
               </Button>
             </Box>
           </Box>
+        </Box>
+      </Modal>
+
+      {/* Notification Modal */}
+      <Modal open={showNotifyModal} onClose={() => setShowNotifyModal(false)}>
+        <Box sx={{ p: 3, bgcolor: 'background.paper', borderRadius: 2, minWidth: 350, maxWidth: 400, mx: 'auto', mt: '15vh' }}>
+          <Typography variant="h6" gutterBottom>Send Notification</Typography>
+          <TextField
+            label="Message"
+            multiline
+            rows={3}
+            fullWidth
+            value={notifyMessage}
+            onChange={e => setNotifyMessage(e.target.value)}
+            sx={{ mb: 2 }}
+          />
+          <Button
+            variant="contained"
+            onClick={async () => {
+              await fetch(`${baseURL}/notify`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                  ticket_id: selectedTicket.id,
+                  recipient_id: selectedTicket.assigned_to_id, // or another user ID
+                  message: notifyMessage,
+                  channel: 'In-System'
+                })
+              });
+              setShowNotifyModal(false);
+              setSnackbar({ open: true, message: 'Notification sent!', severity: 'success' });
+            }}
+            disabled={!notifyMessage.trim()}
+          >
+            Send
+          </Button>
         </Box>
       </Modal>
 
