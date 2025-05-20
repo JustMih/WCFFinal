@@ -26,8 +26,12 @@ body {
   }
   .ivr-search { padding: 10px; width: 300px; border: 1px solid #ccc; border-radius: 4px; }
   .export-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
     margin-bottom: 20px;
   }
+  
   
   .export-buttons button {
     padding: 10px 15px;
@@ -65,7 +69,7 @@ body {
   
   .pagination {
     margin-top: 20px;
-    text-align: center;
+    text-align: right;
   }
   
   .pagination button {
@@ -80,5 +84,17 @@ body {
   .pagination button:disabled {
     background-color: #e0e0e0;
     cursor: not-allowed;
+  }
+  .cdr-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: right;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+  }
+  
+  .cdr-buttons {
+    display: flex;
+    gap: 10px;
   }
   

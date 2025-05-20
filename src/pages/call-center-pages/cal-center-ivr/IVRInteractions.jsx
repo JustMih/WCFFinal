@@ -80,20 +80,21 @@ const IVRInteractions = () => {
             </tr>
           </thead>
           <tbody>
-            {paginated.length > 0 ? paginated.map(i => (
-              <tr key={i.id}>
-                <td>{i.id}</td>
-                <td>{i.dtmf_digit}</td>
-                <td>{i.action_id}</td>
-                <td>{i.parameter}</td>
-                <td>{i.ivr_voice_id}</td>
-                <td>{new Date(i.createdAt).toLocaleString()}</td>
-                <td>{new Date(i.updatedAt).toLocaleString()}</td>
-              </tr>
-            )) : (
-              <tr><td colSpan="7" className="no-results">No results found.</td></tr>
-            )}
-          </tbody>
+  {paginated.length > 0 ? paginated.map(i => (
+    <tr key={i.id}>
+      <td>{i.id}</td>
+      <td>{i.dtmf_digit}</td>
+      <td>{i.action?.name || i.action_id}</td>
+      <td>{i.parameter}</td>
+      <td>{i.voice?.file_name || i.ivr_voice_id}</td>
+      <td>{new Date(i.createdAt).toLocaleString()}</td>
+      <td>{new Date(i.updatedAt).toLocaleString()}</td>
+    </tr>
+  )) : (
+    <tr><td colSpan="7" className="no-results">No results found.</td></tr>
+  )}
+</tbody>
+
         </table>
       </div>
       <div className="ivr-pagination">

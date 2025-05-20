@@ -59,7 +59,7 @@ const CDRReports = () => {
 
   return (
     <div className="cdr-container">
-      <h2 className="cdr-title">CDR Reports</h2>
+      <h2 className="cdr-title">IVR Reports</h2>
 
       <div className="cdr-controls">
         <input
