@@ -27,12 +27,11 @@ import CallCenterIvrActions from "../call-center-pages/call-center-ivr-actions/C
 import CallCenterWCFIvr from "../call-center-pages/call-center-wcf-ivrs/CallCenterWCFIvr";
 import CallCenterIvrDTMFMapping from "../call-center-pages/cal-center-ivr/CallCenterIvrActions";
 import RecordedSounds from "../call-center-pages/cal-center-ivr/RecordedSounds";
- 
-
-
-
-
-
+import HolidayManager from '../call-center-pages/cal-center-ivr/HolidayManager';
+import EmegencyManager from '../call-center-pages/cal-center-ivr/EmergencyManager';
+import VoiceNotesReport from '../call-center-pages/cal-center-ivr/VoiceNotesReport';
+import CDRReports from '../call-center-pages/cal-center-ivr/CDRReports';
+import IVRInteractions from '../call-center-pages/cal-center-ivr/IVRInteractions';
 import Message from "../call-center-pages/call-center-social-message/CallCenterSocialMessage";
 
 export default function Dashboard() {
@@ -131,9 +130,17 @@ export default function Dashboard() {
                 path="/ivr-dtmf-mappings"
                 element={<PrivateRoute element={<CallCenterIvrDTMFMapping />} />}
               />
-              <Route path="/recorded-sounds" element={<RecordedSounds />} />
-
-
+             <Route
+      path="/recorded-sounds"
+      element={<PrivateRoute element={<RecordedSounds />} />}
+    />
+             
+                  <Route path="/ivr-holidays" element={<HolidayManager />} />
+                  <Route path="/ivr-emegency" element={<EmegencyManager />} />
+                  
+                 <Route path="/voice-notes" element={<VoiceNotesReport/>} />
+                <Route path="/cdr-reports" element={<CDRReports/>} />
+                <Route path="/ivr-interactions" element={<IVRInteractions/>} />
                 <Route
                   path="/social-message"
                   element={<PrivateRoute element={<Message />} />}

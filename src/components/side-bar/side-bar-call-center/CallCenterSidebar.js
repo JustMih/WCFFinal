@@ -9,7 +9,6 @@ import { GiVrHeadset } from "react-icons/gi";
 import { BsChatRightTextFill } from "react-icons/bs";
 import logo from "../../../asserts/images/logo.png";
 import "./callCenterSidebar.css";
-
 export default function CallCenterSidebar({ isSidebarOpen, role }) {
   return (
     <aside
@@ -118,9 +117,70 @@ export default function CallCenterSidebar({ isSidebarOpen, role }) {
                   {isSidebarOpen && <span className="menu-text">Recorded Sounds</span>}
                 </div>
               </NavLink>
+              <NavLink
+                to="/ivr-holidays"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <MdOutlineAudiotrack className="menu-icon" />
+                  {isSidebarOpen && <span className="menu-text">IVR Holdays</span>}
+                </div>
+              </NavLink>
+            
+              <NavLink
+                to="/ivr-emegency"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <MdOutlineAudiotrack className="menu-icon" />
+                  {isSidebarOpen && <span className="menu-text">IVR Emegency Number</span>}
+                </div>
+              </NavLink>
+              <NavLink
+                  to="/voice-notes"
+                  className={({ isActive }) =>
+                    isActive ? "menu-item active-link" : "menu-item"
+                  }
+                >
+                  <div className="menu-item">
+                    <MdOutlineAudiotrack className="menu-icon" />
+                    {isSidebarOpen && <span className="menu-text">Voice Notes Reports</span>}
+                  </div>
+                </NavLink>
 
+              <NavLink
+                to="/cdr-reports"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <MdOutlineAudiotrack className="menu-icon" />
+                  {isSidebarOpen && <span className="menu-text">CDR Reports</span>}
+                
+                </div>
+                                
+               
+              </NavLink>
+              <NavLink
+                to="/ivr-interactions"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <MdOutlineAudiotrack className="menu-icon" />
+                  {isSidebarOpen && <span className="menu-text">IVR interactions Reports</span>}
+                
+                </div>
+                                
+               
+              </NavLink>
             </>
-
             
           )}
           {role === "agent" && (

@@ -1,0 +1,17 @@
+.ivr-container { padding: 24px; background: #fff; }
+.ivr-title { font-size: 24px; color: #0d6efd; margin-bottom: 16px; }
+.ivr-controls { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 16px; }
+.ivr-search { padding: 10px; width: 300px; border: 1px solid #ccc; border-radius: 4px; }
+.ivr-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { padding: 10px 14px; border: none; color: white; border-radius: 4px; cursor: pointer; }
+.btn-excel { background: #28a745; }
+.btn-pdf { background: #dc3545; }
+.btn-word { background: #007bff; }
+.ivr-table-wrapper { overflow-x: auto; margin-top: 10px; }
+.ivr-table { width: 100%; border-collapse: collapse; }
+.ivr-table th, .ivr-table td { padding: 10px; border: 1px solid #dee2e6; text-align: left; }
+.ivr-table thead { background: #e9ecef; }
+.no-results { text-align: center; padding: 12px; color: #6c757d; }
+.ivr-pagination { text-align: center; margin-top: 20px; }
+.ivr-pagination button { padding: 8px 14px; margin: 0 5px; background: #dee2e6; border: none; border-radius: 4px; cursor: pointer; }
+.ivr-pagination button:disabled { background: #ccc; cursor: not-allowed; }
