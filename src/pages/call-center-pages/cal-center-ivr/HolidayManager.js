@@ -10,6 +10,9 @@ function HolidayManager() {
   const [searchTerm, setSearchTerm] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editId, setEditId] = useState(null);
+
   const itemsPerPage = 5;
 
   const fetchHolidays = async () => {
@@ -24,6 +27,37 @@ function HolidayManager() {
     setSuccessMessage("✅ Successfully created");
     fetchHolidays();
     setTimeout(() => setSuccessMessage(''), 2000);
+  };
+
+  const updateHoliday = async () => {
+    if (!form.holiday_date || !form.name || !editId) return;
+    await axios.put(`${API_BASE}/${editId}`, form);
+    setForm({ holiday_date: '', name: '' });
+    setIsEditing(false);
+    setEditId(null);
+    setSuccessMessage("✅ Successfully updated");
+    fetchHolidays();
+    setTimeout(() => setSuccessMessage(''), 2000);
+  };
+
+  const handleSubmit = () => {
+    if (isEditing) {
+      updateHoliday();
+    } else {
+      addHoliday();
+    }
+  };
+
+  const handleEditClick = (holiday) => {
+    setForm({ holiday_date: holiday.holiday_date, name: holiday.name });
+    setEditId(holiday.id);
+    setIsEditing(true);
+  };
+
+  const cancelEdit = () => {
+    setForm({ holiday_date: '', name: '' });
+    setEditId(null);
+    setIsEditing(false);
   };
 
   const deleteHoliday = async (id) => {
@@ -41,7 +75,9 @@ function HolidayManager() {
     currentPage * itemsPerPage
   );
 
-  useEffect(() => { fetchHolidays(); }, []);
+  useEffect(() => {
+    fetchHolidays();
+  }, []);
 
   return (
     <div className="holiday-container">
@@ -61,7 +97,14 @@ function HolidayManager() {
           onChange={(e) => setForm({ ...form, name: e.target.value })}
           className="holiday-input"
         />
-        <button onClick={addHoliday} className="holiday-add-btn">Add Holiday</button>
+        <button onClick={handleSubmit} className="holiday-add-btn">
+          {isEditing ? "Update Holiday" : "Add Holiday"}
+        </button>
+        {isEditing && (
+          <button onClick={cancelEdit} className="holiday-cancel-btn">
+            Cancel ✖
+          </button>
+        )}
       </div>
 
       {successMessage && <div className="holiday-feedback">{successMessage}</div>}
@@ -89,6 +132,13 @@ function HolidayManager() {
               <td className="holiday-td">{h.holiday_date}</td>
               <td className="holiday-td">{h.name}</td>
               <td className="holiday-td">
+                <button
+                  onClick={() => handleEditClick(h)}
+                  className="holiday-edit-btn"
+                  style={{ marginRight: '10px' }}
+                >
+                  Edit ✏️
+                </button>
                 <button onClick={() => deleteHoliday(h.id)} className="holiday-delete-btn">
                   Delete ❌
                 </button>
