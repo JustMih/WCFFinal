@@ -24,7 +24,12 @@ import Avatar from "@mui/material/Avatar";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import ListItemIcon from "@mui/material/ListItemIcon";
-import { MdOutlineFreeBreakfast, MdWifiCalling2, MdOutlineFollowTheSigns, MdOutlineLunchDining } from "react-icons/md";
+import {
+  MdOutlineFreeBreakfast,
+  MdWifiCalling2,
+  MdOutlineFollowTheSigns,
+  MdOutlineLunchDining,
+} from "react-icons/md";
 import { GiExplosiveMeeting, GiTrafficLightsReadyToGo } from "react-icons/gi";
 import { TbEmergencyBed } from "react-icons/tb";
 import { FiPhoneOff, FiPhoneCall, FiPhoneIncoming } from "react-icons/fi";
@@ -89,6 +94,55 @@ export default function AgentsDashboard() {
   // const [loginTime, setLoginTime] = useState("");
   // const socket = io(baseURL.replace("/api", ""));
 
+  // user ticket from mac system
+  const [userData, setUserData] = useState(null);
+  const [showUserForm, setShowUserForm] = useState(false);
+  const [formValues, setFormValues] = useState({
+    first_name: "",
+    middle_name: "",
+    last_name: "",
+    phone_number: "",
+    nida_number: "",
+    institution: "",
+    region: "",
+    district: "",
+  });
+  const [loadingUserData, setLoadingUserData] = useState(false);
+
+  const fetchUserByPhoneNumber = async (phone) => {
+    setLoadingUserData(true);
+    try {
+      const response = await fetch(
+        `${baseURL}/mac-system/search-by-phone-number?phone_number=${encodeURIComponent(
+          phone
+        )}`
+      );
+      if (!response.ok) {
+        setUserData(null);
+        setShowUserForm(false);
+        setLoadingUserData(false);
+        return;
+      }
+      const data = await response.json();
+      setUserData(data);
+      setFormValues({
+        first_name: data.first_name || "",
+        middle_name: data.middle_name || "",
+        last_name: data.last_name || "",
+        phone_number: data.phone_number || phone,
+        nida_number: data.nida_number || "",
+        institution: data.institution || "",
+        region: data.region || "",
+        district: data.district || "",
+      });
+      setShowUserForm(true);
+    } catch (error) {
+      console.error("Failed to fetch user data:", error);
+      setUserData(null);
+      setShowUserForm(false);
+    }
+    setLoadingUserData(false);
+  };
 
   const timerRef = useRef(null);
   const wasAnsweredRef = useRef(false);
@@ -125,7 +179,6 @@ export default function AgentsDashboard() {
     },
   };
 
-
   const togglePhonePopup = () => {
     setShowPhonePopup(!showPhonePopup);
   };
@@ -135,7 +188,6 @@ export default function AgentsDashboard() {
     if (savedStatus) {
       setAgentStatus(savedStatus);
     }
-
 
     ringAudio.loop = true;
     ringAudio.volume = 0.7;
@@ -156,56 +208,61 @@ export default function AgentsDashboard() {
         setPhoneStatus("Connection Failed");
       });
 
-      ua.delegate = {
-        onInvite: (invitation) => {
-          console.log("📞 Incoming call");
-      
-          wasAnsweredRef.current = false;
-      
-          // ✅ Declare it here first
-          const incomingCaller =
-            invitation.remoteIdentity.displayName ||
-            invitation.remoteIdentity.uri.user ||
-            "Unknown Caller";
-      
-          setCallerId(incomingCaller);
-          setIncomingCall(invitation);
-          setShowPhonePopup(true);
-          setPhoneStatus("Ringing");
-          ringAudio.play().catch((err) => console.error("🔇 Ringtone error:", err));
-      
-          invitation.stateChange.addListener((state) => {
-            if (state === SessionState.Terminated) {
-              stopRingtone();
-              clearTimeout(autoRejectTimerRef.current);
-              setIncomingCall(null);
-              setShowPhonePopup(false);
-              setPhoneStatus("Idle");
-      
-              // ✅ Use the locally scoped incomingCaller here
-              if (!wasAnsweredRef.current) {
-                addMissedCall(incomingCaller);
-              }
+    ua.delegate = {
+      onInvite: (invitation) => {
+        console.log("📞 Incoming call");
+
+        wasAnsweredRef.current = false;
+
+        const incomingCaller =
+          invitation.remoteIdentity.displayName ||
+          invitation.remoteIdentity.uri.user ||
+          "Unknown Caller";
+
+        setCallerId(incomingCaller);
+        setIncomingCall(invitation);
+        setShowPhonePopup(true);
+        setPhoneStatus("Ringing");
+        ringAudio
+          .play()
+          .catch((err) => console.error("🔇 Ringtone error:", err));
+
+        // Fetch user data by phone number on incoming call
+        fetchUserByPhoneNumber(incomingCaller);
+
+        invitation.stateChange.addListener((state) => {
+          if (state === SessionState.Terminated) {
+            stopRingtone();
+            clearTimeout(autoRejectTimerRef.current);
+            setIncomingCall(null);
+            setShowPhonePopup(false);
+            setPhoneStatus("Idle");
+            setShowUserForm(false);
+            setUserData(null);
+
+            if (!wasAnsweredRef.current) {
+              addMissedCall(incomingCaller);
             }
-          });
-      
-          autoRejectTimerRef.current = setTimeout(() => {
-            if (incomingCall) {
-              incomingCall.reject().catch(console.error);
-              setShowPhonePopup(false);
-              setPhoneStatus("Idle");
-              stopRingtone();
-              setIncomingCall(null);
-      
-              // ✅ Use the same declared incomingCaller
-              if (!wasAnsweredRef.current) {
-                addMissedCall(incomingCaller);
-              }
+          }
+        });
+
+        autoRejectTimerRef.current = setTimeout(() => {
+          if (incomingCall) {
+            incomingCall.reject().catch(console.error);
+            setShowPhonePopup(false);
+            setPhoneStatus("Idle");
+            stopRingtone();
+            setIncomingCall(null);
+            setShowUserForm(false);
+            setUserData(null);
+
+            if (!wasAnsweredRef.current) {
+              addMissedCall(incomingCaller);
             }
-          }, 20000);
-        },
-      };
-      
+          }
+        }, 20000);
+      },
+    };
 
     return () => {
       registerer.unregister().catch(console.error);
@@ -217,7 +274,7 @@ export default function AgentsDashboard() {
 
   // 2️⃣ Missed Calls restore useEffect
   useEffect(() => {
-    const savedMissedCalls = localStorage.getItem('missedCalls');
+    const savedMissedCalls = localStorage.getItem("missedCalls");
     if (savedMissedCalls) {
       setMissedCalls(JSON.parse(savedMissedCalls));
     }
@@ -226,22 +283,23 @@ export default function AgentsDashboard() {
   // 3️⃣ Audio Unlock useEffect
   useEffect(() => {
     const unlockAudio = () => {
-      ringAudio.play()
+      ringAudio
+        .play()
         .then(() => {
           console.log("🔓 Audio unlocked");
           ringAudio.pause();
           ringAudio.currentTime = 0;
-          window.removeEventListener('click', unlockAudio);
+          window.removeEventListener("click", unlockAudio);
         })
-        .catch(err => {
+        .catch((err) => {
           console.warn("⚠️ Failed to unlock audio on first click:", err);
         });
     };
 
-    window.addEventListener('click', unlockAudio);
+    window.addEventListener("click", unlockAudio);
 
     return () => {
-      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener("click", unlockAudio);
     };
   }, []);
 
@@ -336,18 +394,18 @@ export default function AgentsDashboard() {
       console.warn("🚫 Skipping missed call: no caller ID provided");
       return;
     }
-  
+
     const time = new Date();
     const agentId = localStorage.getItem("extension");
-  
+
     // Update UI immediately
     const newCall = { caller, time };
     setMissedCalls((prev) => [...prev, newCall]);
-  
+
     setSnackbarMessage(`📞 Missed Call from ${caller}`);
     setSnackbarSeverity("warning");
     setSnackbarOpen(true);
-  
+
     // 🔁 POST to backend
     fetch(`${baseURL}/missed-calls`, {
       method: "POST",
@@ -372,8 +430,6 @@ export default function AgentsDashboard() {
         console.error("❌ Failed to post missed call:", err);
       });
   };
-  
-  
 
   const fetchMissedCallsFromBackend = async () => {
     try {
@@ -389,7 +445,7 @@ export default function AgentsDashboard() {
 
       const data = await response.json();
 
-      const formatted = data.map(call => ({
+      const formatted = data.map((call) => ({
         ...call,
         time: new Date(call.time),
       }));
@@ -519,7 +575,6 @@ export default function AgentsDashboard() {
       });
   };
 
-
   const handleRejectCall = () => {
     if (!incomingCall) return;
     clearTimeout(autoRejectTimerRef.current);
@@ -535,7 +590,6 @@ export default function AgentsDashboard() {
     const agentId = localStorage.getItem("userId");
 
     if (session) {
-
       session.bye().catch(console.error);
       setSession(null);
       setPhoneStatus("Idle");
@@ -680,7 +734,6 @@ export default function AgentsDashboard() {
         setSnackbarOpen(true);
       });
   };
-
 
   const attachMediaStream = (sipSession) => {
     const remoteStream = new MediaStream();
@@ -871,29 +924,33 @@ export default function AgentsDashboard() {
         <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
           <h3>Agent</h3>
           <Tooltip title="View Missed Calls" arrow>
-            <div style={{ position: "relative", cursor: "pointer" }} onClick={() => setMissedOpen(true)}>
+            <div
+              style={{ position: "relative", cursor: "pointer" }}
+              onClick={() => setMissedOpen(true)}
+            >
               <FiPhoneIncoming size={20} />
               {missedCalls.length > 0 && (
-                <span style={{
-                  position: "absolute",
-                  top: -5,
-                  right: -5,
-                  background: "red",
-                  color: "white",
-                  fontSize: "12px",
-                  borderRadius: "50%",
-                  width: "18px",
-                  height: "18px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center"
-                }}>
+                <span
+                  style={{
+                    position: "absolute",
+                    top: -5,
+                    right: -5,
+                    background: "red",
+                    color: "white",
+                    fontSize: "12px",
+                    borderRadius: "50%",
+                    width: "18px",
+                    height: "18px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
                   {missedCalls.length}
                 </span>
               )}
             </div>
           </Tooltip>
-
         </div>
         <div className="phone-navbar">
           {agentStatus === "ready" ? (
@@ -1225,7 +1282,6 @@ export default function AgentsDashboard() {
               </>
             )}
 
-
             {phoneStatus !== "In Call" && (
               <TextField
                 label="Phone Number"
@@ -1313,13 +1369,118 @@ export default function AgentsDashboard() {
               </>
             )}
           </div>
-          <div>This another div here for ticket creation</div>
+          {/* This another div here for ticket creation */}
+          {showUserForm && (
+            <div
+              className="ticket-creation-form"
+              style={{
+                marginTop: 20,
+                padding: 10,
+                border: "1px solid #ccc",
+                borderRadius: 8,
+              }}
+            >
+              <h3>User Information</h3>
+
+              <TextField
+                label="First Name"
+                value={formValues.first_name}
+                fullWidth
+                margin="normal"
+                onChange={(e) =>
+                  setFormValues({ ...formValues, first_name: e.target.value })
+                }
+              />
+              <TextField
+                label="Middle Name"
+                value={formValues.middle_name}
+                fullWidth
+                margin="normal"
+                onChange={(e) =>
+                  setFormValues({ ...formValues, middle_name: e.target.value })
+                }
+              />
+              <TextField
+                label="Last Name"
+                value={formValues.last_name}
+                fullWidth
+                margin="normal"
+                onChange={(e) =>
+                  setFormValues({ ...formValues, last_name: e.target.value })
+                }
+              />
+              <TextField
+                label="Phone Number"
+                value={formValues.phone_number}
+                fullWidth
+                margin="normal"
+                disabled
+              />
+              <TextField
+                label="NIDA Number"
+                value={formValues.nida_number}
+                fullWidth
+                margin="normal"
+                onChange={(e) =>
+                  setFormValues({ ...formValues, nida_number: e.target.value })
+                }
+              />
+              <TextField
+                label="Institution"
+                value={formValues.institution}
+                fullWidth
+                margin="normal"
+                onChange={(e) =>
+                  setFormValues({ ...formValues, institution: e.target.value })
+                }
+              />
+              <TextField
+                label="Region"
+                value={formValues.region}
+                fullWidth
+                margin="normal"
+                onChange={(e) =>
+                  setFormValues({ ...formValues, region: e.target.value })
+                }
+              />
+              <TextField
+                label="District"
+                value={formValues.district}
+                fullWidth
+                margin="normal"
+                onChange={(e) =>
+                  setFormValues({ ...formValues, district: e.target.value })
+                }
+              />
+
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={() => {
+                  // TODO: Submit form logic here
+                  console.log("Submitting ticket with data:", formValues);
+                  showAlert("Ticket submitted successfully", "success");
+                  setShowUserForm(false);
+                }}
+                disabled={loadingUserData}
+                style={{ marginTop: 15 }}
+                fullWidth
+              >
+                {loadingUserData ? "Loading..." : "Submit Ticket"}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
       {renderKeypad()}
 
-      <Dialog open={missedOpen} onClose={() => setMissedOpen(false)} fullWidth maxWidth="xs">
+      <Dialog
+        open={missedOpen}
+        onClose={() => setMissedOpen(false)}
+        fullWidth
+        maxWidth="xs"
+      >
         <DialogTitle>📞 Missed Calls</DialogTitle>
         <DialogContent dividers>
           {missedCalls.length === 0 ? (
@@ -1327,7 +1488,6 @@ export default function AgentsDashboard() {
           ) : (
             <ul style={{ listStyle: "none", padding: 0 }}>
               {[...missedCalls].reverse().map((call, index) => (
-
                 <li
                   key={index}
                   style={{
@@ -1336,11 +1496,12 @@ export default function AgentsDashboard() {
                     paddingBottom: "10px",
                     display: "flex",
                     justifyContent: "space-between",
-                    alignItems: "center"
+                    alignItems: "center",
                   }}
                 >
                   <div>
-                    <strong>{call.caller}</strong><br />
+                    <strong>{call.caller}</strong>
+                    <br />
                     <small>{call.time.toLocaleTimeString()}</small>
                   </div>
                   <Button
@@ -1352,14 +1513,17 @@ export default function AgentsDashboard() {
                   >
                     Call Back
                   </Button>
-
                 </li>
               ))}
             </ul>
-
-
           )}
-          <Button onClick={() => setMissedCalls([])} fullWidth variant="outlined" color="error" style={{ marginTop: "10px" }}>
+          <Button
+            onClick={() => setMissedCalls([])}
+            fullWidth
+            variant="outlined"
+            color="error"
+            style={{ marginTop: "10px" }}
+          >
             Clear Missed Calls
           </Button>
         </DialogContent>
@@ -1379,9 +1543,6 @@ export default function AgentsDashboard() {
           {snackbarMessage}
         </Alert>
       </Snackbar>
-
-
-
     </div>
   );
 }
