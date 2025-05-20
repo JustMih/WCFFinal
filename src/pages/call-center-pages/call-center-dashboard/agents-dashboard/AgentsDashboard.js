@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from "react";
-import AttendedTransferControls from "../../../../components/AttendedTransferControls";
 
 import {
   MdOutlineLocalPhone,
@@ -52,6 +51,7 @@ import {
 } from "react-icons/io";
 import { FaHandHolding } from "react-icons/fa";
 import CallChart from "../../../../components/agent-chat/AgentChat";
+import QueueStatusTable from "../../../../components/agent-dashboard/QueueStatusTable";
 
 export default function AgentsDashboard() {
   const [showPhonePopup, setShowPhonePopup] = useState(false);
@@ -1102,6 +1102,7 @@ export default function AgentsDashboard() {
             {/* simple chat here */}
             <CallChart />
           </div>
+          <QueueStatusTable />
         </div>
       </div>
 
