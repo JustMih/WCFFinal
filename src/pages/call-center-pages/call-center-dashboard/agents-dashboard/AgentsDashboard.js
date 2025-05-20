@@ -1313,6 +1313,7 @@ export default function AgentsDashboard() {
               </>
             )}
           </div>
+          <div>This another div here for ticket creation</div>
         </div>
       )}
 
