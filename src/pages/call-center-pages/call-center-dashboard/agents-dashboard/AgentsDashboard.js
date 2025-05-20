@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from "react";
-// import IncomingCallModal from "../../../../components/IncomingCallModal";
 import AttendedTransferControls from "../../../../components/AttendedTransferControls";
 
 import {
@@ -25,14 +24,10 @@ import Avatar from "@mui/material/Avatar";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import ListItemIcon from "@mui/material/ListItemIcon";
-import { MdOutlineFreeBreakfast } from "react-icons/md";
-import { MdOutlineLunchDining } from "react-icons/md";
-import { GiExplosiveMeeting } from "react-icons/gi";
-import { MdWifiCalling2 } from "react-icons/md";
+import { MdOutlineFreeBreakfast, MdWifiCalling2, MdOutlineFollowTheSigns, MdOutlineLunchDining } from "react-icons/md";
+import { GiExplosiveMeeting, GiTrafficLightsReadyToGo } from "react-icons/gi";
 import { TbEmergencyBed } from "react-icons/tb";
-import { MdOutlineFollowTheSigns } from "react-icons/md";
-import { GiTrafficLightsReadyToGo } from "react-icons/gi";
-import { FiPhoneOff } from "react-icons/fi";
+import { FiPhoneOff, FiPhoneCall, FiPhoneIncoming } from "react-icons/fi";
 import { CiNoWaitingSign } from "react-icons/ci";
 import { FaPersonWalkingArrowRight } from "react-icons/fa6";
 import {
@@ -44,12 +39,8 @@ import {
   URI,
 } from "sip.js";
 import { Alert, Snackbar } from "@mui/material";
-// import { io } from "socket.io-client";
 import { baseURL } from "../../../../config";
 import "./agentsDashboard.css";
-import { FiPhoneCall } from "react-icons/fi";
-
-import { FiPhoneIncoming } from "react-icons/fi";
 import { TbPhoneCheck, TbPhoneX } from "react-icons/tb";
 import { HiPhoneOutgoing, HiOutlineMailOpen } from "react-icons/hi";
 import { BsCollection } from "react-icons/bs";
@@ -100,7 +91,7 @@ export default function AgentsDashboard() {
 
 
   const timerRef = useRef(null);
-
+  const wasAnsweredRef = useRef(false);
   const showAlert = (message, severity = "warning") => {
     setSnackbarMessage(message);
     setSnackbarSeverity(severity);
@@ -165,55 +156,56 @@ export default function AgentsDashboard() {
         setPhoneStatus("Connection Failed");
       });
 
-    ua.delegate = {
-      onInvite: (invitation) => {
-        console.log("📞 Incoming call");
-        setIncomingCall(invitation);
-        setCallerId(
-          invitation.remoteIdentity.displayName ||
-          invitation.remoteIdentity.uri.user ||
-          "Unknown Caller"
-        );
-        setShowPhonePopup(true);
-        setPhoneStatus("Ringing");
-        ringAudio.play().catch((err) => console.error("🔇 Ringtone error:", err));
-
-        // 🔥 Listen for caller hangup
-        invitation.stateChange.addListener((state) => {
-          console.log("📈 Call state changed:", state);
-
-          if (state === SessionState.Terminated) {
-            console.log("📴 Call terminated detected by listener.");
-            stopRingtone();
-            clearTimeout(autoRejectTimerRef.current); // ✅ VERY IMPORTANT
-            setIncomingCall(null);
-            setShowPhonePopup(false); // ✅ Close Modal if caller hangs up
-            setPhoneStatus("Idle");
-
-            // Optionally if missed
-            if (phoneStatus === "Ringing") {
-              addMissedCall(callerId);
+      ua.delegate = {
+        onInvite: (invitation) => {
+          console.log("📞 Incoming call");
+      
+          wasAnsweredRef.current = false;
+      
+          // ✅ Declare it here first
+          const incomingCaller =
+            invitation.remoteIdentity.displayName ||
+            invitation.remoteIdentity.uri.user ||
+            "Unknown Caller";
+      
+          setCallerId(incomingCaller);
+          setIncomingCall(invitation);
+          setShowPhonePopup(true);
+          setPhoneStatus("Ringing");
+          ringAudio.play().catch((err) => console.error("🔇 Ringtone error:", err));
+      
+          invitation.stateChange.addListener((state) => {
+            if (state === SessionState.Terminated) {
+              stopRingtone();
+              clearTimeout(autoRejectTimerRef.current);
+              setIncomingCall(null);
+              setShowPhonePopup(false);
+              setPhoneStatus("Idle");
+      
+              // ✅ Use the locally scoped incomingCaller here
+              if (!wasAnsweredRef.current) {
+                addMissedCall(incomingCaller);
+              }
             }
-          }
-        });
-
-
-
-        // 🔥 Start auto-reject timer (20 seconds)
-        autoRejectTimerRef.current = setTimeout(() => {
-          if (incomingCall) {
-            console.log("⏰ No answer within 20 seconds, auto-rejecting...");
-            incomingCall.reject().catch(console.error);
-            addMissedCall(callerId);
-            setShowPhonePopup(false);
-            setPhoneStatus("Idle");
-            stopRingtone();
-            setIncomingCall(null);
-          }
-        }, 20000); // 20,000 milliseconds = 20 seconds
-      },
-    };
-
+          });
+      
+          autoRejectTimerRef.current = setTimeout(() => {
+            if (incomingCall) {
+              incomingCall.reject().catch(console.error);
+              setShowPhonePopup(false);
+              setPhoneStatus("Idle");
+              stopRingtone();
+              setIncomingCall(null);
+      
+              // ✅ Use the same declared incomingCaller
+              if (!wasAnsweredRef.current) {
+                addMissedCall(incomingCaller);
+              }
+            }
+          }, 20000);
+        },
+      };
+      
 
     return () => {
       registerer.unregister().catch(console.error);
@@ -253,17 +245,21 @@ export default function AgentsDashboard() {
     };
   }, []);
 
-  useEffect(() => {
-    const savedMissedCalls = localStorage.getItem("missedCalls");
-    if (savedMissedCalls) {
-      const parsed = JSON.parse(savedMissedCalls).map((call) => ({
-        ...call,
-        time: new Date(call.time), // ⬅️ Convert string back to Date object
-      }));
-      setMissedCalls(parsed);
-    }
-  }, []);
+  // useEffect(() => {
+  //   const savedMissedCalls = localStorage.getItem("missedCalls");
+  //   if (savedMissedCalls) {
+  //     const parsed = JSON.parse(savedMissedCalls).map((call) => ({
+  //       ...call,
+  //       time: new Date(call.time), // ⬅️ Convert string back to Date object
+  //     }));
+  //     setMissedCalls(parsed);
+  //   }
+  // }, []);
 
+  // ✅ Load missed calls from backend on component mount
+  useEffect(() => {
+    fetchMissedCallsFromBackend();
+  }, []);
 
   const setPhonePopupVisible = (visible) => {
     setShowPhonePopup(visible);
@@ -336,16 +332,72 @@ export default function AgentsDashboard() {
   };
 
   const addMissedCall = (caller) => {
-    const newCall = { caller, time: new Date() };
-    setMissedCalls((prev) => {
-      const updated = [...prev, newCall];
-      localStorage.setItem("missedCalls", JSON.stringify(updated));
-      return updated;
-    });
-
+    if (!caller || caller.trim() === "") {
+      console.warn("🚫 Skipping missed call: no caller ID provided");
+      return;
+    }
+  
+    const time = new Date();
+    const agentId = localStorage.getItem("extension");
+  
+    // Update UI immediately
+    const newCall = { caller, time };
+    setMissedCalls((prev) => [...prev, newCall]);
+  
     setSnackbarMessage(`📞 Missed Call from ${caller}`);
     setSnackbarSeverity("warning");
     setSnackbarOpen(true);
+  
+    // 🔁 POST to backend
+    fetch(`${baseURL}/missed-calls`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+      },
+      body: JSON.stringify({
+        caller,
+        time: time.toISOString(),
+        agentId,
+      }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Failed to log missed call");
+        return res.json();
+      })
+      .then((data) => {
+        console.log("✅ Missed call logged to DB:", data);
+      })
+      .catch((err) => {
+        console.error("❌ Failed to post missed call:", err);
+      });
+  };
+  
+  
+
+  const fetchMissedCallsFromBackend = async () => {
+    try {
+      const response = await fetch(`${baseURL}/missed-calls`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        },
+      });
+
+      if (!response.ok) throw new Error("Failed to fetch missed calls");
+
+      const data = await response.json();
+
+      const formatted = data.map(call => ({
+        ...call,
+        time: new Date(call.time),
+      }));
+
+      setMissedCalls(formatted);
+    } catch (error) {
+      console.error("❌ Error fetching missed calls:", error);
+    }
   };
 
   const handleAttendedTransferDial = () => {
@@ -439,20 +491,12 @@ export default function AgentsDashboard() {
         },
       })
       .then(() => {
+        wasAnsweredRef.current = true;
         setSession(incomingCall);
         setIncomingCall(null);
         setPhoneStatus("In Call");
         stopRingtone();
         startTimer();
-
-        // ✅ Emit call status after SIP accepts the call
-        // socket.emit("callStatusUpdate", {
-        //   callId: incomingCall.id || `${Date.now()}`,
-        //   agentId: localStorage.getItem("userId"),
-        //   status: "In Call",
-        //   caller: callerId,
-        //   startTime: new Date().toISOString(),
-        // });
 
         incomingCall.stateChange.addListener((state) => {
           if (state === SessionState.Established) {
@@ -491,11 +535,6 @@ export default function AgentsDashboard() {
     const agentId = localStorage.getItem("userId");
 
     if (session) {
-      // socket.emit("callStatusUpdate", {
-      //   callId: session.id || `${Date.now()}`,
-      //   agentId,
-      //   status: "Idle",
-      // });
 
       session.bye().catch(console.error);
       setSession(null);
@@ -507,13 +546,6 @@ export default function AgentsDashboard() {
       setIncomingCall(null);
     } else if (incomingCall) {
       incomingCall.reject().catch(console.error);
-
-      // socket.emit("callStatusUpdate", {
-      //   callId: incomingCall.id || `${Date.now()}`,
-      //   agentId,
-      //   status: "Idle",
-      // });
-
       setIncomingCall(null);
       setPhoneStatus("Idle");
       stopRingtone();
@@ -554,15 +586,6 @@ export default function AgentsDashboard() {
       .then(() => {
         setPhoneStatus("Dialing");
         setShowPhonePopup(false);
-
-        // socket.emit("callStatusUpdate", {
-        //   callId: inviter.id || `${Date.now()}`,
-        //   agentId: localStorage.getItem("userId"),
-        //   status: "Dialing",
-        //   caller: number, // ✅ use `number` from argument
-        //   startTime: new Date().toISOString(),
-        // });
-
         inviter.stateChange.addListener((state) => {
           if (state === SessionState.Established) {
             console.log("📞 Callback call established");
@@ -575,13 +598,6 @@ export default function AgentsDashboard() {
             setSession(null);
             remoteAudio.srcObject = null;
             stopTimer();
-
-            // ✅ Emit end of call
-            // socket.emit("callStatusUpdate", {
-            //   callId: inviter.id || `${Date.now()}`,
-            //   agentId: localStorage.getItem("userId"),
-            //   status: "Idle",
-            // });
           }
         });
       })
@@ -618,15 +634,6 @@ export default function AgentsDashboard() {
       .then(() => {
         setPhoneStatus("Dialing");
 
-        // ✅ Emit after SIP call is officially initiated
-        // socket.emit("callStatusUpdate", {
-        //   callId: inviter.id || `${Date.now()}`,
-        //   agentId: localStorage.getItem("userId"),
-        //   status: "Dialing",
-        //   caller: phoneNumber,
-        //   startTime: new Date().toISOString(),
-        // });
-
         inviter.stateChange.addListener((state) => {
           if (state === SessionState.Established) {
             console.log("📞 Outgoing call established");
@@ -639,13 +646,6 @@ export default function AgentsDashboard() {
             setSession(null);
             remoteAudio.srcObject = null;
             stopTimer();
-
-            // 🔁 Emit idle status
-            // socket.emit("callStatusUpdate", {
-            //   callId: inviter.id || `${Date.now()}`,
-            //   agentId: localStorage.getItem("userId"),
-            //   status: "Idle",
-            // });
           }
         });
       })
