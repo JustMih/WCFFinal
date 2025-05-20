@@ -1375,9 +1375,14 @@ export default function AgentsDashboard() {
               className="ticket-creation-form"
               style={{
                 marginTop: 20,
-                padding: 10,
+                padding: 20,
                 border: "1px solid #ccc",
-                borderRadius: 8,
+                borderRadius: 12,
+                maxWidth: 600,
+                backgroundColor: "#f9f9f9",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                marginLeft: "auto",
+                marginRight: "auto",
               }}
             >
               <h3>User Information</h3>
