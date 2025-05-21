@@ -1346,7 +1346,7 @@ const AgentCRM = () => {
           <Button
             variant="contained"
             onClick={async () => {
-              await fetch(`${baseURL}/notify`, {
+              await fetch(`${baseURL}/notifications/notify`, {
                 method: 'POST',
                 headers: {
                   'Content-Type': 'application/json',
@@ -1354,9 +1354,10 @@ const AgentCRM = () => {
                 },
                 body: JSON.stringify({
                   ticket_id: selectedTicket.id,
-                  recipient_id: selectedTicket.assigned_to_id, // or another user ID
+                  category: selectedTicket.category, // or another user ID
                   message: notifyMessage,
-                  channel: 'In-System'
+                  channel: selectedTicket.channel,
+                  subject: selectedTicket.functionData?.name
                 })
               });
               setShowNotifyModal(false);

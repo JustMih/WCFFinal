@@ -123,3 +123,77 @@
   cursor: pointer;
   opacity: 0.8;
 }
+
+.navbar-notification-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.navbar-notification-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background-color: var(--sidebar-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  min-width: 300px;
+  max-height: 400px;
+  overflow-y: auto;
+  z-index: 1000;
+  margin-top: 10px;
+}
+
+.notification-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.notification-item:hover {
+  background-color: var(--hover-color);
+}
+
+.notification-item.unread {
+  background-color: rgba(0, 123, 255, 0.1);
+  border-left: 4px solid #007bff;
+}
+
+.notification-message {
+  color: var(--active-color);
+  font-size: 14px;
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.notification-type {
+  color: #007bff;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.notification-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--active-color);
+  font-size: 14px;
+}
+
+/* Custom scrollbar for notification dropdown */
+.navbar-notification-dropdown::-webkit-scrollbar {
+  width: 6px;
+}
+
+.navbar-notification-dropdown::-webkit-scrollbar-track {
+  background: var(--sidebar-color);
+}
+
+.navbar-notification-dropdown::-webkit-scrollbar-thumb {
+  background: #007bff;
+  border-radius: 3px;
+}
+
+.navbar-notification-dropdown::-webkit-scrollbar-thumb:hover {
+  background: #0056b3;
+}

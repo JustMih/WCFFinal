@@ -9,6 +9,9 @@ import { TfiLayoutMediaCenterAlt } from "react-icons/tfi";
 import { BsFillTicketDetailedFill } from "react-icons/bs";
 import { baseURL } from "../../config";
 import "./navbar.css";
+import { IoMdNotificationsOutline } from "react-icons/io";
+import { Badge } from "@mui/material";
+import CoordinatorActionModal from "../coordinator/CoordinatorActionModal";
 
 export default function Navbar({
   toggleTheme,
@@ -17,13 +20,142 @@ export default function Navbar({
   isSidebarOpen,
   role,
   setActiveSystem,
-  activeSystem,
+  activeSystem
 }) {
   const [username, setUserName] = useState("");
+  const [assignedCount, setAssignedCount] = useState(0);
+  const [notifications, setNotifications] = useState([]);
+  const [notifDropdownOpen, setNotifDropdownOpen] = useState(false);
+  const [isActionModalOpen, setIsActionModalOpen] = useState(false);
+  const [modalTicket, setModalTicket] = useState(null);
+  const [convertCategory, setConvertCategory] = useState({});
+  const [forwardUnit, setForwardUnit] = useState({});
+  const [units, setUnits] = useState([]);
+  const categories = ["Inquiry"]; // Add more if needed
+  const userId = localStorage.getItem("userId");
+  const token = localStorage.getItem("authToken");
 
   useEffect(() => {
     setUserName(localStorage.getItem("username"));
   }, []);
+
+  useEffect(() => {
+    // Fetch assigned ticket notification count
+    async function fetchAssignedCount() {
+      try {
+        const response = await fetch(
+          `${baseURL}/notifications/unread-count/${userId}`,
+          {
+            headers: { Authorization: `Bearer ${token}` }
+          }
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setAssignedCount(data.unreadCount || 0);
+        }
+      } catch (err) {
+        console.error("Error fetching notification count:", err);
+        setAssignedCount(0);
+      }
+    }
+    if (userId && token) fetchAssignedCount();
+  }, [userId, token]);
+
+  useEffect(() => {
+    // Fetch notifications for the user (for dropdown only)
+    async function fetchNotifications() {
+      try {
+        const response = await fetch(
+          `${baseURL}/notifications/user/${userId}`,
+          {
+            headers: { Authorization: `Bearer ${token}` }
+          }
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setNotifications(data.notifications || []);
+        }
+      } catch (err) {
+        console.error("Error fetching notifications:", err);
+        setNotifications([]);
+      }
+    }
+    if (userId && token) fetchNotifications();
+  }, [userId, token]);
+
+  useEffect(() => {
+    const token = localStorage.getItem("authToken");
+    const fetchUnits = async () => {
+      try {
+        const res = await fetch(`${baseURL}/section/units-data`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const json = await res.json();
+        setUnits(json.data || []);
+      } catch (err) {
+        console.error("Error fetching units:", err);
+      }
+    };
+    if (token) fetchUnits();
+  }, []);
+
+  const handleCategoryChange = (ticketId, value) => {
+    setConvertCategory(prev => ({
+      ...prev,
+      [ticketId]: value
+    }));
+  };
+
+  const handleUnitChange = (ticketId, value) => {
+    setForwardUnit(prev => ({
+      ...prev,
+      [ticketId]: value
+    }));
+  };
+
+  const handleConvertOrForward = (ticketId) => {
+    alert("Convert/Forward not implemented in Navbar. Please use the dashboard.");
+  };
+
+  const handleRating = (ticketId, rating) => {
+    alert("Rating not implemented in Navbar. Please use the dashboard.");
+  };
+
+  const handleNotificationClick = async (notif) => {
+    console.log("Notification clicked:", notif);
+    await fetch(`${baseURL}/notifications/read/${notif.id}`, {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (notif.ticket_id && !notif.first_name) {
+      try {
+        const response = await fetch(`${baseURL}/tickets/${notif.ticket_id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const ticket = await response.json();
+          if (ticket && ticket.first_name) {
+            setModalTicket(ticket);
+            setIsActionModalOpen(true);
+          } else {
+            alert("Ticket details not found.");
+          }
+          setNotifDropdownOpen(false);
+        } else {
+          alert("Failed to fetch ticket details.");
+        }
+      } catch (err) {
+        console.error("Error fetching ticket details:", err);
+        alert("Error fetching ticket details.");
+      }
+    } else {
+      setModalTicket(notif);
+      setIsActionModalOpen(true);
+      setNotifDropdownOpen(false);
+      console.log("Set modal ticket directly:", notif);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -43,9 +175,9 @@ export default function Navbar({
       const response = await fetch(`${baseURL}/auth/logout`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
+          "Content-Type": "application/json"
         },
-        body: JSON.stringify({ userId }),
+        body: JSON.stringify({ userId })
       });
 
       if (!response.ok) {
@@ -65,7 +197,10 @@ export default function Navbar({
   };
 
   const canAccessCallCenter =
-    role === "admin" || role === "super-admin" || role === "agent" || role === "supervisor";
+    role === "admin" ||
+    role === "super-admin" ||
+    role === "agent" ||
+    role === "supervisor";
   const canAccessCRM =
     role === "admin" ||
     role === "super-admin" ||
@@ -116,6 +251,66 @@ export default function Navbar({
         <button className="theme-button" onClick={toggleTheme}>
           {isDarkMode ? <LuSunMoon /> : <MdDarkMode />}
         </button>
+        {/* Notification Bell with Dropdown */}
+        <div
+          className="navbar-notification-container"
+          style={{
+            marginRight: "1rem",
+            cursor: "pointer",
+            position: "relative"
+          }}
+          onClick={() => setNotifDropdownOpen((open) => !open)}
+        >
+          {console.log("assignedCount", assignedCount)}
+          <Badge
+            badgeContent={assignedCount}
+            color="error"
+            sx={{
+              "& .MuiBadge-badge": {
+                backgroundColor: "#ff0000",
+                color: "white",
+                fontWeight: "bold",
+                fontSize: "0.6rem",
+                minWidth: "20px",
+                height: "20px",
+                borderRadius: "10px",
+                top: "2px", // Move badge up (more negative = closer to icon)
+                right: "10px", // Move badge left (more negative = closer to icon)
+                zIndex: 1 // Fine-tune the badge positioning
+              }
+            }}
+          >
+            <IoMdNotificationsOutline size={24} className="navbar-icon" />
+          </Badge>
+          {notifDropdownOpen && (
+            <div className="navbar-notification-dropdown">
+              {notifications.length === 0 ? (
+                <div className="notification-empty">No notifications</div>
+              ) : (
+                notifications.map((notif) => (
+                  <div
+                    key={notif.id}
+                    className={`notification-item ${notif.status === "unread" ? "unread" : ""}`}
+                  >
+                    <div
+                      className="notification-message"
+                      style={{ cursor: "pointer" }}
+                      onClick={() => {
+                        console.log("Message clicked", notif);
+                        handleNotificationClick(notif);
+                      }}
+                    >
+                      {notif.message}
+                    </div>
+                    <div className="notification-type">
+                      {notif.category || notif.type}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
         <div className="navbar-profile-container">
           <span className="navbar-profile">
             <MdPerson className="navbar-profile-icon" />
@@ -139,6 +334,20 @@ export default function Navbar({
           </div>
         </div>
       </div>
+      <CoordinatorActionModal
+        open={isActionModalOpen}
+        onClose={() => setIsActionModalOpen(false)}
+        ticket={modalTicket}
+        categories={categories}
+        units={units}
+        convertCategory={convertCategory}
+        forwardUnit={forwardUnit}
+        handleCategoryChange={handleCategoryChange}
+        handleUnitChange={handleUnitChange}
+        handleConvertOrForward={handleConvertOrForward}
+        handleRating={handleRating}
+      />
+      {console.log("Modal open:", isActionModalOpen, "Ticket:", modalTicket)}
     </nav>
   );
 }
