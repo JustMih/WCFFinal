@@ -130,7 +130,7 @@ export default function Navbar({
 
     if (notif.ticket_id && !notif.first_name) {
       try {
-        const response = await fetch(`${baseURL}/tickets/${notif.ticket_id}`, {
+        const response = await fetch(`${baseURL}/ticket/${notif.ticket_id}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (response.ok) {
