@@ -153,7 +153,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                       : ""
                   }`}
                   onClick={toggleAgentsDropdown}
-                  style={{ cursor: "pointer" }}
+                  style={{ cursor: "pointer", padding: "12px 20px" }}
                 >
                   <MdOutlineSupportAgent className="menu-icon" />
                   {isSidebarOpen && (
@@ -228,10 +228,9 @@ export default function CRMSidebar({ isSidebarOpen }) {
                               key={idx}
                               to={item.to}
                               className={({ isActive }) =>
-                                isActive
-                                  ? "dropdown-item active-link"
-                                  : "dropdown-item"
+                                isActive ? "dropdown-item active-link" : "dropdown-item"
                               }
+                              style={{ padding: "12px 20px" }}
                             >
                               <div className="metric-row">
                                 <span className="metric-icon">{item.icon}</span>
@@ -283,7 +282,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                     : ""
                 }`}
                 onClick={toggleAgentsDropdown}
-                style={{ cursor: "pointer" }}
+                style={{ cursor: "pointer", padding: "12px 20px" }}
               >
                 <MdOutlineSupportAgent className="menu-icon" />
                 {isSidebarOpen && (
@@ -332,6 +331,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                                 ? "dropdown-item active-link"
                                 : "dropdown-item"
                             }
+                            style={{ padding: "12px 20px" }}
                           >
                             <div className="metric-row">
                               <span className="metric-icon">{item.icon}</span>
@@ -391,6 +391,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                                 ? "dropdown-item active-link"
                                 : "dropdown-item"
                             }
+                            style={{ padding: "12px 20px" }}
                           >
                             <div className="metric-row">
                               <span className="metric-icon">{item.icon}</span>
@@ -442,6 +443,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                                 ? "dropdown-item active-link"
                                 : "dropdown-item"
                             }
+                            style={{ padding: "12px 20px" }}
                           >
                             <div className="metric-row">
                               <span className="metric-icon">{item.icon}</span>
@@ -492,6 +494,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                                 ? "dropdown-item active-link"
                                 : "dropdown-item"
                             }
+                            style={{ padding: "12px 20px" }}
                           >
                             <div className="metric-row">
                               <span className="metric-icon">{item.icon}</span>
