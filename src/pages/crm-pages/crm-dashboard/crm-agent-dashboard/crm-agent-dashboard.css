@@ -1,3 +1,12 @@
+
+
+.agent-content {
+  display: flex;
+  flex: 1 1;
+  background-color: var(--background-color);
+  padding: 20px;
+  overflow-y: auto;
+}
 .card {
   width: 100%;
   height: 180px;
@@ -180,4 +189,70 @@ a {
   font-size: 14px;
   font-weight: bold;
   color: #333;
+}
+
+.modal-action-button {
+  display: flex;
+  justify-content: space-between;
+}
+
+.add-ticket-button {
+  width: auto;
+}
+
+.ticket-modal-action-buttons{
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+
+
+/* Modal styling */
+
+.modal-title {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #1976d2;
+  margin-bottom: 1rem;
+}
+.modal-form-row {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.modal-form-group {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.modal-form-group input,
+.modal-form-group select,
+.modal-form-group textarea {
+  font-size: 0.875rem;
+  padding: 10px 12px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background-color: white;
+  width: 100%;
+  box-sizing: border-box;
+  transition: border 0.2s ease;
+}
+
+.modal-form-group input:focus,
+.modal-form-group select:focus,
+.modal-form-group textarea:focus {
+  border-color: #1976d2;
+  outline: none;
+  background-color: #f9f9f9;
+}
+
+.modal-form-group label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 4px;
 }

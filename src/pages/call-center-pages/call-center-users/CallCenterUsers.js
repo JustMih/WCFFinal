@@ -36,6 +36,7 @@ export default function CallCenterUsers() {
     name: "",
     email: "",
     password: "",
+    extension: "",
     role: "admin",
     isActive: false,
   });
@@ -105,6 +106,7 @@ export default function CallCenterUsers() {
         name: "",
         email: "",
         password: "",
+        extension: "",
         role: "admin",
         isActive: false,
       });
@@ -231,6 +233,7 @@ export default function CallCenterUsers() {
       name: "",
       email: "",
       password: "",
+      extension: "",
       role: "admin",
       isActive: false,
     });
@@ -264,6 +267,7 @@ export default function CallCenterUsers() {
               name: "",
               email: "",
               password: "",
+              extension: "",
               role: "admin",
               isActive: false,
             });
@@ -424,6 +428,19 @@ export default function CallCenterUsers() {
               <MenuItem value="focal-person">Focal Person</MenuItem>
             </Select>
           </FormControl>
+          {/* add extension if role is agent */}
+          {(newUserData.role === "agent" ||
+            (currentUser && currentUser.role === "agent")) && (
+            <TextField
+              label="Extension"
+              fullWidth
+              margin="normal"
+              name="extension"
+              value={isEditing ? currentUser.extension : newUserData.extension}
+              onChange={isEditing ? handleUpdateInputChange : handleInputChange}
+            />
+          )}
+          {/* Checkbox for isActive */}
           <FormControlLabel
             control={
               <Checkbox

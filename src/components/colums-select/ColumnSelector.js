@@ -66,36 +66,39 @@ export default function ColumnSelector({ open, onClose, data, onColumnsChange })
   
 
   const exportToCSV = () => {
+    // Use only the filtered tickets (data prop)
     const csvData = data.map((ticket, index) => {
       const row = {};
-  
       selectedColumns.forEach((col) => {
         let value;
-  
-        if (col === "createdAt") {
-          value = formatDate(ticket.createdAt);
+        if (col === "created_at" || col === "createdAt") {
+          value = formatDate(ticket.created_at || ticket.createdAt);
         } else if (col === "createdBy.name") {
           value = ticket.createdBy?.name || "N/A";
+        } else if (col === "assignedTo.name") {
+          value = ticket.assignedTo?.name || "N/A";
+        } else if (col === "attendedBy.name") {
+          value = ticket.attendedBy?.name || "N/A";
+        } else if (col === "ratedBy.name") {
+          value = ticket.ratedBy?.name || "N/A";
+        } else if (col === "functionData.name") {
+          value = ticket.functionData?.name || "N/A";
         } else if (col === "id") {
           value = index + 1;
         } else if (col === "fullName") {
-          value = `${ticket.firstName || ""} ${ticket.middleName || ""} ${ticket.lastName || ""}`.trim();
+          value = `${ticket.first_name || ticket.firstName || ""} ${ticket.middle_name || ticket.middleName || ""} ${ticket.last_name || ticket.lastName || ""}`.trim();
         } else {
           value = ticket[col] || "N/A";
         }
-  
         // Wrap long numbers as text for Excel
         if (["nida_number", "phone_number"].includes(col)) {
           value = `="${value}"`;
         }
-  
         const label = exportableColumns.find((c) => c.key === col)?.label || col;
         row[label] = value;
       });
-  
       return row;
     });
-  
     const csv = Papa.unparse(csvData);
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -105,29 +108,29 @@ export default function ColumnSelector({ open, onClose, data, onColumnsChange })
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-  
     onClose();
   };
 
   const exportToPDF = () => {
+    // Use only the filtered tickets (data prop)
     const doc = new jsPDF({
       orientation: selectedColumns.length > 5 ? "landscape" : "portrait",
     });
-  
     doc.text("Tickets Report", 40, 30);
-  
     const headers = [selectedColumns.map((col) => exportableColumns.find((c) => c.key === col)?.label || col)];
-  
     const dataRows = data.map((ticket, index) =>
       selectedColumns.map((col) => {
         if (col === "createdBy.name") return ticket.createdBy?.name || "N/A";
+        if (col === "assignedTo.name") return ticket.assignedTo?.name || "N/A";
+        if (col === "attendedBy.name") return ticket.attendedBy?.name || "N/A";
+        if (col === "ratedBy.name") return ticket.ratedBy?.name || "N/A";
+        if (col === "functionData.name") return ticket.functionData?.name || "N/A";
         if (col === "id") return index + 1;
-        if (col === "fullName") return `${ticket.firstName || ""} ${ticket.middleName || ""} ${ticket.lastName || ""}`.trim();
-        if (col === "createdAt") return formatDate(ticket.createdAt);
+        if (col === "fullName") return `${ticket.first_name || ticket.firstName || ""} ${ticket.middle_name || ticket.middleName || ""} ${ticket.last_name || ticket.lastName || ""}`.trim();
+        if (col === "created_at" || col === "createdAt") return formatDate(ticket.created_at || ticket.createdAt);
         return ticket[col] || "N/A";
       })
     );
-  
     autoTable(doc, {
       startY: 40,
       head: headers,
@@ -135,7 +138,6 @@ export default function ColumnSelector({ open, onClose, data, onColumnsChange })
       styles: { fontSize: 8 },
       headStyles: { fillColor: [22, 160, 133] },
     });
-  
     doc.save("tickets-report.pdf");
     onClose();
   };

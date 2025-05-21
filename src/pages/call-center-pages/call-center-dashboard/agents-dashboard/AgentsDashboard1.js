@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from "react";
-
 import {
   MdOutlineLocalPhone,
   MdPauseCircleOutline,
@@ -23,15 +22,14 @@ import Avatar from "@mui/material/Avatar";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import ListItemIcon from "@mui/material/ListItemIcon";
-import {
-  MdOutlineFreeBreakfast,
-  MdWifiCalling2,
-  MdOutlineFollowTheSigns,
-  MdOutlineLunchDining,
-} from "react-icons/md";
-import { GiExplosiveMeeting, GiTrafficLightsReadyToGo } from "react-icons/gi";
+import { MdOutlineFreeBreakfast } from "react-icons/md";
+import { MdOutlineLunchDining } from "react-icons/md";
+import { GiExplosiveMeeting } from "react-icons/gi";
+import { MdWifiCalling2 } from "react-icons/md";
 import { TbEmergencyBed } from "react-icons/tb";
-import { FiPhoneOff, FiPhoneCall, FiPhoneIncoming } from "react-icons/fi";
+import { MdOutlineFollowTheSigns } from "react-icons/md";
+import { GiTrafficLightsReadyToGo } from "react-icons/gi";
+import { FiPhoneOff } from "react-icons/fi";
 import { CiNoWaitingSign } from "react-icons/ci";
 import { FaPersonWalkingArrowRight } from "react-icons/fa6";
 import {
@@ -45,6 +43,8 @@ import {
 import { Alert, Snackbar } from "@mui/material";
 import { baseURL } from "../../../../config";
 import "./agentsDashboard.css";
+
+import { FiPhoneIncoming } from "react-icons/fi";
 import { TbPhoneCheck, TbPhoneX } from "react-icons/tb";
 import { HiPhoneOutgoing, HiOutlineMailOpen } from "react-icons/hi";
 import { BsCollection } from "react-icons/bs";
@@ -56,17 +56,9 @@ import {
 } from "react-icons/io";
 import { FaHandHolding } from "react-icons/fa";
 import CallChart from "../../../../components/agent-chat/AgentChat";
-import QueueStatusTable from "../../../../components/agent-dashboard/QueueStatusTable";
 
 export default function AgentsDashboard() {
   const [showPhonePopup, setShowPhonePopup] = useState(false);
-  const [consultSession, setConsultSession] = useState(null); // The target agent session
-  const [isTransferring, setIsTransferring] = useState(false);
-  const [callerId, setCallerId] = useState("");
-  const autoRejectTimerRef = useRef(null);
-  const [missedCalls, setMissedCalls] = useState([]);
-  const [missedOpen, setMissedOpen] = useState(false);
-  const [transferTarget, setTransferTarget] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [phoneStatus, setPhoneStatus] = useState("Idle");
   const [userAgent, setUserAgent] = useState(null);
@@ -92,60 +84,10 @@ export default function AgentsDashboard() {
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("warning"); // could be "success", "error", "info", "warning"
   // const [loginTime, setLoginTime] = useState("");
-  // const socket = io(baseURL.replace("/api", ""));
-
-  // user ticket from mac system
-  const [userData, setUserData] = useState(null);
-  const [showUserForm, setShowUserForm] = useState(false);
-  const [formValues, setFormValues] = useState({
-    first_name: "",
-    middle_name: "",
-    last_name: "",
-    phone_number: "",
-    nida_number: "",
-    institution: "",
-    region: "",
-    district: "",
-  });
-  const [loadingUserData, setLoadingUserData] = useState(false);
-
-  const fetchUserByPhoneNumber = async (phone) => {
-    setLoadingUserData(true);
-    try {
-      const response = await fetch(
-        `${baseURL}/mac-system/search-by-phone-number?phone_number=${encodeURIComponent(
-          phone
-        )}`
-      );
-      if (!response.ok) {
-        setUserData(null);
-        setShowUserForm(false);
-        setLoadingUserData(false);
-        return;
-      }
-      const data = await response.json();
-      setUserData(data);
-      setFormValues({
-        first_name: data.first_name || "",
-        middle_name: data.middle_name || "",
-        last_name: data.last_name || "",
-        phone_number: data.phone_number || phone,
-        nida_number: data.nida_number || "",
-        institution: data.institution || "",
-        region: data.region || "",
-        district: data.district || "",
-      });
-      setShowUserForm(true);
-    } catch (error) {
-      console.error("Failed to fetch user data:", error);
-      setUserData(null);
-      setShowUserForm(false);
-    }
-    setLoadingUserData(false);
-  };
+  
 
   const timerRef = useRef(null);
-  const wasAnsweredRef = useRef(false);
+
   const showAlert = (message, severity = "warning") => {
     setSnackbarMessage(message);
     setSnackbarSeverity(severity);
@@ -161,16 +103,13 @@ export default function AgentsDashboard() {
     emergency: userDefinedTimes.emergency * 60 || 20 * 60, // default 20 minutes if not set
   };
 
-  const extension = localStorage.getItem("extension");
-  const sipPassword = localStorage.getItem("sipPassword");
-
   const sipConfig = {
-    uri: UserAgent.makeURI(`sip:${extension}@10.52.0.19`),
+    uri: UserAgent.makeURI("sip:webrtc_user@10.52.0.19"),
     transportOptions: {
       server: "wss://10.52.0.19:8089/ws",
     },
-    authorizationUsername: extension,
-    authorizationPassword: sipPassword,
+    authorizationUsername: "webrtc_user",
+    authorizationPassword: "sip12345",
     sessionDescriptionHandlerFactoryOptions: {
       constraints: { audio: true, video: false },
       peerConnectionOptions: {
@@ -193,6 +132,11 @@ export default function AgentsDashboard() {
     ringAudio.volume = 0.7;
     remoteAudio.autoplay = true;
 
+    // navigator.mediaDevices
+    //   .getUserMedia({ audio: true })
+    //   .then(() => console.log("🎤 Microphone access granted"))
+    //   .catch((error) => console.error("❌ Microphone access denied:", error));
+
     const ua = new UserAgent(sipConfig);
     const registerer = new Registerer(ua);
     setUserAgent(ua);
@@ -211,56 +155,12 @@ export default function AgentsDashboard() {
     ua.delegate = {
       onInvite: (invitation) => {
         console.log("📞 Incoming call");
-
-        wasAnsweredRef.current = false;
-
-        const incomingCaller =
-          invitation.remoteIdentity.displayName ||
-          invitation.remoteIdentity.uri.user ||
-          "Unknown Caller";
-
-        setCallerId(incomingCaller);
         setIncomingCall(invitation);
-        setShowPhonePopup(true);
+        setPhonePopupVisible(true);
         setPhoneStatus("Ringing");
         ringAudio
           .play()
           .catch((err) => console.error("🔇 Ringtone error:", err));
-
-        // Fetch user data by phone number on incoming call
-        fetchUserByPhoneNumber(incomingCaller);
-
-        invitation.stateChange.addListener((state) => {
-          if (state === SessionState.Terminated) {
-            stopRingtone();
-            clearTimeout(autoRejectTimerRef.current);
-            setIncomingCall(null);
-            setShowPhonePopup(false);
-            setPhoneStatus("Idle");
-            setShowUserForm(false);
-            setUserData(null);
-
-            if (!wasAnsweredRef.current) {
-              addMissedCall(incomingCaller);
-            }
-          }
-        });
-
-        autoRejectTimerRef.current = setTimeout(() => {
-          if (incomingCall) {
-            incomingCall.reject().catch(console.error);
-            setShowPhonePopup(false);
-            setPhoneStatus("Idle");
-            stopRingtone();
-            setIncomingCall(null);
-            setShowUserForm(false);
-            setUserData(null);
-
-            if (!wasAnsweredRef.current) {
-              addMissedCall(incomingCaller);
-            }
-          }
-        }, 20000);
       },
     };
 
@@ -270,53 +170,6 @@ export default function AgentsDashboard() {
       stopRingtone();
       stopTimer();
     };
-  }, []);
-
-  // 2️⃣ Missed Calls restore useEffect
-  useEffect(() => {
-    const savedMissedCalls = localStorage.getItem("missedCalls");
-    if (savedMissedCalls) {
-      setMissedCalls(JSON.parse(savedMissedCalls));
-    }
-  }, []);
-
-  // 3️⃣ Audio Unlock useEffect
-  useEffect(() => {
-    const unlockAudio = () => {
-      ringAudio
-        .play()
-        .then(() => {
-          console.log("🔓 Audio unlocked");
-          ringAudio.pause();
-          ringAudio.currentTime = 0;
-          window.removeEventListener("click", unlockAudio);
-        })
-        .catch((err) => {
-          console.warn("⚠️ Failed to unlock audio on first click:", err);
-        });
-    };
-
-    window.addEventListener("click", unlockAudio);
-
-    return () => {
-      window.removeEventListener("click", unlockAudio);
-    };
-  }, []);
-
-  // useEffect(() => {
-  //   const savedMissedCalls = localStorage.getItem("missedCalls");
-  //   if (savedMissedCalls) {
-  //     const parsed = JSON.parse(savedMissedCalls).map((call) => ({
-  //       ...call,
-  //       time: new Date(call.time), // ⬅️ Convert string back to Date object
-  //     }));
-  //     setMissedCalls(parsed);
-  //   }
-  // }, []);
-
-  // ✅ Load missed calls from backend on component mount
-  useEffect(() => {
-    fetchMissedCallsFromBackend();
   }, []);
 
   const setPhonePopupVisible = (visible) => {
@@ -389,153 +242,8 @@ export default function AgentsDashboard() {
     }
   };
 
-  const addMissedCall = (caller) => {
-    if (!caller || caller.trim() === "") {
-      console.warn("🚫 Skipping missed call: no caller ID provided");
-      return;
-    }
-
-    const time = new Date();
-    const agentId = localStorage.getItem("extension");
-
-    // Update UI immediately
-    const newCall = { caller, time };
-    setMissedCalls((prev) => [...prev, newCall]);
-
-    setSnackbarMessage(`📞 Missed Call from ${caller}`);
-    setSnackbarSeverity("warning");
-    setSnackbarOpen(true);
-
-    // 🔁 POST to backend
-    fetch(`${baseURL}/missed-calls`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-      },
-      body: JSON.stringify({
-        caller,
-        time: time.toISOString(),
-        agentId,
-      }),
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to log missed call");
-        return res.json();
-      })
-      .then((data) => {
-        console.log("✅ Missed call logged to DB:", data);
-      })
-      .catch((err) => {
-        console.error("❌ Failed to post missed call:", err);
-      });
-  };
-
-  const fetchMissedCallsFromBackend = async () => {
-    try {
-      const response = await fetch(`${baseURL}/missed-calls`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-        },
-      });
-
-      if (!response.ok) throw new Error("Failed to fetch missed calls");
-
-      const data = await response.json();
-
-      const formatted = data.map((call) => ({
-        ...call,
-        time: new Date(call.time),
-      }));
-
-      setMissedCalls(formatted);
-    } catch (error) {
-      console.error("❌ Error fetching missed calls:", error);
-    }
-  };
-
-  const handleAttendedTransferDial = () => {
-    if (!userAgent || !transferTarget) return;
-
-    const targetURI = UserAgent.makeURI(`sip:${transferTarget}@10.52.0.19`);
-    if (!targetURI) {
-      console.error("Invalid transfer target URI");
-      return;
-    }
-
-    const inviter = new Inviter(userAgent, targetURI, {
-      sessionDescriptionHandlerOptions: {
-        constraints: { audio: true, video: false },
-      },
-    });
-
-    setConsultSession(inviter);
-    setIsTransferring(true);
-    setPhoneStatus("Consulting");
-
-    // Put original call on hold
-    toggleHold();
-
-    inviter
-      .invite()
-      .then(() => {
-        inviter.stateChange.addListener((state) => {
-          if (state === SessionState.Terminated) {
-            console.log("🛑 Consult call ended");
-            setConsultSession(null);
-            setIsTransferring(false);
-            setPhoneStatus("In Call");
-            toggleHold(); // Resume original call
-          }
-        });
-      })
-      .catch((err) => {
-        console.error("❌ Consult call failed:", err);
-        setIsTransferring(false);
-        setConsultSession(null);
-        setPhoneStatus("In Call");
-        toggleHold();
-      });
-  };
-
-  const completeAttendedTransfer = () => {
-    if (!session || !consultSession) return;
-
-    session
-      .refer(consultSession.remoteIdentity.uri)
-      .then(() => {
-        console.log("🔁 Attended transfer completed");
-        setSnackbarMessage(`🔁 Call transferred to ${transferTarget}`);
-        setSnackbarSeverity("success");
-        setSnackbarOpen(true);
-        handleEndCall(); // Hang up original call
-      })
-      .catch((err) => {
-        console.error("❌ Transfer failed:", err);
-        setSnackbarMessage("❌ Transfer failed");
-        setSnackbarSeverity("error");
-        setSnackbarOpen(true);
-      });
-
-    setIsTransferring(false);
-    setConsultSession(null);
-  };
-
-  const cancelAttendedTransfer = () => {
-    if (consultSession) {
-      consultSession.bye().catch(console.error);
-      setConsultSession(null);
-    }
-    setIsTransferring(false);
-    setPhoneStatus("In Call");
-    toggleHold(); // Resume the original call
-  };
-
   const handleAcceptCall = () => {
     if (!incomingCall) return;
-    clearTimeout(autoRejectTimerRef.current);
 
     incomingCall
       .accept({
@@ -547,7 +255,6 @@ export default function AgentsDashboard() {
         },
       })
       .then(() => {
-        wasAnsweredRef.current = true;
         setSession(incomingCall);
         setIncomingCall(null);
         setPhoneStatus("In Call");
@@ -571,24 +278,18 @@ export default function AgentsDashboard() {
       .catch((error) => {
         console.error("❌ Failed to accept call:", error);
         setPhoneStatus("Idle");
-        setShowPhonePopup(false);
       });
   };
 
   const handleRejectCall = () => {
     if (!incomingCall) return;
-    clearTimeout(autoRejectTimerRef.current);
     incomingCall.reject().catch(console.error);
-    addMissedCall(callerId);
     setIncomingCall(null);
-    setShowPhonePopup(false); // ✅ Close Modal
     setPhoneStatus("Idle");
     stopRingtone();
   };
 
   const handleEndCall = () => {
-    const agentId = localStorage.getItem("userId");
-
     if (session) {
       session.bye().catch(console.error);
       setSession(null);
@@ -596,73 +297,12 @@ export default function AgentsDashboard() {
       remoteAudio.srcObject = null;
       stopRingtone();
       stopTimer();
-      setShowPhonePopup(false);
-      setIncomingCall(null);
     } else if (incomingCall) {
       incomingCall.reject().catch(console.error);
       setIncomingCall(null);
       setPhoneStatus("Idle");
       stopRingtone();
-      stopTimer();
-      setShowPhonePopup(false);
     }
-  };
-
-  const handleRedial = (number) => {
-    if (!userAgent) {
-      console.error("User Agent not ready yet.");
-      return;
-    }
-
-    console.log(`📲 Redialing missed caller: ${number}`);
-
-    const target = `sip:${number}@10.52.0.19`;
-    const targetURI = UserAgent.makeURI(target);
-
-    if (!targetURI) {
-      console.error("Invalid target URI");
-      return;
-    }
-
-    const inviter = new Inviter(userAgent, targetURI, {
-      sessionDescriptionHandlerOptions: {
-        constraints: { audio: true, video: false },
-        peerConnectionOptions: {
-          iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-        },
-      },
-    });
-
-    setSession(inviter);
-
-    inviter
-      .invite()
-      .then(() => {
-        setPhoneStatus("Dialing");
-        setShowPhonePopup(false);
-        inviter.stateChange.addListener((state) => {
-          if (state === SessionState.Established) {
-            console.log("📞 Callback call established");
-            setPhoneStatus("In Call");
-            attachMediaStream(inviter);
-            startTimer();
-          } else if (state === SessionState.Terminated) {
-            console.log("📴 Callback call ended");
-            setPhoneStatus("Idle");
-            setSession(null);
-            remoteAudio.srcObject = null;
-            stopTimer();
-          }
-        });
-      })
-      .catch((error) => {
-        console.error("❌ Callback failed:", error);
-        setPhoneStatus("Call Failed");
-      });
-
-    setSnackbarMessage(`📲 Dialing back ${number}`);
-    setSnackbarSeverity("info");
-    setSnackbarOpen(true);
   };
 
   const handleDial = () => {
@@ -687,7 +327,6 @@ export default function AgentsDashboard() {
       .invite()
       .then(() => {
         setPhoneStatus("Dialing");
-
         inviter.stateChange.addListener((state) => {
           if (state === SessionState.Established) {
             console.log("📞 Outgoing call established");
@@ -706,32 +345,6 @@ export default function AgentsDashboard() {
       .catch((error) => {
         console.error("❌ Call failed:", error);
         setPhoneStatus("Call Failed");
-      });
-  };
-
-  const handleBlindTransfer = () => {
-    if (!session || !transferTarget) return;
-
-    const targetURI = UserAgent.makeURI(`sip:${transferTarget}@10.52.0.19`);
-    if (!targetURI) {
-      console.error("Invalid transfer target URI");
-      return;
-    }
-
-    session
-      .refer(targetURI)
-      .then(() => {
-        console.log(`🔁 Call transferred to ${transferTarget}`);
-        setSnackbarMessage(`🔁 Call transferred to ${transferTarget}`);
-        setSnackbarSeverity("success");
-        setSnackbarOpen(true);
-        handleEndCall(); // Optionally end the session on agent's side
-      })
-      .catch((err) => {
-        console.error("❌ Call transfer failed:", err);
-        setSnackbarMessage("❌ Transfer failed");
-        setSnackbarSeverity("error");
-        setSnackbarOpen(true);
       });
   };
 
@@ -921,37 +534,7 @@ export default function AgentsDashboard() {
   return (
     <div className="p-6">
       <div className="agent-body">
-        <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
-          <h3>Agent</h3>
-          <Tooltip title="View Missed Calls" arrow>
-            <div
-              style={{ position: "relative", cursor: "pointer" }}
-              onClick={() => setMissedOpen(true)}
-            >
-              <FiPhoneIncoming size={20} />
-              {missedCalls.length > 0 && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: -5,
-                    right: -5,
-                    background: "red",
-                    color: "white",
-                    fontSize: "12px",
-                    borderRadius: "50%",
-                    width: "18px",
-                    height: "18px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  {missedCalls.length}
-                </span>
-              )}
-            </div>
-          </Tooltip>
-        </div>
+        <h3>Agent</h3>
         <div className="phone-navbar">
           {agentStatus === "ready" ? (
             <>
@@ -1159,7 +742,6 @@ export default function AgentsDashboard() {
             {/* simple chat here */}
             <CallChart />
           </div>
-          <QueueStatusTable />
         </div>
       </div>
 
@@ -1260,27 +842,7 @@ export default function AgentsDashboard() {
           </div>
           <div className="phone-popup-body">
             {phoneStatus === "In Call" && (
-              <>
-                <p>Call Duration: {formatDuration(callDuration)}</p>
-                <TextField
-                  label="Transfer To (Extension)"
-                  variant="outlined"
-                  fullWidth
-                  margin="normal"
-                  value={transferTarget}
-                  onChange={(e) => setTransferTarget(e.target.value)}
-                />
-                <Button
-                  variant="contained"
-                  color="secondary"
-                  onClick={handleBlindTransfer}
-                  disabled={!session || !transferTarget}
-                  fullWidth
-                  style={{ marginTop: "10px" }}
-                >
-                  Transfer Call
-                </Button>
-              </>
+              <p>Call Duration: {formatDuration(callDuration)}</p>
             )}
 
             {phoneStatus !== "In Call" && (
@@ -1370,171 +932,10 @@ export default function AgentsDashboard() {
               </>
             )}
           </div>
-          {/* This another div here for ticket creation */}
-          {showUserForm && (
-            <div
-              className="ticket-creation-form"
-              style={{
-                marginTop: 20,
-                padding: 20,
-                border: "1px solid #ccc",
-                borderRadius: 12,
-                maxWidth: 600,
-                backgroundColor: "#f9f9f9",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                marginLeft: "auto",
-                marginRight: "auto",
-              }}
-            >
-              <h3>User Information</h3>
-
-              <TextField
-                label="First Name"
-                value={formValues.first_name}
-                fullWidth
-                margin="normal"
-                onChange={(e) =>
-                  setFormValues({ ...formValues, first_name: e.target.value })
-                }
-              />
-              <TextField
-                label="Middle Name"
-                value={formValues.middle_name}
-                fullWidth
-                margin="normal"
-                onChange={(e) =>
-                  setFormValues({ ...formValues, middle_name: e.target.value })
-                }
-              />
-              <TextField
-                label="Last Name"
-                value={formValues.last_name}
-                fullWidth
-                margin="normal"
-                onChange={(e) =>
-                  setFormValues({ ...formValues, last_name: e.target.value })
-                }
-              />
-              <TextField
-                label="Phone Number"
-                value={formValues.phone_number}
-                fullWidth
-                margin="normal"
-                disabled
-              />
-              <TextField
-                label="NIDA Number"
-                value={formValues.nida_number}
-                fullWidth
-                margin="normal"
-                onChange={(e) =>
-                  setFormValues({ ...formValues, nida_number: e.target.value })
-                }
-              />
-              <TextField
-                label="Institution"
-                value={formValues.institution}
-                fullWidth
-                margin="normal"
-                onChange={(e) =>
-                  setFormValues({ ...formValues, institution: e.target.value })
-                }
-              />
-              <TextField
-                label="Region"
-                value={formValues.region}
-                fullWidth
-                margin="normal"
-                onChange={(e) =>
-                  setFormValues({ ...formValues, region: e.target.value })
-                }
-              />
-              <TextField
-                label="District"
-                value={formValues.district}
-                fullWidth
-                margin="normal"
-                onChange={(e) =>
-                  setFormValues({ ...formValues, district: e.target.value })
-                }
-              />
-
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={() => {
-                  // TODO: Submit form logic here
-                  console.log("Submitting ticket with data:", formValues);
-                  showAlert("Ticket submitted successfully", "success");
-                  setShowUserForm(false);
-                }}
-                disabled={loadingUserData}
-                style={{ marginTop: 15 }}
-                fullWidth
-              >
-                {loadingUserData ? "Loading..." : "Submit Ticket"}
-              </Button>
-            </div>
-          )}
         </div>
       )}
 
       {renderKeypad()}
-
-      <Dialog
-        open={missedOpen}
-        onClose={() => setMissedOpen(false)}
-        fullWidth
-        maxWidth="xs"
-      >
-        <DialogTitle>📞 Missed Calls</DialogTitle>
-        <DialogContent dividers>
-          {missedCalls.length === 0 ? (
-            <p>No missed calls! 🎉</p>
-          ) : (
-            <ul style={{ listStyle: "none", padding: 0 }}>
-              {[...missedCalls].reverse().map((call, index) => (
-                <li
-                  key={index}
-                  style={{
-                    marginBottom: "15px",
-                    borderBottom: "1px solid #ccc",
-                    paddingBottom: "10px",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <div>
-                    <strong>{call.caller}</strong>
-                    <br />
-                    <small>{call.time.toLocaleTimeString()}</small>
-                  </div>
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    size="small"
-                    onClick={() => handleRedial(call.caller)}
-                    startIcon={<FiPhoneCall />}
-                  >
-                    Call Back
-                  </Button>
-                </li>
-              ))}
-            </ul>
-          )}
-          <Button
-            onClick={() => setMissedCalls([])}
-            fullWidth
-            variant="outlined"
-            color="error"
-            style={{ marginTop: "10px" }}
-          >
-            Clear Missed Calls
-          </Button>
-        </DialogContent>
-      </Dialog>
-
       <Snackbar
         open={snackbarOpen}
         autoHideDuration={4000}

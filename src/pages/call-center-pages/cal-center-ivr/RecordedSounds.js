@@ -11,11 +11,14 @@ const RecordedSounds = () => {
     const fetchVoiceNotes = async () => {
       try {
         const token = localStorage.getItem("token"); // Assuming JWT token is stored
-        const response = await axios.get("http://localhost:3000/api/voice-notes", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+        const response = await axios.get(
+          "http://localhost:3000/api/voice-notes",
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
         setVoiceNotes(response.data.voiceNotes);
         setLoading(false);
       } catch (err) {
@@ -49,7 +52,10 @@ const RecordedSounds = () => {
               <td>{note.clid}</td>
               <td>
                 <audio controls>
-                  <source src={`http://localhost:3000/${note.playable_path}`} type="audio/wav" />
+                  <source
+                    src={`http://localhost:3000/${note.playable_path}`}
+                    type="audio/wav"
+                  />
                   Your browser does not support the audio element.
                 </audio>
               </td>

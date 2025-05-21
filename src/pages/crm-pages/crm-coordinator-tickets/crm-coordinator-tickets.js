@@ -1,28 +1,27 @@
 import React, { useState, useEffect } from "react";
-import { FaEye, FaPlus } from "react-icons/fa";
+import { useParams } from "react-router-dom";
 import { FiSettings } from "react-icons/fi";
+import { FaEye } from "react-icons/fa";
 import {
-  Alert,
   Box,
   Button,
-  Divider,
   Grid,
   IconButton,
   Modal,
-  Snackbar,
   Tooltip,
   Typography,
-  TextField,
+  Divider,
+  Snackbar,
+  Alert
 } from "@mui/material";
 import ColumnSelector from "../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../config";
-import "./ticket.css";
-import AdvancedFilterButton from '../../../components/AdvancedFilterButton';
+import "../crm-tickets/ticket.css";
 
-export default function Crm() {
-  const [agentTickets, setAgentTickets] = useState([]);
-  const [agentTicketsError, setAgentTicketsError] = useState(null);
-  const [userId, setUserId] = useState("");
+export default function CRMCoordinatorTickets() {
+  const { status } = useParams();
+  const [tickets, setTickets] = useState([]);
+  const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -30,9 +29,7 @@ export default function Crm() {
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
-  const [comments, setComments] = useState("");
-  const [modal, setModal] = useState({ isOpen: false, type: "", message: "" });
-  const [activeColumns, setActiveColumns] = useState([
+  const DEFAULT_COLUMNS = [
     "id",
     "fullName",
     "phone_number",
@@ -40,124 +37,69 @@ export default function Crm() {
     "subject",
     "category",
     "assigned_to_role",
-    "createdAt",
-  ]);
+    "createdAt"
+  ];
+  const [activeColumns, setActiveColumns] = useState(DEFAULT_COLUMNS);
   const [loading, setLoading] = useState(true);
+  const [convertCategory, setConvertCategory] = useState({});
+  const [forwardUnit, setForwardUnit] = useState({});
+  const [units, setUnits] = useState([]);
+  const categories = ["Complaint", "Congrats", "Suggestion"];
+  const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "info" });
 
   useEffect(() => {
-    const userId = localStorage.getItem("userId");
-    if (userId) {
-      setUserId(userId);
-      console.log("user id is:", userId);
-    } else {
-      setAgentTicketsError("User not authenticated. Please log in.");
-      setLoading(false);
-    }
-  }, []);
+    fetchTickets();
+    fetchUnits();
+    // eslint-disable-next-line
+  }, [status]);
 
-  useEffect(() => {
-    if (userId) {
-      fetchAgentTickets();
-    }
-  }, [userId]);
-
-  const fetchAgentTickets = async () => {
+  const fetchTickets = async () => {
     try {
+      setLoading(true);
       const token = localStorage.getItem("authToken");
-      if (!token) {
-        throw new Error("Authentication error. Please log in again.");
-      }
-
-      const url = `${baseURL}/ticket/in-progress/${userId}`;
-      const response = await fetch(url, {
-        method: "GET",
+      const response = await fetch(`${baseURL}/coordinator/tickets?status=${status}`, {
         headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          setAgentTickets([]);
-          setAgentTicketsError("No tickets found for this agent.");
-          return;
+          Authorization: `Bearer ${token}`
         }
-        throw new Error(`HTTP error! Status: ${response.status}`);
+      });
+      if (!response.ok) {
+        throw new Error("Failed to fetch tickets");
       }
-
       const data = await response.json();
-      console.log("Fetched tickets:", data);
-      if (data && Array.isArray(data.tickets)) {
-        setAgentTickets(data.tickets);
-        setAgentTicketsError(null);
-      } else {
-        setAgentTickets([]);
-        setAgentTicketsError("No tickets found for this agent.");
-      }
-    } catch (error) {
-      setAgentTicketsError(error.message);
+      setTickets(data.tickets || []);
+      setError(null);
+    } catch (err) {
+      setError(err.message);
+      setTickets([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCommentsChange = (e) => {
-    setComments(e.target.value);
-  };
-
-  const handleCommentsSubmit = async () => {
-    if (!selectedTicket) return;
-
+  const fetchUnits = async () => {
+    const token = localStorage.getItem("authToken");
     try {
-      const token = localStorage.getItem("authToken");
-      const response = await fetch(`${baseURL}/ticket/update/${selectedTicket.id}`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ comments }),
+      const res = await fetch(`${baseURL}/section/units-data`, {
+        headers: { Authorization: `Bearer ${token}` }
       });
-
-      if (response.ok) {
-        setModal({
-          isOpen: true,
-          type: "success",
-          message: "Comments updated successfully.",
-        });
-        fetchAgentTickets();
-      } else {
-        const data = await response.json();
-        setModal({
-          isOpen: true,
-          type: "error",
-          message: data.message || "Failed to update comments.",
-        });
-      }
-    } catch (error) {
-      setModal({
-        isOpen: true,
-        type: "error",
-        message: `Network error: ${error.message}`,
-      });
+      const json = await res.json();
+      setUnits(json.data || []);
+    } catch (err) {
+      // Optionally handle error
     }
   };
 
   const openModal = (ticket) => {
     setSelectedTicket(ticket);
-    setComments(ticket.comments || "");
     setIsModalOpen(true);
   };
 
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedTicket(null);
-    setComments("");
-    setModal({ isOpen: false, type: "", message: "" });
   };
 
-  const filteredTickets = agentTickets.filter((ticket) => {
+  const filteredTickets = tickets.filter((ticket) => {
     const searchValue = search.toLowerCase();
     const phone = (ticket.phone_number || "").toLowerCase();
     const nida = (ticket.nida_number || "").toLowerCase();
@@ -193,9 +135,7 @@ export default function Crm() {
         <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
       )}
       {activeColumns.includes("fullName") && (
-        <td>{`${ticket.first_name || ""} ${ticket.middle_name || ""} ${
-          ticket.last_name || ""
-        }`}</td>
+        <td>{`${ticket.first_name || ""} ${ticket.middle_name || ""} ${ticket.last_name || ""}`}</td>
       )}
       {activeColumns.includes("phone_number") && (
         <td>{ticket.phone_number || "N/A"}</td>
@@ -248,6 +188,55 @@ export default function Crm() {
     </tr>
   );
 
+  const handleColumnsChange = (selectedColumns) => {
+    if (selectedColumns.length === 0) {
+      setActiveColumns(DEFAULT_COLUMNS);
+    } else {
+      setActiveColumns(selectedColumns);
+    }
+  };
+
+  const handleConvertOrForward = async (ticketId) => {
+    const userId = localStorage.getItem("userId");
+    const token = localStorage.getItem("authToken");
+    const category = convertCategory[ticketId];
+    const responsible_unit_id = forwardUnit[ticketId];
+
+    if (!category && !responsible_unit_id) {
+      setSnackbar({ open: true, message: "Select either category or unit to forward", severity: "warning" });
+      return;
+    }
+
+    const payload = { userId };
+    if (category) payload.category = category;
+    if (responsible_unit_id) payload.responsible_unit_id = responsible_unit_id;
+
+    try {
+      const response = await fetch(`${baseURL}/coordinator/${ticketId}/convert-or-forward-ticket`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      if (response.ok) {
+        setSnackbar({ open: true, message: "Ticket updated successfully", severity: "success" });
+        fetchTickets();
+        setConvertCategory((prev) => ({ ...prev, [ticketId]: "" }));
+        setForwardUnit((prev) => ({ ...prev, [ticketId]: "" }));
+      } else {
+        const errorData = await response.json();
+        console.log("Backend error:", errorData);
+        setSnackbar({ open: true, message: errorData.message || "Failed to update ticket.", severity: "error" });
+      }
+    } catch (error) {
+      setSnackbar({ open: true, message: error.message, severity: "error" });
+    }
+  };
+
+  const handleSnackbarClose = () => setSnackbar({ ...snackbar, open: false });
+
   if (loading) {
     return (
       <div className="p-6">
@@ -267,8 +256,12 @@ export default function Crm() {
             marginBottom: "16px",
           }}
         >
-          <h2>In-progress Tickets List</h2>
-          <AdvancedFilterButton onClick={() => setIsColumnModalOpen(true)} />
+          <h2>Coordinator Tickets - {status}</h2>
+          <Tooltip title="Columns Settings and Export" arrow>
+            <IconButton onClick={() => setIsColumnModalOpen(true)}>
+              <FiSettings size={20} />
+            </IconButton>
+          </Tooltip>
         </div>
 
         <div className="controls">
@@ -312,9 +305,6 @@ export default function Crm() {
               <option value="Open">Open</option>
               <option value="Closed">Closed</option>
             </select>
-            {/* <button className="add-ticket-button">
-              <FaPlus /> Add Ticket
-            </button> */}
           </div>
         </div>
 
@@ -329,7 +319,7 @@ export default function Crm() {
                   colSpan={activeColumns.length + 1}
                   style={{ textAlign: "center", color: "red" }}
                 >
-                  {agentTicketsError || "No tickets found for this agent."}
+                  {error || "No tickets found for this status."}
                 </td>
               </tr>
             )}
@@ -396,16 +386,12 @@ export default function Crm() {
               <Grid container spacing={2} id="ticket-details-description">
                 <Grid item xs={12} sm={6}>
                   <Typography>
-                    <strong>Name:</strong>{" "}
-                    {`${selectedTicket.first_name || "N/A"} ${
-                      selectedTicket.middle_name || " "
-                    } ${selectedTicket.last_name || "N/A"}`}
+                    <strong>Name:</strong> {`${selectedTicket.first_name || "N/A"} ${selectedTicket.middle_name || "N/A"} ${selectedTicket.last_name || "N/A"}`}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Typography>
-                    <strong>Phone:</strong>{" "}
-                    {selectedTicket.phone_number || "N/A"}
+                    <strong>Phone:</strong> {selectedTicket.phone_number || "N/A"}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} sm={6}>
@@ -415,174 +401,79 @@ export default function Crm() {
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Typography>
-                    <strong>Institution:</strong>{" "}
-                    {selectedTicket.institution || "N/A"}
+                    <strong>Category:</strong> {selectedTicket.category || "N/A"}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Typography>
-                    <strong>Region:</strong> {selectedTicket.region || "N/A"}
+                    <strong>Status:</strong> {selectedTicket.status || "N/A"}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Typography>
-                    <strong>District:</strong>{" "}
-                    {selectedTicket.district || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Subject:</strong> {selectedTicket.subject || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Sub-category:</strong>{" "}
-                    {selectedTicket.sub_category || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Channel:</strong> {selectedTicket.channel || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Complaint Type:</strong>{" "}
-                    {selectedTicket.complaint_type || "Unrated"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Rated:</strong>{" "}
-                    <span
-                      style={{
-                        color:
-                          selectedTicket.complaint_type === "Major"
-                            ? "red"
-                            : selectedTicket.complaint_type === "Minor"
-                            ? "orange"
-                            : "inherit",
-                      }}
-                    >
-                      {selectedTicket.complaint_type || "N/A"}
-                    </span>
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Status:</strong>{" "}
-                    <span
-                      style={{
-                        color:
-                          selectedTicket.status === "Open"
-                            ? "green"
-                            : selectedTicket.status === "Closed"
-                            ? "gray"
-                            : "blue",
-                      }}
-                    >
-                      {selectedTicket.status || "N/A"}
-                    </span>
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Created By:</strong>{" "}
-                    {selectedTicket.createdBy?.name || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Assigned To:</strong>{" "}
-                    {selectedTicket.assigned_to_id || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Assigned Role:</strong>{" "}
-                    {selectedTicket.assigned_to_role || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Created At:</strong>{" "}
-                    {selectedTicket.created_at
-                      ? new Date(selectedTicket.created_at).toLocaleString(
-                          "en-US",
-                          {
-                            month: "numeric",
-                            day: "numeric",
-                            year: "numeric",
-                            hour: "numeric",
-                            minute: "2-digit",
-                            hour12: true,
-                          }
-                        )
-                      : "N/A"}
+                    <strong>Created At:</strong> {selectedTicket.created_at ? new Date(selectedTicket.created_at).toLocaleString("en-GB") : "N/A"}
                   </Typography>
                 </Grid>
                 <Grid item xs={12}>
                   <Typography>
-                    <strong>Description:</strong>{" "}
-                    {selectedTicket.description || "N/A"}
+                    <strong>Description:</strong> {selectedTicket.description || "N/A"}
                   </Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <Typography>
-                    <strong>Comments:</strong>
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    multiline
-                    rows={4}
-                    value={comments}
-                    onChange={handleCommentsChange}
-                    placeholder="Add comments or notes..."
-                    sx={{ mt: 1 }}
-                  />
-                  <Box sx={{ mt: 2, textAlign: "right" }}>
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      onClick={handleCommentsSubmit}
-                      sx={{ mr: 1 }}
-                    >
-                      Save Comments
-                    </Button>
-                    <Button variant="outlined" onClick={closeModal}>
-                      Close
-                    </Button>
-                  </Box>
                 </Grid>
               </Grid>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 2 }}>
+                <select
+                  style={{ padding: "4px 8px", fontSize: "0.8rem", height: "32px", borderRadius: "4px" }}
+                  value={convertCategory[selectedTicket.id] || ""}
+                  onChange={(e) =>
+                    setConvertCategory((prev) => ({ ...prev, [selectedTicket.id]: e.target.value }))
+                  }
+                >
+                  <option value="">Convert To</option>
+                  {categories.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+                <Button size="small" variant="contained" onClick={() => handleConvertOrForward(selectedTicket.id)}>
+                  Convert
+                </Button>
+              </Box>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mt: 1 }}>
+                <select
+                  style={{ padding: "4px 8px", fontSize: "0.8rem", height: "32px", borderRadius: "4px" }}
+                  value={forwardUnit[selectedTicket.id] || ""}
+                  onChange={(e) =>
+                    setForwardUnit((prev) => ({ ...prev, [selectedTicket.id]: e.target.value }))
+                  }
+                >
+                  <option value="">To Unit</option>
+                  {units.map((unit) => (
+                    <option key={unit.id} value={unit.id}>{unit.name}</option>
+                  ))}
+                </select>
+                <Button size="small" variant="contained" onClick={() => handleConvertOrForward(selectedTicket.id)}>
+                  Forward
+                </Button>
+              </Box>
             </>
           )}
         </Box>
       </Modal>
 
-      {/* Column Selector */}
       <ColumnSelector
         open={isColumnModalOpen}
         onClose={() => setIsColumnModalOpen(false)}
-        data={agentTickets}
-        onColumnsChange={setActiveColumns}
+        data={tickets}
+        onColumnsChange={handleColumnsChange}
       />
 
-      {/* Snackbar for notifications */}
       <Snackbar
-        open={modal.isOpen}
-        autoHideDuration={3000}
-        onClose={() => setModal({ isOpen: false, type: "", message: "" })}
-        anchorOrigin={{ vertical: "top", horizontal: "right" }}
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
       >
-        <Alert
-          onClose={() => setModal({ isOpen: false, type: "", message: "" })}
-          severity={modal.type}
-        >
-          {modal.message}
-        </Alert>
+        <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
     </div>
   );
-}
+} 
