@@ -123,37 +123,48 @@ export default function Navbar({
 
   const handleNotificationClick = async (notif) => {
     console.log("Notification clicked:", notif);
-    await fetch(`${baseURL}/notifications/read/${notif.id}`, {
-      method: "PATCH",
-      headers: { Authorization: `Bearer ${token}` }
-    });
+    try {
+      // First mark notification as read
+      await fetch(`${baseURL}/notifications/read/${notif.id}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
-    if (notif.ticket_id && !notif.first_name) {
-      try {
+      // Then fetch ticket details if we have a ticket_id
+      if (notif.ticket_id) {
         const response = await fetch(`${baseURL}/ticket/${notif.ticket_id}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
+        
         if (response.ok) {
-          const ticket = await response.json();
-          if (ticket && ticket.first_name) {
-            setModalTicket(ticket);
+          const data = await response.json();
+          console.log("Ticket data received:", data);
+          
+          // Check if we have the ticket data in the expected format
+          if (data && data.ticket) {
+            setModalTicket(data.ticket);
             setIsActionModalOpen(true);
+            setNotifDropdownOpen(false);
+          } else if (data && data.id) {
+            // If the response is the ticket object directly
+            setModalTicket(data);
+            setIsActionModalOpen(true);
+            setNotifDropdownOpen(false);
           } else {
-            alert("Ticket details not found.");
+            console.error("Unexpected ticket data format:", data);
+            alert("Ticket details not found or in unexpected format.");
           }
-          setNotifDropdownOpen(false);
         } else {
+          console.error("Failed to fetch ticket:", response.status);
           alert("Failed to fetch ticket details.");
         }
-      } catch (err) {
-        console.error("Error fetching ticket details:", err);
-        alert("Error fetching ticket details.");
+      } else {
+        console.error("No ticket_id in notification:", notif);
+        alert("No ticket associated with this notification.");
       }
-    } else {
-      setModalTicket(notif);
-      setIsActionModalOpen(true);
-      setNotifDropdownOpen(false);
-      console.log("Set modal ticket directly:", notif);
+    } catch (err) {
+      console.error("Error in handleNotificationClick:", err);
+      alert("Error processing notification.");
     }
   };
 

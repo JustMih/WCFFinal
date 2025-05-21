@@ -305,18 +305,12 @@ export default function CRMSidebar({ isSidebarOpen }) {
                     >
                       <span className="section-title">New Tickets</span>
                       <span className="section-count">
-                        {ticketStats.newTickets?.["New Tickets"] || 0}
+                        {ticketStats.newTickets?.Total || 0}
                       </span>
                     </div>
                     {openSection === "newTickets" && (
                       <div className="section-items">
                         {[
-                          // {
-                          //   label: "Complaints",
-                          //   to: `/coordinator/complaints`,
-                          //   value: ticketStats.newTickets?.Complaints || 0,
-                          //   icon: "📝"
-                          // },
                           {
                             label: "New Tickets",
                             to: `/coordinator/new`,
@@ -326,9 +320,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                           {
                             label: "Escalated",
                             to: `/coordinator/escalated`,
-                            value:
-                              ticketStats.newTickets?.["Escalated Tickets"] ||
-                              0,
+                            value: ticketStats.newTickets?.["Escalated Tickets"] || 0,
                             icon: "⚠️"
                           }
                         ].map((item, idx) => (
@@ -369,15 +361,9 @@ export default function CRMSidebar({ isSidebarOpen }) {
                     {openSection === "convertedTickets" && (
                       <div className="section-items">
                         {[
-                          // {
-                          //   label: "Inquiries",
-                          //   to: "/coordinator/inquiries",
-                          //   value: ticketStats.convertedTickets?.Inquiries || 0,
-                          //   icon: "❓"
-                          // },
                           {
                             label: "Complaints",
-                            to: "/coordinator/converted-complaints",
+                            to: "/coordinator/complaints",
                             value:
                               ticketStats.convertedTickets?.Complaints || 0,
                             icon: "📋"
@@ -477,46 +463,26 @@ export default function CRMSidebar({ isSidebarOpen }) {
                     >
                       <span className="section-title">Ticket Status</span>
                       <span className="section-count">
-                        {Object.values(ticketStats.ticketStatus || {}).reduce(
-                          (a, b) => a + b,
-                          0
-                        )}
+                        {/* {(ticketStats.ticketStatus?.["On Progress"] || 0) + (ticketStats.ticketStatus?.Closed || 0)} */}
+                        { (ticketStats.ticketStatus?.Closed || 0)}
                       </span>
                     </div>
                     {openSection === "ticketStatus" && (
                       <div className="section-items">
                         {[
                           // {
-                          //   label: "Open",
-                          //   to: `/coordinator/open`,
-                          //   value: ticketStats.ticketStatus?.Open || 0,
-                          //   icon: "🔓"
+                          //   label: "On Progress",
+                          //   to: "/coordinator/on-progress",
+                          //   value:
+                          //     ticketStats.ticketStatus?.["On Progress"] || 0,
+                          //   icon: "⏳"
                           // },
-                          {
-                            label: "On Progress",
-                            to: "/coordinator/on-progress",
-                            value:
-                              ticketStats.ticketStatus?.["On Progress"] || 0,
-                            icon: "⏳"
-                          },
                           {
                             label: "Closed",
                             to: `/coordinator/closed`,
                             value: ticketStats.ticketStatus?.Closed || 0,
                             icon: "🔒"
                           },
-                          // {
-                          //   label: "Minor",
-                          //   to: "/coordinator/minor",
-                          //   value: ticketStats.ticketStatus?.Minor || 0,
-                          //   icon: "⚪"
-                          // },
-                          // {
-                          //   label: "Major",
-                          //   to: "/coordinator/major",
-                          //   value: ticketStats.ticketStatus?.Major || 0,
-                          //   icon: "🔴"
-                          // }
                         ].map((item, idx) => (
                           <NavLink
                             key={idx}
