@@ -6,7 +6,6 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import htmlDocx from 'html-docx-js/dist/html-docx';
 import './VoiceNotesReport.css';
-const baseURL = 'http://localhost:5070'; // backend URL
 
 const VoiceNotesReport = () => {
   const [voiceNotes, setVoiceNotes] = useState([]);
@@ -26,7 +25,15 @@ const VoiceNotesReport = () => {
   );
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
-  const paginated = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  const paginated = filtered.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const getAudioUrl = (recordingPath) => {
+    const filename = encodeURIComponent(recordingPath.split('/').pop());
+    return `http://localhost:5070/voice-notes/${filename}`;
+  };
 
   const exportExcel = () => {
     const ws = XLSX.utils.json_to_sheet(filtered);
@@ -57,6 +64,7 @@ const VoiceNotesReport = () => {
   return (
     <div className="voice-container">
       <h2 className="voice-title">Voice Notes Report</h2>
+
       <div className="voice-controls">
         <input
           type="text"
@@ -77,35 +85,52 @@ const VoiceNotesReport = () => {
           <thead>
             <tr>
               <th>ID</th>
-              <th>Recording Path</th>
+              <th>Recording</th>
               <th>Caller ID</th>
               <th>Created At</th>
             </tr>
           </thead>
           <tbody>
-  {paginated.length > 0 ? paginated.map(note => (
-    <tr key={note.id}>
-      <td>{note.id}</td>
-      <td>
-        <a href={note.recording_path} target="_blank" rel="noopener noreferrer">
-          {note.recording_path}
-        </a>
-      </td>
-      <td>{note.clid}</td>
-      <td>{new Date(note.created_at).toLocaleString()}</td>
-    </tr>
-  )) : (
-    <tr><td colSpan="4" className="no-results">No results found.</td></tr>
-  )}
-</tbody>
-
+            {paginated.length > 0 ? paginated.map(note => (
+              <tr key={note.id}>
+                <td>{note.id}</td>
+                <td>
+                  <audio controls style={{ width: '200px' }}>
+                    <source src={getAudioUrl(note.recording_path)} type="audio/wav" />
+                    Your browser does not support the audio element.
+                  </audio>
+                  <div>
+                    <a href={getAudioUrl(note.recording_path)} target="_blank" rel="noopener noreferrer">
+                      Open
+                    </a> |{' '}
+                    <a 
+                      href={getAudioUrl(note.recording_path)} 
+                      download={note.recording_path.split('/').pop()}
+                    >
+                      Download
+                    </a>
+                  </div>
+                </td>
+                <td>{note.clid}</td>
+                <td>{new Date(note.created_at).toLocaleString()}</td>
+              </tr>
+            )) : (
+              <tr>
+                <td colSpan="4" className="no-results">No results found.</td>
+              </tr>
+            )}
+          </tbody>
         </table>
       </div>
 
       <div className="voice-pagination">
-        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Prev</button>
+        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
+          Prev
+        </button>
         <span>Page {currentPage} of {totalPages}</span>
-        <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</button>
+        <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
+          Next
+        </button>
       </div>
     </div>
   );
