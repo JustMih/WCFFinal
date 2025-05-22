@@ -12,6 +12,13 @@ import "./navbar.css";
 import { IoMdNotificationsOutline } from "react-icons/io";
 import { Badge } from "@mui/material";
 import CoordinatorActionModal from "../coordinator/CoordinatorActionModal";
+import Rating from '@mui/material/Rating';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import DialogActions from '@mui/material/DialogActions';
+import Button from '@mui/material/Button';
+import TextField from '@mui/material/TextField';
 
 export default function Navbar({
   toggleTheme,
@@ -34,6 +41,14 @@ export default function Navbar({
   const categories = ["Inquiry"]; // Add more if needed
   const userId = localStorage.getItem("userId");
   const token = localStorage.getItem("authToken");
+  const [ratingDialogOpen, setRatingDialogOpen] = useState(false);
+  const [currentRating, setCurrentRating] = useState(0);
+  const [ratingComment, setRatingComment] = useState('');
+  const [currentTicketId, setCurrentTicketId] = useState(null);
+  const [notificationDialogOpen, setNotificationDialogOpen] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState(null);
+  const [ticketNotifications, setTicketNotifications] = useState([]);
+  const [ticketDetails, setTicketDetails] = useState(null);
 
   useEffect(() => {
     setUserName(localStorage.getItem("username"));
@@ -117,55 +132,177 @@ export default function Navbar({
     alert("Convert/Forward not implemented in Navbar. Please use the dashboard.");
   };
 
-  const handleRating = (ticketId, rating) => {
-    alert("Rating not implemented in Navbar. Please use the dashboard.");
+  const handleRating = async (ticketId, rating) => {
+    setCurrentTicketId(ticketId);
+    setCurrentRating(rating);
+    setRatingDialogOpen(true);
+  };
+
+  const handleRatingSubmit = async () => {
+    try {
+      const response = await fetch(`${baseURL}/ticket/${currentTicketId}/rate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          rating: currentRating,
+          comment: ratingComment
+        })
+      });
+
+      if (response.ok) {
+        alert('Rating submitted successfully!');
+        setRatingDialogOpen(false);
+        setCurrentRating(0);
+        setRatingComment('');
+        setCurrentTicketId(null);
+      } else {
+        throw new Error('Failed to submit rating');
+      }
+    } catch (error) {
+      console.error('Error submitting rating:', error);
+      alert('Failed to submit rating. Please try again.');
+    }
+  };
+
+  const handleRatingDialogClose = () => {
+    setRatingDialogOpen(false);
+    setCurrentRating(0);
+    setRatingComment('');
+    setCurrentTicketId(null);
+  };
+
+  const refreshNotifications = async () => {
+    try {
+      const response = await fetch(
+        `${baseURL}/notifications/user/${userId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setNotifications(data.notifications || []);
+      }
+    } catch (err) {
+      console.error("Error refreshing notifications:", err);
+    }
+  };
+
+  const fetchTicketNotifications = async (ticketId) => {
+    try {
+      console.log("Fetching notifications for ticket:", ticketId);
+      const response = await fetch(
+        `${baseURL}/notifications/ticket/${ticketId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Raw ticket notifications data:", data);
+        
+        // Check if we have notifications in the response
+        if (!data.notifications || !Array.isArray(data.notifications)) {
+          console.error("No notifications array in response:", data);
+          setTicketNotifications([]);
+          return;
+        }
+
+        // Sort notifications by date, newest first
+        const sortedNotifications = data.notifications.sort(
+          (a, b) => new Date(b.created_at) - new Date(a.created_at)
+        );
+        console.log("Sorted notifications:", sortedNotifications);
+        setTicketNotifications(sortedNotifications);
+      } else {
+        console.error("Failed to fetch ticket notifications:", response.status);
+        setTicketNotifications([]);
+      }
+    } catch (err) {
+      console.error("Error fetching ticket notifications:", err);
+      setTicketNotifications([]);
+    }
+  };
+
+  const fetchTicketDetails = async (ticketId) => {
+    try {
+      console.log("Fetching ticket details for ID:", ticketId);
+      const response = await fetch(
+        `${baseURL}/ticket/${ticketId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Ticket details received:", data);
+        setTicketDetails(data.ticket || data);
+      } else {
+        console.error("Failed to fetch ticket details:", response.status);
+      }
+    } catch (err) {
+      console.error("Error fetching ticket details:", err);
+    }
   };
 
   const handleNotificationClick = async (notif) => {
     console.log("Notification clicked:", notif);
     try {
-      // First mark notification as read
-      await fetch(`${baseURL}/notifications/read/${notif.id}`, {
+      // Mark notification as read
+      const readResponse = await fetch(`${baseURL}/notifications/read/${notif.id}`, {
         method: "PATCH",
         headers: { Authorization: `Bearer ${token}` }
       });
-
-      // Then fetch ticket details if we have a ticket_id
-      if (notif.ticket_id) {
-        const response = await fetch(`${baseURL}/ticket/${notif.ticket_id}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log("Ticket data received:", data);
-          
-          // Check if we have the ticket data in the expected format
-          if (data && data.ticket) {
-            setModalTicket(data.ticket);
-            setIsActionModalOpen(true);
-            setNotifDropdownOpen(false);
-          } else if (data && data.id) {
-            // If the response is the ticket object directly
-            setModalTicket(data);
-            setIsActionModalOpen(true);
-            setNotifDropdownOpen(false);
-          } else {
-            console.error("Unexpected ticket data format:", data);
-            alert("Ticket details not found or in unexpected format.");
-          }
-        } else {
-          console.error("Failed to fetch ticket:", response.status);
-          alert("Failed to fetch ticket details.");
-        }
-      } else {
-        console.error("No ticket_id in notification:", notif);
-        alert("No ticket associated with this notification.");
+      
+      if (!readResponse.ok) {
+        throw new Error("Failed to mark notification as read");
       }
+
+      // Refresh notifications list
+      await refreshNotifications();
+
+      // Update the unread count
+      const countResponse = await fetch(
+        `${baseURL}/notifications/unread-count/${userId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      if (countResponse.ok) {
+        const data = await countResponse.json();
+        setAssignedCount(data.unreadCount || 0);
+      }
+
+      // Fetch ticket details if ticket_id exists
+      if (notif.ticket_id) {
+        console.log("Fetching details for ticket:", notif.ticket_id);
+        await fetchTicketDetails(notif.ticket_id);
+        await fetchTicketNotifications(notif.ticket_id);
+      } else {
+        console.log("No ticket_id found in notification");
+        setTicketNotifications([]);
+      }
+
+      // Set the selected notification and open the dialog
+      setSelectedNotification(notif);
+      setNotificationDialogOpen(true);
+      
+      // Close the dropdown
+      setNotifDropdownOpen(false);
     } catch (err) {
       console.error("Error in handleNotificationClick:", err);
       alert("Error processing notification.");
     }
+  };
+
+  const handleNotificationDialogClose = () => {
+    setNotificationDialogOpen(false);
+    setSelectedNotification(null);
+    setTicketNotifications([]);
+    setTicketDetails(null);
   };
 
   const handleLogout = async () => {
@@ -301,7 +438,7 @@ export default function Navbar({
                 notifications.map((notif) => (
                   <div
                     key={notif.id}
-                    className={`notification-item ${notif.status === "unread" ? "unread" : ""}`}
+                    className={`notification-item ${notif.status === "unread" ? "unread" : " "}`}
                   >
                     <div
                       className="notification-message"
@@ -359,6 +496,252 @@ export default function Navbar({
         handleRating={handleRating}
       />
       {console.log("Modal open:", isActionModalOpen, "Ticket:", modalTicket)}
+      <Dialog open={ratingDialogOpen} onClose={handleRatingDialogClose}>
+        <DialogTitle>Rate Ticket</DialogTitle>
+        <DialogContent>
+          <Rating
+            value={currentRating}
+            onChange={(event, newValue) => {
+              setCurrentRating(newValue);
+            }}
+            precision={0.5}
+            size="large"
+            style={{ marginBottom: '20px' }}
+          />
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            variant="outlined"
+            label="Comments (optional)"
+            value={ratingComment}
+            onChange={(e) => setRatingComment(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleRatingDialogClose}>Cancel</Button>
+          <Button onClick={handleRatingSubmit} variant="contained" color="primary">
+            Submit Rating
+          </Button>
+        </DialogActions>
+      </Dialog>
+      {/* Update Notification Message Dialog */}
+      <Dialog 
+        open={notificationDialogOpen} 
+        onClose={handleNotificationDialogClose}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          style: {
+            borderRadius: '12px',
+            padding: '8px'
+          }
+        }}
+      >
+        <DialogTitle style={{ 
+          padding: '20px 24px',
+          borderBottom: '1px solid #e0e0e0',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '8px'
+        }}>
+          <div style={{ 
+            fontSize: '1.25rem', 
+            fontWeight: '600',
+            color: '#1976d2'
+          }}>
+            Notification Details
+          </div>
+          <div style={{ 
+            fontSize: '0.875rem', 
+            color: '#666',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px'
+          }}>
+            <span style={{ 
+              backgroundColor: '#e3f2fd',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              color: '#1976d2',
+              fontWeight: '500'
+            }}>
+              {selectedNotification?.category || selectedNotification?.type}
+            </span>
+            <span style={{ color: '#666' }}>
+              {selectedNotification?.created_at && new Date(selectedNotification.created_at)
+                .toLocaleString("en-GB", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: true
+                })}
+            </span>
+          </div>
+        </DialogTitle>
+        <DialogContent style={{ padding: '24px' }}>
+          {/* Ticket Details Section */}
+          {ticketDetails && (
+            <div style={{ 
+              padding: '16px',
+              backgroundColor: '#fff',
+              borderRadius: '8px',
+              border: '1px solid #e0e0e0',
+              marginBottom: '16px'
+            }}>
+              <div style={{ 
+                fontWeight: '600',
+                color: '#1976d2',
+                marginBottom: '12px',
+                fontSize: '0.875rem'
+              }}>
+                Ticket Information
+              </div>
+              <div style={{ 
+                display: 'grid',
+                gridTemplateColumns: 'auto 1fr',
+                gap: '8px',
+                fontSize: '0.875rem'
+              }}>
+                <span style={{ color: '#666' }}>Phone Number:</span>
+                <span style={{ color: '#333', fontWeight: '500' }}>
+                  {ticketDetails.phone_number || 'N/A'}
+                </span>
+                <span style={{ color: '#666' }}>NIDA Number:</span>
+                <span style={{ color: '#333', fontWeight: '500' }}>
+                  {ticketDetails.nida_number || 'N/A'}
+                </span>
+                <span style={{ color: '#666' }}>Ticket ID:</span>
+                <span style={{ color: '#333', fontWeight: '500' }}>
+                  {ticketDetails.ticket_id || 'N/A'}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* All Notifications Section */}
+          <div style={{ marginTop: '16px' }}>
+            <div style={{ 
+              fontWeight: '600',
+              color: '#1976d2',
+              marginBottom: '12px',
+              fontSize: '1rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <span>All Notifications</span>
+              <span style={{ 
+                fontSize: '0.75rem',
+                backgroundColor: '#e3f2fd',
+                padding: '2px 8px',
+                borderRadius: '12px',
+                color: '#1976d2'
+              }}>
+                {ticketNotifications.length} notifications
+              </span>
+            </div>
+            {ticketNotifications.length === 0 ? (
+              <div style={{ 
+                padding: '16px',
+                textAlign: 'center',
+                color: '#666',
+                backgroundColor: '#f8f9fa',
+                borderRadius: '8px',
+                border: '1px solid #e0e0e0'
+              }}>
+                No notifications found for this ticket
+              </div>
+            ) : (
+              <div style={{ 
+                maxHeight: '400px',
+                overflowY: 'auto',
+                border: '1px solid #e0e0e0',
+                borderRadius: '8px'
+              }}>
+                {ticketNotifications.map((notif, index) => (
+                  <div
+                    key={notif.id}
+                    style={{
+                      padding: '16px',
+                      borderBottom: index < ticketNotifications.length - 1 ? '1px solid #e0e0e0' : 'none',
+                      backgroundColor: notif.id === selectedNotification?.id ? '#e3f2fd' : '#fff'
+                    }}
+                  >
+                    <div style={{ 
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      marginBottom: '8px'
+                    }}>
+                      <span style={{ 
+                        fontSize: '0.75rem',
+                        color: '#666'
+                      }}>
+                        {notif.created_at && new Date(notif.created_at)
+                          .toLocaleString("en-GB", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: true
+                          })}
+                      </span>
+                      <span style={{ 
+                        fontSize: '0.75rem',
+                        color: notif.status === 'unread' ? '#1976d2' : '#666',
+                        fontWeight: notif.status === 'unread' ? '500' : 'normal'
+                      }}>
+                        {notif.status === 'unread' ? 'Unread' : 'Read'}
+                      </span>
+                    </div>
+                    <div style={{ 
+                      fontSize: '0.875rem',
+                      color: '#333',
+                      marginBottom: '8px',
+                      lineHeight: '1.5'
+                    }}>
+                      {notif.message}
+                    </div>
+                    {notif.comment && (
+                      <div style={{ 
+                        fontSize: '0.75rem',
+                        color: '#666',
+                        fontStyle: 'italic',
+                        padding: '8px',
+                        backgroundColor: '#f8f9fa',
+                        borderRadius: '4px',
+                        marginTop: '8px'
+                      }}>
+                        {notif.comment}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+        <DialogActions style={{ 
+          padding: '16px 24px',
+          borderTop: '1px solid #e0e0e0'
+        }}>
+          <Button 
+            onClick={handleNotificationDialogClose}
+            variant="contained"
+            color="primary"
+            style={{
+              textTransform: 'none',
+              borderRadius: '8px',
+              padding: '8px 24px'
+            }}
+          >
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
     </nav>
   );
 }
