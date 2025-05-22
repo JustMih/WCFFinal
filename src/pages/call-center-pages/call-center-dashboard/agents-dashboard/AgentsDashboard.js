@@ -145,7 +145,13 @@ export default function AgentsDashboard() {
   };
 
   const timerRef = useRef(null);
-  const wasAnsweredRef = useRef(false);
+
+  // Add state for ticket search and modals
+  const [customerTickets, setCustomerTickets] = useState([]);
+  const [showTicketHistoryModal, setShowTicketHistoryModal] = useState(false);
+  const [showCreateTicketModal, setShowCreateTicketModal] = useState(false);
+  const [selectedTicket, setSelectedTicket] = useState(null);
+
   const showAlert = (message, severity = "warning") => {
     setSnackbarMessage(message);
     setSnackbarSeverity(severity);
@@ -223,6 +229,9 @@ export default function AgentsDashboard() {
         setIncomingCall(invitation);
         setShowPhonePopup(true);
         setPhoneStatus("Ringing");
+        // Extract phone number and search tickets
+        const incomingNumber = invitation.remoteIdentity.uri.user;
+        searchCustomerTickets(incomingNumber);
         ringAudio
           .play()
           .catch((err) => console.error("🔇 Ringtone error:", err));
@@ -918,6 +927,28 @@ export default function AgentsDashboard() {
     }
   };
 
+  // Function to search tickets by phone or NIDA
+  const searchCustomerTickets = async (phoneOrNida) => {
+    try {
+      const response = await fetch(`${baseURL}/ticket/search-by-phone/${phoneOrNida}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('authToken')}`
+        }
+      });
+      const data = await response.json();
+      if (data.found) {
+        setCustomerTickets(data.tickets);
+        setShowTicketHistoryModal(true);
+      } else {
+        setShowCreateTicketModal(true);
+      }
+    } catch (error) {
+      setSnackbarMessage("Error searching customer tickets");
+      setSnackbarSeverity("error");
+      setSnackbarOpen(true);
+    }
+  };
+
   return (
     <div className="p-6">
       <div className="agent-body">
@@ -1549,6 +1580,52 @@ export default function AgentsDashboard() {
           {snackbarMessage}
         </Alert>
       </Snackbar>
+
+      {/* Ticket History Modal */}
+      <Dialog open={showTicketHistoryModal} onClose={() => setShowTicketHistoryModal(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Customer Ticket History</DialogTitle>
+        <DialogContent>
+          {customerTickets.length > 0 ? customerTickets.map(ticket => (
+            <div key={ticket.id} style={{ border: '1px solid #eee', margin: 8, padding: 8, borderRadius: 4 }}>
+              <div>Ticket ID: {ticket.ticket_id}</div>
+              <div>Status: {ticket.status}</div>
+              <div>Created: {new Date(ticket.created_at).toLocaleString()}</div>
+              <Button onClick={() => setSelectedTicket(ticket)}>View Details</Button>
+            </div>
+          )) : <div>No tickets found.</div>}
+          {/* Ticket Details Modal (nested) */}
+          <Dialog open={!!selectedTicket} onClose={() => setSelectedTicket(null)} maxWidth="sm" fullWidth>
+            <DialogTitle>Ticket Details</DialogTitle>
+            <DialogContent>
+              {selectedTicket && (
+                <div>
+                  <div><strong>Ticket ID:</strong> {selectedTicket.ticket_id}</div>
+                  <div><strong>Status:</strong> {selectedTicket.status}</div>
+                  <div><strong>Phone:</strong> {selectedTicket.phone_number}</div>
+                  <div><strong>NIDA:</strong> {selectedTicket.nida_number}</div>
+                  <div><strong>Category:</strong> {selectedTicket.category}</div>
+                  <div><strong>Description:</strong> {selectedTicket.description}</div>
+                  <div><strong>Created:</strong> {new Date(selectedTicket.created_at).toLocaleString()}</div>
+                  {/* Add more fields as needed */}
+                </div>
+              )}
+            </DialogContent>
+          </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Ticket Modal */}
+      <Dialog open={showCreateTicketModal} onClose={() => setShowCreateTicketModal(false)}>
+        <DialogTitle>No Tickets Found</DialogTitle>
+        <DialogContent>
+          <div>No tickets found for this number. Would you like to create a new ticket?</div>
+          <Button onClick={() => {
+            setShowCreateTicketModal(false);
+            // Open your ticket creation form/modal here, pre-fill phone number
+          }}>Create Ticket</Button>
+          <Button onClick={() => setShowCreateTicketModal(false)}>Cancel</Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

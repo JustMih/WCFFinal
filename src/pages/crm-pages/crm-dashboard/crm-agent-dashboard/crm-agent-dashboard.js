@@ -4,7 +4,7 @@ import {
   MdAutoAwesomeMotion,
   MdDisabledVisible
 } from "react-icons/md";
-import { FaEye, FaPlus } from "react-icons/fa";
+import { FaEye, FaPlus, FaSearch } from "react-icons/fa";
 import { FaUsersLine } from "react-icons/fa6";
 import { GrLineChart } from "react-icons/gr";
 import { FiSettings } from "react-icons/fi";
@@ -155,6 +155,19 @@ const AgentCRM = () => {
     startDate: null,
     endDate: null
   });
+
+  // Add new state for phone search
+  const [phoneSearch, setPhoneSearch] = useState("");
+  const [existingTicketsModal, setExistingTicketsModal] = useState(false);
+  const [newTicketConfirmationModal, setNewTicketConfirmationModal] = useState(false);
+  const [foundTickets, setFoundTickets] = useState([]);
+
+  // Add submitAction state to control ticket status
+  const [submitAction, setSubmitAction] = useState("open"); // "open" or "closed"
+
+  // Notification modal state
+  const [showNotifyModal, setShowNotifyModal] = useState(false);
+  const [notifyMessage, setNotifyMessage] = useState("");
 
   // Fetch function data for subject selection
   useEffect(() => {
@@ -331,11 +344,11 @@ const AgentCRM = () => {
     setFormErrors({});
 
     try {
-      // Get the selected function name to use as subject
       const selectedFunction = functionData.find(f => f.id === formData.functionId);
       const ticketData = {
         ...formData,
-        subject: selectedFunction ? selectedFunction.name : ''
+        subject: selectedFunction ? selectedFunction.name : '',
+        status: submitAction === "closed" ? "Closed" : "Open"
       };
 
       const response = await fetch(`${baseURL}/ticket/create-ticket`, {
@@ -500,7 +513,7 @@ const AgentCRM = () => {
         <button
           className="view-ticket-details-btn"
           title="View"
-          onClick={() => openDetailsModal(ticket)}
+          onClick={() => handleDetailsClick(ticket)}
         >
           <FaEye />
         </button>
@@ -772,6 +785,93 @@ const AgentCRM = () => {
     setCurrentPage(1);
   };
 
+  // Update handlePhoneSearch to accept a selectedTicketFromTable parameter
+  const handlePhoneSearch = async (searchValue, selectedTicketFromTable = null) => {
+    try {
+      // Try phone number search first
+      let response = await fetch(`${baseURL}/ticket/search-by-phone/${searchValue}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      let data = await response.json();
+      if (data.found) {
+        setFoundTickets(data.tickets);
+        if (selectedTicketFromTable) {
+          setSelectedTicket(selectedTicketFromTable);
+          setShowDetailsModal(true);
+        } else {
+          setExistingTicketsModal(true);
+        }
+        return;
+      }
+      // If not found, try NIDA number search (if you have such an endpoint)
+      response = await fetch(`${baseURL}/ticket/search-by-nida/${searchValue}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+      data = await response.json();
+      if (data.found) {
+        setFoundTickets(data.tickets);
+        if (selectedTicketFromTable) {
+          setSelectedTicket(selectedTicketFromTable);
+          setShowDetailsModal(true);
+        } else {
+          setExistingTicketsModal(true);
+        }
+      } else {
+        setNewTicketConfirmationModal(true);
+      }
+    } catch (error) {
+      console.error('Error searching tickets:', error);
+      setSnackbar({
+        open: true,
+        message: "Error searching tickets",
+        severity: "error"
+      });
+    }
+  };
+
+  // Add handler for Details button in ticket table
+  const handleDetailsClick = (ticket) => {
+    const searchValue = ticket.phone_number || ticket.nida_number;
+    handlePhoneSearch(searchValue, ticket);
+  };
+
+  // Update: Pre-fill form with previous ticket details if available
+  const handleNewTicketConfirmation = (confirmed) => {
+    if (confirmed) {
+      // If there are previous tickets, use the most recent one to pre-fill
+      if (foundTickets && foundTickets.length > 0) {
+        const prev = foundTickets[0]; // most recent ticket
+        setFormData({
+          firstName: prev.first_name || "",
+          lastName: prev.last_name || "",
+          phoneNumber: prev.phone_number || phoneSearch,
+          nidaNumber: prev.nida_number || "",
+          requester: prev.requester || "",
+          institution: prev.institution || "",
+          region: prev.region || "",
+          district: prev.district || "",
+          channel: prev.channel || "",
+          category: prev.category || "",
+          functionId: prev.function_id || "",
+          description: "",
+          status: "Open"
+        });
+      } else {
+        // fallback: just pre-fill phone number
+        setFormData(prev => ({
+          ...prev,
+          phoneNumber: phoneSearch
+        }));
+      }
+      setShowModal(true);
+    }
+    setNewTicketConfirmationModal(false);
+  };
+
   if (loading) {
     return (
       <div className="p-6">
@@ -803,6 +903,138 @@ const AgentCRM = () => {
           <FaPlus /> New Ticket
         </button>
       </div>
+      {/* Full-width Phone/NIDA Search Section */}
+      <div style={{ display: "flex", gap: "10px", marginBottom: "1rem" }}>
+        <input
+          className="search-input"
+          type="text"
+          placeholder="Search by phone or NIDA..."
+          value={phoneSearch}
+          onChange={(e) => setPhoneSearch(e.target.value)}
+          onKeyPress={(e) => {
+            if (e.key === 'Enter') handlePhoneSearch(phoneSearch);
+          }}
+          style={{ flex: 1 }}
+        />
+        <button
+          className="add-user-button"
+          style={{ minWidth: 50, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => handlePhoneSearch(phoneSearch)}
+          aria-label="Search"
+        >
+          <FaSearch />
+        </button>
+      </div>
+
+      {/* Existing Tickets Modal */}
+      <Modal
+        open={existingTicketsModal}
+        onClose={() => setExistingTicketsModal(false)}
+      >
+        <Box sx={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: { xs: "90%", sm: 600 },
+          maxHeight: "80vh",
+          overflowY: "auto",
+          bgcolor: "background.paper",
+          boxShadow: 24,
+          borderRadius: 2,
+          p: 3
+        }}>
+          <Typography variant="h6" component="h2" gutterBottom>
+            Existing Tickets for {phoneSearch}
+          </Typography>
+          <Divider sx={{ mb: 2 }} />
+          
+          {foundTickets.map((ticket) => (
+            <Box key={ticket.id} sx={{ mb: 2, p: 2, border: "1px solid #eee", borderRadius: 1 }}>
+              <Typography variant="subtitle1">
+                Ticket ID: {ticket.ticket_id}
+              </Typography>
+              <Typography>
+                Status: {ticket.status}
+              </Typography>
+              <Typography>
+                Created: {new Date(ticket.created_at).toLocaleDateString()}
+              </Typography>
+              <Button
+                variant="contained"
+                size="small"
+                onClick={() => {
+                  setExistingTicketsModal(false);
+                  openDetailsModal(ticket);
+                }}
+                sx={{ mt: 1 }}
+              >
+                View Details
+              </Button>
+            </Box>
+          ))}
+          
+          <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end", gap: 1 }}>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => {
+                setExistingTicketsModal(false);
+                setNewTicketConfirmationModal(true);
+              }}
+            >
+              Create New Ticket
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => setExistingTicketsModal(false)}
+            >
+              Close
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
+
+      {/* New Ticket Confirmation Modal */}
+      <Modal
+        open={newTicketConfirmationModal}
+        onClose={() => setNewTicketConfirmationModal(false)}
+      >
+        <Box sx={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: { xs: "90%", sm: 400 },
+          bgcolor: "background.paper",
+          boxShadow: 24,
+          borderRadius: 2,
+          p: 3
+        }}>
+          <Typography variant="h6" component="h2" gutterBottom>
+            No Existing Tickets Found
+          </Typography>
+          <Typography sx={{ mb: 2 }}>
+            Would you like to create a new ticket for {phoneSearch}?
+          </Typography>
+          <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => handleNewTicketConfirmation(true)}
+            >
+              Yes, Create Ticket
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => handleNewTicketConfirmation(false)}
+            >
+              No, Cancel
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
+
       {/* Card Dashboard Section */}
       <div className="crm-dashboard">
         <div className="crm-cards-container">
@@ -949,197 +1181,195 @@ const AgentCRM = () => {
         </div>
       </div>
 
-      {/* Ticket Details Modal */}
+      {/* Split Ticket Details & History Modal */}
       <Modal open={showDetailsModal} onClose={() => setShowDetailsModal(false)}>
         <Box
           sx={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: { xs: "90%", sm: 500 },
-            maxHeight: "80vh",
-            overflowY: "auto",
-            bgcolor: "background.paper",
+            display: 'flex',
+            flexDirection: 'row',
+            width: 900,
+            maxWidth: '95vw',
+            minHeight: 400,
+            bgcolor: 'background.paper',
             boxShadow: 24,
             borderRadius: 2,
-            p: 3
+            p: 0
           }}
         >
-          {selectedTicket && (
-            <>
-              <Typography
-                variant="h5"
-                sx={{ fontWeight: "bold", color: "#1976d2" }}
-              >
-                Tickets Details
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              <Grid container spacing={2}>
-                {/* <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Name:</strong>{" "}
-                    {`${selectedTicket.first_name || "N/A"} ${
-                      selectedTicket.middle_name || " "
-                    } ${selectedTicket.last_name || "N/A"}`}
-                  </Typography>
-                </Grid> */}
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Ticket Number:</strong>{" "}
-                    {selectedTicket.ticket_id || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Phone:</strong>{" "}
-                    {selectedTicket.phone_number || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>NIN:</strong> {selectedTicket.nida_number || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Employer:</strong>{" "}
-                    {selectedTicket.employer || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Region:</strong> {selectedTicket.region || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>District:</strong>{" "}
-                    {selectedTicket.district || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Category:</strong>{" "}
-                    {selectedTicket.category || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Section:</strong> {selectedTicket.functionData?.function?.section?.name || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Sub-section:</strong> {selectedTicket.functionData?.function?.name || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Subject:</strong> {selectedTicket.functionData?.name || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Channel:</strong> {selectedTicket.channel || "N/A"}
-                  </Typography>
-                </Grid>
-                {/* <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Complaint Type:</strong>{" "}
-                    {selectedTicket.complaintType || "Unrated"}
-                  </Typography>
-                </Grid> */}
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Rated:</strong>{" "}
-                    <span
-                      style={{
-                        color:
-                          selectedTicket.complaint_type === "Major"
-                            ? "red"
-                            : selectedTicket.complaint_type === "Minor"
-                            ? "orange"
-                            : "inherit"
-                      }}
-                    >
-                      {selectedTicket.complaint_type || "Unrated"}
-                    </span>
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Status:</strong>{" "}
-                    <span
-                      style={{
-                        color:
-                          selectedTicket.status === "Open"
-                            ? "green"
-                            : selectedTicket.status === "Closed"
-                            ? "gray"
-                            : "blue"
-                      }}
-                    >
-                      {selectedTicket.status || "N/A"}
-                    </span>
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Assigned To:</strong>{" "}
-                    {selectedTicket.assigned_to_id || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Assigned Role:</strong>{" "}
-                    {selectedTicket.assigned_to_role || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Created By:</strong>{" "}
-                    {selectedTicket?.creator?.name || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Created At:</strong>{" "}
-                    {selectedTicket.created_at
-                      ? new Date(selectedTicket.created_at).toLocaleString(
-                          "en-US",
-                          {
-                            month: "numeric",
-                            day: "numeric",
-                            year: "numeric",
-                            hour: "numeric",
-                            minute: "2-digit",
-                            hour12: true
-                          }
-                        )
-                      : "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <Typography>
-                    <strong>Description:</strong>{" "}
-                    {selectedTicket.description || "N/A"}
-                  </Typography>
-                </Grid>
-              </Grid>
-              <Box sx={{ mt: 3, textAlign: "right" }}>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={() => setShowDetailsModal(false)}
+          {/* Left: Ticket Details */}
+          <Box sx={{ flex: 2, p: 3, borderRight: '1px solid #eee', overflowY: 'auto', maxHeight: '80vh' }}>
+            {selectedTicket && (
+              <>
+                <Typography
+                  variant="h5"
+                  sx={{ fontWeight: "bold", color: "#1976d2" }}
                 >
-                  Close
-                </Button>
-              </Box>
-            </>
-          )}
+                  Ticket Details
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}><Typography><strong>Ticket Number:</strong> {selectedTicket.ticket_id || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Status:</strong> <span style={{ color: selectedTicket.status === "Open" ? "green" : selectedTicket.status === "Closed" ? "gray" : "blue" }}>{selectedTicket.status || "N/A"}</span></Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>First Name:</strong> {selectedTicket.first_name || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Last Name:</strong> {selectedTicket.last_name || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Phone:</strong> {selectedTicket.phone_number || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>NIDA:</strong> {selectedTicket.nida_number || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Requester:</strong> {selectedTicket.requester || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Institution:</strong> {selectedTicket.institution || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Region:</strong> {selectedTicket.region || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>District:</strong> {selectedTicket.district || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Channel:</strong> {selectedTicket.channel || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Category:</strong> {selectedTicket.category || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Section:</strong> {selectedTicket.functionData?.function?.section?.name || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Sub-section:</strong> {selectedTicket.functionData?.function?.name || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Subject:</strong> {selectedTicket.functionData?.name || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Rated:</strong> <span style={{ color: selectedTicket.complaint_type === "Major" ? "red" : selectedTicket.complaint_type === "Minor" ? "orange" : "inherit" }}>{selectedTicket.complaint_type || "Unrated"}</span></Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Assigned To:</strong> {selectedTicket.assigned_to_id || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Assigned Role:</strong> {selectedTicket.assigned_to_role || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Created By:</strong> {selectedTicket?.creator?.name || "N/A"}</Typography></Grid>
+                  <Grid item xs={12} sm={6}><Typography><strong>Created At:</strong> {selectedTicket.created_at ? new Date(selectedTicket.created_at).toLocaleString("en-US", { month: "numeric", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) : "N/A"}</Typography></Grid>
+                  <Grid item xs={12}><Typography><strong>Description:</strong> {selectedTicket.description || "N/A"}</Typography></Grid>
+                </Grid>
+                <Box sx={{ mt: 3, textAlign: "right" }}>
+                  <Button
+                    variant="contained"
+                    color="secondary"
+                    sx={{ mr: 2 }}
+                    onClick={() => setShowNotifyModal(true)}
+                  >
+                    Notify User
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={() => setShowDetailsModal(false)}
+                  >
+                    Close
+                  </Button>
+                </Box>
+              </>
+            )}
+          </Box>
+          {/* Right: Ticket History */}
+          <Box sx={{ flex: 1, p: 3, overflowY: 'auto', maxHeight: '80vh', minWidth: 250 }}>
+            <Typography variant="h6" gutterBottom>Ticket History</Typography>
+            <Divider sx={{ mb: 2 }} />
+            {foundTickets && foundTickets.length > 0 ? (
+              foundTickets.map(ticket => (
+                <Box
+                  key={ticket.id}
+                  sx={{
+                    mb: 1,
+                    p: 1,
+                    borderRadius: 1,
+                    bgcolor: selectedTicket?.id === ticket.id ? '#e3f2fd' : undefined,
+                    cursor: 'pointer',
+                    border: selectedTicket?.id === ticket.id ? '2px solid #1976d2' : '1px solid #eee',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between'
+                  }}
+                  onClick={() => openDetailsModal(ticket)}
+                >
+                  <div>
+                    <Typography variant="subtitle2">Ticket ID: {ticket.ticket_id}</Typography>
+                    <Typography variant="caption">{new Date(ticket.created_at).toLocaleDateString()}</Typography>
+                  </div>
+                  <div>
+                    <span style={{
+                      padding: '2px 8px',
+                      borderRadius: '8px',
+                      color: 'white',
+                      background: ticket.status === 'Closed' ? 'gray' : ticket.status === 'Open' ? 'green' : 'blue',
+                      fontSize: '0.8em'
+                    }}>
+                      {ticket.status}
+                    </span>
+                  </div>
+                </Box>
+              ))
+            ) : (
+              <Typography>No ticket history found.</Typography>
+            )}
+            {/* Add Create New Ticket button */}
+            <Box sx={{ mt: 2, textAlign: 'center' }}>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={() => {
+                  // Pre-fill with selected ticket or most recent
+                  let prev = selectedTicket;
+                  if (!prev && foundTickets && foundTickets.length > 0) prev = foundTickets[0];
+                  if (prev) {
+                    setFormData({
+                      firstName: prev.first_name || "",
+                      lastName: prev.last_name || "",
+                      phoneNumber: prev.phone_number || phoneSearch,
+                      nidaNumber: prev.nida_number || "",
+                      requester: prev.requester || "",
+                      institution: prev.institution || "",
+                      region: prev.region || "",
+                      district: prev.district || "",
+                      channel: prev.channel || "",
+                      category: prev.category || "",
+                      functionId: prev.function_id || "",
+                      description: "",
+                      status: "Open"
+                    });
+                  } else {
+                    setFormData(prev => ({ ...prev, phoneNumber: phoneSearch }));
+                  }
+                  setShowModal(true);
+                  setShowDetailsModal(false);
+                }}
+              >
+                Create New Ticket
+              </Button>
+            </Box>
+          </Box>
         </Box>
       </Modal>
+
+      {/* Notification Modal */}
+      <Modal open={showNotifyModal} onClose={() => setShowNotifyModal(false)}>
+        <Box sx={{ p: 3, bgcolor: 'background.paper', borderRadius: 2, minWidth: 350, maxWidth: 400, mx: 'auto', mt: '15vh' }}>
+          <Typography variant="h6" gutterBottom>Send Notification</Typography>
+          <TextField
+            label="Message"
+            multiline
+            rows={3}
+            fullWidth
+            value={notifyMessage}
+            onChange={e => setNotifyMessage(e.target.value)}
+            sx={{ mb: 2 }}
+          />
+          <Button
+            variant="contained"
+            onClick={async () => {
+              await fetch(`${baseURL}/notifications/notify`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                  ticket_id: selectedTicket.id,
+                  category: selectedTicket.category, // or another user ID
+                  message: notifyMessage,
+                  channel: selectedTicket.channel,
+                  subject: selectedTicket.functionData?.name
+                })
+              });
+              setShowNotifyModal(false);
+              setSnackbar({ open: true, message: 'Notification sent!', severity: 'success' });
+            }}
+            disabled={!notifyMessage.trim()}
+          >
+            Send
+          </Button>
+        </Box>
+      </Modal>
+
       {/* Ticket Creation Modal */}
       <Modal open={showModal} onClose={() => setShowModal(false)}>
         <Box
@@ -1296,8 +1526,10 @@ const AgentCRM = () => {
                   }}
                 >
                   <option value="">Select..</option>
-                  <option value="Employer">Employer</option>
                   <option value="Employee">Employee</option>
+                  <option value="Employer">Employer</option>
+                  <option value="Pensioners">Pensioners</option>
+                  <option value="Stakeholders">Stakeholders</option>
                 </select>
                 {formErrors.category && (
                   <span style={{ color: "red", fontSize: "0.75rem" }}>
@@ -1414,7 +1646,7 @@ const AgentCRM = () => {
                 <label style={{ fontSize: "0.875rem" }}>Channel:</label>
                 <select
                   name="channel"
-                  value={formData.requester}
+                  value={formData.channel}
                   onChange={handleChange}
                   style={{
                     height: "32px",
@@ -1430,9 +1662,9 @@ const AgentCRM = () => {
                   <option value="Call">Call</option>
                   <option value="Email">Email</option>
                 </select>
-                {formErrors.functionId && (
+                {formErrors.channel && (
                   <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.functionId}
+                    {formErrors.channel}
                   </span>
                 )}
               </div>
@@ -1539,18 +1771,29 @@ const AgentCRM = () => {
               >
                 Cancel
               </button>
-              <button className="submit-btn" onClick={handleSubmit}>
-                Submit Ticket
+              <button
+                className="submit-btn"
+                onClick={(e) => {
+                  setSubmitAction("open");
+                  handleSubmit(e);
+                }}
+              >
+                Submit to Backoffice
+              </button>
+              <button
+                className="close-btn"
+                style={{ background: "gray", color: "white" }}
+                onClick={(e) => {
+                  setSubmitAction("closed");
+                  handleSubmit(e);
+                }}
+              >
+                Close Ticket
               </button>
             </div>
           </div>
         </Box>
       </Modal>
-      <TicketDetailsModal
-        open={showDetailsModal}
-        onClose={() => setShowDetailsModal(false)}
-        ticket={selectedTicket}
-      />
 
       {/* Column Selector Modal */}
       <ColumnSelector

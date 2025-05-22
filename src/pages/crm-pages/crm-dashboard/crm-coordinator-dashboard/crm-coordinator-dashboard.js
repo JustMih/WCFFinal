@@ -33,6 +33,7 @@ import {
 import Card from "../../../../components/card/card";
 import ColumnSelector from "../../../../components/colums-select/ColumnSelector";
 import TicketFilters from "../../../../components/ticket/TicketFilters";
+import CoordinatorActionModal from "../../../../components/coordinator/CoordinatorActionModal";
 
 // Config
 import { baseURL } from "../../../../config";
@@ -71,6 +72,8 @@ export default function CoordinatorDashboard() {
     startDate: null,
     endDate: null
   });
+  const [isActionModalOpen, setIsActionModalOpen] = useState(false);
+  const [modalTicket, setModalTicket] = useState(null);
 
   // Initialize activeColumns with default columns if empty
   useEffect(() => {
@@ -712,14 +715,14 @@ export default function CoordinatorDashboard() {
                     >
                       <FaEye />
                     </button>
-                    <button
+                    {/* <button
                       className="advanced-ticket-btn"
                       title="Advanced"
                       style={{ marginLeft: 8 }}
                       onClick={() => handleAdvanced(ticket)}
                     >
                       <FiSettings />
-                    </button>
+                    </button> */}
                   </td>
                 </tr>
               ))
@@ -979,6 +982,20 @@ export default function CoordinatorDashboard() {
       >
         <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
+
+      <CoordinatorActionModal
+        open={isActionModalOpen}
+        onClose={() => setIsActionModalOpen(false)}
+        ticket={modalTicket}
+        categories={categories}
+        units={units}
+        convertCategory={convertCategory}
+        forwardUnit={forwardUnit}
+        handleCategoryChange={handleCategoryChange}
+        handleUnitChange={handleUnitChange}
+        handleConvertOrForward={handleConvertOrForward}
+        handleRating={handleRating}
+      />
     </div>
   );
 }

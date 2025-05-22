@@ -78,6 +78,7 @@
   margin: 0px;
   background-color: var(--sidebar-color);
 }
+
 .crm-dashboard {
     display: flex;
     justify-content: center;
