@@ -19,6 +19,7 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export default function Navbar({
   toggleTheme,
@@ -49,6 +50,92 @@ export default function Navbar({
   const [selectedNotification, setSelectedNotification] = useState(null);
   const [ticketNotifications, setTicketNotifications] = useState([]);
   const [ticketDetails, setTicketDetails] = useState(null);
+  const queryClient = useQueryClient();
+
+  // Fetch unread count
+  const { data: unreadCountData } = useQuery({
+    queryKey: ['unreadCount', userId],
+    queryFn: async () => {
+      const response = await fetch(
+        `${baseURL}/notifications/unread-count/${userId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      if (!response.ok) throw new Error('Failed to fetch unread count');
+      return response.json();
+    },
+    enabled: !!userId && !!token,
+    refetchInterval: 5000, // Refetch every 5 seconds
+  });
+
+  // Fetch notifications
+  const { data: notificationsData } = useQuery({
+    queryKey: ['notifications', userId],
+    queryFn: async () => {
+      const response = await fetch(
+        `${baseURL}/notifications/user/${userId}`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      if (!response.ok) throw new Error('Failed to fetch notifications');
+      return response.json();
+    },
+    enabled: !!userId && !!token,
+    refetchInterval: 5000, // Refetch every 5 seconds
+  });
+
+  // Mark notification as read mutation
+  const markAsReadMutation = useMutation({
+    mutationFn: async (notificationId) => {
+      const response = await fetch(`${baseURL}/notifications/read/${notificationId}`, {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!response.ok) throw new Error('Failed to mark notification as read');
+      return response.json();
+    },
+    onSuccess: () => {
+      // Invalidate and refetch
+      queryClient.invalidateQueries(['unreadCount', userId]);
+      queryClient.invalidateQueries(['notifications', userId]);
+    }
+  });
+
+  // Fetch ticket notifications
+  const { data: ticketNotificationsData } = useQuery({
+    queryKey: ['ticketNotifications', selectedNotification?.ticket_id],
+    queryFn: async () => {
+      if (!selectedNotification?.ticket_id) return { notifications: [] };
+      const response = await fetch(
+        `${baseURL}/notifications/ticket/${selectedNotification.ticket_id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      if (!response.ok) throw new Error('Failed to fetch ticket notifications');
+      return response.json();
+    },
+    enabled: !!selectedNotification?.ticket_id && !!token,
+  });
+
+  // Fetch ticket details
+  const { data: ticketDetailsData } = useQuery({
+    queryKey: ['ticketDetails', selectedNotification?.ticket_id],
+    queryFn: async () => {
+      if (!selectedNotification?.ticket_id) return null;
+      const response = await fetch(
+        `${baseURL}/ticket/${selectedNotification.ticket_id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      if (!response.ok) throw new Error('Failed to fetch ticket details');
+      return response.json();
+    },
+    enabled: !!selectedNotification?.ticket_id && !!token,
+  });
 
   useEffect(() => {
     setUserName(localStorage.getItem("username"));
@@ -252,40 +339,8 @@ export default function Navbar({
     console.log("Notification clicked:", notif);
     try {
       // Mark notification as read
-      const readResponse = await fetch(`${baseURL}/notifications/read/${notif.id}`, {
-        method: "PATCH",
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      await markAsReadMutation.mutateAsync(notif.id);
       
-      if (!readResponse.ok) {
-        throw new Error("Failed to mark notification as read");
-      }
-
-      // Refresh notifications list
-      await refreshNotifications();
-
-      // Update the unread count
-      const countResponse = await fetch(
-        `${baseURL}/notifications/unread-count/${userId}`,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
-      );
-      if (countResponse.ok) {
-        const data = await countResponse.json();
-        setAssignedCount(data.unreadCount || 0);
-      }
-
-      // Fetch ticket details if ticket_id exists
-      if (notif.ticket_id) {
-        console.log("Fetching details for ticket:", notif.ticket_id);
-        await fetchTicketDetails(notif.ticket_id);
-        await fetchTicketNotifications(notif.ticket_id);
-      } else {
-        console.log("No ticket_id found in notification");
-        setTicketNotifications([]);
-      }
-
       // Set the selected notification and open the dialog
       setSelectedNotification(notif);
       setNotificationDialogOpen(true);
@@ -301,8 +356,6 @@ export default function Navbar({
   const handleNotificationDialogClose = () => {
     setNotificationDialogOpen(false);
     setSelectedNotification(null);
-    setTicketNotifications([]);
-    setTicketDetails(null);
   };
 
   const handleLogout = async () => {
@@ -409,9 +462,8 @@ export default function Navbar({
           }}
           onClick={() => setNotifDropdownOpen((open) => !open)}
         >
-          {console.log("assignedCount", assignedCount)}
           <Badge
-            badgeContent={assignedCount}
+            badgeContent={unreadCountData?.unreadCount || 0}
             color="error"
             sx={{
               "& .MuiBadge-badge": {
@@ -422,9 +474,9 @@ export default function Navbar({
                 minWidth: "20px",
                 height: "20px",
                 borderRadius: "10px",
-                top: "2px", // Move badge up (more negative = closer to icon)
-                right: "10px", // Move badge left (more negative = closer to icon)
-                zIndex: 1 // Fine-tune the badge positioning
+                top: "2px",
+                right: "10px",
+                zIndex: 1
               }
             }}
           >
@@ -432,10 +484,10 @@ export default function Navbar({
           </Badge>
           {notifDropdownOpen && (
             <div className="navbar-notification-dropdown">
-              {notifications.length === 0 ? (
+              {!notificationsData?.notifications?.length ? (
                 <div className="notification-empty">No notifications</div>
               ) : (
-                notifications.map((notif) => (
+                notificationsData.notifications.map((notif) => (
                   <div
                     key={notif.id}
                     className={`notification-item ${notif.status === "unread" ? "unread" : " "}`}
@@ -443,10 +495,7 @@ export default function Navbar({
                     <div
                       className="notification-message"
                       style={{ cursor: "pointer" }}
-                      onClick={() => {
-                        console.log("Message clicked", notif);
-                        handleNotificationClick(notif);
-                      }}
+                      onClick={() => handleNotificationClick(notif)}
                     >
                       {notif.message}
                     </div>
@@ -583,7 +632,7 @@ export default function Navbar({
         </DialogTitle>
         <DialogContent style={{ padding: '24px' }}>
           {/* Ticket Details Section */}
-          {ticketDetails && (
+          {ticketDetailsData?.ticket && (
             <div style={{ 
               padding: '16px',
               backgroundColor: '#fff',
@@ -607,15 +656,15 @@ export default function Navbar({
               }}>
                 <span style={{ color: '#666' }}>Phone Number:</span>
                 <span style={{ color: '#333', fontWeight: '500' }}>
-                  {ticketDetails.phone_number || 'N/A'}
+                  {ticketDetailsData.ticket.phone_number || 'N/A'}
                 </span>
                 <span style={{ color: '#666' }}>NIDA Number:</span>
                 <span style={{ color: '#333', fontWeight: '500' }}>
-                  {ticketDetails.nida_number || 'N/A'}
+                  {ticketDetailsData.ticket.nida_number || 'N/A'}
                 </span>
                 <span style={{ color: '#666' }}>Ticket ID:</span>
                 <span style={{ color: '#333', fontWeight: '500' }}>
-                  {ticketDetails.ticket_id || 'N/A'}
+                  {ticketDetailsData.ticket.ticket_id || 'N/A'}
                 </span>
               </div>
             </div>
@@ -640,10 +689,10 @@ export default function Navbar({
                 borderRadius: '12px',
                 color: '#1976d2'
               }}>
-                {ticketNotifications.length} notifications
+                {ticketNotificationsData?.notifications?.length || 0} notifications
               </span>
             </div>
-            {ticketNotifications.length === 0 ? (
+            {!ticketNotificationsData?.notifications?.length ? (
               <div style={{ 
                 padding: '16px',
                 textAlign: 'center',
@@ -661,12 +710,12 @@ export default function Navbar({
                 border: '1px solid #e0e0e0',
                 borderRadius: '8px'
               }}>
-                {ticketNotifications.map((notif, index) => (
+                {ticketNotificationsData.notifications.map((notif, index) => (
                   <div
                     key={notif.id}
                     style={{
                       padding: '16px',
-                      borderBottom: index < ticketNotifications.length - 1 ? '1px solid #e0e0e0' : 'none',
+                      borderBottom: index < ticketNotificationsData.notifications.length - 1 ? '1px solid #e0e0e0' : 'none',
                       backgroundColor: notif.id === selectedNotification?.id ? '#e3f2fd' : '#fff'
                     }}
                   >
