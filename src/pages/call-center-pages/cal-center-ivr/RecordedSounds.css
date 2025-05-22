@@ -1,49 +1,36 @@
-.voice-notes-container {
-    padding: 20px;
-    max-width: 1200px;
-    margin: 0 auto;
+.recorded-sounds {
+  padding: 20px;
+}
+
+h2 {
+  margin-bottom: 20px;
+  color: var(--text-color); /* Adjust based on your theme */
+}
+
+.voice-notes-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: var(--background-color); /* Adjust based on your theme */
+}
+
+.voice-notes-table th,
+.voice-notes-table td {
+  padding: 10px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+
+.voice-notes-table th {
+  background-color: #f4f4f4;
+  color: #333;
+}
+
+.voice-notes-table audio {
+  width: 200px;
+}
+
+@media (max-width: 768px) {
+  .voice-notes-table audio {
+    width: 150px;
   }
-  
-  .voice-notes-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 20px;
-  }
-  
-  .voice-notes-table th, 
-  .voice-notes-table td {
-    padding: 12px 15px;
-    text-align: left;
-    border-bottom: 1px solid #ddd;
-  }
-  
-  .voice-notes-table th {
-    background-color: #f2f2f2;
-    font-weight: bold;
-  }
-  
-  .audio-player {
-    max-width: 300px;
-  }
-  
-  .loading {
-    padding: 20px;
-    text-align: center;
-    font-style: italic;
-    color: #666;
-  }
-  
-  .error {
-    padding: 20px;
-    text-align: center;
-    color: #d32f2f;
-    background-color: #ffebee;
-    border-radius: 4px;
-  }
-  
-  .no-notes {
-    padding: 20px;
-    text-align: center;
-    font-style: italic;
-    color: #666;
-  }
+}

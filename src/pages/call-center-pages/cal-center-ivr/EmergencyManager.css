@@ -1,0 +1,113 @@
+.emergency-container {
+    padding: 25px;
+    font-family: 'Andale Mono', monospace;
+    max-width: 800px;
+    margin: auto;
+  }
+  
+ 
+
+  h2 {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  
+  /* ✅ Success/Error Message Styling */
+  .message {
+    text-align: center;
+    margin-bottom: 15px;
+    padding: 10px;
+    border-radius: 4px;
+    font-weight: bold;
+    background-color: #e6f4ea;
+    border: 1px solid #a2d5ab;
+    color: #2c6f37;
+  }
+  
+  /* ✅ Form Layout */
+  .form-section {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  
+  .form-section input {
+    padding: 8px;
+    min-width: 160px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+  }
+  
+  .form-section button {
+    padding: 8px 14px;
+    background: #007bff;
+    border: none;
+    color: white;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+  
+  .form-section button:hover {
+    background-color: #0056b3;
+  }
+  
+  /* ✅ Table Styles */
+  .emergency-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+  }
+  
+  .emergency-table th,
+  .emergency-table td {
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+    text-align: left;
+  }
+  
+  .emergency-table th {
+    background-color: #f5f5f5;
+  }
+  
+  .emergency-table button {
+    margin-right: 6px;
+    padding: 4px 8px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  
+  .emergency-table button:hover {
+    background-color: #f0f0f0;
+  }
+  
+  /* ✅ Pagination */
+  .pagination {
+    text-align: center;
+    margin-top: 10px;
+  }
+  
+  .pagination button {
+    margin: 0 5px;
+    padding: 6px 12px;
+    border: 1px solid #ccc;
+    background: white;
+    cursor: pointer;
+    border-radius: 4px;
+  }
+  
+  .pagination button.active {
+    background-color: #007bff;
+    color: white;
+    border-color: #007bff;
+  }
+  
+  .pagination button:hover:not(.active) {
+    background-color: #f0f0f0;
+  }
+  
