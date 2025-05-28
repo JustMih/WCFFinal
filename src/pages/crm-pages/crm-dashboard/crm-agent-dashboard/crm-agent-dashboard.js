@@ -1331,53 +1331,101 @@ const AgentCRM = () => {
             )}
           </Box>
           {/* Right: Ticket History */}
-          <Box sx={{ flex: 1, p: 3, overflowY: 'auto', maxHeight: '80vh', minWidth: 250 }}>
-            <Typography variant="h6" gutterBottom>Ticket History</Typography>
+          <Box sx={{ flex: 1, p: 3, overflowY: 'auto', maxHeight: '80vh', minWidth: 300 }}>
+            <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1976d2' }}>
+              Ticket History
+            </Typography>
             <Divider sx={{ mb: 2 }} />
             {foundTickets && foundTickets.length > 0 ? (
               foundTickets.map(ticket => (
                 <Box
                   key={ticket.id}
                   sx={{
-                    mb: 1,
-                    p: 1,
-                    borderRadius: 1,
-                    bgcolor: selectedTicket?.id === ticket.id ? '#e3f2fd' : undefined,
+                    mb: 2,
+                    p: 2,
+                    borderRadius: 2,
+                    bgcolor: selectedTicket?.id === ticket.id ? '#e3f2fd' : '#fff',
                     cursor: 'pointer',
-                    border: selectedTicket?.id === ticket.id ? '2px solid #1976d2' : '1px solid #eee',
+                    border: selectedTicket?.id === ticket.id ? '2px solid #1976d2' : '1px solid #e0e0e0',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
                     display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between'
+                    flexDirection: 'column',
+                    gap: 1,
+                    '&:hover': {
+                      boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                      borderColor: '#1976d2'
+                    }
                   }}
                   onClick={() => openDetailsModal(ticket)}
                 >
-                  <div>
-                    <Typography variant="subtitle2">Ticket ID: {ticket.ticket_id}</Typography>
-                    <Typography variant="caption">{new Date(ticket.created_at).toLocaleDateString()}</Typography>
-                  </div>
-                  <div>
-                    <span style={{
-                      padding: '2px 8px',
-                      borderRadius: '8px',
-                      color: 'white',
-                      background: ticket.status === 'Closed' ? 'gray' : ticket.status === 'Open' ? 'green' : 'blue',
-                      fontSize: '0.8em'
-                    }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#1976d2' }}>
+                      {ticket.ticket_id}
+                    </Typography>
+                    <Typography
+                      sx={{
+                        px: 1.5,
+                        py: 0.5,
+                        borderRadius: '12px',
+                        color: 'white',
+                        background: ticket.status === 'Closed' 
+                          ? '#757575' 
+                          : ticket.status === 'Open' 
+                          ? '#2e7d32' 
+                          : '#1976d2',
+                        fontSize: '0.75rem',
+                        fontWeight: 500
+                      }}
+                    >
                       {ticket.status}
-                    </span>
-                  </div>
+                    </Typography>
+                  </Box>
+                  
+                  <Box sx={{ mt: 1 }}>
+                    <Typography variant="body2" sx={{ color: '#666', mb: 0.5 }}>
+                      Created: {new Date(ticket.created_at).toLocaleDateString()}
+                    </Typography>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 500, color: '#333', mb: 1 }}>
+                      Subject: {ticket.subject}
+                    </Typography>
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        color: '#666',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}
+                    >Description:
+                      {ticket.description}
+                    </Typography>
+                  </Box>
                 </Box>
               ))
             ) : (
-              <Typography>No ticket history found.</Typography>
+              <Typography sx={{ textAlign: 'center', color: '#666', mt: 3 }}>
+                No ticket history found.
+              </Typography>
             )}
-            {/* Add Create New Ticket button */}
-            <Box sx={{ mt: 2, textAlign: 'center' }}>
+            
+            <Box sx={{ mt: 3, textAlign: 'center' }}>
               <Button
                 variant="contained"
                 color="primary"
+                sx={{
+                  px: 4,
+                  py: 1.5,
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 500,
+                  boxShadow: '0 2px 4px rgba(25,118,210,0.2)',
+                  '&:hover': {
+                    boxShadow: '0 4px 8px rgba(25,118,210,0.3)'
+                  }
+                }}
                 onClick={() => {
-                  // Pre-fill with selected ticket or most recent
                   let prev = selectedTicket;
                   if (!prev && foundTickets && foundTickets.length > 0) prev = foundTickets[0];
                   if (prev) {
