@@ -348,6 +348,10 @@ const AgentCRM = () => {
       const ticketData = {
         ...formData,
         subject: selectedFunction ? selectedFunction.name : '',
+        section: selectedSection || 'Unit',  // Add section name
+        sub_section: selectedFunction ? selectedFunction.function?.name : '',  // Fix to use function name
+        responsible_unit_id: formData.functionId,
+        responsible_unit_name: selectedSection || 'Unit',  // Changed to use section name instead of function name
         status: submitAction === "closed" ? "Closed" : "Open"
       };
 
@@ -1200,36 +1204,112 @@ const AgentCRM = () => {
           <Box sx={{ flex: 2, p: 3, borderRight: '1px solid #eee', overflowY: 'auto', maxHeight: '80vh' }}>
             {selectedTicket && (
               <>
-                <Typography
-                  variant="h5"
-                  sx={{ fontWeight: "bold", color: "#1976d2" }}
-                >
-                  Ticket Details
-                </Typography>
+                <Typography variant="h5" sx={{ fontWeight: "bold", color: "#1976d2" }}>Ticket Details</Typography>
                 <Divider sx={{ mb: 2 }} />
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}><Typography><strong>Ticket Number:</strong> {selectedTicket.ticket_id || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Status:</strong> <span style={{ color: selectedTicket.status === "Open" ? "green" : selectedTicket.status === "Closed" ? "gray" : "blue" }}>{selectedTicket.status || "N/A"}</span></Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>First Name:</strong> {selectedTicket.first_name || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Last Name:</strong> {selectedTicket.last_name || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Phone:</strong> {selectedTicket.phone_number || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>NIDA:</strong> {selectedTicket.nida_number || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Requester:</strong> {selectedTicket.requester || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Institution:</strong> {selectedTicket.institution || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Region:</strong> {selectedTicket.region || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>District:</strong> {selectedTicket.district || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Channel:</strong> {selectedTicket.channel || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Category:</strong> {selectedTicket.category || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Section:</strong> {selectedTicket.functionData?.function?.section?.name || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Sub-section:</strong> {selectedTicket.functionData?.function?.name || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Subject:</strong> {selectedTicket.functionData?.name || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Rated:</strong> <span style={{ color: selectedTicket.complaint_type === "Major" ? "red" : selectedTicket.complaint_type === "Minor" ? "orange" : "inherit" }}>{selectedTicket.complaint_type || "Unrated"}</span></Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Assigned To:</strong> {selectedTicket.assigned_to_id || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Assigned Role:</strong> {selectedTicket.assigned_to_role || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Created By:</strong> {selectedTicket?.creator?.name || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Created At:</strong> {selectedTicket.created_at ? new Date(selectedTicket.created_at).toLocaleString("en-US", { month: "numeric", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) : "N/A"}</Typography></Grid>
-                  <Grid item xs={12}><Typography><strong>Description:</strong> {selectedTicket.description || "N/A"}</Typography></Grid>
-                </Grid>
+                <div style={{ 
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
+                  gap: '16px',
+                  width: '100%'
+                }}>
+                  {[
+                    // Left Column
+                    ["Ticket Number", selectedTicket.ticket_id || "N/A"],
+                    ["First Name", selectedTicket.first_name || "N/A"],
+                    ["Phone", selectedTicket.phone_number || "N/A"],
+                    ["Requester", selectedTicket.requester || "N/A"],
+                    ["Region", selectedTicket.region || "N/A"],
+                    ["Channel", selectedTicket.channel || "N/A"],
+                    ["Section", selectedTicket.responsible_unit_name || "Unit"],
+                    ["Sub-section", selectedTicket.sub_section || "N/A"],
+                    ["Subject", selectedTicket.subject || "N/A"],
+                    ["Created By", selectedTicket?.creator?.name || "N/A"],
+                  ].map(([label, value], index) => (
+                    <div key={`left-${index}`} style={{ 
+                      padding: '12px 16px',
+                      backgroundColor: '#f8f9fa',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                      border: label === "Section" || label === "Sub-section" || label === "Subject" ? '2px solid #e0e0e0' : 'none'
+                    }}>
+                      <strong style={{ 
+                        minWidth: '120px',
+                        color: label === "Section" || label === "Sub-section" || label === "Subject" ? '#1976d2' : '#555',
+                        fontSize: '0.9rem'
+                      }}>{label}:</strong>
+                      <span style={{
+                        flex: 1,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        fontSize: '0.9rem',
+                        color: label === "Section" || label === "Function" || label === "Subject" ? '#1976d2' : 'inherit'
+                      }}>{value}</span>
+                    </div>
+                  ))}
+
+                  {/* Right Column */}
+                  {[
+                    ["Status", <span style={{ color: selectedTicket.status === "Open" ? "green" : selectedTicket.status === "Closed" ? "gray" : "blue" }}>{selectedTicket.status || "N/A"}</span>],
+                    ["Last Name", selectedTicket.last_name || "N/A"],
+                    ["NIDA", selectedTicket.nida_number || "N/A"],
+                    ["Institution", selectedTicket.institution || "N/A"],
+                    ["District", selectedTicket.district || "N/A"],
+                    ["Category", selectedTicket.category || "N/A"],
+                    ["Rated", <span style={{ color: selectedTicket.complaint_type === "Major" ? "red" : selectedTicket.complaint_type === "Minor" ? "orange" : "inherit" }}>{selectedTicket.complaint_type || "Unrated"}</span>],
+                    ["Assigned To", selectedTicket.assigned_to_id || "N/A"],
+                    ["Assigned Role", selectedTicket.assigned_to_role || "N/A"],
+                    ["Created At", selectedTicket.created_at ? new Date(selectedTicket.created_at).toLocaleString("en-US", { month: "numeric", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) : "N/A"]
+                  ].map(([label, value], index) => (
+                    <div key={`right-${index}`} style={{ 
+                      padding: '12px 16px',
+                      backgroundColor: '#f8f9fa',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                    }}>
+                      <strong style={{ 
+                        minWidth: '120px',
+                        color: '#555',
+                        fontSize: '0.9rem'
+                      }}>{label}:</strong>
+                      <span style={{
+                        flex: 1,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        fontSize: '0.9rem'
+                      }}>{value}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Description - Full Width */}
+                <div style={{ 
+                  width: '100%', 
+                  padding: '12px 16px',
+                  backgroundColor: '#f8f9fa',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                  marginTop: '16px'
+                }}>
+                  <strong style={{ 
+                    minWidth: '120px',
+                    color: '#555',
+                    fontSize: '0.9rem'
+                  }}>Description:</strong>
+                  <span style={{
+                    flex: 1,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    fontSize: '0.9rem',
+                    lineHeight: '1.5'
+                  }}>{selectedTicket.description || "N/A"}</span>
+                </div>
+
                 <Box sx={{ mt: 3, textAlign: "right" }}>
                   <Button
                     variant="contained"
@@ -1719,7 +1799,7 @@ const AgentCRM = () => {
               <div className="modal-form-group">
                 <label style={{ fontSize: "0.875rem" }}>Section:</label>
                 <input
-                  value={selectedSection}
+                  value={selectedSection || "Unit"}
                   readOnly
                   style={{
                     height: "32px",
