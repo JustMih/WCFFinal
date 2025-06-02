@@ -1,0 +1,41 @@
+/* src/pages/call-center-pages/cal-center-ivr/IvrCardsPage.css */
+
+.card-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 15px;
+  }
+  
+  .card {
+    background-color: #ffffff; /* White background */
+    border-radius: 8px;
+    padding: 20px;
+    width: 100px;
+    height:100px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s ease;
+  }
+  
+  .card:hover {
+    transform: scale(1.05);
+  }
+  
+  .card-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .card-icon {
+    font-size: 24px;
+    color:#007bff;
+    font-weight:bold;
+  }
+  
+  .card-text {
+    font-size: 16px;
+    font-weight: 300;
+    color: #007bff; /* Blue text color */
+  }
+  
