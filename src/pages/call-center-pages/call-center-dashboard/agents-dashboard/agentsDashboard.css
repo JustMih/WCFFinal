@@ -47,9 +47,9 @@
   border: 1px solid #ccc;
   box-shadow: 0 2px 8px rgba(60, 59, 59, 0.2);
   padding: 20px;
-  width: 250px;
+  width: 700px;
   z-index: 1000;
-  border-radius: 20px;
+  border-radius: 10px;
 }
 
 .phone-popup-header {
@@ -163,4 +163,12 @@
   gap: 20px;
   border-bottom: 1px dotted black;
   padding-bottom: 10px;
+}
+.inputRow{
+  display: flex;
+  gap: 5px;
+}
+.searchBtn{
+  background-color: #2668bf !important;
+  color: white !important;
 }
