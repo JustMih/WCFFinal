@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-
+import axios from "axios";
 import {
   MdOutlineLocalPhone,
   MdPauseCircleOutline,
@@ -16,7 +16,10 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  Autocomplete,
+  CircularProgress,
 } from "@mui/material";
+import SearchIcon from "@mui/icons-material/Search";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import Avatar from "@mui/material/Avatar";
@@ -59,7 +62,91 @@ import CallChart from "../../../../components/agent-chat/AgentChat";
 import QueueStatusTable from "../../../../components/agent-dashboard/QueueStatusTable";
 
 export default function AgentsDashboard() {
-  const [showPhonePopup, setShowPhonePopup] = useState(false);
+  const [customerType, setCustomerType] = useState("");
+  const [searchName, setSearchName] = useState(""); // typed input
+  const [nameSuggestions, setNameSuggestions] = useState([]); // results from API
+  const [registrationNumber, setRegistrationNumber] = useState(""); // optional
+  const [inputValue, setInputValue] = useState("");
+  const [options, setOptions] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchEmployers = async () => {
+      if (!customerType || inputValue.length < 3) {
+        setOptions([]);
+        return;
+      }  
+
+      setLoading(true);
+      try {
+        const response = await fetch(
+          "https://demomspapi.wcf.go.tz/api/v1/search/details",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              type: customerType,
+              name: inputValue,
+              employer_registration_number: "",
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const result = await response.json();
+        const data = result?.results || [];
+        console.log("mac data", data);
+        setOptions(data);
+      } catch (error) {
+        console.error("Error fetching employers:", error);
+        setOptions([]);
+      }
+      setLoading(false);
+    };
+
+    const timeout = setTimeout(fetchEmployers, 500); // debounce
+    return () => clearTimeout(timeout);
+  }, [inputValue]);
+
+  const handleSearch = async () => {
+    // Compose payload
+    const payload = {
+      type: customerType,
+      name: searchName, // or the name selected from Autocomplete inputValue
+      employer_registration_number: registrationNumber,
+    };
+
+    try {
+      const response = await fetch(
+        "https://demomspapi.wcf.go.tz/api/v1/search/details",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log("Search API response:", result);
+    } catch (error) {
+      console.error("Failed to fetch search results:", error);
+    }
+  };
+  
+  
+
+  const [showPhonePopup, setShowPhonePopup] = useState(true);
   const [consultSession, setConsultSession] = useState(null); // The target agent session
   const [isTransferring, setIsTransferring] = useState(false);
   const [callerId, setCallerId] = useState("");
@@ -96,7 +183,7 @@ export default function AgentsDashboard() {
 
   // user ticket from mac system
   const [userData, setUserData] = useState(null);
-  const [showUserForm, setShowUserForm] = useState(false);
+  const [showUserForm, setShowUserForm] = useState(true);
   const [formValues, setFormValues] = useState({
     first_name: "",
     middle_name: "",
@@ -189,6 +276,41 @@ export default function AgentsDashboard() {
   const togglePhonePopup = () => {
     setShowPhonePopup(!showPhonePopup);
   };
+
+  // useEffect(() => {
+  //   const delayFetch = setTimeout(() => {
+  //     if (searchName.length >= 3) {
+  //       fetch("https://demomspapi.wcf.go.tz/api/v1/search/details", {
+  //         method: "POST",
+  //         headers: {
+  //           "Content-Type": "application/json",
+  //         },
+  //         body: JSON.stringify({
+  //           type: customerType,
+  //           name: searchName,
+  //           employer_registration_number: registrationNumber,
+  //         }),
+  //       })
+  //         .then((res) => res.json())
+  //         .then((data) => {
+  //           if (data?.results) {
+  //             setNameSuggestions(data.results);
+  //           } else {
+  //             setNameSuggestions([]);
+  //           }
+  //         })
+  //         .catch((err) => {
+  //           console.error("Failed to fetch names:", err);
+  //           setNameSuggestions([]);
+  //         });
+  //     } else {
+  //       setNameSuggestions([]);
+  //     }
+  //   }, 400); // debounce 400ms
+
+  //   return () => clearTimeout(delayFetch);
+  // }, [searchName, customerType, registrationNumber]);
+  
 
   useEffect(() => {
     const savedStatus = localStorage.getItem("agentStatus");
@@ -1408,88 +1530,167 @@ export default function AgentsDashboard() {
               className="ticket-creation-form"
               style={{
                 marginTop: 20,
-                padding: 20,
-                border: "1px solid #ccc",
+                padding: 10,
+                border: "0px solid #ccc",
                 borderRadius: 12,
-                maxWidth: 600,
-                backgroundColor: "#f9f9f9",
+                maxWidth: 700,
+                backgroundColor: "whitesmoke",
                 boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                 marginLeft: "auto",
                 marginRight: "auto",
               }}
             >
-              <h3>User Information</h3>
+              <div className="inputRow">
+                <TextField
+                  select
+                  // label="Customer Type"
+                  value={customerType}
+                  onChange={(e) => setCustomerType(e.target.value)}
+                  fullWidth
+                  SelectProps={{ native: true }}
+                >
+                  <option value="">Customer Type</option>
+                  <option value="employer">Employer</option>
+                  <option value="employee">Employee</option>
+                </TextField>
 
-              <TextField
-                label="First Name"
-                value={formValues.first_name}
-                fullWidth
-                margin="normal"
-                onChange={(e) =>
-                  setFormValues({ ...formValues, first_name: e.target.value })
-                }
-              />
-              <TextField
-                label="Middle Name"
-                value={formValues.middle_name}
-                fullWidth
-                margin="normal"
-                onChange={(e) =>
-                  setFormValues({ ...formValues, middle_name: e.target.value })
-                }
-              />
-              <TextField
-                label="Last Name"
-                value={formValues.last_name}
-                fullWidth
-                margin="normal"
-                onChange={(e) =>
-                  setFormValues({ ...formValues, last_name: e.target.value })
-                }
-              />
-              <TextField
-                label="Phone Number"
-                value={formValues.phone_number}
-                fullWidth
-                margin="normal"
-                disabled
-              />
-              <TextField
-                label="NIDA Number"
-                value={formValues.nida_number}
-                fullWidth
-                margin="normal"
-                onChange={(e) =>
-                  setFormValues({ ...formValues, nida_number: e.target.value })
-                }
-              />
-              <TextField
-                label="Institution"
-                value={formValues.institution}
-                fullWidth
-                margin="normal"
-                onChange={(e) =>
-                  setFormValues({ ...formValues, institution: e.target.value })
-                }
-              />
-              <TextField
-                label="Region"
-                value={formValues.region}
-                fullWidth
-                margin="normal"
-                onChange={(e) =>
-                  setFormValues({ ...formValues, region: e.target.value })
-                }
-              />
-              <TextField
-                label="District"
-                value={formValues.district}
-                fullWidth
-                margin="normal"
-                onChange={(e) =>
-                  setFormValues({ ...formValues, district: e.target.value })
-                }
-              />
+                <Autocomplete
+                  options={options}
+                  fullWidth
+                  getOptionLabel={(option) => option.name || ""}
+                  loading={loading}
+                  onInputChange={(event, newInputValue) => {
+                    if (customerType) {
+                      setInputValue(newInputValue);
+                      setSearchName(newInputValue);
+                    }
+                  }}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Search Employer"
+                      variant="outlined"
+                      disabled={!customerType} // Disable if no customerType selected
+                      InputProps={{
+                        ...params.InputProps,
+                        endAdornment: (
+                          <>
+                            {loading ? <CircularProgress size={20} /> : null}
+                            {params.InputProps.endAdornment}
+                          </>
+                        ),
+                      }}
+                    />
+                  )}
+                />
+
+                <TextField
+                  label="Registration Number"
+                  value={registrationNumber}
+                  onChange={(e) => setRegistrationNumber(e.target.value)}
+                  fullWidth
+                  disabled={!customerType} // Disable if no customerType selected
+                />
+                <Button
+                  variant="contained"
+                  startIcon={<SearchIcon />}
+                  onClick={handleSearch}
+                >
+                  Search
+                </Button>
+              </div>
+              <div>
+                <div className="inputRow">
+                  <TextField
+                    label="First Name"
+                    value={formValues.first_name}
+                    fullWidth
+                    margin="normal"
+                    onChange={(e) =>
+                      setFormValues({
+                        ...formValues,
+                        first_name: e.target.value,
+                      })
+                    }
+                  />
+                  <TextField
+                    label="Middle Name"
+                    value={formValues.middle_name}
+                    fullWidth
+                    margin="normal"
+                    onChange={(e) =>
+                      setFormValues({
+                        ...formValues,
+                        middle_name: e.target.value,
+                      })
+                    }
+                  />
+                  <TextField
+                    label="Last Name"
+                    value={formValues.last_name}
+                    fullWidth
+                    margin="normal"
+                    onChange={(e) =>
+                      setFormValues({
+                        ...formValues,
+                        last_name: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="inputRow">
+                  <TextField
+                    label="Phone Number"
+                    value={formValues.phone_number}
+                    fullWidth
+                    margin="normal"
+                  />
+                  <TextField
+                    label="NIDA Number"
+                    value={formValues.nida_number}
+                    fullWidth
+                    margin="normal"
+                    onChange={(e) =>
+                      setFormValues({
+                        ...formValues,
+                        nida_number: e.target.value,
+                      })
+                    }
+                  />
+                  <TextField
+                    label="Institution"
+                    value={formValues.institution}
+                    fullWidth
+                    margin="normal"
+                    onChange={(e) =>
+                      setFormValues({
+                        ...formValues,
+                        institution: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div className="inputRow">
+                  <TextField
+                    label="Region"
+                    value={formValues.region}
+                    fullWidth
+                    margin="normal"
+                    onChange={(e) =>
+                      setFormValues({ ...formValues, region: e.target.value })
+                    }
+                  />
+                  <TextField
+                    label="District"
+                    value={formValues.district}
+                    fullWidth
+                    margin="normal"
+                    onChange={(e) =>
+                      setFormValues({ ...formValues, district: e.target.value })
+                    }
+                  />
+                </div>
+              </div>
 
               <Button
                 variant="contained"
