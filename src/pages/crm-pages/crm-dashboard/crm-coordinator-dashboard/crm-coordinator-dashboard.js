@@ -941,7 +941,7 @@ export default function CoordinatorDashboard() {
                 handleUnitChange(selectedTicket.id, e.target.value)
               }
             >
-              <option value="">To Unit</option>
+              <option value="">{selectedTicket.section}</option>
               {units.map((unit) => (
                 <option key={unit.name} value={unit.name}>{unit.name}</option>
               ))}

@@ -27,6 +27,7 @@ import "./crm-agent-dashboard.css";
 import TicketActions from "../../../../components/ticket/TicketActions";
 import TicketFilters from "../../../../components/ticket/TicketFilters";
 import TicketDetailsModal from "../../../../components/ticket/TicketDetailsModal";
+import axios from "axios";
 
 const AgentCRM = () => {
   // State for form data
@@ -168,6 +169,11 @@ const AgentCRM = () => {
   // Notification modal state
   const [showNotifyModal, setShowNotifyModal] = useState(false);
   const [notifyMessage, setNotifyMessage] = useState("");
+
+  // Add new state for search
+  const [searchType, setSearchType] = useState('employee'); // 'employee' or 'employer'
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchBy, setSearchBy] = useState('name'); // 'name' or 'wcf_number'
 
   // Fetch function data for subject selection
   useEffect(() => {
@@ -876,6 +882,101 @@ const AgentCRM = () => {
     setNewTicketConfirmationModal(false);
   };
 
+  // Add the search function
+  const handleMemberSearch = async () => {
+    if (!searchQuery) {
+      setSnackbar({
+        open: true,
+        message: "Please enter either a name or WCF number",
+        severity: "warning"
+      });
+      return;
+    }
+  
+    const payload = {
+      type: searchType,
+      name: searchBy === 'name' ? searchQuery : '',
+      employer_registration_number: searchBy === 'wcf_number' ? searchQuery : ''
+    };
+  
+    try {
+      const response = await fetch('https://demomspapi.wcf.go.tz/api/v1/search/details', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        mode: 'cors',
+        body: JSON.stringify(payload)
+      });
+  
+      const data = await response.json();
+  
+      if (!response.ok || data.error || !data.results?.length) {
+        setSnackbar({
+          open: true,
+          message: data.message || "No matching record found.",
+          severity: "error"
+        });
+        return;
+      }
+  
+      const memberInfo = data.results[0];
+      let rawName = memberInfo.name || '';
+      let cleanName = '';
+      let employerName = '';
+  
+      // Extract clean name and employer
+      try {
+        rawName = rawName.replace(/^\d+\.\s*/, ''); // Remove number prefix like "14."
+        const [namePart] = rawName.split('—'); // Split before the em dash
+        cleanName = namePart.trim();
+  
+        const employerMatch = rawName.match(/\(([^)]+)\)/);
+        employerName = employerMatch ? employerMatch[1] : '';
+      } catch (err) {
+        console.warn("Name parsing error:", err);
+      }
+  
+      const [firstName, ...rest] = cleanName.split(' ');
+      const lastName = rest.join(' ');
+  
+      // Fill form data
+      setFormData((prev) => ({
+        ...prev,
+        firstName: firstName || '',
+        lastName: lastName || '',
+        memberNo: memberInfo.memberno?.toString() || '',
+        requester: searchType === 'employee' ? 'Employee' : 'Employer',
+        institution: employerName || prev.institution,
+        phoneNumber: prev.phoneNumber,
+        nidaNumber: prev.nidaNumber,
+        region: prev.region,
+        district: prev.district,
+        channel: prev.channel,
+        category: prev.category,
+        functionId: prev.functionId,
+        description: prev.description,
+        status: prev.status
+      }));
+  
+      setSnackbar({
+        open: true,
+        message: "Member found and form auto-filled.",
+        severity: "success"
+      });
+  
+    } catch (error) {
+      console.error("Search error:", error);
+      setSnackbar({
+        open: true,
+        message: "Failed to connect to the search service.",
+        severity: "error"
+      });
+    }
+  };
+  
+
   if (loading) {
     return (
       <div className="p-6">
@@ -1500,41 +1601,93 @@ const AgentCRM = () => {
 
       {/* Ticket Creation Modal */}
       <Modal open={showModal} onClose={() => setShowModal(false)}>
-        <Box
-          sx={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: { xs: "90%", sm: 600 },
-            maxHeight: "90vh",
-            overflowY: "auto",
-            bgcolor: "background.paper",
-            boxShadow: 24,
-            borderRadius: 3,
-            p: 4
-          }}
-        >
-          <button
-            onClick={() => setShowModal(false)}
-            style={{
-              position: "absolute",
-              top: 6,
-              right: 12,
-              background: "transparent",
-              border: "none",
-              fontSize: "1.25rem",
-              cursor: "pointer"
-            }}
-            aria-label="Close"
-          >
-            ×
-          </button>
-
+        <Box sx={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: { xs: "90%", sm: 600 },
+          maxHeight: "90vh",
+          overflowY: "auto",
+          bgcolor: "background.paper",
+          boxShadow: 24,
+          borderRadius: 3,
+          p: 4
+        }}>
           <div className="modal-form-container">
             <h2 className="modal-title">New Ticket</h2>
 
-            {/* First Row */}
+            {/* Search Section */}
+            <div className="search-section" style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Search Type:</label>
+                <select
+                  value={searchType}
+                  onChange={(e) => setSearchType(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    borderRadius: '4px',
+                    border: '1px solid #ddd'
+                  }}
+                >
+                  <option value="employee">Employee</option>
+                  <option value="employer">Employer</option>
+                </select>
+              </div>
+
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Search By:</label>
+                <select
+                  value={searchBy}
+                  onChange={(e) => setSearchBy(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    borderRadius: '4px',
+                    border: '1px solid #ddd'
+                  }}
+                >
+                  <option value="name">Name</option>
+                  <option value="wcf_number">WCF Number</option>
+                </select>
+              </div>
+
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
+                  {searchBy === 'name' ? 'Enter Name' : 'Enter WCF Number'}:
+                </label>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={searchBy === 'name' ? "Enter name to search..." : "Enter WCF number..."}
+                    style={{
+                      flex: 1,
+                      padding: '8px',
+                      borderRadius: '4px',
+                      border: '1px solid #ddd'
+                    }}
+                  />
+                  <button
+                    onClick={handleMemberSearch}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: '#007bff',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Search
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Existing form fields */}
             <div className="modal-form-row">
               <div className="modal-form-group">
                 <label style={{ fontSize: "0.875rem" }}>First Name:</label>
@@ -1659,9 +1812,9 @@ const AgentCRM = () => {
                   <option value="Pensioners">Pensioners</option>
                   <option value="Stakeholders">Stakeholders</option>
                 </select>
-                {formErrors.category && (
+                {formErrors.requester && (
                   <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.category}
+                    {formErrors.requester}
                   </span>
                 )}
               </div>
