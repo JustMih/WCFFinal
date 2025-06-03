@@ -75,18 +75,19 @@ const IVRInteractions = () => {
         <table className="ivr-table">
           <thead>
             <tr>
-              <th>ID</th><th>DTMF Digit</th><th>Action ID</th><th>Parameter</th>
-              <th>IVR Voice ID</th><th>Created At</th><th>Updated At</th>
+              <th>ID</th><th>DTMF Digit</th><th>Action Name</th><th>Parameter</th>
+              <th>IVR Voice Name</th><th>Created At</th><th>Updated At</th>
             </tr>
           </thead>
           <tbody>
-  {paginated.length > 0 ? paginated.map(i => (
+    {paginated.length > 0 ? paginated.map((i, index) => (
     <tr key={i.id}>
-      <td>{i.id}</td>
+      {/* Display sequential numbers starting from 1 */}
+      <td>{index + 1}</td>
       <td>{i.dtmf_digit}</td>
-      <td>{i.action?.name || i.action_id}</td>
+      <td>{i.action?.name || 'N/A'}</td>  
       <td>{i.parameter}</td>
-      <td>{i.voice?.file_name || i.ivr_voice_id}</td>
+      <td>{i.voice?.file_name || 'N/A'}</td>  
       <td>{new Date(i.createdAt).toLocaleString()}</td>
       <td>{new Date(i.updatedAt).toLocaleString()}</td>
     </tr>
