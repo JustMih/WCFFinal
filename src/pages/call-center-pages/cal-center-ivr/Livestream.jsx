@@ -6,7 +6,7 @@ const Livestream = () => {
   
   useEffect(() => {
     // Connect to the WebSocket server
-    const socket = io("http://10.52.0.19:5070");
+    const socket = io("https://10.52.0.19:5070");
 
     // Listen for RTP packet updates
     socket.on("rtp_update", (data) => {

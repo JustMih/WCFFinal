@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+ import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { baseURL } from "../../../config";
 
@@ -6,6 +6,9 @@ export default function RecordedSounds() {
   const [voiceNotes, setVoiceNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [playedStatus, setPlayedStatus] = useState({});
+  const [currentAudio, setCurrentAudio] = useState(null);
+  const [currentlyPlayingId, setCurrentlyPlayingId] = useState(null);
 
   useEffect(() => {
     const fetchVoiceNotes = async () => {
@@ -18,14 +21,9 @@ export default function RecordedSounds() {
             "Content-Type": "application/json",
           },
         });
-        console.log("Full API response:", response);
         setVoiceNotes(response.data.voiceNotes || []);
       } catch (err) {
-        console.error("API Error:", {
-          message: err.message,
-          config: err.config,
-          response: err.response?.data,
-        });
+        console.error("API Error:", err);
         setError(`Failed to load: ${err.response?.status || "Network error"}`);
       } finally {
         setLoading(false);
@@ -37,20 +35,38 @@ export default function RecordedSounds() {
 
   const handlePlayVoice = async (noteId) => {
     const audioUrl = `${baseURL}/voice-notes/${noteId}/audio`;
-    console.log("Attempting to play audio from:", audioUrl);
+
+    // Stop currently playing audio
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+    }
 
     try {
       const response = await fetch(audioUrl, { method: "HEAD" });
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+
       const audio = new Audio(audioUrl);
-      await audio.play();
+      audio.play();
+      setCurrentAudio(audio);
+      setCurrentlyPlayingId(noteId);
+      setPlayedStatus((prev) => ({ ...prev, [noteId]: true }));
+
+      // Reset state when audio ends
+      audio.onended = () => {
+        setCurrentlyPlayingId(null);
+        setCurrentAudio(null);
+      };
     } catch (error) {
       console.error("Error playing audio:", error);
-      alert(
-        `Failed to play audio. Error: ${error.message}. Please verify the audio exists at: ${audioUrl}`
-      );
+      alert(`Failed to play audio. Error: ${error.message}`);
+    }
+  };
+
+  const handlePauseVoice = () => {
+    if (currentAudio) {
+      currentAudio.pause();
+      setCurrentlyPlayingId(null);
     }
   };
 
@@ -68,21 +84,37 @@ export default function RecordedSounds() {
             <th>Recording Path</th>
             <th>Caller ID</th>
             <th>Created At</th>
-            <th>Play</th>
+            <th>Status</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {voiceNotes.map((note) => (
-            <tr key={note.id}>
-              <td>{note.id}</td>
-              <td>{note.recording_path}</td>
-              <td>{note.clid}</td>
-              <td>{new Date(note.created_at).toLocaleString()}</td>
-              <td>
-                <button onClick={() => handlePlayVoice(note.id)}>Play</button>
-              </td>
-            </tr>
-          ))}
+          {voiceNotes.map((note) => {
+            const isPlayed = playedStatus[note.id];
+            const isPlaying = currentlyPlayingId === note.id;
+            return (
+              <tr
+                key={note.id}
+                style={{
+                  backgroundColor: isPlayed ? "#d4edda" : "#fff3cd", // green or yellow
+                }}
+              >
+                <td>{note.id}</td>
+                <td>{note.recording_path}</td>
+                <td>{note.clid}</td>
+                <td>{new Date(note.created_at).toLocaleString()}</td>
+                <td>{isPlayed ? "Played" : "Not Played"}</td>
+                <td>
+                  <button onClick={() => handlePlayVoice(note.id)}>Play</button>
+                  {isPlaying && (
+                    <button onClick={handlePauseVoice} style={{ marginLeft: "5px" }}>
+                      Pause
+                    </button>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>

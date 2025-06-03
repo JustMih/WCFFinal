@@ -1,45 +1,3 @@
-// import React, { useEffect, useState } from "react";
-// import axios from "axios";
-
-// const RecordedAudio = () => {
-//   const [recordings, setRecordings] = useState([]);
-//   const [error, setError] = useState(null);
-
-//   useEffect(() => {
-//     // Fetch the list of recorded files from the backend
-//     axios
-//       .get("/api/recorded-audio")
-//       .then((response) => {
-//         setRecordings(response.data); // Assuming backend returns the list of filenames
-//       })
-//       .catch((err) => {
-//         setError("Error fetching recordings.");
-//       });
-//   }, []);
-
-//   return (
-//     <div>
-//       <h1>Recorded Audio Files</h1>
-//       {error && <p>{error}</p>}
-//       <ul>
-//         {recordings.map((file, index) => (
-//           <li key={index}>
-//             <a href={`/api/recorded-audio/${file}`} target="_blank" rel="noopener noreferrer">
-//               {file}
-//             </a>
-//             <audio controls>
-//               <source src={`/api/recorded-audio/${file}`} type="audio/wav" />
-//               Your browser does not support the audio element.
-//             </audio>
-//           </li>
-//         ))}
-//       </ul>
-//     </div>
-//   );
-// };
-
-// export default RecordedAudio;
-// RecordedAudio.jsx
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
@@ -47,46 +5,106 @@ const RecordedAudio = () => {
   const [recordings, setRecordings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [currentAudio, setCurrentAudio] = useState(null);
+  const [currentlyPlayingId, setCurrentlyPlayingId] = useState(null);
+  const [playedStatus, setPlayedStatus] = useState({});
 
   useEffect(() => {
     const fetchRecordings = async () => {
       try {
         const response = await axios.get('http://localhost:5070/api/recorded-audio');
         setRecordings(response.data);
-        setLoading(false);
       } catch (err) {
         setError(err.response?.data?.error || err.message);
+        console.error('API Error:', err);
+      } finally {
         setLoading(false);
-        console.error('API Error:', err.response?.data);
       }
     };
-    
     fetchRecordings();
   }, []);
+
+  const handlePlay = async (recording) => {
+    const audioUrl = `http://localhost:5070${recording.url}`;
+
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+    }
+
+    try {
+      const audio = new Audio(audioUrl);
+      audio.play();
+      setCurrentAudio(audio);
+      setCurrentlyPlayingId(recording.filename);
+      setPlayedStatus((prev) => ({ ...prev, [recording.filename]: true }));
+
+      audio.onended = () => {
+        setCurrentlyPlayingId(null);
+        setCurrentAudio(null);
+      };
+    } catch (err) {
+      console.error("Failed to play audio:", err);
+      alert(`Error: ${err.message}`);
+    }
+  };
+
+  const handlePause = () => {
+    if (currentAudio) {
+      currentAudio.pause();
+      setCurrentlyPlayingId(null);
+    }
+  };
+
   if (loading) return <div>Loading recordings...</div>;
   if (error) return <div className="error">Error: {error}</div>;
 
   return (
     <div>
       <h2>Recorded Calls</h2>
-      <ul>
-        {recordings.map(rec => (
-          <li key={rec.filename}>
-            <p>
-              {rec.filename} - 
-              {new Date(rec.created).toLocaleString()} - 
-              {(rec.size / 1024).toFixed(2)} KB
-            </p>
-            <audio controls>
-              <source 
-               src={`http://localhost:5070/api/recorded-audio/${encodeURIComponent(rec.filename)}`}
-                type="audio/wav" 
-              />
-            </audio>
-          </li>
-        ))}
-      </ul>
+      <table border="1" cellPadding="6" cellSpacing="0" style={{ width: '100%', marginTop: '1rem' }}>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Filename</th>
+            <th>Caller</th>
+            <th>Created</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {recordings.map((rec, index) => {
+            const isPlaying = currentlyPlayingId === rec.filename;
+            const isPlayed = playedStatus[rec.filename];
+            return (
+              <tr
+                key={rec.filename}
+                style={{
+                  backgroundColor: isPlayed ? '#d4edda' : '#fff3cd' // green or yellow
+                }}
+              >
+                <td>{index + 1}</td>
+                <td>{rec.filename}</td>
+                <td>{rec.caller}</td>
+                <td>{new Date(rec.created).toLocaleString()}</td>
+                <td>{isPlayed ? 'Played' : 'Not Played'}</td>
+                <td>
+                  <button onClick={() => handlePlay(rec)}>Play</button>
+                  {isPlaying && (
+                    <button onClick={handlePause} style={{ marginLeft: '5px' }}>
+                      Pause
+                    </button>
+                  )}
+                </td>
+                
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
     </div>
   );
 };
+
 export default RecordedAudio;
