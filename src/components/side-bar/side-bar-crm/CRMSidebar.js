@@ -119,145 +119,147 @@ export default function CRMSidebar({ isSidebarOpen }) {
         <img src={logo} alt="Avatar" className="crm-sidebar-logo" />
       )}
       <ul>
-        {(role === "agent"  || role === "attendee") && (
-            <>
-              <li>
-                <NavLink
-                  to="/dashboard"
-                  className={({ isActive }) =>
-                    isActive ? "menu-item active-link" : "menu-item"
-                  }
-                >
-                  <div className="menu-item">
-                    <RxDashboard className="menu-icon" />
-                    {isSidebarOpen && (
-                      <span className="menu-text">Agent Dashboard</span>
-                    )}
-                  </div>
-                </NavLink>
-
-                <NavLink
-                to="/message"
-                className={({ isActive }) => (isActive ? "menu-item active-link" : "menu-item")}
+        {(role === "agent" || role === "attendee") && (
+          <>
+            <li>
+              <NavLink
+                to="/dashboard"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
               >
                 <div className="menu-item">
-                  <MdEmail className="menu-icon" />
-                  {isSidebarOpen && <span className="menu-text">Message</span>}
+                  <RxDashboard className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">Agent Dashboard</span>
+                  )}
                 </div>
               </NavLink>
 
-                <div
-                  className={`menu-item ${
-                    window.location.pathname.startsWith("/ticket")
-                      ? "active-link"
-                      : ""
-                  }`}
-                  onClick={toggleAgentsDropdown}
-                  style={{ cursor: "pointer", padding: "12px 20px" }}
-                >
-                  <MdOutlineSupportAgent className="menu-icon" />
+              <NavLink
+                to="/notifications"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <MdEmail className="menu-icon" />
                   {isSidebarOpen && (
-                    <span className="menu-text">
-                      Ticket Management{" "}
-                      {isAgentsOpen ? <FaChevronUp /> : <FaChevronDown />}
-                    </span>
+                    <span className="menu-text">Notifications</span>
                   )}
                 </div>
+              </NavLink>
 
-                {isSidebarOpen && isAgentsOpen && (
-                  <div className="dropdown-menu submenu">
-                    <div className="menu-section">
-                      <div
-                        className={`section-header ${
-                          openSection === "agentTickets" ? "" : "collapsed"
-                        }`}
-                        onClick={() => toggleSection("agentTickets")}
-                      >
-                        <span className="section-title">Ticket Overview</span>
-                        <span className="section-count">
-                          {ticketStats.total || 0}
-                        </span>
-                      </div>
-                      {openSection === "agentTickets" && (
-                        <div className="section-items">
-                          {[
-                            {
-                              label: "Opened Tickets",
-                              to: "/ticket/opened",
-                              value: ticketStats.open,
-                              icon: "🔓"
-                            },
-                            {
-                              label: "Assigned Tickets",
-                              to: "/ticket/assigned",
-                              value: ticketStats.assigned,
-                              icon: "📋"
-                            },
-                            {
-                              label: "In Progress",
-                              to: "/ticket/in-progress",
-                              value: ticketStats.inProgress,
-                              icon: "⏳"
-                            },
-                            {
-                              label: "Carried Forward",
-                              to: "/ticket/carried-forward",
-                              value: ticketStats.carriedForward,
-                              icon: "↪️"
-                            },
-                            {
-                              label: "Closed Tickets",
-                              to: "/ticket/closed",
-                              value: ticketStats.closed,
-                              icon: "🔒"
-                            },
-                            {
-                              label: "Overdue",
-                              to: "/ticket/overdue",
-                              value: ticketStats.overdue,
-                              icon: "⚠️"
-                            },
-                            {
-                              label: "Total Tickets",
-                              to: "/ticket/all",
-                              value: ticketStats.total,
-                              icon: "📊"
-                            }
-                          ].map((item, idx) => (
-                            <NavLink
-                              key={idx}
-                              to={item.to}
-                              className={({ isActive }) =>
-                                isActive ? "dropdown-item active-link" : "dropdown-item"
-                              }
-                              style={{ padding: "12px 20px" }}
-                            >
-                              <div className="metric-row">
-                                <span className="metric-icon">{item.icon}</span>
-                                <span className="metric-label">
-                                  {item.label}
-                                </span>
-                                <span className="metric-value">
-                                  {item.value}
-                                </span>
-                              </div>
-                            </NavLink>
-                          ))}
-                        </div>
-                      )}
+              <div
+                className={`menu-item ${
+                  window.location.pathname.startsWith("/ticket")
+                    ? "active-link"
+                    : ""
+                }`}
+                onClick={toggleAgentsDropdown}
+                style={{ cursor: "pointer", padding: "12px 20px" }}
+              >
+                <MdOutlineSupportAgent className="menu-icon" />
+                {isSidebarOpen && (
+                  <span className="menu-text">
+                    Ticket Management{" "}
+                    {isAgentsOpen ? <FaChevronUp /> : <FaChevronDown />}
+                  </span>
+                )}
+              </div>
+
+              {isSidebarOpen && isAgentsOpen && (
+                <div className="dropdown-menu submenu">
+                  <div className="menu-section">
+                    <div
+                      className={`section-header ${
+                        openSection === "agentTickets" ? "" : "collapsed"
+                      }`}
+                      onClick={() => toggleSection("agentTickets")}
+                    >
+                      <span className="section-title">Ticket Overview</span>
+                      <span className="section-count">
+                        {ticketStats.total || 0}
+                      </span>
                     </div>
-                    {fetchError && (
-                      <div className="section error-message">
-                        <span style={{ color: "red", padding: "0 1rem" }}>
-                          {fetchError}
-                        </span>
+                    {openSection === "agentTickets" && (
+                      <div className="section-items">
+                        {[
+                          {
+                            label: "Opened Tickets",
+                            to: "/ticket/opened",
+                            value: ticketStats.open,
+                            icon: "🔓"
+                          },
+                          {
+                            label: "Assigned Tickets",
+                            to: "/ticket/assigned",
+                            value: ticketStats.assigned,
+                            icon: "📋"
+                          },
+                          {
+                            label: "In Progress",
+                            to: "/ticket/in-progress",
+                            value: ticketStats.inProgress,
+                            icon: "⏳"
+                          },
+                          {
+                            label: "Carried Forward",
+                            to: "/ticket/carried-forward",
+                            value: ticketStats.carriedForward,
+                            icon: "↪️"
+                          },
+                          {
+                            label: "Closed Tickets",
+                            to: "/ticket/closed",
+                            value: ticketStats.closed,
+                            icon: "🔒"
+                          },
+                          {
+                            label: "Overdue",
+                            to: "/ticket/overdue",
+                            value: ticketStats.overdue,
+                            icon: "⚠️"
+                          },
+                          {
+                            label: "Total Tickets",
+                            to: "/ticket/all",
+                            value: ticketStats.total,
+                            icon: "📊"
+                          }
+                        ].map((item, idx) => (
+                          <NavLink
+                            key={idx}
+                            to={item.to}
+                            className={({ isActive }) =>
+                              isActive
+                                ? "dropdown-item active-link"
+                                : "dropdown-item"
+                            }
+                            style={{ padding: "12px 20px" }}
+                          >
+                            <div className="metric-row">
+                              <span className="metric-icon">{item.icon}</span>
+                              <span className="metric-label">{item.label}</span>
+                              <span className="metric-value">{item.value}</span>
+                            </div>
+                          </NavLink>
+                        ))}
                       </div>
                     )}
                   </div>
-                )}
-              </li>
-            </>
-          )}
+                  {fetchError && (
+                    <div className="section error-message">
+                      <span style={{ color: "red", padding: "0 1rem" }}>
+                        {fetchError}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </li>
+          </>
+        )}
         {role === "coordinator" && (
           <>
             <li>
@@ -319,7 +321,9 @@ export default function CRMSidebar({ isSidebarOpen }) {
                           {
                             label: "Escalated",
                             to: `/coordinator/escalated`,
-                            value: ticketStats.newTickets?.["Escalated Tickets"] || 0,
+                            value:
+                              ticketStats.newTickets?.["Escalated Tickets"] ||
+                              0,
                             icon: "⚠️"
                           }
                         ].map((item, idx) => (
@@ -466,7 +470,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                       <span className="section-title">Ticket Status</span>
                       <span className="section-count">
                         {/* {(ticketStats.ticketStatus?.["On Progress"] || 0) + (ticketStats.ticketStatus?.Closed || 0)} */}
-                        { (ticketStats.ticketStatus?.Closed || 0)}
+                        {ticketStats.ticketStatus?.Closed || 0}
                       </span>
                     </div>
                     {openSection === "ticketStatus" && (
@@ -484,7 +488,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                             to: `/coordinator/closed`,
                             value: ticketStats.ticketStatus?.Closed || 0,
                             icon: "🔒"
-                          },
+                          }
                         ].map((item, idx) => (
                           <NavLink
                             key={idx}
