@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   MdOutlineSupportAgent,
   MdAutoAwesomeMotion,
@@ -19,8 +19,11 @@ import {
   Snackbar,
   TextField,
   Tooltip,
-  Typography
+  Typography,
+  Autocomplete,
+  CircularProgress
 } from "@mui/material";
+import { styled } from '@mui/material/styles';
 import ColumnSelector from "../../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../../config";
 import "./crm-agent-dashboard.css";
@@ -29,10 +32,54 @@ import TicketFilters from "../../../../components/ticket/TicketFilters";
 import TicketDetailsModal from "../../../../components/ticket/TicketDetailsModal";
 import axios from "axios";
 
+// Add styled components for better typeahead styling
+const StyledAutocomplete = styled(Autocomplete)(({ theme }) => ({
+  '& .MuiInputBase-root': {
+    padding: '2px 4px',
+    backgroundColor: '#fff',
+    borderRadius: '4px',
+    '&:hover': {
+      borderColor: theme.palette.primary.main,
+    },
+  },
+  '& .MuiAutocomplete-listbox': {
+    '& li': {
+      padding: '8px 16px',
+      '&:hover': {
+        backgroundColor: '#f5f5f5',
+      },
+    },
+  },
+  '& .MuiAutocomplete-loading': {
+    padding: '10px',
+    textAlign: 'center',
+  },
+}));
+
+const SuggestionItem = styled('div')({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '4px',
+  '& .suggestion-name': {
+    fontWeight: 600,
+    color: '#2c3e50',
+  },
+  '& .suggestion-details': {
+    fontSize: '0.85rem',
+    color: '#7f8c8d',
+  },
+  '& .highlight': {
+    backgroundColor: '#fff3cd',
+    padding: '0 2px',
+    borderRadius: '2px',
+  },
+});
+
 const AgentCRM = () => {
   // State for form data
   const [formData, setFormData] = useState({
     firstName: "",
+    middleName: "", // Add middle name
     lastName: "",
     phoneNumber: "",
     nidaNumber: "",
@@ -175,6 +222,15 @@ const AgentCRM = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchBy, setSearchBy] = useState('name'); // 'name' or 'wcf_number'
 
+  // Add new state for search suggestions
+  const [searchSuggestions, setSearchSuggestions] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedSuggestion, setSelectedSuggestion] = useState(null);
+
+  const searchTimeoutRef = useRef(null);
+  const [inputValue, setInputValue] = useState('');
+  const [open, setOpen] = useState(false);
+
   // Fetch function data for subject selection
   useEffect(() => {
     const fetchData = async () => {
@@ -314,7 +370,7 @@ const AgentCRM = () => {
 
     const requiredFields = {
       firstName: "First Name",
-      lastName: "Last Name",
+      ...(formData.requester !== "Employer" && { lastName: "Last Name" }), // Only include lastName if not Employer
       phoneNumber: "Phone Number",
       nidaNumber: "NIDA Number",
       requester: "Requester",
@@ -354,10 +410,10 @@ const AgentCRM = () => {
       const ticketData = {
         ...formData,
         subject: selectedFunction ? selectedFunction.name : '',
-        section: selectedSection || 'Unit',  // Add section name
-        sub_section: selectedFunction ? selectedFunction.function?.name : '',  // Fix to use function name
+        section: selectedSection || 'Unit',
+        sub_section: selectedFunction ? selectedFunction.function?.name : '',
         responsible_unit_id: formData.functionId,
-        responsible_unit_name: selectedSection || 'Unit',  // Changed to use section name instead of function name
+        responsible_unit_name: selectedSection || 'Unit',
         status: submitAction === "closed" ? "Closed" : "Open"
       };
 
@@ -381,6 +437,7 @@ const AgentCRM = () => {
         setShowModal(false);
         setFormData({
           firstName: "",
+          middleName: "", // Reset middle name
           lastName: "",
           phoneNumber: "",
           nidaNumber: "",
@@ -857,6 +914,7 @@ const AgentCRM = () => {
         const prev = foundTickets[0]; // most recent ticket
         setFormData({
           firstName: prev.first_name || "",
+          middleName: prev.middle_name || "", // Add middle name
           lastName: prev.last_name || "",
           phoneNumber: prev.phone_number || phoneSearch,
           nidaNumber: prev.nida_number || "",
@@ -945,6 +1003,7 @@ const AgentCRM = () => {
       setFormData((prev) => ({
         ...prev,
         firstName: firstName || '',
+        middleName: rest.length > 2 ? rest.slice(1, -1).join(' ') : '', // Extract middle name
         lastName: lastName || '',
         memberNo: memberInfo.memberno?.toString() || '',
         requester: searchType === 'employee' ? 'Employee' : 'Employer',
@@ -970,12 +1029,285 @@ const AgentCRM = () => {
       console.error("Search error:", error);
       setSnackbar({
         open: true,
-        message: "Failed to connect to the search service.",
+        message: "Failed to connect to the search service. Please try again.",
         severity: "error"
       });
     }
   };
   
+  // Update the debouncedSearch function to handle phone numbers
+  const debouncedSearch = useCallback(async (searchText) => {
+    if (!searchText || searchText.length < 1) {
+      setSearchSuggestions([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const response = await fetch('https://demomspapi.wcf.go.tz/api/v1/search/details', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        mode: 'cors',
+        body: JSON.stringify({
+          type: searchType,
+          name: searchText,
+          employer_registration_number: searchBy === 'wcf_number' ? searchText : ''
+        })
+      });
+
+      const data = await response.json();
+      
+      if (response.ok && data.results?.length) {
+        const suggestions = data.results.map(result => {
+          const originalName = result.name || '';
+          // Parse the original name into components
+          const numberMatch = originalName.match(/^(\d+\.)\s*/);
+          const numberPrefix = numberMatch ? numberMatch[1] : '';
+          const nameWithoutNumber = originalName.replace(/^\d+\.\s*/, '');
+          const [namePart, ...rest] = nameWithoutNumber.split('—');
+          const employerPart = rest.join('—').trim();
+          const cleanName = namePart.trim();
+
+          // Extract employer name and phone from parentheses if present
+          const employerMatch = employerPart.match(/\(([^)]+)\)/);
+          let employerName = '';
+          let phoneNumber = '';
+
+          if (employerMatch) {
+            const employerInfo = employerMatch[1].trim();
+            // Check if the employer info contains a phone number
+            const phoneMatch = employerInfo.match(/(\d{10,})/); // Match 10 or more digits
+            if (phoneMatch) {
+              phoneNumber = phoneMatch[0];
+              // Remove the phone number from employer name
+              employerName = employerInfo.replace(phoneMatch[0], '').trim();
+            } else {
+              employerName = employerInfo;
+            }
+          }
+
+          // Also check if phone number is directly available in the result
+          if (!phoneNumber && result.phone) {
+            phoneNumber = result.phone;
+          }
+
+          return {
+            id: result.memberno,
+            numberPrefix,
+            originalName,
+            displayName: `${numberPrefix} ${cleanName}${employerName ? ` — (${employerName}${phoneNumber ? ` - ${phoneNumber}` : ''})` : ''}`,
+            cleanName,
+            employerName,
+            phoneNumber,
+            memberNo: result.memberno,
+            type: result.type,
+            status: result.status,
+            rawData: result
+          };
+        });
+        
+        setSearchSuggestions(suggestions);
+        setOpen(true);
+      } else {
+        setSearchSuggestions([]);
+      }
+    } catch (error) {
+      console.error("Search suggestion error:", error);
+      setSearchSuggestions([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [searchType, searchBy]);
+
+  // Update handleSuggestionSelected to handle phone numbers
+  const handleSuggestionSelected = (event, suggestion) => {
+    if (!suggestion) {
+      setSelectedSuggestion(null);
+      return;
+    }
+
+    setSelectedSuggestion(suggestion);
+    setSearchQuery(suggestion.originalName);
+
+    // Parse the name more carefully
+    const cleanName = suggestion.cleanName || '';
+    const nameParts = cleanName.split(' ');
+    const firstName = nameParts[0] || '';
+    const middleName = nameParts.length > 2 ? nameParts.slice(1, -1).join(' ') : '';
+    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+
+    // Get employer details and phone number
+    const employerName = suggestion.employerName || '';
+    const phoneNumber = suggestion.phoneNumber || suggestion.rawData?.phone || '';
+
+    // Extract region and district if available in the raw data
+    const region = suggestion.rawData?.region || '';
+    const district = suggestion.rawData?.district || '';
+
+    // Set form data with all available information
+    setFormData(prev => ({
+      ...prev,
+      // Personal Information
+      firstName: searchType === 'employer' ? cleanName : firstName,
+      middleName: searchType === 'employer' ? '' : middleName,
+      lastName: searchType === 'employer' ? '' : lastName,
+      memberNo: suggestion.memberNo?.toString() || '',
+      nidaNumber: suggestion.rawData?.nida_number || prev.nidaNumber,
+      phoneNumber: phoneNumber || prev.phoneNumber,
+
+      // Employment Information
+      requester: searchType === 'employee' ? 'Employee' : 'Employer',
+      // For employers, use their name as the institution
+      institution: searchType === 'employer' ? cleanName : (employerName || prev.institution),
+
+      // Location Information
+      region: region || prev.region,
+      district: district || prev.district,
+
+      // Keep existing values for fields that should be manually selected
+      channel: prev.channel,
+      category: prev.category,
+      functionId: prev.functionId,
+      description: prev.description,
+      status: prev.status
+    }));
+
+    setSnackbar({
+      open: true,
+      message: `Form auto-filled with ${searchType === 'employer' ? 'employer' : 'member'}'s information`,
+      severity: "success"
+    });
+
+    setOpen(false);
+  };
+
+  // Update handleInputChange for more immediate response
+  const handleInputChange = (event, newValue, reason) => {
+    setInputValue(newValue);
+    
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    if (reason === 'reset' || reason === 'clear') {
+      setSearchSuggestions([]);
+      return;
+    }
+
+    // Reduced timeout for more immediate response
+    searchTimeoutRef.current = setTimeout(() => {
+      debouncedSearch(newValue);
+    }, 150); // Reduced from 300ms to 150ms for faster response
+  };
+
+  // Update the Autocomplete component
+  <StyledAutocomplete
+    value={selectedSuggestion}
+    onChange={(event, newValue) => handleSuggestionSelected(event, newValue)}
+    inputValue={inputValue}
+    onInputChange={handleInputChange}
+    options={searchSuggestions}
+    getOptionLabel={(option) => option.displayName || ''}
+    open={open}
+    onOpen={() => setOpen(true)}
+    onClose={() => setOpen(false)}
+    loading={isSearching}
+    loadingText={
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+        <CircularProgress size={20} />
+        <span>Searching...</span>
+      </div>
+    }
+    noOptionsText={
+      inputValue.length < 1 ? 
+        "Start typing to search" : 
+        "No matching records found"
+    }
+    renderOption={(props, option) => (
+      <li {...props}>
+        <SuggestionItem>
+          <div className="suggestion-name">
+            <span style={{ color: '#666' }}>{option.numberPrefix}</span>
+            {' '}
+            {highlightMatch(option.cleanName, inputValue)}
+            {option.employerName && (
+              <>
+                {' — ('}
+                <span style={{ color: '#666' }}>
+                  {highlightMatch(option.employerName, inputValue)}
+                </span>
+                {')'}
+              </>
+            )}
+          </div>
+          <div className="suggestion-details">
+            Member No: {option.memberNo}
+            {option.type && ` • Type: ${option.type}`}
+            {option.status && ` • Status: ${option.status}`}
+          </div>
+        </SuggestionItem>
+      </li>
+    )}
+    renderInput={(params) => (
+      <TextField
+        {...params}
+        placeholder={searchBy === 'name' ? "Start typing name..." : "Enter WCF number..."}
+        InputProps={{
+          ...params.InputProps,
+          endAdornment: (
+            <>
+              {isSearching && <CircularProgress color="inherit" size={20} />}
+              {params.InputProps.endAdornment}
+            </>
+          ),
+        }}
+        sx={{
+          '& .MuiOutlinedInput-root': {
+            '& fieldset': {
+              borderColor: '#e0e0e0',
+            },
+            '&:hover fieldset': {
+              borderColor: '#1976d2',
+            },
+            '&.Mui-focused fieldset': {
+              borderColor: '#1976d2',
+            },
+          },
+        }}
+      />
+    )}
+    filterOptions={(x) => x}
+    freeSolo={false}
+    autoComplete
+    includeInputInList
+    blurOnSelect
+    clearOnBlur={false}
+    selectOnFocus
+    handleHomeEndKeys
+    style={{ width: '100%' }}
+  />
+
+  // Highlight matching text in suggestions
+  const highlightMatch = (text, query) => {
+    if (!query) return text;
+    const parts = text.split(new RegExp(`(${query})`, 'gi'));
+    return parts.map((part, index) => 
+      part.toLowerCase() === query.toLowerCase() ? 
+        <span key={index} className="highlight">{part}</span> : part
+    );
+  };
+
+  // Update search input when query changes
+  useEffect(() => {
+    if (searchQuery) {
+      debouncedSearch(searchQuery);
+    } else {
+      setSearchSuggestions([]);
+    }
+  }, [searchQuery, debouncedSearch]);
 
   if (loading) {
     return (
@@ -1532,6 +1864,7 @@ const AgentCRM = () => {
                   if (prev) {
                     setFormData({
                       firstName: prev.first_name || "",
+                      middleName: prev.middle_name || "", // Add middle name
                       lastName: prev.last_name || "",
                       phoneNumber: prev.phone_number || phoneSearch,
                       nidaNumber: prev.nida_number || "",
@@ -1623,7 +1956,12 @@ const AgentCRM = () => {
                 <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Search Type:</label>
                 <select
                   value={searchType}
-                  onChange={(e) => setSearchType(e.target.value)}
+                  onChange={(e) => {
+                    setSearchType(e.target.value);
+                    setSearchSuggestions([]);
+                    setSelectedSuggestion(null);
+                    setSearchQuery('');
+                  }}
                   style={{
                     width: '100%',
                     padding: '8px',
@@ -1640,7 +1978,12 @@ const AgentCRM = () => {
                 <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Search By:</label>
                 <select
                   value={searchBy}
-                  onChange={(e) => setSearchBy(e.target.value)}
+                  onChange={(e) => {
+                    setSearchBy(e.target.value);
+                    setSearchSuggestions([]);
+                    setSelectedSuggestion(null);
+                    setSearchQuery('');
+                  }}
                   style={{
                     width: '100%',
                     padding: '8px',
@@ -1657,39 +2000,97 @@ const AgentCRM = () => {
                 <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
                   {searchBy === 'name' ? 'Enter Name' : 'Enter WCF Number'}:
                 </label>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder={searchBy === 'name' ? "Enter name to search..." : "Enter WCF number..."}
-                    style={{
-                      flex: 1,
-                      padding: '8px',
-                      borderRadius: '4px',
-                      border: '1px solid #ddd'
-                    }}
-                  />
-                  <button
-                    onClick={handleMemberSearch}
-                    style={{
-                      padding: '8px 16px',
-                      backgroundColor: '#007bff',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Search
-                  </button>
-                </div>
+                <StyledAutocomplete
+                  value={selectedSuggestion}
+                  onChange={(event, newValue) => handleSuggestionSelected(event, newValue)}
+                  inputValue={inputValue}
+                  onInputChange={handleInputChange}
+                  options={searchSuggestions}
+                  getOptionLabel={(option) => option.displayName || ''}
+                  open={open}
+                  onOpen={() => setOpen(true)}
+                  onClose={() => setOpen(false)}
+                  loading={isSearching}
+                  loadingText={
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                      <CircularProgress size={20} />
+                      <span>Searching...</span>
+                    </div>
+                  }
+                  noOptionsText={
+                    inputValue.length < 1 ? 
+                      "Start typing to search" : 
+                      "No matching records found"
+                  }
+                  renderOption={(props, option) => (
+                    <li {...props}>
+                      <SuggestionItem>
+                        <div className="suggestion-name">
+                          <span style={{ color: '#666' }}>{option.numberPrefix}</span>
+                          {' '}
+                          {highlightMatch(option.cleanName, inputValue)}
+                          {option.employerName && (
+                            <>
+                              {' — ('}
+                              <span style={{ color: '#666' }}>
+                                {highlightMatch(option.employerName, inputValue)}
+                              </span>
+                              {')'}
+                            </>
+                          )}
+                        </div>
+                        <div className="suggestion-details">
+                          Member No: {option.memberNo}
+                          {option.type && ` • Type: ${option.type}`}
+                          {option.status && ` • Status: ${option.status}`}
+                        </div>
+                      </SuggestionItem>
+                    </li>
+                  )}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      placeholder={searchBy === 'name' ? "Start typing name..." : "Enter WCF number..."}
+                      InputProps={{
+                        ...params.InputProps,
+                        endAdornment: (
+                          <>
+                            {isSearching && <CircularProgress color="inherit" size={20} />}
+                            {params.InputProps.endAdornment}
+                          </>
+                        ),
+                      }}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          '& fieldset': {
+                            borderColor: '#e0e0e0',
+                          },
+                          '&:hover fieldset': {
+                            borderColor: '#1976d2',
+                          },
+                          '&.Mui-focused fieldset': {
+                            borderColor: '#1976d2',
+                          },
+                        },
+                      }}
+                    />
+                  )}
+                  filterOptions={(x) => x}
+                  freeSolo={false}
+                  autoComplete
+                  includeInputInList
+                  blurOnSelect
+                  clearOnBlur={false}
+                  selectOnFocus
+                  handleHomeEndKeys
+                  style={{ width: '100%' }}
+                />
               </div>
             </div>
 
             {/* Existing form fields */}
             <div className="modal-form-row">
-              <div className="modal-form-group">
+              <div className="modal-form-group" style={{ flex: 1 }}>
                 <label style={{ fontSize: "0.875rem" }}>First Name:</label>
                 <input
                   name="firstName"
@@ -1712,8 +2113,26 @@ const AgentCRM = () => {
                 )}
               </div>
 
-              <div className="modal-form-group">
-                <label style={{ fontSize: "0.875rem" }}>Last Name:</label>
+              <div className="modal-form-group" style={{ flex: 1 }}>
+                <label style={{ fontSize: "0.875rem" }}>Middle Name (Optional):</label>
+                <input
+                  name="middleName"
+                  value={formData.middleName}
+                  onChange={handleChange}
+                  placeholder="Enter middle name"
+                  style={{
+                    height: "32px",
+                    fontSize: "0.875rem",
+                    padding: "4px 8px",
+                    border: "1px solid #ccc"
+                  }}
+                />
+              </div>
+
+              <div className="modal-form-group" style={{ flex: 1 }}>
+                <label style={{ fontSize: "0.875rem" }}>
+                  Last Name{formData.requester === "Employer" ? " (Optional)" : ""}:
+                </label>
                 <input
                   name="lastName"
                   value={formData.lastName}
@@ -1723,12 +2142,12 @@ const AgentCRM = () => {
                     height: "32px",
                     fontSize: "0.875rem",
                     padding: "4px 8px",
-                    border: formErrors.lastName
+                    border: formErrors.lastName && formData.requester !== "Employer"
                       ? "1px solid red"
                       : "1px solid #ccc"
                   }}
                 />
-                {formErrors.lastName && (
+                {formErrors.lastName && formData.requester !== "Employer" && (
                   <span style={{ color: "red", fontSize: "0.75rem" }}>
                     {formErrors.lastName}
                   </span>
