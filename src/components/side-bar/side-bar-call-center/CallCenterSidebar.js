@@ -169,6 +169,19 @@ export default function CallCenterSidebar({ isSidebarOpen, role }) {
                 </div>
               </NavLink>
               <NavLink
+                to="/dashboard2"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <RxDashboard className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">Supervisor Dashboard2</span>
+                  )}
+                </div>
+              </NavLink>
+              <NavLink
                 to="/agents"
                 className={({ isActive }) =>
                   isActive ? "menu-item active-link" : "menu-item"
