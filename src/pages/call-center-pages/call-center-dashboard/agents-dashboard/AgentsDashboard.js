@@ -173,6 +173,8 @@ export default function AgentsDashboard() {
     attendingMeeting: 0, // default value
     emergency: 0, // default value
   });
+  const wasAnsweredRef = useRef(false);
+
   const [statusTimer, setStatusTimer] = useState(0); // Timer for the current status
   const [timeRemaining, setTimeRemaining] = useState(0); // Time left for the current status
   const [snackbarOpen, setSnackbarOpen] = useState(false);

@@ -88,7 +88,7 @@ const CDRReports = () => {
               <th>Duration</th>
               <th>BillSec</th>
               <th>Disposition</th>
-              <th>Recording</th>
+              {/* <th>Recording</th> */}
               <th>Start Time</th>
             </tr>
           </thead>
@@ -103,7 +103,7 @@ const CDRReports = () => {
                   <td>{cdr.duration}</td>
                   <td>{cdr.billsec}</td>
                   <td>{cdr.disposition}</td>
-                  <td>{cdr.recordingfile}</td>
+                  {/* <td>{cdr.recordingfile}</td> */}
                   <td>{new Date(cdr.cdrstarttime).toLocaleString()}</td>
                 </tr>
               ))
