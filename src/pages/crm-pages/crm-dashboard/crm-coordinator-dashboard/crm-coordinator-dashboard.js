@@ -74,6 +74,7 @@ export default function CoordinatorDashboard() {
   });
   const [isActionModalOpen, setIsActionModalOpen] = useState(false);
   const [modalTicket, setModalTicket] = useState(null);
+  const [ticketStatusTotal, setTicketStatusTotal] = useState(0);
 
   // Initialize activeColumns with default columns if empty
   useEffect(() => {
@@ -222,6 +223,7 @@ export default function CoordinatorDashboard() {
         setConvertedTickets(result.data.convertedTickets);
         setTotalTickets(result.data.channeledTickets);
         setTicketStatus(result.data.ticketStatus);
+        setTicketStatusTotal(result.data.ticketStatusTotal);
       } else {
         throw new Error("No data received from server");
       }
@@ -603,7 +605,7 @@ export default function CoordinatorDashboard() {
           />
           <Card
             title="Ticket Status"
-            data={ticketStatus}
+            data={{ ...ticketStatus, Total: ticketStatusTotal }}
             color="#ffc4dd"
             icon={<MdImportExport fontSize={35} />}
           />
@@ -939,7 +941,7 @@ export default function CoordinatorDashboard() {
                 handleUnitChange(selectedTicket.id, e.target.value)
               }
             >
-              <option value="">To Unit</option>
+              <option value="">{selectedTicket.section}</option>
               {units.map((unit) => (
                 <option key={unit.name} value={unit.name}>{unit.name}</option>
               ))}
