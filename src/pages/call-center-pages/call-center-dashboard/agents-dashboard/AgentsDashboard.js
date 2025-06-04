@@ -52,6 +52,7 @@ import {
 import { FaHandHolding } from "react-icons/fa";
 import CallChart from "../../../../components/agent-chat/AgentChat";
 import QueueStatusTable from "../../../../components/agent-dashboard/QueueStatusTable";
+import AgentPerformanceScore from "../../../../components/agent-dashboard/AgentPerformanceScore";
 
 export default function AgentsDashboard() {
   const [showPhonePopup, setShowPhonePopup] = useState(false);
@@ -1131,8 +1132,14 @@ export default function AgentsDashboard() {
             {/* simple chat here */}
             <CallChart />
           </div>
+        </div>
+
+        <div className="dashboard-single-agent-row_three">
           <QueueStatusTable />
         </div>
+         <div className="dashboard-single-agent-row_four">
+          <AgentPerformanceScore />
+          </div>
       </div>
 
       <Menu

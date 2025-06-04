@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { io } from "socket.io-client";
+import { MdOutlinePhoneInTalk } from "react-icons/md";
+import "./QueueStatusTable.css";
 
 const socket = io("https://10.52.0.19/ami-socket", {
   path: "/ami-socket/socket.io",
@@ -7,45 +9,91 @@ const socket = io("https://10.52.0.19/ami-socket", {
   secure: true
 });
 
+// Dummy data for fallback
+const dummyQueues = [
+  {
+    queue: "Sales Queue",
+    callers: 5,
+    longestWait: 135, // 2:15 in seconds
+    availableAgents: 3,
+    busyAgents: 2
+  },
+  {
+    queue: "Support Queue",
+    callers: 3,
+    longestWait: 105, // 1:45 in seconds
+    availableAgents: 4,
+    busyAgents: 1
+  },
+  {
+    queue: "Technical Queue",
+    callers: 2,
+    longestWait: 90, // 1:30 in seconds
+    availableAgents: 2,
+    busyAgents: 3
+  }
+];
+
 export default function QueueStatusTable() {
-  const [queues, setQueues] = useState([]);
+  const [queues, setQueues] = useState(dummyQueues);
 
   useEffect(() => {
     socket.on("queueStatusUpdate", (data) => {
       console.log("🎧 Received queue data:", data);
-      setQueues(data);
+      if (data && data.length > 0) {
+        setQueues(data);
+      }
     });
 
     return () => socket.off("queueStatusUpdate");
   }, []);
 
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    const hrs = Math.floor(mins / 60);
+    const pad = (n) => String(n).padStart(2, "0");
+    return hrs > 0
+      ? `${pad(hrs)}:${pad(mins % 60)}:${pad(secs)}`
+      : `${pad(mins)}:${pad(secs)}`;
+  };
+
   return (
-    <div className="queue-status-table">
-      <h3>📞 Queue Monitoring</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>Queue</th>
-            <th>Callers</th>
-            <th>Hold Time (sec)</th>
-            <th>Longest Wait</th>
-            <th>Available Agents</th>
-            <th>Busy Agents</th>
-          </tr>
-        </thead>
-        <tbody>
-          {queues.map((q, index) => (
-            <tr key={index}>
-              <td>{q.queue}</td>
-              <td>{q.callers}</td>
-              <td>{q.holdTime}</td>
-              <td>{q.longestWait}</td>
-              <td>{q.availableAgents}</td>
-              <td>{q.busyAgents}</td>
+    <div className="queue-monitoring">
+      <div className="queue-monitoring-title">
+        <MdOutlinePhoneInTalk />
+        <h4>Queue Monitoring</h4>
+      </div>
+      <div className="queue-monitoring-table">
+        <table>
+          <thead>
+            <tr>
+              <th>Queue Name</th>
+              <th>Waiting Calls</th>
+              <th>Longest Wait</th>
+              <th>Agents Available</th>
+              <th>Agents Busy</th>
+              <th>Status</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {queues.map((q, index) => (
+              <tr key={index}>
+                <td>{q.queue}</td>
+                <td>{q.callers}</td>
+                <td>{formatTime(q.longestWait)}</td>
+                <td>{q.availableAgents}</td>
+                <td>{q.busyAgents}</td>
+                <td>
+                  <span className={`status-${q.availableAgents > 0 ? 'active' : 'inactive'}`}>
+                    {q.availableAgents > 0 ? 'Active' : 'Inactive'}
+                  </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
