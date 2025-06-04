@@ -201,7 +201,7 @@ export default function CallCenterSidebar({ isSidebarOpen, role }) {
 <NavLink to="/ivr-cards" className={({ isActive }) => (isActive ? "menu-item active-link" : "menu-item")}>
   <div className="menu-item">
     <GiVrHeadset className="menu-icon" />
-    {isSidebarOpen && <span className="menu-text">IVR Cards</span>}
+    {isSidebarOpen && <span className="menu-text">IVR Management</span>}
   </div>
 </NavLink>
 
