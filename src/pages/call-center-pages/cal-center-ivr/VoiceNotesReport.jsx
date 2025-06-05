@@ -11,7 +11,6 @@ export default function RecordedSounds() {
   const [currentAudio, setCurrentAudio] = useState(null);
   const [currentlyPlayingId, setCurrentlyPlayingId] = useState(null);
 
-  // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const notesPerPage = 10;
 
@@ -26,7 +25,17 @@ export default function RecordedSounds() {
             "Content-Type": "application/json",
           },
         });
-        setVoiceNotes(response.data.voiceNotes || []);
+
+        const notes = response.data.voiceNotes || [];
+        setVoiceNotes(notes);
+
+        // Load played status from localStorage
+        const storedPlayed = JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
+        const validPlayed = {};
+        notes.forEach(note => {
+          if (storedPlayed[note.id]) validPlayed[note.id] = true;
+        });
+        setPlayedStatus(validPlayed);
       } catch (err) {
         console.error("API Error:", err);
         setError(`Failed to load: ${err.response?.status || "Network error"}`);
@@ -54,7 +63,12 @@ export default function RecordedSounds() {
       audio.play();
       setCurrentAudio(audio);
       setCurrentlyPlayingId(noteId);
-      setPlayedStatus((prev) => ({ ...prev, [noteId]: true }));
+
+      const updatedStatus = { ...playedStatus, [noteId]: true };
+      setPlayedStatus(updatedStatus);
+
+      // Save to localStorage for persistence
+      localStorage.setItem("playedVoiceNotes", JSON.stringify(updatedStatus));
 
       audio.onended = () => {
         setCurrentlyPlayingId(null);
@@ -71,6 +85,13 @@ export default function RecordedSounds() {
       currentAudio.pause();
       setCurrentlyPlayingId(null);
     }
+  };
+
+  const getRowColor = (note) => {
+    if (playedStatus[note.id]) return "#d4edda"; // green
+    const createdAt = new Date(note.created_at);
+    const hoursAgo = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60);
+    return hoursAgo >= 24 ? "#f8d7da" : "#fff3cd"; // red or yellow
   };
 
   // Pagination Logic
@@ -106,13 +127,9 @@ export default function RecordedSounds() {
             {currentNotes.map((note) => {
               const isPlayed = playedStatus[note.id];
               const isPlaying = currentlyPlayingId === note.id;
+
               return (
-                <tr
-                  key={note.id}
-                  style={{
-                    backgroundColor: isPlayed ? "#d4edda" : "#fff3cd",
-                  }}
-                >
+                <tr key={note.id} style={{ backgroundColor: getRowColor(note) }}>
                   <td>{note.id}</td>
                   <td>{note.clid}</td>
                   <td>{new Date(note.created_at).toLocaleString()}</td>
@@ -147,4 +164,3 @@ export default function RecordedSounds() {
     </div>
   );
 }
-
