@@ -305,6 +305,16 @@ const getComplianceScoreClass = (score) => {
   return 'score-poor';
 };
 
+// Helper function for queue call status
+const getQueueCallStatus = (call) => {
+  // Simulate status based on wait time for demo
+  const [min, sec] = call.waitTime.split(':').map(Number);
+  const totalSeconds = min * 60 + sec;
+  if (totalSeconds < 60) return 'Active';
+  if (totalSeconds < 120) return 'Dropped';
+  return 'Lost';
+};
+
 export default function SupervisorDashboard2() {
   const [monthlyData, setMonthlyData] = useState([]);
   const [weeklyData, setWeeklyData] = useState([]);
@@ -330,8 +340,8 @@ export default function SupervisorDashboard2() {
 
   const [showFilters, setShowFilters] = useState(false);
   const [agents, setAgents] = useState([]); // Will be populated from API
+  const [showAlerts, setShowAlerts] = useState(false);
   const [alerts, setAlerts] = useState(dummyAlerts);
-  const [showAlerts, setShowAlerts] = useState(true);
 
   // Add new state variables
   const [qualityTools, setQualityTools] = useState(dummyQualityTools);
@@ -748,54 +758,72 @@ export default function SupervisorDashboard2() {
 
   return (
     <div className="call-center-agent-container">
-      <h3 className="call-center-agent-title">Supervisor Dashboard 2</h3>
-      
-      {/* Alerts Section */}
-      {showAlerts && alerts.length > 0 && (
-        <div className="alerts-section">
-          <div className="alerts-header">
-            <h4>
-              <FaBell className="section-icon" />
-              Active Alerts
-            </h4>
-            <button 
-              className="dismiss-all-btn"
-              onClick={handleDismissAllAlerts}
-            >
-              Dismiss All
-            </button>
-          </div>
-          <div className="alerts-list">
-            {alerts.map(alert => (
-              <div 
-                key={alert.id} 
-                className={`alert-item ${getAlertSeverityClass(alert.severity)}`}
-              >
-                <div className="alert-icon">
-                  {getAlertIcon(alert.type)}
-                </div>
-                <div className="alert-content">
-                  <div className="alert-header">
-                    <span className="alert-message">{alert.message}</span>
-                    <button 
-                      className="dismiss-alert-btn"
-                      onClick={() => handleDismissAlert(alert.id)}
-                    >
-                      <FaTimes />
-                    </button>
-                  </div>
-                  <div className="alert-details">
-                    <span className="alert-timestamp">
-                      {new Date(alert.timestamp).toLocaleTimeString()}
-                    </span>
-                    <span className="alert-info">{alert.details}</span>
-                  </div>
-                </div>
+      <div className="dashboard-header">
+        <h3 className="call-center-agent-title">Supervisor Dashboard 2</h3>
+        <div className="notification-bell-container">
+          <button 
+            className="notification-bell-btn"
+            onClick={() => setShowAlerts(!showAlerts)}
+          >
+            <FaBell className="bell-icon" />
+            {alerts.length > 0 && (
+              <span className="notification-badge">{alerts.length}</span>
+            )}
+          </button>
+          
+          {showAlerts && (
+            <div className="notification-dropdown">
+              <div className="notification-header">
+                <h4>
+                  <FaBell className="section-icon" />
+                  Notifications
+                </h4>
+                <button 
+                  className="dismiss-all-btn"
+                  onClick={handleDismissAllAlerts}
+                >
+                  Dismiss All
+                </button>
               </div>
-            ))}
-          </div>
+              <div className="notification-list">
+                {alerts.length > 0 ? (
+                  alerts.map(alert => (
+                    <div 
+                      key={alert.id} 
+                      className={`notification-item ${getAlertSeverityClass(alert.severity)}`}
+                    >
+                      <div className="notification-icon">
+                        {getAlertIcon(alert.type)}
+                      </div>
+                      <div className="notification-content">
+                        <div className="notification-header">
+                          <span className="notification-message">{alert.message}</span>
+                          <button 
+                            className="dismiss-notification-btn"
+                            onClick={() => handleDismissAlert(alert.id)}
+                          >
+                            <FaTimes />
+                          </button>
+                        </div>
+                        <div className="notification-details">
+                          <span className="notification-timestamp">
+                            {new Date(alert.timestamp).toLocaleTimeString()}
+                          </span>
+                          <span className="notification-info">{alert.details}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="no-notifications">
+                    No new notifications
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Add Filter Bar */}
       <FilterBar />
@@ -842,6 +870,7 @@ export default function SupervisorDashboard2() {
                 <th>Wait Time</th>
                 <th>Priority</th>
                 <th>Call Type</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody>
@@ -860,6 +889,11 @@ export default function SupervisorDashboard2() {
                     </span>
                   </td>
                   <td className="call-type">{call.callType}</td>
+                  <td>
+                    <span className={`status-badge ${getQueueCallStatus(call).toLowerCase()}`}>
+                      {getQueueCallStatus(call)}
+                    </span>
+                  </td>
                 </tr>
               ))}
             </tbody>
