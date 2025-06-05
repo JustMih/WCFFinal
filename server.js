@@ -2,7 +2,6 @@ const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const sequelize = require("./config/mysql_connection.js");
-const routes = require("./routes");
 const { registerSuperAdmin } = require("./controllers/auth/authController");
 const recordingRoutes = require('./routes/recordingRoutes');
 const ChatMassage = require("./models/chart_message")
@@ -11,14 +10,21 @@ const http = require("http");
 
 dotenv.config();
 const app = express();
+
+// Middleware
 app.use(express.json());
-app.use(cors());
-app.use("/api", routes);
+app.use(cors({
+  origin: ["http://localhost:3000", "https://10.52.0.19:3000"],
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "Accept"]
+}));
+
+// Routes
 app.use("/api", require("./routes/ivr-dtmf-routes"));
-// app.use("/sounds", express.static("/var/lib/asterisk/sounds"));
 app.use('/api', recordingRoutes);
- 
-// Replace existing static file config with:
+
+// Static file config
 app.use("/sounds", express.static("/var/lib/asterisk/sounds", {
   setHeaders: (res, path) => {
     if (path.endsWith('.wav')) {
@@ -30,13 +36,6 @@ app.use("/sounds", express.static("/var/lib/asterisk/sounds", {
 // Create HTTP Server & WebSocket Server
 const server = http.createServer(app);
 const io = new Server(server, {});
- 
-app.use(cors({
-  origin: ["http://localhost:3000", "https://10.52.0.19:3000"],
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "Accept"]
-}));
 
 const users = {}; 
 

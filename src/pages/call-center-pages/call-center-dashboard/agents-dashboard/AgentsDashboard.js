@@ -146,7 +146,7 @@ export default function AgentsDashboard() {
   
   
 
-  const [showPhonePopup, setShowPhonePopup] = useState(true);
+  const [showPhonePopup, setShowPhonePopup] = useState(false);
   const [consultSession, setConsultSession] = useState(null); // The target agent session
   const [isTransferring, setIsTransferring] = useState(false);
   const [callerId, setCallerId] = useState("");
