@@ -171,6 +171,13 @@
   width: 100%;
 }
 
+.dashboard-single-agent-row_four {
+  display: flex;
+  gap: 20px;
+  margin-top: 20px;
+  width: 100%;
+}
+
 .queue-monitoring {
   background: white;
   border-radius: 10px;
