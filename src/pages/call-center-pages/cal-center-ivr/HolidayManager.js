@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import "./HolidayManager.css";
+import './HolidayManager.css';
+import { baseURL } from '../../../config'; // ✅ Import baseURL
 
-const API_BASE = 'http://localhost:5070/api/holidays';
+const API_BASE = `${baseURL}/holidays`; // ✅ Use dynamic baseURL
 
 function HolidayManager() {
   const [holidays, setHolidays] = useState([]);
@@ -24,7 +25,7 @@ function HolidayManager() {
     if (!form.holiday_date || !form.name) return;
     await axios.post(API_BASE, form);
     setForm({ holiday_date: '', name: '' });
-    setSuccessMessage("✅ Successfully created");
+    setSuccessMessage('✅ Successfully created');
     fetchHolidays();
     setTimeout(() => setSuccessMessage(''), 2000);
   };
@@ -35,7 +36,7 @@ function HolidayManager() {
     setForm({ holiday_date: '', name: '' });
     setIsEditing(false);
     setEditId(null);
-    setSuccessMessage("✅ Successfully updated");
+    setSuccessMessage('✅ Successfully updated');
     fetchHolidays();
     setTimeout(() => setSuccessMessage(''), 2000);
   };
@@ -98,7 +99,7 @@ function HolidayManager() {
           className="holiday-input"
         />
         <button onClick={handleSubmit} className="holiday-add-btn">
-          {isEditing ? "Update Holiday" : "Add Holiday"}
+          {isEditing ? 'Update Holiday' : 'Add Holiday'}
         </button>
         {isEditing && (
           <button onClick={cancelEdit} className="holiday-cancel-btn">
@@ -132,23 +133,15 @@ function HolidayManager() {
               <td className="holiday-td">{h.holiday_date}</td>
               <td className="holiday-td">{h.name}</td>
               <td className="holiday-td">
-                <button
-                  onClick={() => handleEditClick(h)}
-                  className="holiday-edit-btn"
-                  style={{ marginRight: '10px' }}
-                >
-                  Edit ✏️
-                </button>
-                <button onClick={() => deleteHoliday(h.id)} className="holiday-delete-btn">
-                  Delete ❌
-                </button>
+                <button onClick={() => handleEditClick(h)} className="holiday-edit-btn">Edit ✏️</button>
+                <button onClick={() => deleteHoliday(h.id)} className="holiday-delete-btn">Delete ❌</button>
               </td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      {/* Pagination Controls */}
+      {/* Pagination */}
       <div className="holiday-search-bar" style={{ marginTop: '20px' }}>
         {Array.from({ length: totalPages }, (_, i) => (
           <button

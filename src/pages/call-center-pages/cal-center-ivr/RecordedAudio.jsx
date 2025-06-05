@@ -1,7 +1,7 @@
- import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import './RecordedAudio.css'; // Make sure to create and import this CSS
-
+import { baseURL } from "../../../config";
 const RecordedAudio = () => {
   const [recordings, setRecordings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -11,11 +11,16 @@ const RecordedAudio = () => {
   const [playedStatus, setPlayedStatus] = useState({});
   const [currentPage, setCurrentPage] = useState(1);
   const recordingsPerPage = 10;
-
+ 
   useEffect(() => {
     const fetchRecordings = async () => {
       try {
-        const response = await axios.get('http://localhost:5070/api/recorded-audio');
+        const response = await axios.get(`${baseURL}/recorded-audio`, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`
+          }
+        });
+        
         setRecordings(response.data);
       } catch (err) {
         setError(err.response?.data?.error || err.message);
@@ -28,7 +33,8 @@ const RecordedAudio = () => {
   }, []);
 
   const handlePlay = async (recording) => {
-    const audioUrl = `http://localhost:5070${recording.url}`;
+    const audioUrl = `${baseURL}${recording.url}`;
+
 
     if (currentAudio) {
       currentAudio.pause();
@@ -99,7 +105,7 @@ const RecordedAudio = () => {
                   <td>{indexOfFirst + index + 1}</td>
                   <td>{rec.filename}</td>
                   <td>{rec.caller}</td>
-                  <td>{new Date(rec.created).toLocaleString()}</td>
+                  <td>{new Date(rec.cdrstarttime).toLocaleString()}</td>
                   <td>{isPlayed ? 'Played' : 'Not Played'}</td>
                   <td>
                     <button className="btn btn-play" onClick={() => handlePlay(rec)}>Play</button>

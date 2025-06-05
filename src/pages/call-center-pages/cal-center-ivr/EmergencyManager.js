@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './EmergencyManager.css';
+import { baseURL } from '../../../config'; // ✅ Import baseURL
 
-const API = 'http://localhost:5070/api/emergency';
+const API = `${baseURL}/emergency`; // ✅ Use dynamic baseURL
 
 function EmergencyManager() {
   const [numbers, setNumbers] = useState([]);
@@ -59,7 +60,6 @@ function EmergencyManager() {
     fetchNumbers();
   }, []);
 
-  // Pagination logic
   const indexOfLast = currentPage * numbersPerPage;
   const indexOfFirst = indexOfLast - numbersPerPage;
   const currentNumbers = numbers.slice(indexOfFirst, indexOfLast);
