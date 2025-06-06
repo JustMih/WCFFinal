@@ -6,6 +6,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import htmlDocx from 'html-docx-js/dist/html-docx';
 import './IVRInteractions.css';
+import { baseURL } from '../../../config';  // ✅ Use your configured base URL
 
 const IVRInteractions = () => {
   const [ivrInteractions, setIVRInteractions] = useState([]);
@@ -14,7 +15,7 @@ const IVRInteractions = () => {
   const itemsPerPage = 10;
 
   useEffect(() => {
-    axios.get('http://localhost:5070/api/reports/ivr-interactions')
+    axios.get(`${baseURL}/reports/ivr-interactions`)  // ✅ Replace with baseURL
       .then(response => setIVRInteractions(response.data))
       .catch(error => console.error(error));
   }, []);
@@ -80,22 +81,20 @@ const IVRInteractions = () => {
             </tr>
           </thead>
           <tbody>
-    {paginated.length > 0 ? paginated.map((i, index) => (
-    <tr key={i.id}>
-      {/* Display sequential numbers starting from 1 */}
-      <td>{index + 1}</td>
-      <td>{i.dtmf_digit}</td>
-      <td>{i.action?.name || 'N/A'}</td>  
-      <td>{i.parameter}</td>
-      <td>{i.voice?.file_name || 'N/A'}</td>  
-      <td>{new Date(i.createdAt).toLocaleString()}</td>
-      <td>{new Date(i.updatedAt).toLocaleString()}</td>
-    </tr>
-  )) : (
-    <tr><td colSpan="7" className="no-results">No results found.</td></tr>
-  )}
-</tbody>
-
+            {paginated.length > 0 ? paginated.map((i, index) => (
+              <tr key={i.id}>
+                <td>{index + 1}</td>
+                <td>{i.dtmf_digit}</td>
+                <td>{i.action?.name || 'N/A'}</td>  
+                <td>{i.parameter}</td>
+                <td>{i.voice?.file_name || 'N/A'}</td>  
+                <td>{new Date(i.createdAt).toLocaleString()}</td>
+                <td>{new Date(i.updatedAt).toLocaleString()}</td>
+              </tr>
+            )) : (
+              <tr><td colSpan="7" className="no-results">No results found.</td></tr>
+            )}
+          </tbody>
         </table>
       </div>
       <div className="ivr-pagination">

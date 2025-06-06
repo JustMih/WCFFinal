@@ -69,7 +69,7 @@ export default function AgentsDashboard() {
   const [inputValue, setInputValue] = useState("");
   const [options, setOptions] = useState([]);
   const [loading, setLoading] = useState(false);
-  const wasAnsweredRef = useRef(false);
+  
   useEffect(() => {
     const fetchEmployers = async () => {
       if (!customerType || inputValue.length < 3) {
