@@ -60,11 +60,15 @@ function HolidayManager() {
     setEditId(null);
     setIsEditing(false);
   };
-
-  const deleteHoliday = async (id) => {
-    await axios.delete(`${API_BASE}/${id}`);
+const deleteHoliday = async (id) => {
+  try {
+    await axios.delete(`${API_BASE}/${id}`, { withCredentials: true });
     fetchHolidays();
-  };
+  } catch (err) {
+    console.error("Delete error:", err.response?.data || err.message);
+    alert("Failed to delete holiday: " + (err.response?.data?.error || err.message));
+  }
+};
 
   const filteredHolidays = holidays.filter(h =>
     h.name.toLowerCase().includes(searchTerm.toLowerCase())

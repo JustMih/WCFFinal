@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { MdOutlineSupportAgent, MdPhonePaused } from "react-icons/md";
+import { MdOutlineSupportAgent, MdPhonePaused, MdOutlineSpeed, MdOutlineTimer, MdOutlineCheckCircle, MdOutlineSentimentSatisfied } from "react-icons/md";
 import { CiLogin, CiLogout } from "react-icons/ci";
 import { BiSolidLeftDownArrowCircle } from "react-icons/bi";
 import { VscVmActive } from "react-icons/vsc";
 import { AiOutlinePauseCircle } from "react-icons/ai";
 import { SiTransmission } from "react-icons/si";
 import { baseURL } from "../../../config";
+import PerformanceScorecard from "../../../components/performance-scorecard/PerformanceScorecard";
 import "./callCenterAgents.css";
 
 export default function CallCenterAgent() {
@@ -19,6 +20,19 @@ export default function CallCenterAgent() {
   const [missionCountAgents, setCountMissionAgents] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [selectedCountCategory, setSelectedCountCategory] = useState(null);
+  const [selectedAgent, setSelectedAgent] = useState(null);
+  const [viewMode, setViewMode] = useState('team'); // 'team' or 'agent'
+  const [agentsList, setAgentsList] = useState([]);
+  const [performanceMetrics, setPerformanceMetrics] = useState({
+    aht: "0:00", // Average Handling Time
+    frt: "0:00", // First Response Time
+    fcr: "0%", // First Call Resolution
+    asa: "0:00", // Average Speed of Answer
+    avar: "0%", // Average Call Abandonment Rate
+    unansweredRate: "0%", // Unanswered Rate
+    csat: "0%" // Customer Satisfaction
+  });
+
   useEffect(() => {
     agentsCount();
     onlineAgent();
@@ -28,7 +42,45 @@ export default function CallCenterAgent() {
     offlineIdle();
     offlineForcePause();
     offlineMission();
-  }, []);
+    fetchAgentsList();
+    fetchPerformanceMetrics();
+  }, [selectedAgent, viewMode]);
+
+  const fetchAgentsList = async () => {
+    try {
+      const response = await fetch(`${baseURL}/users/agents`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        },
+      });
+      const data = await response.json();
+      setAgentsList(data.agents || []);
+    } catch (error) {
+      console.log("Error fetching agents list", error);
+    }
+  };
+
+  const fetchPerformanceMetrics = async () => {
+    try {
+      const endpoint = viewMode === 'team' 
+        ? '/users/team-performance'
+        : `/users/agent-performance/${selectedAgent}`;
+      
+      const response = await fetch(`${baseURL}${endpoint}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        },
+      });
+      const data = await response.json();
+      setPerformanceMetrics(data);
+    } catch (error) {
+      console.log("Error fetching performance metrics", error);
+    }
+  };
 
   const fetchAgentsByCategory = async (category) => {
     let endpoint = "";
@@ -309,6 +361,10 @@ export default function CallCenterAgent() {
           </div>
         </div>
       </div>
+
+      {/* Performance Scorecard Section */}
+      <PerformanceScorecard />
+
       {selectedCategory && (
         <div className="call-center-agent-table-container">
           <h3>
@@ -354,3 +410,8 @@ export default function CallCenterAgent() {
     </div>
   );
 }
+
+const exportPerformanceReport = () => {
+  // TODO: Implement report export functionality
+  console.log("Exporting performance report...");
+};

@@ -60,6 +60,7 @@ import {
 import { FaHandHolding } from "react-icons/fa";
 import CallChart from "../../../../components/agent-chat/AgentChat";
 import QueueStatusTable from "../../../../components/agent-dashboard/QueueStatusTable";
+import AgentPerformanceScore from "../../../../components/agent-dashboard/AgentPerformanceScore";
 
 export default function AgentsDashboard() {
   const [customerType, setCustomerType] = useState("");
@@ -146,7 +147,7 @@ export default function AgentsDashboard() {
   
   
 
-  const [showPhonePopup, setShowPhonePopup] = useState(true);
+  const [showPhonePopup, setShowPhonePopup] = useState(false);
   const [consultSession, setConsultSession] = useState(null); // The target agent session
   const [isTransferring, setIsTransferring] = useState(false);
   const [callerId, setCallerId] = useState("");
@@ -563,31 +564,33 @@ export default function AgentsDashboard() {
         console.error("❌ Failed to post missed call:", err);
       });
   };
+  
 
   const fetchMissedCallsFromBackend = async () => {
     try {
-      const response = await fetch(`${baseURL}/missed-calls`, {
+      const response = await fetch(`${baseURL}/missed-calls?agentId=${extension}`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("authToken")}`,
         },
       });
-
+  
       if (!response.ok) throw new Error("Failed to fetch missed calls");
-
+  
       const data = await response.json();
 
       const formatted = data.map((call) => ({
         ...call,
         time: new Date(call.time),
       }));
-
+  
       setMissedCalls(formatted);
     } catch (error) {
       console.error("❌ Error fetching missed calls:", error);
     }
   };
+  
 
   const handleAttendedTransferDial = () => {
     if (!userAgent || !transferTarget) return;
@@ -741,22 +744,27 @@ export default function AgentsDashboard() {
     }
   };
 
-  const handleRedial = (number) => {
+  const handleRedial = (number, missedCallId = null) => {
     if (!userAgent) {
-      console.error("User Agent not ready yet.");
+      console.error("❌ SIP User Agent not initialized.");
       return;
     }
-
-    console.log(`📲 Redialing missed caller: ${number}`);
-
+  
+    if (!number) {
+      console.error("❌ No number provided for redial.");
+      return;
+    }
+  
     const target = `sip:${number}@10.52.0.19`;
     const targetURI = UserAgent.makeURI(target);
-
+  
     if (!targetURI) {
-      console.error("Invalid target URI");
+      console.error("❌ Invalid SIP URI:", target);
       return;
     }
-
+  
+    console.log("📞 Redialing SIP URI:", targetURI.toString());
+  
     const inviter = new Inviter(userAgent, targetURI, {
       sessionDescriptionHandlerOptions: {
         constraints: { audio: true, video: false },
@@ -765,22 +773,50 @@ export default function AgentsDashboard() {
         },
       },
     });
-
+  
     setSession(inviter);
-
-    inviter
-      .invite()
+  
+    inviter.invite()
       .then(() => {
         setPhoneStatus("Dialing");
-        setShowPhonePopup(false);
+  
         inviter.stateChange.addListener((state) => {
+          console.log("🔄 Redial call state:", state);
           if (state === SessionState.Established) {
-            console.log("📞 Callback call established");
-            setPhoneStatus("In Call");
             attachMediaStream(inviter);
+            setPhoneStatus("In Call");
             startTimer();
-          } else if (state === SessionState.Terminated) {
-            console.log("📴 Callback call ended");
+  
+            // ✅ Mark the missed call as called back
+            if (missedCallId) {
+              console.log("➡️ Sending PUT to mark call as called_back for ID:", missedCallId);
+              console.log("➡️ PUT URL:", `${baseURL}/missed-calls/${missedCallId}/status`);
+              fetch(`${baseURL}/missed-calls/${missedCallId}/status`, {
+                method: "PUT",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+                },
+                body: JSON.stringify({ status: "called_back" }),
+              })
+                .then((res) => {
+                  if (!res.ok) throw new Error("Failed to update call status");
+                  return res.json();
+                })
+                .then(() => {
+                  console.log("✅ Missed call marked as called_back");
+                  // Remove this call from the UI
+                  setMissedCalls((prev) =>
+                    prev.filter((call) => call.id !== missedCallId)
+                  );
+                })
+                .catch((err) =>
+                  console.error("❌ Failed to update missed call status:", err)
+                );
+            }
+          }
+  
+          if (state === SessionState.Terminated) {
             setPhoneStatus("Idle");
             setSession(null);
             remoteAudio.srcObject = null;
@@ -789,15 +825,11 @@ export default function AgentsDashboard() {
         });
       })
       .catch((error) => {
-        console.error("❌ Callback failed:", error);
+        console.error("❌ Redial invite failed:", error.message, error);
         setPhoneStatus("Call Failed");
       });
-
-    setSnackbarMessage(`📲 Dialing back ${number}`);
-    setSnackbarSeverity("info");
-    setSnackbarOpen(true);
   };
-
+  
   const handleDial = () => {
     if (!userAgent || !phoneNumber) return;
 
@@ -1314,8 +1346,14 @@ export default function AgentsDashboard() {
             {/* simple chat here */}
             <CallChart />
           </div>
+        </div>
+
+        <div className="dashboard-single-agent-row_three">
           <QueueStatusTable />
         </div>
+         <div className="dashboard-single-agent-row_four">
+          <AgentPerformanceScore />
+          </div>
       </div>
 
       <Menu
@@ -1748,7 +1786,11 @@ export default function AgentsDashboard() {
                     variant="contained"
                     color="primary"
                     size="small"
-                    onClick={() => handleRedial(call.caller)}
+                    
+                    onClick={() =>{
+                      console.log("🔁 Calling back ID:", call.id);  // 👈 Add this
+                      handleRedial(call.caller, call.id)}
+                     }
                     startIcon={<FiPhoneCall />}
                   >
                     Call Back
