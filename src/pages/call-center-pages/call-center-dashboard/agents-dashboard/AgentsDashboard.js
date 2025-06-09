@@ -977,6 +977,7 @@ export default function AgentsDashboard() {
   const handleAgentEmergency = async (activity) => {
     if (activity.toLowerCase() !== "ready") {
       try {
+        // Check if enough agents are available
         const response = await fetch(`${baseURL}/users/agents-online`, {
           method: "GET",
           headers: {
@@ -987,6 +988,7 @@ export default function AgentsDashboard() {
         const data = await response.json();
         const count = data.agentCount;
 
+        // Ensure there are at least 3 agents available for non-"ready" status
         if (count < 3) {
           showAlert("⚠️ Not enough agents available. Minimum 3 required.");
           return;
@@ -998,32 +1000,46 @@ export default function AgentsDashboard() {
       }
     }
 
-    // Update local status
+    // Update local status (displayed in the UI)
     setAgentStatus(activity);
 
-    // Start or stop timer
+    // Start or stop timer based on the activity
     if (activity.toLowerCase() !== "ready") {
       startStatusTimer(activity);
     } else {
       stopStatusTimer();
     }
 
-    // Update backend status
+    // Set the backend status based on the selected activity
+    const statusToUpdate =
+      activity.toLowerCase() === "ready" ? "online" : "offline";
+
+    // Update backend status (offline for non-"ready", online for "ready")
     try {
-      await fetch(`${baseURL}/users/status/${localStorage.getItem("userId")}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-        },
-        body: JSON.stringify({
-          status: activity === "ready" ? "online" : activity,
-        }),
-      });
+      const updateResponse = await fetch(
+        `${baseURL}/users/status/${localStorage.getItem("userId")}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          },
+          body: JSON.stringify({
+            status: statusToUpdate, // online for "ready", offline otherwise
+          }),
+        }
+      );
+
+      if (!updateResponse.ok) {
+        throw new Error("Failed to update status");
+      }
+
+      console.log(`User status updated to ${statusToUpdate}`);
     } catch (err) {
       console.error("Failed to update status:", err);
     }
   };
+  
 
   const formatRemainingTime = (seconds) => {
     const mins = Math.floor(seconds / 60);

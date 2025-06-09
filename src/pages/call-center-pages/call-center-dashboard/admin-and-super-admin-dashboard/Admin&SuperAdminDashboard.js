@@ -1,4 +1,4 @@
-import React from "react";
+import React, {useEffect} from "react";
 import { MdOutlineSupportAgent } from "react-icons/md";
 import { baseURL } from "../../../../config";
 import "./admin&superAdmin.css";
@@ -9,7 +9,7 @@ export default function AdminAndSuperAdminDashboard() {
     let endpoint = "";
     switch (category) {
       case "agents":
-        endpoint = "agents";
+        endpoint = "agent";
         break;
       case "admin":
         endpoint = "admin";
@@ -39,14 +39,18 @@ export default function AdminAndSuperAdminDashboard() {
         return;
     }
     try {
-      const response = await fetch(`${baseURL}/admin-dashboard/${endpoint}`, {
-        method: "GET",
-        headers: {
-          contentType: "application/json",
-          Authorization: `Bearer ${authToken}`,
-        },
-      });
-      const data = response.json()
+      const response = await fetch(
+        `${baseURL}/users/users-by-role/${endpoint}`,
+        {
+          method: "GET",
+          headers: {
+            'content-type': "application/json",
+            'Authorization': `Bearer ${authToken}`,
+          },
+        }
+      );
+      const data = await response.json()
+      console.log(data);
     } catch (error) {
       
     }
@@ -153,6 +157,31 @@ export default function AdminAndSuperAdminDashboard() {
             <h4>Total Director General</h4>
           </div>
         </div>
+      </div>
+
+      {/* table show when user click any card to display data */}
+      <div className="user-table-container">
+        {/* Table content will go here */}
+        <h4 className="admin-table-title">User Summary</h4>
+        <table className="admin-table-content">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Role</th>
+              <th>Email</th>
+              <th>Phone</th>
+            </tr>
+          </thead>
+          <tbody>
+            {/* Sample data, replace with actual data */}
+            <tr>
+              <td>John Doe</td>
+              <td>Agent</td>
+              <td>John@gmail.com</td>
+              <td>+1234567890</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   );

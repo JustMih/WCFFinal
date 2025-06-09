@@ -7,7 +7,7 @@ import { baseURL } from "../../config";
 import "./login.css";
 
 export default function Login() {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState(""); // Changed email to username
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -16,9 +16,9 @@ export default function Login() {
   const handleLogin = async (e) => {
     setIsLoading(true);
     e.preventDefault();
-  
-    const loginData = { email, password };
-  
+
+    const loginData = { username, password }; // Send username instead of email
+
     try {
       const response = await fetch(`${baseURL}/auth/login`, {
         method: "POST",
@@ -27,15 +27,15 @@ export default function Login() {
         },
         body: JSON.stringify(loginData),
       });
-  
+
       const data = await response.json();
-  
+
       console.log(data); // Debugging log to check backend response
-  
+
       if (response.ok) {
         const token = data.token;
         const tokenExpiration = new Date().getTime() + 3600 * 1000; // 1 hour
-  
+
         // Core user session
         localStorage.setItem("authToken", token);
         localStorage.setItem("username", data.user.name);
@@ -43,18 +43,18 @@ export default function Login() {
         localStorage.setItem("tokenExpiration", tokenExpiration);
         localStorage.setItem("userId", data.user.id);
         localStorage.setItem("agentStatus", "ready");
-  
+
         // SIP Extension support
         const extension = data.user.extension || "";
         localStorage.setItem("extension", extension);
-  
+
         // Set sipPassword only if user has an extension
         if (extension) {
           localStorage.setItem("sipPassword", "sip12345");
         } else {
           localStorage.setItem("sipPassword", "");
         }
-  
+
         // Redirect to dashboard
         window.location.href = "/dashboard";
       } else {
@@ -66,21 +66,19 @@ export default function Login() {
     } catch (err) {
       setError("Network error. Please try again.");
     }
-  
+
     setIsLoading(false);
   };
-  
 
-   useEffect(() => {
-     // If timeRemaining is set, start a countdown
-     if (timeRemaining !== null) {
-       const interval = setInterval(() => {
-         setTimeRemaining((prevTime) => prevTime - 1000);
-       }, 1000);
+  useEffect(() => {
+    if (timeRemaining !== null) {
+      const interval = setInterval(() => {
+        setTimeRemaining((prevTime) => prevTime - 1000);
+      }, 1000);
 
-       return () => clearInterval(interval);
-     }
-   }, [timeRemaining]);
+      return () => clearInterval(interval);
+    }
+  }, [timeRemaining]);
 
   return (
     <div className="login-container">
@@ -94,12 +92,12 @@ export default function Login() {
               <img src={wcf_logo} alt="logo" className="wcf-logo" />
             </div>
             <TextField
-              label="Email"
+              label="Username" // Change from email to username
               variant="outlined"
               fullWidth
               margin="normal"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               required
             />
             <TextField
