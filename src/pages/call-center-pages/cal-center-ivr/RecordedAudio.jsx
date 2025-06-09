@@ -135,14 +135,9 @@
 // export default RecordedAudio;
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-<<<<<<< HEAD
-import './RecordedAudio.css'; // Make sure to create and import this CSS
-import { baseURL } from "../../../config";
-=======
 import './RecordedAudio.css';
 import { baseURL } from "../../../config";
 
->>>>>>> 90334898606b6cc16274951f9a55daf96926f961
 const RecordedAudio = () => {
   const [recordings, setRecordings] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -161,10 +156,6 @@ const RecordedAudio = () => {
             Authorization: `Bearer ${localStorage.getItem("authToken")}`
           }
         });
-<<<<<<< HEAD
-        
-        setRecordings(response.data);
-=======
         const allRecordings = response.data || [];
 
         setRecordings(allRecordings);
@@ -176,7 +167,6 @@ const RecordedAudio = () => {
           if (savedPlayed[r.filename]) validPlayed[r.filename] = true;
         });
         setPlayedStatus(validPlayed);
->>>>>>> 90334898606b6cc16274951f9a55daf96926f961
       } catch (err) {
         setError(err.response?.data?.error || err.message);
         console.error('API Error:', err);
@@ -189,10 +179,6 @@ const RecordedAudio = () => {
 
   const handlePlay = async (recording) => {
     const audioUrl = `${baseURL}${recording.url}`;
-<<<<<<< HEAD
-
-=======
->>>>>>> 90334898606b6cc16274951f9a55daf96926f961
 
     if (currentAudio) {
       currentAudio.pause();
