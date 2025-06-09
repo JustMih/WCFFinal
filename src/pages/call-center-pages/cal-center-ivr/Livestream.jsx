@@ -1,56 +1,4 @@
-// import React, { useEffect, useState } from "react";
-// import io from "socket.io-client";
-
-// const Livestream = () => {
-//   const [rtpData, setRtpData] = useState([]);
-  
-//   useEffect(() => {
-//     // Connect to the WebSocket server
-//     const socket = io("http://10.52.0.19:5070");
-
-//     // Listen for RTP packet updates
-//     socket.on("rtp_update", (data) => {
-//       console.log("Received RTP Data:", data);
-//       setRtpData((prevData) => [...prevData, data]); // Update state with new RTP packet
-//     });
-
-//     return () => {
-//       socket.disconnect(); // Clean up on unmount
-//     };
-//   }, []);
-
-//   return (
-//     <div className="livestream">
-//       <h2>Live RTP Streaming</h2>
-//       <div className="rtp-data">
-//         <table>
-//           <thead>
-//             <tr>
-//               <th>Timestamp</th>
-//               <th>Sequence Number</th>
-//               <th>Packet Length</th>
-//               <th>Source IP</th>
-//               <th>Source Port</th>
-//             </tr>
-//           </thead>
-//           <tbody>
-//             {rtpData.map((packet, index) => (
-//               <tr key={index}>
-//                 <td>{packet.timestamp}</td>
-//                 <td>{packet.seq}</td>
-//                 <td>{packet.len}</td>
-//                 <td>{packet.source_ip}</td>
-//                 <td>{packet.source_port}</td>
-//               </tr>
-//             ))}
-//           </tbody>
-//         </table>
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default Livestream;
+ 
 import React, { useEffect, useState } from "react";
 import { baseURL } from "../../../config";
 import "./livestream.css";
@@ -59,20 +7,25 @@ const Livestream = () => {
   const [calls, setCalls] = useState([]);
 
   useEffect(() => {
-    fetchLiveCalls();
-  
-    // const socket = io(`${baseURL.replace("http", "ws")}`); // WebSocket URL
-    const socket = io("https://10.52.0.19", {
-  transports: ["websocket"],
-  secure: true,
-});
-
-    socket.on("live_call_update", (call) => {
-      setCalls((prev) => [call, ...prev]); // New call on top
+    const socket = io("http://10.52.0.19:5070", {
+      transports: ["websocket"],
     });
+  
+    socket.on("connect", () => {
+      console.log("✅ Connected to socket:", socket.id);
+    });
+  
+    socket.on("live_call_update", (call) => {
+      console.log("📥 Received call update:", call);
+      setCalls((prev) => [call, ...prev]);
+    });
+  
+    // ⬅️ Fetch live calls initially
+    fetchLiveCalls();
   
     return () => socket.disconnect();
   }, []);
+  
   
   const fetchLiveCalls = async () => {
     try {
@@ -113,18 +66,26 @@ const Livestream = () => {
             <th>Answered</th>
             <th>End</th>
             <th>Duration</th>
+            <th>Queue Entry</th>
+            <th>ETA</th>
+            <th>Voicemail</th>
+
           </tr>
         </thead>
         <tbody>
           {calls.map((call) => (
             <tr key={call.id} style={{ backgroundColor: getStatusColor(call.status) }}>
               <td>{call.caller || "-"}</td>
-              <td>{call.callee || "-"}</td>
+              <td>{call.cid_dnid|| "-"}</td>
               <td>{call.status}</td>
               <td>{call.call_start}</td>
               <td>{call.call_answered || "-"}</td>
               <td>{call.call_end || "-"}</td>
               <td>{call.duration_secs ? `${call.duration_secs} sec` : "-"}</td>
+              <td>{call.queue_entry_time || "-"}</td>
+              <td>{call.estimated_wait_time ? `${call.estimated_wait_time}s` : "-"}</td>
+              <td>{call.voicemail_path ? "Saved" : "-"}</td>
+
             </tr>
           ))}
         </tbody>
