@@ -76,38 +76,6 @@ export default function QueueStatusTable() {
   };
 
   return (
-<<<<<<< HEAD
-    <div className="p-4 bg-white rounded shadow-md">
-      <h2 className="text-xl font-semibold mb-4">📞 Queue Status</h2>
-
-      <div className="overflow-x-auto">
-        <table className="min-w-full border border-gray-300">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="px-4 py-2 border">Position</th>
-              <th className="px-4 py-2 border">Caller ID</th>
-              <th className="px-4 py-2 border">Queue</th>
-              <th className="px-4 py-2 border">Wait Time (s)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {queueStatus.length === 0 ? (
-              <tr>
-                <td colSpan="4" className="text-center py-4 text-gray-500">
-                  No callers in queue.
-                </td>
-              </tr>
-            ) : (
-              queueStatus.map((entry, idx) => (
-                <tr key={idx} className="text-center hover:bg-gray-50">
-                  <td className="border px-4 py-2">{entry.position ?? "N/A"}</td>
-                  <td className="border px-4 py-2">{entry.callerID ?? "Unknown"}</td>
-                  <td className="border px-4 py-2">{entry.queue ?? "N/A"}</td>
-                  <td className="border px-4 py-2">{entry.waitTime ?? "0"}</td>
-                </tr>
-              ))
-            )}
-=======
     <div className="queue-monitoring">
       <div className="queue-monitoring-title">
         <MdOutlinePhoneInTalk />
@@ -140,12 +108,9 @@ export default function QueueStatusTable() {
                 </td>
               </tr>
             ))}
->>>>>>> ay
           </tbody>
         </table>
       </div>
     </div>
   );
 };
-
-export default QueueStatusTable;
