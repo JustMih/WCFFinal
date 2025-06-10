@@ -11,6 +11,7 @@ export default function CallCenterIvrActions() {
   const [processedMappings, setProcessedMappings] = useState([]);
   const [showMappings, setShowMappings] = useState(false);
   const [editItem, setEditItem] = useState(null);
+  const [language, setLanguage] = useState("english");
 
   // Fetch voices and actions
   useEffect(() => {
@@ -31,20 +32,31 @@ export default function CallCenterIvrActions() {
           dtmf_digit: key,
           action_id: "",
           parameter: "",
+          language: "",
         }))
       );
 
-      fetch(`${baseURL}/ivr/dtmf-mappings/${selectedVoice}`)
+      // fetch(`${baseURL}/ivr/dtmf-mappings/${selectedVoice}`)
+      fetch(`${baseURL}/ivr/dtmf-mappings/${selectedVoice}?language=${language}`)
+
         .then(res => res.json())
         .then(data => {
           console.log("Fetched Mappings for selected voice:", data);
 
-          const filledMappings = DTMF_KEYS.map(key => {
-            const existing = data.find(m => m.dtmf_digit === key);
-            return existing
-              ? { dtmf_digit: key, action_id: existing.action_id, parameter: existing.parameter }
-              : { dtmf_digit: key, action_id: "", parameter: "" };
-          });
+          // const filledMappings = DTMF_KEYS.map(key => {
+          //   const existing = data.find(m => m.dtmf_digit === key);
+          //   return existing
+          //     ? { dtmf_digit: key, action_id: existing.action_id, parameter: existing.parameter }
+          //     : { dtmf_digit: key, action_id: "", parameter: "" };
+          // });
+const INVALID_ACTION_ID = actions.find(a => a.name.toLowerCase().includes("invalid"))?.id || "";
+
+const filledMappings = DTMF_KEYS.map(key => {
+  const existing = data.find(m => m.dtmf_digit === key);
+  return existing
+    ? { dtmf_digit: key, action_id: existing.action_id, parameter: existing.parameter }
+    : { dtmf_digit: key, action_id: INVALID_ACTION_ID, parameter: "" };
+});
 
           setDtmfMappings(filledMappings);
 
@@ -60,7 +72,7 @@ export default function CallCenterIvrActions() {
           setProcessedMappings(mapped);
         });
     }
-  }, [selectedVoice, actions]);
+  }, [selectedVoice, actions,language]);
 
   const handleChange = (index, field, value) => {
     const updated = [...dtmfMappings];
@@ -74,6 +86,7 @@ export default function CallCenterIvrActions() {
       action_id: m.action_id,
       parameter: m.parameter,
       ivr_voice_id: selectedVoice,
+      language: language,
     }));
 
     try {
@@ -177,6 +190,12 @@ export default function CallCenterIvrActions() {
                 </option>
               ))}
             </select>
+            <label>Select Language: </label>
+            <select value={language} onChange={e => setLanguage(e.target.value)}>
+              <option value="english">English</option>
+              <option value="swahili">Swahili</option>
+            </select>
+
           </div>
 
           {selectedVoice && (
