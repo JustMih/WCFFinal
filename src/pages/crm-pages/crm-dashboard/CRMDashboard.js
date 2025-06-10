@@ -1,7 +1,7 @@
 import React from 'react'
 import AgentDashboard from "../crm-dashboard/crm-agent-dashboard/crm-agent-dashboard"
 import CoordinatorDashboard from "../crm-dashboard/crm-coordinator-dashboard/crm-coordinator-dashboard"
-import AttendeeDashboard from "../crm-dashboard/crm-attendee-dashboard/crm-attendee-dashboard"
+import FocalPersonDashboard from "./crm-focal-person-dashboard/crm-focal-person-dashboard"
 
 export default function CRMDashboard() {
   const role = localStorage.getItem("role");
@@ -14,7 +14,7 @@ export default function CRMDashboard() {
        {(role === "agent") && (<AgentDashboard /> )}
        {role === "coordinator" && <CoordinatorDashboard />}
        {role === "attendee" && <AgentDashboard />}
-       {/* {role === "supervisor" && (<SupervisorDashboard />)} */}
+       {role === "focal-person" && (<FocalPersonDashboard />)}
      </>
    );
 }

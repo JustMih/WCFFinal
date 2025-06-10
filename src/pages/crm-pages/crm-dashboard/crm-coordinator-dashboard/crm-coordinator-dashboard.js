@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import TicketActions from "../../../../components/coordinator/TicketActions";
 
 // React Icons
 import { FaEye, FaRegCheckCircle } from "react-icons/fa";
@@ -544,6 +545,23 @@ export default function CoordinatorDashboard() {
     setCurrentPage(1);
   };
 
+  const handleTicketUpdate = (updatedTicket) => {
+    // Update the tickets list with the updated ticket
+    setTickets(tickets.map(ticket => 
+      ticket.id === updatedTicket.id ? updatedTicket : ticket
+    ));
+    
+    // Refresh dashboard counts
+    fetchDashboardCounts(userId);
+    
+    // Show success message
+    setSnackbar({
+      open: true,
+      message: "Ticket updated successfully",
+      severity: "success"
+    });
+  };
+
   // Place this above the return statement, inside the component but outside JSX:
   const details = selectedTicket ? [
     ["Name", `${selectedTicket.first_name || "N/A"} ${selectedTicket.middle_name || "N/A"} ${selectedTicket.last_name || "N/A"}`],
@@ -882,6 +900,11 @@ export default function CoordinatorDashboard() {
             alignItems: "center"
           }}
         >
+          <TicketActions 
+            ticket={selectedTicket}
+            onTicketUpdate={handleTicketUpdate}
+          />
+
           <Button
             size="small"
             variant="contained"
