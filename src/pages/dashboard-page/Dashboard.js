@@ -4,6 +4,7 @@ import Navbar from "../../components/nav-bar/Navbar";
 import CallCenterSidebar from "../../components/side-bar/side-bar-call-center/CallCenterSidebar";
 import CRMSidebar from "../../components/side-bar/side-bar-crm/CRMSidebar";
 import CallCenterDashboard from "../call-center-pages/call-center-dashboard/callCenterDashboard";
+import Dashboard2 from "../call-center-pages/call-center-dashboard/Dashboard2";
 import CRMDashboard from "../crm-pages/crm-dashboard/CRMDashboard";
 import CRMNotificationTickets from "../crm-pages/crm-notifications/notifications";
 import CRMAssignedTickets from "../crm-pages/crm-tickets/assigned";
@@ -99,6 +100,10 @@ export default function Dashboard() {
                 <Route
                   path="/dashboard"
                   element={<PrivateRoute element={<CallCenterDashboard />} />}
+                />
+                <Route
+                  path="/dashboard2"
+                  element={<PrivateRoute element={<Dashboard2 />} />}
                 />
                 <Route
                   path="/agents"
