@@ -12,6 +12,8 @@ export default function CallCenterIvr() {
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [voiceToDelete, setVoiceToDelete] = useState(null);
+  const [voiceLanguage, setVoiceLanguage] = useState("english");
+
 
   useEffect(() => {
     fetchVoices();
@@ -63,6 +65,7 @@ export default function CallCenterIvr() {
     const formData = new FormData();
     formData.append("voice_file", file);
     formData.append("file_name", fileName);
+    formData.append("language", voiceLanguage);
 
     try {
       const response = await fetch(`${baseURL}/ivr/voices`, {
@@ -84,6 +87,7 @@ export default function CallCenterIvr() {
     setEditing(true);
     setCurrentVoice(voice);
     setFileName(voice.file_name);
+    setFileName(voice.voiceLanguage);
     setShowModal(true);
   };
 
@@ -97,6 +101,7 @@ export default function CallCenterIvr() {
     const updatedVoice = {
       file_name: fileName,
       file_path: currentVoice.file_path,
+      language:voiceLanguage,
     };
 
     try {
@@ -212,7 +217,15 @@ export default function CallCenterIvr() {
                     onChange={handleFileChange}
                     required
                   />
+                    <label>Language:</label>
+                <select value={voiceLanguage} onChange={e => setVoiceLanguage(e.target.value)} required>
+                  <option value="english">English</option>
+                  <option value="swahili">Swahili</option>
+                </select>
+                
                 </div>
+                
+             
               )}
               <button type="submit">
                 {editing ? "Update Voice" : "Create Voice"}
@@ -241,6 +254,7 @@ export default function CallCenterIvr() {
               <th>File Name</th>
               <th>File Path</th>
               <th>Actions</th>
+              <th>Language</th>
             </tr>
           </thead>
           <tbody>
@@ -248,6 +262,8 @@ export default function CallCenterIvr() {
               <tr key={voice.id}>
                 <td>{voice.file_name}</td>
                 <td>{voice.file_path}</td>
+                <td>{voice.language}</td>
+
                 <td>
                   <button onClick={() => handlePlayVoice(voice.id)}>
                     Play
