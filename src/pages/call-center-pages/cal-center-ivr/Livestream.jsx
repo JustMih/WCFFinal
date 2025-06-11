@@ -74,19 +74,32 @@ const Livestream = () => {
         </thead>
         <tbody>
           {calls.map((call) => (
-            <tr key={call.id} style={{ backgroundColor: getStatusColor(call.status) }}>
-              <td>{call.caller || "-"}</td>
-              <td>{call.cid_dnid|| "-"}</td>
-              <td>{call.status}</td>
-              <td>{call.call_start}</td>
-              <td>{call.call_answered || "-"}</td>
-              <td>{call.call_end || "-"}</td>
-              <td>{call.duration_secs ? `${call.duration_secs} sec` : "-"}</td>
-              <td>{call.queue_entry_time || "-"}</td>
-              <td>{call.estimated_wait_time ? `${call.estimated_wait_time}s` : "-"}</td>
-              <td>{call.voicemail_path ? "Saved" : "-"}</td>
+            // <tr key={call.id} style={{ backgroundColor: getStatusColor(call.status) }}>
+            //   <td>{call.caller || "-"}</td>
+            //   <td>{call.cid_dnid|| "-"}</td>
+            //   <td>{call.status}</td>
+            //   <td>{call.call_start}</td>
+            //   <td>{call.call_answered || "-"}</td>
+            //   <td>{call.call_end || "-"}</td>
+            //   <td>{call.duration_secs ? `${call.duration_secs} sec` : "-"}</td>
+            //   <td>{call.queue_entry_time || "-"}</td>
+            //   <td>{call.estimated_wait_time ? `${call.estimated_wait_time}s` : "-"}</td>
+            //   <td>{call.voicemail_path ? "Saved" : "-"}</td>
 
-            </tr>
+            // </tr>
+            <tr key={call.linkedid} style={{ backgroundColor: getStatusColor(call.status) }}>
+            <td>{call.caller || "-"}</td>
+            <td>{call.callee || "-"}</td>
+            <td>{call.status}</td>
+            <td>{call.call_start || "-"}</td>
+            <td>{call.call_answered || "-"}</td>
+            <td>{call.call_end || "-"}</td>
+            <td>{call.duration_secs ? `${call.duration_secs}s` : "-"}</td>
+            <td>{call.queue_entry_time || "-"}</td>
+            <td>{call.estimated_wait_time ? `${call.estimated_wait_time}s` : "-"}</td>
+            <td>{call.voicemail_path ? "Saved" : "-"}</td>
+          </tr>
+
           ))}
         </tbody>
       </table>

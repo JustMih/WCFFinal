@@ -147,7 +147,7 @@ const RecordedAudio = () => {
   const [playedStatus, setPlayedStatus] = useState({});
   const [currentPage, setCurrentPage] = useState(1);
   const recordingsPerPage = 10;
-
+ 
   useEffect(() => {
     const fetchRecordings = async () => {
       try {
@@ -257,7 +257,7 @@ const RecordedAudio = () => {
                   <td>{indexOfFirst + index + 1}</td>
                   <td>{rec.filename}</td>
                   <td>{rec.caller}</td>
-                  <td>{new Date(rec.created).toLocaleString()}</td>
+                  <td>{new Date(rec.cdrstarttime).toLocaleString()}</td>
                   <td>{isPlayed ? 'Played' : 'Not Played'}</td>
                   <td>
                     <button className="btn btn-play" onClick={() => handlePlay(rec)}>Play</button>
