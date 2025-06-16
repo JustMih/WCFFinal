@@ -1,158 +1,39 @@
-import React from "react";
+import React, { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { RxDashboard } from "react-icons/rx";
 import { MdOutlineSupportAgent, MdOutlineAudiotrack } from "react-icons/md";
 import { TbActivityHeartbeat, TbLogs } from "react-icons/tb";
-import { FaRegUser } from "react-icons/fa6";
+import {
+  FaRegUser,
+  FaInstagram,
+  FaFacebook,
+  FaWhatsapp
+} from "react-icons/fa6";
 import { TiFlowSwitch } from "react-icons/ti";
 import { GiVrHeadset } from "react-icons/gi";
 import { BsChatRightTextFill } from "react-icons/bs";
 import logo from "../../../asserts/images/logo.png";
 import "./callCenterSidebar.css";
+import {
+  Collapse,
+  List,
+  ListItemButton,
+  Badge
+} from "@mui/material";
 
-export default function CallCenterSidebar({ isSidebarOpen, role }) {
+export default function CallCenterSidebar({ isSidebarOpen, role, instagramUnreadCount = 0 }) {
+  const [openSocial, setOpenSocial] = useState(false);
+  const toggleSocialMenu = () => setOpenSocial((prev) => !prev);
+
   return (
-    <aside
-      className={`call-center-sidebar ${isSidebarOpen ? "open" : "closed"}`}
-    >
+    <aside className={`call-center-sidebar ${isSidebarOpen ? "open" : "closed"}`}>
       {isSidebarOpen && (
         <img src={logo} alt="Avatar" className="sidebar-logo" />
       )}
+
       <ul>
         <li>
-          {(role === "admin" || role === "super-admin") && (
-            <>
-              <NavLink
-                to="/dashboard"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <RxDashboard className="menu-icon" />
-                  {isSidebarOpen && (
-                    <span className="menu-text">Admin Dashboard</span>
-                  )}
-                </div>
-              </NavLink>
-              <NavLink
-                to="/extension"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <TiFlowSwitch className="menu-icon" />
-                  {isSidebarOpen && (
-                    <span className="menu-text">Extension</span>
-                  )}
-                </div>
-              </NavLink>
-              <NavLink
-                to="/users"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <FaRegUser className="menu-icon" />
-                  {isSidebarOpen && <span className="menu-text">Users</span>}
-                </div>
-              </NavLink>
-              <NavLink
-                to="/ivr"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <GiVrHeadset className="menu-icon" />
-                  {isSidebarOpen && <span className="menu-text">IVR's</span>}
-                </div>
-              </NavLink>
-              <NavLink
-                to="/ivr-voices"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <MdOutlineAudiotrack className="menu-icon" />
-                  {isSidebarOpen && (
-                    <span className="menu-text">IVR's Voices</span>
-                  )}
-                </div>
-              </NavLink>
-              <NavLink
-                to="/ivr-action"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <TbActivityHeartbeat className="menu-icon" />
-                  {isSidebarOpen && (
-                    <span className="menu-text">IVR's Actions</span>
-                  )}
-                </div>
-              </NavLink>
-              <NavLink
-              to="/ivr-dtmf-mappings"
-              className={({ isActive }) => (isActive ? "active" : "")}
-            >
-               <div className="menu-item">
-                  <TbActivityHeartbeat className="menu-icon" />
-                  {isSidebarOpen && (
-                    <span className="menu-text">IVR's Mapping</span>
-                  )}
-                </div>
-            </NavLink>
-            <NavLink
-                to="/recorded-sounds"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <MdOutlineAudiotrack className="menu-icon" />
-                  {isSidebarOpen && <span className="menu-text">Recorded Sounds</span>}
-                </div>
-              </NavLink>
-
-            </>
-
-            
-          )}
-          {role === "agent" && (
-            <>
-              <NavLink
-                to="/dashboard"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <RxDashboard className="menu-icon" />
-                  {isSidebarOpen && (
-                    <span className="menu-text">Agent Dashboard</span>
-                  )}
-                </div>
-              </NavLink>
-              <NavLink
-                to="/agent-chat"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <BsChatRightTextFill className="menu-icon" />
-                  {isSidebarOpen && (
-                    <span className="menu-text">Supervisor Chat</span>
-                  )}
-                </div>
-              </NavLink>
-            </>
-          )}
+          {/* Supervisor Section Only for Simplicity */}
           {role === "supervisor" && (
             <>
               <NavLink
@@ -168,6 +49,7 @@ export default function CallCenterSidebar({ isSidebarOpen, role }) {
                   )}
                 </div>
               </NavLink>
+
               <NavLink
                 to="/agents"
                 className={({ isActive }) =>
@@ -179,6 +61,7 @@ export default function CallCenterSidebar({ isSidebarOpen, role }) {
                   {isSidebarOpen && <span className="menu-text">Agents</span>}
                 </div>
               </NavLink>
+
               <NavLink
                 to="/agents-logs"
                 className={({ isActive }) =>
@@ -192,6 +75,7 @@ export default function CallCenterSidebar({ isSidebarOpen, role }) {
                   )}
                 </div>
               </NavLink>
+
               <NavLink
                 to="/supervisor-chat"
                 className={({ isActive }) =>
@@ -205,11 +89,12 @@ export default function CallCenterSidebar({ isSidebarOpen, role }) {
                   )}
                 </div>
               </NavLink>
-              <NavLink
-                to="/social-message"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
+
+              {/* Social Notifications Toggle */}
+              <ListItemButton 
+                onClick={toggleSocialMenu}
+                className={openSocial ? "active-link" : "menu-item"}
+                sx={{ padding: 0 }}
               >
                 <div className="menu-item">
                   <BsChatRightTextFill className="menu-icon" />
@@ -217,61 +102,54 @@ export default function CallCenterSidebar({ isSidebarOpen, role }) {
                     <span className="menu-text">Social Notifications</span>
                   )}
                 </div>
-              </NavLink>
-            </>
-          )}
-          {role === "coordinator" && (
-            <>
-              <NavLink
-                to="/dashboard"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <RxDashboard className="menu-icon" />
-                  {isSidebarOpen && (
-                    <span className="menu-text">Supervisor Dashboard</span>
-                  )}
-                </div>
-              </NavLink>
-              <NavLink
-                to="/agents"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <MdOutlineSupportAgent className="menu-icon" />
-                  {isSidebarOpen && <span className="menu-text">Agents</span>}
-                </div>
-              </NavLink>
-              <NavLink
-                to="/agents-logs"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <TbLogs className="menu-icon" />
-                  {isSidebarOpen && (
-                    <span className="menu-text">Agents Logs</span>
-                  )}
-                </div>
-              </NavLink>
-              <NavLink
-                to="/supervisor-chat"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <BsChatRightTextFill className="menu-icon" />
-                  {isSidebarOpen && (
-                    <span className="menu-text">Agents Chat</span>
-                  )}
-                </div>
-              </NavLink>
+              </ListItemButton>
+
+              {/* Dropdown */}
+              <Collapse in={openSocial} timeout="auto" unmountOnExit>
+                <List component="div" disablePadding sx={{ marginLeft: '1rem' }}>
+                  <NavLink
+                    to="/social-message"
+                    className={({ isActive }) =>
+                      isActive ? "menu-item active-link" : "menu-item"
+                    }
+                  >
+                    <div className="menu-item">
+                      <Badge
+                        badgeContent={instagramUnreadCount}
+                        color="error"
+                        sx={{ marginRight: 1 }}
+                      >
+                        <FaInstagram className="menu-icon" color="#E1306C" />
+                      </Badge>
+                      {isSidebarOpen && <span className="menu-text">Instagram</span>}
+                    </div>
+                  </NavLink>
+
+                  <NavLink
+                    to="/social-message/facebook"
+                    className={({ isActive }) =>
+                      isActive ? "menu-item active-link" : "menu-item"
+                    }
+                  >
+                    <div className="menu-item">
+                      <FaFacebook className="menu-icon" color="#1877F3" />
+                      {isSidebarOpen && <span className="menu-text">Facebook</span>}
+                    </div>
+                  </NavLink>
+
+                  <NavLink
+                    to="/social-message/whatsapp"
+                    className={({ isActive }) =>
+                      isActive ? "menu-item active-link" : "menu-item"
+                    }
+                  >
+                    <div className="menu-item">
+                      <FaWhatsapp className="menu-icon" color="#25D366" />
+                      {isSidebarOpen && <span className="menu-text">WhatsApp</span>}
+                    </div>
+                  </NavLink>
+                </List>
+              </Collapse>
             </>
           )}
         </li>
