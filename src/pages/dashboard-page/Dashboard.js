@@ -5,6 +5,7 @@ import CallCenterSidebar from "../../components/side-bar/side-bar-call-center/Ca
 import CRMSidebar from "../../components/side-bar/side-bar-crm/CRMSidebar";
 import CallCenterDashboard from "../call-center-pages/call-center-dashboard/callCenterDashboard";
 import CRMDashboard from "../crm-pages/crm-dashboard/CRMDashboard";
+import CRMNotificationTickets from "../crm-pages/crm-notifications/notifications";
 import CRMAssignedTickets from "../crm-pages/crm-tickets/assigned";
 import CRMOpenedTickets from "../crm-pages/crm-tickets/ticket";
 import CRMInProgressTickets from "../crm-pages/crm-tickets/inprogress";
@@ -53,7 +54,7 @@ export default function Dashboard() {
         role === "supervisor"
       ) {
         setActiveSystem("call-center");
-      } else if (role === "attendee" || role === "coordinator") {
+      } else if (role === "attendee" || role === "coordinator" || role === "focal-person") {
         setActiveSystem("crm");
       }
     }
@@ -171,10 +172,10 @@ export default function Dashboard() {
                   path="/dashboard"
                   element={<PrivateRoute element={<CRMDashboard />} />}
                 />
-                {/* <Route
-                  path="/coordinator-dashboard"
-                  element={<PrivateRoute element={<CRMCoordinatorTickets />} />}
-                /> */}
+                <Route
+                  path="/notifications"
+                  element={<PrivateRoute element={<CRMNotificationTickets />} />}
+                />
                 <Route
                   path="/ticket/opened"
                   element={<PrivateRoute element={<CRMOpenedTickets />} />}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   MdOutlineSupportAgent,
   MdAutoAwesomeMotion,
@@ -19,19 +19,67 @@ import {
   Snackbar,
   TextField,
   Tooltip,
-  Typography
+  Typography,
+  Autocomplete,
+  CircularProgress
 } from "@mui/material";
+import { styled } from '@mui/material/styles';
 import ColumnSelector from "../../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../../config";
 import "./crm-agent-dashboard.css";
 import TicketActions from "../../../../components/ticket/TicketActions";
 import TicketFilters from "../../../../components/ticket/TicketFilters";
 import TicketDetailsModal from "../../../../components/ticket/TicketDetailsModal";
+import axios from "axios";
+
+// Add styled components for better typeahead styling
+const StyledAutocomplete = styled(Autocomplete)(({ theme }) => ({
+  '& .MuiInputBase-root': {
+    padding: '2px 4px',
+    backgroundColor: '#fff',
+    borderRadius: '4px',
+    '&:hover': {
+      borderColor: theme.palette.primary.main,
+    },
+  },
+  '& .MuiAutocomplete-listbox': {
+    '& li': {
+      padding: '8px 16px',
+      '&:hover': {
+        backgroundColor: '#f5f5f5',
+      },
+    },
+  },
+  '& .MuiAutocomplete-loading': {
+    padding: '10px',
+    textAlign: 'center',
+  },
+}));
+
+const SuggestionItem = styled('div')({
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '4px',
+  '& .suggestion-name': {
+    fontWeight: 600,
+    color: '#2c3e50',
+  },
+  '& .suggestion-details': {
+    fontSize: '0.85rem',
+    color: '#7f8c8d',
+  },
+  '& .highlight': {
+    backgroundColor: '#fff3cd',
+    padding: '0 2px',
+    borderRadius: '2px',
+  },
+});
 
 const AgentCRM = () => {
   // State for form data
   const [formData, setFormData] = useState({
     firstName: "",
+    middleName: "", // Add middle name
     lastName: "",
     phoneNumber: "",
     nidaNumber: "",
@@ -168,6 +216,20 @@ const AgentCRM = () => {
   // Notification modal state
   const [showNotifyModal, setShowNotifyModal] = useState(false);
   const [notifyMessage, setNotifyMessage] = useState("");
+
+  // Add new state for search
+  const [searchType, setSearchType] = useState('employee'); // 'employee' or 'employer'
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchBy, setSearchBy] = useState('name'); // 'name' or 'wcf_number'
+
+  // Add new state for search suggestions
+  const [searchSuggestions, setSearchSuggestions] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [selectedSuggestion, setSelectedSuggestion] = useState(null);
+
+  const searchTimeoutRef = useRef(null);
+  const [inputValue, setInputValue] = useState('');
+  const [open, setOpen] = useState(false);
 
   // Fetch function data for subject selection
   useEffect(() => {
@@ -308,7 +370,7 @@ const AgentCRM = () => {
 
     const requiredFields = {
       firstName: "First Name",
-      lastName: "Last Name",
+      ...(formData.requester !== "Employer" && { lastName: "Last Name" }), // Only include lastName if not Employer
       phoneNumber: "Phone Number",
       nidaNumber: "NIDA Number",
       requester: "Requester",
@@ -348,6 +410,10 @@ const AgentCRM = () => {
       const ticketData = {
         ...formData,
         subject: selectedFunction ? selectedFunction.name : '',
+        section: selectedSection || 'Unit',
+        sub_section: selectedFunction ? selectedFunction.function?.name : '',
+        responsible_unit_id: formData.functionId,
+        responsible_unit_name: selectedSection || 'Unit',
         status: submitAction === "closed" ? "Closed" : "Open"
       };
 
@@ -371,6 +437,7 @@ const AgentCRM = () => {
         setShowModal(false);
         setFormData({
           firstName: "",
+          middleName: "", // Reset middle name
           lastName: "",
           phoneNumber: "",
           nidaNumber: "",
@@ -847,6 +914,7 @@ const AgentCRM = () => {
         const prev = foundTickets[0]; // most recent ticket
         setFormData({
           firstName: prev.first_name || "",
+          middleName: prev.middle_name || "", // Add middle name
           lastName: prev.last_name || "",
           phoneNumber: prev.phone_number || phoneSearch,
           nidaNumber: prev.nida_number || "",
@@ -871,6 +939,375 @@ const AgentCRM = () => {
     }
     setNewTicketConfirmationModal(false);
   };
+
+  // Add the search function
+  const handleMemberSearch = async () => {
+    if (!searchQuery) {
+      setSnackbar({
+        open: true,
+        message: "Please enter either a name or WCF number",
+        severity: "warning"
+      });
+      return;
+    }
+  
+    const payload = {
+      type: searchType,
+      name: searchBy === 'name' ? searchQuery : '',
+      employer_registration_number: searchBy === 'wcf_number' ? searchQuery : ''
+    };
+  
+    try {
+      const response = await fetch('https://demomspapi.wcf.go.tz/api/v1/search/details', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        mode: 'cors',
+        body: JSON.stringify(payload)
+      });
+  
+      const data = await response.json();
+  
+      if (!response.ok || data.error || !data.results?.length) {
+        setSnackbar({
+          open: true,
+          message: data.message || "No matching record found.",
+          severity: "error"
+        });
+        return;
+      }
+  
+      const memberInfo = data.results[0];
+      let rawName = memberInfo.name || '';
+      let cleanName = '';
+      let employerName = '';
+  
+      // Extract clean name and employer
+      try {
+        rawName = rawName.replace(/^\d+\.\s*/, ''); // Remove number prefix like "14."
+        const [namePart] = rawName.split('—'); // Split before the em dash
+        cleanName = namePart.trim();
+  
+        const employerMatch = rawName.match(/\(([^)]+)\)/);
+        employerName = employerMatch ? employerMatch[1] : '';
+      } catch (err) {
+        console.warn("Name parsing error:", err);
+      }
+  
+      const [firstName, ...rest] = cleanName.split(' ');
+      const lastName = rest.join(' ');
+  
+      // Fill form data
+      setFormData((prev) => ({
+        ...prev,
+        firstName: firstName || '',
+        middleName: rest.length > 2 ? rest.slice(1, -1).join(' ') : '', // Extract middle name
+        lastName: lastName || '',
+        memberNo: memberInfo.memberno?.toString() || '',
+        requester: searchType === 'employee' ? 'Employee' : 'Employer',
+        institution: employerName || prev.institution,
+        phoneNumber: prev.phoneNumber,
+        nidaNumber: prev.nidaNumber,
+        region: prev.region,
+        district: prev.district,
+        channel: prev.channel,
+        category: prev.category,
+        functionId: prev.functionId,
+        description: prev.description,
+        status: prev.status
+      }));
+  
+      setSnackbar({
+        open: true,
+        message: "Member found and form auto-filled.",
+        severity: "success"
+      });
+  
+    } catch (error) {
+      console.error("Search error:", error);
+      setSnackbar({
+        open: true,
+        message: "Failed to connect to the search service. Please try again.",
+        severity: "error"
+      });
+    }
+  };
+  
+  // Update the debouncedSearch function to handle phone numbers
+  const debouncedSearch = useCallback(async (searchText) => {
+    if (!searchText || searchText.length < 1) {
+      setSearchSuggestions([]);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const response = await fetch('https://demomspapi.wcf.go.tz/api/v1/search/details', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        mode: 'cors',
+        body: JSON.stringify({
+          type: searchType,
+          name: searchText,
+          employer_registration_number: searchBy === 'wcf_number' ? searchText : ''
+        })
+      });
+
+      const data = await response.json();
+      
+      if (response.ok && data.results?.length) {
+        const suggestions = data.results.map(result => {
+          const originalName = result.name || '';
+          // Parse the original name into components
+          const numberMatch = originalName.match(/^(\d+\.)\s*/);
+          const numberPrefix = numberMatch ? numberMatch[1] : '';
+          const nameWithoutNumber = originalName.replace(/^\d+\.\s*/, '');
+          const [namePart, ...rest] = nameWithoutNumber.split('—');
+          const employerPart = rest.join('—').trim();
+          const cleanName = namePart.trim();
+
+          // Extract employer name and phone from parentheses if present
+          const employerMatch = employerPart.match(/\(([^)]+)\)/);
+          let employerName = '';
+          let phoneNumber = '';
+
+          if (employerMatch) {
+            const employerInfo = employerMatch[1].trim();
+            // Check if the employer info contains a phone number
+            const phoneMatch = employerInfo.match(/(\d{10,})/); // Match 10 or more digits
+            if (phoneMatch) {
+              phoneNumber = phoneMatch[0];
+              // Remove the phone number from employer name
+              employerName = employerInfo.replace(phoneMatch[0], '').trim();
+            } else {
+              employerName = employerInfo;
+            }
+          }
+
+          // Also check if phone number is directly available in the result
+          if (!phoneNumber && result.phone) {
+            phoneNumber = result.phone;
+          }
+
+          return {
+            id: result.memberno,
+            numberPrefix,
+            originalName,
+            displayName: `${numberPrefix} ${cleanName}${employerName ? ` — (${employerName}${phoneNumber ? ` - ${phoneNumber}` : ''})` : ''}`,
+            cleanName,
+            employerName,
+            phoneNumber,
+            memberNo: result.memberno,
+            type: result.type,
+            status: result.status,
+            rawData: result
+          };
+        });
+        
+        setSearchSuggestions(suggestions);
+        setOpen(true);
+      } else {
+        setSearchSuggestions([]);
+      }
+    } catch (error) {
+      console.error("Search suggestion error:", error);
+      setSearchSuggestions([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [searchType, searchBy]);
+
+  // Update handleSuggestionSelected to handle phone numbers
+  const handleSuggestionSelected = (event, suggestion) => {
+    if (!suggestion) {
+      setSelectedSuggestion(null);
+      return;
+    }
+
+    setSelectedSuggestion(suggestion);
+    setSearchQuery(suggestion.originalName);
+
+    // Parse the name more carefully
+    const cleanName = suggestion.cleanName || '';
+    const nameParts = cleanName.split(' ');
+    const firstName = nameParts[0] || '';
+    const middleName = nameParts.length > 2 ? nameParts.slice(1, -1).join(' ') : '';
+    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+
+    // Get employer details and phone number
+    const employerName = suggestion.employerName || '';
+    const phoneNumber = suggestion.phoneNumber || suggestion.rawData?.phone || '';
+
+    // Extract region and district if available in the raw data
+    const region = suggestion.rawData?.region || '';
+    const district = suggestion.rawData?.district || '';
+
+    // Set form data with all available information
+    setFormData(prev => ({
+      ...prev,
+      // Personal Information
+      firstName: searchType === 'employer' ? cleanName : firstName,
+      middleName: searchType === 'employer' ? '' : middleName,
+      lastName: searchType === 'employer' ? '' : lastName,
+      memberNo: suggestion.memberNo?.toString() || '',
+      nidaNumber: suggestion.rawData?.nida_number || prev.nidaNumber,
+      phoneNumber: phoneNumber || prev.phoneNumber,
+
+      // Employment Information
+      requester: searchType === 'employee' ? 'Employee' : 'Employer',
+      // For employers, use their name as the institution
+      institution: searchType === 'employer' ? cleanName : (employerName || prev.institution),
+
+      // Location Information
+      region: region || prev.region,
+      district: district || prev.district,
+
+      // Keep existing values for fields that should be manually selected
+      channel: prev.channel,
+      category: prev.category,
+      functionId: prev.functionId,
+      description: prev.description,
+      status: prev.status
+    }));
+
+    setSnackbar({
+      open: true,
+      message: `Form auto-filled with ${searchType === 'employer' ? 'employer' : 'member'}'s information`,
+      severity: "success"
+    });
+
+    setOpen(false);
+  };
+
+  // Update handleInputChange for more immediate response
+  const handleInputChange = (event, newValue, reason) => {
+    setInputValue(newValue);
+    
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    if (reason === 'reset' || reason === 'clear') {
+      setSearchSuggestions([]);
+      return;
+    }
+
+    // Reduced timeout for more immediate response
+    searchTimeoutRef.current = setTimeout(() => {
+      debouncedSearch(newValue);
+    }, 150); // Reduced from 300ms to 150ms for faster response
+  };
+
+  // Update the Autocomplete component
+  <StyledAutocomplete
+    value={selectedSuggestion}
+    onChange={(event, newValue) => handleSuggestionSelected(event, newValue)}
+    inputValue={inputValue}
+    onInputChange={handleInputChange}
+    options={searchSuggestions}
+    getOptionLabel={(option) => option.displayName || ''}
+    open={open}
+    onOpen={() => setOpen(true)}
+    onClose={() => setOpen(false)}
+    loading={isSearching}
+    loadingText={
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+        <CircularProgress size={20} />
+        <span>Searching...</span>
+      </div>
+    }
+    noOptionsText={
+      inputValue.length < 1 ? 
+        "Start typing to search" : 
+        "No matching records found"
+    }
+    renderOption={(props, option) => (
+      <li {...props}>
+        <SuggestionItem>
+          <div className="suggestion-name">
+            <span style={{ color: '#666' }}>{option.numberPrefix}</span>
+            {' '}
+            {highlightMatch(option.cleanName, inputValue)}
+            {option.employerName && (
+              <>
+                {' — ('}
+                <span style={{ color: '#666' }}>
+                  {highlightMatch(option.employerName, inputValue)}
+                </span>
+                {')'}
+              </>
+            )}
+          </div>
+          <div className="suggestion-details">
+            Member No: {option.memberNo}
+            {option.type && ` • Type: ${option.type}`}
+            {option.status && ` • Status: ${option.status}`}
+          </div>
+        </SuggestionItem>
+      </li>
+    )}
+    renderInput={(params) => (
+      <TextField
+        {...params}
+        placeholder={searchBy === 'name' ? "Start typing name..." : "Enter WCF number..."}
+        InputProps={{
+          ...params.InputProps,
+          endAdornment: (
+            <>
+              {isSearching && <CircularProgress color="inherit" size={20} />}
+              {params.InputProps.endAdornment}
+            </>
+          ),
+        }}
+        sx={{
+          '& .MuiOutlinedInput-root': {
+            '& fieldset': {
+              borderColor: '#e0e0e0',
+            },
+            '&:hover fieldset': {
+              borderColor: '#1976d2',
+            },
+            '&.Mui-focused fieldset': {
+              borderColor: '#1976d2',
+            },
+          },
+        }}
+      />
+    )}
+    filterOptions={(x) => x}
+    freeSolo={false}
+    autoComplete
+    includeInputInList
+    blurOnSelect
+    clearOnBlur={false}
+    selectOnFocus
+    handleHomeEndKeys
+    style={{ width: '100%' }}
+  />
+
+  // Highlight matching text in suggestions
+  const highlightMatch = (text, query) => {
+    if (!query) return text;
+    const parts = text.split(new RegExp(`(${query})`, 'gi'));
+    return parts.map((part, index) => 
+      part.toLowerCase() === query.toLowerCase() ? 
+        <span key={index} className="highlight">{part}</span> : part
+    );
+  };
+
+  // Update search input when query changes
+  useEffect(() => {
+    if (searchQuery) {
+      debouncedSearch(searchQuery);
+    } else {
+      setSearchSuggestions([]);
+    }
+  }, [searchQuery, debouncedSearch]);
 
   if (loading) {
     return (
@@ -1200,36 +1637,112 @@ const AgentCRM = () => {
           <Box sx={{ flex: 2, p: 3, borderRight: '1px solid #eee', overflowY: 'auto', maxHeight: '80vh' }}>
             {selectedTicket && (
               <>
-                <Typography
-                  variant="h5"
-                  sx={{ fontWeight: "bold", color: "#1976d2" }}
-                >
-                  Ticket Details
-                </Typography>
+                <Typography variant="h5" sx={{ fontWeight: "bold", color: "#1976d2" }}>Ticket Details</Typography>
                 <Divider sx={{ mb: 2 }} />
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}><Typography><strong>Ticket Number:</strong> {selectedTicket.ticket_id || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Status:</strong> <span style={{ color: selectedTicket.status === "Open" ? "green" : selectedTicket.status === "Closed" ? "gray" : "blue" }}>{selectedTicket.status || "N/A"}</span></Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>First Name:</strong> {selectedTicket.first_name || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Last Name:</strong> {selectedTicket.last_name || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Phone:</strong> {selectedTicket.phone_number || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>NIDA:</strong> {selectedTicket.nida_number || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Requester:</strong> {selectedTicket.requester || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Institution:</strong> {selectedTicket.institution || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Region:</strong> {selectedTicket.region || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>District:</strong> {selectedTicket.district || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Channel:</strong> {selectedTicket.channel || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Category:</strong> {selectedTicket.category || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Section:</strong> {selectedTicket.functionData?.function?.section?.name || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Sub-section:</strong> {selectedTicket.functionData?.function?.name || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Subject:</strong> {selectedTicket.functionData?.name || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Rated:</strong> <span style={{ color: selectedTicket.complaint_type === "Major" ? "red" : selectedTicket.complaint_type === "Minor" ? "orange" : "inherit" }}>{selectedTicket.complaint_type || "Unrated"}</span></Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Assigned To:</strong> {selectedTicket.assigned_to_id || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Assigned Role:</strong> {selectedTicket.assigned_to_role || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Created By:</strong> {selectedTicket?.creator?.name || "N/A"}</Typography></Grid>
-                  <Grid item xs={12} sm={6}><Typography><strong>Created At:</strong> {selectedTicket.created_at ? new Date(selectedTicket.created_at).toLocaleString("en-US", { month: "numeric", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) : "N/A"}</Typography></Grid>
-                  <Grid item xs={12}><Typography><strong>Description:</strong> {selectedTicket.description || "N/A"}</Typography></Grid>
-                </Grid>
+                <div style={{ 
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(2, 1fr)',
+                  gap: '16px',
+                  width: '100%'
+                }}>
+                  {[
+                    // Left Column
+                    ["Ticket Number", selectedTicket.ticket_id || "N/A"],
+                    ["First Name", selectedTicket.first_name || "N/A"],
+                    ["Phone", selectedTicket.phone_number || "N/A"],
+                    ["Requester", selectedTicket.requester || "N/A"],
+                    ["Region", selectedTicket.region || "N/A"],
+                    ["Channel", selectedTicket.channel || "N/A"],
+                    ["Section", selectedTicket.responsible_unit_name || "Unit"],
+                    ["Sub-section", selectedTicket.sub_section || "N/A"],
+                    ["Subject", selectedTicket.subject || "N/A"],
+                    ["Created By", selectedTicket?.creator?.name || "N/A"],
+                  ].map(([label, value], index) => (
+                    <div key={`left-${index}`} style={{ 
+                      padding: '12px 16px',
+                      backgroundColor: '#f8f9fa',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                      border: label === "Section" || label === "Sub-section" || label === "Subject" ? '2px solid #e0e0e0' : 'none'
+                    }}>
+                      <strong style={{ 
+                        minWidth: '120px',
+                        color: label === "Section" || label === "Sub-section" || label === "Subject" ? '#1976d2' : '#555',
+                        fontSize: '0.9rem'
+                      }}>{label}:</strong>
+                      <span style={{
+                        flex: 1,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        fontSize: '0.9rem',
+                        color: label === "Section" || label === "Function" || label === "Subject" ? '#1976d2' : 'inherit'
+                      }}>{value}</span>
+                    </div>
+                  ))}
+
+                  {/* Right Column */}
+                  {[
+                    ["Status", <span style={{ color: selectedTicket.status === "Open" ? "green" : selectedTicket.status === "Closed" ? "gray" : "blue" }}>{selectedTicket.status || "N/A"}</span>],
+                    ["Last Name", selectedTicket.last_name || "N/A"],
+                    ["NIDA", selectedTicket.nida_number || "N/A"],
+                    ["Institution", selectedTicket.institution || "N/A"],
+                    ["District", selectedTicket.district || "N/A"],
+                    ["Category", selectedTicket.category || "N/A"],
+                    ["Rated", <span style={{ color: selectedTicket.complaint_type === "Major" ? "red" : selectedTicket.complaint_type === "Minor" ? "orange" : "inherit" }}>{selectedTicket.complaint_type || "Unrated"}</span>],
+                    ["Assigned To", selectedTicket.assigned_to_id || "N/A"],
+                    ["Assigned Role", selectedTicket.assigned_to_role || "N/A"],
+                    ["Created At", selectedTicket.created_at ? new Date(selectedTicket.created_at).toLocaleString("en-US", { month: "numeric", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) : "N/A"]
+                  ].map(([label, value], index) => (
+                    <div key={`right-${index}`} style={{ 
+                      padding: '12px 16px',
+                      backgroundColor: '#f8f9fa',
+                      borderRadius: '8px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                    }}>
+                      <strong style={{ 
+                        minWidth: '120px',
+                        color: '#555',
+                        fontSize: '0.9rem'
+                      }}>{label}:</strong>
+                      <span style={{
+                        flex: 1,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        fontSize: '0.9rem'
+                      }}>{value}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Description - Full Width */}
+                <div style={{ 
+                  width: '100%', 
+                  padding: '12px 16px',
+                  backgroundColor: '#f8f9fa',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                  marginTop: '16px'
+                }}>
+                  <strong style={{ 
+                    minWidth: '120px',
+                    color: '#555',
+                    fontSize: '0.9rem'
+                  }}>Description:</strong>
+                  <span style={{
+                    flex: 1,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    fontSize: '0.9rem',
+                    lineHeight: '1.5'
+                  }}>{selectedTicket.description || "N/A"}</span>
+                </div>
+
                 <Box sx={{ mt: 3, textAlign: "right" }}>
                   <Button
                     variant="contained"
@@ -1251,58 +1764,107 @@ const AgentCRM = () => {
             )}
           </Box>
           {/* Right: Ticket History */}
-          <Box sx={{ flex: 1, p: 3, overflowY: 'auto', maxHeight: '80vh', minWidth: 250 }}>
-            <Typography variant="h6" gutterBottom>Ticket History</Typography>
+          <Box sx={{ flex: 1, p: 3, overflowY: 'auto', maxHeight: '80vh', minWidth: 300 }}>
+            <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1976d2' }}>
+              Ticket History
+            </Typography>
             <Divider sx={{ mb: 2 }} />
             {foundTickets && foundTickets.length > 0 ? (
               foundTickets.map(ticket => (
                 <Box
                   key={ticket.id}
                   sx={{
-                    mb: 1,
-                    p: 1,
-                    borderRadius: 1,
-                    bgcolor: selectedTicket?.id === ticket.id ? '#e3f2fd' : undefined,
+                    mb: 2,
+                    p: 2,
+                    borderRadius: 2,
+                    bgcolor: selectedTicket?.id === ticket.id ? '#e3f2fd' : '#fff',
                     cursor: 'pointer',
-                    border: selectedTicket?.id === ticket.id ? '2px solid #1976d2' : '1px solid #eee',
+                    border: selectedTicket?.id === ticket.id ? '2px solid #1976d2' : '1px solid #e0e0e0',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
                     display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between'
+                    flexDirection: 'column',
+                    gap: 1,
+                    '&:hover': {
+                      boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                      borderColor: '#1976d2'
+                    }
                   }}
                   onClick={() => openDetailsModal(ticket)}
                 >
-                  <div>
-                    <Typography variant="subtitle2">Ticket ID: {ticket.ticket_id}</Typography>
-                    <Typography variant="caption">{new Date(ticket.created_at).toLocaleDateString()}</Typography>
-                  </div>
-                  <div>
-                    <span style={{
-                      padding: '2px 8px',
-                      borderRadius: '8px',
-                      color: 'white',
-                      background: ticket.status === 'Closed' ? 'gray' : ticket.status === 'Open' ? 'green' : 'blue',
-                      fontSize: '0.8em'
-                    }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#1976d2' }}>
+                      {ticket.ticket_id}
+                    </Typography>
+                    <Typography
+                      sx={{
+                        px: 1.5,
+                        py: 0.5,
+                        borderRadius: '12px',
+                        color: 'white',
+                        background: ticket.status === 'Closed' 
+                          ? '#757575' 
+                          : ticket.status === 'Open' 
+                          ? '#2e7d32' 
+                          : '#1976d2',
+                        fontSize: '0.75rem',
+                        fontWeight: 500
+                      }}
+                    >
                       {ticket.status}
-                    </span>
-                  </div>
+                    </Typography>
+                  </Box>
+                  
+                  <Box sx={{ mt: 1 }}>
+                    <Typography variant="body2" sx={{ color: '#666', mb: 0.5 }}>
+                      Created: {new Date(ticket.created_at).toLocaleDateString()}
+                    </Typography>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 500, color: '#333', mb: 1 }}>
+                      Subject: {ticket.subject}
+                    </Typography>
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        color: '#666',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}
+                    >Description:
+                      {ticket.description}
+                    </Typography>
+                  </Box>
                 </Box>
               ))
             ) : (
-              <Typography>No ticket history found.</Typography>
+              <Typography sx={{ textAlign: 'center', color: '#666', mt: 3 }}>
+                No ticket history found.
+              </Typography>
             )}
-            {/* Add Create New Ticket button */}
-            <Box sx={{ mt: 2, textAlign: 'center' }}>
+            
+            <Box sx={{ mt: 3, textAlign: 'center' }}>
               <Button
                 variant="contained"
                 color="primary"
+                sx={{
+                  px: 4,
+                  py: 1.5,
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontWeight: 500,
+                  boxShadow: '0 2px 4px rgba(25,118,210,0.2)',
+                  '&:hover': {
+                    boxShadow: '0 4px 8px rgba(25,118,210,0.3)'
+                  }
+                }}
                 onClick={() => {
-                  // Pre-fill with selected ticket or most recent
                   let prev = selectedTicket;
                   if (!prev && foundTickets && foundTickets.length > 0) prev = foundTickets[0];
                   if (prev) {
                     setFormData({
                       firstName: prev.first_name || "",
+                      middleName: prev.middle_name || "", // Add middle name
                       lastName: prev.last_name || "",
                       phoneNumber: prev.phone_number || phoneSearch,
                       nidaNumber: prev.nida_number || "",
@@ -1372,43 +1934,163 @@ const AgentCRM = () => {
 
       {/* Ticket Creation Modal */}
       <Modal open={showModal} onClose={() => setShowModal(false)}>
-        <Box
-          sx={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: { xs: "90%", sm: 600 },
-            maxHeight: "90vh",
-            overflowY: "auto",
-            bgcolor: "background.paper",
-            boxShadow: 24,
-            borderRadius: 3,
-            p: 4
-          }}
-        >
-          <button
-            onClick={() => setShowModal(false)}
-            style={{
-              position: "absolute",
-              top: 6,
-              right: 12,
-              background: "transparent",
-              border: "none",
-              fontSize: "1.25rem",
-              cursor: "pointer"
-            }}
-            aria-label="Close"
-          >
-            ×
-          </button>
-
+        <Box sx={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          width: { xs: "90%", sm: 600 },
+          maxHeight: "90vh",
+          overflowY: "auto",
+          bgcolor: "background.paper",
+          boxShadow: 24,
+          borderRadius: 3,
+          p: 4
+        }}>
           <div className="modal-form-container">
             <h2 className="modal-title">New Ticket</h2>
 
-            {/* First Row */}
+            {/* Search Section */}
+            <div className="search-section" style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Search Type:</label>
+                <select
+                  value={searchType}
+                  onChange={(e) => {
+                    setSearchType(e.target.value);
+                    setSearchSuggestions([]);
+                    setSelectedSuggestion(null);
+                    setSearchQuery('');
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    borderRadius: '4px',
+                    border: '1px solid #ddd'
+                  }}
+                >
+                  <option value="employee">Employee</option>
+                  <option value="employer">Employer</option>
+                </select>
+              </div>
+
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Search By:</label>
+                <select
+                  value={searchBy}
+                  onChange={(e) => {
+                    setSearchBy(e.target.value);
+                    setSearchSuggestions([]);
+                    setSelectedSuggestion(null);
+                    setSearchQuery('');
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    borderRadius: '4px',
+                    border: '1px solid #ddd'
+                  }}
+                >
+                  <option value="name">Name</option>
+                  <option value="wcf_number">WCF Number</option>
+                </select>
+              </div>
+
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
+                  {searchBy === 'name' ? 'Enter Name' : 'Enter WCF Number'}:
+                </label>
+                <StyledAutocomplete
+                  value={selectedSuggestion}
+                  onChange={(event, newValue) => handleSuggestionSelected(event, newValue)}
+                  inputValue={inputValue}
+                  onInputChange={handleInputChange}
+                  options={searchSuggestions}
+                  getOptionLabel={(option) => option.displayName || ''}
+                  open={open}
+                  onOpen={() => setOpen(true)}
+                  onClose={() => setOpen(false)}
+                  loading={isSearching}
+                  loadingText={
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                      <CircularProgress size={20} />
+                      <span>Searching...</span>
+                    </div>
+                  }
+                  noOptionsText={
+                    inputValue.length < 1 ? 
+                      "Start typing to search" : 
+                      "No matching records found"
+                  }
+                  renderOption={(props, option) => (
+                    <li {...props}>
+                      <SuggestionItem>
+                        <div className="suggestion-name">
+                          <span style={{ color: '#666' }}>{option.numberPrefix}</span>
+                          {' '}
+                          {highlightMatch(option.cleanName, inputValue)}
+                          {option.employerName && (
+                            <>
+                              {' — ('}
+                              <span style={{ color: '#666' }}>
+                                {highlightMatch(option.employerName, inputValue)}
+                              </span>
+                              {')'}
+                            </>
+                          )}
+                        </div>
+                        <div className="suggestion-details">
+                          Member No: {option.memberNo}
+                          {option.type && ` • Type: ${option.type}`}
+                          {option.status && ` • Status: ${option.status}`}
+                        </div>
+                      </SuggestionItem>
+                    </li>
+                  )}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      placeholder={searchBy === 'name' ? "Start typing name..." : "Enter WCF number..."}
+                      InputProps={{
+                        ...params.InputProps,
+                        endAdornment: (
+                          <>
+                            {isSearching && <CircularProgress color="inherit" size={20} />}
+                            {params.InputProps.endAdornment}
+                          </>
+                        ),
+                      }}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          '& fieldset': {
+                            borderColor: '#e0e0e0',
+                          },
+                          '&:hover fieldset': {
+                            borderColor: '#1976d2',
+                          },
+                          '&.Mui-focused fieldset': {
+                            borderColor: '#1976d2',
+                          },
+                        },
+                      }}
+                    />
+                  )}
+                  filterOptions={(x) => x}
+                  freeSolo={false}
+                  autoComplete
+                  includeInputInList
+                  blurOnSelect
+                  clearOnBlur={false}
+                  selectOnFocus
+                  handleHomeEndKeys
+                  style={{ width: '100%' }}
+                />
+              </div>
+            </div>
+
+            {/* Existing form fields */}
             <div className="modal-form-row">
-              <div className="modal-form-group">
+              <div className="modal-form-group" style={{ flex: 1 }}>
                 <label style={{ fontSize: "0.875rem" }}>First Name:</label>
                 <input
                   name="firstName"
@@ -1431,8 +2113,26 @@ const AgentCRM = () => {
                 )}
               </div>
 
-              <div className="modal-form-group">
-                <label style={{ fontSize: "0.875rem" }}>Last Name:</label>
+              <div className="modal-form-group" style={{ flex: 1 }}>
+                <label style={{ fontSize: "0.875rem" }}>Middle Name (Optional):</label>
+                <input
+                  name="middleName"
+                  value={formData.middleName}
+                  onChange={handleChange}
+                  placeholder="Enter middle name"
+                  style={{
+                    height: "32px",
+                    fontSize: "0.875rem",
+                    padding: "4px 8px",
+                    border: "1px solid #ccc"
+                  }}
+                />
+              </div>
+
+              <div className="modal-form-group" style={{ flex: 1 }}>
+                <label style={{ fontSize: "0.875rem" }}>
+                  Last Name{formData.requester === "Employer" ? " (Optional)" : ""}:
+                </label>
                 <input
                   name="lastName"
                   value={formData.lastName}
@@ -1442,12 +2142,12 @@ const AgentCRM = () => {
                     height: "32px",
                     fontSize: "0.875rem",
                     padding: "4px 8px",
-                    border: formErrors.lastName
+                    border: formErrors.lastName && formData.requester !== "Employer"
                       ? "1px solid red"
                       : "1px solid #ccc"
                   }}
                 />
-                {formErrors.lastName && (
+                {formErrors.lastName && formData.requester !== "Employer" && (
                   <span style={{ color: "red", fontSize: "0.75rem" }}>
                     {formErrors.lastName}
                   </span>
@@ -1531,9 +2231,9 @@ const AgentCRM = () => {
                   <option value="Pensioners">Pensioners</option>
                   <option value="Stakeholders">Stakeholders</option>
                 </select>
-                {formErrors.category && (
+                {formErrors.requester && (
                   <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.category}
+                    {formErrors.requester}
                   </span>
                 )}
               </div>
@@ -1719,7 +2419,7 @@ const AgentCRM = () => {
               <div className="modal-form-group">
                 <label style={{ fontSize: "0.875rem" }}>Section:</label>
                 <input
-                  value={selectedSection}
+                  value={selectedSection || "Unit"}
                   readOnly
                   style={{
                     height: "32px",
