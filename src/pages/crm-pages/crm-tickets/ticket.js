@@ -372,8 +372,8 @@ export default function Crm() {
       <Modal
         open={isModalOpen}
         onClose={closeModal}
-        aria-labelledby="ticket-details-title"
-        aria-describedby="ticket-details-description"
+        aria-labelledby="ticket-details-modal"
+        aria-describedby="ticket-details-modal-description"
       >
         <Box
           sx={{
@@ -395,88 +395,133 @@ export default function Crm() {
               <Typography
                 id="ticket-details-title"
                 variant="h5"
-                sx={{ fontWeight: "bold", color: "#1976d2" }}
+                sx={{ fontWeight: "bold", color: "#1976d2", mb: 2 }}
               >
-                Ticket Details
+                Complaint Details
               </Typography>
               <Divider sx={{ mb: 2 }} />
-              <Grid container spacing={2} id="ticket-details-description">
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Name:</strong>{" "}
-                    {`${selectedTicket.first_name || "N/A"} ${
-                      selectedTicket.middle_name || " "
-                    } ${selectedTicket.last_name || "N/A"}`}
+
+              {/* Workflow Status Section */}
+              <Box sx={{ mb: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+                <Typography variant="h6" sx={{ color: "#3f51b5", mb: 1 }}>
+                  Ticket Workflow
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                
+                {/* Workflow Steps */}
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {/* Step 1: Agent Creation */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Box sx={{ 
+                      width: 30, 
+                      height: 30, 
+                      borderRadius: '50%', 
+                      bgcolor: 'green', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      color: 'white',
+                      fontWeight: 'bold'
+                    }}>
+                      1
+                    </Box>
+                    <Box>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                        Created by Agent
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {selectedTicket.created_by} - {selectedTicket.created_at ? new Date(selectedTicket.created_at).toLocaleString() : 'N/A'}
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  {/* Step 2: Coordinator Assignment */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Box sx={{ 
+                      width: 30, 
+                      height: 30, 
+                      borderRadius: '50%', 
+                      bgcolor: selectedTicket.assigned_to_id ? 'green' : 'gray', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      color: 'white',
+                      fontWeight: 'bold'
+                    }}>
+                      2
+                    </Box>
+                    <Box>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                        Assigned to Coordinator
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {selectedTicket.assigned_to_id ? 
+                          `${selectedTicket.assigned_to_role} - ${selectedTicket.assigned_at ? new Date(selectedTicket.assigned_at).toLocaleString() : 'N/A'}` : 
+                          'Pending Assignment'}
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  {/* Step 3: Complaint Rating */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Box sx={{ 
+                      width: 30, 
+                      height: 30, 
+                      borderRadius: '50%', 
+                      bgcolor: selectedTicket.complaint_type ? 'green' : 'gray', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      color: 'white',
+                      fontWeight: 'bold'
+                    }}>
+                      3
+                    </Box>
+                    <Box>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                        Complaint Rating
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {selectedTicket.complaint_type ? 
+                          `${selectedTicket.complaint_type} - ${selectedTicket.rated_by ? selectedTicket.rated_by : 'N/A'}` : 
+                          'Pending Rating'}
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  {/* Step 4: Resolution */}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Box sx={{ 
+                      width: 30, 
+                      height: 30, 
+                      borderRadius: '50%', 
+                      bgcolor: selectedTicket.status === 'Closed' ? 'green' : 'gray', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      color: 'white',
+                      fontWeight: 'bold'
+                    }}>
+                      4
+                    </Box>
+                    <Box>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                        Resolution
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {selectedTicket.status === 'Closed' ? 
+                          `Closed - ${selectedTicket.date_of_resolution ? new Date(selectedTicket.date_of_resolution).toLocaleString() : 'N/A'}` : 
+                          'In Progress'}
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+
+                {/* Current Status */}
+                <Box sx={{ mt: 2, p: 2, bgcolor: 'white', borderRadius: 1 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
+                    Current Status
                   </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Phone:</strong>{" "}
-                    {selectedTicket.phone_number || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>NIDA:</strong> {selectedTicket.nida_number || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Institution:</strong>{" "}
-                    {selectedTicket.institution || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Region:</strong> {selectedTicket.region || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>District:</strong>{" "}
-                    {selectedTicket.district || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Subject:</strong> {selectedTicket.subject || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Sub-category:</strong>{" "}
-                    {selectedTicket.sub_category || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Channel:</strong> {selectedTicket.channel || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Complaint Type:</strong>{" "}
-                    {selectedTicket.complaint_type || "Unrated"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Rated:</strong>{" "}
-                    <span
-                      style={{
-                        color:
-                          selectedTicket.complaint_type === "Major"
-                            ? "red"
-                            : selectedTicket.complaint_type === "Minor"
-                            ? "orange"
-                            : "inherit",
-                      }}
-                    >
-                      {selectedTicket.complaint_type || "N/A"}
-                    </span>
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
                   <Typography>
                     <strong>Status:</strong>{" "}
                     <span
@@ -486,83 +531,95 @@ export default function Crm() {
                             ? "green"
                             : selectedTicket.status === "Closed"
                             ? "gray"
-                            : "blue",
+                            : selectedTicket.status === "In Progress"
+                            ? "blue"
+                            : selectedTicket.status === "Assigned"
+                            ? "orange"
+                            : "inherit",
                       }}
                     >
                       {selectedTicket.status || "N/A"}
                     </span>
                   </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
+                  {selectedTicket.resolution_details && (
+                    <Typography sx={{ mt: 1 }}>
+                      <strong>Resolution Details:</strong> {selectedTicket.resolution_details}
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
+
+              {/* Two-Column Ticket Fields */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "16px" }}>
+                <div style={{ flex: "1 1 45%" }}>
                   <Typography>
-                    <strong>Created By:</strong>{" "}
-                    {selectedTicket.createdBy?.name || "N/A"}
+                    <strong>Name:</strong>{" "}
+                    {`${selectedTicket.first_name || "N/A"} ${
+                      selectedTicket.middle_name || " "
+                    } ${selectedTicket.last_name || "N/A"}`}
                   </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
+                </div>
+                <div style={{ flex: "1 1 45%" }}>
                   <Typography>
-                    <strong>Assigned To:</strong>{" "}
-                    {selectedTicket.assigned_to_id || "N/A"}
+                    <strong>Phone:</strong> {selectedTicket.phone_number || "N/A"}
                   </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
+                </div>
+
+                <div style={{ flex: "1 1 45%" }}>
                   <Typography>
-                    <strong>Assigned Role:</strong>{" "}
-                    {selectedTicket.assigned_to_role || "N/A"}
+                    <strong>NIDA:</strong> {selectedTicket.nida_number || "N/A"}
                   </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
+                </div>
+                <div style={{ flex: "1 1 45%" }}>
                   <Typography>
-                    <strong>Created At:</strong>{" "}
-                    {selectedTicket.created_at
-                      ? new Date(selectedTicket.created_at).toLocaleString(
-                          "en-US",
-                          {
-                            month: "numeric",
-                            day: "numeric",
-                            year: "numeric",
-                            hour: "numeric",
-                            minute: "2-digit",
-                            hour12: true,
-                          }
-                        )
-                      : "N/A"}
+                    <strong>Institution:</strong>{" "}
+                    {selectedTicket.institution || "N/A"}
                   </Typography>
-                </Grid>
-                <Grid item xs={12}>
+                </div>
+
+                <div style={{ flex: "1 1 45%" }}>
+                  <Typography>
+                    <strong>Region:</strong> {selectedTicket.region || "N/A"}
+                  </Typography>
+                </div>
+                <div style={{ flex: "1 1 45%" }}>
+                  <Typography>
+                    <strong>District:</strong>{" "}
+                    {selectedTicket.district || "N/A"}
+                  </Typography>
+                </div>
+
+                <div style={{ flex: "1 1 45%" }}>
+                  <Typography>
+                    <strong>Subject:</strong> {selectedTicket.subject || "N/A"}
+                  </Typography>
+                </div>
+                <div style={{ flex: "1 1 45%" }}>
+                  <Typography>
+                    <strong>Category:</strong> {selectedTicket.category || "N/A"}
+                  </Typography>
+                </div>
+
+                <div style={{ flex: "1 1 45%" }}>
+                  <Typography>
+                    <strong>Channel:</strong> {selectedTicket.channel || "N/A"}
+                  </Typography>
+                </div>
+
+                <div style={{ flex: "1 1 100%" }}>
                   <Typography>
                     <strong>Description:</strong>{" "}
                     {selectedTicket.description || "N/A"}
                   </Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <Typography>
-                    <strong>Comments:</strong>
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    multiline
-                    rows={2}
-                    value={comments}
-                    onChange={handleCommentsChange}
-                    placeholder="Add comments or notes..."
-                    sx={{ mt: 1 }}
-                  />
-                  <Box sx={{ mt: 2, textAlign: "right" }}>
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      onClick={handleCommentsSubmit}
-                      sx={{ mr: 1 }}
-                    >
-                      Save Comments
-                    </Button>
-                    <Button variant="outlined" onClick={closeModal}>
-                      Close
-                    </Button>
-                  </Box>
-                </Grid>
-              </Grid>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <Box sx={{ mt: 2, textAlign: "right" }}>
+                <Button variant="outlined" onClick={closeModal}>
+                  Close
+                </Button>
+              </Box>
             </>
           )}
         </Box>
