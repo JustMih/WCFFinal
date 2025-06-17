@@ -35,7 +35,7 @@ const TicketActions = ({ ticket, onTicketUpdate }) => {
       setError('');
 
       const response = await axios.post(
-        `/api/tickets/${ticket.id}/close-coordinator-ticket`,
+        `{/${ticket.id}/close-coordinator-ticket`,
         {
           userId: localStorage.getItem('userId'),
           resolution_details: resolutionDetails,

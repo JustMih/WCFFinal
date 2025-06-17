@@ -23,7 +23,7 @@ import {
   Autocomplete,
   CircularProgress
 } from "@mui/material";
-import { styled } from '@mui/material/styles';
+import { styled } from "@mui/material/styles";
 import ColumnSelector from "../../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../../config";
 import "./crm-agent-dashboard.css";
@@ -34,45 +34,45 @@ import axios from "axios";
 
 // Add styled components for better typeahead styling
 const StyledAutocomplete = styled(Autocomplete)(({ theme }) => ({
-  '& .MuiInputBase-root': {
-    padding: '2px 4px',
-    backgroundColor: '#fff',
-    borderRadius: '4px',
-    '&:hover': {
-      borderColor: theme.palette.primary.main,
-    },
+  "& .MuiInputBase-root": {
+    padding: "2px 4px",
+    backgroundColor: "#fff",
+    borderRadius: "4px",
+    "&:hover": {
+      borderColor: theme.palette.primary.main
+    }
   },
-  '& .MuiAutocomplete-listbox': {
-    '& li': {
-      padding: '8px 16px',
-      '&:hover': {
-        backgroundColor: '#f5f5f5',
-      },
-    },
+  "& .MuiAutocomplete-listbox": {
+    "& li": {
+      padding: "8px 16px",
+      "&:hover": {
+        backgroundColor: "#f5f5f5"
+      }
+    }
   },
-  '& .MuiAutocomplete-loading': {
-    padding: '10px',
-    textAlign: 'center',
-  },
+  "& .MuiAutocomplete-loading": {
+    padding: "10px",
+    textAlign: "center"
+  }
 }));
 
-const SuggestionItem = styled('div')({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '4px',
-  '& .suggestion-name': {
+const SuggestionItem = styled("div")({
+  display: "flex",
+  flexDirection: "column",
+  gap: "4px",
+  "& .suggestion-name": {
     fontWeight: 600,
-    color: '#2c3e50',
+    color: "#2c3e50"
   },
-  '& .suggestion-details': {
-    fontSize: '0.85rem',
-    color: '#7f8c8d',
+  "& .suggestion-details": {
+    fontSize: "0.85rem",
+    color: "#7f8c8d"
   },
-  '& .highlight': {
-    backgroundColor: '#fff3cd',
-    padding: '0 2px',
-    borderRadius: '2px',
-  },
+  "& .highlight": {
+    backgroundColor: "#fff3cd",
+    padding: "0 2px",
+    borderRadius: "2px"
+  }
 });
 
 const AgentCRM = () => {
@@ -89,6 +89,7 @@ const AgentCRM = () => {
     district: "",
     channel: "",
     category: "",
+    inquiry_type: "", // <-- Add this line
     functionId: "",
     description: "",
     status: "Open"
@@ -207,7 +208,8 @@ const AgentCRM = () => {
   // Add new state for phone search
   const [phoneSearch, setPhoneSearch] = useState("");
   const [existingTicketsModal, setExistingTicketsModal] = useState(false);
-  const [newTicketConfirmationModal, setNewTicketConfirmationModal] = useState(false);
+  const [newTicketConfirmationModal, setNewTicketConfirmationModal] =
+    useState(false);
   const [foundTickets, setFoundTickets] = useState([]);
 
   // Add submitAction state to control ticket status
@@ -218,9 +220,9 @@ const AgentCRM = () => {
   const [notifyMessage, setNotifyMessage] = useState("");
 
   // Add new state for search
-  const [searchType, setSearchType] = useState('employee'); // 'employee' or 'employer'
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchBy, setSearchBy] = useState('name'); // 'name' or 'wcf_number'
+  const [searchType, setSearchType] = useState("employee"); // 'employee' or 'employer'
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchBy, setSearchBy] = useState("name"); // 'name' or 'wcf_number'
 
   // Add new state for search suggestions
   const [searchSuggestions, setSearchSuggestions] = useState([]);
@@ -228,7 +230,7 @@ const AgentCRM = () => {
   const [selectedSuggestion, setSelectedSuggestion] = useState(null);
 
   const searchTimeoutRef = useRef(null);
-  const [inputValue, setInputValue] = useState('');
+  const [inputValue, setInputValue] = useState("");
   const [open, setOpen] = useState(false);
 
   // Fetch function data for subject selection
@@ -352,7 +354,9 @@ const AgentCRM = () => {
 
     if (name === "functionId") {
       // Find the selected functionData object
-      const selectedFunctionData = functionData.find((item) => item.id === value);
+      const selectedFunctionData = functionData.find(
+        (item) => item.id === value
+      );
       if (selectedFunctionData) {
         // Use new structure: function and function.section
         setSelectedFunction(selectedFunctionData.function?.name || "");
@@ -379,6 +383,7 @@ const AgentCRM = () => {
       district: "District",
       channel: "Channel",
       category: "Category",
+      inquiry_type: "Inquiry Type", // <-- Add this line
       functionId: "Subject",
       description: "Description"
     };
@@ -406,14 +411,16 @@ const AgentCRM = () => {
     setFormErrors({});
 
     try {
-      const selectedFunction = functionData.find(f => f.id === formData.functionId);
+      const selectedFunction = functionData.find(
+        (f) => f.id === formData.functionId
+      );
       const ticketData = {
         ...formData,
-        subject: selectedFunction ? selectedFunction.name : '',
-        section: selectedSection || 'Unit',
-        sub_section: selectedFunction ? selectedFunction.function?.name : '',
+        subject: selectedFunction ? selectedFunction.name : "",
+        section: selectedSection || "Unit",
+        sub_section: selectedFunction ? selectedFunction.function?.name : "",
         responsible_unit_id: formData.functionId,
-        responsible_unit_name: selectedSection || 'Unit',
+        responsible_unit_name: selectedSection || "Unit",
         status: submitAction === "closed" ? "Closed" : "Open"
       };
 
@@ -447,6 +454,7 @@ const AgentCRM = () => {
           district: "",
           channel: "",
           category: "",
+          inquiry_type: "", // Reset inquiry_type
           functionId: "",
           description: "",
           status: "Open"
@@ -853,14 +861,20 @@ const AgentCRM = () => {
   };
 
   // Update handlePhoneSearch to accept a selectedTicketFromTable parameter
-  const handlePhoneSearch = async (searchValue, selectedTicketFromTable = null) => {
+  const handlePhoneSearch = async (
+    searchValue,
+    selectedTicketFromTable = null
+  ) => {
     try {
       // Try phone number search first
-      let response = await fetch(`${baseURL}/ticket/search-by-phone/${searchValue}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
+      let response = await fetch(
+        `${baseURL}/ticket/search-by-phone/${searchValue}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
         }
-      });
+      );
       let data = await response.json();
       if (data.found) {
         setFoundTickets(data.tickets);
@@ -873,11 +887,14 @@ const AgentCRM = () => {
         return;
       }
       // If not found, try NIDA number search (if you have such an endpoint)
-      response = await fetch(`${baseURL}/ticket/search-by-nida/${searchValue}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
+      response = await fetch(
+        `${baseURL}/ticket/search-by-nida/${searchValue}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
         }
-      });
+      );
       data = await response.json();
       if (data.found) {
         setFoundTickets(data.tickets);
@@ -891,7 +908,7 @@ const AgentCRM = () => {
         setNewTicketConfirmationModal(true);
       }
     } catch (error) {
-      console.error('Error searching tickets:', error);
+      console.error("Error searching tickets:", error);
       setSnackbar({
         open: true,
         message: "Error searching tickets",
@@ -924,13 +941,14 @@ const AgentCRM = () => {
           district: prev.district || "",
           channel: prev.channel || "",
           category: prev.category || "",
+          inquiry_type: prev.inquiry_type || "", // Add inquiry_type
           functionId: prev.function_id || "",
           description: "",
           status: "Open"
         });
       } else {
         // fallback: just pre-fill phone number
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
           phoneNumber: phoneSearch
         }));
@@ -950,26 +968,29 @@ const AgentCRM = () => {
       });
       return;
     }
-  
+
     const payload = {
       type: searchType,
-      name: searchBy === 'name' ? searchQuery : '',
-      employer_registration_number: searchBy === 'wcf_number' ? searchQuery : ''
+      name: searchBy === "name" ? searchQuery : "",
+      employer_registration_number: searchBy === "wcf_number" ? searchQuery : ""
     };
-  
+
     try {
-      const response = await fetch('https://demomspapi.wcf.go.tz/api/v1/search/details', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        mode: 'cors',
-        body: JSON.stringify(payload)
-      });
-  
+      const response = await fetch(
+        "https://demomspapi.wcf.go.tz/api/v1/search/details",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json"
+          },
+          mode: "cors",
+          body: JSON.stringify(payload)
+        }
+      );
+
       const data = await response.json();
-  
+
       if (!response.ok || data.error || !data.results?.length) {
         setSnackbar({
           open: true,
@@ -978,35 +999,35 @@ const AgentCRM = () => {
         });
         return;
       }
-  
+
       const memberInfo = data.results[0];
-      let rawName = memberInfo.name || '';
-      let cleanName = '';
-      let employerName = '';
-  
+      let rawName = memberInfo.name || "";
+      let cleanName = "";
+      let employerName = "";
+
       // Extract clean name and employer
       try {
-        rawName = rawName.replace(/^\d+\.\s*/, ''); // Remove number prefix like "14."
-        const [namePart] = rawName.split('—'); // Split before the em dash
+        rawName = rawName.replace(/^\d+\.\s*/, ""); // Remove number prefix like "14."
+        const [namePart] = rawName.split("—"); // Split before the em dash
         cleanName = namePart.trim();
-  
+
         const employerMatch = rawName.match(/\(([^)]+)\)/);
-        employerName = employerMatch ? employerMatch[1] : '';
+        employerName = employerMatch ? employerMatch[1] : "";
       } catch (err) {
         console.warn("Name parsing error:", err);
       }
-  
-      const [firstName, ...rest] = cleanName.split(' ');
-      const lastName = rest.join(' ');
-  
+
+      const [firstName, ...rest] = cleanName.split(" ");
+      const lastName = rest.join(" ");
+
       // Fill form data
       setFormData((prev) => ({
         ...prev,
-        firstName: firstName || '',
-        middleName: rest.length > 2 ? rest.slice(1, -1).join(' ') : '', // Extract middle name
-        lastName: lastName || '',
-        memberNo: memberInfo.memberno?.toString() || '',
-        requester: searchType === 'employee' ? 'Employee' : 'Employer',
+        firstName: firstName || "",
+        middleName: rest.length > 2 ? rest.slice(1, -1).join(" ") : "", // Extract middle name
+        lastName: lastName || "",
+        memberNo: memberInfo.memberno?.toString() || "",
+        requester: searchType === "employee" ? "Employee" : "Employer",
         institution: employerName || prev.institution,
         phoneNumber: prev.phoneNumber,
         nidaNumber: prev.nidaNumber,
@@ -1014,17 +1035,17 @@ const AgentCRM = () => {
         district: prev.district,
         channel: prev.channel,
         category: prev.category,
+        inquiry_type: prev.inquiry_type || "", // Add inquiry_type
         functionId: prev.functionId,
         description: prev.description,
         status: prev.status
       }));
-  
+
       setSnackbar({
         open: true,
         message: "Member found and form auto-filled.",
         severity: "success"
       });
-  
     } catch (error) {
       console.error("Search error:", error);
       setSnackbar({
@@ -1034,165 +1055,183 @@ const AgentCRM = () => {
       });
     }
   };
-  
+
   // Update the debouncedSearch function to handle phone numbers
-  const debouncedSearch = useCallback(async (searchText) => {
-    if (!searchText || searchText.length < 1) {
-      setSearchSuggestions([]);
-      return;
-    }
-
-    setIsSearching(true);
-    try {
-      const response = await fetch('https://demomspapi.wcf.go.tz/api/v1/search/details', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        mode: 'cors',
-        body: JSON.stringify({
-          type: searchType,
-          name: searchText,
-          employer_registration_number: searchBy === 'wcf_number' ? searchText : ''
-        })
-      });
-
-      const data = await response.json();
-      
-      if (response.ok && data.results?.length) {
-        const suggestions = data.results.map(result => {
-          const originalName = result.name || '';
-          // Parse the original name into components
-          const numberMatch = originalName.match(/^(\d+\.)\s*/);
-          const numberPrefix = numberMatch ? numberMatch[1] : '';
-          const nameWithoutNumber = originalName.replace(/^\d+\.\s*/, '');
-          const [namePart, ...rest] = nameWithoutNumber.split('—');
-          const employerPart = rest.join('—').trim();
-          const cleanName = namePart.trim();
-
-          // Extract employer name and phone from parentheses if present
-          const employerMatch = employerPart.match(/\(([^)]+)\)/);
-          let employerName = '';
-          let phoneNumber = '';
-
-          if (employerMatch) {
-            const employerInfo = employerMatch[1].trim();
-            // Check if the employer info contains a phone number
-            const phoneMatch = employerInfo.match(/(\d{10,})/); // Match 10 or more digits
-            if (phoneMatch) {
-              phoneNumber = phoneMatch[0];
-              // Remove the phone number from employer name
-              employerName = employerInfo.replace(phoneMatch[0], '').trim();
-            } else {
-              employerName = employerInfo;
-            }
-          }
-
-          // Also check if phone number is directly available in the result
-          if (!phoneNumber && result.phone) {
-            phoneNumber = result.phone;
-          }
-
-          return {
-            id: result.memberno,
-            numberPrefix,
-            originalName,
-            displayName: `${numberPrefix} ${cleanName}${employerName ? ` — (${employerName}${phoneNumber ? ` - ${phoneNumber}` : ''})` : ''}`,
-            cleanName,
-            employerName,
-            phoneNumber,
-            memberNo: result.memberno,
-            type: result.type,
-            status: result.status,
-            rawData: result
-          };
-        });
-        
-        setSearchSuggestions(suggestions);
-        setOpen(true);
-      } else {
+  const debouncedSearch = useCallback(
+    async (searchText) => {
+      if (!searchText || searchText.length < 1) {
         setSearchSuggestions([]);
+        return;
       }
-    } catch (error) {
-      console.error("Search suggestion error:", error);
-      setSearchSuggestions([]);
-    } finally {
-      setIsSearching(false);
-    }
-  }, [searchType, searchBy]);
+
+      setIsSearching(true);
+      try {
+        const response = await fetch(
+          "https://demomspapi.wcf.go.tz/api/v1/search/details",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json"
+            },
+            mode: "cors",
+            body: JSON.stringify({
+              type: searchType,
+              name: searchText,
+              employer_registration_number:
+                searchBy === "wcf_number" ? searchText : ""
+            })
+          }
+        );
+
+        const data = await response.json();
+
+        if (response.ok && data.results?.length) {
+          const suggestions = data.results.map((result) => {
+            const originalName = result.name || "";
+            // Parse the original name into components
+            const numberMatch = originalName.match(/^(\d+\.)\s*/);
+            const numberPrefix = numberMatch ? numberMatch[1] : "";
+            const nameWithoutNumber = originalName.replace(/^\d+\.\s*/, "");
+            const [namePart, ...rest] = nameWithoutNumber.split("—");
+            const employerPart = rest.join("—").trim();
+            const cleanName = namePart.trim();
+
+            // Extract employer name and phone from parentheses if present
+            const employerMatch = employerPart.match(/\(([^)]+)\)/);
+            let employerName = "";
+            let phoneNumber = "";
+
+            if (employerMatch) {
+              const employerInfo = employerMatch[1].trim();
+              // Check if the employer info contains a phone number
+              const phoneMatch = employerInfo.match(/(\d{10,})/); // Match 10 or more digits
+              if (phoneMatch) {
+                phoneNumber = phoneMatch[0];
+                // Remove the phone number from employer name
+                employerName = employerInfo.replace(phoneMatch[0], "").trim();
+              } else {
+                employerName = employerInfo;
+              }
+            }
+
+            // Also check if phone number is directly available in the result
+            if (!phoneNumber && result.phone) {
+              phoneNumber = result.phone;
+            }
+
+            return {
+              id: result.memberno,
+              numberPrefix,
+              originalName,
+              displayName: `${numberPrefix} ${cleanName}${
+                employerName
+                  ? ` — (${employerName}${
+                      phoneNumber ? ` - ${phoneNumber}` : ""
+                    })`
+                  : ""
+              }`,
+              cleanName,
+              employerName,
+              phoneNumber,
+              memberNo: result.memberno,
+              type: result.type,
+              status: result.status,
+              rawData: result
+            };
+          });
+
+          setSearchSuggestions(suggestions);
+          setOpen(true);
+        } else {
+          setSearchSuggestions([]);
+        }
+      } catch (error) {
+        console.error("Search suggestion error:", error);
+        setSearchSuggestions([]);
+      } finally {
+        setIsSearching(false);
+      }
+    },
+    [searchType, searchBy]
+  );
 
   // Update handleSuggestionSelected to handle phone numbers
   const handleSuggestionSelected = (event, suggestion) => {
+    console.log("Selected Suggestion:", suggestion);
+
     if (!suggestion) {
       setSelectedSuggestion(null);
+      setInputValue("");
       return;
     }
 
-    setSelectedSuggestion(suggestion);
-    setSearchQuery(suggestion.originalName);
+    // Get the raw data which contains the claim number and user details
+    const rawData = suggestion.rawData || suggestion;
+    console.log("Raw Data:", rawData);
 
-    // Parse the name more carefully
-    const cleanName = suggestion.cleanName || '';
-    const nameParts = cleanName.split(' ');
-    const firstName = nameParts[0] || '';
-    const middleName = nameParts.length > 2 ? nameParts.slice(1, -1).join(' ') : '';
-    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+    // Extract institution name from display name (text between brackets)
+    const institutionMatch =
+      suggestion.displayName?.match(/—\s*\((.*?)\)/) ||
+      suggestion.originalName?.match(/—\s*\((.*?)\)/) ||
+      suggestion.name?.match(/—\s*\((.*?)\)/);
+    const institutionName = institutionMatch ? institutionMatch[1].trim() : "";
 
-    // Get employer details and phone number
-    const employerName = suggestion.employerName || '';
-    const phoneNumber = suggestion.phoneNumber || suggestion.rawData?.phone || '';
+    // Set the selected suggestion with claim information
+    const selectedWithClaim = {
+      ...suggestion,
+      hasClaim: Boolean(rawData.claim_number),
+      claimId: rawData.claim_number
+    };
+    console.log("Selected with claim:", selectedWithClaim);
 
-    // Extract region and district if available in the raw data
-    const region = suggestion.rawData?.region || '';
-    const district = suggestion.rawData?.district || '';
+    setSelectedSuggestion(selectedWithClaim);
 
-    // Set form data with all available information
-    setFormData(prev => ({
-      ...prev,
-      // Personal Information
-      firstName: searchType === 'employer' ? cleanName : firstName,
-      middleName: searchType === 'employer' ? '' : middleName,
-      lastName: searchType === 'employer' ? '' : lastName,
-      memberNo: suggestion.memberNo?.toString() || '',
-      nidaNumber: suggestion.rawData?.nida_number || prev.nidaNumber,
-      phoneNumber: phoneNumber || prev.phoneNumber,
+    // Set the input value to the full name
+    setInputValue(suggestion.cleanName || suggestion.name || "");
+    setSearchQuery(suggestion.cleanName || suggestion.name || "");
+    setOpen(false);
 
-      // Employment Information
-      requester: searchType === 'employee' ? 'Employee' : 'Employer',
-      // For employers, use their name as the institution
-      institution: searchType === 'employer' ? cleanName : (employerName || prev.institution),
+    // Update form data with essential information from rawData
+    const updatedFormData = {
+      ...formData,
+      firstName: rawData.firstname || "",
+      middleName: rawData.middlename || "",
+      lastName: rawData.lastname || "",
+      nidaNumber: rawData.nin || "",
+      phoneNumber: rawData.phoneNumber || "",
+      institution: institutionName, // Set the extracted institution name
+      // Keep existing values for other fields
+      requester: formData.requester,
+      region: formData.region,
+      district: formData.district,
+      channel: formData.channel,
+      category: formData.category,
+      inquiry_type: formData.inquiry_type || "",
+      functionId: formData.functionId,
+      description: formData.description,
+      status: formData.status
+    };
+    console.log("Updated Form Data:", updatedFormData);
 
-      // Location Information
-      region: region || prev.region,
-      district: district || prev.district,
-
-      // Keep existing values for fields that should be manually selected
-      channel: prev.channel,
-      category: prev.category,
-      functionId: prev.functionId,
-      description: prev.description,
-      status: prev.status
-    }));
+    setFormData(updatedFormData);
 
     setSnackbar({
       open: true,
-      message: `Form auto-filled with ${searchType === 'employer' ? 'employer' : 'member'}'s information`,
+      message: "User information loaded successfully",
       severity: "success"
     });
-
-    setOpen(false);
   };
 
   // Update handleInputChange for more immediate response
   const handleInputChange = (event, newValue, reason) => {
     setInputValue(newValue);
-    
+
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
 
-    if (reason === 'reset' || reason === 'clear') {
+    if (reason === "reset" || reason === "clear") {
       setSearchSuggestions([]);
       return;
     }
@@ -1210,36 +1249,42 @@ const AgentCRM = () => {
     inputValue={inputValue}
     onInputChange={handleInputChange}
     options={searchSuggestions}
-    getOptionLabel={(option) => option.displayName || ''}
+    getOptionLabel={(option) => option.displayName || ""}
     open={open}
     onOpen={() => setOpen(true)}
     onClose={() => setOpen(false)}
     loading={isSearching}
     loadingText={
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "10px"
+        }}
+      >
         <CircularProgress size={20} />
         <span>Searching...</span>
       </div>
     }
     noOptionsText={
-      inputValue.length < 1 ? 
-        "Start typing to search" : 
-        "No matching records found"
+      inputValue.length < 1
+        ? "Start typing to search"
+        : "No matching records found"
     }
     renderOption={(props, option) => (
       <li {...props}>
         <SuggestionItem>
           <div className="suggestion-name">
-            <span style={{ color: '#666' }}>{option.numberPrefix}</span>
-            {' '}
+            <span style={{ color: "#666" }}>{option.numberPrefix}</span>{" "}
             {highlightMatch(option.cleanName, inputValue)}
             {option.employerName && (
               <>
-                {' — ('}
-                <span style={{ color: '#666' }}>
+                {" — ("}
+                <span style={{ color: "#666" }}>
                   {highlightMatch(option.employerName, inputValue)}
                 </span>
-                {')'}
+                {")"}
               </>
             )}
           </div>
@@ -1254,7 +1299,9 @@ const AgentCRM = () => {
     renderInput={(params) => (
       <TextField
         {...params}
-        placeholder={searchBy === 'name' ? "Start typing name..." : "Enter WCF number..."}
+        placeholder={
+          searchBy === "name" ? "Start typing name..." : "Enter WCF number..."
+        }
         InputProps={{
           ...params.InputProps,
           endAdornment: (
@@ -1262,20 +1309,20 @@ const AgentCRM = () => {
               {isSearching && <CircularProgress color="inherit" size={20} />}
               {params.InputProps.endAdornment}
             </>
-          ),
+          )
         }}
         sx={{
-          '& .MuiOutlinedInput-root': {
-            '& fieldset': {
-              borderColor: '#e0e0e0',
+          "& .MuiOutlinedInput-root": {
+            "& fieldset": {
+              borderColor: "#e0e0e0"
             },
-            '&:hover fieldset': {
-              borderColor: '#1976d2',
+            "&:hover fieldset": {
+              borderColor: "#1976d2"
             },
-            '&.Mui-focused fieldset': {
-              borderColor: '#1976d2',
-            },
-          },
+            "&.Mui-focused fieldset": {
+              borderColor: "#1976d2"
+            }
+          }
         }}
       />
     )}
@@ -1287,16 +1334,21 @@ const AgentCRM = () => {
     clearOnBlur={false}
     selectOnFocus
     handleHomeEndKeys
-    style={{ width: '100%' }}
-  />
+    style={{ width: "100%" }}
+  />;
 
   // Highlight matching text in suggestions
   const highlightMatch = (text, query) => {
     if (!query) return text;
-    const parts = text.split(new RegExp(`(${query})`, 'gi'));
-    return parts.map((part, index) => 
-      part.toLowerCase() === query.toLowerCase() ? 
-        <span key={index} className="highlight">{part}</span> : part
+    const parts = text.split(new RegExp(`(${query})`, "gi"));
+    return parts.map((part, index) =>
+      part.toLowerCase() === query.toLowerCase() ? (
+        <span key={index} className="highlight">
+          {part}
+        </span>
+      ) : (
+        part
+      )
     );
   };
 
@@ -1349,13 +1401,18 @@ const AgentCRM = () => {
           value={phoneSearch}
           onChange={(e) => setPhoneSearch(e.target.value)}
           onKeyPress={(e) => {
-            if (e.key === 'Enter') handlePhoneSearch(phoneSearch);
+            if (e.key === "Enter") handlePhoneSearch(phoneSearch);
           }}
           style={{ flex: 1 }}
         />
         <button
           className="add-user-button"
-          style={{ minWidth: 50, display: "flex", alignItems: "center", justifyContent: "center" }}
+          style={{
+            minWidth: 50,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center"
+          }}
           onClick={() => handlePhoneSearch(phoneSearch)}
           aria-label="Search"
         >
@@ -1368,32 +1425,35 @@ const AgentCRM = () => {
         open={existingTicketsModal}
         onClose={() => setExistingTicketsModal(false)}
       >
-        <Box sx={{
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: { xs: "90%", sm: 600 },
-          maxHeight: "80vh",
-          overflowY: "auto",
-          bgcolor: "background.paper",
-          boxShadow: 24,
-          borderRadius: 2,
-          p: 3
-        }}>
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: { xs: "90%", sm: 600 },
+            maxHeight: "80vh",
+            overflowY: "auto",
+            bgcolor: "background.paper",
+            boxShadow: 24,
+            borderRadius: 2,
+            p: 3
+          }}
+        >
           <Typography variant="h6" component="h2" gutterBottom>
             Existing Tickets for {phoneSearch}
           </Typography>
           <Divider sx={{ mb: 2 }} />
-          
+
           {foundTickets.map((ticket) => (
-            <Box key={ticket.id} sx={{ mb: 2, p: 2, border: "1px solid #eee", borderRadius: 1 }}>
+            <Box
+              key={ticket.id}
+              sx={{ mb: 2, p: 2, border: "1px solid #eee", borderRadius: 1 }}
+            >
               <Typography variant="subtitle1">
                 Ticket ID: {ticket.ticket_id}
               </Typography>
-              <Typography>
-                Status: {ticket.status}
-              </Typography>
+              <Typography>Status: {ticket.status}</Typography>
               <Typography>
                 Created: {new Date(ticket.created_at).toLocaleDateString()}
               </Typography>
@@ -1410,8 +1470,10 @@ const AgentCRM = () => {
               </Button>
             </Box>
           ))}
-          
-          <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end", gap: 1 }}>
+
+          <Box
+            sx={{ mt: 2, display: "flex", justifyContent: "flex-end", gap: 1 }}
+          >
             <Button
               variant="contained"
               color="primary"
@@ -1437,17 +1499,19 @@ const AgentCRM = () => {
         open={newTicketConfirmationModal}
         onClose={() => setNewTicketConfirmationModal(false)}
       >
-        <Box sx={{
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: { xs: "90%", sm: 400 },
-          bgcolor: "background.paper",
-          boxShadow: 24,
-          borderRadius: 2,
-          p: 3
-        }}>
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: { xs: "90%", sm: 400 },
+            bgcolor: "background.paper",
+            boxShadow: 24,
+            borderRadius: 2,
+            p: 3
+          }}
+        >
           <Typography variant="h6" component="h2" gutterBottom>
             No Existing Tickets Found
           </Typography>
@@ -1622,29 +1686,44 @@ const AgentCRM = () => {
       <Modal open={showDetailsModal} onClose={() => setShowDetailsModal(false)}>
         <Box
           sx={{
-            display: 'flex',
-            flexDirection: 'row',
+            display: "flex",
+            flexDirection: "row",
             width: 900,
-            maxWidth: '95vw',
+            maxWidth: "95vw",
             minHeight: 400,
-            bgcolor: 'background.paper',
+            bgcolor: "background.paper",
             boxShadow: 24,
             borderRadius: 2,
             p: 0
           }}
         >
           {/* Left: Ticket Details */}
-          <Box sx={{ flex: 2, p: 3, borderRight: '1px solid #eee', overflowY: 'auto', maxHeight: '80vh' }}>
+          <Box
+            sx={{
+              flex: 2,
+              p: 3,
+              borderRight: "1px solid #eee",
+              overflowY: "auto",
+              maxHeight: "80vh"
+            }}
+          >
             {selectedTicket && (
               <>
-                <Typography variant="h5" sx={{ fontWeight: "bold", color: "#1976d2" }}>Ticket Details</Typography>
+                <Typography
+                  variant="h5"
+                  sx={{ fontWeight: "bold", color: "#1976d2" }}
+                >
+                  Ticket Details
+                </Typography>
                 <Divider sx={{ mb: 2 }} />
-                <div style={{ 
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(2, 1fr)',
-                  gap: '16px',
-                  width: '100%'
-                }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, 1fr)",
+                    gap: "16px",
+                    width: "100%"
+                  }}
+                >
                   {[
                     // Left Column
                     ["Ticket Number", selectedTicket.ticket_id || "N/A"],
@@ -1656,91 +1735,181 @@ const AgentCRM = () => {
                     ["Section", selectedTicket.responsible_unit_name || "Unit"],
                     ["Sub-section", selectedTicket.sub_section || "N/A"],
                     ["Subject", selectedTicket.subject || "N/A"],
-                    ["Created By", selectedTicket?.creator?.name || "N/A"],
+                    ["Created By", selectedTicket?.creator?.name || "N/A"]
                   ].map(([label, value], index) => (
-                    <div key={`left-${index}`} style={{ 
-                      padding: '12px 16px',
-                      backgroundColor: '#f8f9fa',
-                      borderRadius: '8px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                      border: label === "Section" || label === "Sub-section" || label === "Subject" ? '2px solid #e0e0e0' : 'none'
-                    }}>
-                      <strong style={{ 
-                        minWidth: '120px',
-                        color: label === "Section" || label === "Sub-section" || label === "Subject" ? '#1976d2' : '#555',
-                        fontSize: '0.9rem'
-                      }}>{label}:</strong>
-                      <span style={{
-                        flex: 1,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        fontSize: '0.9rem',
-                        color: label === "Section" || label === "Function" || label === "Subject" ? '#1976d2' : 'inherit'
-                      }}>{value}</span>
+                    <div
+                      key={`left-${index}`}
+                      style={{
+                        padding: "12px 16px",
+                        backgroundColor: "#f8f9fa",
+                        borderRadius: "8px",
+                        display: "flex",
+                        alignItems: "center",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                        border:
+                          label === "Section" ||
+                          label === "Sub-section" ||
+                          label === "Subject"
+                            ? "2px solid #e0e0e0"
+                            : "none"
+                      }}
+                    >
+                      <strong
+                        style={{
+                          minWidth: "120px",
+                          color:
+                            label === "Section" ||
+                            label === "Sub-section" ||
+                            label === "Subject"
+                              ? "#1976d2"
+                              : "#555",
+                          fontSize: "0.9rem"
+                        }}
+                      >
+                        {label}:
+                      </strong>
+                      <span
+                        style={{
+                          flex: 1,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          fontSize: "0.9rem",
+                          color:
+                            label === "Section" ||
+                            label === "Function" ||
+                            label === "Subject"
+                              ? "#1976d2"
+                              : "inherit"
+                        }}
+                      >
+                        {value}
+                      </span>
                     </div>
                   ))}
 
                   {/* Right Column */}
                   {[
-                    ["Status", <span style={{ color: selectedTicket.status === "Open" ? "green" : selectedTicket.status === "Closed" ? "gray" : "blue" }}>{selectedTicket.status || "N/A"}</span>],
+                    [
+                      "Status",
+                      <span
+                        style={{
+                          color:
+                            selectedTicket.status === "Open"
+                              ? "green"
+                              : selectedTicket.status === "Closed"
+                              ? "gray"
+                              : "blue"
+                        }}
+                      >
+                        {selectedTicket.status || "N/A"}
+                      </span>
+                    ],
                     ["Last Name", selectedTicket.last_name || "N/A"],
                     ["NIDA", selectedTicket.nida_number || "N/A"],
                     ["Institution", selectedTicket.institution || "N/A"],
                     ["District", selectedTicket.district || "N/A"],
                     ["Category", selectedTicket.category || "N/A"],
-                    ["Rated", <span style={{ color: selectedTicket.complaint_type === "Major" ? "red" : selectedTicket.complaint_type === "Minor" ? "orange" : "inherit" }}>{selectedTicket.complaint_type || "Unrated"}</span>],
+                    [
+                      "Rated",
+                      <span
+                        style={{
+                          color:
+                            selectedTicket.complaint_type === "Major"
+                              ? "red"
+                              : selectedTicket.complaint_type === "Minor"
+                              ? "orange"
+                              : "inherit"
+                        }}
+                      >
+                        {selectedTicket.complaint_type || "Unrated"}
+                      </span>
+                    ],
                     ["Assigned To", selectedTicket.assigned_to_id || "N/A"],
                     ["Assigned Role", selectedTicket.assigned_to_role || "N/A"],
-                    ["Created At", selectedTicket.created_at ? new Date(selectedTicket.created_at).toLocaleString("en-US", { month: "numeric", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) : "N/A"]
+                    [
+                      "Created At",
+                      selectedTicket.created_at
+                        ? new Date(selectedTicket.created_at).toLocaleString(
+                            "en-US",
+                            {
+                              month: "numeric",
+                              day: "numeric",
+                              year: "numeric",
+                              hour: "numeric",
+                              minute: "2-digit",
+                              hour12: true
+                            }
+                          )
+                        : "N/A"
+                    ]
                   ].map(([label, value], index) => (
-                    <div key={`right-${index}`} style={{ 
-                      padding: '12px 16px',
-                      backgroundColor: '#f8f9fa',
-                      borderRadius: '8px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-                    }}>
-                      <strong style={{ 
-                        minWidth: '120px',
-                        color: '#555',
-                        fontSize: '0.9rem'
-                      }}>{label}:</strong>
-                      <span style={{
-                        flex: 1,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        fontSize: '0.9rem'
-                      }}>{value}</span>
+                    <div
+                      key={`right-${index}`}
+                      style={{
+                        padding: "12px 16px",
+                        backgroundColor: "#f8f9fa",
+                        borderRadius: "8px",
+                        display: "flex",
+                        alignItems: "center",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
+                      }}
+                    >
+                      <strong
+                        style={{
+                          minWidth: "120px",
+                          color: "#555",
+                          fontSize: "0.9rem"
+                        }}
+                      >
+                        {label}:
+                      </strong>
+                      <span
+                        style={{
+                          flex: 1,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          fontSize: "0.9rem"
+                        }}
+                      >
+                        {value}
+                      </span>
                     </div>
                   ))}
                 </div>
 
                 {/* Description - Full Width */}
-                <div style={{ 
-                  width: '100%', 
-                  padding: '12px 16px',
-                  backgroundColor: '#f8f9fa',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                  marginTop: '16px'
-                }}>
-                  <strong style={{ 
-                    minWidth: '120px',
-                    color: '#555',
-                    fontSize: '0.9rem'
-                  }}>Description:</strong>
-                  <span style={{
-                    flex: 1,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    fontSize: '0.9rem',
-                    lineHeight: '1.5'
-                  }}>{selectedTicket.description || "N/A"}</span>
+                <div
+                  style={{
+                    width: "100%",
+                    padding: "12px 16px",
+                    backgroundColor: "#f8f9fa",
+                    borderRadius: "8px",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                    marginTop: "16px"
+                  }}
+                >
+                  <strong
+                    style={{
+                      minWidth: "120px",
+                      color: "#555",
+                      fontSize: "0.9rem"
+                    }}
+                  >
+                    Description:
+                  </strong>
+                  <span
+                    style={{
+                      flex: 1,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      fontSize: "0.9rem",
+                      lineHeight: "1.5"
+                    }}
+                  >
+                    {selectedTicket.description || "N/A"}
+                  </span>
                 </div>
 
                 <Box sx={{ mt: 3, textAlign: "right" }}>
@@ -1764,86 +1933,117 @@ const AgentCRM = () => {
             )}
           </Box>
           {/* Right: Ticket History */}
-          <Box sx={{ flex: 1, p: 3, overflowY: 'auto', maxHeight: '80vh', minWidth: 300 }}>
-            <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1976d2' }}>
+          <Box
+            sx={{
+              flex: 1,
+              p: 3,
+              overflowY: "auto",
+              maxHeight: "80vh",
+              minWidth: 300
+            }}
+          >
+            <Typography
+              variant="h6"
+              gutterBottom
+              sx={{ fontWeight: 600, color: "#1976d2" }}
+            >
               Ticket History
             </Typography>
             <Divider sx={{ mb: 2 }} />
             {foundTickets && foundTickets.length > 0 ? (
-              foundTickets.map(ticket => (
+              foundTickets.map((ticket) => (
                 <Box
                   key={ticket.id}
                   sx={{
                     mb: 2,
                     p: 2,
                     borderRadius: 2,
-                    bgcolor: selectedTicket?.id === ticket.id ? '#e3f2fd' : '#fff',
-                    cursor: 'pointer',
-                    border: selectedTicket?.id === ticket.id ? '2px solid #1976d2' : '1px solid #e0e0e0',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-                    display: 'flex',
-                    flexDirection: 'column',
+                    bgcolor:
+                      selectedTicket?.id === ticket.id ? "#e3f2fd" : "#fff",
+                    cursor: "pointer",
+                    border:
+                      selectedTicket?.id === ticket.id
+                        ? "2px solid #1976d2"
+                        : "1px solid #e0e0e0",
+                    boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
+                    display: "flex",
+                    flexDirection: "column",
                     gap: 1,
-                    '&:hover': {
-                      boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-                      borderColor: '#1976d2'
+                    "&:hover": {
+                      boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
+                      borderColor: "#1976d2"
                     }
                   }}
                   onClick={() => openDetailsModal(ticket)}
                 >
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#1976d2' }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center"
+                    }}
+                  >
+                    <Typography
+                      variant="subtitle1"
+                      sx={{ fontWeight: 600, color: "#1976d2" }}
+                    >
                       {ticket.ticket_id}
                     </Typography>
                     <Typography
                       sx={{
                         px: 1.5,
                         py: 0.5,
-                        borderRadius: '12px',
-                        color: 'white',
-                        background: ticket.status === 'Closed' 
-                          ? '#757575' 
-                          : ticket.status === 'Open' 
-                          ? '#2e7d32' 
-                          : '#1976d2',
-                        fontSize: '0.75rem',
+                        borderRadius: "12px",
+                        color: "white",
+                        background:
+                          ticket.status === "Closed"
+                            ? "#757575"
+                            : ticket.status === "Open"
+                            ? "#2e7d32"
+                            : "#1976d2",
+                        fontSize: "0.75rem",
                         fontWeight: 500
                       }}
                     >
                       {ticket.status}
                     </Typography>
                   </Box>
-                  
+
                   <Box sx={{ mt: 1 }}>
-                    <Typography variant="body2" sx={{ color: '#666', mb: 0.5 }}>
-                      Created: {new Date(ticket.created_at).toLocaleDateString()}
+                    <Typography variant="body2" sx={{ color: "#666", mb: 0.5 }}>
+                      Created:{" "}
+                      {new Date(ticket.created_at).toLocaleDateString()}
                     </Typography>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 500, color: '#333', mb: 1 }}>
+                    <Typography
+                      variant="subtitle2"
+                      sx={{ fontWeight: 500, color: "#333", mb: 1 }}
+                    >
                       Subject: {ticket.subject}
                     </Typography>
-                    <Typography 
-                      variant="body2" 
-                      sx={{ 
-                        color: '#666',
-                        display: '-webkit-box',
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: "#666",
+                        display: "-webkit-box",
                         WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis'
+                        WebkitBoxOrient: "vertical",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis"
                       }}
-                    >Description:
+                    >
+                      Description:
                       {ticket.description}
                     </Typography>
                   </Box>
                 </Box>
               ))
             ) : (
-              <Typography sx={{ textAlign: 'center', color: '#666', mt: 3 }}>
+              <Typography sx={{ textAlign: "center", color: "#666", mt: 3 }}>
                 No ticket history found.
               </Typography>
             )}
-            
-            <Box sx={{ mt: 3, textAlign: 'center' }}>
+
+            <Box sx={{ mt: 3, textAlign: "center" }}>
               <Button
                 variant="contained"
                 color="primary"
@@ -1851,16 +2051,17 @@ const AgentCRM = () => {
                   px: 4,
                   py: 1.5,
                   borderRadius: 2,
-                  textTransform: 'none',
+                  textTransform: "none",
                   fontWeight: 500,
-                  boxShadow: '0 2px 4px rgba(25,118,210,0.2)',
-                  '&:hover': {
-                    boxShadow: '0 4px 8px rgba(25,118,210,0.3)'
+                  boxShadow: "0 2px 4px rgba(25,118,210,0.2)",
+                  "&:hover": {
+                    boxShadow: "0 4px 8px rgba(25,118,210,0.3)"
                   }
                 }}
                 onClick={() => {
                   let prev = selectedTicket;
-                  if (!prev && foundTickets && foundTickets.length > 0) prev = foundTickets[0];
+                  if (!prev && foundTickets && foundTickets.length > 0)
+                    prev = foundTickets[0];
                   if (prev) {
                     setFormData({
                       firstName: prev.first_name || "",
@@ -1874,12 +2075,16 @@ const AgentCRM = () => {
                       district: prev.district || "",
                       channel: prev.channel || "",
                       category: prev.category || "",
+                      inquiry_type: prev.inquiry_type || "", // Add inquiry_type
                       functionId: prev.function_id || "",
                       description: "",
                       status: "Open"
                     });
                   } else {
-                    setFormData(prev => ({ ...prev, phoneNumber: phoneSearch }));
+                    setFormData((prev) => ({
+                      ...prev,
+                      phoneNumber: phoneSearch
+                    }));
                   }
                   setShowModal(true);
                   setShowDetailsModal(false);
@@ -1894,24 +2099,36 @@ const AgentCRM = () => {
 
       {/* Notification Modal */}
       <Modal open={showNotifyModal} onClose={() => setShowNotifyModal(false)}>
-        <Box sx={{ p: 3, bgcolor: 'background.paper', borderRadius: 2, minWidth: 350, maxWidth: 400, mx: 'auto', mt: '15vh' }}>
-          <Typography variant="h6" gutterBottom>Send Notification</Typography>
+        <Box
+          sx={{
+            p: 3,
+            bgcolor: "background.paper",
+            borderRadius: 2,
+            minWidth: 350,
+            maxWidth: 400,
+            mx: "auto",
+            mt: "15vh"
+          }}
+        >
+          <Typography variant="h6" gutterBottom>
+            Send Notification
+          </Typography>
           <TextField
             label="Message"
             multiline
             rows={3}
             fullWidth
             value={notifyMessage}
-            onChange={e => setNotifyMessage(e.target.value)}
+            onChange={(e) => setNotifyMessage(e.target.value)}
             sx={{ mb: 2 }}
           />
           <Button
             variant="contained"
             onClick={async () => {
               await fetch(`${baseURL}/notifications/notify`, {
-                method: 'POST',
+                method: "POST",
                 headers: {
-                  'Content-Type': 'application/json',
+                  "Content-Type": "application/json",
                   Authorization: `Bearer ${token}`
                 },
                 body: JSON.stringify({
@@ -1923,7 +2140,11 @@ const AgentCRM = () => {
                 })
               });
               setShowNotifyModal(false);
-              setSnackbar({ open: true, message: 'Notification sent!', severity: 'success' });
+              setSnackbar({
+                open: true,
+                message: "Notification sent!",
+                severity: "success"
+              });
             }}
             disabled={!notifyMessage.trim()}
           >
@@ -1934,39 +2155,57 @@ const AgentCRM = () => {
 
       {/* Ticket Creation Modal */}
       <Modal open={showModal} onClose={() => setShowModal(false)}>
-        <Box sx={{
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: { xs: "90%", sm: 600 },
-          maxHeight: "90vh",
-          overflowY: "auto",
-          bgcolor: "background.paper",
-          boxShadow: 24,
-          borderRadius: 3,
-          p: 4
-        }}>
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: { xs: "90%", sm: 600 },
+            maxHeight: "90vh",
+            overflowY: "auto",
+            bgcolor: "background.paper",
+            boxShadow: 24,
+            borderRadius: 3,
+            p: 4
+          }}
+        >
           <div className="modal-form-container">
             <h2 className="modal-title">New Ticket</h2>
 
             {/* Search Section */}
-            <div className="search-section" style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Search Type:</label>
+            <div
+              className="search-section"
+              style={{
+                marginBottom: "20px",
+                padding: "15px",
+                backgroundColor: "#f5f5f5",
+                borderRadius: "8px"
+              }}
+            >
+              <div style={{ marginBottom: "15px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "8px",
+                    fontWeight: "bold"
+                  }}
+                >
+                  Search Type:
+                </label>
                 <select
                   value={searchType}
                   onChange={(e) => {
                     setSearchType(e.target.value);
                     setSearchSuggestions([]);
                     setSelectedSuggestion(null);
-                    setSearchQuery('');
+                    setSearchQuery("");
                   }}
                   style={{
-                    width: '100%',
-                    padding: '8px',
-                    borderRadius: '4px',
-                    border: '1px solid #ddd'
+                    width: "100%",
+                    padding: "8px",
+                    borderRadius: "4px",
+                    border: "1px solid #ddd"
                   }}
                 >
                   <option value="employee">Employee</option>
@@ -1974,21 +2213,29 @@ const AgentCRM = () => {
                 </select>
               </div>
 
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Search By:</label>
+              <div style={{ marginBottom: "15px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "8px",
+                    fontWeight: "bold"
+                  }}
+                >
+                  Search By:
+                </label>
                 <select
                   value={searchBy}
                   onChange={(e) => {
                     setSearchBy(e.target.value);
                     setSearchSuggestions([]);
                     setSelectedSuggestion(null);
-                    setSearchQuery('');
+                    setSearchQuery("");
                   }}
                   style={{
-                    width: '100%',
-                    padding: '8px',
-                    borderRadius: '4px',
-                    border: '1px solid #ddd'
+                    width: "100%",
+                    padding: "8px",
+                    borderRadius: "4px",
+                    border: "1px solid #ddd"
                   }}
                 >
                   <option value="name">Name</option>
@@ -1996,46 +2243,65 @@ const AgentCRM = () => {
                 </select>
               </div>
 
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
-                  {searchBy === 'name' ? 'Enter Name' : 'Enter WCF Number'}:
+              <div style={{ marginBottom: "15px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "8px",
+                    fontWeight: "bold"
+                  }}
+                >
+                  {searchBy === "name" ? "Enter Name" : "Enter WCF Number"}:
                 </label>
                 <StyledAutocomplete
                   value={selectedSuggestion}
-                  onChange={(event, newValue) => handleSuggestionSelected(event, newValue)}
+                  onChange={(event, newValue) =>
+                    handleSuggestionSelected(event, newValue)
+                  }
                   inputValue={inputValue}
                   onInputChange={handleInputChange}
                   options={searchSuggestions}
-                  getOptionLabel={(option) => option.displayName || ''}
+                  getOptionLabel={(option) => option.displayName || ""}
                   open={open}
                   onOpen={() => setOpen(true)}
                   onClose={() => setOpen(false)}
                   loading={isSearching}
                   loadingText={
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "10px"
+                      }}
+                    >
                       <CircularProgress size={20} />
                       <span>Searching...</span>
                     </div>
                   }
                   noOptionsText={
-                    inputValue.length < 1 ? 
-                      "Start typing to search" : 
-                      "No matching records found"
+                    inputValue.length < 1
+                      ? "Start typing to search"
+                      : "No matching records found"
                   }
                   renderOption={(props, option) => (
                     <li {...props}>
                       <SuggestionItem>
                         <div className="suggestion-name">
-                          <span style={{ color: '#666' }}>{option.numberPrefix}</span>
-                          {' '}
+                          <span style={{ color: "#666" }}>
+                            {option.numberPrefix}
+                          </span>{" "}
                           {highlightMatch(option.cleanName, inputValue)}
                           {option.employerName && (
                             <>
-                              {' — ('}
-                              <span style={{ color: '#666' }}>
-                                {highlightMatch(option.employerName, inputValue)}
+                              {" — ("}
+                              <span style={{ color: "#666" }}>
+                                {highlightMatch(
+                                  option.employerName,
+                                  inputValue
+                                )}
                               </span>
-                              {')'}
+                              {")"}
                             </>
                           )}
                         </div>
@@ -2050,28 +2316,34 @@ const AgentCRM = () => {
                   renderInput={(params) => (
                     <TextField
                       {...params}
-                      placeholder={searchBy === 'name' ? "Start typing name..." : "Enter WCF number..."}
+                      placeholder={
+                        searchBy === "name"
+                          ? "Start typing name..."
+                          : "Enter WCF number..."
+                      }
                       InputProps={{
                         ...params.InputProps,
                         endAdornment: (
                           <>
-                            {isSearching && <CircularProgress color="inherit" size={20} />}
+                            {isSearching && (
+                              <CircularProgress color="inherit" size={20} />
+                            )}
                             {params.InputProps.endAdornment}
                           </>
-                        ),
+                        )
                       }}
                       sx={{
-                        '& .MuiOutlinedInput-root': {
-                          '& fieldset': {
-                            borderColor: '#e0e0e0',
+                        "& .MuiOutlinedInput-root": {
+                          "& fieldset": {
+                            borderColor: "#e0e0e0"
                           },
-                          '&:hover fieldset': {
-                            borderColor: '#1976d2',
+                          "&:hover fieldset": {
+                            borderColor: "#1976d2"
                           },
-                          '&.Mui-focused fieldset': {
-                            borderColor: '#1976d2',
-                          },
-                        },
+                          "&.Mui-focused fieldset": {
+                            borderColor: "#1976d2"
+                          }
+                        }
                       }}
                     />
                   )}
@@ -2083,11 +2355,134 @@ const AgentCRM = () => {
                   clearOnBlur={false}
                   selectOnFocus
                   handleHomeEndKeys
-                  style={{ width: '100%' }}
+                  style={{ width: "100%" }}
                 />
               </div>
             </div>
 
+            {/* Update the claim status section */}
+            {selectedSuggestion && (
+              <div
+                style={{
+                  marginTop: "10px",
+                  padding: "10px",
+                  backgroundColor: "#f5f5f5",
+                  borderRadius: "8px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center"
+                }}
+              >
+                <div>
+                  <Typography
+                    variant="subtitle2"
+                    style={{ fontWeight: "bold" }}
+                  >
+                    {selectedSuggestion.claimId ? (
+                      <>
+                        Claim Number:{" "}
+                        <span style={{ color: "#1976d2" }}>
+                          {selectedSuggestion.claimId}
+                        </span>
+                      </>
+                    ) : (
+                      "No Active Claim"
+                    )}
+                  </Typography>
+                </div>
+                {/* Add console log here to debug */}
+                {console.log("Button rendering debug:", {
+                  selectedSuggestion: selectedSuggestion,
+                  claimId: selectedSuggestion?.claimId,
+                  username: selectedSuggestion?.username,
+                  isDisabled: !selectedSuggestion?.claimId
+                })}
+                <Button
+                  variant="contained"
+                  color="primary"
+                  disabled={!selectedSuggestion?.claimId}
+                  onClick={async () => {
+                    console.log("Clicked claim:", selectedSuggestion.claimId);
+
+                    const response = await fetch(
+                      "http://127.0.0.1:8000/magic-login",
+                      {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Accept: "application/json"
+                        }, // important for Laravel session to persist
+                        body: JSON.stringify({
+                          username: "rehema.said",
+                          password: "TTCL@2026"
+                        }),
+                        credentials: "include" // important for Laravel session to persist
+                      }
+                    );
+
+                    const data = await response.json();
+
+                    if (data?.redirect) {
+                      window.open(data.redirect, "_blank");
+                    } else {
+                      console.error(data?.error || "Login failed");
+                    }
+                  }}
+                >
+                  View Claim
+                </Button>
+
+                {/* <Button
+                  variant="contained"
+                  color="primary"
+                  disabled={!selectedSuggestion.claimId}
+                  onClick={() => {
+                    console.log('Button clicked, claim number:', selectedSuggestion.claimId);
+                    if (selectedSuggestion.claimId) {
+                      // Replace with your actual claim system URL
+                      window.open(`http://10.49.0.11/claims/${selectedSuggestion.claimId}`, "_blank");
+                    }
+                  }}
+                  style={{ minWidth: "150px" }}
+                >
+                  {selectedSuggestion.claimId ? "View Claim" : "No Active Claim"}
+                </Button> */}
+              </div>
+            )}
+            <Button
+              variant="contained"
+              color="primary"
+              // disabled={!selectedSuggestion?.claimId}
+              onClick={async () => {
+                // console.log('Clicked claim:', selectedSuggestion.claimId);
+
+                const response = await fetch(
+                  "http://127.0.0.1:8000/magic-login",
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Accept: "application/json"
+                    }, // important for Laravel session to persist
+                    body: JSON.stringify({
+                      username: "rehema.said",
+                      password: "TTCL@2026"
+                    }),
+                    credentials: "include" // important for Laravel session to persist
+                  }
+                );
+
+                const data = await response.json();
+
+                if (data?.redirect) {
+                  window.open(data.redirect, "_blank");
+                } else {
+                  console.error(data?.error || "Login failed");
+                }
+              }}
+            >
+              View Claim
+            </Button>
             {/* Existing form fields */}
             <div className="modal-form-row">
               <div className="modal-form-group" style={{ flex: 1 }}>
@@ -2114,7 +2509,9 @@ const AgentCRM = () => {
               </div>
 
               <div className="modal-form-group" style={{ flex: 1 }}>
-                <label style={{ fontSize: "0.875rem" }}>Middle Name (Optional):</label>
+                <label style={{ fontSize: "0.875rem" }}>
+                  Middle Name (Optional):
+                </label>
                 <input
                   name="middleName"
                   value={formData.middleName}
@@ -2131,7 +2528,8 @@ const AgentCRM = () => {
 
               <div className="modal-form-group" style={{ flex: 1 }}>
                 <label style={{ fontSize: "0.875rem" }}>
-                  Last Name{formData.requester === "Employer" ? " (Optional)" : ""}:
+                  Last Name
+                  {formData.requester === "Employer" ? " (Optional)" : ""}:
                 </label>
                 <input
                   name="lastName"
@@ -2142,9 +2540,10 @@ const AgentCRM = () => {
                     height: "32px",
                     fontSize: "0.875rem",
                     padding: "4px 8px",
-                    border: formErrors.lastName && formData.requester !== "Employer"
-                      ? "1px solid red"
-                      : "1px solid #ccc"
+                    border:
+                      formErrors.lastName && formData.requester !== "Employer"
+                        ? "1px solid red"
+                        : "1px solid #ccc"
                   }}
                 />
                 {formErrors.lastName && formData.requester !== "Employer" && (
@@ -2369,6 +2768,36 @@ const AgentCRM = () => {
                 )}
               </div>
             </div>
+
+            {/* Inquiry Type */}
+            {formData.category === "Inquiry" && (
+              <div className="modal-form-group" style={{ flex: 1 }}>
+                <label style={{ fontSize: "0.875rem" }}>Inquiry Type:</label>
+                <select
+                  name="inquiry_type"
+                  value={formData.inquiry_type || ""}
+                  onChange={handleChange}
+                  style={{
+                    height: "32px",
+                    fontSize: "0.875rem",
+                    padding: "4px 8px",
+                    width: "100%",
+                    border: formErrors.inquiry_type
+                      ? "1px solid red"
+                      : "1px solid #ccc"
+                  }}
+                >
+                  <option value="">Select Inquiry Type</option>
+                  <option value="Claims">Claims</option>
+                  <option value="Compliance">Compliance</option>
+                </select>
+                {formErrors.inquiry_type && (
+                  <span style={{ color: "red", fontSize: "0.75rem" }}>
+                    {formErrors.inquiry_type}
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* Subject, Sub-section, Section */}
             <div className="modal-form-row">
