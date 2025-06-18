@@ -262,6 +262,12 @@ export default function AgentsDashboard() {
     fetchMissedCallsFromBackend();
   }, []);
 
+  // Debug missed calls count
+  useEffect(() => {
+    console.log("🔢 Current missed calls count:", missedCalls.length);
+    console.log("📋 Current missed calls:", missedCalls);
+  }, [missedCalls]);
+
   const setPhonePopupVisible = (visible) => {
     setShowPhonePopup(visible);
   };
@@ -337,15 +343,22 @@ export default function AgentsDashboard() {
       console.warn("🚫 Skipping missed call: no caller ID provided");
       return;
     }
+
+    // Format the caller number: replace +255 with 0
+    let formattedCaller = caller;
+    if (caller.startsWith('+255')) {
+      formattedCaller = '0' + caller.substring(4); // Remove +255 and add 0
+      console.log(`📞 Formatted caller: ${caller} → ${formattedCaller}`);
+    }
   
     const time = new Date();
     const agentId = localStorage.getItem("extension");
   
     // Update UI immediately
-    const newCall = { caller, time };
+    const newCall = { caller: formattedCaller, time };
     setMissedCalls((prev) => [...prev, newCall]);
   
-    setSnackbarMessage(`📞 Missed Call from ${caller}`);
+    setSnackbarMessage(`📞 Missed Call from ${formattedCaller}`);
     setSnackbarSeverity("warning");
     setSnackbarOpen(true);
   
@@ -357,7 +370,7 @@ export default function AgentsDashboard() {
         Authorization: `Bearer ${localStorage.getItem("authToken")}`,
       },
       body: JSON.stringify({
-        caller,
+        caller: formattedCaller,
         time: time.toISOString(),
         agentId,
       }),
@@ -377,7 +390,8 @@ export default function AgentsDashboard() {
 
   const fetchMissedCallsFromBackend = async () => {
     try {
-      const response = await fetch(`${baseURL}/missed-calls?agentId=${extension}`, {
+      console.log("🔍 Fetching missed calls for agent:", extension);
+      const response = await fetch(`${baseURL}/missed-calls?agentId=${extension}&status=pending`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -388,6 +402,8 @@ export default function AgentsDashboard() {
       if (!response.ok) throw new Error("Failed to fetch missed calls");
   
       const data = await response.json();
+      console.log("📥 Received missed calls from backend:", data);
+      console.log("📊 Total pending missed calls:", data.length);
   
       const formatted = data.map(call => ({
         ...call,
@@ -395,6 +411,7 @@ export default function AgentsDashboard() {
       }));
   
       setMissedCalls(formatted);
+      console.log("✅ Updated missedCalls state with", formatted.length, "calls");
     } catch (error) {
       console.error("❌ Error fetching missed calls:", error);
     }
@@ -565,8 +582,15 @@ export default function AgentsDashboard() {
       console.error("❌ No number provided for redial.");
       return;
     }
+
+    // Format the number: replace +255 with 0
+    let formattedNumber = number;
+    if (number.startsWith('+255')) {
+      formattedNumber = '0' + number.substring(4); // Remove +255 and add 0
+      console.log(`📞 Formatted number: ${number} → ${formattedNumber}`);
+    }
   
-    const target = `sip:${number}@10.52.0.19`;
+    const target = `sip:${formattedNumber}@10.52.0.19`;
     const targetURI = UserAgent.makeURI(target);
   
     if (!targetURI) {
@@ -1084,53 +1108,6 @@ export default function AgentsDashboard() {
               </div>
               20
             </div>
-          </div>
-        </div>
-        <div className="dashboard-single-agent-row_two">
-          <div className="login-summary">
-            <div className="login-summary-title">
-              <IoMdLogIn />
-              <h4>Login Summary</h4>
-            </div>
-            <div className="single-agent-level">
-              <div className="single-agent-level-left">
-                <CiNoWaitingSign fontSize={20} color="red" />
-                Idle Time
-              </div>
-              00:03:34
-            </div>
-            <div className="single-agent-level">
-              <div className="single-agent-level-left">
-                <MdOutlinePhoneInTalk fontSize={20} color="green" />
-                Talk Time
-              </div>
-              00:03:34
-            </div>
-            <div className="single-agent-level">
-              <div className="single-agent-level-left">
-                <FaHandHolding fontSize={20} color="black" />
-                Hold Time
-              </div>
-              00:03:34
-            </div>
-            <div className="single-agent-level">
-              <div className="single-agent-level-left">
-                <IoMdCloseCircleOutline fontSize={20} color="red" />
-                Break Time
-              </div>
-              00:03:34
-            </div>
-            <div className="single-agent-level">
-              <div className="single-agent-level-left">
-                <FaPersonWalkingArrowRight fontSize={20} color="green" />
-                Last Login Time
-              </div>
-              {/* {loginTime || "Loading..."} */}
-            </div>
-          </div>
-          <div className="chat">
-            {/* simple chat here */}
-            <CallChart />
           </div>
         </div>
 

@@ -6,6 +6,7 @@ const routes = require("./routes");
 const { registerSuperAdmin } = require("./controllers/auth/authController");
 const recordingRoutes = require('./routes/recordingRoutes');
 const agentMetricsRoutes = require('./routes/agentMetricsRoutes');
+const missedCallRoutes = require('./routes/missedCallRoutes');
 const ChatMassage = require("./models/chart_message")
 const { Server } = require("socket.io");
 const http = require("http");
@@ -21,6 +22,7 @@ app.use("/api", require("./routes/ivr-dtmf-routes"));
 // app.use("/sounds", express.static("/var/lib/asterisk/sounds"));
 app.use('/api', recordingRoutes);
 app.use('/api/agent-metrics', agentMetricsRoutes);
+app.use('/api/missed-calls', missedCallRoutes);
  
 // Replace existing static file config with:
 app.use("/sounds", express.static("/var/lib/asterisk/sounds", {
