@@ -92,7 +92,13 @@ const AgentCRM = () => {
     inquiry_type: "", // <-- Add this line
     functionId: "",
     description: "",
-    status: "Open"
+    status: "Open",
+    // New fields for representative
+    requesterName: "",
+    requesterPhoneNumber: "",
+    requesterEmail: "",
+    requesterAddress: "",
+    relationshipToEmployee: "",
   });
 
   // State for form errors
@@ -373,8 +379,6 @@ const AgentCRM = () => {
     e.preventDefault();
 
     const requiredFields = {
-      firstName: "First Name",
-      ...(formData.requester !== "Employer" && { lastName: "Last Name" }), // Only include lastName if not Employer
       phoneNumber: "Phone Number",
       nidaNumber: "NIDA Number",
       requester: "Requester",
@@ -383,10 +387,25 @@ const AgentCRM = () => {
       district: "District",
       channel: "Channel",
       category: "Category",
-      inquiry_type: "Inquiry Type", // <-- Add this line
+      ...(formData.category === "Inquiry" && { inquiry_type: "Inquiry Type" }),
       functionId: "Subject",
-      description: "Description"
+      description: "Description",
     };
+
+    // Conditionally add representative fields to required fields
+    if (formData.requester === "Representative") {
+      requiredFields.requesterName = "Representative Name";
+      requiredFields.requesterPhoneNumber = "Representative Phone Number";
+      requiredFields.relationshipToEmployee = "Relationship to Employee";
+    }
+
+    // Conditionally add employer-specific fields to required fields
+    if (formData.requester === "Employer") {
+      requiredFields.employerRegistrationNumber = "Employer Registration Number";
+      requiredFields.employerName = "Employer Name";
+      requiredFields.employerTin = "Employer TIN";
+      requiredFields.employerPhone = "Employer Phone";
+    }
 
     const errors = {};
     const missing = [];
@@ -399,11 +418,12 @@ const AgentCRM = () => {
     });
 
     if (missing.length > 0) {
+      console.log("Validation errors:", errors, formData); // Debug log for validation
       setFormErrors(errors);
       setModal({
         isOpen: true,
         type: "error",
-        message: `Please fill the required fields before submitting.`
+        message: `Please fill the required fields before submitting.`,
       });
       return;
     }
@@ -421,16 +441,29 @@ const AgentCRM = () => {
         sub_section: selectedFunction ? selectedFunction.function?.name : "",
         responsible_unit_id: formData.functionId,
         responsible_unit_name: selectedSection || "Unit",
-        status: submitAction === "closed" ? "Closed" : "Open"
+        status: submitAction === "closed" ? "Closed" : "Open",
       };
+
+      // Add employer-specific fields if requester is Employer
+      if (formData.requester === "Employer") {
+        ticketData.employerRegistrationNumber = formData.nidaNumber; // Using nidaNumber for employer registration as per current mapping
+        ticketData.employerName = formData.institution;
+        ticketData.employerTin = formData.nidaNumber; // Assuming nidaNumber holds TIN for employer
+        ticketData.employerPhone = formData.phoneNumber;
+        ticketData.employerEmail = formData.employerEmail || ""; // Add employerEmail to formData in frontend if available
+        ticketData.employerStatus = formData.employerStatus || ""; // Add employerStatus to formData in frontend if available
+        ticketData.employerAllocatedStaffId = formData.employerAllocatedStaffId || ""; // Add allocatedStaffId to formData in frontend if available
+        ticketData.employerAllocatedStaffName = formData.employerAllocatedStaffName || ""; // Add allocatedStaffName to formData in frontend if available
+        ticketData.employerAllocatedStaffUsername = formData.employerAllocatedStaffUsername || ""; // Add allocatedStaffUsername to formData in frontend if available
+      }
 
       const response = await fetch(`${baseURL}/ticket/create-ticket`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(ticketData)
+        body: JSON.stringify(ticketData),
       });
 
       const data = await response.json();
@@ -439,7 +472,7 @@ const AgentCRM = () => {
         setModal({
           isOpen: true,
           type: "success",
-          message: `Ticket created successfully`
+          message: data.message || "Ticket created successfully"
         });
         setShowModal(false);
         setFormData({
@@ -457,7 +490,13 @@ const AgentCRM = () => {
           inquiry_type: "", // Reset inquiry_type
           functionId: "",
           description: "",
-          status: "Open"
+          status: "Open",
+          // Reset representative fields
+          requesterName: "",
+          requesterPhoneNumber: "",
+          requesterEmail: "",
+          requesterAddress: "",
+          relationshipToEmployee: "",
         });
         fetchCustomerTickets();
       } else {
@@ -944,7 +983,13 @@ const AgentCRM = () => {
           inquiry_type: prev.inquiry_type || "", // Add inquiry_type
           functionId: prev.function_id || "",
           description: "",
-          status: "Open"
+          status: "Open",
+          // New fields for representative
+          requesterName: prev.requesterName || "",
+          requesterPhoneNumber: prev.requesterPhoneNumber || "",
+          requesterEmail: prev.requesterEmail || "",
+          requesterAddress: prev.requesterAddress || "",
+          relationshipToEmployee: prev.relationshipToEmployee || "",
         });
       } else {
         // fallback: just pre-fill phone number
@@ -1038,7 +1083,13 @@ const AgentCRM = () => {
         inquiry_type: prev.inquiry_type || "", // Add inquiry_type
         functionId: prev.functionId,
         description: prev.description,
-        status: prev.status
+        status: prev.status,
+        // New fields for representative
+        requesterName: prev.requesterName || "",
+        requesterPhoneNumber: prev.requesterPhoneNumber || "",
+        requesterEmail: prev.requesterEmail || "",
+        requesterAddress: prev.requesterAddress || "",
+        relationshipToEmployee: prev.relationshipToEmployee || "",
       }));
 
       setSnackbar({
@@ -1193,24 +1244,48 @@ const AgentCRM = () => {
     setOpen(false);
 
     // Update form data with essential information from rawData
-    const updatedFormData = {
-      ...formData,
-      firstName: rawData.firstname || "",
-      middleName: rawData.middlename || "",
-      lastName: rawData.lastname || "",
-      nidaNumber: rawData.nin || "",
-      phoneNumber: rawData.phoneNumber || "",
-      institution: institutionName, // Set the extracted institution name
-      // Keep existing values for other fields
-      requester: formData.requester,
-      region: formData.region,
-      district: formData.district,
-      channel: formData.channel,
-      category: formData.category,
-      inquiry_type: formData.inquiry_type || "",
-      functionId: formData.functionId,
-      description: formData.description,
-      status: formData.status
+    let updatedFormData = { ...formData };
+
+    if (searchType === "employee") {
+      updatedFormData = {
+        ...updatedFormData,
+        firstName: rawData.firstname || "",
+        middleName: rawData.middlename || "",
+        lastName: rawData.lastname || "",
+        nidaNumber: rawData.nin || "",
+        phoneNumber: rawData.phoneNumber || "",
+        institution: institutionName, // Set the extracted institution name
+      };
+    } else if (searchType === "employer") {
+      updatedFormData = {
+        ...updatedFormData,
+        firstName: "", // Clear employee-specific fields
+        middleName: "",
+        lastName: "",
+        nidaNumber: rawData.tin || "", // Use TIN for employer's NIDA/identifier
+        phoneNumber: rawData.phone || "",
+        institution: rawData.name || "", // Employer's name goes to institution
+      };
+    }
+
+    // Keep existing values for other fields not covered by search results
+    updatedFormData = {
+      ...updatedFormData,
+      requester: updatedFormData.requester || formData.requester,
+      region: updatedFormData.region || formData.region,
+      district: updatedFormData.district || formData.district,
+      channel: updatedFormData.channel || formData.channel,
+      category: updatedFormData.category || formData.category,
+      inquiry_type: updatedFormData.inquiry_type || formData.inquiry_type || "",
+      functionId: updatedFormData.functionId || formData.functionId,
+      description: updatedFormData.description || formData.description,
+      status: updatedFormData.status || formData.status,
+      // New fields for representative (if applicable, keep existing or clear if no relevant data in rawData)
+      requesterName: updatedFormData.requesterName || rawData.requesterName || "",
+      requesterPhoneNumber: updatedFormData.requesterPhoneNumber || rawData.requesterPhoneNumber || "",
+      requesterEmail: updatedFormData.requesterEmail || rawData.requesterEmail || "",
+      requesterAddress: updatedFormData.requesterAddress || rawData.requesterAddress || "",
+      relationshipToEmployee: updatedFormData.relationshipToEmployee || rawData.relationshipToEmployee || "",
     };
     console.log("Updated Form Data:", updatedFormData);
 
@@ -2078,7 +2153,13 @@ const AgentCRM = () => {
                       inquiry_type: prev.inquiry_type || "", // Add inquiry_type
                       functionId: prev.function_id || "",
                       description: "",
-                      status: "Open"
+                      status: "Open",
+                      // New fields for representative
+                      requesterName: prev.requesterName || "",
+                      requesterPhoneNumber: prev.requesterPhoneNumber || "",
+                      requesterEmail: prev.requesterEmail || "",
+                      requesterAddress: prev.requesterAddress || "",
+                      relationshipToEmployee: prev.relationshipToEmployee || "",
                     });
                   } else {
                     setFormData((prev) => ({
@@ -2402,28 +2483,19 @@ const AgentCRM = () => {
                   color="primary"
                   disabled={!selectedSuggestion?.claimId}
                   onClick={async () => {
-                    console.log("Clicked claim:", selectedSuggestion.claimId);
+                    console.log('Clicked claim:', selectedSuggestion.claimId);
 
-                    const response = await fetch(
-                      "http://127.0.0.1:8000/magic-login",
-                      {
-                        method: "POST",
-                        headers: {
-                          "Content-Type": "application/json",
-                          Accept: "application/json"
-                        }, // important for Laravel session to persist
-                        body: JSON.stringify({
-                          username: "rehema.said",
-                          password: "TTCL@2026"
-                        }),
-                        credentials: "include" // important for Laravel session to persist
-                      }
-                    );
+                    const response = await fetch('http://127.0.0.1:8000/magic-login', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, // important for Laravel session to persist
+                      body: JSON.stringify({ username: "rehema.said", password: "TTCL@2026" }),
+                      credentials: 'include' // important for Laravel session to persist
+                    });
 
                     const data = await response.json();
 
                     if (data?.redirect) {
-                      window.open(data.redirect, "_blank");
+                      window.open(data.redirect, '_blank');
                     } else {
                       console.error(data?.error || "Login failed");
                     }
@@ -2431,128 +2503,81 @@ const AgentCRM = () => {
                 >
                   View Claim
                 </Button>
-
-                {/* <Button
-                  variant="contained"
-                  color="primary"
-                  disabled={!selectedSuggestion.claimId}
-                  onClick={() => {
-                    console.log('Button clicked, claim number:', selectedSuggestion.claimId);
-                    if (selectedSuggestion.claimId) {
-                      // Replace with your actual claim system URL
-                      window.open(`http://10.49.0.11/claims/${selectedSuggestion.claimId}`, "_blank");
-                    }
-                  }}
-                  style={{ minWidth: "150px" }}
-                >
-                  {selectedSuggestion.claimId ? "View Claim" : "No Active Claim"}
-                </Button> */}
               </div>
             )}
-            <Button
-              variant="contained"
-              color="primary"
-              // disabled={!selectedSuggestion?.claimId}
-              onClick={async () => {
-                // console.log('Clicked claim:', selectedSuggestion.claimId);
 
-                const response = await fetch(
-                  "http://127.0.0.1:8000/magic-login",
-                  {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Accept: "application/json"
-                    }, // important for Laravel session to persist
-                    body: JSON.stringify({
-                      username: "rehema.said",
-                      password: "TTCL@2026"
-                    }),
-                    credentials: "include" // important for Laravel session to persist
-                  }
-                );
-
-                const data = await response.json();
-
-                if (data?.redirect) {
-                  window.open(data.redirect, "_blank");
-                } else {
-                  console.error(data?.error || "Login failed");
-                }
-              }}
-            >
-              View Claim
-            </Button>
             {/* Existing form fields */}
-            <div className="modal-form-row">
-              <div className="modal-form-group" style={{ flex: 1 }}>
-                <label style={{ fontSize: "0.875rem" }}>First Name:</label>
-                <input
-                  name="firstName"
-                  value={formData.firstName}
-                  onChange={handleChange}
-                  placeholder="Enter first name"
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    border: formErrors.firstName
-                      ? "1px solid red"
-                      : "1px solid #ccc"
-                  }}
-                />
-                {formErrors.firstName && (
-                  <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.firstName}
-                  </span>
-                )}
-              </div>
-
-              <div className="modal-form-group" style={{ flex: 1 }}>
-                <label style={{ fontSize: "0.875rem" }}>
-                  Middle Name (Optional):
-                </label>
-                <input
-                  name="middleName"
-                  value={formData.middleName}
-                  onChange={handleChange}
-                  placeholder="Enter middle name"
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    border: "1px solid #ccc"
-                  }}
-                />
-              </div>
-
-              <div className="modal-form-group" style={{ flex: 1 }}>
-                <label style={{ fontSize: "0.875rem" }}>
-                  Last Name
-                  {formData.requester === "Employer" ? " (Optional)" : ""}:
-                </label>
-                <input
-                  name="lastName"
-                  value={formData.lastName}
-                  onChange={handleChange}
-                  placeholder="Enter last name"
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    border:
-                      formErrors.lastName && formData.requester !== "Employer"
+            {searchType !== "employer" && (
+              <div className="modal-form-row">
+                <div className="modal-form-group" style={{ flex: 1 }}>
+                  <label style={{ fontSize: "0.875rem" }}>First Name:</label>
+                  <input
+                    name="firstName"
+                    value={formData.firstName}
+                    onChange={handleChange}
+                    placeholder="Enter first name"
+                    style={{
+                      height: "32px",
+                      fontSize: "0.875rem",
+                      padding: "4px 8px",
+                      border: formErrors.firstName
                         ? "1px solid red"
-                        : "1px solid #ccc"
-                  }}
-                />
-                {formErrors.lastName && formData.requester !== "Employer" && (
-                  <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.lastName}
-                  </span>
-                )}
+                        : "1px solid #ccc",
+                    }}
+                  />
+                  {formErrors.firstName && (
+                    <span style={{ color: "red", fontSize: "0.75rem" }}>
+                      {formErrors.firstName}
+                    </span>
+                  )}
+                </div>
+
+                <div className="modal-form-group" style={{ flex: 1 }}>
+                  <label style={{ fontSize: "0.875rem" }}>
+                    Middle Name (Optional):
+                  </label>
+                  <input
+                    name="middleName"
+                    value={formData.middleName}
+                    onChange={handleChange}
+                    placeholder="Enter middle name"
+                    style={{
+                      height: "32px",
+                      fontSize: "0.875rem",
+                      padding: "4px 8px",
+                      border: "1px solid #ccc",
+                    }}
+                  />
+                </div>
+
+                <div className="modal-form-group" style={{ flex: 1 }}>
+                  <label style={{ fontSize: "0.875rem" }}>
+                    Last Name
+                    {formData.requester === "Employer" ? " (Optional)" : ""}:
+                  </label>
+                  <input
+                    name="lastName"
+                    value={formData.lastName}
+                    onChange={handleChange}
+                    placeholder="Enter last name"
+                    style={{
+                      height: "32px",
+                      fontSize: "0.875rem",
+                      padding: "4px 8px",
+                      border:
+                        formErrors.lastName && formData.requester !== "Employer"
+                          ? "1px solid red"
+                          : "1px solid #ccc",
+                    }}
+                  />
+                  {formErrors.lastName && formData.requester !== "Employer" && (
+                    <span style={{ color: "red", fontSize: "0.75rem" }}>
+                      {formErrors.lastName}
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Phone & NIDA */}
             <div className="modal-form-row">
@@ -2582,13 +2607,13 @@ const AgentCRM = () => {
 
               <div className="modal-form-group">
                 <label style={{ fontSize: "0.875rem" }}>
-                  National Identification Number:
+                  {formData.requester === "Employer" ? "TIN:" : "National Identification Number:"}
                 </label>
                 <input
                   name="nidaNumber"
                   value={formData.nidaNumber}
                   onChange={handleChange}
-                  placeholder="Enter NIN number"
+                  placeholder={formData.requester === "Employer" ? "Enter TIN number" : "Enter NIN number"}
                   style={{
                     height: "32px",
                     fontSize: "0.875rem",
@@ -2621,7 +2646,7 @@ const AgentCRM = () => {
                     width: "100%",
                     border: formErrors.requester
                       ? "1px solid red"
-                      : "1px solid #ccc"
+                      : "1px solid #ccc",
                   }}
                 >
                   <option value="">Select..</option>
@@ -2629,6 +2654,7 @@ const AgentCRM = () => {
                   <option value="Employer">Employer</option>
                   <option value="Pensioners">Pensioners</option>
                   <option value="Stakeholders">Stakeholders</option>
+                  <option value="Representative">Representative</option>
                 </select>
                 {formErrors.requester && (
                   <span style={{ color: "red", fontSize: "0.75rem" }}>
@@ -2650,7 +2676,7 @@ const AgentCRM = () => {
                     padding: "4px 8px",
                     border: formErrors.institution
                       ? "1px solid red"
-                      : "1px solid #ccc"
+                      : "1px solid #ccc",
                   }}
                 />
                 {formErrors.institution && (
@@ -2660,6 +2686,135 @@ const AgentCRM = () => {
                 )}
               </div>
             </div>
+
+            {/* New fields for Representative if selected */}
+            {formData.requester === "Representative" && (
+              <>
+                <Typography
+                  variant="h6"
+                  sx={{ mt: 3, mb: 1, fontWeight: "bold" }}
+                >
+                  Representative Details
+                </Typography>
+                <div className="modal-form-row">
+                  <div className="modal-form-group">
+                    <label style={{ fontSize: "0.875rem" }}>
+                      Representative Name:
+                    </label>
+                    <input
+                      name="requesterName"
+                      value={formData.requesterName}
+                      onChange={handleChange}
+                      placeholder="Enter representative's name"
+                      style={{
+                        height: "32px",
+                        fontSize: "0.875rem",
+                        padding: "4px 8px",
+                        border: formErrors.requesterName
+                          ? "1px solid red"
+                          : "1px solid #ccc",
+                      }}
+                    />
+                    {formErrors.requesterName && (
+                      <span style={{ color: "red", fontSize: "0.75rem" }}>
+                        {formErrors.requesterName}
+                      </span>
+                    )}
+                  </div>
+                  <div className="modal-form-group">
+                    <label style={{ fontSize: "0.875rem" }}>
+                      Representative Phone Number:
+                    </label>
+                    <input
+                      type="tel"
+                      name="requesterPhoneNumber"
+                      value={formData.requesterPhoneNumber}
+                      onChange={handleChange}
+                      placeholder="Enter representative's phone number"
+                      style={{
+                        height: "32px",
+                        fontSize: "0.875rem",
+                        padding: "4px 8px",
+                        border: formErrors.requesterPhoneNumber
+                          ? "1px solid red"
+                          : "1px solid #ccc",
+                      }}
+                    />
+                    {formErrors.requesterPhoneNumber && (
+                      <span style={{ color: "red", fontSize: "0.75rem" }}>
+                        {formErrors.requesterPhoneNumber}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="modal-form-row">
+                  <div className="modal-form-group">
+                    <label style={{ fontSize: "0.875rem" }}>
+                      Representative Email (Optional):
+                    </label>
+                    <input
+                      type="email"
+                      name="requesterEmail"
+                      value={formData.requesterEmail}
+                      onChange={handleChange}
+                      placeholder="Enter representative's email"
+                      style={{
+                        height: "32px",
+                        fontSize: "0.875rem",
+                        padding: "4px 8px",
+                        border: "1px solid #ccc",
+                      }}
+                    />
+                  </div>
+                  <div className="modal-form-group">
+                    <label style={{ fontSize: "0.875rem" }}>
+                      Representative Address (Optional):
+                    </label>
+                    <input
+                      name="requesterAddress"
+                      value={formData.requesterAddress}
+                      onChange={handleChange}
+                      placeholder="Enter representative's address"
+                      style={{
+                        height: "32px",
+                        fontSize: "0.875rem",
+                        padding: "4px 8px",
+                        border: "1px solid #ccc",
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="modal-form-row">
+                  <div className="modal-form-group">
+                    <label style={{ fontSize: "0.875rem" }}>
+                      Relationship to Employee/Employee:
+                    </label>
+                    <input
+                      name="relationshipToEmployee"
+                      value={formData.relationshipToEmployee}
+                      onChange={handleChange}
+                      placeholder="e.g., Parent, Spouse, Child"
+                      style={{
+                        height: "32px",
+                        fontSize: "0.875rem",
+                        padding: "4px 8px",
+                        border: formErrors.relationshipToEmployee
+                          ? "1px solid red"
+                          : "1px solid #ccc",
+                      }}
+                    />
+                    {formErrors.relationshipToEmployee && (
+                      <span style={{ color: "red", fontSize: "0.75rem" }}>
+                        {formErrors.relationshipToEmployee}
+                      </span>
+                    )}
+                  </div>
+                  <div className="modal-form-group"></div> {/* Empty for alignment */}
+                </div>
+              </>
+            )}
 
             {/* Region & District */}
             <div className="modal-form-row">
