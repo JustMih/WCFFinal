@@ -250,6 +250,10 @@ const AgentCRM = () => {
   // Add state for institution details modal
   const [showInstitutionModal, setShowInstitutionModal] = useState(false);
 
+  // Add state for ticket history in ticket creation modal
+  const [creationTicketsLoading, setCreationTicketsLoading] = useState(false);
+  const [creationFoundTickets, setCreationFoundTickets] = useState([]);
+
   // Handler to search institutions
   const handleInstitutionSearch = async (query) => {
     if (!query) {
@@ -1556,6 +1560,38 @@ const AgentCRM = () => {
     }
     // Only run when institution changes and selectedInstitution is not set
   }, [formData.institution]);
+
+  // Add phone normalization helper
+  function normalizePhone(phone) {
+    if (!phone) return '';
+    let p = phone.trim();
+    if (p.startsWith('+')) p = p.slice(1);
+    if (p.startsWith('0')) p = '255' + p.slice(1);
+    return p;
+  }
+
+  useEffect(() => {
+    const phone = formData.phoneNumber?.trim();
+    const normalizedPhone = normalizePhone(phone);
+    if (normalizedPhone && normalizedPhone.length >= 7) { // basic length check
+      setCreationTicketsLoading(true);
+      fetch(`${baseURL}/ticket/search-by-phone/${normalizedPhone}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.found && Array.isArray(data.tickets)) {
+            setCreationFoundTickets(data.tickets);
+          } else {
+            setCreationFoundTickets([]);
+          }
+        })
+        .catch(() => setCreationFoundTickets([]))
+        .finally(() => setCreationTicketsLoading(false));
+    } else {
+      setCreationFoundTickets([]);
+    }
+  }, [formData.phoneNumber, token, baseURL]);
 
   if (loading) {
     return (
@@ -3239,7 +3275,8 @@ const AgentCRM = () => {
                   background: "#e3f2fd",
                   borderRadius: "8px",
                   padding: "16px",
-                  minWidth: 0
+                  minWidth: 0,
+                  marginBottom: 16
                 }}
               >
                 <h4 style={{ color: "#1976d2", marginBottom: 12 }}>
@@ -3268,6 +3305,66 @@ const AgentCRM = () => {
                   <strong>Allocated Username:</strong>{" "}
                   {selectedInstitution.allocated_staff_username}
                 </div>
+              </div>
+            )}
+            {/* Ticket history for entered phone number */}
+            {formData.phoneNumber && (
+              <div
+                style={{
+                  marginTop: 8,
+                  background: "#f8f9fa",
+                  borderRadius: 8,
+                  padding: 12,
+                  minHeight: 60
+                }}
+              >
+                <h4 style={{ color: "#1976d2", marginBottom: 8 }}>
+                  Ticket History for {formData.phoneNumber}
+                </h4>
+                {creationTicketsLoading ? (
+                  <div style={{ textAlign: "center", padding: 12 }}>
+                    <CircularProgress size={22} />
+                  </div>
+                ) : creationFoundTickets.length > 0 ? (
+                  creationFoundTickets.map((ticket) => (
+                    <Box
+                      key={ticket.id}
+                      sx={{
+                        mb: 1.5,
+                        p: 1.5,
+                        borderRadius: 2,
+                        bgcolor: "#fff",
+                        border: "1px solid #e0e0e0",
+                        boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 0.5
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: 600, color: '#1976d2' }}>{ticket.ticket_id}</span>
+                        <span style={{
+                          padding: '2px 10px',
+                          borderRadius: 12,
+                          background: ticket.status === 'Closed' ? '#757575' : ticket.status === 'Open' ? '#2e7d32' : '#1976d2',
+                          color: 'white',
+                          fontSize: '0.8rem',
+                          fontWeight: 500
+                        }}>{ticket.status}</span>
+                      </div>
+                      <div style={{ color: '#666', fontSize: '0.92em' }}>
+                        {ticket.subject} | {ticket.category} | {new Date(ticket.created_at).toLocaleDateString()}
+                      </div>
+                      <div style={{ color: '#444', fontSize: '0.93em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {ticket.description}
+                      </div>
+                    </Box>
+                  ))
+                ) : (
+                  <div style={{ color: '#888', fontSize: '0.95em', textAlign: 'center' }}>
+                    No previous tickets found for this number.
+                  </div>
+                )}
               </div>
             )}
           </Box>
