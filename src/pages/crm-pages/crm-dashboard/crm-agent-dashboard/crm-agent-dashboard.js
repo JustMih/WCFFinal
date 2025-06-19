@@ -254,6 +254,9 @@ const AgentCRM = () => {
   const [creationTicketsLoading, setCreationTicketsLoading] = useState(false);
   const [creationFoundTickets, setCreationFoundTickets] = useState([]);
 
+  // Add state for active ticket in creation modal
+  const [creationActiveTicketId, setCreationActiveTicketId] = useState(null);
+
   // Handler to search institutions
   const handleInstitutionSearch = async (query) => {
     if (!query) {
@@ -400,22 +403,36 @@ const AgentCRM = () => {
   // Handle form input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-
-    if (name === "functionId") {
-      // Find the selected functionData object
-      const selectedFunctionData = functionData.find(
-        (item) => item.id === value
-      );
-      if (selectedFunctionData) {
-        // Use new structure: function and function.section
-        setSelectedFunction(selectedFunctionData.function?.name || "");
-        setSelectedSection(selectedFunctionData.function?.section?.name || "");
-      } else {
-        setSelectedFunction("");
-        setSelectedSection("");
+    // Only allow numbers (and optional leading +) for phoneNumber
+    if (name === "phoneNumber") {
+      let cleaned = value.replace(/[^\d+]/g, "");
+      if (cleaned.startsWith("+") && cleaned.slice(1).includes("+")) {
+        cleaned = cleaned.replace(/\+/g, "");
+        cleaned = "+" + cleaned;
       }
+      if (cleaned.length > 14) cleaned = cleaned.slice(0, 14);
+      setFormData((prev) => ({ ...prev, [name]: cleaned }));
+      if (!/^\+?\d{0,13}$/.test(cleaned)) {
+        setFormErrors((prev) => ({ ...prev, phoneNumber: "Phone number must contain only numbers" }));
+      } else {
+        setFormErrors((prev) => ({ ...prev, phoneNumber: undefined }));
+      }
+      return;
     }
+    // Only allow numbers and dashes for nidaNumber
+    if (name === "nidaNumber") {
+      let cleaned = value.replace(/[^\d-]/g, "");
+      // Optionally, limit length (e.g., 20 chars)
+      if (cleaned.length > 20) cleaned = cleaned.slice(0, 20);
+      setFormData((prev) => ({ ...prev, [name]: cleaned }));
+      if (!/^\d{0,20}(-\d{1,20})*$/.test(cleaned)) {
+        setFormErrors((prev) => ({ ...prev, nidaNumber: "NIDA/TIN must contain only numbers and dashes" }));
+      } else {
+        setFormErrors((prev) => ({ ...prev, nidaNumber: undefined }));
+      }
+      return;
+    }
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   // Handle form submission
@@ -445,11 +462,9 @@ const AgentCRM = () => {
 
     // Conditionally add employer-specific fields to required fields
     if (formData.requester === "Employer") {
-      requiredFields.employerRegistrationNumber =
-        "Employer Registration Number";
-      requiredFields.employerName = "Employer Name";
-      requiredFields.employerTin = "Employer TIN";
-      requiredFields.employerPhone = "Employer Phone";
+      requiredFields.nidaNumber = "Employer Registration Number / TIN";
+      requiredFields.institution = "Employer Name";
+      requiredFields.phoneNumber = "Employer Phone";
     }
 
     const errors = {};
@@ -650,9 +665,11 @@ const AgentCRM = () => {
         <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
       )}
       {activeColumns.includes("fullName") && (
-        <td>{`${ticket.first_name || ""} ${ticket.middle_name || ""} ${
-          ticket.last_name || ""
-        }`}</td>
+        <td>{
+          ticket.first_name
+            ? `${ticket.first_name || ""} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim()
+            : ticket.institution || ""
+        }</td>
       )}
       {activeColumns.includes("phone_number") && <td>{ticket.phone_number}</td>}
       {activeColumns.includes("status") && <td>{ticket.status}</td>}
@@ -1593,6 +1610,15 @@ const AgentCRM = () => {
     }
   }, [formData.phoneNumber, token, baseURL]);
 
+  // When ticket history loads, preselect the most recent ticket as active
+  useEffect(() => {
+    if (creationFoundTickets.length > 0) {
+      setCreationActiveTicketId(creationFoundTickets[0].id);
+    } else {
+      setCreationActiveTicketId(null);
+    }
+  }, [creationFoundTickets]);
+
   if (loading) {
     return (
       <div className="p-6">
@@ -1959,9 +1985,14 @@ const AgentCRM = () => {
                   }}
                 >
                   {[
-                    // Left Column
+                    // If no first_name, show Institution only; else show First Name and Last Name
+                    ...(!selectedTicket.first_name
+                      ? [["Institution", selectedTicket.institution || "N/A"]]
+                      : [
+                          ["First Name", selectedTicket.first_name || "N/A"],
+                          ["Last Name", selectedTicket.last_name || "N/A"]
+                        ]),
                     ["Ticket Number", selectedTicket.ticket_id || "N/A"],
-                    ["First Name", selectedTicket.first_name || "N/A"],
                     ["Phone", selectedTicket.phone_number || "N/A"],
                     ["Requester", selectedTicket.requester || "N/A"],
                     ["Region", selectedTicket.region || "N/A"],
@@ -2010,7 +2041,7 @@ const AgentCRM = () => {
                           fontSize: "0.9rem",
                           color:
                             label === "Section" ||
-                            label === "Sub-section" ||
+                            label === "Function" ||
                             label === "Subject"
                               ? "#1976d2"
                               : "inherit"
@@ -2038,7 +2069,6 @@ const AgentCRM = () => {
                         {selectedTicket.status || "N/A"}
                       </span>
                     ],
-                    ["Last Name", selectedTicket.last_name || "N/A"],
                     ["NIDA", selectedTicket.nida_number || "N/A"],
                     ["Institution", selectedTicket.institution || "N/A"],
                     ["District", selectedTicket.district || "N/A"],
@@ -3314,11 +3344,11 @@ const AgentCRM = () => {
                   marginTop: 8,
                   background: "#f8f9fa",
                   borderRadius: 8,
-                  padding: 12,
+                  padding: 0,
                   minHeight: 60
                 }}
               >
-                <h4 style={{ color: "#1976d2", marginBottom: 8 }}>
+                <h4 style={{ color: "#1976d2", margin: '16px 0 8px 0', paddingLeft: 16 }}>
                   Ticket History for {formData.phoneNumber}
                 </h4>
                 {creationTicketsLoading ? (
@@ -3329,39 +3359,73 @@ const AgentCRM = () => {
                   creationFoundTickets.map((ticket) => (
                     <Box
                       key={ticket.id}
+                      onClick={() => setCreationActiveTicketId(ticket.id)}
                       sx={{
-                        mb: 1.5,
-                        p: 1.5,
+                        mb: 2,
+                        p: 2,
                         borderRadius: 2,
-                        bgcolor: "#fff",
-                        border: "1px solid #e0e0e0",
-                        boxShadow: "0 1px 2px rgba(0,0,0,0.04)",
+                        bgcolor: creationActiveTicketId === ticket.id ? "#e3f2fd" : "#fff",
+                        cursor: "pointer",
+                        border: creationActiveTicketId === ticket.id ? "2px solid #1976d2" : "1px solid #e0e0e0",
+                        boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
                         display: "flex",
                         flexDirection: "column",
-                        gap: 0.5
+                        gap: 1,
+                        transition: 'box-shadow 0.2s, border-color 0.2s',
+                        '&:hover': {
+                          boxShadow: '0 4px 8px rgba(25,118,210,0.1)',
+                          borderColor: '#1976d2'
+                        }
                       }}
                     >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontWeight: 600, color: '#1976d2' }}>{ticket.ticket_id}</span>
-                        <span style={{
-                          padding: '2px 10px',
-                          borderRadius: 12,
-                          background: ticket.status === 'Closed' ? '#757575' : ticket.status === 'Open' ? '#2e7d32' : '#1976d2',
-                          color: 'white',
-                          fontSize: '0.8rem',
-                          fontWeight: 500
-                        }}>{ticket.status}</span>
-                      </div>
-                      <div style={{ color: '#666', fontSize: '0.92em' }}>
-                        {ticket.subject} | {ticket.category} | {new Date(ticket.created_at).toLocaleDateString()}
-                      </div>
-                      <div style={{ color: '#444', fontSize: '0.93em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {ticket.description}
-                      </div>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#1976d2' }}>
+                          {ticket.ticket_id}
+                        </Typography>
+                        <Typography
+                          sx={{
+                            px: 1.5,
+                            py: 0.5,
+                            borderRadius: '12px',
+                            color: 'white',
+                            background:
+                              ticket.status === 'Closed'
+                                ? '#757575'
+                                : ticket.status === 'Open'
+                                ? '#2e7d32'
+                                : '#1976d2',
+                            fontSize: '0.75rem',
+                            fontWeight: 500
+                          }}
+                        >
+                          {ticket.status}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ mt: 1 }}>
+                        <Typography variant="body2" sx={{ color: '#666', mb: 0.5 }}>
+                          Created: {new Date(ticket.created_at).toLocaleDateString()}
+                        </Typography>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 500, color: '#333', mb: 1 }}>
+                          Subject: {ticket.subject}
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: '#666',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}
+                        >
+                          Description: {ticket.description}
+                        </Typography>
+                      </Box>
                     </Box>
                   ))
                 ) : (
-                  <div style={{ color: '#888', fontSize: '0.95em', textAlign: 'center' }}>
+                  <div style={{ color: '#888', fontSize: '0.95em', textAlign: 'center', padding: 16 }}>
                     No previous tickets found for this number.
                   </div>
                 )}
