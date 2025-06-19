@@ -54,7 +54,7 @@ export default function QueueStatusTable() {
     // 📥 Receive queue-status updates
     socket.on("queue-status", (data) => {
       console.log("📥 Received queue-status update:", data);
-      setQueueStatus(data);
+      setQueues(data);
     });
 
     // 🧼 Clean up listeners on unmount

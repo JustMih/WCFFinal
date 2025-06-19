@@ -234,3 +234,11 @@
   border-radius: 4px;
   font-size: 0.9rem;
 }
+
+.inputRow{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  background-color: whitesmoke;
+}
