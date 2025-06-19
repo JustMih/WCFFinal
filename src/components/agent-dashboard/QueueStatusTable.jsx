@@ -3,35 +3,35 @@ import { io } from "socket.io-client";
 import { MdOutlinePhoneInTalk } from "react-icons/md";
 import "./QueueStatusTable.css";
 
-// ✅ Explicitly define full WebSocket URL via Nginx proxy
+// Connect to Socket.IO backend
 const socket = io("https://10.52.0.19", {
-  path: "/ami-socket/socket.io",     // ✅ must match nginx
+  path: "/ami-socket/socket.io",
   transports: ["websocket"],
-  secure: true,
+  secure: true
 });
 
-// Dummy data for fallback
+// Dummy data for fallback display before real-time kicks in
 const dummyQueues = [
   {
     queue: "Sales Queue",
-    callers: 5,
-    longestWait: 135, // 2:15 in seconds
-    availableAgents: 3,
-    busyAgents: 2
+    callers: 0,
+    longestWait: 0,
+    availableAgents: 0,
+    busyAgents: 0
   },
   {
     queue: "Support Queue",
-    callers: 3,
-    longestWait: 105, // 1:45 in seconds
-    availableAgents: 4,
-    busyAgents: 1
+    callers: 0,
+    longestWait: 0,
+    availableAgents: 0,
+    busyAgents: 0
   },
   {
     queue: "Technical Queue",
-    callers: 2,
-    longestWait: 90, // 1:30 in seconds
-    availableAgents: 2,
-    busyAgents: 3
+    callers: 0,
+    longestWait: 0,
+    availableAgents: 0,
+    busyAgents: 0
   }
 ];
 
@@ -39,29 +39,24 @@ export default function QueueStatusTable() {
   const [queues, setQueues] = useState(dummyQueues);
 
   useEffect(() => {
+    socket.on("connect", () => {
+      console.log("🔌 Connected to AMI Socket");
+    });
+
     socket.on("queueStatusUpdate", (data) => {
       console.log("🎧 Received queue data:", data);
-      if (data && data.length > 0) {
+      if (data && Array.isArray(data)) {
         setQueues(data);
       }
     });
 
-    // ❌ WebSocket disconnected
     socket.on("disconnect", () => {
-      console.warn("❌ Disconnected from WebSocket");
+      console.warn("❌ Disconnected from AMI Socket");
     });
 
-    // 📥 Receive queue-status updates
-    socket.on("queue-status", (data) => {
-      console.log("📥 Received queue-status update:", data);
-      setQueues(data);
-    });
-
-    // 🧼 Clean up listeners on unmount
     return () => {
-      socket.off("connect");
-      socket.off("disconnect");
-      socket.off("queue-status");
+      socket.off("queueStatusUpdate");
+      socket.disconnect();
     };
   }, []);
 
@@ -102,8 +97,8 @@ export default function QueueStatusTable() {
                 <td>{q.availableAgents}</td>
                 <td>{q.busyAgents}</td>
                 <td>
-                  <span className={`status-${q.availableAgents > 0 ? 'active' : 'inactive'}`}>
-                    {q.availableAgents > 0 ? 'Active' : 'Inactive'}
+                  <span className={`status-${q.availableAgents > 0 ? "active" : "inactive"}`}>
+                    {q.availableAgents > 0 ? "Active" : "Inactive"}
                   </span>
                 </td>
               </tr>
@@ -113,4 +108,4 @@ export default function QueueStatusTable() {
       </div>
     </div>
   );
-};
+}

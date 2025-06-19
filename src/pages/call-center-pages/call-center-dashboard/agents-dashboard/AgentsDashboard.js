@@ -73,6 +73,7 @@ export default function AgentsDashboard() {
   const [claimed, setClaimed] = useState("");
   const [searchLoading, setSearchLoading] = useState(false);
 
+  
   useEffect(() => {
     const fetchEmployers = async () => {
       if (!customerType || inputValue.length < 3) {
@@ -574,8 +575,8 @@ export default function AgentsDashboard() {
       if (!response.ok) throw new Error("Failed to fetch missed calls");
   
       const data = await response.json();
-  
-      const formatted = data.map(call => ({
+
+      const formatted = data.map((call) => ({
         ...call,
         time: new Date(call.time),
       }));
