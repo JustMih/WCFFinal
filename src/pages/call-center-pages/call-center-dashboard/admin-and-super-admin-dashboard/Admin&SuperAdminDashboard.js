@@ -160,8 +160,7 @@ export default function AdminAndSuperAdminDashboard() {
       </div>
 
       {/* table show when user click any card to display data */}
-      <div className="user-table-container">
-        {/* Table content will go here */}
+      {/* <div className="user-table-container">
         <h4 className="admin-table-title">User Summary</h4>
         <table className="admin-table-content">
           <thead>
@@ -173,7 +172,6 @@ export default function AdminAndSuperAdminDashboard() {
             </tr>
           </thead>
           <tbody>
-            {/* Sample data, replace with actual data */}
             <tr>
               <td>John Doe</td>
               <td>Agent</td>
@@ -182,7 +180,7 @@ export default function AdminAndSuperAdminDashboard() {
             </tr>
           </tbody>
         </table>
-      </div>
+      </div> */}
     </div>
   );
 }
