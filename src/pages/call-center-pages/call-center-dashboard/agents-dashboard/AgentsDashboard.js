@@ -1343,52 +1343,6 @@ export default function AgentsDashboard() {
             </div>
           </div>
         </div>
-        {/* <div className="dashboard-single-agent-row_two">
-          <div className="login-summary">
-            <div className="login-summary-title">
-              <IoMdLogIn />
-              <h4>Login Summary</h4>
-            </div>
-            <div className="single-agent-level">
-              <div className="single-agent-level-left">
-                <CiNoWaitingSign fontSize={20} color="red" />
-                Idle Time
-              </div>
-              00:03:34
-            </div>
-            <div className="single-agent-level">
-              <div className="single-agent-level-left">
-                <MdOutlinePhoneInTalk fontSize={20} color="green" />
-                Talk Time
-              </div>
-              00:03:34
-            </div>
-            <div className="single-agent-level">
-              <div className="single-agent-level-left">
-                <FaHandHolding fontSize={20} color="black" />
-                Hold Time
-              </div>
-              00:03:34
-            </div>
-            <div className="single-agent-level">
-              <div className="single-agent-level-left">
-                <IoMdCloseCircleOutline fontSize={20} color="red" />
-                Break Time
-              </div>
-              00:03:34
-            </div>
-            <div className="single-agent-level">
-              <div className="single-agent-level-left">
-                <FaPersonWalkingArrowRight fontSize={20} color="green" />
-                Last Login Time
-              </div>
-            </div>
-          </div>
-          <div className="chat">
-            <CallChart />
-          </div>
-        </div> */}
-
         <div className="dashboard-single-agent-row_three">
           <QueueStatusTable />
         </div>
