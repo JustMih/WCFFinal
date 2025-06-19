@@ -449,6 +449,12 @@ export default function AgentsDashboard() {
     fetchMissedCallsFromBackend();
   }, []);
 
+  // Debug missed calls count
+  useEffect(() => {
+    console.log("🔢 Current missed calls count:", missedCalls.length);
+    console.log("📋 Current missed calls:", missedCalls);
+  }, [missedCalls]);
+
   const setPhonePopupVisible = (visible) => {
     setShowPhonePopup(visible);
   };
@@ -525,14 +531,21 @@ export default function AgentsDashboard() {
       return;
     }
 
+    // Format the caller number: replace +255 with 0
+    let formattedCaller = caller;
+    if (caller.startsWith('+255')) {
+      formattedCaller = '0' + caller.substring(4); // Remove +255 and add 0
+      console.log(`📞 Formatted caller: ${caller} → ${formattedCaller}`);
+    }
+  
     const time = new Date();
     const agentId = localStorage.getItem("extension");
 
     // Update UI immediately
-    const newCall = { caller, time };
+    const newCall = { caller: formattedCaller, time };
     setMissedCalls((prev) => [...prev, newCall]);
-
-    setSnackbarMessage(`📞 Missed Call from ${caller}`);
+  
+    setSnackbarMessage(`📞 Missed Call from ${formattedCaller}`);
     setSnackbarSeverity("warning");
     setSnackbarOpen(true);
 
@@ -544,7 +557,7 @@ export default function AgentsDashboard() {
         Authorization: `Bearer ${localStorage.getItem("authToken")}`,
       },
       body: JSON.stringify({
-        caller,
+        caller: formattedCaller,
         time: time.toISOString(),
         agentId,
       }),
@@ -564,7 +577,8 @@ export default function AgentsDashboard() {
 
   const fetchMissedCallsFromBackend = async () => {
     try {
-      const response = await fetch(`${baseURL}/missed-calls?agentId=${extension}`, {
+      console.log("🔍 Fetching missed calls for agent:", extension);
+      const response = await fetch(`${baseURL}/missed-calls?agentId=${extension}&status=pending`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -575,13 +589,16 @@ export default function AgentsDashboard() {
       if (!response.ok) throw new Error("Failed to fetch missed calls");
   
       const data = await response.json();
-
-      const formatted = data.map((call) => ({
+      console.log("📥 Received missed calls from backend:", data);
+      console.log("📊 Total pending missed calls:", data.length);
+  
+      const formatted = data.map(call => ({
         ...call,
         time: new Date(call.time),
       }));
   
       setMissedCalls(formatted);
+      console.log("✅ Updated missedCalls state with", formatted.length, "calls");
     } catch (error) {
       console.error("❌ Error fetching missed calls:", error);
     }
@@ -750,8 +767,15 @@ export default function AgentsDashboard() {
       console.error("❌ No number provided for redial.");
       return;
     }
+
+    // Format the number: replace +255 with 0
+    let formattedNumber = number;
+    if (number.startsWith('+255')) {
+      formattedNumber = '0' + number.substring(4); // Remove +255 and add 0
+      console.log(`📞 Formatted number: ${number} → ${formattedNumber}`);
+    }
   
-    const target = `sip:${number}@10.52.0.19`;
+    const target = `sip:${formattedNumber}@10.52.0.19`;
     const targetURI = UserAgent.makeURI(target);
   
     if (!targetURI) {
