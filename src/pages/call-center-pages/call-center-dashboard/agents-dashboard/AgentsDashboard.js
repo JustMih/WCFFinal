@@ -574,7 +574,6 @@ export default function AgentsDashboard() {
       });
   };
   
-
   const fetchMissedCallsFromBackend = async () => {
     try {
       console.log("🔍 Fetching missed calls for agent:", extension);
@@ -590,12 +589,9 @@ export default function AgentsDashboard() {
   
       const data = await response.json();
       console.log("📥 Received missed calls from backend:", data);
+      console.log("📊 Total pending missed calls:", data.length);
   
-      // Filter out only the calls with status 'pending'
-      const pendingCalls = data.filter(call => call.status === 'pending');
-      console.log("📊 Total pending missed calls:", pendingCalls.length);
-  
-      const formatted = pendingCalls.map(call => ({
+      const formatted = data.map(call => ({
         ...call,
         time: new Date(call.time),
       }));
@@ -607,8 +603,6 @@ export default function AgentsDashboard() {
     }
   };
   
-  
-
   const handleAttendedTransferDial = () => {
     if (!userAgent || !transferTarget) return;
 
