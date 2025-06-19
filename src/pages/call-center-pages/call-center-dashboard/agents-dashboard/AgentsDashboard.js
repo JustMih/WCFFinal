@@ -61,6 +61,7 @@ import { FaHandHolding } from "react-icons/fa";
 import CallChart from "../../../../components/agent-chat/AgentChat";
 import QueueStatusTable from "../../../../components/agent-dashboard/QueueStatusTable";
 import AgentPerformanceScore from "../../../../components/agent-dashboard/AgentPerformanceScore";
+import TicketCreateModal from "../../../../components/ticket/TicketCreateModal";
 
 export default function AgentsDashboard() {
   const [customerType, setCustomerType] = useState("");
@@ -276,6 +277,9 @@ export default function AgentsDashboard() {
   const [showTicketHistoryModal, setShowTicketHistoryModal] = useState(false);
   const [showCreateTicketModal, setShowCreateTicketModal] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
+  const [showTicketModal, setShowTicketModal] = useState(false);
+  const [ticketPhoneNumber, setTicketPhoneNumber] = useState("");
+  const [functionData, setFunctionData] = useState([]);
 
   const showAlert = (message, severity = "warning") => {
     setSnackbarMessage(message);
@@ -630,7 +634,7 @@ export default function AgentsDashboard() {
       .then(() => {
         inviter.stateChange.addListener((state) => {
           if (state === SessionState.Terminated) {
-            console.log("🛑 Consult call ended");
+            console.log("�� Consult call ended");
             setConsultSession(null);
             setIsTransferring(false);
             setPhoneStatus("In Call");
@@ -700,6 +704,10 @@ export default function AgentsDashboard() {
         setPhoneStatus("In Call");
         stopRingtone();
         startTimer();
+
+        // Show ticket modal after answering
+        setTicketPhoneNumber(callerId || "");
+        setShowTicketModal(true);
 
         incomingCall.stateChange.addListener((state) => {
           if (state === SessionState.Established) {
@@ -1142,6 +1150,25 @@ export default function AgentsDashboard() {
     }
   };
 
+  useEffect(() => {
+    // Fetch function data for ticket modal (same as CRM)
+    const fetchFunctionData = async () => {
+      try {
+        const token = localStorage.getItem("authToken");
+        const res = await fetch(`${baseURL}/section/functions-data`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const json = await res.json();
+        setFunctionData(json.data || []);
+      } catch (err) {
+        console.error("Fetch functionData error:", err);
+      }
+    };
+    fetchFunctionData();
+  }, []);
+
   return (
     <div className="p-6">
       <div className="agent-body">
@@ -1554,280 +1581,6 @@ export default function AgentsDashboard() {
               </>
             )}
           </div>
-          {/* This another div here for ticket creation */}
-          {showUserForm && (
-            <div
-              className="ticket-creation-form"
-              style={{
-                marginTop: 10,
-                padding: 10,
-                border: "0px solid #ccc",
-                borderRadius: 12,
-                maxWidth: 900,
-                backgroundColor: "whitesmoke",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                marginLeft: "auto",
-                marginRight: "auto",
-                scroll: "auto",
-                overflowY: "auto",
-              }}
-            >
-              <div className="inputRow">
-                <TextField
-                  select
-                  // label="Customer Type"
-                  value={customerType}
-                  onChange={(e) => setCustomerType(e.target.value)}
-                  fullWidth
-                  SelectProps={{ native: true }}
-                >
-                  <option value="">Customer Type</option>
-                  <option value="employer">Employer</option>
-                  <option value="employee">Employee</option>
-                </TextField>
-
-                <Autocomplete
-                  options={options}
-                  fullWidth
-                  getOptionLabel={(option) => option.name || ""}
-                  loading={loading}
-                  onInputChange={(event, newInputValue) => {
-                    if (customerType) {
-                      setInputValue(newInputValue);
-                      setSearchName(newInputValue);
-                    }
-                  }}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Search Employer"
-                      variant="outlined"
-                      disabled={!customerType} // Disable if no customerType selected
-                      InputProps={{
-                        ...params.InputProps,
-                        endAdornment: (
-                          <>
-                            {loading ? <CircularProgress size={20} /> : null}
-                            {params.InputProps.endAdornment}
-                          </>
-                        ),
-                      }}
-                    />
-                  )}
-                />
-
-                {/* <TextField
-                  label="Registration Number"
-                  value={registrationNumber}
-                  onChange={(e) => setRegistrationNumber(e.target.value)}
-                  fullWidth
-                  disabled={!customerType} // Disable if no customerType selected
-                /> */}
-                {searchLoading ? (
-                  <>
-                    <CircularProgress size={24} style={{ marginLeft: 10, backgroundColor: "blue", borderRadius: "10%", color: "white" }}/>
-                  </>
-                ) : (
-                  <>
-                    <Button
-                      variant="contained"
-                      // startIcon={<SearchIcon />}
-                      onClick={handleSearch}
-                    >
-                      Search
-                    </Button>
-                  </>
-                )}
-                {claimed && claimed !== "null" && (
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    onClick={() => {
-                      // Add logic for what should happen when the claim button is clicked
-                      console.log("Claimed button clicked");
-                    }}
-                  >
-                    Claimed
-                  </Button>
-                )}
-              </div>
-              <div>
-                <div className="inputRow">
-                  <TextField
-                    label="First Name"
-                    value={formValues.firstName}
-                    fullWidth
-                    margin="normal"
-                    onChange={(e) =>
-                      setFormValues({
-                        ...formValues,
-                        first_name: e.target.value,
-                      })
-                    }
-                  />
-                  <TextField
-                    label="Middle Name"
-                    value={formValues.middleName}
-                    fullWidth
-                    margin="normal"
-                    onChange={(e) =>
-                      setFormValues({
-                        ...formValues,
-                        middle_name: e.target.value,
-                      })
-                    }
-                  />
-                  <TextField
-                    label="Last Name"
-                    value={formValues.lastName}
-                    fullWidth
-                    margin="normal"
-                    onChange={(e) =>
-                      setFormValues({
-                        ...formValues,
-                        last_name: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div className="inputRow">
-                  <TextField
-                    select
-                    // label="Customer Type"
-                    // value={customerType}
-                    // onChange={(e) => setCustomerType(e.target.value)}
-                    fullWidth
-                    SelectProps={{ native: true }}
-                  >
-                    <option value="">Requester</option>
-                    <option value="employer">Employer</option>
-                    <option value="employee">Employee</option>
-                  </TextField>
-                  <TextField
-                    label="Phone Number"
-                    value={formValues.requester}
-                    fullWidth
-                    margin="normal"
-                  />
-                  <TextField
-                    label="NIDA Number"
-                    value={formValues.nidaNumber}
-                    fullWidth
-                    margin="normal"
-                    onChange={(e) =>
-                      setFormValues({
-                        ...formValues,
-                        nida_number: e.target.value,
-                      })
-                    }
-                  />
-                </div>
-                <div className="inputRow">
-                  <TextField
-                    label="Institution"
-                    value={formValues.institution}
-                    fullWidth
-                    margin="normal"
-                    onChange={(e) =>
-                      setFormValues({
-                        ...formValues,
-                        institution: e.target.value,
-                      })
-                    }
-                  />
-                  <TextField
-                    label="Region"
-                    value={formValues.region}
-                    fullWidth
-                    margin="normal"
-                    onChange={(e) =>
-                      setFormValues({ ...formValues, region: e.target.value })
-                    }
-                  />
-                  <TextField
-                    label="District"
-                    value={formValues.district}
-                    fullWidth
-                    margin="normal"
-                    onChange={(e) =>
-                      setFormValues({ ...formValues, district: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="inputRow">
-                  <TextField
-                    select
-                    // label="Customer Type"
-                    value={formValues.category}
-                    onChange={(e) =>
-                      setFormValues({ ...formValues, district: e.target.value })
-                    }
-                    fullWidth
-                    SelectProps={{ native: true }}
-                  >
-                    <option value="">Category</option>
-                    <option value="employer">Employer</option>
-                    <option value="employee">Employee</option>
-                  </TextField>
-                  <TextField
-                    select
-                    // label="Customer Type"
-                    value={formValues.channel}
-                    onChange={(e) =>
-                      setFormValues({ ...formValues, district: e.target.value })
-                    }
-                    fullWidth
-                    SelectProps={{ native: true }}
-                  >
-                    <option value="">Channel</option>
-                    <option value="employer">Employer</option>
-                    <option value="employee">Employee</option>
-                  </TextField>
-                  <TextField
-                    select
-                    // label="Customer Type"
-                    value={formValues.subject}
-                    onChange={(e) =>
-                      setFormValues({ ...formValues, district: e.target.value })
-                    }
-                    fullWidth
-                    SelectProps={{ native: true }}
-                  >
-                    <option value="">Subject</option>
-                    <option value="employer">Employer</option>
-                    <option value="employee">Employee</option>
-                  </TextField>
-                </div>
-                <TextField
-                  label="Description"
-                  multiline
-                  rows={2}
-                  fullWidth
-                  margin="normal"
-                  value={formValues.description}
-                  onChange={(e) =>
-                    setFormValues({ ...formValues, district: e.target.value })
-                  }
-                />
-              </div>
-
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={() => {
-                  // TODO: Submit form logic here
-                  console.log("Submitting ticket with data:", formValues);
-                  showAlert("Ticket submitted successfully", "success");
-                  setShowUserForm(false);
-                }}
-                disabled={loadingUserData}
-                style={{ marginTop: 15 }}
-                fullWidth
-              >
-                {loadingUserData ? "Loading..." : "Submit Ticket"}
-              </Button>
-            </div>
-          )}
         </div>
       )}
 
@@ -2003,6 +1756,14 @@ export default function AgentsDashboard() {
           </Button>
         </DialogContent>
       </Dialog>
+
+      {/* Ticket Create Modal (after answering call) */}
+      <TicketCreateModal
+        open={showTicketModal}
+        onClose={() => setShowTicketModal(false)}
+        initialPhoneNumber={ticketPhoneNumber}
+        functionData={functionData}
+      />
     </div>
   );
 }
