@@ -391,10 +391,10 @@ export default function CRMSidebar({ isSidebarOpen }) {
                             icon: "💡"
                           },
                           {
-                            label: "Complements",
+                            label: "Compliments",
                             to: "/coordinator/complements",
                             value:
-                              ticketStats.convertedTickets?.Complements || 0,
+                              ticketStats.convertedTickets?.Compliments || 0,
                             icon: "⭐"
                           }
                         ].map((item, idx) => (

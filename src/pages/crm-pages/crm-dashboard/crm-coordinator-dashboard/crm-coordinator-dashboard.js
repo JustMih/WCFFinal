@@ -173,7 +173,7 @@ export default function CoordinatorDashboard() {
   const fetchTickets = async () => {
     try {
       const token = localStorage.getItem("authToken");
-      const response = await fetch(`${baseURL}/coordinator/complaints`, {
+      const response = await fetch(`${baseURL}/coordinator/all-tickets`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await response.json();
@@ -642,7 +642,7 @@ export default function CoordinatorDashboard() {
             alignItems: "center"
           }}
         >
-          <h2>Tickets of Category Complaints</h2>
+          <h2>All Corrdinator Tickets</h2>
           <Tooltip title="Columns Settings and Export" arrow>
             <IconButton onClick={() => setIsColumnModalOpen(true)}>
               <FiSettings size={20} />

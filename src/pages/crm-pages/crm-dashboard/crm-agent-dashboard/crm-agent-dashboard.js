@@ -1249,12 +1249,12 @@ const AgentCRM = () => {
     if (searchType === "employee") {
       updatedFormData = {
         ...updatedFormData,
-        firstName: rawData.firstname || "",
-        middleName: rawData.middlename || "",
-        lastName: rawData.lastname || "",
-        nidaNumber: rawData.nin || "",
-        phoneNumber: rawData.phoneNumber || "",
-        institution: institutionName, // Set the extracted institution name
+      firstName: rawData.firstname || "",
+      middleName: rawData.middlename || "",
+      lastName: rawData.lastname || "",
+      nidaNumber: rawData.nin || "",
+      phoneNumber: rawData.phoneNumber || "",
+      institution: institutionName, // Set the extracted institution name
       };
     } else if (searchType === "employer") {
       updatedFormData = {
@@ -2479,104 +2479,104 @@ const AgentCRM = () => {
                   isDisabled: !selectedSuggestion?.claimId
                 })}
                 <Button
-                  variant="contained"
-                  color="primary"
+  variant="contained"
+  color="primary"
                   disabled={!selectedSuggestion?.claimId}
-                  onClick={async () => {
+  onClick={async () => {
                     console.log('Clicked claim:', selectedSuggestion.claimId);
 
                     const response = await fetch('http://127.0.0.1:8000/magic-login', {
-                      method: 'POST',
+      method: 'POST',
                       headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, // important for Laravel session to persist
                       body: JSON.stringify({ username: "rehema.said", password: "TTCL@2026" }),
                       credentials: 'include' // important for Laravel session to persist
-                    });
+    });
 
-                    const data = await response.json();
+    const data = await response.json();
 
                     if (data?.redirect) {
                       window.open(data.redirect, '_blank');
                     } else {
                       console.error(data?.error || "Login failed");
-                    }
-                  }}
-                >
-                  View Claim
-                </Button>
+    }
+  }}
+>
+  View Claim
+</Button>
               </div>
             )}
 
             {/* Existing form fields */}
             {searchType !== "employer" && (
-              <div className="modal-form-row">
-                <div className="modal-form-group" style={{ flex: 1 }}>
-                  <label style={{ fontSize: "0.875rem" }}>First Name:</label>
-                  <input
-                    name="firstName"
-                    value={formData.firstName}
-                    onChange={handleChange}
-                    placeholder="Enter first name"
-                    style={{
-                      height: "32px",
-                      fontSize: "0.875rem",
-                      padding: "4px 8px",
-                      border: formErrors.firstName
-                        ? "1px solid red"
+            <div className="modal-form-row">
+              <div className="modal-form-group" style={{ flex: 1 }}>
+                <label style={{ fontSize: "0.875rem" }}>First Name:</label>
+                <input
+                  name="firstName"
+                  value={formData.firstName}
+                  onChange={handleChange}
+                  placeholder="Enter first name"
+                  style={{
+                    height: "32px",
+                    fontSize: "0.875rem",
+                    padding: "4px 8px",
+                    border: formErrors.firstName
+                      ? "1px solid red"
                         : "1px solid #ccc",
-                    }}
-                  />
-                  {formErrors.firstName && (
-                    <span style={{ color: "red", fontSize: "0.75rem" }}>
-                      {formErrors.firstName}
-                    </span>
-                  )}
-                </div>
-
-                <div className="modal-form-group" style={{ flex: 1 }}>
-                  <label style={{ fontSize: "0.875rem" }}>
-                    Middle Name (Optional):
-                  </label>
-                  <input
-                    name="middleName"
-                    value={formData.middleName}
-                    onChange={handleChange}
-                    placeholder="Enter middle name"
-                    style={{
-                      height: "32px",
-                      fontSize: "0.875rem",
-                      padding: "4px 8px",
-                      border: "1px solid #ccc",
-                    }}
-                  />
-                </div>
-
-                <div className="modal-form-group" style={{ flex: 1 }}>
-                  <label style={{ fontSize: "0.875rem" }}>
-                    Last Name
-                    {formData.requester === "Employer" ? " (Optional)" : ""}:
-                  </label>
-                  <input
-                    name="lastName"
-                    value={formData.lastName}
-                    onChange={handleChange}
-                    placeholder="Enter last name"
-                    style={{
-                      height: "32px",
-                      fontSize: "0.875rem",
-                      padding: "4px 8px",
-                      border:
-                        formErrors.lastName && formData.requester !== "Employer"
-                          ? "1px solid red"
-                          : "1px solid #ccc",
-                    }}
-                  />
-                  {formErrors.lastName && formData.requester !== "Employer" && (
-                    <span style={{ color: "red", fontSize: "0.75rem" }}>
-                      {formErrors.lastName}
-                    </span>
-                  )}
-                </div>
+                  }}
+                />
+                {formErrors.firstName && (
+                  <span style={{ color: "red", fontSize: "0.75rem" }}>
+                    {formErrors.firstName}
+                  </span>
+                )}
               </div>
+
+              <div className="modal-form-group" style={{ flex: 1 }}>
+                <label style={{ fontSize: "0.875rem" }}>
+                  Middle Name (Optional):
+                </label>
+                <input
+                  name="middleName"
+                  value={formData.middleName}
+                  onChange={handleChange}
+                  placeholder="Enter middle name"
+                  style={{
+                    height: "32px",
+                    fontSize: "0.875rem",
+                    padding: "4px 8px",
+                      border: "1px solid #ccc",
+                  }}
+                />
+              </div>
+
+              <div className="modal-form-group" style={{ flex: 1 }}>
+                <label style={{ fontSize: "0.875rem" }}>
+                  Last Name
+                  {formData.requester === "Employer" ? " (Optional)" : ""}:
+                </label>
+                <input
+                  name="lastName"
+                  value={formData.lastName}
+                  onChange={handleChange}
+                  placeholder="Enter last name"
+                  style={{
+                    height: "32px",
+                    fontSize: "0.875rem",
+                    padding: "4px 8px",
+                    border:
+                      formErrors.lastName && formData.requester !== "Employer"
+                        ? "1px solid red"
+                          : "1px solid #ccc",
+                  }}
+                />
+                {formErrors.lastName && formData.requester !== "Employer" && (
+                  <span style={{ color: "red", fontSize: "0.75rem" }}>
+                    {formErrors.lastName}
+                  </span>
+                )}
+              </div>
+            </div>
             )}
 
             {/* Phone & NIDA */}
