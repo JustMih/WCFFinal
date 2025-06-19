@@ -594,9 +594,12 @@ export default function AgentsDashboard() {
   
       const data = await response.json();
       console.log("📥 Received missed calls from backend:", data);
-      console.log("📊 Total pending missed calls:", data.length);
   
-      const formatted = data.map(call => ({
+      // Filter out only the calls with status 'pending'
+      const pendingCalls = data.filter(call => call.status === 'pending');
+      console.log("📊 Total pending missed calls:", pendingCalls.length);
+  
+      const formatted = pendingCalls.map(call => ({
         ...call,
         time: new Date(call.time),
       }));
@@ -607,6 +610,7 @@ export default function AgentsDashboard() {
       console.error("❌ Error fetching missed calls:", error);
     }
   };
+  
   
 
   const handleAttendedTransferDial = () => {
@@ -898,31 +902,58 @@ export default function AgentsDashboard() {
       });
   };
 
-  const handleBlindTransfer = () => {
+  const handleBlindTransfer = async () => {
     if (!session || !transferTarget) return;
-
-    const targetURI = UserAgent.makeURI(`sip:${transferTarget}@10.52.0.19`);
-    if (!targetURI) {
-      console.error("Invalid transfer target URI");
-      return;
-    }
-
-    session
-      .refer(targetURI)
-      .then(() => {
-        console.log(`🔁 Call transferred to ${transferTarget}`);
-        setSnackbarMessage(`🔁 Call transferred to ${transferTarget}`);
-        setSnackbarSeverity("success");
-        setSnackbarOpen(true);
-        handleEndCall(); // Optionally end the session on agent's side
-      })
-      .catch((err) => {
-        console.error("❌ Call transfer failed:", err);
-        setSnackbarMessage("❌ Transfer failed");
+  
+    try {
+      // Step 1: Fetch the list of online users (agents and supervisors)
+      const response = await fetch(`${baseURL}/online-users`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        },
+      });
+  
+      if (!response.ok) {
+        throw new Error("Failed to fetch online users");
+      }
+  
+      const onlineUsers = await response.json();
+  
+      // Step 2: Check if the transfer target is an online agent or supervisor
+      const isValidTransferTarget = onlineUsers.some(
+        (user) => user.username === transferTarget && (user.role === "agent" || user.role === "supervisor")
+      );
+  
+      if (!isValidTransferTarget) {
+        setSnackbarMessage("❌ No online agent or supervisor available for transfer.");
         setSnackbarSeverity("error");
         setSnackbarOpen(true);
-      });
+        return;
+      }
+  
+      // Step 3: Proceed with the transfer if the target is valid
+      const targetURI = UserAgent.makeURI(`sip:${transferTarget}@10.52.0.19`);
+      if (!targetURI) {
+        console.error("Invalid transfer target URI");
+        return;
+      }
+  
+      await session.refer(targetURI);
+      console.log(`🔁 Call transferred to ${transferTarget}`);
+      setSnackbarMessage(`🔁 Call transferred to ${transferTarget}`);
+      setSnackbarSeverity("success");
+      setSnackbarOpen(true);
+      handleEndCall(); // Optionally end the session on agent's side
+    } catch (err) {
+      console.error("❌ Call transfer failed:", err);
+      setSnackbarMessage("❌ Transfer failed");
+      setSnackbarSeverity("error");
+      setSnackbarOpen(true);
+    }
   };
+  
 
   const attachMediaStream = (sipSession) => {
     const remoteStream = new MediaStream();
