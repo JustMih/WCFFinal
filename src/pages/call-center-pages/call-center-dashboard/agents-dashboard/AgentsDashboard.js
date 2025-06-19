@@ -70,6 +70,9 @@ export default function AgentsDashboard() {
   const [inputValue, setInputValue] = useState("");
   const [options, setOptions] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [claimed, setClaimed] = useState("");
+  const [searchLoading, setSearchLoading] = useState(false);
+
   
   useEffect(() => {
     const fetchEmployers = async () => {
@@ -115,10 +118,14 @@ export default function AgentsDashboard() {
   }, [inputValue]);
 
   const handleSearch = async () => {
-    // Compose payload
+    setSearchLoading(true);
+    const cleanedSearchName = searchName.split(" — ")[0].trim();
+
+    console.log("Cleaned Search Name:", cleanedSearchName);
+
     const payload = {
       type: customerType,
-      name: searchName, // or the name selected from Autocomplete inputValue
+      name: cleanedSearchName, // Use cleaned search name
       employer_registration_number: registrationNumber,
     };
 
@@ -139,13 +146,35 @@ export default function AgentsDashboard() {
       }
 
       const result = await response.json();
-      console.log("Search API response:", result);
+      const employeeData = result?.results[0];
+      console.log("Employee Data:", employeeData);
+
+      const isClaimed = employeeData.claim_number;
+      setClaimed(isClaimed); // Set the claimed state
+
+      if (employeeData) {
+        setFormValues({
+          firstName: employeeData.firstname,
+          middleName: employeeData.middlename,
+          lastName: employeeData.lastname,
+          phoneNumber: "",
+          nidaNumber: employeeData.nin,
+          requester: "",
+          institution: "",
+          region: "",
+          district: "",
+          channel: "",
+          category: "",
+          functionId: "",
+          description: "",
+          status: "Open",
+        });
+      }
     } catch (error) {
       console.error("Failed to fetch search results:", error);
     }
+    setSearchLoading(false);
   };
-  
-  
 
   const [showPhonePopup, setShowPhonePopup] = useState(false);
   const [consultSession, setConsultSession] = useState(null); // The target agent session
@@ -188,14 +217,20 @@ export default function AgentsDashboard() {
   const [userData, setUserData] = useState(null);
   const [showUserForm, setShowUserForm] = useState(true);
   const [formValues, setFormValues] = useState({
-    first_name: "",
-    middle_name: "",
-    last_name: "",
-    phone_number: "",
-    nida_number: "",
+    firstName: "",
+    middleName: "", // Add middle name
+    lastName: "",
+    phoneNumber: "",
+    nidaNumber: "",
+    requester: "",
     institution: "",
     region: "",
     district: "",
+    channel: "",
+    category: "",
+    functionId: "",
+    description: "",
+    status: "Open",
   });
   const [loadingUserData, setLoadingUserData] = useState(false);
 
@@ -279,41 +314,6 @@ export default function AgentsDashboard() {
     setShowPhonePopup(!showPhonePopup);
   };
 
-  // useEffect(() => {
-  //   const delayFetch = setTimeout(() => {
-  //     if (searchName.length >= 3) {
-  //       fetch("https://demomspapi.wcf.go.tz/api/v1/search/details", {
-  //         method: "POST",
-  //         headers: {
-  //           "Content-Type": "application/json",
-  //         },
-  //         body: JSON.stringify({
-  //           type: customerType,
-  //           name: searchName,
-  //           employer_registration_number: registrationNumber,
-  //         }),
-  //       })
-  //         .then((res) => res.json())
-  //         .then((data) => {
-  //           if (data?.results) {
-  //             setNameSuggestions(data.results);
-  //           } else {
-  //             setNameSuggestions([]);
-  //           }
-  //         })
-  //         .catch((err) => {
-  //           console.error("Failed to fetch names:", err);
-  //           setNameSuggestions([]);
-  //         });
-  //     } else {
-  //       setNameSuggestions([]);
-  //     }
-  //   }, 400); // debounce 400ms
-
-  //   return () => clearTimeout(delayFetch);
-  // }, [searchName, customerType, registrationNumber]);
-  
-
   useEffect(() => {
     const savedStatus = localStorage.getItem("agentStatus");
     if (savedStatus) {
@@ -356,13 +356,9 @@ export default function AgentsDashboard() {
         setPhoneStatus("Ringing");
         // Extract phone number and search tickets
         const incomingNumber = invitation.remoteIdentity.uri.user;
-        searchCustomerTickets(incomingNumber);
         ringAudio
           .play()
           .catch((err) => console.error("🔇 Ringtone error:", err));
-
-        // Fetch user data by phone number on incoming call
-        fetchUserByPhoneNumber(incomingCaller);
 
         invitation.stateChange.addListener((state) => {
           if (state === SessionState.Terminated) {
@@ -1064,6 +1060,7 @@ export default function AgentsDashboard() {
   const handleAgentEmergency = async (activity) => {
     if (activity.toLowerCase() !== "ready") {
       try {
+        // Check if enough agents are available
         const response = await fetch(`${baseURL}/users/agents-online`, {
           method: "GET",
           headers: {
@@ -1074,6 +1071,7 @@ export default function AgentsDashboard() {
         const data = await response.json();
         const count = data.agentCount;
 
+        // Ensure there are at least 3 agents available for non-"ready" status
         if (count < 3) {
           showAlert("⚠️ Not enough agents available. Minimum 3 required.");
           return;
@@ -1085,33 +1083,45 @@ export default function AgentsDashboard() {
       }
     }
 
-    // Update local status
+    // Update local status (displayed in the UI)
     setAgentStatus(activity);
 
-    // Start or stop timer
+    // Start or stop timer based on the activity
     if (activity.toLowerCase() !== "ready") {
       startStatusTimer(activity);
     } else {
       stopStatusTimer();
     }
 
-    // Update backend status
+    // Set the backend status based on the selected activity
+    const statusToUpdate =
+      activity.toLowerCase() === "ready" ? "online" : "offline";
+
+    // Update backend status (offline for non-"ready", online for "ready")
     try {
-      await fetch(`${baseURL}/users/status/${localStorage.getItem("userId")}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-        },
-        body: JSON.stringify({
-          status: activity === "ready" ? "online" : activity,
-        }),
-      });
+      const updateResponse = await fetch(
+        `${baseURL}/users/status/${localStorage.getItem("userId")}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          },
+          body: JSON.stringify({
+            status: statusToUpdate, // online for "ready", offline otherwise
+          }),
+        }
+      );
+
+      if (!updateResponse.ok) {
+        throw new Error("Failed to update status");
+      }
+
+      console.log(`User status updated to ${statusToUpdate}`);
     } catch (err) {
       console.error("Failed to update status:", err);
     }
   };
-
   const formatRemainingTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -1135,28 +1145,6 @@ export default function AgentsDashboard() {
         return "emergency";
       default:
         return null; // covers "ready" and unknowns
-    }
-  };
-
-  // Function to search tickets by phone or NIDA
-  const searchCustomerTickets = async (phoneOrNida) => {
-    try {
-      const response = await fetch(`${baseURL}/ticket/search-by-phone/${phoneOrNida}`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('authToken')}`
-        }
-      });
-      const data = await response.json();
-      if (data.found) {
-        setCustomerTickets(data.tickets);
-        setShowTicketHistoryModal(true);
-      } else {
-        setShowCreateTicketModal(true);
-      }
-    } catch (error) {
-      setSnackbarMessage("Error searching customer tickets");
-      setSnackbarSeverity("error");
-      setSnackbarOpen(true);
     }
   };
 
@@ -1355,13 +1343,58 @@ export default function AgentsDashboard() {
             </div>
           </div>
         </div>
+        {/* <div className="dashboard-single-agent-row_two">
+          <div className="login-summary">
+            <div className="login-summary-title">
+              <IoMdLogIn />
+              <h4>Login Summary</h4>
+            </div>
+            <div className="single-agent-level">
+              <div className="single-agent-level-left">
+                <CiNoWaitingSign fontSize={20} color="red" />
+                Idle Time
+              </div>
+              00:03:34
+            </div>
+            <div className="single-agent-level">
+              <div className="single-agent-level-left">
+                <MdOutlinePhoneInTalk fontSize={20} color="green" />
+                Talk Time
+              </div>
+              00:03:34
+            </div>
+            <div className="single-agent-level">
+              <div className="single-agent-level-left">
+                <FaHandHolding fontSize={20} color="black" />
+                Hold Time
+              </div>
+              00:03:34
+            </div>
+            <div className="single-agent-level">
+              <div className="single-agent-level-left">
+                <IoMdCloseCircleOutline fontSize={20} color="red" />
+                Break Time
+              </div>
+              00:03:34
+            </div>
+            <div className="single-agent-level">
+              <div className="single-agent-level-left">
+                <FaPersonWalkingArrowRight fontSize={20} color="green" />
+                Last Login Time
+              </div>
+            </div>
+          </div>
+          <div className="chat">
+            <CallChart />
+          </div>
+        </div> */}
 
         <div className="dashboard-single-agent-row_three">
           <QueueStatusTable />
         </div>
-         <div className="dashboard-single-agent-row_four">
+        <div className="dashboard-single-agent-row_four">
           <AgentPerformanceScore />
-          </div>
+        </div>
       </div>
 
       <Menu
@@ -1534,16 +1567,18 @@ export default function AgentsDashboard() {
             </div>
 
             {phoneStatus !== "In Call" && (
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleDial}
-                disabled={
-                  phoneStatus === "Dialing" || phoneStatus === "Ringing"
-                }
-              >
-                Dial
-              </Button>
+              <>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleDial}
+                  disabled={
+                    phoneStatus === "Dialing" || phoneStatus === "Ringing"
+                  }
+                >
+                  Dial
+                </Button>
+              </>
             )}
 
             {incomingCall && phoneStatus !== "In Call" && (
@@ -1576,15 +1611,17 @@ export default function AgentsDashboard() {
             <div
               className="ticket-creation-form"
               style={{
-                marginTop: 20,
+                marginTop: 10,
                 padding: 10,
                 border: "0px solid #ccc",
                 borderRadius: 12,
-                maxWidth: 700,
+                maxWidth: 900,
                 backgroundColor: "whitesmoke",
                 boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
                 marginLeft: "auto",
                 marginRight: "auto",
+                scroll: "auto",
+                overflowY: "auto",
               }}
             >
               <div className="inputRow">
@@ -1631,26 +1668,46 @@ export default function AgentsDashboard() {
                   )}
                 />
 
-                <TextField
+                {/* <TextField
                   label="Registration Number"
                   value={registrationNumber}
                   onChange={(e) => setRegistrationNumber(e.target.value)}
                   fullWidth
                   disabled={!customerType} // Disable if no customerType selected
-                />
-                <Button
-                  variant="contained"
-                  startIcon={<SearchIcon />}
-                  onClick={handleSearch}
-                >
-                  Search
-                </Button>
+                /> */}
+                {searchLoading ? (
+                  <>
+                    <CircularProgress size={24} style={{ marginLeft: 10, backgroundColor: "blue", borderRadius: "10%", color: "white" }}/>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      variant="contained"
+                      // startIcon={<SearchIcon />}
+                      onClick={handleSearch}
+                    >
+                      Search
+                    </Button>
+                  </>
+                )}
+                {claimed && claimed !== "null" && (
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={() => {
+                      // Add logic for what should happen when the claim button is clicked
+                      console.log("Claimed button clicked");
+                    }}
+                  >
+                    Claimed
+                  </Button>
+                )}
               </div>
               <div>
                 <div className="inputRow">
                   <TextField
                     label="First Name"
-                    value={formValues.first_name}
+                    value={formValues.firstName}
                     fullWidth
                     margin="normal"
                     onChange={(e) =>
@@ -1662,7 +1719,7 @@ export default function AgentsDashboard() {
                   />
                   <TextField
                     label="Middle Name"
-                    value={formValues.middle_name}
+                    value={formValues.middleName}
                     fullWidth
                     margin="normal"
                     onChange={(e) =>
@@ -1674,7 +1731,7 @@ export default function AgentsDashboard() {
                   />
                   <TextField
                     label="Last Name"
-                    value={formValues.last_name}
+                    value={formValues.lastName}
                     fullWidth
                     margin="normal"
                     onChange={(e) =>
@@ -1687,14 +1744,26 @@ export default function AgentsDashboard() {
                 </div>
                 <div className="inputRow">
                   <TextField
+                    select
+                    // label="Customer Type"
+                    // value={customerType}
+                    // onChange={(e) => setCustomerType(e.target.value)}
+                    fullWidth
+                    SelectProps={{ native: true }}
+                  >
+                    <option value="">Requester</option>
+                    <option value="employer">Employer</option>
+                    <option value="employee">Employee</option>
+                  </TextField>
+                  <TextField
                     label="Phone Number"
-                    value={formValues.phone_number}
+                    value={formValues.requester}
                     fullWidth
                     margin="normal"
                   />
                   <TextField
                     label="NIDA Number"
-                    value={formValues.nida_number}
+                    value={formValues.nidaNumber}
                     fullWidth
                     margin="normal"
                     onChange={(e) =>
@@ -1704,6 +1773,8 @@ export default function AgentsDashboard() {
                       })
                     }
                   />
+                </div>
+                <div className="inputRow">
                   <TextField
                     label="Institution"
                     value={formValues.institution}
@@ -1716,8 +1787,6 @@ export default function AgentsDashboard() {
                       })
                     }
                   />
-                </div>
-                <div className="inputRow">
                   <TextField
                     label="Region"
                     value={formValues.region}
@@ -1737,6 +1806,61 @@ export default function AgentsDashboard() {
                     }
                   />
                 </div>
+                <div className="inputRow">
+                  <TextField
+                    select
+                    // label="Customer Type"
+                    value={formValues.category}
+                    onChange={(e) =>
+                      setFormValues({ ...formValues, district: e.target.value })
+                    }
+                    fullWidth
+                    SelectProps={{ native: true }}
+                  >
+                    <option value="">Category</option>
+                    <option value="employer">Employer</option>
+                    <option value="employee">Employee</option>
+                  </TextField>
+                  <TextField
+                    select
+                    // label="Customer Type"
+                    value={formValues.channel}
+                    onChange={(e) =>
+                      setFormValues({ ...formValues, district: e.target.value })
+                    }
+                    fullWidth
+                    SelectProps={{ native: true }}
+                  >
+                    <option value="">Channel</option>
+                    <option value="employer">Employer</option>
+                    <option value="employee">Employee</option>
+                  </TextField>
+                  <TextField
+                    select
+                    // label="Customer Type"
+                    value={formValues.subject}
+                    onChange={(e) =>
+                      setFormValues({ ...formValues, district: e.target.value })
+                    }
+                    fullWidth
+                    SelectProps={{ native: true }}
+                  >
+                    <option value="">Subject</option>
+                    <option value="employer">Employer</option>
+                    <option value="employee">Employee</option>
+                  </TextField>
+                </div>
+                <TextField
+                  label="Description"
+                  multiline
+                  rows={2}
+                  fullWidth
+                  margin="normal"
+                  value={formValues.description}
+                  onChange={(e) =>
+                    setFormValues({ ...formValues, district: e.target.value })
+                  }
+                />
               </div>
 
               <Button
@@ -1794,11 +1918,10 @@ export default function AgentsDashboard() {
                     variant="contained"
                     color="primary"
                     size="small"
-                    
-                    onClick={() =>{
-                      console.log("🔁 Calling back ID:", call.id);  // 👈 Add this
-                      handleRedial(call.caller, call.id)}
-                     }
+                    onClick={() => {
+                      console.log("🔁 Calling back ID:", call.id); // 👈 Add this
+                      handleRedial(call.caller, call.id);
+                    }}
                     startIcon={<FiPhoneCall />}
                   >
                     Call Back
@@ -1835,30 +1958,71 @@ export default function AgentsDashboard() {
       </Snackbar>
 
       {/* Ticket History Modal */}
-      <Dialog open={showTicketHistoryModal} onClose={() => setShowTicketHistoryModal(false)} maxWidth="md" fullWidth>
+      <Dialog
+        open={showTicketHistoryModal}
+        onClose={() => setShowTicketHistoryModal(false)}
+        maxWidth="md"
+        fullWidth
+      >
         <DialogTitle>Customer Ticket History</DialogTitle>
         <DialogContent>
-          {customerTickets.length > 0 ? customerTickets.map(ticket => (
-            <div key={ticket.id} style={{ border: '1px solid #eee', margin: 8, padding: 8, borderRadius: 4 }}>
-              <div>Ticket ID: {ticket.ticket_id}</div>
-              <div>Status: {ticket.status}</div>
-              <div>Created: {new Date(ticket.created_at).toLocaleString()}</div>
-              <Button onClick={() => setSelectedTicket(ticket)}>View Details</Button>
-            </div>
-          )) : <div>No tickets found.</div>}
+          {customerTickets.length > 0 ? (
+            customerTickets.map((ticket) => (
+              <div
+                key={ticket.id}
+                style={{
+                  border: "1px solid #eee",
+                  margin: 8,
+                  padding: 8,
+                  borderRadius: 4,
+                }}
+              >
+                <div>Ticket ID: {ticket.ticket_id}</div>
+                <div>Status: {ticket.status}</div>
+                <div>
+                  Created: {new Date(ticket.created_at).toLocaleString()}
+                </div>
+                <Button onClick={() => setSelectedTicket(ticket)}>
+                  View Details
+                </Button>
+              </div>
+            ))
+          ) : (
+            <div>No tickets found.</div>
+          )}
           {/* Ticket Details Modal (nested) */}
-          <Dialog open={!!selectedTicket} onClose={() => setSelectedTicket(null)} maxWidth="sm" fullWidth>
+          <Dialog
+            open={!!selectedTicket}
+            onClose={() => setSelectedTicket(null)}
+            maxWidth="sm"
+            fullWidth
+          >
             <DialogTitle>Ticket Details</DialogTitle>
             <DialogContent>
               {selectedTicket && (
                 <div>
-                  <div><strong>Ticket ID:</strong> {selectedTicket.ticket_id}</div>
-                  <div><strong>Status:</strong> {selectedTicket.status}</div>
-                  <div><strong>Phone:</strong> {selectedTicket.phone_number}</div>
-                  <div><strong>NIDA:</strong> {selectedTicket.nida_number}</div>
-                  <div><strong>Category:</strong> {selectedTicket.category}</div>
-                  <div><strong>Description:</strong> {selectedTicket.description}</div>
-                  <div><strong>Created:</strong> {new Date(selectedTicket.created_at).toLocaleString()}</div>
+                  <div>
+                    <strong>Ticket ID:</strong> {selectedTicket.ticket_id}
+                  </div>
+                  <div>
+                    <strong>Status:</strong> {selectedTicket.status}
+                  </div>
+                  <div>
+                    <strong>Phone:</strong> {selectedTicket.phone_number}
+                  </div>
+                  <div>
+                    <strong>NIDA:</strong> {selectedTicket.nida_number}
+                  </div>
+                  <div>
+                    <strong>Category:</strong> {selectedTicket.category}
+                  </div>
+                  <div>
+                    <strong>Description:</strong> {selectedTicket.description}
+                  </div>
+                  <div>
+                    <strong>Created:</strong>{" "}
+                    {new Date(selectedTicket.created_at).toLocaleString()}
+                  </div>
                   {/* Add more fields as needed */}
                 </div>
               )}
@@ -1868,15 +2032,27 @@ export default function AgentsDashboard() {
       </Dialog>
 
       {/* Create Ticket Modal */}
-      <Dialog open={showCreateTicketModal} onClose={() => setShowCreateTicketModal(false)}>
+      <Dialog
+        open={showCreateTicketModal}
+        onClose={() => setShowCreateTicketModal(false)}
+      >
         <DialogTitle>No Tickets Found</DialogTitle>
         <DialogContent>
-          <div>No tickets found for this number. Would you like to create a new ticket?</div>
-          <Button onClick={() => {
-            setShowCreateTicketModal(false);
-            // Open your ticket creation form/modal here, pre-fill phone number
-          }}>Create Ticket</Button>
-          <Button onClick={() => setShowCreateTicketModal(false)}>Cancel</Button>
+          <div>
+            No tickets found for this number. Would you like to create a new
+            ticket?
+          </div>
+          <Button
+            onClick={() => {
+              setShowCreateTicketModal(false);
+              // Open your ticket creation form/modal here, pre-fill phone number
+            }}
+          >
+            Create Ticket
+          </Button>
+          <Button onClick={() => setShowCreateTicketModal(false)}>
+            Cancel
+          </Button>
         </DialogContent>
       </Dialog>
     </div>
