@@ -156,6 +156,290 @@ export default function Crm() {
     setModal({ isOpen: false, type: "", message: "" });
   };
 
+  // Helper function to render workflow steps
+  const renderWorkflowStep = (stepNumber, title, details, isActive) => (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+      <Box sx={{ 
+        width: 30, 
+        height: 30, 
+        borderRadius: '50%', 
+        bgcolor: isActive ? 'green' : 'gray', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center',
+        color: 'white',
+        fontWeight: 'bold'
+      }}>
+        {stepNumber}
+      </Box>
+      <Box>
+        <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+          {title}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {details}
+        </Typography>
+      </Box>
+    </Box>
+  );
+
+  // Function to render dynamic workflow based on category
+  const renderDynamicWorkflow = (ticket) => {
+    if (!ticket) return null;
+
+    switch (ticket.category) {
+      case 'Claims':
+      case 'Compliance':
+        return (
+          <Box>
+            {renderWorkflowStep(1, "Created by Agent", 
+              `${ticket.created_by} - ${ticket.created_at ? new Date(ticket.created_at).toLocaleString() : 'N/A'}`, true)}
+            {renderWorkflowStep(2, "Attended and Closed by Attendee",
+              `${ticket.attended_by ? ticket.attended_by : 'Pending Attendee'} - ${ticket.date_of_resolution ? new Date(ticket.date_of_resolution).toLocaleString() : 'N/A'}`, 
+              ticket.status === 'Closed' && ticket.attended_by)}
+            {/* Add Attendee action buttons here if current user is Attendee */}
+          </Box>
+        );
+      case 'Un-assigned Claims':
+      case 'Un-assigned Employer':
+      case 'Un-registered Employee/Employer':
+      case 'Other Inquiry': // For inquiry out of Claims and Compliance
+        return (
+          <Box>
+            {renderWorkflowStep(1, "Created by Agent", 
+              `${ticket.created_by} - ${ticket.created_at ? new Date(ticket.created_at).toLocaleString() : 'N/A'}`, true)}
+            {renderWorkflowStep(2, "Focal Person Review",
+              `${ticket.assigned_to_role === 'Focal Person' ? ticket.assigned_to_role : 'Pending Focal Person'} - ${ticket.assigned_at ? new Date(ticket.assigned_at).toLocaleString() : 'N/A'}`, 
+              ticket.assigned_to_role === 'Focal Person')}
+            {/* Add Focal Person action buttons here (assign, re-assign, attend and close) */}
+            {renderWorkflowStep(3, "Attended and Closed by Attendee",
+              `${ticket.attended_by ? ticket.attended_by : 'Pending Attendee'} - ${ticket.date_of_resolution ? new Date(ticket.date_of_resolution).toLocaleString() : 'N/A'}`, 
+              ticket.status === 'Closed' && ticket.attended_by)}
+            {/* Add Attendee action buttons here (reverse or attend and close) */}
+          </Box>
+        );
+      case 'Complaint':
+        return (
+          <Box>
+            {renderWorkflowStep(1, "Created by Agent", 
+              `${ticket.created_by} - ${ticket.created_at ? new Date(ticket.created_at).toLocaleString() : 'N/A'}`, true)}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Box sx={{ 
+                width: 30, 
+                height: 30, 
+                borderRadius: '50%', 
+                bgcolor: ticket.assigned_to_role === 'Coordinator' ? 'green' : 'gray', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                color: 'white',
+                fontWeight: 'bold'
+              }}>
+                2
+              </Box>
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                  Coordinator Review
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {ticket.assigned_to_role === 'Coordinator' ? 
+                    `${ticket.assigned_to_role} - ${ticket.assigned_at ? new Date(ticket.assigned_at).toLocaleString() : 'N/A'}` : 
+                    'Pending Coordinator Review'}
+                </Typography>
+                
+                {/* Coordinator Action Buttons */}
+                {ticket.assigned_to_role === 'Coordinator' && (
+                  <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color={ticket.complaint_type === 'Major' ? 'error' : 'primary'}
+                      onClick={() => handleRating(ticket.id, 'Major')}
+                    >
+                      Rate as Major
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color={ticket.complaint_type === 'Minor' ? 'warning' : 'primary'}
+                      onClick={() => handleRating(ticket.id, 'Minor')}
+                    >
+                      Rate as Minor
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="primary"
+                      onClick={() => handleForward(ticket.id)}
+                    >
+                      Forward to Unit
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="success"
+                      onClick={() => handleClose(ticket.id)}
+                    >
+                      Close Ticket
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="info"
+                      onClick={() => handleChangeToInquiry(ticket.id)}
+                    >
+                      Change to Inquiry
+                    </Button>
+                  </Box>
+                )}
+              </Box>
+            </Box>
+            {/* Conditional rendering for Complaint workflows */}
+            {ticket.complaint_type === 'Minor' && (
+              <Box>
+                {/* Minor Complaint - Unit Path */}
+                {/* Agent -> Coordinator -> HeadofUnit -> Attendee -> HeadofUnit */}
+                <Typography variant="subtitle2" sx={{ mt: 2, mb: 1, fontWeight: 'bold' }}>Minor Complaint Workflow (Unit)</Typography>
+                {renderWorkflowStep(3, "Head of Unit Review",
+                  `${ticket.assigned_to_role === 'HeadofUnit' ? ticket.assigned_to_role : 'Pending Head of Unit'} - ${ticket.assigned_at ? new Date(ticket.assigned_at).toLocaleString() : 'N/A'}`,
+                  ticket.assigned_to_role === 'HeadofUnit'
+                )}
+                {/* Add Head of Unit actions: assign, reverse, attend and close */}
+                {renderWorkflowStep(4, "Attendee Action & Recommendation",
+                  `${ticket.attended_by ? ticket.attended_by : 'Pending Attendee'} - ${ticket.attended_at ? new Date(ticket.attended_at).toLocaleString() : 'N/A'}`,
+                  ticket.attended_by
+                )}
+                {/* Add Attendee actions: attend and recommend */}
+                {renderWorkflowStep(5, "Head of Unit Review & Close",
+                  `${ticket.status === 'Closed' && ticket.assigned_to_role === 'HeadofUnit' ? 'Closed' : 'Pending Closure'}`,
+                  ticket.status === 'Closed' && ticket.assigned_to_role === 'HeadofUnit'
+                )}
+                {/* Add Head of Unit actions: reverse, close */}
+              </Box>
+            )}
+            {/* Minor Complaint - Directorate Path (Placeholder) */}
+            {/* Agent -> Coordinator -> Director -> Manager -> Attendee -> Manager */}
+            {ticket.complaint_type === 'Minor' && selectedTicket.assigned_to_role === 'Director' && (
+              <Box>
+                <Typography variant="subtitle2" sx={{ mt: 2, mb: 1, fontWeight: 'bold' }}>Minor Complaint Workflow (Directorate)</Typography>
+                {/* Steps for Director, Manager, Attendee, Manager */}
+                {renderWorkflowStep(3, "Director Review",
+                  `${ticket.assigned_to_role === 'Director' ? ticket.assigned_to_role : 'Pending Director'} - ${ticket.assigned_at ? new Date(ticket.assigned_at).toLocaleString() : 'N/A'}`,
+                  ticket.assigned_to_role === 'Director'
+                )}
+                {/* Add Director actions: assign, reverse */}
+                {renderWorkflowStep(4, "Manager Action & Review",
+                  `${ticket.assigned_to_role === 'Manager' ? ticket.assigned_to_role : 'Pending Manager'} - ${ticket.assigned_at ? new Date(ticket.assigned_at).toLocaleString() : 'N/A'}`,
+                  ticket.assigned_to_role === 'Manager'
+                )}
+                {/* Add Manager actions: assign, attend and close */}
+                {renderWorkflowStep(5, "Attendee Action & Recommendation",
+                  `${ticket.attended_by ? ticket.attended_by : 'Pending Attendee'} - ${ticket.attended_at ? new Date(ticket.attended_at).toLocaleString() : 'N/A'}`,
+                  ticket.attended_by
+                )}
+                {/* Add Attendee actions: attend and recommend */}
+                {renderWorkflowStep(6, "Manager Review & Close",
+                  `${ticket.status === 'Closed' && ticket.assigned_to_role === 'Manager' ? 'Closed' : 'Pending Closure'}`,
+                  ticket.status === 'Closed' && ticket.assigned_to_role === 'Manager'
+                )}
+                {/* Add Manager actions: reverse, close */}
+              </Box>
+            )}
+            {/* Major Complaint - Unit Path (Placeholder) */}
+            {/* Agent -> Coordinator -> HeadofUnit -> Attendee -> HeadofUnit -> DG */}
+            {ticket.complaint_type === 'Major' && selectedTicket.assigned_to_role === 'HeadofUnit' && (
+              <Box>
+                <Typography variant="subtitle2" sx={{ mt: 2, mb: 1, fontWeight: 'bold' }}>Major Complaint Workflow (Unit)</Typography>
+                {/* Steps for HeadofUnit, Attendee, HeadofUnit, DG */}
+                {renderWorkflowStep(3, "Head of Unit Action & Review",
+                  `${ticket.assigned_to_role === 'HeadofUnit' ? ticket.assigned_to_role : 'Pending Head of Unit'} - ${ticket.assigned_at ? new Date(ticket.assigned_at).toLocaleString() : 'N/A'}`,
+                  ticket.assigned_to_role === 'HeadofUnit'
+                )}
+                {/* Add Head of Unit actions: assign, reverse, attend, upload evidence and recommend */}
+                {renderWorkflowStep(4, "Attendee Action & Recommendation (Evidence)",
+                  `${ticket.attended_by ? ticket.attended_by : 'Pending Attendee'} - ${ticket.attended_at ? new Date(ticket.attended_at).toLocaleString() : 'N/A'}`,
+                  ticket.attended_by
+                )}
+                {/* Add Attendee actions: attend, upload evidence and recommend */}
+                {renderWorkflowStep(5, "Head of Unit Review & Recommendation",
+                  `${ticket.assigned_to_role === 'HeadofUnit' ? ticket.assigned_to_role : 'Pending Head of Unit'} - ${ticket.assigned_at ? new Date(ticket.assigned_at).toLocaleString() : 'N/A'}`,
+                  ticket.assigned_to_role === 'HeadofUnit' && ticket.status !== 'Closed'
+                )}
+                {/* Add Head of Unit actions: review, recommend, reverse */}
+                {renderWorkflowStep(6, "DG Approval & Close",
+                  `${ticket.assigned_to_role === 'DG' ? ticket.assigned_to_role : 'Pending DG Approval'} - ${ticket.date_of_resolution ? new Date(ticket.date_of_resolution).toLocaleString() : 'N/A'}`,
+                  ticket.assigned_to_role === 'DG' || ticket.status === 'Closed'
+                )}
+                {/* Add DG actions: approve and close, reverse */}
+              </Box>
+            )}
+            {/* Major Complaint - Directorate Path (Placeholder) */}
+            {/* Agent -> Coordinator -> Director -> Manager -> Attendee -> Manager -> Director -> DG */}
+            {ticket.complaint_type === 'Major' && selectedTicket.assigned_to_role === 'Director' && (
+              <Box>
+                <Typography variant="subtitle2" sx={{ mt: 2, mb: 1, fontWeight: 'bold' }}>Major Complaint Workflow (Directorate)</Typography>
+                {/* Steps for Director, Manager, Attendee, Manager, Director, DG */}
+                {renderWorkflowStep(3, "Director Review",
+                  `${ticket.assigned_to_role === 'Director' ? ticket.assigned_to_role : 'Pending Director'} - ${ticket.assigned_at ? new Date(ticket.assigned_at).toLocaleString() : 'N/A'}`,
+                  ticket.assigned_to_role === 'Director'
+                )}
+                {/* Add Director actions: assign, reverse */}
+                {renderWorkflowStep(4, "Manager Action & Review (Evidence)",
+                  `${ticket.assigned_to_role === 'Manager' ? ticket.assigned_to_role : 'Pending Manager'} - ${ticket.assigned_at ? new Date(ticket.assigned_at).toLocaleString() : 'N/A'}`,
+                  ticket.assigned_to_role === 'Manager'
+                )}
+                {/* Add Manager actions: assign, reverse, attend, upload evidence and recommend */}
+                {renderWorkflowStep(5, "Attendee Action & Recommendation (Evidence)",
+                  `${ticket.attended_by ? ticket.attended_by : 'Pending Attendee'} - ${ticket.attended_at ? new Date(ticket.attended_at).toLocaleString() : 'N/A'}`,
+                  ticket.attended_by
+                )}
+                {/* Add Attendee actions: attend, upload evidence and recommend */}
+                {renderWorkflowStep(6, "Manager Review & Recommendation",
+                  `${ticket.assigned_to_role === 'Manager' ? ticket.assigned_to_role : 'Pending Manager'} - ${ticket.assigned_at ? new Date(ticket.assigned_at).toLocaleString() : 'N/A'}`,
+                  ticket.assigned_to_role === 'Manager' && ticket.status !== 'Closed'
+                )}
+                {/* Add Manager actions: review, recommend, reverse */}
+                {renderWorkflowStep(7, "Director Review & Recommendation",
+                  `${ticket.assigned_to_role === 'Director' ? ticket.assigned_to_role : 'Pending Director'} - ${ticket.assigned_at ? new Date(ticket.assigned_at).toLocaleString() : 'N/A'}`,
+                  ticket.assigned_to_role === 'Director' && ticket.status !== 'Closed'
+                )}
+                {/* Add Director actions: review, recommend, reverse */}
+                {renderWorkflowStep(8, "DG Approval & Close",
+                  `${ticket.assigned_to_role === 'DG' ? ticket.assigned_to_role : 'Pending DG Approval'} - ${ticket.date_of_resolution ? new Date(ticket.date_of_resolution).toLocaleString() : 'N/A'}`,
+                  ticket.assigned_to_role === 'DG' || ticket.status === 'Closed'
+                )}
+                {/* Add DG actions: approve and close, reverse */}
+              </Box>
+            )}
+          </Box>
+        );
+      case 'Suggestion':
+      case 'Compliment':
+        return (
+          <Box>
+            {renderWorkflowStep(1, "Created by Agent", 
+              `${ticket.created_by} - ${ticket.created_at ? new Date(ticket.created_at).toLocaleString() : 'N/A'}`, true)}
+            {renderWorkflowStep(2, "Coordinator Review and Assignment",
+              `${ticket.assigned_to_role === 'Coordinator' ? ticket.assigned_to_role : 'Pending Coordinator'} - ${ticket.assigned_at ? new Date(ticket.assigned_at).toLocaleString() : 'N/A'}`, 
+              ticket.assigned_to_role === 'Coordinator')}
+            {/* Add Coordinator action to assign to Directorate/Unit here */}
+            {renderWorkflowStep(3, 
+              ticket.assigned_to_role === 'Director' ? 'Director Review' : 'Head of Unit Review',
+              `${ticket.assigned_to_role || 'Pending Review'} - ${ticket.attended_by ? ticket.attended_by : 'N/A'}`,
+              ticket.assigned_to_role === 'Director' || ticket.assigned_to_role === 'Head of Unit'
+            )}
+            {renderWorkflowStep(4, "Note and Close",
+              `${ticket.status === 'Closed' ? 'Closed' : 'In Progress'} - ${ticket.date_of_resolution ? new Date(ticket.date_of_resolution).toLocaleString() : 'N/A'}`,
+              ticket.status === 'Closed'
+            )}
+            {/* Add Note and Close action buttons here */}
+          </Box>
+        );
+      default:
+        return <Typography>No specific workflow defined for this category.</Typography>;
+    }
+  };
+
   const filteredTickets = agentTickets.filter((ticket) => {
     const searchValue = search.toLowerCase();
     const phone = (ticket.phone_number || "").toLowerCase();
@@ -249,6 +533,176 @@ export default function Crm() {
       </td>
     </tr>
   );
+
+  // Add handler functions for coordinator actions
+  const handleRating = async (ticketId, rating) => {
+    try {
+      const token = localStorage.getItem("authToken");
+      const response = await fetch(`${baseURL}/ticket/rate/${ticketId}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ 
+          complaint_type: rating,
+          // If Major, assign to DG; if Minor, assign to Focal Person
+          assigned_to_role: rating === 'Major' ? 'DG' : 'Focal Person'
+        }),
+      });
+
+      if (response.ok) {
+        setModal({
+          isOpen: true,
+          type: "success",
+          message: `Ticket rated as ${rating} successfully.`,
+        });
+        fetchAgentTickets();
+      } else {
+        const data = await response.json();
+        setModal({
+          isOpen: true,
+          type: "error",
+          message: data.message || "Failed to rate ticket.",
+        });
+      }
+    } catch (error) {
+      setModal({
+        isOpen: true,
+        type: "error",
+        message: `Network error: ${error.message}`,
+      });
+    }
+  };
+
+  const handleForward = async (ticketId) => {
+    // You might want to show a dialog to select the unit
+    const unit = prompt("Enter the unit to forward to:");
+    if (!unit) return;
+
+    try {
+      const token = localStorage.getItem("authToken");
+      const response = await fetch(`${baseURL}/ticket/forward/${ticketId}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ 
+          forwarded_to: unit,
+          status: 'Forwarded'
+        }),
+      });
+
+      if (response.ok) {
+        setModal({
+          isOpen: true,
+          type: "success",
+          message: `Ticket forwarded to ${unit} successfully.`,
+        });
+        fetchAgentTickets();
+      } else {
+        const data = await response.json();
+        setModal({
+          isOpen: true,
+          type: "error",
+          message: data.message || "Failed to forward ticket.",
+        });
+      }
+    } catch (error) {
+      setModal({
+        isOpen: true,
+        type: "error",
+        message: `Network error: ${error.message}`,
+      });
+    }
+  };
+
+  const handleClose = async (ticketId) => {
+    const resolution = prompt("Enter resolution details:");
+    if (!resolution) return;
+
+    try {
+      const token = localStorage.getItem("authToken");
+      const response = await fetch(`${baseURL}/ticket/close/${ticketId}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ 
+          status: 'Closed',
+          resolution_details: resolution,
+          date_of_resolution: new Date().toISOString()
+        }),
+      });
+
+      if (response.ok) {
+        setModal({
+          isOpen: true,
+          type: "success",
+          message: "Ticket closed successfully.",
+        });
+        fetchAgentTickets();
+      } else {
+        const data = await response.json();
+        setModal({
+          isOpen: true,
+          type: "error",
+          message: data.message || "Failed to close ticket.",
+        });
+      }
+    } catch (error) {
+      setModal({
+        isOpen: true,
+        type: "error",
+        message: `Network error: ${error.message}`,
+      });
+    }
+  };
+
+  const handleChangeToInquiry = async (ticketId) => {
+    const confirmation = window.confirm("Are you sure you want to change this Complaint to an Inquiry?");
+    if (!confirmation) return;
+
+    try {
+      const token = localStorage.getItem("authToken");
+      const response = await fetch(`${baseURL}/ticket/change-to-inquiry/${ticketId}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ 
+          category: 'Other Inquiry', // Or a more specific inquiry category if available
+          status: 'Open', // Reset status to open for inquiry workflow
+          assigned_to_role: 'Focal Person' // Auto-assign as per inquiry workflow 5.1.v and vi
+        }),
+      });
+
+      if (response.ok) {
+        setModal({
+          isOpen: true,
+          type: "success",
+          message: "Complaint successfully changed to Inquiry.",
+        });
+        fetchAgentTickets();
+      } else {
+        const data = await response.json();
+        setModal({
+          isOpen: true,
+          type: "error",
+          message: data.message || "Failed to change complaint to inquiry.",
+        });
+      }
+    } catch (error) {
+      setModal({
+        isOpen: true,
+        type: "error",
+        message: `Network error: ${error.message}`,
+      });
+    }
+  };
 
   if (loading) {
     return (
@@ -372,8 +826,8 @@ export default function Crm() {
       <Modal
         open={isModalOpen}
         onClose={closeModal}
-        aria-labelledby="ticket-details-title"
-        aria-describedby="ticket-details-description"
+        aria-labelledby="ticket-details-modal"
+        aria-describedby="ticket-details-modal-description"
       >
         <Box
           sx={{
@@ -395,88 +849,26 @@ export default function Crm() {
               <Typography
                 id="ticket-details-title"
                 variant="h5"
-                sx={{ fontWeight: "bold", color: "#1976d2" }}
+                sx={{ fontWeight: "bold", color: "#1976d2", mb: 2 }}
               >
-                Ticket Details
+                Complaint Details
               </Typography>
               <Divider sx={{ mb: 2 }} />
-              <Grid container spacing={2} id="ticket-details-description">
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Name:</strong>{" "}
-                    {`${selectedTicket.first_name || "N/A"} ${
-                      selectedTicket.middle_name || " "
-                    } ${selectedTicket.last_name || "N/A"}`}
+
+              {/* Workflow Status Section */}
+              <Box sx={{ mb: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+                <Typography variant="h6" sx={{ color: "#3f51b5", mb: 1 }}>
+                  Ticket Workflow
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                
+                {renderDynamicWorkflow(selectedTicket)}
+                
+                {/* Current Status */}
+                <Box sx={{ mt: 2, p: 2, bgcolor: 'white', borderRadius: 1 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
+                    Current Status
                   </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Phone:</strong>{" "}
-                    {selectedTicket.phone_number || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>NIDA:</strong> {selectedTicket.nida_number || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Institution:</strong>{" "}
-                    {selectedTicket.institution || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Region:</strong> {selectedTicket.region || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>District:</strong>{" "}
-                    {selectedTicket.district || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Subject:</strong> {selectedTicket.subject || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Sub-category:</strong>{" "}
-                    {selectedTicket.sub_category || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Channel:</strong> {selectedTicket.channel || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Complaint Type:</strong>{" "}
-                    {selectedTicket.complaint_type || "Unrated"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Rated:</strong>{" "}
-                    <span
-                      style={{
-                        color:
-                          selectedTicket.complaint_type === "Major"
-                            ? "red"
-                            : selectedTicket.complaint_type === "Minor"
-                            ? "orange"
-                            : "inherit",
-                      }}
-                    >
-                      {selectedTicket.complaint_type || "N/A"}
-                    </span>
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
                   <Typography>
                     <strong>Status:</strong>{" "}
                     <span
@@ -486,83 +878,95 @@ export default function Crm() {
                             ? "green"
                             : selectedTicket.status === "Closed"
                             ? "gray"
-                            : "blue",
+                            : selectedTicket.status === "In Progress"
+                            ? "blue"
+                            : selectedTicket.status === "Assigned"
+                            ? "orange"
+                            : "inherit",
                       }}
                     >
                       {selectedTicket.status || "N/A"}
                     </span>
                   </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
+                  {selectedTicket.resolution_details && (
+                    <Typography sx={{ mt: 1 }}>
+                      <strong>Resolution Details:</strong> {selectedTicket.resolution_details}
+                    </Typography>
+                  )}
+                </Box>
+              </Box>
+
+              {/* Two-Column Ticket Fields */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "16px" }}>
+                <div style={{ flex: "1 1 45%" }}>
                   <Typography>
-                    <strong>Created By:</strong>{" "}
-                    {selectedTicket.createdBy?.name || "N/A"}
+                    <strong>Name:</strong>{" "}
+                    {`${selectedTicket.first_name || "N/A"} ${
+                      selectedTicket.middle_name || " "
+                    } ${selectedTicket.last_name || "N/A"}`}
                   </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
+                </div>
+                <div style={{ flex: "1 1 45%" }}>
                   <Typography>
-                    <strong>Assigned To:</strong>{" "}
-                    {selectedTicket.assigned_to_id || "N/A"}
+                    <strong>Phone:</strong> {selectedTicket.phone_number || "N/A"}
                   </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
+                </div>
+
+                <div style={{ flex: "1 1 45%" }}>
                   <Typography>
-                    <strong>Assigned Role:</strong>{" "}
-                    {selectedTicket.assigned_to_role || "N/A"}
+                    <strong>NIDA:</strong> {selectedTicket.nida_number || "N/A"}
                   </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
+                </div>
+                <div style={{ flex: "1 1 45%" }}>
                   <Typography>
-                    <strong>Created At:</strong>{" "}
-                    {selectedTicket.created_at
-                      ? new Date(selectedTicket.created_at).toLocaleString(
-                          "en-US",
-                          {
-                            month: "numeric",
-                            day: "numeric",
-                            year: "numeric",
-                            hour: "numeric",
-                            minute: "2-digit",
-                            hour12: true,
-                          }
-                        )
-                      : "N/A"}
+                    <strong>Institution:</strong>{" "}
+                    {selectedTicket.institution || "N/A"}
                   </Typography>
-                </Grid>
-                <Grid item xs={12}>
+                </div>
+
+                <div style={{ flex: "1 1 45%" }}>
+                  <Typography>
+                    <strong>Region:</strong> {selectedTicket.region || "N/A"}
+                  </Typography>
+                </div>
+                <div style={{ flex: "1 1 45%" }}>
+                  <Typography>
+                    <strong>District:</strong>{" "}
+                    {selectedTicket.district || "N/A"}
+                  </Typography>
+                </div>
+
+                <div style={{ flex: "1 1 45%" }}>
+                  <Typography>
+                    <strong>Subject:</strong> {selectedTicket.subject || "N/A"}
+                  </Typography>
+                </div>
+                <div style={{ flex: "1 1 45%" }}>
+                  <Typography>
+                    <strong>Category:</strong> {selectedTicket.category || "N/A"}
+                  </Typography>
+                </div>
+
+                <div style={{ flex: "1 1 45%" }}>
+                  <Typography>
+                    <strong>Channel:</strong> {selectedTicket.channel || "N/A"}
+                  </Typography>
+                </div>
+
+                <div style={{ flex: "1 1 100%" }}>
                   <Typography>
                     <strong>Description:</strong>{" "}
                     {selectedTicket.description || "N/A"}
                   </Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <Typography>
-                    <strong>Comments:</strong>
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    multiline
-                    rows={2}
-                    value={comments}
-                    onChange={handleCommentsChange}
-                    placeholder="Add comments or notes..."
-                    sx={{ mt: 1 }}
-                  />
+                </div>
+              </div>
+
+              {/* Action Buttons */}
                   <Box sx={{ mt: 2, textAlign: "right" }}>
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      onClick={handleCommentsSubmit}
-                      sx={{ mr: 1 }}
-                    >
-                      Save Comments
-                    </Button>
                     <Button variant="outlined" onClick={closeModal}>
                       Close
                     </Button>
                   </Box>
-                </Grid>
-              </Grid>
             </>
           )}
         </Box>
