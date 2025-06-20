@@ -657,12 +657,12 @@ export default function CRMSidebar({ isSidebarOpen }) {
                             value: ticketStats.ticketStatus?.Open || 0,
                             icon: "🔓"
                           },
-                          {
-                            label: "In Progress",
-                            to: "/focal-person/in-progress",
-                            value: ticketStats.ticketStatus?.["On Progress"] || 0,
-                            icon: "⏳"
-                          },
+                          // {
+                          //   label: "In Progress",
+                          //   to: "/focal-person/in-progress",
+                          //   value: ticketStats.ticketStatus?.["On Progress"] || 0,
+                          //   icon: "⏳"
+                          // },
                           {
                             label: "Closed",
                             to: "/focal-person/closed",

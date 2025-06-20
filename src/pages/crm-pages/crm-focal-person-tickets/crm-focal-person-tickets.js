@@ -18,6 +18,8 @@ import ColumnSelector from "../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../config";
 import "../crm-tickets/ticket.css";
 import TicketActions from "../../../components/coordinator/TicketActions";
+import TicketReassignModal from '../../../components/ticket/TicketReassignModal';
+import TicketDetails from '../../../components/TicketDetails';
 
 export default function CRMFocalPersonTickets() {
   const { status } = useParams();
@@ -47,6 +49,9 @@ export default function CRMFocalPersonTickets() {
   const [units, setUnits] = useState([]);
   const categories = ["Complaint", "Congrats", "Suggestion"];
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "info" });
+  const [showReassignModal, setShowReassignModal] = useState(false);
+  const [ticketToReassign, setTicketToReassign] = useState(null);
+  const token = localStorage.getItem("authToken");
 
   useEffect(() => {
     fetchTickets();
@@ -185,6 +190,29 @@ export default function CRMFocalPersonTickets() {
             <FaEye />
           </button>
         </Tooltip>
+        <Tooltip title="View Status">
+          <button
+            className="view-status-btn"
+            onClick={() => openModal(ticket)}
+            style={{ marginLeft: 8 }}
+          >
+            Status
+          </button>
+        </Tooltip>
+        {/* Show Reassign button if ticket is assigned to an attendee */}
+        {(ticket.assigned_to_role && ticket.status &&
+          ticket.assigned_to_role.toLowerCase() === 'attendee' &&
+          ticket.status.toLowerCase() === 'assigned') && (
+          <Tooltip title="Reassign Ticket">
+            <button
+              className="reassign-ticket-btn"
+              onClick={() => handleReassignClick(ticket)}
+              style={{ marginLeft: 8 }}
+            >
+              Reassign
+            </button>
+          </Tooltip>
+        )}
       </td>
     </tr>
   );
@@ -250,6 +278,15 @@ export default function CRMFocalPersonTickets() {
       message: "Ticket updated successfully",
       severity: "success"
     });
+  };
+
+  const handleReassignClick = (ticket) => {
+    setTicketToReassign(ticket);
+    setShowReassignModal(true);
+  };
+
+  const handleReassignSuccess = () => {
+    fetchTickets(); // refresh ticket list
   };
 
   if (loading) {
@@ -379,7 +416,7 @@ export default function CRMFocalPersonTickets() {
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            width: { xs: "90%", sm: 600 },
+            width: { xs: "90%", sm: 900 },
             maxHeight: "85vh",
             overflowY: "auto",
             bgcolor: "background.paper",
@@ -390,145 +427,9 @@ export default function CRMFocalPersonTickets() {
         >
           {selectedTicket && (
             <>
-              <Typography
-                id="ticket-details-title"
-                variant="h5"
-                sx={{ fontWeight: "bold", color: "#1976d2", mb: 2 }}
-              >
-                Ticket Details #{selectedTicket.id}
-              </Typography>
-
-              {/* Action Buttons at Top */}
-              <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
-                <TicketActions 
-                  ticket={selectedTicket}
-                  onTicketUpdate={handleTicketUpdate}
-                />
-              </Box>
-
-              {/* Personal Information Section */}
-              <Typography variant="h6" sx={{ color: "#1976d2", mb: 1 }}>
-                Personal Information
-              </Typography>
-              <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Full Name:</strong> {`${selectedTicket.first_name || ""} ${selectedTicket.middle_name || ""} ${selectedTicket.last_name || ""}`}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Phone:</strong> {selectedTicket.phone_number || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Email:</strong> {selectedTicket.email || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>NIDA:</strong> {selectedTicket.nida_number || "N/A"}
-                  </Typography>
-                </Grid>
-              </Grid>
-
-              {/* Ticket Information Section */}
-              <Typography variant="h6" sx={{ color: "#1976d2", mb: 1 }}>
-                Ticket Information
-              </Typography>
-              <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Category:</strong> {selectedTicket.category || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Status:</strong>{" "}
-                    <span style={{
-                      color: selectedTicket.status === "Open" ? "green" :
-                             selectedTicket.status === "Closed" ? "gray" :
-                             "blue"
-                    }}>
-                      {selectedTicket.status || "N/A"}
-                    </span>
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Subject:</strong> {selectedTicket.subject || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Created At:</strong> {selectedTicket.created_at ? new Date(selectedTicket.created_at).toLocaleString("en-GB") : "N/A"}
-                  </Typography>
-                </Grid>
-              </Grid>
-
-              {/* Assignment Information Section */}
-              <Typography variant="h6" sx={{ color: "#1976d2", mb: 1 }}>
-                Assignment Information
-              </Typography>
-              <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Assigned Role:</strong> {selectedTicket.assigned_to_role || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Assigned To:</strong> {selectedTicket.assigned_to || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Responsible Unit:</strong> {selectedTicket.responsible_unit || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Directorate:</strong> {selectedTicket.directorate || "N/A"}
-                  </Typography>
-                </Grid>
-              </Grid>
-
-              {/* Description Section */}
-              <Typography variant="h6" sx={{ color: "#1976d2", mb: 1 }}>
-                Description
-              </Typography>
-              <Box sx={{ mb: 3, p: 2, bgcolor: "#f5f5f5", borderRadius: 1 }}>
-                <Typography>
-                  {selectedTicket.description || "No description provided"}
-                </Typography>
-              </Box>
-
-              {/* Resolution Section - Only shown if exists */}
-              {selectedTicket.resolution && (
-                <>
-                  <Typography variant="h6" sx={{ color: "#1976d2", mb: 1 }}>
-                    Resolution
-                  </Typography>
-                  <Grid container spacing={2} sx={{ mb: 3 }}>
-                    <Grid item xs={12}>
-                      <Typography>
-                        <strong>Resolution Type:</strong> {selectedTicket.resolution.type || "N/A"}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={12}>
-                      <Box sx={{ p: 2, bgcolor: "#f5f5f5", borderRadius: 1 }}>
-                        <Typography>
-                          <strong>Resolution Details:</strong> {selectedTicket.resolution.details || "N/A"}
-                        </Typography>
-                      </Box>
-                    </Grid>
-                  </Grid>
-                </>
-              )}
-
+              <TicketDetails ticketId={selectedTicket.id} onClose={closeModal} />
               {/* Convert and Forward Actions */}
-              <Typography variant="h6" sx={{ color: "#1976d2", mb: 1 }}>
+              <Typography variant="h6" sx={{ color: "#1976d2", mb: 1, mt: 3 }}>
                 Actions
               </Typography>
               <Box sx={{ mb: 3, display: "flex", flexDirection: "column", gap: 2 }}>
@@ -587,7 +488,6 @@ export default function CRMFocalPersonTickets() {
                   </Button>
                 </Box>
               </Box>
-
               {/* Close Modal Button */}
               <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <Button 
@@ -617,6 +517,14 @@ export default function CRMFocalPersonTickets() {
       >
         <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
+
+      <TicketReassignModal
+        ticket={ticketToReassign}
+        open={showReassignModal}
+        onClose={() => setShowReassignModal(false)}
+        onSuccess={handleReassignSuccess}
+        token={token}
+      />
     </div>
   );
 } 

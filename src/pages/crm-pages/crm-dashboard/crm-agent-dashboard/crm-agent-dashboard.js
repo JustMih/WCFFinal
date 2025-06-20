@@ -406,11 +406,16 @@ const AgentCRM = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
 
     if (name === "functionId") {
-      const selected = functionData.find((item) => item.id === value);
-      // Sub-section: show parent name if available, else empty
-      setSelectedFunction(selected && selected.parent ? selected.parent.name : "");
-      // Section: show type if available, else empty
-      setSelectedSection(selected ? (selected.type ? selected.type.charAt(0).toUpperCase() + selected.type.slice(1) : "") : "");
+      // Find the selected functionData object
+      const selectedFunctionData = functionData.find((item) => item.id === value);
+      if (selectedFunctionData) {
+        // Use new structure: function and function.section
+        setSelectedFunction(selectedFunctionData.function?.name || "");
+        setSelectedSection(selectedFunctionData.function?.section?.name || "");
+      } else {
+        setSelectedFunction("");
+        setSelectedSection("");
+      }
     }
     // Only allow numbers (and optional leading +) for phoneNumber
     if (name === "phoneNumber") {
