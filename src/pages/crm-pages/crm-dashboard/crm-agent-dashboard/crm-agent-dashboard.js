@@ -98,7 +98,7 @@ const AgentCRM = () => {
     requesterPhoneNumber: "",
     requesterEmail: "",
     requesterAddress: "",
-    relationshipToEmployee: "",
+    relationshipToEmployee: ""
   });
 
   // State for form errors
@@ -239,6 +239,53 @@ const AgentCRM = () => {
   const [inputValue, setInputValue] = useState("");
   const [open, setOpen] = useState(false);
 
+  // Add state for employer details
+  const [employerDetails, setEmployerDetails] = useState(null);
+
+  // Add state for institution search
+  const [institutionSearch, setInstitutionSearch] = useState("");
+  const [institutionSuggestions, setInstitutionSuggestions] = useState([]);
+  const [selectedInstitution, setSelectedInstitution] = useState(null);
+
+  // Add state for institution details modal
+  const [showInstitutionModal, setShowInstitutionModal] = useState(false);
+
+  // Add state for ticket history in ticket creation modal
+  const [creationTicketsLoading, setCreationTicketsLoading] = useState(false);
+  const [creationFoundTickets, setCreationFoundTickets] = useState([]);
+
+  // Add state for active ticket in creation modal
+  const [creationActiveTicketId, setCreationActiveTicketId] = useState(null);
+
+  // Handler to search institutions
+  const handleInstitutionSearch = async (query) => {
+    if (!query) {
+      setInstitutionSuggestions([]);
+      return;
+    }
+    try {
+      const response = await fetch(
+        "https://demomspapi.wcf.go.tz/api/v1/search/details",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json"
+          },
+          body: JSON.stringify({
+            type: "employer",
+            name: query,
+            employer_registration_number: ""
+          })
+        }
+      );
+      const data = await response.json();
+      setInstitutionSuggestions(data.results || []);
+    } catch (err) {
+      setInstitutionSuggestions([]);
+    }
+  };
+
   // Fetch function data for subject selection
   useEffect(() => {
     const fetchData = async () => {
@@ -356,22 +403,36 @@ const AgentCRM = () => {
   // Handle form input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-
-    if (name === "functionId") {
-      // Find the selected functionData object
-      const selectedFunctionData = functionData.find(
-        (item) => item.id === value
-      );
-      if (selectedFunctionData) {
-        // Use new structure: function and function.section
-        setSelectedFunction(selectedFunctionData.function?.name || "");
-        setSelectedSection(selectedFunctionData.function?.section?.name || "");
-      } else {
-        setSelectedFunction("");
-        setSelectedSection("");
+    // Only allow numbers (and optional leading +) for phoneNumber
+    if (name === "phoneNumber") {
+      let cleaned = value.replace(/[^\d+]/g, "");
+      if (cleaned.startsWith("+") && cleaned.slice(1).includes("+")) {
+        cleaned = cleaned.replace(/\+/g, "");
+        cleaned = "+" + cleaned;
       }
+      if (cleaned.length > 14) cleaned = cleaned.slice(0, 14);
+      setFormData((prev) => ({ ...prev, [name]: cleaned }));
+      if (!/^\+?\d{0,13}$/.test(cleaned)) {
+        setFormErrors((prev) => ({ ...prev, phoneNumber: "Phone number must contain only numbers" }));
+      } else {
+        setFormErrors((prev) => ({ ...prev, phoneNumber: undefined }));
+      }
+      return;
     }
+    // Only allow numbers and dashes for nidaNumber
+    if (name === "nidaNumber") {
+      let cleaned = value.replace(/[^\d-]/g, "");
+      // Optionally, limit length (e.g., 20 chars)
+      if (cleaned.length > 20) cleaned = cleaned.slice(0, 20);
+      setFormData((prev) => ({ ...prev, [name]: cleaned }));
+      if (!/^\d{0,20}(-\d{1,20})*$/.test(cleaned)) {
+        setFormErrors((prev) => ({ ...prev, nidaNumber: "NIDA/TIN must contain only numbers and dashes" }));
+      } else {
+        setFormErrors((prev) => ({ ...prev, nidaNumber: undefined }));
+      }
+      return;
+    }
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   // Handle form submission
@@ -389,7 +450,7 @@ const AgentCRM = () => {
       category: "Category",
       ...(formData.category === "Inquiry" && { inquiry_type: "Inquiry Type" }),
       functionId: "Subject",
-      description: "Description",
+      description: "Description"
     };
 
     // Conditionally add representative fields to required fields
@@ -401,10 +462,9 @@ const AgentCRM = () => {
 
     // Conditionally add employer-specific fields to required fields
     if (formData.requester === "Employer") {
-      requiredFields.employerRegistrationNumber = "Employer Registration Number";
-      requiredFields.employerName = "Employer Name";
-      requiredFields.employerTin = "Employer TIN";
-      requiredFields.employerPhone = "Employer Phone";
+      requiredFields.nidaNumber = "Employer Registration Number / TIN";
+      requiredFields.institution = "Employer Name";
+      requiredFields.phoneNumber = "Employer Phone";
     }
 
     const errors = {};
@@ -423,7 +483,7 @@ const AgentCRM = () => {
       setModal({
         isOpen: true,
         type: "error",
-        message: `Please fill the required fields before submitting.`,
+        message: `Please fill the required fields before submitting.`
       });
       return;
     }
@@ -442,6 +502,10 @@ const AgentCRM = () => {
         responsible_unit_id: formData.functionId,
         responsible_unit_name: selectedSection || "Unit",
         status: submitAction === "closed" ? "Closed" : "Open",
+        employerAllocatedStaffUsername:
+          selectedInstitution?.allocated_staff_username ||
+          formData.employerAllocatedStaffUsername ||
+          ""
       };
 
       // Add employer-specific fields if requester is Employer
@@ -452,18 +516,21 @@ const AgentCRM = () => {
         ticketData.employerPhone = formData.phoneNumber;
         ticketData.employerEmail = formData.employerEmail || ""; // Add employerEmail to formData in frontend if available
         ticketData.employerStatus = formData.employerStatus || ""; // Add employerStatus to formData in frontend if available
-        ticketData.employerAllocatedStaffId = formData.employerAllocatedStaffId || ""; // Add allocatedStaffId to formData in frontend if available
-        ticketData.employerAllocatedStaffName = formData.employerAllocatedStaffName || ""; // Add allocatedStaffName to formData in frontend if available
-        ticketData.employerAllocatedStaffUsername = formData.employerAllocatedStaffUsername || ""; // Add allocatedStaffUsername to formData in frontend if available
+        ticketData.employerAllocatedStaffId =
+          formData.employerAllocatedStaffId || ""; // Add allocatedStaffId to formData in frontend if available
+        ticketData.employerAllocatedStaffName =
+          formData.employerAllocatedStaffName || ""; // Add allocatedStaffName to formData in frontend if available
+        ticketData.employerAllocatedStaffUsername =
+          formData.employerAllocatedStaffUsername || ""; // Add allocatedStaffUsername to formData in frontend if available
       }
 
       const response = await fetch(`${baseURL}/ticket/create-ticket`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
+          Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify(ticketData),
+        body: JSON.stringify(ticketData)
       });
 
       const data = await response.json();
@@ -496,7 +563,7 @@ const AgentCRM = () => {
           requesterPhoneNumber: "",
           requesterEmail: "",
           requesterAddress: "",
-          relationshipToEmployee: "",
+          relationshipToEmployee: ""
         });
         fetchCustomerTickets();
       } else {
@@ -598,9 +665,11 @@ const AgentCRM = () => {
         <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
       )}
       {activeColumns.includes("fullName") && (
-        <td>{`${ticket.first_name || ""} ${ticket.middle_name || ""} ${
-          ticket.last_name || ""
-        }`}</td>
+        <td>{
+          ticket.first_name
+            ? `${ticket.first_name || ""} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim()
+            : ticket.institution || ""
+        }</td>
       )}
       {activeColumns.includes("phone_number") && <td>{ticket.phone_number}</td>}
       {activeColumns.includes("status") && <td>{ticket.status}</td>}
@@ -989,7 +1058,7 @@ const AgentCRM = () => {
           requesterPhoneNumber: prev.requesterPhoneNumber || "",
           requesterEmail: prev.requesterEmail || "",
           requesterAddress: prev.requesterAddress || "",
-          relationshipToEmployee: prev.relationshipToEmployee || "",
+          relationshipToEmployee: prev.relationshipToEmployee || ""
         });
       } else {
         // fallback: just pre-fill phone number
@@ -1089,7 +1158,7 @@ const AgentCRM = () => {
         requesterPhoneNumber: prev.requesterPhoneNumber || "",
         requesterEmail: prev.requesterEmail || "",
         requesterAddress: prev.requesterAddress || "",
-        relationshipToEmployee: prev.relationshipToEmployee || "",
+        relationshipToEmployee: prev.relationshipToEmployee || ""
       }));
 
       setSnackbar({
@@ -1249,12 +1318,12 @@ const AgentCRM = () => {
     if (searchType === "employee") {
       updatedFormData = {
         ...updatedFormData,
-      firstName: rawData.firstname || "",
-      middleName: rawData.middlename || "",
-      lastName: rawData.lastname || "",
-      nidaNumber: rawData.nin || "",
-      phoneNumber: rawData.phoneNumber || "",
-      institution: institutionName, // Set the extracted institution name
+        firstName: rawData.firstname || "",
+        middleName: rawData.middlename || "",
+        lastName: rawData.lastname || "",
+        nidaNumber: rawData.nin || "",
+        phoneNumber: rawData.phoneNumber || "",
+        institution: institutionName // Set the extracted institution name
       };
     } else if (searchType === "employer") {
       updatedFormData = {
@@ -1264,7 +1333,7 @@ const AgentCRM = () => {
         lastName: "",
         nidaNumber: rawData.tin || "", // Use TIN for employer's NIDA/identifier
         phoneNumber: rawData.phone || "",
-        institution: rawData.name || "", // Employer's name goes to institution
+        institution: rawData.name || "" // Employer's name goes to institution
       };
     }
 
@@ -1281,11 +1350,20 @@ const AgentCRM = () => {
       description: updatedFormData.description || formData.description,
       status: updatedFormData.status || formData.status,
       // New fields for representative (if applicable, keep existing or clear if no relevant data in rawData)
-      requesterName: updatedFormData.requesterName || rawData.requesterName || "",
-      requesterPhoneNumber: updatedFormData.requesterPhoneNumber || rawData.requesterPhoneNumber || "",
-      requesterEmail: updatedFormData.requesterEmail || rawData.requesterEmail || "",
-      requesterAddress: updatedFormData.requesterAddress || rawData.requesterAddress || "",
-      relationshipToEmployee: updatedFormData.relationshipToEmployee || rawData.relationshipToEmployee || "",
+      requesterName:
+        updatedFormData.requesterName || rawData.requesterName || "",
+      requesterPhoneNumber:
+        updatedFormData.requesterPhoneNumber ||
+        rawData.requesterPhoneNumber ||
+        "",
+      requesterEmail:
+        updatedFormData.requesterEmail || rawData.requesterEmail || "",
+      requesterAddress:
+        updatedFormData.requesterAddress || rawData.requesterAddress || "",
+      relationshipToEmployee:
+        updatedFormData.relationshipToEmployee ||
+        rawData.relationshipToEmployee ||
+        ""
     };
     console.log("Updated Form Data:", updatedFormData);
 
@@ -1435,6 +1513,111 @@ const AgentCRM = () => {
       setSearchSuggestions([]);
     }
   }, [searchQuery, debouncedSearch]);
+
+  // Fetch employer details when institution name changes (after employee selection)
+  useEffect(() => {
+    if (
+      formData.requester === "Employee" &&
+      formData.institution &&
+      formData.institution.trim() !== ""
+    ) {
+      // Call the external API with institution name (trimmed)
+      fetch("https://demomspapi.wcf.go.tz/api/v1/search/details", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json"
+        },
+        body: JSON.stringify({
+          type: "employer",
+          name: formData.institution.trim(),
+          employer_registration_number: ""
+        })
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && data.results && data.results.length > 0) {
+            console.log("Employer API result:", data.results[0]); // Debug log
+            setEmployerDetails(data.results[0]);
+          } else {
+            setEmployerDetails(null);
+          }
+        })
+        .catch(() => setEmployerDetails(null));
+    } else {
+      setEmployerDetails(null);
+    }
+  }, [formData.requester, formData.institution]);
+
+  // Auto-select institution in autocomplete after employee search
+  useEffect(() => {
+    if (
+      formData.institution &&
+      formData.institution.trim() !== "" &&
+      !selectedInstitution
+    ) {
+      fetch("https://demomspapi.wcf.go.tz/api/v1/search/details", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json"
+        },
+        body: JSON.stringify({
+          type: "employer",
+          name: formData.institution.trim(),
+          employer_registration_number: ""
+        })
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && data.results && data.results.length > 0) {
+            setSelectedInstitution(data.results[0]);
+          }
+        });
+    }
+    // Only run when institution changes and selectedInstitution is not set
+  }, [formData.institution]);
+
+  // Add phone normalization helper
+  function normalizePhone(phone) {
+    if (!phone) return '';
+    let p = phone.trim();
+    if (p.startsWith('+')) p = p.slice(1);
+    if (p.startsWith('0')) p = '255' + p.slice(1);
+    return p;
+  }
+
+  useEffect(() => {
+    const phone = formData.phoneNumber?.trim();
+    const normalizedPhone = normalizePhone(phone);
+    if (normalizedPhone && normalizedPhone.length >= 7) { // basic length check
+      setCreationTicketsLoading(true);
+      fetch(`${baseURL}/ticket/search-by-phone/${normalizedPhone}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.found && Array.isArray(data.tickets)) {
+            setCreationFoundTickets(data.tickets);
+          } else {
+            setCreationFoundTickets([]);
+          }
+        })
+        .catch(() => setCreationFoundTickets([]))
+        .finally(() => setCreationTicketsLoading(false));
+    } else {
+      setCreationFoundTickets([]);
+    }
+  }, [formData.phoneNumber, token, baseURL]);
+
+  // When ticket history loads, preselect the most recent ticket as active
+  useEffect(() => {
+    if (creationFoundTickets.length > 0) {
+      setCreationActiveTicketId(creationFoundTickets[0].id);
+    } else {
+      setCreationActiveTicketId(null);
+    }
+  }, [creationFoundTickets]);
 
   if (loading) {
     return (
@@ -1763,9 +1946,10 @@ const AgentCRM = () => {
           sx={{
             display: "flex",
             flexDirection: "row",
-            width: 900,
-            maxWidth: "95vw",
-            minHeight: 400,
+            width: 1050,
+            maxWidth: "98vw",
+            minHeight: 500,
+            maxHeight: "90vh",
             bgcolor: "background.paper",
             boxShadow: 24,
             borderRadius: 2,
@@ -1776,10 +1960,11 @@ const AgentCRM = () => {
           <Box
             sx={{
               flex: 2,
-              p: 3,
+              p: 4,
               borderRight: "1px solid #eee",
               overflowY: "auto",
-              maxHeight: "80vh"
+              minWidth: 0,
+              maxHeight: "90vh"
             }}
           >
             {selectedTicket && (
@@ -1800,9 +1985,14 @@ const AgentCRM = () => {
                   }}
                 >
                   {[
-                    // Left Column
+                    // If no first_name, show Institution only; else show First Name and Last Name
+                    ...(!selectedTicket.first_name
+                      ? [["Institution", selectedTicket.institution || "N/A"]]
+                      : [
+                          ["First Name", selectedTicket.first_name || "N/A"],
+                          ["Last Name", selectedTicket.last_name || "N/A"]
+                        ]),
                     ["Ticket Number", selectedTicket.ticket_id || "N/A"],
-                    ["First Name", selectedTicket.first_name || "N/A"],
                     ["Phone", selectedTicket.phone_number || "N/A"],
                     ["Requester", selectedTicket.requester || "N/A"],
                     ["Region", selectedTicket.region || "N/A"],
@@ -1879,7 +2069,6 @@ const AgentCRM = () => {
                         {selectedTicket.status || "N/A"}
                       </span>
                     ],
-                    ["Last Name", selectedTicket.last_name || "N/A"],
                     ["NIDA", selectedTicket.nida_number || "N/A"],
                     ["Institution", selectedTicket.institution || "N/A"],
                     ["District", selectedTicket.district || "N/A"],
@@ -1955,7 +2144,7 @@ const AgentCRM = () => {
                 {/* Description - Full Width */}
                 <div
                   style={{
-                    width: "100%",
+                    width: "94%",
                     padding: "12px 16px",
                     backgroundColor: "#f8f9fa",
                     borderRadius: "8px",
@@ -2011,10 +2200,11 @@ const AgentCRM = () => {
           <Box
             sx={{
               flex: 1,
-              p: 3,
+              p: 4,
               overflowY: "auto",
-              maxHeight: "80vh",
-              minWidth: 300
+              minWidth: 350,
+              maxWidth: 420,
+              maxHeight: "90vh"
             }}
           >
             <Typography
@@ -2159,7 +2349,7 @@ const AgentCRM = () => {
                       requesterPhoneNumber: prev.requesterPhoneNumber || "",
                       requesterEmail: prev.requesterEmail || "",
                       requesterAddress: prev.requesterAddress || "",
-                      relationshipToEmployee: prev.relationshipToEmployee || "",
+                      relationshipToEmployee: prev.relationshipToEmployee || ""
                     });
                   } else {
                     setFormData((prev) => ({
@@ -2238,17 +2428,26 @@ const AgentCRM = () => {
       <Modal open={showModal} onClose={() => setShowModal(false)}>
         <Box
           sx={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: { xs: "90%", sm: 600 },
+            display: "flex",
+            flexDirection: "row",
+            width: 1050,
+            maxWidth: "98vw",
+            minHeight: 500,
             maxHeight: "90vh",
-            overflowY: "auto",
             bgcolor: "background.paper",
             boxShadow: 24,
-            borderRadius: 3,
-            p: 4
+            borderRadius: 2,
+            p: 0
+          }}
+        >
+        <Box
+          sx={{
+            flex: 2,
+            p: 4,
+            borderRight: "1px solid #eee",
+            overflowY: "auto",
+            minWidth: 0,
+            maxHeight: "90vh"
           }}
         >
           <div className="modal-form-container">
@@ -2442,7 +2641,7 @@ const AgentCRM = () => {
             </div>
 
             {/* Update the claim status section */}
-            {selectedSuggestion && (
+            {searchType === "employee" && selectedSuggestion && (
               <div
                 style={{
                   marginTop: "10px",
@@ -2471,112 +2670,116 @@ const AgentCRM = () => {
                     )}
                   </Typography>
                 </div>
-                {/* Add console log here to debug */}
-                {console.log("Button rendering debug:", {
-                  selectedSuggestion: selectedSuggestion,
-                  claimId: selectedSuggestion?.claimId,
-                  username: selectedSuggestion?.username,
-                  isDisabled: !selectedSuggestion?.claimId
-                })}
                 <Button
-  variant="contained"
-  color="primary"
+                  variant="contained"
+                  color="primary"
                   disabled={!selectedSuggestion?.claimId}
-  onClick={async () => {
-                    console.log('Clicked claim:', selectedSuggestion.claimId);
+                  onClick={async () => {
+                    console.log("Clicked claim:", selectedSuggestion.claimId);
 
-                    const response = await fetch('http://127.0.0.1:8000/magic-login', {
-      method: 'POST',
-                      headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, // important for Laravel session to persist
-                      body: JSON.stringify({ username: "rehema.said", password: "TTCL@2026" }),
-                      credentials: 'include' // important for Laravel session to persist
-    });
+                    const response = await fetch(
+                      "http://127.0.0.1:8000/magic-login",
+                      {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Accept: "application/json"
+                        }, // important for Laravel session to persist
+                        body: JSON.stringify({
+                          username: "rehema.said",
+                          password: "TTCL@2026"
+                        }),
+                        credentials: "include" // important for Laravel session to persist
+                      }
+                    );
 
-    const data = await response.json();
+                    const data = await response.json();
 
                     if (data?.redirect) {
-                      window.open(data.redirect, '_blank');
+                      window.open(data.redirect, "_blank");
                     } else {
                       console.error(data?.error || "Login failed");
-    }
-  }}
->
-  View Claim
-</Button>
+                    }
+                  }}
+                >
+                  View Claim
+                </Button>
               </div>
             )}
 
             {/* Existing form fields */}
             {searchType !== "employer" && (
-            <div className="modal-form-row">
-              <div className="modal-form-group" style={{ flex: 1 }}>
-                <label style={{ fontSize: "0.875rem" }}>First Name:</label>
-                <input
-                  name="firstName"
-                  value={formData.firstName}
-                  onChange={handleChange}
-                  placeholder="Enter first name"
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    border: formErrors.firstName
-                      ? "1px solid red"
-                        : "1px solid #ccc",
-                  }}
-                />
-                {formErrors.firstName && (
-                  <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.firstName}
-                  </span>
-                )}
-              </div>
-
-              <div className="modal-form-group" style={{ flex: 1 }}>
-                <label style={{ fontSize: "0.875rem" }}>
-                  Middle Name (Optional):
-                </label>
-                <input
-                  name="middleName"
-                  value={formData.middleName}
-                  onChange={handleChange}
-                  placeholder="Enter middle name"
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                      border: "1px solid #ccc",
-                  }}
-                />
-              </div>
-
-              <div className="modal-form-group" style={{ flex: 1 }}>
-                <label style={{ fontSize: "0.875rem" }}>
-                  Last Name
-                  {formData.requester === "Employer" ? " (Optional)" : ""}:
-                </label>
-                <input
-                  name="lastName"
-                  value={formData.lastName}
-                  onChange={handleChange}
-                  placeholder="Enter last name"
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    border:
-                      formErrors.lastName && formData.requester !== "Employer"
+              <div className="modal-form-row">
+                <div className="modal-form-group" style={{ flex: 1 }}>
+                  <label style={{ fontSize: "0.875rem" }}>First Name:</label>
+                  <input
+                    name="firstName"
+                    value={formData.firstName}
+                    onChange={handleChange}
+                    placeholder="Enter first name"
+                    style={{
+                      height: "32px",
+                      fontSize: "0.875rem",
+                      padding: "4px 8px",
+                      border: formErrors.firstName
                         ? "1px solid red"
-                          : "1px solid #ccc",
-                  }}
-                />
-                {formErrors.lastName && formData.requester !== "Employer" && (
-                  <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.lastName}
-                  </span>
-                )}
+                        : "1px solid #ccc"
+                    }}
+                  />
+                  {formErrors.firstName && (
+                    <span style={{ color: "red", fontSize: "0.75rem" }}>
+                      {formErrors.firstName}
+                    </span>
+                  )}
+                </div>
+
+                <div className="modal-form-group" style={{ flex: 1 }}>
+                  <label style={{ fontSize: "0.875rem" }}>
+                    Middle Name (Optional):
+                  </label>
+                  <input
+                    name="middleName"
+                    value={formData.middleName}
+                    onChange={handleChange}
+                    placeholder="Enter middle name"
+                    style={{
+                      height: "32px",
+                      fontSize: "0.875rem",
+                      padding: "4px 8px",
+                      border: "1px solid #ccc"
+                    }}
+                  />
+                </div>
+
+                <div className="modal-form-group" style={{ flex: 1 }}>
+                  <label style={{ fontSize: "0.875rem" }}>
+                    Last Name
+                    {formData.requester === "Employer" ? " (Optional)" : ""}:
+                  </label>
+                  <input
+                    name="lastName"
+                    value={formData.lastName}
+                    onChange={handleChange}
+                    placeholder="Enter last name"
+                    style={{
+                      height: "32px",
+                      fontSize: "0.875rem",
+                      padding: "4px 8px",
+                      border:
+                        formErrors.lastName &&
+                        formData.requester !== "Employer"
+                          ? "1px solid red"
+                          : "1px solid #ccc"
+                    }}
+                  />
+                  {formErrors.lastName &&
+                    formData.requester !== "Employer" && (
+                      <span style={{ color: "red", fontSize: "0.75rem" }}>
+                        {formErrors.lastName}
+                      </span>
+                    )}
+                </div>
               </div>
-            </div>
             )}
 
             {/* Phone & NIDA */}
@@ -2607,13 +2810,19 @@ const AgentCRM = () => {
 
               <div className="modal-form-group">
                 <label style={{ fontSize: "0.875rem" }}>
-                  {formData.requester === "Employer" ? "TIN:" : "National Identification Number:"}
+                  {formData.requester === "Employer"
+                    ? "TIN:"
+                    : "National Identification Number:"}
                 </label>
                 <input
                   name="nidaNumber"
                   value={formData.nidaNumber}
                   onChange={handleChange}
-                  placeholder={formData.requester === "Employer" ? "Enter TIN number" : "Enter NIN number"}
+                  placeholder={
+                    formData.requester === "Employer"
+                      ? "Enter TIN number"
+                      : "Enter NIN number"
+                  }
                   style={{
                     height: "32px",
                     fontSize: "0.875rem",
@@ -2646,7 +2855,7 @@ const AgentCRM = () => {
                     width: "100%",
                     border: formErrors.requester
                       ? "1px solid red"
-                      : "1px solid #ccc",
+                      : "1px solid #ccc"
                   }}
                 >
                   <option value="">Select..</option>
@@ -2676,7 +2885,7 @@ const AgentCRM = () => {
                     padding: "4px 8px",
                     border: formErrors.institution
                       ? "1px solid red"
-                      : "1px solid #ccc",
+                      : "1px solid #ccc"
                   }}
                 />
                 {formErrors.institution && (
@@ -2712,7 +2921,7 @@ const AgentCRM = () => {
                         padding: "4px 8px",
                         border: formErrors.requesterName
                           ? "1px solid red"
-                          : "1px solid #ccc",
+                          : "1px solid #ccc"
                       }}
                     />
                     {formErrors.requesterName && (
@@ -2737,7 +2946,7 @@ const AgentCRM = () => {
                         padding: "4px 8px",
                         border: formErrors.requesterPhoneNumber
                           ? "1px solid red"
-                          : "1px solid #ccc",
+                          : "1px solid #ccc"
                       }}
                     />
                     {formErrors.requesterPhoneNumber && (
@@ -2763,7 +2972,7 @@ const AgentCRM = () => {
                         height: "32px",
                         fontSize: "0.875rem",
                         padding: "4px 8px",
-                        border: "1px solid #ccc",
+                        border: "1px solid #ccc"
                       }}
                     />
                   </div>
@@ -2780,7 +2989,7 @@ const AgentCRM = () => {
                         height: "32px",
                         fontSize: "0.875rem",
                         padding: "4px 8px",
-                        border: "1px solid #ccc",
+                        border: "1px solid #ccc"
                       }}
                     />
                   </div>
@@ -2802,7 +3011,7 @@ const AgentCRM = () => {
                         padding: "4px 8px",
                         border: formErrors.relationshipToEmployee
                           ? "1px solid red"
-                          : "1px solid #ccc",
+                          : "1px solid #ccc"
                       }}
                     />
                     {formErrors.relationshipToEmployee && (
@@ -2811,7 +3020,8 @@ const AgentCRM = () => {
                       </span>
                     )}
                   </div>
-                  <div className="modal-form-group"></div> {/* Empty for alignment */}
+                  <div className="modal-form-group"></div>{" "}
+                  {/* Empty for alignment */}
                 </div>
               </>
             )}
@@ -3077,6 +3287,152 @@ const AgentCRM = () => {
             </div>
           </div>
         </Box>
+          <Box
+            sx={{
+              flex: 1,
+              p: 4,
+              overflowY: "auto",
+              minWidth: 350,
+              maxWidth: 420,
+              maxHeight: "90vh"
+            }}
+          >
+            {/* Employer/Institution Details */}
+            {selectedInstitution && (
+              <div
+                style={{
+                  flex: 1,
+                  background: "#e3f2fd",
+                  borderRadius: "8px",
+                  padding: "16px",
+                  minWidth: 0,
+                  marginBottom: 16
+                }}
+              >
+                <h4 style={{ color: "#1976d2", marginBottom: 12 }}>
+                  Institution Details
+                </h4>
+                <div>
+                  <strong>Name:</strong> {selectedInstitution.name}
+                </div>
+                <div>
+                  <strong>TIN:</strong> {selectedInstitution.tin}
+                </div>
+                <div>
+                  <strong>Phone:</strong> {selectedInstitution.phone}
+                </div>
+                <div>
+                  <strong>Email:</strong> {selectedInstitution.email}
+                </div>
+                <div>
+                  <strong>Status:</strong> {selectedInstitution.employer_status}
+                </div>
+                <div>
+                  <strong>Allocated User Name:</strong>{" "}
+                  {selectedInstitution.allocated_staff_name}
+                </div>
+                <div>
+                  <strong>Allocated Username:</strong>{" "}
+                  {selectedInstitution.allocated_staff_username}
+                </div>
+              </div>
+            )}
+            {/* Ticket history for entered phone number */}
+            {formData.phoneNumber && (
+              <div
+                style={{
+                  marginTop: 8,
+                  background: "#f8f9fa",
+                  borderRadius: 8,
+                  padding: 0,
+                  minHeight: 60
+                }}
+              >
+                <h4 style={{ color: "#1976d2", margin: '16px 0 8px 0', paddingLeft: 16 }}>
+                  Ticket History for {formData.phoneNumber}
+                </h4>
+                {creationTicketsLoading ? (
+                  <div style={{ textAlign: "center", padding: 12 }}>
+                    <CircularProgress size={22} />
+                  </div>
+                ) : creationFoundTickets.length > 0 ? (
+                  creationFoundTickets.map((ticket) => (
+                    <Box
+                      key={ticket.id}
+                      onClick={() => setCreationActiveTicketId(ticket.id)}
+                      sx={{
+                        mb: 2,
+                        p: 2,
+                        borderRadius: 2,
+                        bgcolor: creationActiveTicketId === ticket.id ? "#e3f2fd" : "#fff",
+                        cursor: "pointer",
+                        border: creationActiveTicketId === ticket.id ? "2px solid #1976d2" : "1px solid #e0e0e0",
+                        boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 1,
+                        transition: 'box-shadow 0.2s, border-color 0.2s',
+                        '&:hover': {
+                          boxShadow: '0 4px 8px rgba(25,118,210,0.1)',
+                          borderColor: '#1976d2'
+                        }
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#1976d2' }}>
+                          {ticket.ticket_id}
+                        </Typography>
+                        <Typography
+                          sx={{
+                            px: 1.5,
+                            py: 0.5,
+                            borderRadius: '12px',
+                            color: 'white',
+                            background:
+                              ticket.status === 'Closed'
+                                ? '#757575'
+                                : ticket.status === 'Open'
+                                ? '#2e7d32'
+                                : '#1976d2',
+                            fontSize: '0.75rem',
+                            fontWeight: 500
+                          }}
+                        >
+                          {ticket.status}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ mt: 1 }}>
+                        <Typography variant="body2" sx={{ color: '#666', mb: 0.5 }}>
+                          Created: {new Date(ticket.created_at).toLocaleDateString()}
+                        </Typography>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 500, color: '#333', mb: 1 }}>
+                          Subject: {ticket.subject}
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: '#666',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}
+                        >
+                          Description: {ticket.description}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  ))
+                ) : (
+                  <div style={{ color: '#888', fontSize: '0.95em', textAlign: 'center', padding: 16 }}>
+                    No previous tickets found for this number.
+                  </div>
+                )}
+              </div>
+            )}
+          </Box>
+        </Box>
       </Modal>
 
       {/* Column Selector Modal */}
@@ -3111,6 +3467,165 @@ const AgentCRM = () => {
           </div>
         </div>
       )}
+
+      {/* In the modal JSX, just below the Institution input field */}
+      {formData.requester === "Employee" && employerDetails && (
+        <div
+          style={{
+            margin: "10px 0",
+            padding: "10px",
+            background: "#e3f2fd",
+            borderRadius: "6px"
+          }}
+        >
+          <div>
+            <strong>Allocated User Name:</strong>{" "}
+            {employerDetails.allocated_staff_name
+              ? employerDetails.allocated_staff_name
+              : JSON.stringify(employerDetails)}
+          </div>
+          <div>
+            <strong>Allocated Username:</strong>{" "}
+            {employerDetails.allocated_staff_username
+              ? employerDetails.allocated_staff_username
+              : JSON.stringify(employerDetails)}
+          </div>
+        </div>
+      )}
+
+      {/* In the modal JSX, above the Institution input field */}
+      {/* <Autocomplete
+        value={selectedInstitution}
+        onChange={(event, newValue) => {
+          setSelectedInstitution(newValue);
+          if (newValue) {
+            setFormData((prev) => ({
+              ...prev,
+              institution: newValue.name || "",
+              employerTin: newValue.tin || "",
+              phoneNumber: newValue.phone || "",
+              employerEmail: newValue.email || "",
+              employerAllocatedStaffName: newValue.allocated_staff_name || "",
+              employerAllocatedStaffUsername:
+                newValue.allocated_staff_username || ""
+            }));
+          }
+        }}
+        inputValue={institutionSearch}
+        onInputChange={(event, newInputValue) => {
+          setInstitutionSearch(newInputValue);
+          handleInstitutionSearch(newInputValue);
+        }}
+        options={institutionSuggestions}
+        getOptionLabel={(option) => option.name || ""}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label="Search Institution"
+            placeholder="Type institution name..."
+          />
+        )}
+        style={{ marginBottom: 16 }}
+      />
+
+      {selectedInstitution && (
+        <div
+          style={{
+            margin: "10px 0",
+            padding: "10px",
+            background: "#e3f2fd",
+            borderRadius: "6px"
+          }}
+        >
+          <div>
+            <strong>Allocated User Name:</strong>{" "}
+            {selectedInstitution.allocated_staff_name || "N/A"}
+          </div>
+          <div>
+            <strong>Allocated Username:</strong>{" "}
+            {selectedInstitution.allocated_staff_username || "N/A"}
+          </div>
+          <div>
+            <strong>TIN:</strong> {selectedInstitution.tin || "N/A"}
+          </div>
+          <div>
+            <strong>Phone:</strong> {selectedInstitution.phone || "N/A"}
+          </div>
+          <div>
+            <strong>Email:</strong> {selectedInstitution.email || "N/A"}
+          </div>
+        </div>
+      )}
+
+      {selectedInstitution && (
+        <Button
+          variant="outlined"
+          style={{ marginBottom: 8 }}
+          onClick={() => setShowInstitutionModal(true)}
+        >
+          View Institution Details
+        </Button>
+      )} */}
+
+      {/* Add the side modal for institution details */}
+      {/* <Modal
+        open={showInstitutionModal}
+        onClose={() => setShowInstitutionModal(false)}
+      >
+        <Box
+          sx={{
+            position: "fixed",
+            right: 0,
+            top: 0,
+            height: "100vh",
+            width: 400,
+            bgcolor: "background.paper",
+            boxShadow: 24,
+            p: 4,
+            overflowY: "auto"
+          }}
+        >
+          <Typography variant="h6" gutterBottom>
+            Institution Details
+          </Typography>
+          {selectedInstitution && (
+            <>
+              <div>
+                <strong>Name:</strong> {selectedInstitution.name}
+              </div>
+              <div>
+                <strong>TIN:</strong> {selectedInstitution.tin}
+              </div>
+              <div>
+                <strong>Phone:</strong> {selectedInstitution.phone}
+              </div>
+              <div>
+                <strong>Email:</strong> {selectedInstitution.email}
+              </div>
+              <div>
+                <strong>Status:</strong> {selectedInstitution.employer_status}
+              </div>
+              <div>
+                <strong>Allocated User Name:</strong>{" "}
+                {selectedInstitution.allocated_staff_name}
+              </div>
+              <div>
+                <strong>Allocated Username:</strong>{" "}
+                {selectedInstitution.allocated_staff_username}
+              </div>
+            </>
+          )}
+          <Button
+            variant="contained"
+            color="primary"
+            sx={{ mt: 2 }}
+            onClick={() => setShowInstitutionModal(false)}
+          >
+            Close
+          </Button>
+        </Box>
+      </Modal> */}
+
     </div>
   );
 };
