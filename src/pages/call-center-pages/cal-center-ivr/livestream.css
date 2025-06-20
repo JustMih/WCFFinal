@@ -1,43 +1,61 @@
 .livestream {
-    padding: 20px;
-    font-family: Arial, sans-serif;
-    background-color: #f2f2f2;
-  }
-  
-  .livestream h2 {
-    text-align: center;
-    margin-bottom: 20px;
-    color: #333;
-  }
-  
-  .call-table {
-    width: 100%;
-    border-collapse: collapse;
-    background-color: #fff;
-    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  }
-  
-  .call-table thead {
-    background-color: #007bff;
-    color: white;
-  }
-  
-  .call-table th, .call-table td {
-    padding: 12px 16px;
-    border: 1px solid #ddd;
-    text-align: center;
-    font-size: 14px;
-  }
-  
-  .call-table tbody tr:hover {
-    background-color: #f1f1f1;
-    cursor: pointer;
-  }
-  
-  /* Dynamic background colors from status logic in JSX:
-     - active: green
-     - calling: yellow
-     - dropped: red
-     - ended: gray
-     These are handled inline in JSX with getStatusColor() */
-  
+  padding: 20px;
+  font-family: Arial, sans-serif;
+  background-color: #f2f2f2;
+}
+
+.livestream h2 {
+  text-align: center;
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.call-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: #fff;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.call-table thead {
+  background-color: #007bff;
+  color: white;
+}
+
+.call-table th,
+.call-table td {
+  padding: 12px 16px;
+  border: 1px solid #ddd;
+  text-align: center;
+  font-size: 14px;
+}
+
+.call-table tbody tr:hover {
+  background-color: #f1f1f1;
+  cursor: pointer;
+}
+ 
+.status-active {
+  background-color: #28a745; /* Green */
+  color: white;
+}
+
+.status-calling {
+  background-color: #ffc107; /* Yellow */
+  color: black;
+}
+
+.status-ended {
+  background-color: #6c757d; /* Gray */
+  color: white;
+}
+
+.status-dropped {
+  background-color: #dc3545; /* Red */
+  color: white;
+}
+
+.status-lost {
+  background-color: #ff6f61; /* Coral */
+  color: white;
+}
