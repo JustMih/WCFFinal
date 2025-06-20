@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
+import Autocomplete from '@mui/material/Autocomplete';
 
 // React Icons
 import { FaEye } from "react-icons/fa";
@@ -64,6 +65,10 @@ export default function FocalPersonDashboard() {
   });
   const [resolutionType, setResolutionType] = useState("");
   const [resolutionDetails, setResolutionDetails] = useState("");
+  const [attendees, setAttendees] = useState([]);
+  const [selectedAttendee, setSelectedAttendee] = useState(null);
+  const [assignReason, setAssignReason] = useState("");
+  const [assignLoading, setAssignLoading] = useState(false);
 
   // Dashboard Stats
   const [newTickets, setNewTickets] = useState({
@@ -116,6 +121,7 @@ export default function FocalPersonDashboard() {
     setUserId(id);
     fetchTickets();
     fetchDashboardCounts(id);
+    fetchAttendees();
   }, []);
 
   const fetchTickets = async () => {
@@ -240,6 +246,25 @@ export default function FocalPersonDashboard() {
     }
   };
 
+  const fetchAttendees = async () => {
+    try {
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(`${baseURL}/ticket/admin/attendee`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (Array.isArray(data.attendees)) {
+        setAttendees(data.attendees);
+      } else if (Array.isArray(data.data)) {
+        setAttendees(data.data);
+      } else {
+        setAttendees([]);
+      }
+    } catch (e) {
+      setAttendees([]);
+    }
+  };
+
   const handleCloseTicket = async () => {
     if (!resolutionType || !resolutionDetails) {
       setSnackbar({
@@ -253,7 +278,7 @@ export default function FocalPersonDashboard() {
     try {
       const token = localStorage.getItem("authToken");
       const response = await fetch(
-        `${baseURL}/focal-person-tickets/${selectedTicket.id}/close`,
+        `${baseURL}/focal-person/focal-person-tickets/${selectedTicket.id}/close`,
         {
           method: "POST",
           headers: {
@@ -360,6 +385,53 @@ export default function FocalPersonDashboard() {
     setFilters(newFilters);
     setCurrentPage(1); // Reset to first page when filters change
   };
+
+  // Assignment handler
+  const handleAssignTicket = async () => {
+    if (!selectedAttendee) {
+      setSnackbar({ open: true, message: "Please select an attendee", severity: "warning" });
+      return;
+    }
+    setAssignLoading(true);
+    try {
+      const token = localStorage.getItem("authToken");
+      const userId = localStorage.getItem("userId");
+      const res = await fetch(`${baseURL}/ticket/${selectedTicket.id}/assign`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          assignedToUsername: selectedAttendee.username,
+          assignedById: userId,
+          reason: assignReason
+        })
+      });
+      if (!res.ok) throw new Error('Failed to assign ticket');
+      setSnackbar({ open: true, message: 'Ticket assigned successfully', severity: 'success' });
+      setTickets(tickets.map(t => t.id === selectedTicket.id ? { ...t, status: 'Assigned', assigned_to: selectedAttendee.id } : t));
+      setSelectedAttendee(null);
+      setAssignReason("");
+      closeModal();
+    } catch (e) {
+      setSnackbar({ open: true, message: e.message, severity: 'error' });
+    } finally {
+      setAssignLoading(false);
+    }
+  };
+
+  // Restore attendee filtering logic
+  const ticketSection = (
+    selectedTicket?.section === 'Unit'
+      ? selectedTicket?.sub_section
+      : (selectedTicket?.section || selectedTicket?.responsible_unit_name)
+  ) || '';
+  const ticketSectionNormalized = ticketSection.trim().toLowerCase();
+  const filteredAttendees = attendees.filter(a => (a.unit_section || '').trim().toLowerCase() === ticketSectionNormalized);
+  console.log("Attendees:", attendees);
+  console.log("Ticket section:", ticketSectionNormalized);
+  console.log("Filtered:", filteredAttendees);
 
   return (
     <div className="focal-person-dashboard-container">
@@ -663,6 +735,57 @@ export default function FocalPersonDashboard() {
                   {selectedTicket.description || "No description provided"}
                 </Typography>
               </Box>
+
+              {/* Assignment Section (only if not closed) */}
+              {selectedTicket && selectedTicket.status !== "Closed" && (
+                <>
+                  <Typography color="primary" variant="body2">
+                    Ticket Section: {ticketSection || 'N/A'}
+                  </Typography>
+                  {/* <Typography variant="body2" color="secondary">
+                    All attendee unit_sections: {Array.from(new Set(attendees.map(a => a.unit_section))).join(', ')}
+                  </Typography> */}
+                  <Typography variant="h6" sx={{ color: "#1976d2", mb: 1 }}>
+                    Assign to Attendee
+                  </Typography>
+                  <Grid container spacing={2} sx={{ mb: 3 }}>
+                    <Grid item xs={12} sm={8}>
+                      <Autocomplete
+                        options={filteredAttendees}
+                        getOptionLabel={opt => opt?.name ? `${opt.name} (${opt.username})` : opt.username}
+                        value={selectedAttendee}
+                        onChange={(_, v) => setSelectedAttendee(v)}
+                        renderInput={params => <TextField {...params} label="Select Attendee" variant="outlined" />}
+                        isOptionEqualToValue={(opt, v) => opt.username === v.username}
+                      />
+                      {filteredAttendees.length === 0 && attendees.length > 0 && (
+                        <Typography color="error" variant="body2">
+                          No attendees found for this unit/section.
+                        </Typography>
+                      )}
+                    </Grid>
+                    <Grid item xs={12} sm={4}>
+                      <TextField
+                        label="Reason for Assignment"
+                        value={assignReason}
+                        onChange={e => setAssignReason(e.target.value)}
+                        fullWidth
+                      />
+                    </Grid>
+                    <Grid item xs={12}>
+                      <Button
+                        variant="contained"
+                        color="primary"
+                        onClick={handleAssignTicket}
+                        disabled={assignLoading}
+                        fullWidth
+                      >
+                        {assignLoading ? 'Assigning...' : 'Assign Ticket'}
+                      </Button>
+                    </Grid>
+                  </Grid>
+                </>
+              )}
 
               {/* Resolution Section - Only shown if ticket is not closed */}
               {selectedTicket.status !== "Closed" && (
