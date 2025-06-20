@@ -124,7 +124,7 @@ const AgentCRM = () => {
   // State for function data and selections
   const [functionData, setFunctionData] = useState([]);
   const [selectedFunction, setSelectedFunction] = useState("");
-  const [selectedSection, setSelectedSection] = useState("");
+  const [selectedSection, setSelectedSection] = useState("Unit");
 
   // State for ticket stats
   const [ticketStats, setTicketStats] = useState({
@@ -403,6 +403,20 @@ const AgentCRM = () => {
   // Handle form input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+
+    if (name === "functionId") {
+      // Find the selected functionData object
+      const selectedFunctionData = functionData.find((item) => item.id === value);
+      if (selectedFunctionData) {
+        // Use new structure: function and function.section
+        setSelectedFunction(selectedFunctionData.function?.name || "");
+        setSelectedSection(selectedFunctionData.function?.section?.name || "");
+      } else {
+        setSelectedFunction("");
+        setSelectedSection("");
+      }
+    }
     // Only allow numbers (and optional leading +) for phoneNumber
     if (name === "phoneNumber") {
       let cleaned = value.replace(/[^\d+]/g, "");
@@ -491,16 +505,26 @@ const AgentCRM = () => {
     setFormErrors({});
 
     try {
-      const selectedFunction = functionData.find(
-        (f) => f.id === formData.functionId
-      );
+      // Find the selected subject (FunctionData), parent function, and parent section
+      let selectedSubject, parentFunction, parentSection;
+      for (const func of functionData) {
+        if (func.function && func.function.functionData) {
+          selectedSubject = func.function.functionData.find(fd => fd.id === formData.functionId);
+          if (selectedSubject) {
+            parentFunction = func.function;
+            parentSection = func.function.section;
+            break;
+          }
+        }
+      }
+
       const ticketData = {
         ...formData,
-        subject: selectedFunction ? selectedFunction.name : "",
-        section: selectedSection || "Unit",
-        sub_section: selectedFunction ? selectedFunction.function?.name : "",
+        subject: selectedSubject ? selectedSubject.name : "",
+        sub_section: parentFunction ? parentFunction.name : "",
+        section: parentSection ? parentSection.name : "",
         responsible_unit_id: formData.functionId,
-        responsible_unit_name: selectedSection || "Unit",
+        responsible_unit_name: parentSection ? parentSection.name : "",
         status: submitAction === "closed" ? "Closed" : "Open",
         employerAllocatedStaffUsername:
           selectedInstitution?.allocated_staff_username ||
