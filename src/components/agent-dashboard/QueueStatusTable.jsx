@@ -10,33 +10,8 @@ const socket = io("https://10.52.0.19", {
   secure: true
 });
 
-// Dummy data for fallback display before real-time kicks in
-const dummyQueues = [
-  {
-    queue: "Sales Queue",
-    callers: 0,
-    longestWait: 0,
-    availableAgents: 0,
-    busyAgents: 0
-  },
-  {
-    queue: "Support Queue",
-    callers: 0,
-    longestWait: 0,
-    availableAgents: 0,
-    busyAgents: 0
-  },
-  {
-    queue: "Technical Queue",
-    callers: 0,
-    longestWait: 0,
-    availableAgents: 0,
-    busyAgents: 0
-  }
-];
-
 export default function QueueStatusTable() {
-  const [queues, setQueues] = useState(dummyQueues);
+  const [queues, setQueues] = useState([]);
 
   useEffect(() => {
     socket.on("connect", () => {
@@ -60,6 +35,38 @@ export default function QueueStatusTable() {
     };
   }, []);
 
+  // Emit and post queue status to backend
+  const emitAndPostQueueStatus = (queueData) => {
+    socket.emit("queueStatusUpdate", queueData);
+
+    fetch("http://10.52.0.19:5070/api/queue-status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(queueData)
+    })
+      .then((res) => res.json())
+      .then((result) => {
+        console.log("✅ Queue status posted:", result);
+      })
+      .catch((err) => {
+        console.error("❌ Failed to POST queue status:", err);
+      });
+  };
+
+  // Test data trigger
+  const handleTestUpdate = () => {
+    const testData = [
+      {
+        queue: "Support Queue",
+        callers: Math.floor(Math.random() * 10),
+        longestWait: Math.floor(Math.random() * 300), // in seconds
+        availableAgents: Math.floor(Math.random() * 5),
+        busyAgents: Math.floor(Math.random() * 5)
+      }
+    ];
+    emitAndPostQueueStatus(testData);
+  };
+
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -76,35 +83,49 @@ export default function QueueStatusTable() {
         <MdOutlinePhoneInTalk />
         <h4>Queue Monitoring</h4>
       </div>
+
       <div className="queue-monitoring-table">
-        <table>
-          <thead>
-            <tr>
-              <th>Queue Name</th>
-              <th>Waiting Calls</th>
-              <th>Longest Wait</th>
-              <th>Agents Available</th>
-              <th>Agents Busy</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {queues.map((q, index) => (
-              <tr key={index}>
-                <td>{q.queue}</td>
-                <td>{q.callers}</td>
-                <td>{formatTime(q.longestWait)}</td>
-                <td>{q.availableAgents}</td>
-                <td>{q.busyAgents}</td>
-                <td>
-                  <span className={`status-${q.availableAgents > 0 ? "active" : "inactive"}`}>
-                    {q.availableAgents > 0 ? "Active" : "Inactive"}
-                  </span>
-                </td>
+        {queues.length > 0 ? (
+          <table>
+            <thead>
+              <tr>
+                <th>Queue Name</th>
+                <th>Waiting Calls</th>
+                <th>Longest Wait</th>
+                <th>Agents Available</th>
+                <th>Agents Busy</th>
+                <th>Status</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {queues.map((q, index) => (
+                <tr key={index}>
+                  <td>{q.queue}</td>
+                  <td>{q.callers}</td>
+                  <td>{formatTime(q.longestWait)}</td>
+                  <td>{q.availableAgents}</td>
+                  <td>{q.busyAgents}</td>
+                  <td>
+                    <span
+                      className={`status-${q.availableAgents > 0 ? "active" : "inactive"}`}
+                    >
+                      {q.availableAgents > 0 ? "Active" : "Inactive"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p>No queue data available.</p>
+        )}
+      </div>
+
+      {/* Test Button */}
+      <div style={{ marginTop: "1rem", textAlign: "center" }}>
+        <button onClick={handleTestUpdate} className="test-button">
+          Send Test Queue Status
+        </button>
       </div>
     </div>
   );
