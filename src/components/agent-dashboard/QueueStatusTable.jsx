@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { io } from "socket.io-client";
 import { MdOutlinePhoneInTalk } from "react-icons/md";
 import "./QueueStatusTable.css";
+import { baseURL } from "../../config";
 
 // Connect to Socket.IO backend
 const socket = io("https://10.52.0.19", {
@@ -14,13 +15,27 @@ export default function QueueStatusTable() {
   const [queues, setQueues] = useState([]);
 
   useEffect(() => {
+    // ✅ GET initial saved queue status on page load
+    fetch(`${baseURL}/queue-status`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          console.log("📥 Loaded saved queue data:", data);
+          setQueues(data);
+        }
+      })
+      .catch((err) => {
+        console.error("❌ Failed to load saved queue data:", err);
+      });
+
+    // ✅ Listen for real-time updates
     socket.on("connect", () => {
       console.log("🔌 Connected to AMI Socket");
     });
 
     socket.on("queueStatusUpdate", (data) => {
       console.log("🎧 Received queue data:", data);
-      if (data && Array.isArray(data)) {
+      if (Array.isArray(data)) {
         setQueues(data);
       }
     });
@@ -35,11 +50,11 @@ export default function QueueStatusTable() {
     };
   }, []);
 
-  // Emit and post queue status to backend
+  // ✅ Emit and post data to backend
   const emitAndPostQueueStatus = (queueData) => {
     socket.emit("queueStatusUpdate", queueData);
 
-    fetch("http://10.52.0.19:5070/api/queue-status", {
+    fetch(`${baseURL}/queue-status`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(queueData)
@@ -53,13 +68,13 @@ export default function QueueStatusTable() {
       });
   };
 
-  // Test data trigger
+  // 🧪 Trigger test data
   const handleTestUpdate = () => {
     const testData = [
       {
         queue: "Support Queue",
         callers: Math.floor(Math.random() * 10),
-        longestWait: Math.floor(Math.random() * 300), // in seconds
+        longestWait: Math.floor(Math.random() * 300),
         availableAgents: Math.floor(Math.random() * 5),
         busyAgents: Math.floor(Math.random() * 5)
       }
@@ -121,7 +136,6 @@ export default function QueueStatusTable() {
         )}
       </div>
 
-      {/* Test Button */}
       <div style={{ marginTop: "1rem", textAlign: "center" }}>
         <button onClick={handleTestUpdate} className="test-button">
           Send Test Queue Status
