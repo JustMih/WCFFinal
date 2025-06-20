@@ -14,6 +14,7 @@ import CRMOverdueTickets from "../crm-pages/crm-tickets/overdue";
 import CRMClosedTickets from "../crm-pages/crm-tickets/closed";
 import CRMTotalTickets from "../crm-pages/crm-tickets/total";
 import CRMCoordinatorTickets from "../crm-pages/crm-coordinator-tickets/crm-coordinator-tickets";
+import CRMFocalPersonTickets from "../crm-pages/crm-focal-person-tickets/crm-focal-person-tickets";
 import CallCenterUsers from "../call-center-pages/call-center-users/CallCenterUsers";
 import CallCenterAgents from "../call-center-pages/call-center-agents/CallCenterAgents";
 import CallCenterExtensions from "../call-center-pages/call-center-extensions/CallCenterExtensions";
@@ -183,6 +184,10 @@ export default function Dashboard() {
                 <Route
                   path="/coordinator/:status"
                   element={<PrivateRoute element={<CRMCoordinatorTickets />} />}
+                />
+                <Route
+                  path="/focal-person/:status"
+                  element={<PrivateRoute element={<CRMFocalPersonTickets />} />}
                 />
               </>
             )}

@@ -278,7 +278,7 @@ export default function FocalPersonDashboard() {
     try {
       const token = localStorage.getItem("authToken");
       const response = await fetch(
-        `${baseURL}/focal-person/focal-person-tickets/${selectedTicket.id}/close`,
+        `${baseURL}/ticket/${selectedTicket.id}/close`,
         {
           method: "POST",
           headers: {

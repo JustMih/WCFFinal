@@ -59,6 +59,8 @@ export default function CRMSidebar({ isSidebarOpen }) {
       let url;
       if (role === "coordinator") {
         url = `${baseURL}/coordinator/dashboard-counts/${userId}`;
+      } else if (role === "focal-person") {
+        url = `${baseURL}/focal-person/dashboard-counts`;
       } else {
         url = `${baseURL}/ticket/count/${userId}`;
       }
@@ -564,7 +566,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                 </div>
               </NavLink>
               <NavLink
-                to="/coordinator/ticket"
+                to="/focal-person/ticket"
                 className={({ isActive }) =>
                   isActive ? "menu-item active-link" : "menu-item"
                 }
@@ -599,13 +601,13 @@ export default function CRMSidebar({ isSidebarOpen }) {
                         {[
                           {
                             label: "New Tickets",
-                            to: `/coordinator/new`,
+                            to: `/focal-person/new`,
                             value: ticketStats.newTickets?.["New Tickets"] || 0,
                             icon: "🆕"
                           },
                           {
                             label: "Escalated",
-                            to: `/coordinator/escalated`,
+                            to: `/focal-person/escalated`,
                             value:
                               ticketStats.newTickets?.["Escalated Tickets"] ||
                               0,
@@ -633,7 +635,6 @@ export default function CRMSidebar({ isSidebarOpen }) {
                     )}
                   </div>
 
-
                   <div className="menu-section">
                     <div
                       className={`section-header ${
@@ -650,16 +651,21 @@ export default function CRMSidebar({ isSidebarOpen }) {
                     {openSection === "ticketStatus" && (
                       <div className="section-items">
                         {[
-                          // {
-                          //   label: "On Progress",
-                          //   to: "/coordinator/on-progress",
-                          //   value:
-                          //     ticketStats.ticketStatus?.["On Progress"] || 0,
-                          //   icon: "⏳"
-                          // },
+                          {
+                            label: "Open",
+                            to: "/focal-person/open",
+                            value: ticketStats.ticketStatus?.Open || 0,
+                            icon: "🔓"
+                          },
+                          {
+                            label: "In Progress",
+                            to: "/focal-person/in-progress",
+                            value: ticketStats.ticketStatus?.["On Progress"] || 0,
+                            icon: "⏳"
+                          },
                           {
                             label: "Closed",
-                            to: `/coordinator/closed`,
+                            to: "/focal-person/closed",
                             value: ticketStats.ticketStatus?.Closed || 0,
                             icon: "🔒"
                           }
