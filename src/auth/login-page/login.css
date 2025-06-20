@@ -7,7 +7,7 @@
   /* make background gradient from left to right */
   background: linear-gradient(to right top
       , #0d47a1, #83b974, #45849d, #e8ebec, #2196f3);
-}
+} 
 .login-card {
   width: 60%;
   padding: 0px;
