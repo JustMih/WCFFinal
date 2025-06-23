@@ -1,0 +1,43 @@
+.dashboard-single-agent {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.single-agent-card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+  padding: 18px 20px;
+  min-width: 210px;
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.single-agent-head {
+  font-weight: 600;
+  font-size: 1.1rem;
+  color: #2d3a4a;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.single-agent-level {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 1rem;
+  color: #444;
+  padding: 4px 0;
+}
+
+.single-agent-level-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #555;
+} 
