@@ -6,10 +6,6 @@ import PropTypes from "prop-types";
 import "./WaitingCallsTable.css";
 import * as XLSX from "xlsx";
 
-// WaitingCallsTable.jsx
-// Card component to display waiting calls from the call center queue.
-// Fetches data from http://10.52.0.19:5075/api/queue-call-stats and displays caller, position, queue, wait time, and timestamp.
-// Uses Material UI components for layout and styling.
 
 const API_URL = "http://10.52.0.19:5075/api/queue-call-stats";
 
