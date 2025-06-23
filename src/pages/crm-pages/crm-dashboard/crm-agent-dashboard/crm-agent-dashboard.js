@@ -257,6 +257,9 @@ const AgentCRM = () => {
   // Add state for active ticket in creation modal
   const [creationActiveTicketId, setCreationActiveTicketId] = useState(null);
 
+  // Add new state for ticket history search
+  const [historySearch, setHistorySearch] = useState("");
+
   // Handler to search institutions
   const handleInstitutionSearch = async (query) => {
     if (!query) {
@@ -1435,6 +1438,41 @@ const AgentCRM = () => {
 
     setFormData(updatedFormData);
 
+    // --- NEW: Update institution details based on selection ---
+    let selectedInstitutionName = "";
+    if (searchType === "employee") {
+      // Try to get institution name from the suggestion or rawData
+      selectedInstitutionName = rawData.institution || rawData.employerName || updatedFormData.institution || "";
+    } else if (searchType === "employer") {
+      selectedInstitutionName = rawData.name || updatedFormData.institution || "";
+    }
+
+    if (selectedInstitutionName) {
+      fetch("https://demomspapi.wcf.go.tz/api/v1/search/details", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json"
+        },
+        body: JSON.stringify({
+          type: "employer",
+          name: selectedInstitutionName,
+          employer_registration_number: ""
+        })
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && data.results && data.results.length > 0) {
+            setSelectedInstitution(data.results[0]);
+          } else {
+            setSelectedInstitution(null);
+          }
+        })
+        .catch(() => setSelectedInstitution(null));
+    } else {
+      setSelectedInstitution(null);
+    }
+
     setSnackbar({
       open: true,
       message: "User information loaded successfully",
@@ -2060,8 +2098,8 @@ const AgentCRM = () => {
                     ...(!selectedTicket.first_name
                       ? [["Institution", selectedTicket.institution || "N/A"]]
                       : [
-                          ["First Name", selectedTicket.first_name || "N/A"],
-                          ["Last Name", selectedTicket.last_name || "N/A"]
+                          ["Full Name", selectedTicket.first_name  +' '+ selectedTicket.last_name||  "N/A"],
+                          // ["Last Name", selectedTicket.last_name || "N/A"]
                         ]),
                     ["Ticket Number", selectedTicket.ticket_id || "N/A"],
                     ["Phone", selectedTicket.phone_number || "N/A"],
@@ -2071,7 +2109,10 @@ const AgentCRM = () => {
                     ["Section", selectedTicket.responsible_unit_name || "Unit"],
                     ["Sub-section", selectedTicket.sub_section || "N/A"],
                     ["Subject", selectedTicket.subject || "N/A"],
-                    ["Created By", selectedTicket?.creator?.name || "N/A"]
+                    ["Created By", selectedTicket?.creator?.name || "N/A"],
+                    // Always show Assigned To and Assigned Role
+                    ["Assigned To", selectedTicket?.assignee?.name || "N/A"],
+                    ["Assigned Role", selectedTicket.assigned_to_role || "N/A"]
                   ].map(([label, value], index) => (
                     <div
                       key={`left-${index}`}
@@ -2112,7 +2153,7 @@ const AgentCRM = () => {
                           fontSize: "0.9rem",
                           color:
                             label === "Section" ||
-                            label === "Function" ||
+                            label === "Sub-section" ||
                             label === "Subject"
                               ? "#1976d2"
                               : "inherit"
@@ -2159,8 +2200,8 @@ const AgentCRM = () => {
                         {selectedTicket.complaint_type || "Unrated"}
                       </span>
                     ],
-                    ["Assigned To", selectedTicket.assigned_to_id || "N/A"],
-                    ["Assigned Role", selectedTicket.assigned_to_role || "N/A"],
+                    // ["Assigned To", selectedTicket?.assignee?.name || "N/A"],
+                    // ["Assigned Role", selectedTicket.assigned_to_role || "N/A"],
                     [
                       "Created At",
                       selectedTicket.created_at
@@ -2278,6 +2319,22 @@ const AgentCRM = () => {
               maxHeight: "90vh"
             }}
           >
+            {/* Add search input for ticket history */}
+            <div style={{ marginBottom: 16 }}>
+              <input
+                type="text"
+                placeholder="Search ticket history..."
+                value={historySearch || ""}
+                onChange={e => setHistorySearch(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "8px",
+                  borderRadius: "4px",
+                  border: "1px solid #ccc",
+                  fontSize: "0.95em"
+                }}
+              />
+            </div>
             <Typography
               variant="h6"
               gutterBottom
@@ -2286,99 +2343,108 @@ const AgentCRM = () => {
               Ticket History
             </Typography>
             <Divider sx={{ mb: 2 }} />
-            {foundTickets && foundTickets.length > 0 ? (
-              foundTickets.map((ticket) => (
-                <Box
-                  key={ticket.id}
-                  sx={{
-                    mb: 2,
-                    p: 2,
-                    borderRadius: 2,
-                    bgcolor:
-                      selectedTicket?.id === ticket.id ? "#e3f2fd" : "#fff",
-                    cursor: "pointer",
-                    border:
-                      selectedTicket?.id === ticket.id
-                        ? "2px solid #1976d2"
-                        : "1px solid #e0e0e0",
-                    boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 1,
-                    "&:hover": {
-                      boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
-                      borderColor: "#1976d2"
-                    }
-                  }}
-                  onClick={() => openDetailsModal(ticket)}
-                >
+            {/* Filter ticket history by search */}
+            {(foundTickets && foundTickets.length > 0
+              ? foundTickets.filter(ticket => {
+                  const s = (historySearch || "").toLowerCase();
+                  return (
+                    ticket.subject?.toLowerCase().includes(s) ||
+                    ticket.ticket_id?.toLowerCase().includes(s) ||
+                    ticket.description?.toLowerCase().includes(s)
+                  );
+                })
+              : []
+            ).length > 0 ? (
+              foundTickets
+                .filter(ticket => {
+                  const s = (historySearch || "").toLowerCase();
+                  return (
+                    ticket.subject?.toLowerCase().includes(s) ||
+                    ticket.ticket_id?.toLowerCase().includes(s) ||
+                    ticket.description?.toLowerCase().includes(s)
+                  );
+                })
+                .map(ticket => (
                   <Box
+                    key={ticket.id}
+                    onClick={() => openDetailsModal(ticket)}
                     sx={{
+                      mb: 2,
+                      p: 2,
+                      borderRadius: 2,
+                      bgcolor: selectedTicket?.id === ticket.id ? "#e3f2fd" : "#fff",
+                      cursor: "pointer",
+                      border: selectedTicket?.id === ticket.id ? "2px solid #1976d2" : "1px solid #e0e0e0",
+                      boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
                       display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center"
+                      flexDirection: "column",
+                      gap: 1,
+                      "&:hover": {
+                        boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
+                        borderColor: "#1976d2"
+                      }
                     }}
                   >
-                    <Typography
-                      variant="subtitle1"
-                      sx={{ fontWeight: 600, color: "#1976d2" }}
-                    >
-                      {ticket.ticket_id}
-                    </Typography>
-                    <Typography
+                    <Box
                       sx={{
-                        px: 1.5,
-                        py: 0.5,
-                        borderRadius: "12px",
-                        color: "white",
-                        background:
-                          ticket.status === "Closed"
-                            ? "#757575"
-                            : ticket.status === "Open"
-                            ? "#2e7d32"
-                            : "#1976d2",
-                        fontSize: "0.75rem",
-                        fontWeight: 500
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center"
                       }}
                     >
-                      {ticket.status}
-                    </Typography>
+                      <Typography
+                        variant="subtitle1"
+                        sx={{ fontWeight: 600, color: "#1976d2" }}
+                      >
+                        {ticket.ticket_id}
+                      </Typography>
+                      <Typography
+                        sx={{
+                          px: 1.5,
+                          py: 0.5,
+                          borderRadius: "12px",
+                          color: "white",
+                          background:
+                            ticket.status === "Closed"
+                              ? "#757575"
+                              : ticket.status === "Open"
+                              ? "#2e7d32"
+                              : "#1976d2",
+                          fontSize: "0.75rem",
+                          fontWeight: 500
+                        }}
+                      >
+                        {ticket.status}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ mt: 1 }}>
+                      <Typography variant="body2" sx={{ color: "#666", mb: 0.5 }}>
+                        Created: {new Date(ticket.created_at).toLocaleDateString()}
+                      </Typography>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 500, color: "#333", mb: 1 }}>
+                        Subject: {ticket.subject}
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: "#666",
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis"
+                        }}
+                      >
+                        Description: {ticket.description}
+                      </Typography>
+                    </Box>
                   </Box>
-
-                  <Box sx={{ mt: 1 }}>
-                    <Typography variant="body2" sx={{ color: "#666", mb: 0.5 }}>
-                      Created:{" "}
-                      {new Date(ticket.created_at).toLocaleDateString()}
-                    </Typography>
-                    <Typography
-                      variant="subtitle2"
-                      sx={{ fontWeight: 500, color: "#333", mb: 1 }}
-                    >
-                      Subject: {ticket.subject}
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        color: "#666",
-                        display: "-webkit-box",
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: "vertical",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis"
-                      }}
-                    >
-                      Description:
-                      {ticket.description}
-                    </Typography>
-                  </Box>
-                </Box>
-              ))
+                ))
             ) : (
               <Typography sx={{ textAlign: "center", color: "#666", mt: 3 }}>
                 No ticket history found.
               </Typography>
             )}
-
             <Box sx={{ mt: 3, textAlign: "center" }}>
               <Button
                 variant="contained"
@@ -2467,26 +2533,44 @@ const AgentCRM = () => {
           <Button
             variant="contained"
             onClick={async () => {
-              await fetch(`${baseURL}/notifications/notify`, {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                  ticket_id: selectedTicket.id,
-                  category: selectedTicket.category, // or another user ID
-                  message: notifyMessage,
-                  channel: selectedTicket.channel,
-                  subject: selectedTicket.functionData?.name
-                })
-              });
-              setShowNotifyModal(false);
-              setSnackbar({
-                open: true,
-                message: "Notification sent!",
-                severity: "success"
-              });
+              try {
+                const res = await fetch(`${baseURL}/notifications/notify`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                  },
+                  body: JSON.stringify({
+                    ticket_id: selectedTicket.id,
+                    category: selectedTicket.category, // or another user ID
+                    message: notifyMessage,
+                    channel: selectedTicket.channel,
+                    subject: selectedTicket.functionData?.name
+                  })
+                });
+                const data = await res.json();
+                setShowNotifyModal(false);
+                if (res.ok && data.notification) {
+                  setSnackbar({
+                    open: true,
+                    message: "Notification sent and saved!",
+                    severity: "success"
+                  });
+                } else {
+                  setSnackbar({
+                    open: true,
+                    message: data.message || "Failed to save notification.",
+                    severity: "error"
+                  });
+                }
+              } catch (error) {
+                setShowNotifyModal(false);
+                setSnackbar({
+                  open: true,
+                  message: "Network error: " + error.message,
+                  severity: "error"
+                });
+              }
             }}
             disabled={!notifyMessage.trim()}
           >
