@@ -51,18 +51,17 @@ export default function Crm() {
     queryFn: async () => {
       if (!selectedTicket?.id) return { notifications: [] };
       const token = localStorage.getItem("authToken");
-      
       const response = await fetch(
         `${baseURL}/notifications/ticket/${selectedTicket.id}`,
-        {
-          headers: { Authorization: `Bearer ${token}` }
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-      if (!response.ok) {
-        throw new Error('Failed to fetch notifications');
-      }
+      if (!response.ok) throw new Error('Failed to fetch notifications');
       const data = await response.json();
-      return data;
+      // Defensive: ensure notifications is an array and sort
+      const notifications = Array.isArray(data.notifications)
+        ? data.notifications.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        : [];
+      return { notifications };
     },
     enabled: !!selectedTicket?.id,
   });
@@ -91,7 +90,7 @@ export default function Crm() {
         throw new Error("Authentication error. Please log in again.");
       }
 
-      const url = `${baseURL}/ticket/open/${userId}`; 
+      const url = `${baseURL}/ticket/assigned-notified/${userId}`;
       const response = await fetch(url, {
         method: "GET",
         headers: {
@@ -113,6 +112,9 @@ export default function Crm() {
       console.log("Fetched tickets:", data);
       if (data && Array.isArray(data.tickets)) {
         setAgentTickets(data.tickets);
+        setAgentTicketsError(null);
+      } else if (data && Array.isArray(data.Tickets)) {
+        setAgentTickets(data.Tickets);
         setAgentTicketsError(null);
       } else {
         setAgentTickets([]);
@@ -221,6 +223,10 @@ export default function Crm() {
             {notification.comment && (
               <div className="notification-comment">{notification.comment}</div>
             )}
+            {/* Sender name after nitifyy/comment */}
+            <div className="notification-sender" style={{ fontStyle: 'italic', color: '#888', marginTop: 4 }}>
+              {notification.sender?.name && `— ${notification.sender.name}`}
+            </div>
           </div>
         ))}
       </div>
@@ -266,9 +272,11 @@ export default function Crm() {
         <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
       )}
       {activeColumns.includes("fullName") && (
-        <td>{`${ticket.first_name || ""} ${ticket.middle_name || ""} ${
-          ticket.last_name || ""
-        }`}</td>
+        <td>{
+          ticket.first_name
+            ? `${ticket.first_name || ""} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim()
+            : ticket.institution || "N/A"
+        }</td>
       )}
       {activeColumns.includes("phone_number") && (
         <td>{ticket.phone_number || "N/A"}</td>
@@ -462,190 +470,268 @@ export default function Crm() {
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            width: { xs: "90%", sm: 600 },
-            maxHeight: "85vh",
-            overflowY: "auto",
+            width: { xs: "98vw", sm: 1050 },
+            minHeight: 500,
+            maxHeight: "90vh",
             bgcolor: "background.paper",
             boxShadow: 24,
             borderRadius: 2,
-            p: 3,
+            p: 0,
+            display: "flex",
+            flexDirection: "row"
           }}
         >
-          {selectedTicket && (
-            <>
-              <Typography
-                id="ticket-details-title"
-                variant="h5"
-                sx={{ fontWeight: "bold", color: "#1976d2" }}
-              >
-                Ticket Details
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              <Grid container spacing={2} id="ticket-details-description">
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Name:</strong>{" "}
-                    {`${selectedTicket.first_name || "N/A"} ${
-                      selectedTicket.middle_name || " "
-                    } ${selectedTicket.last_name || "N/A"}`}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Phone:</strong>{" "}
-                    {selectedTicket.phone_number || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>NIDA:</strong> {selectedTicket.nida_number || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Institution:</strong>{" "}
-                    {selectedTicket.institution || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Region:</strong> {selectedTicket.region || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>District:</strong>{" "}
-                    {selectedTicket.district || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Subject:</strong> {selectedTicket.subject || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Sub-category:</strong>{" "}
-                    {selectedTicket.sub_category || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Channel:</strong> {selectedTicket.channel || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Complaint Type:</strong>{" "}
-                    {selectedTicket.complaint_type || "Unrated"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Rated:</strong>{" "}
-                    <span
+          {/* Left: Ticket Details */}
+          <Box
+            sx={{
+              flex: 2,
+              p: 4,
+              borderRight: "1px solid #eee",
+              overflowY: "auto",
+              minWidth: 0,
+              maxHeight: "90vh"
+            }}
+          >
+            {selectedTicket && (
+              <>
+                <Typography
+                  variant="h5"
+                  sx={{ fontWeight: "bold", color: "#1976d2" }}
+                >
+                  Ticket Details
+                </Typography>
+                <Divider sx={{ mb: 2 }} />
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, 1fr)",
+                    gap: "16px",
+                    width: "100%"
+                  }}
+                >
+                  {[
+                    // If no first_name, show Institution only; else show First Name and Last Name
+                    ...(!selectedTicket.first_name
+                      ? [["Institution", selectedTicket.institution || "N/A"]]
+                      : [
+                          ["Full Name", selectedTicket.first_name  +' '+ selectedTicket.last_name||  "N/A"],
+                        ]),
+                    ["Ticket Number", selectedTicket.ticket_id || "N/A"],
+                    ["Phone", selectedTicket.phone_number || "N/A"],
+                    ["Requester", selectedTicket.requester || "N/A"],
+                    ["Region", selectedTicket.region || "N/A"],
+                    ["Channel", selectedTicket.channel || "N/A"],
+                    ["Section", selectedTicket.responsible_unit_name || "Unit"],
+                    ["Sub-section", selectedTicket.sub_section || "N/A"],
+                    ["Subject", selectedTicket.subject || "N/A"],
+                    ["Created By", selectedTicket?.creator?.name || "N/A"],
+                    // Always show Assigned To and Assigned Role
+                    ["Assigned To", selectedTicket?.assignee?.name || "N/A"],
+                    ["Assigned Role", selectedTicket.assigned_to_role || "N/A"]
+                  ].map(([label, value], index) => (
+                    <div
+                      key={`left-${index}`}
                       style={{
-                        color:
-                          selectedTicket.complaint_type === "Major"
-                            ? "red"
-                            : selectedTicket.complaint_type === "Minor"
-                            ? "orange"
-                            : "inherit",
+                        padding: "12px 16px",
+                        backgroundColor: "#f8f9fa",
+                        borderRadius: "8px",
+                        display: "flex",
+                        alignItems: "center",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                        border:
+                          label === "Section" ||
+                          label === "Sub-section" ||
+                          label === "Subject"
+                            ? "2px solid #e0e0e0"
+                            : "none"
                       }}
                     >
-                      {selectedTicket.complaint_type || "N/A"}
-                    </span>
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Status:</strong>{" "}
-                    <span
+                      <strong
+                        style={{
+                          minWidth: "120px",
+                          color:
+                            label === "Section" ||
+                            label === "Sub-section" ||
+                            label === "Subject"
+                              ? "#1976d2"
+                              : "#555",
+                          fontSize: "0.9rem"
+                        }}
+                      >
+                        {label}:
+                      </strong>
+                      <span
+                        style={{
+                          flex: 1,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          fontSize: "0.9rem",
+                          color:
+                            label === "Section" ||
+                            label === "Sub-section" ||
+                            label === "Subject"
+                              ? "#1976d2"
+                              : "inherit"
+                        }}
+                      >
+                        {value}
+                      </span>
+                    </div>
+                  ))}
+
+                  {/* Right Column */}
+                  {[
+                    [
+                      "Status",
+                      <span
+                        style={{
+                          color:
+                            selectedTicket.status === "Open"
+                              ? "green"
+                              : selectedTicket.status === "Closed"
+                              ? "gray"
+                              : "blue"
+                        }}
+                      >
+                        {selectedTicket.status || "N/A"}
+                      </span>
+                    ],
+                    ["NIDA", selectedTicket.nida_number || "N/A"],
+                    ["Institution", selectedTicket.institution || "N/A"],
+                    ["District", selectedTicket.district || "N/A"],
+                    ["Category", selectedTicket.category || "N/A"],
+                    [
+                      "Rated",
+                      <span
+                        style={{
+                          color:
+                            selectedTicket.complaint_type === "Major"
+                              ? "red"
+                              : selectedTicket.complaint_type === "Minor"
+                              ? "orange"
+                              : "inherit"
+                        }}
+                      >
+                        {selectedTicket.complaint_type || "Unrated"}
+                      </span>
+                    ],
+                    // Always show Assigned To and Assigned Role in right column as well
+                    ["Assigned To", selectedTicket?.assignee?.name || "N/A"],
+                    ["Assigned Role", selectedTicket.assigned_to_role || "N/A"],
+                    [
+                      "Created At",
+                      selectedTicket.created_at
+                        ? new Date(selectedTicket.created_at).toLocaleString(
+                            "en-US",
+                            {
+                              month: "numeric",
+                              day: "numeric",
+                              year: "numeric",
+                              hour: "numeric",
+                              minute: "2-digit",
+                              hour12: true
+                            }
+                          )
+                        : "N/A"
+                    ]
+                  ].map(([label, value], index) => (
+                    <div
+                      key={`right-${index}`}
                       style={{
-                        color:
-                          selectedTicket.status === "Open"
-                            ? "green"
-                            : selectedTicket.status === "Closed"
-                            ? "gray"
-                            : "blue",
+                        padding: "12px 16px",
+                        backgroundColor: "#f8f9fa",
+                        borderRadius: "8px",
+                        display: "flex",
+                        alignItems: "center",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
                       }}
                     >
-                      {selectedTicket.status || "N/A"}
-                    </span>
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Created By:</strong>{" "}
-                    {selectedTicket.createdBy?.name || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Assigned To:</strong>{" "}
-                    {selectedTicket.assigned_to_id || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Assigned Role:</strong>{" "}
-                    {selectedTicket.assigned_to_role || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Created At:</strong>{" "}
-                    {selectedTicket.created_at
-                      ? new Date(selectedTicket.created_at).toLocaleString(
-                          "en-US",
-                          {
-                            month: "numeric",
-                            day: "numeric",
-                            year: "numeric",
-                            hour: "numeric",
-                            minute: "2-digit",
-                            hour12: true,
-                          }
-                        )
-                      : "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <Typography>
-                    <strong>Description:</strong>{" "}
+                      <strong
+                        style={{
+                          minWidth: "120px",
+                          color: "#555",
+                          fontSize: "0.9rem"
+                        }}
+                      >
+                        {label}:
+                      </strong>
+                      <span
+                        style={{
+                          flex: 1,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          fontSize: "0.9rem"
+                        }}
+                      >
+                        {value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Description - Full Width */}
+                <div
+                  style={{
+                    width: "94%",
+                    padding: "12px 16px",
+                    backgroundColor: "#f8f9fa",
+                    borderRadius: "8px",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                    marginTop: "16px"
+                  }}
+                >
+                  <strong
+                    style={{
+                      minWidth: "120px",
+                      color: "#555",
+                      fontSize: "0.9rem"
+                    }}
+                  >
+                    Description:
+                  </strong>
+                  <span
+                    style={{
+                      flex: 1,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      fontSize: "0.9rem",
+                      lineHeight: "1.5"
+                    }}
+                  >
                     {selectedTicket.description || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <Typography>
-                    <strong>Comments:</strong>
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    multiline
-                    rows={2}
-                    value={comments}
-                    onChange={handleCommentsChange}
-                    placeholder="Add comments or notes..."
-                    sx={{ mt: 1 }}
-                  />
-                  <Box sx={{ mt: 2, textAlign: "right" }}>
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      onClick={handleCommentsSubmit}
-                      sx={{ mr: 1 }}
-                    >
-                      Save Comments
-                    </Button>
-                    <Button variant="outlined" onClick={closeModal}>
-                      Close
-                    </Button>
-                  </Box>
-                </Grid>
-              </Grid>
-            </>
-          )}
+                  </span>
+                </div>
+
+                <Box sx={{ mt: 3, textAlign: "right" }}>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={closeModal}
+                  >
+                    Close
+                  </Button>
+                </Box>
+              </>
+            )}
+          </Box>
+          {/* Right: Notification History */}
+          <Box
+            sx={{
+              flex: 1,
+              p: 3,
+              minWidth: 300,
+              maxWidth: 350,
+              overflowY: "auto"
+            }}
+          >
+            <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: "#1976d2" }}>
+              Notification History
+            </Typography>
+            <Divider sx={{ mb: 2 }} />
+            {renderNotificationHistory()}
+          </Box>
         </Box>
       </Modal>
 
