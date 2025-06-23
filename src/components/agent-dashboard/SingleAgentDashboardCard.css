@@ -2,89 +2,81 @@
   display: flex;
   gap: 20px;
   margin-bottom: 24px;
-  flex-wrap: wrap;
-  /* justify-content: center; */
+  flex-wrap: nowrap;
 }
 
 .dashboard-single-agent.modern-agent-dashboard {
   display: flex;
   gap: 32px;
   margin-bottom: 32px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
 }
 
 .single-agent-card {
   background: #fff;
   border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  padding: 18px 20px;
-  min-width: 300px;
+  padding: 16px 24px;
+  min-width: 450px;
   max-width: 100%;
-  flex: 1 1 360px;
+  flex: 1 1 450px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  transition: box-shadow 0.2s ease;
+  gap: 12px;
 }
 
 .modern-agent-card {
-  background: linear-gradient(135deg, #f8fafc 60%, #e3e9f7 100%);
-  border-radius: 18px;
-  box-shadow: 0 4px 18px rgba(44, 62, 80, 0.1);
-  padding: 28px 32px 24px 32px;
+  background-color: #e5f6fd; /* Soft light blue background (can adjust) */
+  border-radius: 16px;
+  padding: 20px 24px;
   width: 100%;
-  max-width: 420px;
-  flex: 1 1 300px;
+  max-width: 460px;
+  flex: 1 1 420px;
   display: flex;
   flex-direction: column;
   gap: 18px;
+  box-shadow: none;
 }
 
 .modern-agent-card.inbound {
-  border-top: 5px solid #3bb77e;
+  background-color: #d1f4e3; /* Light green background for inbound */
 }
 
 .modern-agent-card.outbound {
-  border-top: 5px solid #3b7bb7;
+  background-color: #dbeeff; /* Light blue background for outbound */
 }
 
 .single-agent-head {
   font-weight: 700;
-  font-size: 1.25rem;
-  color: #2d3a4a;
+  font-size: 1.15rem;
+  color: #111;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   margin-bottom: 10px;
 }
 
-
 .single-agent-stats-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  justify-content: flex-start;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr); /* Ensure all 4 items in one row */
+  gap: 16px;
+  text-align: center;
 }
 
 .stat-block {
-  background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 1px 4px rgba(44, 62, 80, 0.06);
-  padding: 14px 18px;
+  background: transparent;
+  border-radius: 8px;
+  padding: 8px 4px;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  flex: 1 1 calc(25% - 12px); /* 4 in a row with gap */
-  min-width: 90px;
-  max-width: 110px;
+  gap: 4px;
+  font-size: 1rem;
 }
-
 
 .stat-label {
   font-size: 0.95rem;
-  color: #7b8a9a;
-  margin-bottom: 4px;
+  color: #333;
+  font-weight: 500;
 }
 
 .stat-value {
@@ -94,11 +86,11 @@
 }
 
 .inbound-color {
-  color: #3bb77e;
+  color: #2e8b57;
 }
 
 .outbound-color {
-  color: #3b7bb7;
+  color: #1565c0;
 }
 
 .answered-color {
