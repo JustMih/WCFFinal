@@ -1,20 +1,16 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import io from "socket.io-client";
 import { baseURL } from "../../../config";
 import {
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
   CircularProgress,
   Button,
+  Card,
+  CardContent,
+  CardHeader,
 } from "@mui/material";
+import "./CallCenterAgentsChat.css";
 
-// live
-const socket = io("http://10.52.0.19:5070"); // Connect to backend
-
-// test
-// const socket = io("http://127.0.0.1:5070"); // Connect to backend
+const socket = io("http://10.52.0.19:5070");
 
 const CallCenterAgentChat = () => {
   const [message, setMessage] = useState("");
@@ -23,8 +19,8 @@ const CallCenterAgentChat = () => {
   const [selectedSupervisor, setSelectedSupervisor] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
   const agentId = localStorage.getItem("userId");
+  const chatEndRef = useRef(null);
 
   useEffect(() => {
     fetchSupervisors();
@@ -33,35 +29,38 @@ const CallCenterAgentChat = () => {
     }
 
     socket.emit("register", agentId);
-
     socket.on("private_message", (data) => {
       if (data.receiverId === agentId || data.senderId === agentId) {
-        setMessages((prev) => [...prev, data]); // Update messages in real-time
+        setMessages((prev) => [...prev, data]);
       }
     });
 
     return () => socket.off("private_message");
   }, [agentId, selectedSupervisor]);
 
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const scrollToBottom = () => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
   const fetchMessages = async () => {
     try {
       const response = await fetch(
         `${baseURL}/users/messages/${agentId}/${selectedSupervisor}`,
         {
-          method: "GET",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${localStorage.getItem("authToken")}`,
           },
         }
       );
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch messages");
-      }
+      if (!response.ok) throw new Error("Failed to fetch messages");
 
       const data = await response.json();
-      setMessages(data); // Load previous messages
+      setMessages(data);
     } catch (error) {
       console.error("Error fetching messages:", error);
     }
@@ -70,19 +69,15 @@ const CallCenterAgentChat = () => {
   const fetchSupervisors = async () => {
     try {
       const response = await fetch(`${baseURL}/users/supervisor`, {
-        method: "GET",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("authToken")}`,
         },
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch supervisors");
-      }
+      if (!response.ok) throw new Error("Failed to fetch supervisors");
 
       const data = await response.json();
-      console.log("Supervisors fetched:", data);
       setSupervisors(data.supervisors);
     } catch (error) {
       setError(error.message);
@@ -93,152 +88,110 @@ const CallCenterAgentChat = () => {
 
   const sendMessage = () => {
     if (!selectedSupervisor) {
-      alert("Please select a supervisor before sending a message.");
+      alert("Please select a supervisor.");
       return;
     }
-
     if (message.trim()) {
-      socket.emit("private_message", {
+      const msgData = {
         senderId: agentId,
         receiverId: selectedSupervisor,
         message,
-      });
+        timestamp: new Date().toISOString(),
+      };
 
-      setMessages((prev) => [...prev, { senderId: agentId, message }]);
+      socket.emit("private_message", msgData);
+      setMessages((prev) => [...prev, msgData]);
       setMessage("");
     }
   };
 
   return (
-    <div style={styles.chatContainer}>
-      <h2>Chat with Supervisor</h2>
+    <Card className="chat-card">
+      <CardHeader
+        title="Chat with Supervisor"
+        className="chat-header"
+      />
+      <CardContent className="chat-body">
+        {/* Left: Supervisor List */}
+        <div className="supervisor-pane">
+          <h4 className="supervisor-title">Supervisors</h4>
+          {loading ? (
+            <CircularProgress size={24} />
+          ) : (
+            <div className="supervisor-scroll">
+              {supervisors.map((supervisor) => (
+                <div
+                  key={supervisor.id}
+                  onClick={() => setSelectedSupervisor(supervisor.id)}
+                  className={`supervisor-item ${selectedSupervisor === supervisor.id ? "selected" : ""
+                    }`}
+                >
+                  <div className="avatar">
+                    {supervisor.name?.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="supervisor-name">{supervisor.name}</div>
+                </div>
+              ))}
+              {!supervisors.length && (
+                <div className="no-supervisors">No supervisors found.</div>
+              )}
+            </div>
+          )}
+        </div>
 
-      {/* Supervisor Selection Dropdown */}
-      <FormControl style={{ width: "100%", marginBottom: "10px" }}>
-        <InputLabel>Select Supervisor</InputLabel>
-        {loading ? (
-          <CircularProgress size={24} />
-        ) : (
-          <Select
-            value={selectedSupervisor}
-            onChange={(e) => setSelectedSupervisor(e.target.value)}
-            displayEmpty
-          >
-            <MenuItem value="" disabled>
-              Select a Supervisor
-            </MenuItem>
-            {supervisors.map((supervisor) => (
-              <MenuItem key={supervisor.id} value={supervisor.id}>
-                {supervisor.name}
-              </MenuItem>
-            ))}
-          </Select>
-        )}
-      </FormControl>
-      <div style={styles.chatMinContainer}>
-        {/* Chat Messages Box */}
-        <div style={styles.chatBox}>
-          {messages.map((msg, index) => (
-            <p
-              key={index}
-              style={
-                msg.senderId === agentId
-                  ? styles.agentMessage
-                  : styles.supervisorMessage
-              }
+        {/* Right: Chat Area */}
+        <div className="chat-pane">
+          {/* Chat Header */}
+          {selectedSupervisor && (
+            <div className="chatting-with">
+              Chatting with {supervisors.find(s => s.id === selectedSupervisor)?.name}
+            </div>
+          )}
+
+          {/* Chat Messages */}
+          <div className="chat-window">
+            {messages.map((msg, index) => {
+              const isAgent = msg.senderId === agentId;
+              return (
+                <div
+                  key={index}
+                  className={`chat-message ${isAgent ? "agent" : "supervisor"}`}
+                >
+                  {msg.message}
+                  <div className="chat-timestamp">
+                    {new Date(msg.timestamp || Date.now()).toLocaleTimeString([], {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* Input Field */}
+          <div className="chat-input-wrapper">
+            <input
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Type a message..."
+              onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+              className="chat-input"
+            />
+            <Button
+              variant="contained"
+              onClick={sendMessage}
+              className="send-button"
             >
-              <strong>
-                {msg.senderId === agentId ? "You" : "Supervisor"}:
-              </strong>{" "}
-              {msg.message}
-            </p>
-          ))}
+              Send
+            </Button>
+          </div>
         </div>
+      </CardContent>
+    </Card>
 
-        <div style={styles.inputBox}>
-          {/* Message Input */}
-          <input
-            type="text"
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            placeholder="Type a message..."
-            style={styles.input}
-          />
-
-          {/* Send Button */}
-          <Button
-            onClick={sendMessage}
-            variant="contained"
-            color="primary"
-            style={styles.sendButton}
-          >
-            Send
-          </Button>
-        </div>
-      </div>
-    </div>
   );
-};
-
-const styles = {
-  chatContainer: {
-    width: "100%",
-    padding: "15px",
-    border: "1px solid #ccc",
-    borderRadius: "10px",
-    textAlign: "center",
-    backgroundColor: "#f9f9f9",
-  },
-  chatBox: {
-    height: "500px",
-    overflowY: "scroll",
-    border: "1px solid #ddd",
-    borderRadius: "5px",
-    padding: "10px",
-    backgroundColor: "#fff",
-    textAlign: "left",
-    width: "60%"
-  },
-  agentMessage: {
-    textAlign: "right",
-    background: "#d1e7fd",
-    padding: "8px",
-    borderRadius: "5px",
-    margin: "5px 0",
-  },
-  supervisorMessage: {
-    textAlign: "left",
-    background: "#fdd1d1",
-    padding: "8px",
-    borderRadius: "5px",
-    margin: "5px 0",
-  },
-  chatMinContainer: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  inputBox: {
-    width: "40%",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "start",
-    padding: "20px",
-  },
-  input: {
-    width: "80%",
-    padding: "8px",
-    border: "1px solid #ddd",
-    borderRadius: "5px",
-    margin: "10px 0",
-  },
-  sendButton: {
-    padding: "8px 15px",
-    background: "#007bff",
-    color: "white",
-    borderRadius: "5px",
-    cursor: "pointer",
-  },
 };
 
 export default CallCenterAgentChat;

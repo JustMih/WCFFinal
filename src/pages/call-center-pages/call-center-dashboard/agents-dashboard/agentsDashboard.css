@@ -242,3 +242,132 @@
   gap: 5px;
   background-color: whitesmoke;
 }
+
+.modern-phone-popup {
+  position: fixed;
+  top: 60px;
+  right: 20px;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 8px 32px rgba(60, 59, 59, 0.18);
+  padding: 0;
+  width: 370px;
+  z-index: 1200;
+  animation: fadeInUp 0.3s cubic-bezier(.4,0,.2,1);
+  border: none;
+  overflow: hidden;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(40px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.modern-phone-header {
+  background: #f5f7fa;
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #e0e0e0;
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.modern-close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #888;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+.modern-close-btn:hover {
+  color: #e53935;
+}
+
+.modern-phone-body {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.modern-phone-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 1rem;
+  margin-bottom: 10px;
+}
+
+.modern-phone-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+/* Keypad */
+.modern-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 60px);
+  grid-gap: 16px;
+  justify-content: center;
+  margin: 18px 0 0 0;
+}
+
+.modern-keypad-btn {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: #f5f7fa;
+  border: 2px solid #e0e0e0;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: #333;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s, color 0.2s;
+  box-shadow: 0 2px 6px rgba(60,59,59,0.06);
+}
+.modern-keypad-btn:hover {
+  background: #e3f2fd;
+  color: #1976d2;
+  box-shadow: 0 4px 12px rgba(25,118,210,0.10);
+}
+
+/* For action buttons in the modal */
+.modern-action-btn {
+  flex: 1;
+  margin: 0 4px;
+  font-size: 1rem;
+  border-radius: 8px;
+  padding: 10px 0;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+/* For call status badge */
+.modern-status-badge {
+  background: #e3f2fd;
+  color: #1976d2;
+  border-radius: 12px;
+  padding: 2px 12px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  margin-left: 8px;
+}
+
+/* For call duration */
+.modern-call-duration {
+  color: #388e3c;
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin-left: 8px;
+}

@@ -872,7 +872,7 @@ export default function CoordinatorDashboard() {
           </div>
 
           <div style={{ flex: "1 1 45%" }}>
-            <Typography><strong>Assigned To (User ID):</strong> {selectedTicket.assigned_to_id || "N/A"}</Typography>
+            <Typography><strong>Assigned To:</strong> {selectedTicket?.assignee?.name || "N/A"}</Typography>
           </div>
           <div style={{ flex: "1 1 45%" }}>
             <Typography><strong>Assigned Role:</strong> {selectedTicket.assigned_to_role || "N/A"}</Typography>

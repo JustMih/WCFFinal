@@ -35,8 +35,6 @@ import {
 import { GiExplosiveMeeting, GiTrafficLightsReadyToGo } from "react-icons/gi";
 import { TbEmergencyBed } from "react-icons/tb";
 import { FiPhoneOff, FiPhoneCall, FiPhoneIncoming } from "react-icons/fi";
-import { CiNoWaitingSign } from "react-icons/ci";
-import { FaPersonWalkingArrowRight } from "react-icons/fa6";
 import {
   UserAgent,
   Inviter,
@@ -48,18 +46,9 @@ import {
 import { Alert, Snackbar } from "@mui/material";
 import { baseURL } from "../../../../config";
 import "./agentsDashboard.css";
-import { TbPhoneCheck, TbPhoneX } from "react-icons/tb";
-import { HiPhoneOutgoing, HiOutlineMailOpen } from "react-icons/hi";
-import { BsCollection } from "react-icons/bs";
-import { RiMailUnreadLine } from "react-icons/ri";
-import {
-  IoLogoWhatsapp,
-  IoMdLogIn,
-  IoMdCloseCircleOutline,
-} from "react-icons/io";
-import { FaHandHolding } from "react-icons/fa";
-import CallChart from "../../../../components/agent-chat/AgentChat";
+import SingleAgentDashboardCard from "../../../../components/agent-dashboard/SingleAgentDashboardCard";
 import QueueStatusTable from "../../../../components/agent-dashboard/QueueStatusTable";
+import WaitingCallsTable from "../../../../components/agent-dashboard/WaitingCallsTable";
 import AgentPerformanceScore from "../../../../components/agent-dashboard/AgentPerformanceScore";
 import TicketCreateModal from "../../../../components/ticket/TicketCreateModal";
 
@@ -437,17 +426,6 @@ export default function AgentsDashboard() {
     };
   }, []);
 
-  // useEffect(() => {
-  //   const savedMissedCalls = localStorage.getItem("missedCalls");
-  //   if (savedMissedCalls) {
-  //     const parsed = JSON.parse(savedMissedCalls).map((call) => ({
-  //       ...call,
-  //       time: new Date(call.time), // ⬅️ Convert string back to Date object
-  //     }));
-  //     setMissedCalls(parsed);
-  //   }
-  // }, []);
-
   // ✅ Load missed calls from backend on component mount
   useEffect(() => {
     fetchMissedCallsFromBackend();
@@ -634,7 +612,7 @@ export default function AgentsDashboard() {
       .then(() => {
         inviter.stateChange.addListener((state) => {
           if (state === SessionState.Terminated) {
-            console.log("�� Consult call ended");
+            console.log(" Consult call ended");
             setConsultSession(null);
             setIsTransferring(false);
             setPhoneStatus("In Call");
@@ -998,28 +976,6 @@ export default function AgentsDashboard() {
     color: "white",
   });
 
-  const renderKeypad = () => (
-    <Dialog open={showKeypad} onClose={() => setShowKeypad(false)}>
-      <DialogTitle>Dialpad</DialogTitle>
-      <DialogContent>
-        <div className="keypad">
-          {["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"].map(
-            (digit) => (
-              <Button
-                key={digit}
-                variant="outlined"
-                onClick={() => sendDTMF(digit)}
-                style={{ margin: 5, width: 50, height: 50 }}
-              >
-                {digit}
-              </Button>
-            )
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-
   // Timer logic
   const startStatusTimer = (activity) => {
     const statusKey = mapActivityToTimerKey(activity);
@@ -1169,6 +1125,32 @@ export default function AgentsDashboard() {
     fetchFunctionData();
   }, []);
 
+  const [onlineUsers, setOnlineUsers] = useState([]);
+
+  // Fetch online users when phone popup opens
+  useEffect(() => {
+    if (showPhonePopup) {
+      fetchOnlineUsers();
+    }
+  }, [showPhonePopup]);
+
+  const fetchOnlineUsers = async () => {
+    try {
+      const response = await fetch(`${baseURL}/online-users`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        },
+      });
+      if (!response.ok) throw new Error("Failed to fetch online users");
+      const users = await response.json();
+      setOnlineUsers(users.filter(u => u.role === "agent" || u.role === "supervisor"));
+    } catch (err) {
+      setOnlineUsers([]);
+    }
+  };
+
   return (
     <div className="p-6">
       <div className="agent-body">
@@ -1255,114 +1237,10 @@ export default function AgentsDashboard() {
           </Tooltip>
         </div>
         <div className="dashboard-single-agent">
-          <div className="single-agent-card">
-            <div className="single-agent-head">
-              <FiPhoneIncoming fontSize={15} />
-              In-Bound Calls
-            </div>
-            <div className="single-agent-level">
-              <div className="single-agent-level-left">
-                <FiPhoneIncoming fontSize={15} color="green" />
-                Calls
-              </div>
-              20
-            </div>
-            <div className="single-agent-level">
-              <div className="single-agent-level-left">
-                <TbPhoneCheck fontSize={15} />
-                Answered
-              </div>
-              10
-            </div>
-            <div className="single-agent-level">
-              <div className="single-agent-level-left">
-                <TbPhoneX fontSize={15} color="red" />
-                Dropped
-              </div>
-              20
-            </div>
-          </div>
-          <div className="single-agent-card">
-            <div className="single-agent-head">
-              <HiPhoneOutgoing fontSize={15} />
-              Out-Bound Calls
-            </div>
-            <div className="single-agent-level">
-              <div className="single-agent-level-left">
-                <FiPhoneIncoming fontSize={15} color="green" />
-                Calls
-              </div>
-              20
-            </div>
-            <div className="single-agent-level">
-              <div className="single-agent-level-left">
-                <TbPhoneCheck fontSize={15} />
-                Answered
-              </div>
-              10
-            </div>
-            <div className="single-agent-level">
-              <div className="single-agent-level-left">
-                <TbPhoneX fontSize={15} color="red" />
-                Dropped
-              </div>
-              20
-            </div>
-          </div>
-          <div className="single-agent-card">
-            <div className="single-agent-head">
-              <MdOutlineEmail fontSize={15} />
-              Emails
-            </div>
-            <div className="single-agent-level">
-              <div className="single-agent-level-left">
-                <BsCollection fontSize={15} color="green" />
-                Total
-              </div>
-              20
-            </div>
-            <div className="single-agent-level">
-              <div className="single-agent-level-left">
-                <HiOutlineMailOpen fontSize={15} />
-                Opened
-              </div>
-              10
-            </div>
-            <div className="single-agent-level">
-              <div className="single-agent-level-left">
-                <RiMailUnreadLine fontSize={15} color="red" />
-                Closed
-              </div>
-              20
-            </div>
-          </div>
-          <div className="single-agent-card">
-            <div className="single-agent-head">
-              <IoLogoWhatsapp fontSize={15} color="green" />
-              Whatsapp
-            </div>
-            <div className="single-agent-level">
-              <div className="single-agent-level-left">
-                <BsCollection fontSize={15} color="green" />
-                Total
-              </div>
-              20
-            </div>
-            <div className="single-agent-level">
-              <div className="single-agent-level-left">
-                <HiOutlineMailOpen fontSize={15} />
-                Opened
-              </div>
-              10
-            </div>
-            <div className="single-agent-level">
-              <div className="single-agent-level-left">
-                <RiMailUnreadLine fontSize={15} color="red" />
-                Closed
-              </div>
-              20
-            </div>
-          </div>
+         <SingleAgentDashboardCard />
+        </div>
+        <div className="dashboard-single-agent-row_two">
+          <WaitingCallsTable />
         </div>
         <div className="dashboard-single-agent-row_three">
           <QueueStatusTable />
@@ -1458,26 +1336,30 @@ export default function AgentsDashboard() {
       </Menu>
 
       {showPhonePopup && (
-        <div className="phone-popup">
-          <div className="phone-popup-header">
+        <div className="modern-phone-popup">
+          <div className="modern-phone-header">
             <span>
               {phoneStatus === "In Call" ? "Call in Progress" : "Phone"}
             </span>
-            <button onClick={togglePhonePopup} className="close-popup-btn">
-              X
-            </button>
+            <button onClick={togglePhonePopup} className="modern-close-btn" aria-label="Close">×</button>
           </div>
-          <div className="phone-popup-body">
+          <div className="modern-phone-body">
             {phoneStatus === "In Call" && (
               <>
-                <p>Call Duration: {formatDuration(callDuration)}</p>
-                <TextField
-                  label="Transfer To (Extension)"
-                  variant="outlined"
-                  fullWidth
-                  margin="normal"
+                <div className="modern-phone-status">
+                  <span className="modern-status-badge">In Call</span>
+                  <span className="modern-call-duration">{formatDuration(callDuration)}</span>
+                </div>
+                <Autocomplete
+                  options={onlineUsers.map(u => u.username)}
                   value={transferTarget}
-                  onChange={(e) => setTransferTarget(e.target.value)}
+                  onChange={(_, v) => setTransferTarget(v || "")}
+                  renderInput={(params) => (
+                    <TextField {...params} label="Transfer To (Extension)" variant="outlined" margin="normal" fullWidth />
+                  )}
+                  fullWidth
+                  disableClearable={false}
+                  isOptionEqualToValue={(option, value) => option === value}
                 />
                 <Button
                   variant="contained"
@@ -1485,6 +1367,7 @@ export default function AgentsDashboard() {
                   onClick={handleBlindTransfer}
                   disabled={!session || !transferTarget}
                   fullWidth
+                  className="modern-action-btn"
                   style={{ marginTop: "10px" }}
                 >
                   Transfer Call
@@ -1493,22 +1376,48 @@ export default function AgentsDashboard() {
             )}
 
             {phoneStatus !== "In Call" && (
-              <TextField
-                label="Phone Number"
-                variant="outlined"
-                fullWidth
-                margin="normal"
-                required
-                value={phoneNumber}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-              />
+              <>
+                <TextField
+                  label="Phone Number"
+                  variant="outlined"
+                  fullWidth
+                  margin="normal"
+                  required
+                  value={phoneNumber}
+                  onChange={(e) => setPhoneNumber(e.target.value)}
+                  inputProps={{ readOnly: true }}
+                />
+                {showKeypad && (
+                  <div className="modern-keypad" style={{ marginBottom: 10 }}>
+                    {["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"].map(
+                      (digit) => (
+                        <button
+                          key={digit}
+                          className="modern-keypad-btn"
+                          onClick={() => setPhoneNumber((prev) => prev + digit)}
+                        >
+                          {digit}
+                        </button>
+                      )
+                    )}
+                    <button
+                      className="modern-keypad-btn"
+                      onClick={() => setPhoneNumber((prev) => prev.slice(0, -1))}
+                      style={{ gridColumn: 'span 3', background: '#ffeaea', color: '#e53935', fontSize: '1.3rem' }}
+                      aria-label="Backspace"
+                    >
+                      ⌫
+                    </button>
+                  </div>
+                )}
+              </>
             )}
 
-            <div className="phone-action-btn">
+            <div className="modern-phone-actions">
               <Tooltip title="Toggle Speaker">
                 <IconButton onClick={toggleSpeaker}>
                   <HiMiniSpeakerWave
-                    fontSize={15}
+                    fontSize={20}
                     style={iconStyle(isSpeakerOn ? "green" : "grey")}
                   />
                 </IconButton>
@@ -1516,25 +1425,25 @@ export default function AgentsDashboard() {
               <Tooltip title={isOnHold ? "Resume Call" : "Hold Call"}>
                 <IconButton onClick={toggleHold}>
                   <MdPauseCircleOutline
-                    fontSize={15}
+                    fontSize={20}
                     style={iconStyle(isOnHold ? "orange" : "#3c8aba")}
                   />
                 </IconButton>
               </Tooltip>
               <Tooltip title="Keypad">
-                <IconButton onClick={() => setShowKeypad(true)}>
-                  <IoKeypadOutline fontSize={15} style={iconStyle("#939488")} />
+                <IconButton onClick={() => setShowKeypad((prev) => !prev)}>
+                  <IoKeypadOutline fontSize={20} style={iconStyle(showKeypad ? "#1976d2" : "#939488")} />
                 </IconButton>
               </Tooltip>
               <Tooltip title="End Call">
                 <IconButton onClick={handleEndCall}>
-                  <MdLocalPhone fontSize={15} style={iconStyle("red")} />
+                  <MdLocalPhone fontSize={20} style={iconStyle("red")} />
                 </IconButton>
               </Tooltip>
               <Tooltip title={isMuted ? "Unmute Mic" : "Mute Mic"}>
                 <IconButton onClick={toggleMute}>
                   <BsFillMicMuteFill
-                    fontSize={15}
+                    fontSize={20}
                     style={iconStyle(isMuted ? "orange" : "grey")}
                   />
                 </IconButton>
@@ -1542,49 +1451,50 @@ export default function AgentsDashboard() {
             </div>
 
             {phoneStatus !== "In Call" && (
-              <>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handleDial}
-                  disabled={
-                    phoneStatus === "Dialing" || phoneStatus === "Ringing"
-                  }
-                >
-                  Dial
-                </Button>
-              </>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleDial}
+                disabled={
+                  phoneStatus === "Dialing" || phoneStatus === "Ringing"
+                }
+                className="modern-action-btn"
+                style={{ marginTop: "10px" }}
+              >
+                Dial
+              </Button>
             )}
 
             {incomingCall && phoneStatus !== "In Call" && (
               <>
-                <p>
-                  From:{" "}
+                <div style={{ marginBottom: 10 }}>
+                  <span style={{ fontWeight: 500 }}>From: </span>
                   {incomingCall.remoteIdentity.displayName ||
                     incomingCall.remoteIdentity.uri.user}
-                </p>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handleAcceptCall}
-                  style={{ marginRight: "10px" }}
-                >
-                  Accept
-                </Button>
-                <Button
-                  variant="contained"
-                  color="secondary"
-                  onClick={handleRejectCall}
-                >
-                  Reject
-                </Button>
+                </div>
+                <div className="modern-phone-actions">
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    onClick={handleAcceptCall}
+                    className="modern-action-btn"
+                  >
+                    Accept
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="secondary"
+                    onClick={handleRejectCall}
+                    className="modern-action-btn"
+                  >
+                    Reject
+                  </Button>
+                </div>
               </>
             )}
           </div>
         </div>
       )}
-
-      {renderKeypad()}
 
       <Dialog
         open={missedOpen}
