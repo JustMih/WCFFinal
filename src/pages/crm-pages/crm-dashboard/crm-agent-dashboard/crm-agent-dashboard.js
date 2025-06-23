@@ -433,17 +433,42 @@ const AgentCRM = () => {
       }
       return;
     }
-    // Only allow numbers and dashes for nidaNumber
+    // // Only allow numbers and dashes for nidaNumber
+    // if (name === "nidaNumber") {
+    //   let cleaned = value.replace(/[^\d-]/g, "");
+    //   // Optionally, limit length (e.g., 20 chars)
+    //   if (cleaned.length > 20) cleaned = cleaned.slice(0, 20);
+    //   setFormData((prev) => ({ ...prev, [name]: cleaned }));
+    //   if (!/^\d{0,20}(-\d{1,20})*$/.test(cleaned)) {
+    //     setFormErrors((prev) => ({ ...prev, nidaNumber: "NIDA/TIN must contain only numbers and dashes" }));
+    //   } else {
+    //     setFormErrors((prev) => ({ ...prev, nidaNumber: undefined }));
+    //   }
+    //   return;
+    // }
+
     if (name === "nidaNumber") {
       let cleaned = value.replace(/[^\d-]/g, "");
-      // Optionally, limit length (e.g., 20 chars)
+    
+      // Optional: prevent consecutive dashes
+      cleaned = cleaned.replace(/--+/g, "-");
+    
+      // Limit total length to 20 characters
       if (cleaned.length > 20) cleaned = cleaned.slice(0, 20);
+    
       setFormData((prev) => ({ ...prev, [name]: cleaned }));
-      if (!/^\d{0,20}(-\d{1,20})*$/.test(cleaned)) {
-        setFormErrors((prev) => ({ ...prev, nidaNumber: "NIDA/TIN must contain only numbers and dashes" }));
+    
+      const isValid = /^(\d+(-\d+)*$)/.test(cleaned); // Multiple dashes allowed, no start/end dash
+    
+      if (!isValid) {
+        setFormErrors((prev) => ({
+          ...prev,
+          nidaNumber: "Only digits and dashes are allowed. No leading/trailing or repeated dashes.",
+        }));
       } else {
         setFormErrors((prev) => ({ ...prev, nidaNumber: undefined }));
       }
+    
       return;
     }
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -518,6 +543,23 @@ const AgentCRM = () => {
         }
       }
 
+      // --- Allocated User Logic ---
+      let employerAllocatedStaffUsername = "";
+      if (selectedSuggestion && selectedSuggestion.claimId && selectedSuggestion.allocated_user_username) {
+        // If employee has claim number, use allocated user from claim
+        employerAllocatedStaffUsername = selectedSuggestion.allocated_user_username;
+      } else if (
+        (!selectedSuggestion || !selectedSuggestion.claimId) &&
+        formData.category === "Inquiry" &&
+        selectedInstitution && selectedInstitution.allocated_staff_username
+      ) {
+        // If no claim and Inquiry, use allocated user from institution
+        employerAllocatedStaffUsername = selectedInstitution.allocated_staff_username;
+      } else {
+        // Fallback to previous logic if any
+        employerAllocatedStaffUsername = selectedInstitution?.allocated_staff_username || formData.employerAllocatedStaffUsername || "";
+      }
+
       const ticketData = {
         ...formData,
         subject: selectedSubject ? selectedSubject.name : "",
@@ -526,10 +568,7 @@ const AgentCRM = () => {
         responsible_unit_id: formData.functionId,
         responsible_unit_name: parentSection ? parentSection.name : "",
         status: submitAction === "closed" ? "Closed" : "Open",
-        employerAllocatedStaffUsername:
-          selectedInstitution?.allocated_staff_username ||
-          formData.employerAllocatedStaffUsername ||
-          ""
+        employerAllocatedStaffUsername,
       };
 
       // Add employer-specific fields if requester is Employer
@@ -1325,7 +1364,10 @@ const AgentCRM = () => {
     const selectedWithClaim = {
       ...suggestion,
       hasClaim: Boolean(rawData.claim_number),
-      claimId: rawData.claim_number
+      claimId: rawData.claim_number,
+      allocated_user: rawData.allocated_user,
+      allocated_user_id: rawData.allocated_user_id,
+      allocated_user_username: rawData.allocated_user_username
     };
     console.log("Selected with claim:", selectedWithClaim);
 
@@ -1515,9 +1557,14 @@ const AgentCRM = () => {
   />;
 
   // Highlight matching text in suggestions
+  function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
   const highlightMatch = (text, query) => {
     if (!query) return text;
-    const parts = text.split(new RegExp(`(${query})`, "gi"));
+    const safeQuery = escapeRegExp(query);
+    const parts = text.split(new RegExp(`(${safeQuery})`, "gi"));
     return parts.map((part, index) =>
       part.toLowerCase() === query.toLowerCase() ? (
         <span key={index} className="highlight">
