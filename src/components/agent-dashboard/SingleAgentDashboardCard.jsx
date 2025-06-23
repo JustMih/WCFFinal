@@ -18,7 +18,7 @@ export default function SingleAgentDashboardCard() {
       return;
     }
     setLoading(true);
-    fetch(`${baseURL}/calls/agent-calls/${agentId}`)
+    fetch(`${baseURL}/calls/agent-calls-today/${agentId}`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch agent stats");
         return res.json();
