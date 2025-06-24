@@ -556,7 +556,15 @@ export default function FocalPersonDashboard() {
                     <td>{(currentPage - 1) * itemsPerPage + i + 1}</td>
                   )}
                   {activeColumns.includes("fullName") && (
-                    <td>{`${ticket.first_name || ""} ${ticket.middle_name || ""} ${ticket.last_name || ""}`}</td>
+                     <td>
+                     {ticket.first_name && ticket.first_name.trim() !== ""
+                       ? `${ticket.first_name} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim()
+                       : (typeof ticket.institution === "string"
+                           ? ticket.institution
+                           : ticket.institution && typeof ticket.institution === "object" && typeof ticket.institution.name === "string"
+                             ? ticket.institution.name
+                             : "N/A")}
+                   </td>
                   )}
                   {activeColumns.includes("phone_number") && (
                     <td>{ticket.phone_number || "N/A"}</td>
