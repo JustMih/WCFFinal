@@ -3,50 +3,69 @@ import { io } from "socket.io-client";
 import { MdOutlinePhoneInTalk } from "react-icons/md";
 import "./QueueStatusTable.css";
 
-const socket = io("https://10.52.0.19/ami-socket", {
+// Connect to Socket.IO backend
+const socket = io("https://10.52.0.19", {
   path: "/ami-socket/socket.io",
   transports: ["websocket"],
   secure: true
 });
 
-// Dummy data for fallback
-const dummyQueues = [
-  {
-    queue: "Sales Queue",
-    callers: 5,
-    longestWait: 135, // 2:15 in seconds
-    availableAgents: 3,
-    busyAgents: 2
-  },
-  {
-    queue: "Support Queue",
-    callers: 3,
-    longestWait: 105, // 1:45 in seconds
-    availableAgents: 4,
-    busyAgents: 1
-  },
-  {
-    queue: "Technical Queue",
-    callers: 2,
-    longestWait: 90, // 1:30 in seconds
-    availableAgents: 2,
-    busyAgents: 3
-  }
-];
-
 export default function QueueStatusTable() {
-  const [queues, setQueues] = useState(dummyQueues);
+  const [queues, setQueues] = useState([]);
 
   useEffect(() => {
+    socket.on("connect", () => {
+      console.log("🔌 Connected to AMI Socket");
+    });
+
     socket.on("queueStatusUpdate", (data) => {
       console.log("🎧 Received queue data:", data);
-      if (data && data.length > 0) {
+      if (data && Array.isArray(data)) {
         setQueues(data);
       }
     });
 
-    return () => socket.off("queueStatusUpdate");
+    socket.on("disconnect", () => {
+      console.warn("❌ Disconnected from AMI Socket");
+    });
+
+    return () => {
+      socket.off("queueStatusUpdate");
+      socket.disconnect();
+    };
   }, []);
+
+  // Emit and post queue status to backend
+  const emitAndPostQueueStatus = (queueData) => {
+    socket.emit("queueStatusUpdate", queueData);
+
+    fetch("http://10.52.0.19:5070/api/queue-status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(queueData)
+    })
+      .then((res) => res.json())
+      .then((result) => {
+        console.log("✅ Queue status posted:", result);
+      })
+      .catch((err) => {
+        console.error("❌ Failed to POST queue status:", err);
+      });
+  };
+
+  // Test data trigger
+  const handleTestUpdate = () => {
+    const testData = [
+      {
+        queue: "Support Queue",
+        callers: Math.floor(Math.random() * 10),
+        longestWait: Math.floor(Math.random() * 300), // in seconds
+        availableAgents: Math.floor(Math.random() * 5),
+        busyAgents: Math.floor(Math.random() * 5)
+      }
+    ];
+    emitAndPostQueueStatus(testData);
+  };
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -64,35 +83,49 @@ export default function QueueStatusTable() {
         <MdOutlinePhoneInTalk />
         <h4>Queue Monitoring</h4>
       </div>
+
       <div className="queue-monitoring-table">
-        <table>
-          <thead>
-            <tr>
-              <th>Queue Name</th>
-              <th>Waiting Calls</th>
-              <th>Longest Wait</th>
-              <th>Agents Available</th>
-              <th>Agents Busy</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {queues.map((q, index) => (
-              <tr key={index}>
-                <td>{q.queue}</td>
-                <td>{q.callers}</td>
-                <td>{formatTime(q.longestWait)}</td>
-                <td>{q.availableAgents}</td>
-                <td>{q.busyAgents}</td>
-                <td>
-                  <span className={`status-${q.availableAgents > 0 ? 'active' : 'inactive'}`}>
-                    {q.availableAgents > 0 ? 'Active' : 'Inactive'}
-                  </span>
-                </td>
+        {queues.length > 0 ? (
+          <table>
+            <thead>
+              <tr>
+                <th>Queue Name</th>
+                <th>Waiting Calls</th>
+                <th>Longest Wait</th>
+                <th>Agents Available</th>
+                <th>Agents Busy</th>
+                <th>Status</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {queues.map((q, index) => (
+                <tr key={index}>
+                  <td>{q.queue}</td>
+                  <td>{q.callers}</td>
+                  <td>{formatTime(q.longestWait)}</td>
+                  <td>{q.availableAgents}</td>
+                  <td>{q.busyAgents}</td>
+                  <td>
+                    <span
+                      className={`status-${q.availableAgents > 0 ? "active" : "inactive"}`}
+                    >
+                      {q.availableAgents > 0 ? "Active" : "Inactive"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p>No queue data available.</p>
+        )}
+      </div>
+
+      {/* Test Button */}
+      <div style={{ marginTop: "1rem", textAlign: "center" }}>
+        <button onClick={handleTestUpdate} className="test-button">
+          Send Test Queue Status
+        </button>
       </div>
     </div>
   );

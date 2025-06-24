@@ -24,7 +24,7 @@ const AgentPerformanceScore = () => {
     unanswered: "4%",
     cs: "88%"
   };
-
+ 
   const renderMetricCard = (icon, title, individualValue, teamValue) => (
     <div className="metric-card">
       <div className="metric-icon">
