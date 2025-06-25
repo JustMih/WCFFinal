@@ -1,29 +1,133 @@
-import React from "react";
-import { FaSearch, FaFileExport, FaHeadphones, FaUserShield, FaComments, FaPlay } from "react-icons/fa";
+import React, { useState, useEffect } from "react";
+import { FaSearch, FaHeadphones, FaUserShield, FaComments, FaPlay } from "react-icons/fa";
 import "./LiveCallsCard.css";
 
 export default function LiveCallsCard({
   isLoading,
   searchTerm,
   onSearch,
-  onExport,
-  paginatedData,
-  getDurationColorClass,
-  handleListen,
-  handleIntervene,
-  handleWhisper,
-  handlePlayRecording,
   currentPage,
   totalPages,
   onPageChange
 }) {
+  const [liveCalls, setLiveCalls] = useState([]);
+  const [filteredLiveCalls, setFilteredLiveCalls] = useState([]);
+
+  // Define the functions to handle actions
+  const handleListen = async (callId) => {
+    console.log(`Listening to call ${callId}`);
+    try {
+      const response = await fetch(`http://10.52.0.19:5075/api/calls/${callId}/listen`, {
+        method: 'POST',
+      });
+      const data = await response.json();
+      console.log(data.message);
+    } catch (error) {
+      console.error(`Error listening to call ${callId}:`, error);
+    }
+  };
+
+  const handleIntervene = async (callId) => {
+    console.log(`Intervening in call ${callId}`);
+    try {
+      const response = await fetch(`http://10.52.0.19:5075/api/calls/${callId}/intervene`, {
+        method: 'POST',
+      });
+      const data = await response.json();
+      console.log(data.message);
+    } catch (error) {
+      console.error(`Error intervening in call ${callId}:`, error);
+    }
+  };
+
+  const handleWhisper = async (callId) => {
+    console.log(`Whispering to call ${callId}`);
+    try {
+      const response = await fetch(`http://10.52.0.19:5075/api/calls/${callId}/whisper`, {
+        method: 'POST',
+      });
+      const data = await response.json();
+      console.log(data.message);
+    } catch (error) {
+      console.error(`Error whispering to call ${callId}:`, error);
+    }
+  };
+
+  const handlePlayRecording = async (call) => {
+    console.log(`Playing recording for call ${call.id}`);
+    try {
+      const response = await fetch(`http://10.52.0.19:5075/api/calls/${call.id}/recording`);
+      const data = await response.json();
+      console.log('Recording URL:', data.recordingUrl);
+      // You can add functionality to play the recording using the URL
+    } catch (error) {
+      console.error(`Error playing recording for call ${call.id}:`, error);
+    }
+  };
+
+  // Fetch live calls data from the API
+  useEffect(() => {
+    const fetchLiveCalls = async () => {
+      try {
+        const response = await fetch('http://10.52.0.19:5075/api/call-summary');
+        const data = await response.json();
+        setLiveCalls(data); // Update the state with the live calls data
+      } catch (error) {
+        console.error("Error fetching live calls data:", error);
+      }
+    };
+
+    fetchLiveCalls();
+
+    // Set up interval for auto-refresh
+    const intervalId = setInterval(fetchLiveCalls, 10000); // 10 seconds
+
+    // Clean up interval on unmount
+    return () => clearInterval(intervalId);
+  }, []);
+
+  // Filter live calls based on search term
+  useEffect(() => {
+    const safeSearchTerm = typeof searchTerm === 'string' ? searchTerm.toLowerCase() : '';
+    const filtered = liveCalls.filter(call =>
+      (call.id?.toLowerCase?.().includes(safeSearchTerm)) ||
+      (call.agent?.toLowerCase?.().includes(safeSearchTerm)) ||
+      (call.customer?.toLowerCase?.().includes(safeSearchTerm)) ||
+      (call.callType?.toLowerCase?.().includes(safeSearchTerm))
+    );
+    setFilteredLiveCalls(filtered);
+  }, [liveCalls, searchTerm]);
+
+  // Ensure filtered data is used in pagination
+  const data = filteredLiveCalls.length > 0 ? filteredLiveCalls : liveCalls;
+
+  // Define the getDurationColorClass function
+  const getDurationColorClass = (duration) => {
+    if (!duration) return ''; // If duration is undefined or null, return empty string or handle accordingly
+    
+    // Ensure that the duration is a string before calling split
+    const durationStr = String(duration);
+
+    // Check if duration is in the correct format (e.g., "mm:ss")
+    const [minutes, seconds] = durationStr.split(':').map(Number);
+
+    const totalMinutes = minutes + (seconds / 60);
+
+    if (totalMinutes < 2) {
+      return 'duration-green';
+    } else if (totalMinutes < 5) {
+      return 'duration-yellow';
+    } else {
+      return 'duration-red';
+    }
+  };
+
   return (
     <div className="live-calls-table-container">
       <div className="live-calls-header">
         <h4>Live Calls {isLoading && <span className="loading-indicator">(Loading...)</span>}</h4>
         <div className="live-calls-actions">
           <div className="search-box">
-            <FaSearch className="search-icon" />
             <input
               type="text"
               placeholder="Search calls..."
@@ -32,9 +136,6 @@ export default function LiveCallsCard({
               className="search-input"
             />
           </div>
-          <button className="export-btn" onClick={onExport}>
-            <FaFileExport /> Export
-          </button>
         </div>
       </div>
       <div className="table-responsive">
@@ -46,68 +147,76 @@ export default function LiveCallsCard({
               <th>Customer</th>
               <th>Status</th>
               <th>Duration</th>
-              <th>Queue Time</th>
+              {/* <th>Queue Time</th> */}
               <th>Call Type</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {paginatedData.map((call) => (
-              <tr key={call.id}>
-                <td className="call-id">{call.id}</td>
-                <td className="agent-name">{call.agent}</td>
-                <td className="customer-number">{call.customer}</td>
-                <td>
-                  <span className={`status-badge ${call.status.toLowerCase()}`}>
-                    {call.status}
-                  </span>
-                </td>
-                <td>
-                  <span className={`duration-badge ${getDurationColorClass(call.duration)}`}>
-                    {call.duration}
-                  </span>
-                </td>
-                <td className="queue-time">{call.queueTime}</td>
-                <td className="call-type">{call.callType}</td>
-                <td>
-                  <div className="action-buttons">
-                    <button
-                      className="action-button listen"
-                      onClick={() => handleListen(call.id)}
-                      disabled={call.status === "COMPLETED"}
-                      title="Listen"
-                    >
-                      <FaHeadphones />
-                    </button>
-                    <button
-                      className="action-button intervene"
-                      onClick={() => handleIntervene(call.id)}
-                      disabled={call.status === "COMPLETED"}
-                      title="Intervene"
-                    >
-                      <FaUserShield />
-                    </button>
-                    <button
-                      className="action-button whisper"
-                      onClick={() => handleWhisper(call.id)}
-                      disabled={call.status === "COMPLETED"}
-                      title="Whisper"
-                    >
-                      <FaComments />
-                    </button>
-                    {call.status === "COMPLETED" && (
+            {data.length > 0 ? (
+              data.map((call) => (
+                <tr key={call.id}>
+                  <td className="call-id">{call.id}</td>
+                  <td className="agent-name">{call.agent}</td>
+                  <td className="customer-number">{call.customer}</td>
+                  <td>
+                    <span className={`status-badge ${call.status ? call.status.toLowerCase() : ''}`}>
+                      {call.status || 'N/A'}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`duration-badge ${getDurationColorClass(call.duration)}`}>
+                      {call.duration}
+                    </span>
+                  </td>
+                  {/* <td className="queue-time">{call.queueTime}</td> */}
+                  <td className="call-type">{call.callType}</td>
+                  <td>
+                    <div className="action-buttons">
                       <button
-                        className="action-button play"
-                        onClick={() => handlePlayRecording(call)}
-                        title="Play Recording"
+                        className="action-button listen"
+                        onClick={() => handleListen(call.id)}
+                        disabled={call.status === "COMPLETED"}
+                        title="Listen"
                       >
-                        <FaPlay />
+                        <FaHeadphones />
                       </button>
-                    )}
-                  </div>
+                      <button
+                        className="action-button intervene"
+                        onClick={() => handleIntervene(call.id)}
+                        disabled={call.status === "COMPLETED"}
+                        title="Intervene"
+                      >
+                        <FaUserShield />
+                      </button>
+                      <button
+                        className="action-button whisper"
+                        onClick={() => handleWhisper(call.id)}
+                        disabled={call.status === "COMPLETED"}
+                        title="Whisper"
+                      >
+                        <FaComments />
+                      </button>
+                      {call.status === "COMPLETED" && (
+                        <button
+                          className="action-button play"
+                          onClick={() => handlePlayRecording(call)}
+                          title="Play Recording"
+                        >
+                          <FaPlay />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="8" className="no-data">
+                  No live calls available.
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>
@@ -135,4 +244,4 @@ export default function LiveCallsCard({
       )}
     </div>
   );
-} 
+}

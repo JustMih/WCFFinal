@@ -40,6 +40,8 @@ import {
   FaStop
 } from "react-icons/fa";
 import "./supervisorDashboard.css";
+import LiveCallsCard from "../../../../components/supervisor-dashboard/LiveCallsCard";
+import CallQueueCard from "../../../../components/supervisor-dashboard/CallQueueCard";
 
 // Register chart.js components
 ChartJS.register(
@@ -322,7 +324,7 @@ export default function SupervisorDashboard2() {
   const [liveCalls, setLiveCalls] = useState(dummyLiveCalls);
   const [slaMetrics, setSlaMetrics] = useState(dummySlaMetrics);
   const [isLoading, setIsLoading] = useState(true);
-  const [queueData, setQueueData] = useState(dummyQueueData);
+  const [queueData, setQueueData] = useState(null);
   const [qualityData, setQualityData] = useState(dummyQualityData);
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredLiveCalls, setFilteredLiveCalls] = useState([]);
@@ -330,16 +332,6 @@ export default function SupervisorDashboard2() {
   const itemsPerPage = 20;
 
   // Add new state for filters
-  const [filters, setFilters] = useState({
-    startDate: '',
-    endDate: '',
-    agent: '',
-    callType: '',
-    searchQuery: ''
-  });
-
-  const [showFilters, setShowFilters] = useState(false);
-  const [agents, setAgents] = useState([]); // Will be populated from API
   const [showAlerts, setShowAlerts] = useState(false);
   const [alerts, setAlerts] = useState(dummyAlerts);
 
@@ -382,13 +374,13 @@ export default function SupervisorDashboard2() {
   // Add queue data fetching
   const fetchQueueData = async () => {
     try {
-      const response = await fetch(`${baseURL}/calls/queue-status`);
+      const response = await fetch('http://10.52.0.19:5075/api/queue-call-stats');
+      if (!response.ok) throw new Error('Failed to fetch queue data');
       const data = await response.json();
       setQueueData(data);
     } catch (error) {
-      console.error("Error fetching queue data:", error);
-      // Keep using dummy data if API call fails
-      setQueueData(dummyQueueData);
+      console.error('Error fetching queue data:', error);
+      setQueueData(null);
     }
   };
 
@@ -519,14 +511,6 @@ export default function SupervisorDashboard2() {
   };
 
   // Add filter handlers
-  const handleFilterChange = (e) => {
-    const { name, value } = e.target;
-    setFilters(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
-
   const handleSearch = (e) => {
     const searchValue = e.target.value.toLowerCase();
     setSearchTerm(searchValue);
@@ -538,16 +522,6 @@ export default function SupervisorDashboard2() {
       call.callType.toLowerCase().includes(searchValue)
     );
     setFilteredLiveCalls(filtered);
-  };
-
-  const clearFilters = () => {
-    setFilters({
-      startDate: '',
-      endDate: '',
-      agent: '',
-      callType: '',
-      searchQuery: ''
-    });
   };
 
   // Add export handler
@@ -603,114 +577,6 @@ export default function SupervisorDashboard2() {
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm]);
-
-  // Add filter bar component
-  const FilterBar = () => (
-    <div className="filter-bar">
-      <div className="filter-header">
-        <h4>
-          <FaFilter className="section-icon" />
-          Advanced Filters
-        </h4>
-        <button 
-          className="toggle-filters-btn"
-          onClick={() => setShowFilters(!showFilters)}
-        >
-          {showFilters ? 'Hide Filters' : 'Show Filters'}
-        </button>
-      </div>
-
-      {showFilters && (
-        <form onSubmit={handleSearch} className="filter-form">
-          <div className="filter-row">
-            <div className="filter-group">
-              <label>
-                <FaCalendarAlt className="filter-icon" />
-                Date Range
-              </label>
-              <div className="date-inputs">
-                <input
-                  type="date"
-                  name="startDate"
-                  value={filters.startDate}
-                  onChange={handleFilterChange}
-                  placeholder="Start Date"
-                />
-                <input
-                  type="date"
-                  name="endDate"
-                  value={filters.endDate}
-                  onChange={handleFilterChange}
-                  placeholder="End Date"
-                />
-              </div>
-            </div>
-
-            <div className="filter-group">
-              <label>
-                <FaUser className="filter-icon" />
-                Agent
-              </label>
-              <select
-                name="agent"
-                value={filters.agent}
-                onChange={handleFilterChange}
-              >
-                <option value="">All Agents</option>
-                {agents.map(agent => (
-                  <option key={agent.id} value={agent.id}>
-                    {agent.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="filter-group">
-              <label>
-                <FaPhone className="filter-icon" />
-                Call Type
-              </label>
-              <select
-                name="callType"
-                value={filters.callType}
-                onChange={handleFilterChange}
-              >
-                <option value="">All Types</option>
-                <option value="inbound">Inbound</option>
-                <option value="outbound">Outbound</option>
-                <option value="internal">Internal</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="filter-row">
-            <div className="search-group">
-              <label>
-                <FaSearch className="filter-icon" />
-                Search
-              </label>
-              <input
-                type="text"
-                name="searchQuery"
-                value={filters.searchQuery}
-                onChange={handleFilterChange}
-                placeholder="Search by Call ID or Customer Number"
-              />
-            </div>
-
-            <div className="filter-actions">
-              <button type="submit" className="search-btn">
-                <FaSearch /> Search
-              </button>
-              <button type="button" className="clear-btn" onClick={clearFilters}>
-                Clear Filters
-              </button>
-            </div>
-          </div>
-        </form>
-      )}
-    </div>
-  );
 
   // Add alert handlers
   const handleDismissAlert = (alertId) => {
@@ -825,81 +691,8 @@ export default function SupervisorDashboard2() {
         </div>
       </div>
 
-      {/* Add Filter Bar */}
-      <FilterBar />
-
       {/* Queue Monitoring Section */}
-      <div className="queue-monitoring-section">
-        <h4>Call Queue Monitoring</h4>
-        <div className="queue-stats">
-          <div className="queue-stat-card">
-            <div className="queue-stat-icon">
-              <FaUsers />
-            </div>
-            <div className="queue-stat-info">
-              <span className="queue-stat-value">{queueData.totalInQueue}</span>
-              <span className="queue-stat-label">Calls in Queue</span>
-            </div>
-          </div>
-          <div className="queue-stat-card">
-            <div className="queue-stat-icon">
-              <FaClock />
-            </div>
-            <div className="queue-stat-info">
-              <span className="queue-stat-value">{queueData.averageWaitTime}</span>
-              <span className="queue-stat-label">Avg Wait Time</span>
-            </div>
-          </div>
-          <div className="queue-stat-card">
-            <div className="queue-stat-icon">
-              <FaExclamationTriangle />
-            </div>
-            <div className="queue-stat-info">
-              <span className="queue-stat-value">{queueData.priorityCalls}</span>
-              <span className="queue-stat-label">Priority Calls</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="table-responsive">
-          <table className="waiting-calls-table">
-            <thead>
-              <tr>
-                <th>Queue ID</th>
-                <th>Customer</th>
-                <th>Wait Time</th>
-                <th>Priority</th>
-                <th>Call Type</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {queueData.waitingCalls.map((call) => (
-                <tr key={call.id}>
-                  <td className="queue-id">{call.id}</td>
-                  <td className="customer-number">{call.customer}</td>
-                  <td>
-                    <span className={`wait-time-badge ${getWaitTimeClass(call.waitTime)}`}>
-                      {call.waitTime}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`priority-badge ${call.priority.toLowerCase()}`}>
-                      {call.priority}
-                    </span>
-                  </td>
-                  <td className="call-type">{call.callType}</td>
-                  <td>
-                    <span className={`status-badge ${getQueueCallStatus(call).toLowerCase()}`}>
-                      {getQueueCallStatus(call)}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <CallQueueCard />
 
       {/* SLA Metrics Cards */}
       <div className="call-center-agent-summary">
@@ -947,121 +740,7 @@ export default function SupervisorDashboard2() {
 
       {/* Live Calls Table */}
       <div className="live-calls-table-container">
-        <div className="live-calls-header">
-          <h4>Live Calls {isLoading && <span className="loading-indicator">(Loading...)</span>}</h4>
-          <div className="live-calls-actions">
-            <div className="search-box">
-              <FaSearch className="search-icon" />
-              <input
-                type="text"
-                placeholder="Search calls..."
-                value={searchTerm}
-                onChange={handleSearch}
-                className="search-input"
-              />
-            </div>
-            <button className="export-btn" onClick={handleExport}>
-              <FaFileExport /> Export
-            </button>
-          </div>
-        </div>
-        <div className="table-responsive">
-          <table className="live-calls-table">
-            <thead>
-              <tr>
-                <th>Call ID</th>
-                <th>Agent</th>
-                <th>Customer</th>
-                <th>Status</th>
-                <th>Duration</th>
-                <th>Queue Time</th>
-                <th>Call Type</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {getPaginatedData().map((call) => (
-                <tr key={call.id}>
-                  <td className="call-id">{call.id}</td>
-                  <td className="agent-name">{call.agent}</td>
-                  <td className="customer-number">{call.customer}</td>
-                  <td>
-                    <span className={`status-badge ${call.status.toLowerCase()}`}>
-                      {call.status}
-                    </span>
-                  </td>
-                  <td>
-                    <span className={`duration-badge ${getDurationColorClass(call.duration)}`}>
-                      {call.duration}
-                    </span>
-                  </td>
-                  <td className="queue-time">{call.queueTime}</td>
-                  <td className="call-type">{call.callType}</td>
-                  <td>
-                    <div className="action-buttons">
-                      <button
-                        className="action-button listen"
-                        onClick={() => handleListen(call.id)}
-                        disabled={call.status === "COMPLETED"}
-                        title="Listen"
-                      >
-                        <FaHeadphones />
-                      </button>
-                      <button
-                        className="action-button intervene"
-                        onClick={() => handleIntervene(call.id)}
-                        disabled={call.status === "COMPLETED"}
-                        title="Intervene"
-                      >
-                        <FaUserShield />
-                      </button>
-                      <button
-                        className="action-button whisper"
-                        onClick={() => handleWhisper(call.id)}
-                        disabled={call.status === "COMPLETED"}
-                        title="Whisper"
-                      >
-                        <FaComments />
-                      </button>
-                      {call.status === "COMPLETED" && (
-                        <button
-                          className="action-button play"
-                          onClick={() => handlePlayRecording(call)}
-                          title="Play Recording"
-                        >
-                          <FaPlay />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="pagination">
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(currentPage - 1)}
-              disabled={currentPage === 1}
-            >
-              Previous
-            </button>
-            <div className="pagination-info">
-              Page {currentPage} of {totalPages}
-            </div>
-            <button
-              className="pagination-btn"
-              onClick={() => handlePageChange(currentPage + 1)}
-              disabled={currentPage === totalPages}
-            >
-              Next
-            </button>
-          </div>
-        )}
+      <LiveCallsCard />
       </div>
 
       {/* Quality Monitoring Section */}
