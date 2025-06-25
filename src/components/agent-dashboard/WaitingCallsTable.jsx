@@ -6,8 +6,10 @@ import PropTypes from "prop-types";
 import "./WaitingCallsTable.css";
 import * as XLSX from "xlsx";
 
+import { amiURL } from "../../config";
 
-const API_URL = "http://10.52.0.19:5075/api/queue-call-stats";
+
+const API_URL = `${amiURL}/api/queue-call-stats`;
 
 export default function WaitingCallsTable() {
   const [waitingCalls, setWaitingCalls] = useState([]);

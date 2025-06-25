@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { FaUsers, FaClock, FaExclamationTriangle } from "react-icons/fa";
 import "./CallQueueCard.css";
+import { amiURL } from "../../config";
 
 // Helper function for wait time color coding
 const getWaitTimeClass = (waitTime) => {
@@ -29,7 +30,7 @@ const CallQueueCard = () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch("http://10.52.0.19:5075/api/queue-call-stats");
+      const response = await fetch(`${amiURL}/api/queue-call-stats`);
       if (!response.ok) throw new Error("Failed to fetch queue data");
       const data = await response.json();
       setQueueData(data);

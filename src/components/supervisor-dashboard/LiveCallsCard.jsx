@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { FaSearch, FaHeadphones, FaUserShield, FaComments, FaPlay } from "react-icons/fa";
 import "./LiveCallsCard.css";
+import { amiURL } from "../../config";
 
 export default function LiveCallsCard({
   isLoading,
@@ -17,7 +18,7 @@ export default function LiveCallsCard({
   const handleListen = async (callId) => {
     console.log(`Listening to call ${callId}`);
     try {
-      const response = await fetch(`http://10.52.0.19:5075/api/calls/${callId}/listen`, {
+      const response = await fetch(`${amiURL}/api/calls/${callId}/listen`, {
         method: 'POST',
       });
       const data = await response.json();
@@ -30,7 +31,7 @@ export default function LiveCallsCard({
   const handleIntervene = async (callId) => {
     console.log(`Intervening in call ${callId}`);
     try {
-      const response = await fetch(`http://10.52.0.19:5075/api/calls/${callId}/intervene`, {
+      const response = await fetch(`${amiURL}/api/calls/${callId}/intervene`, {
         method: 'POST',
       });
       const data = await response.json();
@@ -43,7 +44,7 @@ export default function LiveCallsCard({
   const handleWhisper = async (callId) => {
     console.log(`Whispering to call ${callId}`);
     try {
-      const response = await fetch(`http://10.52.0.19:5075/api/calls/${callId}/whisper`, {
+      const response = await fetch(`${amiURL}/api/calls/${callId}/whisper`, {
         method: 'POST',
       });
       const data = await response.json();
@@ -56,7 +57,7 @@ export default function LiveCallsCard({
   const handlePlayRecording = async (call) => {
     console.log(`Playing recording for call ${call.id}`);
     try {
-      const response = await fetch(`http://10.52.0.19:5075/api/calls/${call.id}/recording`);
+      const response = await fetch(`${amiURL}/api/calls/${call.id}/recording`);
       const data = await response.json();
       console.log('Recording URL:', data.recordingUrl);
       // You can add functionality to play the recording using the URL
@@ -69,7 +70,7 @@ export default function LiveCallsCard({
   useEffect(() => {
     const fetchLiveCalls = async () => {
       try {
-        const response = await fetch('http://10.52.0.19:5075/api/call-summary');
+        const response = await fetch(`${amiURL}/api/call-summary`);
         const data = await response.json();
         setLiveCalls(data); // Update the state with the live calls data
       } catch (error) {
@@ -147,7 +148,6 @@ export default function LiveCallsCard({
               <th>Customer</th>
               <th>Status</th>
               <th>Duration</th>
-              {/* <th>Queue Time</th> */}
               <th>Call Type</th>
               <th>Actions</th>
             </tr>
@@ -169,7 +169,6 @@ export default function LiveCallsCard({
                       {call.duration}
                     </span>
                   </td>
-                  {/* <td className="queue-time">{call.queueTime}</td> */}
                   <td className="call-type">{call.callType}</td>
                   <td>
                     <div className="action-buttons">

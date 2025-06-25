@@ -3,5 +3,5 @@
 
 // on test server
 export const baseURL = "https://10.52.0.19/api";
-// 
+export const amiURL = "https://10.52.0.19/ami";
  
