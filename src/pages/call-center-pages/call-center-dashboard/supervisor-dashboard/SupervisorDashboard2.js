@@ -141,46 +141,6 @@ const dummyQueueData = {
   ]
 };
 
-// Add dummy quality monitoring data
-const dummyQualityData = {
-  overallQualityScore: 85,
-  complianceScore: 92,
-  trainingNeeds: [
-    {
-      agentId: "AG001",
-      agentName: "John Smith",
-      area: "Product Knowledge",
-      priority: "High",
-      lastTraining: "2024-02-15"
-    },
-    {
-      agentId: "AG002",
-      agentName: "Sarah Johnson",
-      area: "Call Handling",
-      priority: "Medium",
-      lastTraining: "2024-02-20"
-    }
-  ],
-  recentEvaluations: [
-    {
-      callId: "CALL001",
-      agentName: "John Smith",
-      date: "2024-03-10",
-      qualityScore: 88,
-      complianceScore: 95,
-      notes: "Good customer interaction, needs improvement in product knowledge"
-    },
-    {
-      callId: "CALL002",
-      agentName: "Sarah Johnson",
-      date: "2024-03-10",
-      qualityScore: 82,
-      complianceScore: 90,
-      notes: "Excellent compliance, could improve call resolution time"
-    }
-  ]
-};
-
 // Add dummy alerts data
 const dummyAlerts = [
   {
@@ -217,66 +177,6 @@ const dummyAlerts = [
   }
 ];
 
-// Add dummy data for quality assurance tools
-const dummyQualityTools = {
-  recentRecordings: [
-    {
-      id: "REC001",
-      callId: "CALL001",
-      agentName: "John Smith",
-      customer: "+254 712 345 678",
-      date: "2024-03-10",
-      duration: "05:30",
-      qualityScore: 88
-    },
-    {
-      id: "REC002",
-      callId: "CALL002",
-      agentName: "Sarah Johnson",
-      customer: "+254 723 456 789",
-      date: "2024-03-10",
-      duration: "03:45",
-      qualityScore: 92
-    }
-  ],
-  evaluationTemplates: [
-    {
-      id: "TEMP001",
-      name: "Standard Customer Service",
-      categories: ["Greeting", "Problem Resolution", "Product Knowledge", "Closing"],
-      lastUpdated: "2024-03-01"
-    },
-    {
-      id: "TEMP002",
-      name: "Technical Support",
-      categories: ["Technical Accuracy", "Troubleshooting", "Documentation", "Customer Education"],
-      lastUpdated: "2024-03-05"
-    }
-  ],
-  qualityTrends: {
-    labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun"],
-    scores: [82, 85, 87, 84, 88, 90]
-  },
-  trainingRecommendations: [
-    {
-      agentId: "AG001",
-      agentName: "John Smith",
-      area: "Product Knowledge",
-      priority: "High",
-      reason: "Multiple product-related questions unanswered",
-      recommendedTraining: "Product Update Workshop"
-    },
-    {
-      agentId: "AG002",
-      agentName: "Sarah Johnson",
-      area: "Call Handling",
-      priority: "Medium",
-      reason: "Longer than average handle time",
-      recommendedTraining: "Efficiency Techniques"
-    }
-  ]
-};
-
 // Helper function for wait time color coding
 const getWaitTimeClass = (waitTime) => {
   const [minutes, seconds] = waitTime.split(':').map(Number);
@@ -289,22 +189,6 @@ const getWaitTimeClass = (waitTime) => {
   } else {
     return 'wait-time-critical';
   }
-};
-
-// Helper function for quality score color coding
-const getQualityScoreClass = (score) => {
-  if (score >= 90) return 'score-excellent';
-  if (score >= 80) return 'score-good';
-  if (score >= 70) return 'score-fair';
-  return 'score-poor';
-};
-
-// Helper function for compliance score color coding
-const getComplianceScoreClass = (score) => {
-  if (score >= 95) return 'score-excellent';
-  if (score >= 85) return 'score-good';
-  if (score >= 75) return 'score-fair';
-  return 'score-poor';
 };
 
 // Helper function for queue call status
@@ -325,7 +209,6 @@ export default function SupervisorDashboard2() {
   const [slaMetrics, setSlaMetrics] = useState(dummySlaMetrics);
   const [isLoading, setIsLoading] = useState(true);
   const [queueData, setQueueData] = useState(null);
-  const [qualityData, setQualityData] = useState(dummyQualityData);
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredLiveCalls, setFilteredLiveCalls] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -334,13 +217,6 @@ export default function SupervisorDashboard2() {
   // Add new state for filters
   const [showAlerts, setShowAlerts] = useState(false);
   const [alerts, setAlerts] = useState(dummyAlerts);
-
-  // Add new state variables
-  const [qualityTools, setQualityTools] = useState(dummyQualityTools);
-  const [selectedRecording, setSelectedRecording] = useState(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [selectedTemplate, setSelectedTemplate] = useState(null);
 
   // Fetch data from the API
   const fetchData = async () => {
@@ -384,19 +260,6 @@ export default function SupervisorDashboard2() {
     }
   };
 
-  // Add quality data fetching
-  const fetchQualityData = async () => {
-    try {
-      const response = await fetch(`${baseURL}/calls/quality-metrics`);
-      const data = await response.json();
-      setQualityData(data);
-    } catch (error) {
-      console.error("Error fetching quality data:", error);
-      // Keep using dummy data if API call fails
-      setQualityData(dummyQualityData);
-    }
-  };
-
   // Add alert fetching
   const fetchAlerts = async () => {
     try {
@@ -410,30 +273,14 @@ export default function SupervisorDashboard2() {
     }
   };
 
-  // Add quality tools fetching
-  const fetchQualityTools = async () => {
-    try {
-      const response = await fetch(`${baseURL}/quality/tools`);
-      const data = await response.json();
-      setQualityTools(data);
-    } catch (error) {
-      console.error("Error fetching quality tools:", error);
-      setQualityTools(dummyQualityTools);
-    }
-  };
-
   useEffect(() => {
     fetchData();
     fetchQueueData();
-    fetchQualityData();
     fetchAlerts();
-    fetchQualityTools();
     const interval = setInterval(() => {
       fetchData();
       fetchQueueData();
-      fetchQualityData();
       fetchAlerts();
-      fetchQualityTools();
     }, 10000);
     return () => clearInterval(interval);
   }, []);
@@ -467,47 +314,6 @@ export default function SupervisorDashboard2() {
         tension: 0.1,
       },
     ],
-  };
-
-  // Action handlers
-  const handleIntervene = (callId) => {
-    console.log(`Intervening in call ${callId}`);
-    // TODO: Implement intervene functionality
-    alert(`Intervening in call ${callId}`);
-  };
-
-  const handleWhisper = (callId) => {
-    console.log(`Whispering to call ${callId}`);
-    // TODO: Implement whisper functionality
-    alert(`Whispering to call ${callId}`);
-  };
-
-  const handleListen = (callId) => {
-    console.log(`Listening to call ${callId}`);
-    // TODO: Implement listen functionality
-    alert(`Listening to call ${callId}`);
-  };
-
-  const handlePlayRecording = (recording) => {
-    setSelectedRecording(recording);
-    setIsPlaying(true);
-    // TODO: Implement actual audio playback
-    console.log(`Playing recording ${recording.id}`);
-  };
-
-  const handlePauseRecording = () => {
-    setIsPlaying(false);
-    // TODO: Implement actual audio pause
-  };
-
-  const handleStopRecording = () => {
-    setIsPlaying(false);
-    setCurrentTime(0);
-    // TODO: Implement actual audio stop
-  };
-
-  const handleTimeUpdate = (time) => {
-    setCurrentTime(time);
   };
 
   // Add filter handlers
@@ -615,11 +421,6 @@ export default function SupervisorDashboard2() {
       default:
         return '';
     }
-  };
-
-  // Add template selection handler
-  const handleTemplateSelect = (template) => {
-    setSelectedTemplate(template);
   };
 
   return (
@@ -741,262 +542,6 @@ export default function SupervisorDashboard2() {
       {/* Live Calls Table */}
       <div className="live-calls-table-container">
       <LiveCallsCard />
-      </div>
-
-      {/* Quality Monitoring Section */}
-      <div className="quality-monitoring-section">
-        <h4>Quality Monitoring</h4>
-        
-        {/* Quality Score Cards */}
-        <div className="quality-stats">
-          <div className="quality-stat-card">
-            <div className="quality-stat-icon">
-              <FaChartLine />
-            </div>
-            <div className="quality-stat-info">
-              <span className="quality-stat-value">{qualityData.overallQualityScore}%</span>
-              <span className="quality-stat-label">Overall Quality Score</span>
-            </div>
-          </div>
-          <div className="quality-stat-card">
-            <div className="quality-stat-icon">
-              <FaClipboardCheck />
-            </div>
-            <div className="quality-stat-info">
-              <span className="quality-stat-value">{qualityData.complianceScore}%</span>
-              <span className="quality-stat-label">Compliance Score</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Training Needs Section */}
-        <div className="training-needs-section">
-          <h5>
-            <FaGraduationCap className="section-icon" />
-            Training Needs
-          </h5>
-          <div className="table-responsive">
-            <table className="training-needs-table">
-              <thead>
-                <tr>
-                  <th>Agent ID</th>
-                  <th>Agent Name</th>
-                  <th>Area</th>
-                  <th>Priority</th>
-                  <th>Last Training</th>
-                </tr>
-              </thead>
-              <tbody>
-                {qualityData.trainingNeeds.map((need) => (
-                  <tr key={need.agentId}>
-                    <td className="agent-id">{need.agentId}</td>
-                    <td className="agent-name">{need.agentName}</td>
-                    <td className="training-area">{need.area}</td>
-                    <td>
-                      <span className={`priority-badge ${need.priority.toLowerCase()}`}>
-                        {need.priority}
-                      </span>
-                    </td>
-                    <td className="last-training">{need.lastTraining}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Recent Evaluations */}
-        <div className="recent-evaluations-section">
-          <h5>
-            <FaCheckCircle className="section-icon" />
-            Recent Evaluations
-          </h5>
-          <div className="table-responsive">
-            <table className="evaluations-table">
-              <thead>
-                <tr>
-                  <th>Call ID</th>
-                  <th>Agent</th>
-                  <th>Date</th>
-                  <th>Quality Score</th>
-                  <th>Compliance</th>
-                  <th>Notes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {qualityData.recentEvaluations.map((evaluation) => (
-                  <tr key={evaluation.callId}>
-                    <td className="call-id">{evaluation.callId}</td>
-                    <td className="agent-name">{evaluation.agentName}</td>
-                    <td className="evaluation-date">{evaluation.date}</td>
-                    <td>
-                      <span className={`quality-score ${getQualityScoreClass(evaluation.qualityScore)}`}>
-                        {evaluation.qualityScore}%
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`compliance-score ${getComplianceScoreClass(evaluation.complianceScore)}`}>
-                        {evaluation.complianceScore}%
-                      </span>
-                    </td>
-                    <td className="evaluation-notes">{evaluation.notes}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      {/* Quality Assurance Tools Section */}
-      <div className="quality-assurance-section">
-        <h4>
-          <FaHeadphones className="section-icon" />
-          Quality Assurance Tools
-        </h4>
-
-        <div className="quality-tools-grid">
-          {/* Call Recording Playback */}
-          <div className="recording-playback-card">
-            <h5>Call Recording Playback</h5>
-            {selectedRecording ? (
-              <div className="recording-player">
-                <div className="recording-info">
-                  <span className="recording-agent">{selectedRecording.agentName}</span>
-                  <span className="recording-customer">{selectedRecording.customer}</span>
-                  <span className="recording-date">{selectedRecording.date}</span>
-                </div>
-                <div className="playback-controls">
-                  <button 
-                    className="playback-btn"
-                    onClick={isPlaying ? handlePauseRecording : handlePlayRecording}
-                  >
-                    {isPlaying ? <FaPause /> : <FaPlay />}
-                  </button>
-                  <button 
-                    className="playback-btn"
-                    onClick={handleStopRecording}
-                  >
-                    <FaStop />
-                  </button>
-                  <div className="playback-progress">
-                    <div 
-                      className="progress-bar"
-                      style={{ width: `${(currentTime / selectedRecording.duration) * 100}%` }}
-                    />
-                  </div>
-                  <span className="playback-time">
-                    {currentTime} / {selectedRecording.duration}
-                  </span>
-                </div>
-              </div>
-            ) : (
-              <div className="recordings-list">
-                {qualityTools.recentRecordings.map(recording => (
-                  <div 
-                    key={recording.id}
-                    className="recording-item"
-                    onClick={() => handlePlayRecording(recording)}
-                  >
-                    <div className="recording-details">
-                      <span className="recording-agent">{recording.agentName}</span>
-                      <span className="recording-customer">{recording.customer}</span>
-                      <span className="recording-date">{recording.date}</span>
-                    </div>
-                    <div className="recording-metrics">
-                      <span className="recording-duration">{recording.duration}</span>
-                      <span className={`quality-score ${getQualityScoreClass(recording.qualityScore)}`}>
-                        {recording.qualityScore}%
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Evaluation Templates */}
-          <div className="evaluation-templates-card">
-            <h5>Evaluation Templates</h5>
-            <div className="templates-list">
-              {qualityTools.evaluationTemplates.map(template => (
-                <div 
-                  key={template.id}
-                  className={`template-item ${selectedTemplate?.id === template.id ? 'selected' : ''}`}
-                  onClick={() => handleTemplateSelect(template)}
-                >
-                  <div className="template-header">
-                    <span className="template-name">{template.name}</span>
-                    <span className="template-date">Updated: {template.lastUpdated}</span>
-                  </div>
-                  <div className="template-categories">
-                    {template.categories.map((category, index) => (
-                      <span key={index} className="category-tag">{category}</span>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Quality Score Trends */}
-          <div className="quality-trends-card">
-            <h5>Quality Score Trends</h5>
-            <div className="trends-chart">
-              <Line
-                data={{
-                  labels: qualityTools.qualityTrends.labels,
-                  datasets: [{
-                    label: 'Quality Score',
-                    data: qualityTools.qualityTrends.scores,
-                    borderColor: '#1890ff',
-                    tension: 0.4,
-                    fill: false
-                  }]
-                }}
-                options={{
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  scales: {
-                    y: {
-                      beginAtZero: false,
-                      min: 70,
-                      max: 100
-                    }
-                  }
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Training Recommendations */}
-          <div className="training-recommendations-card">
-            <h5>Training Recommendations</h5>
-            <div className="recommendations-list">
-              {qualityTools.trainingRecommendations.map(recommendation => (
-                <div key={recommendation.agentId} className="recommendation-item">
-                  <div className="recommendation-header">
-                    <span className="agent-name">{recommendation.agentName}</span>
-                    <span className={`priority-badge ${recommendation.priority.toLowerCase()}`}>
-                      {recommendation.priority}
-                    </span>
-                  </div>
-                  <div className="recommendation-details">
-                    <div className="recommendation-area">
-                      <strong>Area:</strong> {recommendation.area}
-                    </div>
-                    <div className="recommendation-reason">
-                      <strong>Reason:</strong> {recommendation.reason}
-                    </div>
-                    <div className="recommendation-training">
-                      <strong>Recommended Training:</strong> {recommendation.recommendedTraining}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
       </div>
     </div>
   );
