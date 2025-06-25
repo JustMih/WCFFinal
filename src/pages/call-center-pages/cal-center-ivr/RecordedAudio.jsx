@@ -244,6 +244,7 @@ const RecordedAudio = () => {
               <th>Caller</th>
               <th>Created</th>
               <th>Status</th>
+              <th>Type</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -259,7 +260,8 @@ const RecordedAudio = () => {
                   <td>{rec.caller}</td>
                   <td>{new Date(rec.cdrstarttime).toLocaleString()}</td>
                   <td>{isPlayed ? 'Played' : 'Not Played'}</td>
-                  <td>
+                  <td>{rec.status || 'N/A'}</td>
+                <td>
                     <button className="btn btn-play" onClick={() => handlePlay(rec)}>Play</button>
                     {isPlaying && (
                       <button className="btn btn-pause" onClick={handlePause} style={{ marginLeft: '5px' }}>
