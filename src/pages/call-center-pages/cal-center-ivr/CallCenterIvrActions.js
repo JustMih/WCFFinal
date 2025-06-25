@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { baseURL } from "../../../config";
 
-const DTMF_KEYS = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"];
+const DTMF_KEYS = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9","10"];
 
 export default function CallCenterIvrActions() {
   const [voices, setVoices] = useState([]);
@@ -12,7 +12,9 @@ export default function CallCenterIvrActions() {
   const [showMappings, setShowMappings] = useState(false);
   const [editItem, setEditItem] = useState(null);
   const [language, setLanguage] = useState("english");
-
+  const [menuContext, setMenuContext] = useState("");  // NEW
+  const MENU_CONTEXT_OPTIONS = ["english-menu", "swahili-menu", "general", "inbound"]; // Extend as needed
+  
   // Fetch voices and actions
   useEffect(() => {
     fetch(`${baseURL}/ivr/voices`)
@@ -87,6 +89,7 @@ const filledMappings = DTMF_KEYS.map(key => {
       parameter: m.parameter,
       ivr_voice_id: selectedVoice,
       language: language,
+      menu_context: menuContext, 
     }));
 
     try {
@@ -195,6 +198,13 @@ const filledMappings = DTMF_KEYS.map(key => {
               <option value="english">English</option>
               <option value="swahili">Swahili</option>
             </select>
+            <label>Select Menu Context: </label>
+          <select value={menuContext} onChange={e => setMenuContext(e.target.value)}>
+            <option value="">-- select --</option>
+            {MENU_CONTEXT_OPTIONS.map(opt => (
+              <option key={opt} value={opt}>{opt}</option>
+            ))}
+          </select>
 
           </div>
 

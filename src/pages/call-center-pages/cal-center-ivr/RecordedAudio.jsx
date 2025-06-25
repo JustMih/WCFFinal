@@ -258,11 +258,7 @@ const RecordedAudio = () => {
                   <td>{indexOfFirst + index + 1}</td>
                   <td>{rec.filename}</td>
                   <td>{rec.caller}</td>
-<<<<<<< HEAD
-                  <td>{new Date(rec.created_at).toLocaleString()}</td>
-=======
                   <td>{new Date(rec.cdrstarttime).toLocaleString()}</td>
->>>>>>> main
                   <td>{isPlayed ? 'Played' : 'Not Played'}</td>
                   <td>{rec.status || 'N/A'}</td>
                 <td>
