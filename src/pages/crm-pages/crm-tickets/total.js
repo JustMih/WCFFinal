@@ -286,9 +286,9 @@ export default function Crm() {
             <FaEye />
           </button>
         </Tooltip>
-        <IconButton onClick={() => openHistoryModal(ticket)}>
+        {/* <IconButton onClick={() => openHistoryModal(ticket)}>
           <ChatIcon color="primary" />
-        </IconButton>
+        </IconButton> */}
       </td>
     </tr>
   );

@@ -39,7 +39,7 @@ function AssignmentFlowChat({ assignmentHistory, selectedTicket }) {
               </Avatar>
               <Paper elevation={2} sx={{ p: 2, bgcolor: idx === 0 ? "#e8f5e9" : "#f5f5f5", flex: 1 }}>
                 <Typography sx={{ fontWeight: "bold" }}>
-                  {a.assigned_to_name || "Unknown"}{" "}
+                  {a.assigned_to_name || a.assigned_to_id || "Unknown"} {" "}
                   <span style={{ color: "#888", fontWeight: "normal" }}>
                     ({a.assigned_to_role || "N/A"})
                   </span>
