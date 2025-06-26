@@ -71,7 +71,7 @@ export default function CallCenterSidebar({ isSidebarOpen, role, instagramUnread
                   {isSidebarOpen && <span className="menu-text">Users</span>}
                 </div>
               </NavLink>
-              <NavLink
+              {/* <NavLink
                 to="/ivr"
                 className={({ isActive }) =>
                   isActive ? "menu-item active-link" : "menu-item"
@@ -173,7 +173,7 @@ export default function CallCenterSidebar({ isSidebarOpen, role, instagramUnread
               >
                 <div className="menu-item">
                   <MdOutlineAudiotrack className="menu-icon" />
-                  {isSidebarOpen && <span className="menu-text">CDR Reports</span>}
+                  {isSidebarOpen && <span className="menu-text">IVR Reports</span>}
                 
                 </div>
                                 
@@ -190,9 +190,34 @@ export default function CallCenterSidebar({ isSidebarOpen, role, instagramUnread
                   {isSidebarOpen && <span className="menu-text">IVR interactions Reports</span>}
                 
                 </div>
-                                
-               
               </NavLink>
+              <NavLink
+        to="/livestream"
+        className={({ isActive }) =>
+          isActive ? "menu-item active-link" : "menu-item"
+        }
+      >
+        <div className="menu-item">
+          <MdOutlineAudiotrack className="menu-icon" />
+          {isSidebarOpen && <span className="menu-text">Live Streaming</span>}
+        </div>
+      </NavLink>
+      <NavLink
+  to="/recorded-audio"
+  className={({ isActive }) => (isActive ? "menu-item active-link" : "menu-item")}
+>
+  <div className="menu-item">
+    <MdOutlineAudiotrack className="menu-icon" />
+    {isSidebarOpen && <span className="menu-text">Recorded Audio</span>}
+  </div>
+</NavLink> */}
+<NavLink to="/ivr-cards" className={({ isActive }) => (isActive ? "menu-item active-link" : "menu-item")}>
+  <div className="menu-item">
+    <GiVrHeadset className="menu-icon" />
+    {isSidebarOpen && <span className="menu-text">IVR Management</span>}
+  </div>
+</NavLink>
+
             </>
             
           )}
@@ -249,6 +274,19 @@ export default function CallCenterSidebar({ isSidebarOpen, role, instagramUnread
                   <RxDashboard className="menu-icon" />
                   {isSidebarOpen && (
                     <span className="menu-text">Supervisor Dashboard</span>
+                  )}
+                </div>
+              </NavLink>
+              <NavLink
+                to="/dashboard2"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <RxDashboard className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">Supervisor Dashboard2</span>
                   )}
                 </div>
               </NavLink>

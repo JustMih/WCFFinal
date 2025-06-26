@@ -1,0 +1,120 @@
+.queue-monitoring-section {
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  padding: 24px;
+  margin-bottom: 32px;
+}
+.queue-monitoring-section h4 {
+  margin-bottom: 18px;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+.queue-stats {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 18px;
+}
+.queue-stat-card {
+  background: #f5f7fa;
+  border-radius: 8px;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  min-width: 180px;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+}
+.queue-stat-icon {
+  font-size: 1.8rem;
+  color: #1890ff;
+  margin-right: 14px;
+}
+.queue-stat-info {
+  display: flex;
+  flex-direction: column;
+}
+.queue-stat-value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #222;
+}
+.queue-stat-label {
+  font-size: 0.95rem;
+  color: #888;
+}
+.table-responsive {
+  overflow-x: auto;
+}
+.waiting-calls-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  background: #fafbfc;
+}
+.waiting-calls-table th, .waiting-calls-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid #eaeaea;
+}
+.waiting-calls-table th {
+  background: #f0f2f5;
+  font-weight: 600;
+}
+.queue-id, .customer-number, .call-type {
+  font-weight: 500;
+  color: #333;
+}
+.wait-time-badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #fff;
+  display: inline-block;
+}
+.wait-time-normal {
+  background: #52c41a;
+}
+.wait-time-warning {
+  background: #faad14;
+}
+.wait-time-critical {
+  background: #ff4d4f;
+}
+.priority-badge {
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #fff;
+  display: inline-block;
+}
+.priority-badge.high {
+  background: #f3bebe;
+}
+.priority-badge.normal {
+  background: #b6d3ef;
+}
+.priority-badge.low {
+  background: #52c41a;
+}
+.status-badge {
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: #fff;
+  display: inline-block;
+}
+.status-badge.active {
+  background: #a8e48a;
+}
+.status-badge.dropped {
+  background: #faad14;
+}
+.status-badge.lost {
+  background: #f3bebe;
+}
+.priority-row-high {
+  background: #ffeaea !important;
+} 

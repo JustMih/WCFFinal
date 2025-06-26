@@ -4,6 +4,7 @@ import Navbar from "../../components/nav-bar/Navbar";
 import CallCenterSidebar from "../../components/side-bar/side-bar-call-center/CallCenterSidebar";
 import CRMSidebar from "../../components/side-bar/side-bar-crm/CRMSidebar";
 import CallCenterDashboard from "../call-center-pages/call-center-dashboard/callCenterDashboard";
+import Dashboard2 from "../call-center-pages/call-center-dashboard/Dashboard2";
 import CRMDashboard from "../crm-pages/crm-dashboard/CRMDashboard";
 import CRMNotificationTickets from "../crm-pages/crm-notifications/notifications";
 import CRMAssignedTickets from "../crm-pages/crm-tickets/assigned";
@@ -34,8 +35,11 @@ import EmegencyManager from "../call-center-pages/cal-center-ivr/EmergencyManage
 import VoiceNotesReport from "../call-center-pages/cal-center-ivr/VoiceNotesReport";
 import CDRReports from "../call-center-pages/cal-center-ivr/CDRReports";
 import IVRInteractions from "../call-center-pages/cal-center-ivr/IVRInteractions";
+import Livestream from "../call-center-pages/cal-center-ivr/Livestream";
+import RecordedAudio from "../call-center-pages/cal-center-ivr/RecordedAudio";
 import Message from "../call-center-pages/call-center-social-message/CallCenterSocialMessage";
-
+import IvrCardsPage from "../call-center-pages/cal-center-ivr/IvrCardsPage";
+ 
 export default function Dashboard() {
   const [isDarkMode, setDarkMode] = useState(false);
   const [isSidebarOpen, setSidebarOpen] = useState(true);
@@ -99,6 +103,10 @@ export default function Dashboard() {
                   element={<PrivateRoute element={<CallCenterDashboard />} />}
                 />
                 <Route
+                  path="/dashboard2"
+                  element={<PrivateRoute element={<Dashboard2 />} />}
+                />
+                <Route
                   path="/agents"
                   element={<PrivateRoute element={<CallCenterAgents />} />}
                 />
@@ -160,6 +168,9 @@ export default function Dashboard() {
                 <Route path="/voice-notes" element={<VoiceNotesReport />} />
                 <Route path="/cdr-reports" element={<CDRReports />} />
                 <Route path="/ivr-interactions" element={<IVRInteractions />} />
+                <Route path="/livestream" element={<Livestream />} />
+                <Route path="/recorded-audio" element={<RecordedAudio />} />
+                <Route path="/ivr-cards" element={<IvrCardsPage/>} />
                 <Route
                   path="/social-message"
                   element={<PrivateRoute element={<Message />} />}

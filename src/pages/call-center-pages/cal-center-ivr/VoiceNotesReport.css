@@ -15,3 +15,10 @@
 .voice-pagination { text-align: center; margin-top: 20px; }
 .voice-pagination button { padding: 8px 14px; margin: 0 5px; background: #dee2e6; border: none; border-radius: 4px; cursor: pointer; }
 .voice-pagination button:disabled { background: #ccc; cursor: not-allowed; }
+.btn-play {
+    background-color: #007bff;
+  }
+  .btn-pause {
+    background-color: #ffc107;
+  }
+  

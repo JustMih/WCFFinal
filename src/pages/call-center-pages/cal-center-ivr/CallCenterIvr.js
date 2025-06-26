@@ -12,6 +12,8 @@
 //   const [showModal, setShowModal] = useState(false);
 //   const [showDeleteModal, setShowDeleteModal] = useState(false);
 //   const [voiceToDelete, setVoiceToDelete] = useState(null);
+//   const [voiceLanguage, setVoiceLanguage] = useState("english");
+
 
 //   useEffect(() => {
 //     fetchVoices();
@@ -21,23 +23,26 @@
 //     setLoading(true);
 //     try {
 //       const response = await fetch(`${baseURL}/ivr/voices`);
+//       if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
 //       const data = await response.json();
+//       console.log("Fetched voices:", data); // Debugging
 //       setVoices(data);
 //     } catch (error) {
 //       console.error("Error fetching voices:", error);
+//       alert(`Failed to fetch voices: ${error.message}`);
 //     }
 //     setLoading(false);
 //   };
 
 //   const handleFileChange = (e) => {
 //     const selectedFile = e.target.files[0];
-//     // const allowedTypes = ["audio/mp3", "audio/wav"];
+//     const allowedTypes = ["audio/mp3", "audio/wav"];
 //     const maxSize = 10 * 1024 * 1024;
 
-//     // if (!allowedTypes.includes(selectedFile.type)) {
-//     //   alert("Only audio files are allowed");
-//     //   return;
-//     // }
+//     if (!allowedTypes.includes(selectedFile.type)) {
+//       alert("Only MP3 and WAV files are allowed");
+//       return;
+//     }
 
 //     if (selectedFile.size > maxSize) {
 //       alert("File size exceeds the limit of 10MB");
@@ -53,21 +58,28 @@
 
 //   const handleCreateVoice = async (e) => {
 //     e.preventDefault();
+//     if (!file || !fileName) {
+//       alert("Please provide a file and file name");
+//       return;
+//     }
 //     const formData = new FormData();
 //     formData.append("voice_file", file);
 //     formData.append("file_name", fileName);
+//     formData.append("language", voiceLanguage);
 
 //     try {
-//       await fetch(`${baseURL}/ivr/voices`, {
+//       const response = await fetch(`${baseURL}/ivr/voices`, {
 //         method: "POST",
 //         body: formData,
 //       });
-//       fetchVoices();
+//       if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+//       await fetchVoices();
 //       setFileName("");
 //       setFile(null);
 //       setShowModal(false);
 //     } catch (error) {
 //       console.error("Error creating voice:", error);
+//       alert(`Failed to create voice: ${error.message}`);
 //     }
 //   };
 
@@ -75,26 +87,33 @@
 //     setEditing(true);
 //     setCurrentVoice(voice);
 //     setFileName(voice.file_name);
+//     setFileName(voice.voiceLanguage);
 //     setShowModal(true);
 //   };
 
 //   const handleUpdateVoice = async (e) => {
 //     e.preventDefault();
+//     if (!fileName) {
+//       alert("Please provide a file name");
+//       return;
+//     }
 
 //     const updatedVoice = {
 //       file_name: fileName,
 //       file_path: currentVoice.file_path,
+//       language:voiceLanguage,
 //     };
 
 //     try {
-//       await fetch(`${baseURL}/ivr/voices/${currentVoice.id}`, {
+//       const response = await fetch(`${baseURL}/ivr/voices/${currentVoice.id}`, {
 //         method: "PUT",
 //         headers: {
 //           "Content-Type": "application/json",
 //         },
 //         body: JSON.stringify(updatedVoice),
 //       });
-//       fetchVoices();
+//       if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+//       await fetchVoices();
 //       setEditing(false);
 //       setCurrentVoice(null);
 //       setFileName("");
@@ -102,6 +121,7 @@
 //       setShowModal(false);
 //     } catch (error) {
 //       console.error("Error updating voice:", error);
+//       alert(`Failed to update voice: ${error.message}`);
 //     }
 //   };
 
@@ -112,18 +132,40 @@
 
 //   const confirmDelete = async () => {
 //     try {
-//       await fetch(`${baseURL}/ivr/voices/${voiceToDelete}`, {
+//       const response = await fetch(`${baseURL}/ivr/voices/${voiceToDelete}`, {
 //         method: "DELETE",
 //       });
-//       fetchVoices();
+//       if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+//       await fetchVoices();
 //       setShowDeleteModal(false);
 //     } catch (error) {
 //       console.error("Error deleting voice:", error);
+//       alert(`Failed to delete voice: ${error.message}`);
 //     }
 //   };
 
 //   const cancelDelete = () => {
 //     setShowDeleteModal(false);
+//   };
+
+//   const handlePlayVoice = async (voiceId) => {
+//     const audioUrl = `${baseURL}/ivr/voices/${voiceId}/audio`;
+//     console.log("Attempting to play audio from:", audioUrl);
+//     try {
+//       // Check endpoint accessibility
+//       const response = await fetch(audioUrl, { method: "HEAD" });
+//       if (!response.ok) {
+//         throw new Error(`HTTP error! Status: ${response.status}`);
+//       }
+//       console.log("Audio endpoint headers:", Object.fromEntries(response.headers)); // Debugging
+//       const audio = new Audio(audioUrl);
+//       await audio.play();
+//     } catch (error) {
+//       console.error("Error playing audio:", error);
+//       alert(
+//         `Failed to play audio. Error: ${error.message}. Please verify that the server endpoint (${audioUrl}) is correctly configured, the file exists at the stored path, and CORS is enabled.`
+//       );
+//     }
 //   };
 
 //   return (
@@ -170,14 +212,30 @@
 //                   <label>File:</label>
 //                   <input
 //                     type="file"
+//                     accept="audio/mp3,audio/wav"
 //                     name="voice_file"
 //                     onChange={handleFileChange}
 //                     required
 //                   />
+//                     <label>Language:</label>
+//                 <select value={voiceLanguage} onChange={e => setVoiceLanguage(e.target.value)} required>
+//                   <option value="english">English</option>
+//                   <option value="swahili">Swahili</option>
+//                 </select>
+                
 //                 </div>
+                
+             
 //               )}
 //               <button type="submit">
 //                 {editing ? "Update Voice" : "Create Voice"}
+//               </button>
+//               <button
+//                 type="button"
+//                 onClick={() => setShowModal(false)}
+//                 style={{ marginLeft: "10px" }}
+//               >
+//                 Cancel
 //               </button>
 //             </form>
 //           </div>
@@ -187,6 +245,8 @@
 //       <h3>Voice Entries</h3>
 //       {loading ? (
 //         <p>Loading...</p>
+//       ) : voices.length === 0 ? (
+//         <p>No voice entries found.</p>
 //       ) : (
 //         <table className="user-table">
 //           <thead>
@@ -194,6 +254,7 @@
 //               <th>File Name</th>
 //               <th>File Path</th>
 //               <th>Actions</th>
+//               <th>Language</th>
 //             </tr>
 //           </thead>
 //           <tbody>
@@ -201,7 +262,12 @@
 //               <tr key={voice.id}>
 //                 <td>{voice.file_name}</td>
 //                 <td>{voice.file_path}</td>
+//                 <td>{voice.language}</td>
+
 //                 <td>
+//                   <button onClick={() => handlePlayVoice(voice.id)}>
+//                     Play
+//                   </button>
 //                   <button onClick={() => handleEditVoice(voice)}>Edit</button>
 //                   <button onClick={() => handleDeleteVoice(voice.id)}>
 //                     Delete
@@ -227,6 +293,7 @@
 // }
 import React, { useState, useEffect } from "react";
 import { baseURL } from "../../../config";
+import { FaPlay, FaEdit, FaTrash } from "react-icons/fa"; // Import icons from react-icons
 import "./callCenterIvr.css";
 
 export default function CallCenterIvr() {
@@ -239,6 +306,7 @@ export default function CallCenterIvr() {
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [voiceToDelete, setVoiceToDelete] = useState(null);
+  const [voiceLanguage, setVoiceLanguage] = useState("english");
 
   useEffect(() => {
     fetchVoices();
@@ -290,6 +358,7 @@ export default function CallCenterIvr() {
     const formData = new FormData();
     formData.append("voice_file", file);
     formData.append("file_name", fileName);
+    formData.append("language", voiceLanguage);
 
     try {
       const response = await fetch(`${baseURL}/ivr/voices`, {
@@ -311,6 +380,7 @@ export default function CallCenterIvr() {
     setEditing(true);
     setCurrentVoice(voice);
     setFileName(voice.file_name);
+    setVoiceLanguage(voice.language);
     setShowModal(true);
   };
 
@@ -324,6 +394,7 @@ export default function CallCenterIvr() {
     const updatedVoice = {
       file_name: fileName,
       file_path: currentVoice.file_path,
+      language: voiceLanguage,
     };
 
     try {
@@ -374,19 +445,15 @@ export default function CallCenterIvr() {
     const audioUrl = `${baseURL}/ivr/voices/${voiceId}/audio`;
     console.log("Attempting to play audio from:", audioUrl);
     try {
-      // Check endpoint accessibility
       const response = await fetch(audioUrl, { method: "HEAD" });
       if (!response.ok) {
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
-      console.log("Audio endpoint headers:", Object.fromEntries(response.headers)); // Debugging
       const audio = new Audio(audioUrl);
       await audio.play();
     } catch (error) {
       console.error("Error playing audio:", error);
-      alert(
-        `Failed to play audio. Error: ${error.message}. Please verify that the server endpoint (${audioUrl}) is correctly configured, the file exists at the stored path, and CORS is enabled.`
-      );
+      alert(`Failed to play audio. Error: ${error.message}`);
     }
   };
 
@@ -415,7 +482,7 @@ export default function CallCenterIvr() {
         Add New IVR
       </button>
 
-      {showModal && (
+      {/* {showModal && (
         <div className="modal">
           <div className="modal-content">
             <h3>{editing ? "Edit Voice" : "Create Voice"}</h3>
@@ -439,6 +506,11 @@ export default function CallCenterIvr() {
                     onChange={handleFileChange}
                     required
                   />
+                  <label>Language:</label>
+                  <select value={voiceLanguage} onChange={e => setVoiceLanguage(e.target.value)} required>
+                    <option value="english">English</option>
+                    <option value="swahili">Swahili</option>
+                  </select>
                 </div>
               )}
               <button type="submit">
@@ -454,7 +526,54 @@ export default function CallCenterIvr() {
             </form>
           </div>
         </div>
-      )}
+      )} */}
+{showModal && (
+  <div className="modal">
+    <div className="modal-content">
+      <h3>{editing ? "Edit Voice" : "Create Voice"}</h3>
+      <form onSubmit={editing ? handleUpdateVoice : handleCreateVoice}>
+        <div>
+          <label>File Name:</label>
+          <input
+            type="text"
+            value={fileName}
+            onChange={handleFileNameChange}
+            required
+          />
+        </div>
+        {!editing && (
+          <div>
+            <label>File:</label>
+            <input
+              type="file"
+              accept="audio/mp3,audio/wav"
+              name="voice_file"
+              onChange={handleFileChange}
+              required
+            />
+            <label>Language:</label>
+            <select value={voiceLanguage} onChange={e => setVoiceLanguage(e.target.value)} required>
+              <option value="english">English</option>
+              <option value="swahili">Swahili</option>
+            </select>
+          </div>
+        )}
+        <div className="modal-footer">
+          <button type="submit">
+            {editing ? "Update Voice" : "Create Voice"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowModal(false)}
+            className="cancel"
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
 
       <h3>Voice Entries</h3>
       {loading ? (
@@ -468,6 +587,7 @@ export default function CallCenterIvr() {
               <th>File Name</th>
               <th>File Path</th>
               <th>Actions</th>
+              <th>Language</th>
             </tr>
           </thead>
           <tbody>
@@ -475,14 +595,20 @@ export default function CallCenterIvr() {
               <tr key={voice.id}>
                 <td>{voice.file_name}</td>
                 <td>{voice.file_path}</td>
+                <td>{voice.language}</td>
+
                 <td>
-                  <button onClick={() => handlePlayVoice(voice.id)}>
-                    Play
-                  </button>
-                  <button onClick={() => handleEditVoice(voice)}>Edit</button>
-                  <button onClick={() => handleDeleteVoice(voice.id)}>
-                    Delete
-                  </button>
+                 
+                  <button onClick={() => handlePlayVoice(voice.id)} className="play-icon">
+                <FaPlay />
+              </button>
+              <button onClick={() => handleEditVoice(voice)} className="edit-icon">
+                <FaEdit />
+              </button>
+              <button onClick={() => handleDeleteVoice(voice.id)} className="delete-icon">
+                <FaTrash />
+              </button>
+
                 </td>
               </tr>
             ))}

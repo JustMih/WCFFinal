@@ -1,78 +1,146 @@
 import React, { useEffect, useState } from "react";
 import { io } from "socket.io-client";
+import { MdOutlinePhoneInTalk } from "react-icons/md";
+import "./QueueStatusTable.css";
+import { baseURL } from "../../config";
 
-// ✅ Explicitly define full WebSocket URL via Nginx proxy
+// Connect to Socket.IO backend
 const socket = io("https://10.52.0.19", {
-  path: "/ami-socket/socket.io",     // ✅ must match nginx
+  path: "/ami-socket/socket.io",
   transports: ["websocket"],
-  secure: true,
+  secure: true
 });
 
-
-const QueueStatusTable = () => {
-  const [queueStatus, setQueueStatus] = useState([]);
+export default function QueueStatusTable() {
+  const [queues, setQueues] = useState([]);
 
   useEffect(() => {
-    // ✅ WebSocket connected
+    // ✅ GET initial saved queue status on page load
+    fetch(`${baseURL}/queue-status`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (Array.isArray(data)) {
+          console.log("📥 Loaded saved queue data:", data);
+          setQueues(data);
+        }
+      })
+      .catch((err) => {
+        console.error("❌ Failed to load saved queue data:", err);
+      });
+
+    // ✅ Listen for real-time updates
     socket.on("connect", () => {
-      console.log("✅ Connected to WebSocket:", socket.id);
+      console.log("🔌 Connected to AMI Socket");
     });
 
-    // ❌ WebSocket disconnected
+    socket.on("queueStatusUpdate", (data) => {
+      console.log("🎧 Received queue data:", data);
+      if (Array.isArray(data)) {
+        setQueues(data);
+      }
+    });
+
     socket.on("disconnect", () => {
-      console.warn("❌ Disconnected from WebSocket");
+      console.warn("❌ Disconnected from AMI Socket");
     });
 
-    // 📥 Receive queue-status updates
-    socket.on("queue-status", (data) => {
-      console.log("📥 Received queue-status update:", data);
-      setQueueStatus(data);
-    });
-
-    // 🧼 Clean up listeners on unmount
     return () => {
-      socket.off("connect");
-      socket.off("disconnect");
-      socket.off("queue-status");
+      socket.off("queueStatusUpdate");
+      socket.disconnect();
     };
   }, []);
 
-  return (
-    <div className="p-4 bg-white rounded shadow-md">
-      <h2 className="text-xl font-semibold mb-4">📞 Queue Status</h2>
+  // ✅ Emit and post data to backend
+  const emitAndPostQueueStatus = (queueData) => {
+    socket.emit("queueStatusUpdate", queueData);
 
-      <div className="overflow-x-auto">
-        <table className="min-w-full border border-gray-300">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="px-4 py-2 border">Position</th>
-              <th className="px-4 py-2 border">Caller ID</th>
-              <th className="px-4 py-2 border">Queue</th>
-              <th className="px-4 py-2 border">Wait Time (s)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {queueStatus.length === 0 ? (
+    fetch(`${baseURL}/queue-status`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(queueData)
+    })
+      .then((res) => res.json())
+      .then((result) => {
+        console.log("✅ Queue status posted:", result);
+      })
+      .catch((err) => {
+        console.error("❌ Failed to POST queue status:", err);
+      });
+  };
+
+  // 🧪 Trigger test data
+  const handleTestUpdate = () => {
+    const testData = [
+      {
+        queue: "Support Queue",
+        callers: Math.floor(Math.random() * 10),
+        longestWait: Math.floor(Math.random() * 300),
+        availableAgents: Math.floor(Math.random() * 5),
+        busyAgents: Math.floor(Math.random() * 5)
+      }
+    ];
+    emitAndPostQueueStatus(testData);
+  };
+
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    const hrs = Math.floor(mins / 60);
+    const pad = (n) => String(n).padStart(2, "0");
+    return hrs > 0
+      ? `${pad(hrs)}:${pad(mins % 60)}:${pad(secs)}`
+      : `${pad(mins)}:${pad(secs)}`;
+  };
+
+  return (
+    <div className="queue-monitoring">
+      <div className="queue-monitoring-title">
+        <MdOutlinePhoneInTalk />
+        <h4>Queue Monitoring</h4>
+      </div>
+
+      <div className="queue-monitoring-table">
+        {queues.length > 0 ? (
+          <table>
+            <thead>
               <tr>
-                <td colSpan="4" className="text-center py-4 text-gray-500">
-                  No callers in queue.
-                </td>
+                <th>Queue Name</th>
+                <th>Waiting Calls</th>
+                <th>Longest Wait</th>
+                <th>Agents Available</th>
+                <th>Agents Busy</th>
+                <th>Status</th>
               </tr>
-            ) : (
-              queueStatus.map((entry, idx) => (
-                <tr key={idx} className="text-center hover:bg-gray-50">
-                  <td className="border px-4 py-2">{entry.position ?? "N/A"}</td>
-                  <td className="border px-4 py-2">{entry.callerID ?? "Unknown"}</td>
-                  <td className="border px-4 py-2">{entry.queue ?? "N/A"}</td>
-                  <td className="border px-4 py-2">{entry.waitTime ?? "0"}</td>
+            </thead>
+            <tbody>
+              {queues.map((q, index) => (
+                <tr key={index}>
+                  <td>{q.queue}</td>
+                  <td>{q.callers}</td>
+                  <td>{formatTime(q.longestWait)}</td>
+                  <td>{q.availableAgents}</td>
+                  <td>{q.busyAgents}</td>
+                  <td>
+                    <span
+                      className={`status-${q.availableAgents > 0 ? "active" : "inactive"}`}
+                    >
+                      {q.availableAgents > 0 ? "Active" : "Inactive"}
+                    </span>
+                  </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p>No queue data available.</p>
+        )}
+      </div>
+
+      <div style={{ marginTop: "1rem", textAlign: "center" }}>
+        <button onClick={handleTestUpdate} className="test-button">
+          Send Test Queue Status
+        </button>
       </div>
     </div>
   );
-};
-
-export default QueueStatusTable;
+}

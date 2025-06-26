@@ -4,8 +4,9 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
-import './CDRReports.css'; // <-- Custom CSS file
+import './CDRReports.css';
 import htmlDocx from 'html-docx-js/dist/html-docx';
+import { baseURL } from '../../../config'; // ✅ Import baseURL
 
 const CDRReports = () => {
   const [cdrReports, setCDRReports] = useState([]);
@@ -14,7 +15,7 @@ const CDRReports = () => {
   const itemsPerPage = 10;
 
   useEffect(() => {
-    axios.get('http://localhost:5070/api/reports/cdr-reports')
+    axios.get(`${baseURL}/reports/cdr-reports`)  // ✅ Use baseURL
       .then(response => setCDRReports(response.data))
       .catch(error => console.error(error));
   }, []);
@@ -88,7 +89,7 @@ const CDRReports = () => {
               <th>Duration</th>
               <th>BillSec</th>
               <th>Disposition</th>
-              <th>Recording</th>
+              {/* <th>Recording</th> */}
               <th>Start Time</th>
             </tr>
           </thead>
@@ -103,7 +104,7 @@ const CDRReports = () => {
                   <td>{cdr.duration}</td>
                   <td>{cdr.billsec}</td>
                   <td>{cdr.disposition}</td>
-                  <td>{cdr.recordingfile}</td>
+                  {/* <td>{cdr.recordingfile}</td> */}
                   <td>{new Date(cdr.cdrstarttime).toLocaleString()}</td>
                 </tr>
               ))

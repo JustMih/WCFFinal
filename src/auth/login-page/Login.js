@@ -7,63 +7,78 @@ import { baseURL } from "../../config";
 import "./login.css";
 
 export default function Login() {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState(""); // Changed email to username
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(null);
 
-   const handleLogin = async (e) => {
-     setIsLoading(true);
-     e.preventDefault();
-     const loginData = { email, password };
-     try {
-       const response = await fetch(`${baseURL}/auth/login`, {
-         method: "POST",
-         headers: {
-           "Content-Type": "application/json",
-         },
-         body: JSON.stringify(loginData),
-       });
+  const handleLogin = async (e) => {
+    setIsLoading(true);
+    e.preventDefault();
 
-       const data = await response.json();
+    const loginData = { username, password }; // Send username instead of email
 
-       console.log(data); // Debugging log to check backend response
+    try {
+      const response = await fetch(`${baseURL}/auth/login`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(loginData),
+      });
 
-       if (response.ok) {
-         const token = data.token;
-         const tokenExpiration = new Date().getTime() + 3600 * 1000; // Token expires in 1 hour (3600 seconds)
+      const data = await response.json();
 
-         localStorage.setItem("authToken", token);
-         localStorage.setItem("username", data.user.name);
-         localStorage.setItem("role", data.user.role);
-         localStorage.setItem("unit_section", data.user.unit_section);
-         localStorage.setItem("tokenExpiration", tokenExpiration); // Save expiration time
-         localStorage.setItem("userId", data.user.id);
-         localStorage.setItem("agentStatus", "ready");
-         window.location.href = "/dashboard";
-       } else {
-         setError(data.message || "An error occurred. Please try again.");
-         if (data.timeRemaining) {
-           setTimeRemaining(data.timeRemaining); // Set remaining lockout time
-         }
-       }
-     } catch (err) {
-       setError("Network error. Please try again.");
-     }
-     setIsLoading(false);
-   };
+      console.log(data); // Debugging log to check backend response
 
-   useEffect(() => {
-     // If timeRemaining is set, start a countdown
-     if (timeRemaining !== null) {
-       const interval = setInterval(() => {
-         setTimeRemaining((prevTime) => prevTime - 1000);
-       }, 1000);
+      if (response.ok) {
+        const token = data.token;
+        const tokenExpiration = new Date().getTime() + 3600 * 1000; // 1 hour
 
-       return () => clearInterval(interval);
-     }
-   }, [timeRemaining]);
+        // Core user session
+        localStorage.setItem("authToken", token);
+        localStorage.setItem("username", data.user.name);
+        localStorage.setItem("role", data.user.role);
+        localStorage.setItem("tokenExpiration", tokenExpiration);
+        localStorage.setItem("userId", data.user.id);
+        localStorage.setItem("agentStatus", "ready");
+
+        // SIP Extension support
+        const extension = data.user.extension || "";
+        localStorage.setItem("extension", extension);
+
+        // Set sipPassword only if user has an extension
+        if (extension) {
+          localStorage.setItem("sipPassword", "sip12345");
+        } else {
+          localStorage.setItem("sipPassword", "");
+        }
+
+        // Redirect to dashboard
+        window.location.href = "/dashboard";
+      } else {
+        setError(data.message || "An error occurred. Please try again.");
+        if (data.timeRemaining) {
+          setTimeRemaining(data.timeRemaining); // Lockout time
+        }
+      }
+    } catch (err) {
+      setError("Network error. Please try again.");
+    }
+
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    if (timeRemaining !== null) {
+      const interval = setInterval(() => {
+        setTimeRemaining((prevTime) => prevTime - 1000);
+      }, 1000);
+
+      return () => clearInterval(interval);
+    }
+  }, [timeRemaining]);
 
   return (
     <div className="login-container">
@@ -77,12 +92,12 @@ export default function Login() {
               <img src={wcf_logo} alt="logo" className="wcf-logo" />
             </div>
             <TextField
-              label="Email"
+              label="Username" // Change from email to username
               variant="outlined"
               fullWidth
               margin="normal"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               required
             />
             <TextField

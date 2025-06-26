@@ -31,6 +31,13 @@ const VoiceRecordingsPage = () => {
               <td>{recording.duration}</td>
               <td>{recording.recordingfile}</td>
               <td>{new Date(recording.cdrstarttime).toLocaleString()}</td>
+              <td>
+  <audio controls>
+    <source src={`/api/recorded-audio/${encodeURIComponent(recording.recordingfile)}`} type="audio/wav" />
+    Your browser does not support the audio element.
+  </audio>
+</td>
+
             </tr>
           ))}
         </tbody>
