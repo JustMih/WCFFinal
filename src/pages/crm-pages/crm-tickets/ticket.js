@@ -12,11 +12,17 @@ import {
   Snackbar,
   Tooltip,
   Typography,
-  TextField
+  TextField,
+  Avatar,
+  Paper,
+  Dialog,
+  DialogTitle,
+  DialogContent
 } from "@mui/material";
 import ColumnSelector from "../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../config";
 import "./ticket.css";
+import ChatIcon from '@mui/icons-material/Chat';
 
 export default function Crm() {
   const [agentTickets, setAgentTickets] = useState([]);
@@ -44,6 +50,7 @@ export default function Crm() {
   const [loading, setLoading] = useState(true);
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   const [assignedUser, setAssignedUser] = useState(null);
+  const [isFlowModalOpen, setIsFlowModalOpen] = useState(false);
 
   useEffect(() => {
     const userId = localStorage.getItem("userId");
@@ -643,6 +650,67 @@ export default function Crm() {
     }
   };
 
+  function AssignmentFlowChat({ assignmentHistory, selectedTicket }) {
+    // Build the creator bubble
+    const creatorStep = selectedTicket
+      ? {
+          assigned_to_name: selectedTicket.created_by ||
+            (selectedTicket.creator && selectedTicket.creator.name) ||
+            `${selectedTicket.first_name || ''} ${selectedTicket.last_name || ''}`.trim() ||
+            'N/A',
+          assigned_to_role: 'Creator',
+          reason: 'Created the ticket',
+          created_at: selectedTicket.created_at,
+        }
+      : null;
+    // Combine creator and assignment history
+    const steps = creatorStep ? [creatorStep, ...assignmentHistory] : assignmentHistory;
+    return (
+      <Box sx={{ maxWidth: 400, ml: "auto" }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, justifyContent: 'space-between' }}>
+          <Typography variant="h6" sx={{ color: "#3f51b5" }}>
+            Ticket History
+          </Typography>
+          {/* <IconButton size="small" onClick={() => setIsFlowModalOpen(true)} title="Show Assignment Flow Chart">
+            <ChatIcon color="primary" />
+          </IconButton> */}
+        </Box>
+        <Divider sx={{ mb: 2 }} />
+        {steps.map((a, idx) => {
+          // For the creator bubble, show a default message
+          let message;
+          if (idx === 0) {
+            message = 'Created the ticket';
+          } else {
+            const prevUser = steps[idx - 1]?.assigned_to_name || 'Previous User';
+            message = `Message from ${prevUser}: ${a.reason || 'No message'}`;
+          }
+          return (
+            <Box key={idx} sx={{ display: "flex", mb: 2, alignItems: "flex-start" }}>
+              <Avatar sx={{ bgcolor: idx === 0 ? "#43a047" : "#1976d2", mr: 2 }}>
+                {a.assigned_to_name ? a.assigned_to_name[0] : "?"}
+              </Avatar>
+              <Paper elevation={2} sx={{ p: 2, bgcolor: idx === 0 ? "#e8f5e9" : "#f5f5f5", flex: 1 }}>
+                <Typography sx={{ fontWeight: "bold" }}>
+                  {a.assigned_to_name || "Unknown"}{" "}
+                  <span style={{ color: "#888", fontWeight: "normal" }}>
+                    ({a.assigned_to_role || "N/A"})
+                  </span>
+                </Typography>
+                <Typography variant="body2" sx={{ color: idx === 0 ? "#43a047" : "#1976d2" }}>
+                  {message}
+                </Typography>
+                <Typography variant="caption" sx={{ color: "#888" }}>
+                  {a.created_at ? new Date(a.created_at).toLocaleString() : ""}
+                </Typography>
+              </Paper>
+            </Box>
+          );
+        })}
+      </Box>
+    );
+  }
+
   if (loading) {
     return (
       <div className="p-6">
@@ -795,9 +863,16 @@ export default function Crm() {
 
               {/* Workflow Status Section */}
               <Box sx={{ mb: 3, p: 2, bgcolor: "#f5f5f5", borderRadius: 1 }}>
-                <Typography variant="h6" sx={{ color: "#3f51b5", mb: 1 }}>
-                  Ticket Workflow
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                  <Typography variant="h6" sx={{ color: "#3f51b5", flexGrow: 1 }}>
+                    Ticket History
+                  </Typography>
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', flex: 1 }}>
+                    <IconButton size="small" onClick={() => setIsFlowModalOpen(true)} title="Show Assignment Flow Chart">
+                      <ChatIcon color="primary" />
+                    </IconButton>
+                  </Box>
+                </Box>
                 <Divider sx={{ mb: 2 }} />
 
                 {renderAssignmentStepper(assignmentHistory, selectedTicket)}
@@ -915,7 +990,7 @@ export default function Crm() {
               </div>
 
               {/* Assignment History Section */}
-              <Typography variant="h6" sx={{ color: "#1976d2", mb: 1 }}>
+              {/* <Typography variant="h6" sx={{ color: "#1976d2", mb: 1 }}>
                 Assignment History
               </Typography>
               <Box sx={{ mb: 2, p: 2, bgcolor: "#f5f5f5", borderRadius: 1 }}>
@@ -961,7 +1036,7 @@ export default function Crm() {
                 ) : (
                   <Typography color="text.secondary">No assignment history.</Typography>
                 )}
-              </Box>
+              </Box> */}
 
               {/* Action Buttons */}
               <Box sx={{ mt: 2, textAlign: "right" }}>
@@ -973,6 +1048,14 @@ export default function Crm() {
           )}
         </Box>
       </Modal>
+
+      {/* Assignment Flow Modal */}
+      <Dialog open={isFlowModalOpen} onClose={() => setIsFlowModalOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Assignment Flow</DialogTitle>
+        <DialogContent>
+          <AssignmentFlowChat assignmentHistory={assignmentHistory} selectedTicket={selectedTicket} />
+        </DialogContent>
+      </Dialog>
 
       {/* Column Selector */}
       <ColumnSelector

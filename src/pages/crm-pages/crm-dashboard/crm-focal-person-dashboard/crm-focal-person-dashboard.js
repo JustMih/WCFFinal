@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Autocomplete from "@mui/material/Autocomplete";
 import { FormControl, InputLabel, Select } from '@mui/material';
+import { Avatar, Paper } from "@mui/material";
 
 // React Icons
 import { FaEye } from "react-icons/fa";
@@ -34,6 +35,37 @@ import { baseURL } from "../../../../config";
 
 // Styles
 import "./crm-focal-person-dashboard.css";
+
+function AssignmentFlowChat({ assignmentHistory }) {
+  return (
+    <Box sx={{ maxWidth: 400, ml: "auto" }}>
+      <Typography variant="h6" sx={{ color: "#3f51b5", mb: 2 }}>
+        Assignment Flow
+      </Typography>
+      {assignmentHistory.map((a, idx) => (
+        <Box key={idx} sx={{ display: "flex", mb: 2, alignItems: "flex-start" }}>
+          <Avatar sx={{ bgcolor: "#1976d2", mr: 2 }}>
+            {a.assigned_to_name ? a.assigned_to_name[0] : "?"}
+          </Avatar>
+          <Paper elevation={2} sx={{ p: 2, bgcolor: "#f5f5f5", flex: 1 }}>
+            <Typography sx={{ fontWeight: "bold" }}>
+              {a.assigned_to_name || "Unknown"}{" "}
+              <span style={{ color: "#888", fontWeight: "normal" }}>
+                ({a.assigned_to_role || "N/A"})
+              </span>
+            </Typography>
+            <Typography variant="body2" sx={{ color: "#1976d2" }}>
+              {a.reason || <span style={{ color: "#888" }}>No reason provided</span>}
+            </Typography>
+            <Typography variant="caption" sx={{ color: "#888" }}>
+              {a.created_at ? new Date(a.created_at).toLocaleString() : ""}
+            </Typography>
+          </Paper>
+        </Box>
+      ))}
+    </Box>
+  );
+}
 
 export default function FocalPersonDashboard() {
   const [tickets, setTickets] = useState([]);
@@ -484,6 +516,23 @@ export default function FocalPersonDashboard() {
   // DEBUGGING: Log the final filtered list
   console.log("Filtered Attendees (after filtering):", filteredAttendees);
 
+  // Build workflow steps: always start with creator, then all assignment history
+  const workflowSteps = [
+    {
+      name: selectedTicket?.creator_name || selectedTicket?.created_by_name || "Unknown",
+      role: "Creator",
+      date: selectedTicket?.created_at,
+      status: assignmentHistory.length === 0 ? "current" : "completed"
+    },
+    ...assignmentHistory.map((a, idx) => ({
+      name: a.assigned_to_name || a.assigned_to_id || "Unknown",
+      role: a.assigned_to_role || "",
+      date: a.created_at,
+      action: a.action,
+      status: idx === assignmentHistory.length - 1 ? "current" : "completed"
+    }))
+  ];
+
   return (
     <div className="focal-person-dashboard-container">
       <h2 className="title">Focal Person Dashboard</h2>
@@ -822,9 +871,9 @@ export default function FocalPersonDashboard() {
           </Grid>
         </Grid>
 
-        {/* Assignment Status Section */}
+        {/* Ticket Workflow Stepper */}
         <Typography variant="h6" sx={{ color: "#1976d2", mb: 1 }}>
-          Assignment Status
+          Ticket Workflow
         </Typography>
         <Box sx={{ mb: 2, p: 2, bgcolor: "#f5f5f5", borderRadius: 1 }}>
           {selectedTicket.assigned_to_name || selectedTicket.assigned_to ? (
