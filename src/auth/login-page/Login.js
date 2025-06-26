@@ -37,6 +37,7 @@ export default function Login() {
          localStorage.setItem("authToken", token);
          localStorage.setItem("username", data.user.name);
          localStorage.setItem("role", data.user.role);
+         localStorage.setItem("unit_section", data.user.unit_section);
          localStorage.setItem("tokenExpiration", tokenExpiration); // Save expiration time
          localStorage.setItem("userId", data.user.id);
          localStorage.setItem("agentStatus", "ready");

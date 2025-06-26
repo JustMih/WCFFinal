@@ -457,19 +457,32 @@ export default function FocalPersonDashboard() {
     }
   };
 
-  // Restore attendee filtering logic
-  const ticketSection =
-    (selectedTicket?.section === "Unit"
-      ? selectedTicket?.sub_section
-      : selectedTicket?.section || selectedTicket?.responsible_unit_name) || "";
-  const ticketSectionNormalized = ticketSection.trim().toLowerCase();
-  const filteredAttendees = attendees.filter(
-    (a) =>
-      (a.unit_section || "").trim().toLowerCase() === ticketSectionNormalized
-  );
-  console.log("Attendees:", attendees);
-  console.log("Ticket section:", ticketSectionNormalized);
-  console.log("Filtered:", filteredAttendees);
+  // Get current user info from localStorage
+  const currentUserUnitSection = (localStorage.getItem("unit_section") || "").trim().toLowerCase();
+  const allowedRoles = ["attendee", "agent"];
+
+  // DEBUGGING: Log the unit section from localStorage
+  console.log("Current User Unit Section (from localStorage):", currentUserUnitSection);
+  console.log("All available attendees (before filtering):", attendees);
+
+  const filteredAttendees = attendees.filter((a) => {
+    const attendeeUnit = (a.unit_section || "").trim().toLowerCase();
+    const attendeeRole = (a.role || "").toLowerCase();
+    
+    const matches = allowedRoles.includes(attendeeRole) &&
+                    attendeeUnit &&
+                    attendeeUnit === currentUserUnitSection;
+
+    // DEBUGGING: Log each attendee and the comparison result
+    console.log(
+      `Comparing: Attendee Unit: "${attendeeUnit}" | Current User Unit: "${currentUserUnitSection}" | Attendee Role: "${attendeeRole}" | Matches: ${matches}`
+    );
+
+    return matches;
+  });
+
+  // DEBUGGING: Log the final filtered list
+  console.log("Filtered Attendees (after filtering):", filteredAttendees);
 
   return (
     <div className="focal-person-dashboard-container">
@@ -888,7 +901,7 @@ export default function FocalPersonDashboard() {
         {selectedTicket.status !== "Closed" && (
           <>
             <Typography color="primary" variant="body2" sx={{ mb: 1 }}>
-              Ticket Section: {ticketSection || "N/A"}
+              Ticket Section: {currentUserUnitSection || "N/A"}
             </Typography>
 
             {/* Action Selection */}

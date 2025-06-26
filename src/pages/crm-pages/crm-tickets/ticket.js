@@ -789,7 +789,7 @@ export default function Crm() {
                 variant="h5"
                 sx={{ fontWeight: "bold", color: "#1976d2", mb: 2 }}
               >
-                Complaint Details
+                Ticket Details {selectedTicket.ticket_id ? `#${selectedTicket.ticket_id}` : ""}
               </Typography>
               <Divider sx={{ mb: 2 }} />
 
