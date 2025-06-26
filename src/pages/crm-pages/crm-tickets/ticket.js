@@ -650,25 +650,39 @@ export default function Crm() {
     }
   };
 
-  function AssignmentFlowChat({ assignmentHistory }) {
+  function AssignmentFlowChat({ assignmentHistory, selectedTicket }) {
+    // Build the creator bubble
+    const creatorStep = selectedTicket
+      ? {
+          assigned_to_name: selectedTicket.created_by ||
+            (selectedTicket.creator && selectedTicket.creator.name) ||
+            `${selectedTicket.first_name || ''} ${selectedTicket.last_name || ''}`.trim() ||
+            'N/A',
+          assigned_to_role: 'Creator',
+          reason: 'Created the ticket',
+          created_at: selectedTicket.created_at,
+        }
+      : null;
+    // Combine creator and assignment history
+    const steps = creatorStep ? [creatorStep, ...assignmentHistory] : assignmentHistory;
     return (
       <Box sx={{ maxWidth: 400, ml: "auto" }}>
         <Typography variant="h6" sx={{ color: "#3f51b5", mb: 2 }}>
           Assignment Flow
         </Typography>
-        {assignmentHistory.map((a, idx) => (
+        {steps.map((a, idx) => (
           <Box key={idx} sx={{ display: "flex", mb: 2, alignItems: "flex-start" }}>
-            <Avatar sx={{ bgcolor: "#1976d2", mr: 2 }}>
+            <Avatar sx={{ bgcolor: idx === 0 ? "#43a047" : "#1976d2", mr: 2 }}>
               {a.assigned_to_name ? a.assigned_to_name[0] : "?"}
             </Avatar>
-            <Paper elevation={2} sx={{ p: 2, bgcolor: "#f5f5f5", flex: 1 }}>
+            <Paper elevation={2} sx={{ p: 2, bgcolor: idx === 0 ? "#e8f5e9" : "#f5f5f5", flex: 1 }}>
               <Typography sx={{ fontWeight: "bold" }}>
                 {a.assigned_to_name || "Unknown"}{" "}
                 <span style={{ color: "#888", fontWeight: "normal" }}>
                   ({a.assigned_to_role || "N/A"})
                 </span>
               </Typography>
-              <Typography variant="body2" sx={{ color: "#1976d2" }}>
+              <Typography variant="body2" sx={{ color: idx === 0 ? "#43a047" : "#1976d2" }}>
                 {a.reason || <span style={{ color: "#888" }}>No reason provided</span>}
               </Typography>
               <Typography variant="caption" sx={{ color: "#888" }}>
@@ -1021,7 +1035,7 @@ export default function Crm() {
       <Dialog open={isFlowModalOpen} onClose={() => setIsFlowModalOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>Assignment Flow</DialogTitle>
         <DialogContent>
-          <AssignmentFlowChat assignmentHistory={assignmentHistory} />
+          <AssignmentFlowChat assignmentHistory={assignmentHistory} selectedTicket={selectedTicket} />
         </DialogContent>
       </Dialog>
 
