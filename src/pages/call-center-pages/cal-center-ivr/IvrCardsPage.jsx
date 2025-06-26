@@ -100,6 +100,15 @@ const IvrCardsPage = () => {
           </div>
         </NavLink>
       </div>
+      <div className="card">
+  <NavLink to="/dtmf-stats">
+    <div className="card-item">
+      <MdOutlineAudiotrack className="card-icon" />
+      <span className="card-text">{isSidebarOpen && "DTMF Usage Report"}</span>
+    </div>
+  </NavLink>
+</div>
+
     </div>
   );
 };
