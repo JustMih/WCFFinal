@@ -6,6 +6,7 @@ import {
   MdLocalPhone,
   MdOutlineEmail,
   MdOutlinePhoneInTalk,
+  MdOutlineVoicemail,
 } from "react-icons/md";
 import { HiMiniSpeakerWave } from "react-icons/hi2";
 import { IoKeypadOutline } from "react-icons/io5";
@@ -51,6 +52,7 @@ import QueueStatusTable from "../../../../components/agent-dashboard/QueueStatus
 import WaitingCallsTable from "../../../../components/agent-dashboard/WaitingCallsTable";
 import AgentPerformanceScore from "../../../../components/agent-dashboard/AgentPerformanceScore";
 import TicketCreateModal from "../../../../components/ticket/TicketCreateModal";
+import VoiceNotesReport from "../../cal-center-ivr/VoiceNotesReport";
 
 export default function AgentsDashboard() {
   const [customerType, setCustomerType] = useState("");
@@ -395,37 +397,6 @@ export default function AgentsDashboard() {
     };
   }, []);
 
-  // 2️⃣ Missed Calls restore useEffect
-  useEffect(() => {
-    const savedMissedCalls = localStorage.getItem("missedCalls");
-    if (savedMissedCalls) {
-      setMissedCalls(JSON.parse(savedMissedCalls));
-    }
-  }, []);
-
-  // 3️⃣ Audio Unlock useEffect
-  useEffect(() => {
-    const unlockAudio = () => {
-      ringAudio
-        .play()
-        .then(() => {
-          console.log("🔓 Audio unlocked");
-          ringAudio.pause();
-          ringAudio.currentTime = 0;
-          window.removeEventListener("click", unlockAudio);
-        })
-        .catch((err) => {
-          console.warn("⚠️ Failed to unlock audio on first click:", err);
-        });
-    };
-
-    window.addEventListener("click", unlockAudio);
-
-    return () => {
-      window.removeEventListener("click", unlockAudio);
-    };
-  }, []);
-
   // ✅ Load missed calls from backend on component mount
   useEffect(() => {
     fetchMissedCallsFromBackend();
@@ -579,6 +550,7 @@ export default function AgentsDashboard() {
       }));
   
       setMissedCalls(formatted);
+      localStorage.setItem("missedCalls", JSON.stringify(formatted));
       console.log("✅ Updated missedCalls state with", formatted.length, "calls");
     } catch (error) {
       console.error("❌ Error fetching missed calls:", error);
@@ -1151,6 +1123,46 @@ export default function AgentsDashboard() {
     }
   };
 
+  const [voiceNotes, setVoiceNotes] = useState([]);
+  const [unplayedVoiceNotes, setUnplayedVoiceNotes] = useState(0);
+
+  // Fetch unplayed voicenotes for the agent
+  useEffect(() => {
+    const fetchVoiceNotes = async () => {
+      try {
+        const agentId = localStorage.getItem("userId");
+        const response = await fetch(`${baseURL}/voice-notes?agentId=${agentId}`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          },
+        });
+        if (!response.ok) throw new Error("Failed to fetch voice notes");
+        const data = await response.json();
+        const notes = data.voiceNotes || [];
+        const storedPlayed = JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
+        const unplayedCount = notes.filter(note => !storedPlayed[note.id]).length;
+        setVoiceNotes(notes);
+        setUnplayedVoiceNotes(unplayedCount);
+      } catch (error) {
+        setVoiceNotes([]);
+        setUnplayedVoiceNotes(0);
+      }
+    };
+    fetchVoiceNotes();
+    // Listen for localStorage changes to update badge in real time
+    const handleStorage = (e) => {
+      if (e.key === "playedVoiceNotes") {
+        fetchVoiceNotes();
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
+  const [showVoiceNotesModal, setShowVoiceNotesModal] = useState(false);
+
   return (
     <div className="p-6">
       <div className="agent-body">
@@ -1180,6 +1192,34 @@ export default function AgentsDashboard() {
                   }}
                 >
                   {missedCalls.length}
+                </span>
+              )}
+            </div>
+          </Tooltip>
+          <Tooltip title="Voice Notes" arrow>
+            <div
+              style={{ position: "relative", cursor: "pointer" }}
+              onClick={() => setShowVoiceNotesModal(true)}
+            >
+              <MdOutlineVoicemail size={22} />
+              {unplayedVoiceNotes > 0 && (
+                <span
+                  style={{
+                    position: "absolute",
+                    top: -5,
+                    right: -5,
+                    background: "orange",
+                    color: "white",
+                    fontSize: "12px",
+                    borderRadius: "50%",
+                    width: "18px",
+                    height: "18px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {unplayedVoiceNotes}
                 </span>
               )}
             </div>
@@ -1385,7 +1425,6 @@ export default function AgentsDashboard() {
                   required
                   value={phoneNumber}
                   onChange={(e) => setPhoneNumber(e.target.value)}
-                  inputProps={{ readOnly: true }}
                 />
                 {showKeypad && (
                   <div className="modern-keypad" style={{ marginBottom: 10 }}>
@@ -1530,7 +1569,9 @@ export default function AgentsDashboard() {
                     color="primary"
                     size="small"
                     onClick={() => {
-                      console.log("🔁 Calling back ID:", call.id); // 👈 Add this
+                      setMissedOpen(false);
+                      setShowPhonePopup(true);
+                      setPhoneNumber(call.caller);
                       handleRedial(call.caller, call.id);
                     }}
                     startIcon={<FiPhoneCall />}
@@ -1674,6 +1715,17 @@ export default function AgentsDashboard() {
         initialPhoneNumber={ticketPhoneNumber}
         functionData={functionData}
       />
+
+      <Dialog
+        open={showVoiceNotesModal}
+        onClose={() => setShowVoiceNotesModal(false)}
+        fullWidth
+        maxWidth="md"
+      >
+        <DialogContent>
+          <VoiceNotesReport />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
