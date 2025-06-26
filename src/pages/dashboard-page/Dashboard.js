@@ -39,7 +39,10 @@ import Livestream from "../call-center-pages/cal-center-ivr/Livestream";
 import RecordedAudio from "../call-center-pages/cal-center-ivr/RecordedAudio";
 import Message from "../call-center-pages/call-center-social-message/CallCenterSocialMessage";
 import IvrCardsPage from "../call-center-pages/cal-center-ivr/IvrCardsPage";
- 
+import DTMFStats from "../call-center-pages/cal-center-ivr/DTMFStats";
+
+
+
 export default function Dashboard() {
   const [isDarkMode, setDarkMode] = useState(false);
   const [isSidebarOpen, setSidebarOpen] = useState(true);
@@ -170,6 +173,7 @@ export default function Dashboard() {
                 <Route path="/ivr-interactions" element={<IVRInteractions />} />
                 <Route path="/livestream" element={<Livestream />} />
                 <Route path="/recorded-audio" element={<RecordedAudio />} />
+                <Route path="/dtmf-stats" element={<DTMFStats />} />
                 <Route path="/ivr-cards" element={<IvrCardsPage/>} />
                 <Route
                   path="/social-message"
