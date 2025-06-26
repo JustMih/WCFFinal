@@ -15,6 +15,8 @@ import {
 import CloseIcon from '@mui/icons-material/Close';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import axios from 'axios';
+import { baseURL } from "../../config";
+
 
 const resolutionTypes = [
   { value: 'Resolved', label: 'Resolved' },
@@ -34,12 +36,18 @@ const TicketActions = ({ ticket, onTicketUpdate }) => {
       setLoading(true);
       setError('');
 
+      const token = localStorage.getItem('authToken');
       const response = await axios.post(
-        `/api/tickets/${ticket.id}/close-coordinator-ticket`,
+        `${baseURL}/coordinator/complaints/${ticket.id}/close`,
         {
-          userId: localStorage.getItem('userId'),
           resolution_details: resolutionDetails,
           resolution_type: resolutionType
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+          }
         }
       );
 

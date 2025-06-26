@@ -45,24 +45,10 @@ export default function CRMSidebar({ isSidebarOpen }) {
 
   const role = localStorage.getItem("role");
 
-  const fetchTicketCounts = async () => {
-    const userId = localStorage.getItem("userId");
-    const token = localStorage.getItem("authToken");
-    const role = localStorage.getItem("role");
-
-    if (!userId || !token) {
-      setFetchError("Missing userId or token");
-      return;
-    }
-
+  // Helper to fetch in-progress assignments count
+  const fetchInProgressAssignmentsCount = async (userId, token) => {
     try {
-      let url;
-      if (role === "coordinator") {
-        url = `${baseURL}/coordinator/dashboard-counts/${userId}`;
-      } else {
-        url = `${baseURL}/ticket/count/${userId}`;
-      }
-
+      const url = `${baseURL}/ticket/assignments/in-progress?userId=${userId}`;
       const response = await fetch(url, {
         method: "GET",
         headers: {
@@ -70,28 +56,41 @@ export default function CRMSidebar({ isSidebarOpen }) {
           "Content-Type": "application/json"
         }
       });
+      if (!response.ok) return 0;
+      const data = await response.json();
+      return data.count || 0;
+    } catch {
+      return 0;
+    }
+  };
 
+  const fetchTicketCounts = async () => {
+    const userId = localStorage.getItem("userId");
+    const token = localStorage.getItem("authToken");
+    if (!userId || !token) {
+      setFetchError("Missing userId or token");
+      return;
+    }
+    try {
+      const url = `${baseURL}/ticket/dashboard-counts/${userId}`;
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
+      });
       if (!response.ok) {
         const errorText = await response.text();
         setFetchError(`Fetch failed: ${response.status} - ${errorText}`);
         return;
       }
-
       const data = await response.json();
-
-      if (role === "coordinator" && data.data) {
-        setTicketStats({
-          ...ticketStats,
-          newTickets: data.data.newTickets || {},
-          convertedTickets: data.data.convertedTickets || {},
-          channeledTickets: data.data.channeledTickets || {},
-          ticketStatus: data.data.ticketStatus || {}
-        });
-      } else if (data.ticketStats) {
-        setTicketStats({ ...data.ticketStats });
-      } else {
-        setFetchError("No ticketStats in response");
-      }
+      let stats = data.ticketStats ? { ...data.ticketStats } : {};
+      // Fetch in-progress assignments count and add to stats
+      const inProgressAssignments = await fetchInProgressAssignmentsCount(userId, token);
+      stats.inProgress = inProgressAssignments;
+      setTicketStats(stats);
       setFetchError(null);
     } catch (error) {
       setFetchError(error.message);
@@ -391,10 +390,10 @@ export default function CRMSidebar({ isSidebarOpen }) {
                             icon: "💡"
                           },
                           {
-                            label: "Complements",
+                            label: "Compliments",
                             to: "/coordinator/complements",
                             value:
-                              ticketStats.convertedTickets?.Complements || 0,
+                              ticketStats.convertedTickets?.Compliments || 0,
                             icon: "⭐"
                           }
                         ].map((item, idx) => (
@@ -534,7 +533,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
             </li>
           </>
         )}
-        {role === "focal-person" && (
+        {['focal-person', 'claim-focal-person', 'compliance-focal-person'].includes(role) && (
           <>
             <li>
               <NavLink
@@ -564,7 +563,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                 </div>
               </NavLink>
               <NavLink
-                to="/coordinator/ticket"
+                to="/focal-person/ticket"
                 className={({ isActive }) =>
                   isActive ? "menu-item active-link" : "menu-item"
                 }
@@ -599,13 +598,13 @@ export default function CRMSidebar({ isSidebarOpen }) {
                         {[
                           {
                             label: "New Tickets",
-                            to: `/coordinator/new`,
+                            to: `/focal-person/new`,
                             value: ticketStats.newTickets?.["New Tickets"] || 0,
                             icon: "🆕"
                           },
                           {
                             label: "Escalated",
-                            to: `/coordinator/escalated`,
+                            to: `/focal-person/escalated`,
                             value:
                               ticketStats.newTickets?.["Escalated Tickets"] ||
                               0,
@@ -633,7 +632,6 @@ export default function CRMSidebar({ isSidebarOpen }) {
                     )}
                   </div>
 
-
                   <div className="menu-section">
                     <div
                       className={`section-header ${
@@ -643,23 +641,28 @@ export default function CRMSidebar({ isSidebarOpen }) {
                     >
                       <span className="section-title">Ticket Status</span>
                       <span className="section-count">
-                        {/* {(ticketStats.ticketStatus?.["On Progress"] || 0) + (ticketStats.ticketStatus?.Closed || 0)} */}
-                        {ticketStats.ticketStatus?.Closed || 0}
+                        {(ticketStats.ticketStatus?.["Open"] || 0) + (ticketStats.ticketStatus?.Closed || 0)}
+                        {/* {ticketStats.ticketStatus?.Closed || 0} */}
                       </span>
                     </div>
                     {openSection === "ticketStatus" && (
                       <div className="section-items">
                         {[
-                          // {
-                          //   label: "On Progress",
-                          //   to: "/coordinator/on-progress",
-                          //   value:
-                          //     ticketStats.ticketStatus?.["On Progress"] || 0,
-                          //   icon: "⏳"
-                          // },
+                          {
+                            label: "Open",
+                            to: "/focal-person/open",
+                            value: ticketStats.ticketStatus?.Open || 0,
+                            icon: "🔓"
+                          },
+                          {
+                            label: "Assigned Attendees",
+                            to: "/focal-person/assigned",
+                            value: ticketStats.ticketStatus?.AssignedAttendees || 0,
+                            icon: "👤"
+                          },
                           {
                             label: "Closed",
-                            to: `/coordinator/closed`,
+                            to: "/focal-person/closed",
                             value: ticketStats.ticketStatus?.Closed || 0,
                             icon: "🔒"
                           }

@@ -173,7 +173,7 @@ export default function CoordinatorDashboard() {
   const fetchTickets = async () => {
     try {
       const token = localStorage.getItem("authToken");
-      const response = await fetch(`${baseURL}/coordinator/complaints`, {
+      const response = await fetch(`${baseURL}/coordinator/all-tickets`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await response.json();
@@ -451,9 +451,11 @@ export default function CoordinatorDashboard() {
         <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
       )}
       {activeColumns.includes("fullName") && (
-        <td>{`${ticket.firstName || ""} ${ticket.middleName || ""} ${
-          ticket.lastName || ""
-        }`}</td>
+        <td>
+          {!ticket.first_name
+            ? (ticket.institution || "N/A")
+            : `${ticket.first_name || ""} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim() || "N/A"}
+        </td>
       )}
       {activeColumns.includes("phone_number") && (
         <td>{ticket.phone_number || "N/A"}</td>
@@ -642,7 +644,7 @@ export default function CoordinatorDashboard() {
             alignItems: "center"
           }}
         >
-          <h2>Tickets of Category Complaints</h2>
+          <h2>All Corrdinator Tickets</h2>
           <Tooltip title="Columns Settings and Export" arrow>
             <IconButton onClick={() => setIsColumnModalOpen(true)}>
               <FiSettings size={20} />
@@ -716,9 +718,11 @@ export default function CoordinatorDashboard() {
                     <td>{(currentPage - 1) * itemsPerPage + i + 1}</td>
                   )}
                   {activeColumns.includes("fullName") && (
-                    <td>{`${ticket.first_name || ""} ${
-                      ticket.middle_name || ""
-                    } ${ticket.last_name || ""}`}</td>
+                    <td>
+                      {!ticket.first_name
+                        ? (ticket.institution || "N/A")
+                        : `${ticket.first_name || ""} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim() || "N/A"}
+                    </td>
                   )}
                   {activeColumns.includes("phone_number") && (
                     <td>{ticket.phone_number || "N/A"}</td>
@@ -872,7 +876,7 @@ export default function CoordinatorDashboard() {
           </div>
 
           <div style={{ flex: "1 1 45%" }}>
-            <Typography><strong>Assigned To (User ID):</strong> {selectedTicket.assigned_to_id || "N/A"}</Typography>
+            <Typography><strong>Assigned To:</strong> {selectedTicket?.assignee?.name || "N/A"}</Typography>
           </div>
           <div style={{ flex: "1 1 45%" }}>
             <Typography><strong>Assigned Role:</strong> {selectedTicket.assigned_to_role || "N/A"}</Typography>

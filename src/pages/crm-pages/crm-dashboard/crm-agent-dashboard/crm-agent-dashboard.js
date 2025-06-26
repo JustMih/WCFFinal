@@ -23,7 +23,7 @@ import {
   Autocomplete,
   CircularProgress
 } from "@mui/material";
-import { styled } from '@mui/material/styles';
+import { styled } from "@mui/material/styles";
 import ColumnSelector from "../../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../../config";
 import "./crm-agent-dashboard.css";
@@ -34,45 +34,45 @@ import axios from "axios";
 
 // Add styled components for better typeahead styling
 const StyledAutocomplete = styled(Autocomplete)(({ theme }) => ({
-  '& .MuiInputBase-root': {
-    padding: '2px 4px',
-    backgroundColor: '#fff',
-    borderRadius: '4px',
-    '&:hover': {
-      borderColor: theme.palette.primary.main,
-    },
+  "& .MuiInputBase-root": {
+    padding: "2px 4px",
+    backgroundColor: "#fff",
+    borderRadius: "4px",
+    "&:hover": {
+      borderColor: theme.palette.primary.main
+    }
   },
-  '& .MuiAutocomplete-listbox': {
-    '& li': {
-      padding: '8px 16px',
-      '&:hover': {
-        backgroundColor: '#f5f5f5',
-      },
-    },
+  "& .MuiAutocomplete-listbox": {
+    "& li": {
+      padding: "8px 16px",
+      "&:hover": {
+        backgroundColor: "#f5f5f5"
+      }
+    }
   },
-  '& .MuiAutocomplete-loading': {
-    padding: '10px',
-    textAlign: 'center',
-  },
+  "& .MuiAutocomplete-loading": {
+    padding: "10px",
+    textAlign: "center"
+  }
 }));
 
-const SuggestionItem = styled('div')({
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '4px',
-  '& .suggestion-name': {
+const SuggestionItem = styled("div")({
+  display: "flex",
+  flexDirection: "column",
+  gap: "4px",
+  "& .suggestion-name": {
     fontWeight: 600,
-    color: '#2c3e50',
+    color: "#2c3e50"
   },
-  '& .suggestion-details': {
-    fontSize: '0.85rem',
-    color: '#7f8c8d',
+  "& .suggestion-details": {
+    fontSize: "0.85rem",
+    color: "#7f8c8d"
   },
-  '& .highlight': {
-    backgroundColor: '#fff3cd',
-    padding: '0 2px',
-    borderRadius: '2px',
-  },
+  "& .highlight": {
+    backgroundColor: "#fff3cd",
+    padding: "0 2px",
+    borderRadius: "2px"
+  }
 });
 
 const AgentCRM = () => {
@@ -89,9 +89,16 @@ const AgentCRM = () => {
     district: "",
     channel: "",
     category: "",
+    inquiry_type: "", // <-- Add this line
     functionId: "",
     description: "",
-    status: "Open"
+    status: "Open",
+    // New fields for representative
+    requesterName: "",
+    requesterPhoneNumber: "",
+    requesterEmail: "",
+    requesterAddress: "",
+    relationshipToEmployee: ""
   });
 
   // State for form errors
@@ -117,7 +124,7 @@ const AgentCRM = () => {
   // State for function data and selections
   const [functionData, setFunctionData] = useState([]);
   const [selectedFunction, setSelectedFunction] = useState("");
-  const [selectedSection, setSelectedSection] = useState("");
+  const [selectedSection, setSelectedSection] = useState("Unit");
 
   // State for ticket stats
   const [ticketStats, setTicketStats] = useState({
@@ -207,7 +214,8 @@ const AgentCRM = () => {
   // Add new state for phone search
   const [phoneSearch, setPhoneSearch] = useState("");
   const [existingTicketsModal, setExistingTicketsModal] = useState(false);
-  const [newTicketConfirmationModal, setNewTicketConfirmationModal] = useState(false);
+  const [newTicketConfirmationModal, setNewTicketConfirmationModal] =
+    useState(false);
   const [foundTickets, setFoundTickets] = useState([]);
 
   // Add submitAction state to control ticket status
@@ -218,9 +226,9 @@ const AgentCRM = () => {
   const [notifyMessage, setNotifyMessage] = useState("");
 
   // Add new state for search
-  const [searchType, setSearchType] = useState('employee'); // 'employee' or 'employer'
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchBy, setSearchBy] = useState('name'); // 'name' or 'wcf_number'
+  const [searchType, setSearchType] = useState("employee"); // 'employee' or 'employer'
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchBy, setSearchBy] = useState("name"); // 'name' or 'wcf_number'
 
   // Add new state for search suggestions
   const [searchSuggestions, setSearchSuggestions] = useState([]);
@@ -228,8 +236,58 @@ const AgentCRM = () => {
   const [selectedSuggestion, setSelectedSuggestion] = useState(null);
 
   const searchTimeoutRef = useRef(null);
-  const [inputValue, setInputValue] = useState('');
+  const [inputValue, setInputValue] = useState("");
   const [open, setOpen] = useState(false);
+
+  // Add state for employer details
+  const [employerDetails, setEmployerDetails] = useState(null);
+
+  // Add state for institution search
+  const [institutionSearch, setInstitutionSearch] = useState("");
+  const [institutionSuggestions, setInstitutionSuggestions] = useState([]);
+  const [selectedInstitution, setSelectedInstitution] = useState(null);
+
+  // Add state for institution details modal
+  const [showInstitutionModal, setShowInstitutionModal] = useState(false);
+
+  // Add state for ticket history in ticket creation modal
+  const [creationTicketsLoading, setCreationTicketsLoading] = useState(false);
+  const [creationFoundTickets, setCreationFoundTickets] = useState([]);
+
+  // Add state for active ticket in creation modal
+  const [creationActiveTicketId, setCreationActiveTicketId] = useState(null);
+
+  // Add new state for ticket history search
+  const [historySearch, setHistorySearch] = useState("");
+
+  // Handler to search institutions
+  const handleInstitutionSearch = async (query) => {
+    if (!query) {
+      setInstitutionSuggestions([]);
+      return;
+    }
+    try {
+      const response = await fetch(
+        "https://demomspapi.wcf.go.tz/api/v1/search/details",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json"
+          },
+          body: JSON.stringify({
+            type: "employer",
+            name: query,
+            employer_registration_number: ""
+          })
+        }
+      );
+      const data = await response.json();
+      setInstitutionSuggestions(data.results || []);
+    } catch (err) {
+      setInstitutionSuggestions([]);
+    }
+  };
 
   // Fetch function data for subject selection
   useEffect(() => {
@@ -283,7 +341,7 @@ const AgentCRM = () => {
 
   const fetchDashboardData = async (userId, token) => {
     try {
-      const response = await fetch(`${baseURL}/ticket/count/${userId}`, {
+      const response = await fetch(`${baseURL}/ticket/dashboard-counts/${userId}`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -362,6 +420,61 @@ const AgentCRM = () => {
         setSelectedSection("");
       }
     }
+    // Only allow numbers (and optional leading +) for phoneNumber
+    if (name === "phoneNumber") {
+      let cleaned = value.replace(/[^\d+]/g, "");
+      if (cleaned.startsWith("+") && cleaned.slice(1).includes("+")) {
+        cleaned = cleaned.replace(/\+/g, "");
+        cleaned = "+" + cleaned;
+      }
+      if (cleaned.length > 14) cleaned = cleaned.slice(0, 14);
+      setFormData((prev) => ({ ...prev, [name]: cleaned }));
+      if (!/^\+?\d{0,13}$/.test(cleaned)) {
+        setFormErrors((prev) => ({ ...prev, phoneNumber: "Phone number must contain only numbers" }));
+      } else {
+        setFormErrors((prev) => ({ ...prev, phoneNumber: undefined }));
+      }
+      return;
+    }
+    // // Only allow numbers and dashes for nidaNumber
+    // if (name === "nidaNumber") {
+    //   let cleaned = value.replace(/[^\d-]/g, "");
+    //   // Optionally, limit length (e.g., 20 chars)
+    //   if (cleaned.length > 20) cleaned = cleaned.slice(0, 20);
+    //   setFormData((prev) => ({ ...prev, [name]: cleaned }));
+    //   if (!/^\d{0,20}(-\d{1,20})*$/.test(cleaned)) {
+    //     setFormErrors((prev) => ({ ...prev, nidaNumber: "NIDA/TIN must contain only numbers and dashes" }));
+    //   } else {
+    //     setFormErrors((prev) => ({ ...prev, nidaNumber: undefined }));
+    //   }
+    //   return;
+    // }
+
+    if (name === "nidaNumber") {
+      let cleaned = value.replace(/[^\d-]/g, "");
+    
+      // Optional: prevent consecutive dashes
+      cleaned = cleaned.replace(/--+/g, "-");
+    
+      // Limit total length to 20 characters
+      if (cleaned.length > 20) cleaned = cleaned.slice(0, 20);
+    
+      setFormData((prev) => ({ ...prev, [name]: cleaned }));
+    
+      const isValid = /^(\d+(-\d+)*$)/.test(cleaned); // Multiple dashes allowed, no start/end dash
+    
+      if (!isValid) {
+        setFormErrors((prev) => ({
+          ...prev,
+          nidaNumber: "Only digits and dashes are allowed. No leading/trailing or repeated dashes.",
+        }));
+      } else {
+        setFormErrors((prev) => ({ ...prev, nidaNumber: undefined }));
+      }
+    
+      return;
+    }
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   // Handle form submission
@@ -369,8 +482,6 @@ const AgentCRM = () => {
     e.preventDefault();
 
     const requiredFields = {
-      firstName: "First Name",
-      ...(formData.requester !== "Employer" && { lastName: "Last Name" }), // Only include lastName if not Employer
       phoneNumber: "Phone Number",
       nidaNumber: "NIDA Number",
       requester: "Requester",
@@ -379,9 +490,24 @@ const AgentCRM = () => {
       district: "District",
       channel: "Channel",
       category: "Category",
+      ...(formData.category === "Inquiry" && { inquiry_type: "Inquiry Type" }),
       functionId: "Subject",
       description: "Description"
     };
+
+    // Conditionally add representative fields to required fields
+    if (formData.requester === "Representative") {
+      requiredFields.requesterName = "Representative Name";
+      requiredFields.requesterPhoneNumber = "Representative Phone Number";
+      requiredFields.relationshipToEmployee = "Relationship to Employee";
+    }
+
+    // Conditionally add employer-specific fields to required fields
+    if (formData.requester === "Employer") {
+      requiredFields.nidaNumber = "Employer Registration Number / TIN";
+      requiredFields.institution = "Employer Name";
+      requiredFields.phoneNumber = "Employer Phone";
+    }
 
     const errors = {};
     const missing = [];
@@ -394,6 +520,7 @@ const AgentCRM = () => {
     });
 
     if (missing.length > 0) {
+      console.log("Validation errors:", errors, formData); // Debug log for validation
       setFormErrors(errors);
       setModal({
         isOpen: true,
@@ -406,16 +533,62 @@ const AgentCRM = () => {
     setFormErrors({});
 
     try {
-      const selectedFunction = functionData.find(f => f.id === formData.functionId);
+      // Find the selected subject (FunctionData), parent function, and parent section
+      let selectedSubject, parentFunction, parentSection;
+      for (const func of functionData) {
+        if (func.function && func.function.functionData) {
+          selectedSubject = func.function.functionData.find(fd => fd.id === formData.functionId);
+          if (selectedSubject) {
+            parentFunction = func.function;
+            parentSection = func.function.section;
+            break;
+          }
+        }
+      }
+
+      // --- Allocated User Logic ---
+      let employerAllocatedStaffUsername = "";
+      if (selectedSuggestion && selectedSuggestion.claimId && selectedSuggestion.allocated_user_username) {
+        // If employee has claim number, use allocated user from claim
+        employerAllocatedStaffUsername = selectedSuggestion.allocated_user_username;
+      } else if (
+        (!selectedSuggestion || !selectedSuggestion.claimId) &&
+        formData.category === "Inquiry" &&
+        selectedInstitution && selectedInstitution.allocated_staff_username
+      ) {
+        // If no claim and Inquiry, use allocated user from institution
+        employerAllocatedStaffUsername = selectedInstitution.allocated_staff_username;
+      } else {
+        // Fallback to previous logic if any
+        employerAllocatedStaffUsername = selectedInstitution?.allocated_staff_username || formData.employerAllocatedStaffUsername || "";
+      }
+
       const ticketData = {
         ...formData,
-        subject: selectedFunction ? selectedFunction.name : '',
-        section: selectedSection || 'Unit',
-        sub_section: selectedFunction ? selectedFunction.function?.name : '',
+        subject: selectedSubject ? selectedSubject.name : "",
+        sub_section: parentFunction ? parentFunction.name : "",
+        section: parentSection ? parentSection.name : "",
         responsible_unit_id: formData.functionId,
-        responsible_unit_name: selectedSection || 'Unit',
-        status: submitAction === "closed" ? "Closed" : "Open"
+        responsible_unit_name: parentSection ? parentSection.name : "",
+        status: submitAction === "closed" ? "Closed" : "Open",
+        employerAllocatedStaffUsername,
       };
+
+      // Add employer-specific fields if requester is Employer
+      if (formData.requester === "Employer") {
+        ticketData.employerRegistrationNumber = formData.nidaNumber; // Using nidaNumber for employer registration as per current mapping
+        ticketData.employerName = formData.institution;
+        ticketData.employerTin = formData.nidaNumber; // Assuming nidaNumber holds TIN for employer
+        ticketData.employerPhone = formData.phoneNumber;
+        ticketData.employerEmail = formData.employerEmail || ""; // Add employerEmail to formData in frontend if available
+        ticketData.employerStatus = formData.employerStatus || ""; // Add employerStatus to formData in frontend if available
+        ticketData.employerAllocatedStaffId =
+          formData.employerAllocatedStaffId || ""; // Add allocatedStaffId to formData in frontend if available
+        ticketData.employerAllocatedStaffName =
+          formData.employerAllocatedStaffName || ""; // Add allocatedStaffName to formData in frontend if available
+        ticketData.employerAllocatedStaffUsername =
+          formData.employerAllocatedStaffUsername || ""; // Add allocatedStaffUsername to formData in frontend if available
+      }
 
       const response = await fetch(`${baseURL}/ticket/create-ticket`, {
         method: "POST",
@@ -432,7 +605,7 @@ const AgentCRM = () => {
         setModal({
           isOpen: true,
           type: "success",
-          message: `Ticket created successfully`
+          message: data.message || "Ticket created successfully"
         });
         setShowModal(false);
         setFormData({
@@ -447,9 +620,16 @@ const AgentCRM = () => {
           district: "",
           channel: "",
           category: "",
+          inquiry_type: "", // Reset inquiry_type
           functionId: "",
           description: "",
-          status: "Open"
+          status: "Open",
+          // Reset representative fields
+          requesterName: "",
+          requesterPhoneNumber: "",
+          requesterEmail: "",
+          requesterAddress: "",
+          relationshipToEmployee: ""
         });
         fetchCustomerTickets();
       } else {
@@ -551,9 +731,11 @@ const AgentCRM = () => {
         <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
       )}
       {activeColumns.includes("fullName") && (
-        <td>{`${ticket.first_name || ""} ${ticket.middle_name || ""} ${
-          ticket.last_name || ""
-        }`}</td>
+        <td>{
+          ticket.first_name
+            ? `${ticket.first_name || ""} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim()
+            : ticket.institution || ""
+        }</td>
       )}
       {activeColumns.includes("phone_number") && <td>{ticket.phone_number}</td>}
       {activeColumns.includes("status") && <td>{ticket.status}</td>}
@@ -853,14 +1035,20 @@ const AgentCRM = () => {
   };
 
   // Update handlePhoneSearch to accept a selectedTicketFromTable parameter
-  const handlePhoneSearch = async (searchValue, selectedTicketFromTable = null) => {
+  const handlePhoneSearch = async (
+    searchValue,
+    selectedTicketFromTable = null
+  ) => {
     try {
       // Try phone number search first
-      let response = await fetch(`${baseURL}/ticket/search-by-phone/${searchValue}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
+      let response = await fetch(
+        `${baseURL}/ticket/search-by-phone/${searchValue}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
         }
-      });
+      );
       let data = await response.json();
       if (data.found) {
         setFoundTickets(data.tickets);
@@ -873,11 +1061,14 @@ const AgentCRM = () => {
         return;
       }
       // If not found, try NIDA number search (if you have such an endpoint)
-      response = await fetch(`${baseURL}/ticket/search-by-nida/${searchValue}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
+      response = await fetch(
+        `${baseURL}/ticket/search-by-nida/${searchValue}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
         }
-      });
+      );
       data = await response.json();
       if (data.found) {
         setFoundTickets(data.tickets);
@@ -891,7 +1082,7 @@ const AgentCRM = () => {
         setNewTicketConfirmationModal(true);
       }
     } catch (error) {
-      console.error('Error searching tickets:', error);
+      console.error("Error searching tickets:", error);
       setSnackbar({
         open: true,
         message: "Error searching tickets",
@@ -924,13 +1115,20 @@ const AgentCRM = () => {
           district: prev.district || "",
           channel: prev.channel || "",
           category: prev.category || "",
+          inquiry_type: prev.inquiry_type || "", // Add inquiry_type
           functionId: prev.function_id || "",
           description: "",
-          status: "Open"
+          status: "Open",
+          // New fields for representative
+          requesterName: prev.requesterName || "",
+          requesterPhoneNumber: prev.requesterPhoneNumber || "",
+          requesterEmail: prev.requesterEmail || "",
+          requesterAddress: prev.requesterAddress || "",
+          relationshipToEmployee: prev.relationshipToEmployee || ""
         });
       } else {
         // fallback: just pre-fill phone number
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
           phoneNumber: phoneSearch
         }));
@@ -950,26 +1148,29 @@ const AgentCRM = () => {
       });
       return;
     }
-  
+
     const payload = {
       type: searchType,
-      name: searchBy === 'name' ? searchQuery : '',
-      employer_registration_number: searchBy === 'wcf_number' ? searchQuery : ''
+      name: searchBy === "name" ? searchQuery : "",
+      employer_registration_number: searchBy === "wcf_number" ? searchQuery : ""
     };
-  
+
     try {
-      const response = await fetch('https://demomspapi.wcf.go.tz/api/v1/search/details', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        mode: 'cors',
-        body: JSON.stringify(payload)
-      });
-  
+      const response = await fetch(
+        "https://demomspapi.wcf.go.tz/api/v1/search/details",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json"
+          },
+          mode: "cors",
+          body: JSON.stringify(payload)
+        }
+      );
+
       const data = await response.json();
-  
+
       if (!response.ok || data.error || !data.results?.length) {
         setSnackbar({
           open: true,
@@ -978,35 +1179,35 @@ const AgentCRM = () => {
         });
         return;
       }
-  
+
       const memberInfo = data.results[0];
-      let rawName = memberInfo.name || '';
-      let cleanName = '';
-      let employerName = '';
-  
+      let rawName = memberInfo.name || "";
+      let cleanName = "";
+      let employerName = "";
+
       // Extract clean name and employer
       try {
-        rawName = rawName.replace(/^\d+\.\s*/, ''); // Remove number prefix like "14."
-        const [namePart] = rawName.split('—'); // Split before the em dash
+        rawName = rawName.replace(/^\d+\.\s*/, ""); // Remove number prefix like "14."
+        const [namePart] = rawName.split("—"); // Split before the em dash
         cleanName = namePart.trim();
-  
+
         const employerMatch = rawName.match(/\(([^)]+)\)/);
-        employerName = employerMatch ? employerMatch[1] : '';
+        employerName = employerMatch ? employerMatch[1] : "";
       } catch (err) {
         console.warn("Name parsing error:", err);
       }
-  
-      const [firstName, ...rest] = cleanName.split(' ');
-      const lastName = rest.join(' ');
-  
+
+      const [firstName, ...rest] = cleanName.split(" ");
+      const lastName = rest.join(" ");
+
       // Fill form data
       setFormData((prev) => ({
         ...prev,
-        firstName: firstName || '',
-        middleName: rest.length > 2 ? rest.slice(1, -1).join(' ') : '', // Extract middle name
-        lastName: lastName || '',
-        memberNo: memberInfo.memberno?.toString() || '',
-        requester: searchType === 'employee' ? 'Employee' : 'Employer',
+        firstName: firstName || "",
+        middleName: rest.length > 2 ? rest.slice(1, -1).join(" ") : "", // Extract middle name
+        lastName: lastName || "",
+        memberNo: memberInfo.memberno?.toString() || "",
+        requester: searchType === "employee" ? "Employee" : "Employer",
         institution: employerName || prev.institution,
         phoneNumber: prev.phoneNumber,
         nidaNumber: prev.nidaNumber,
@@ -1014,17 +1215,23 @@ const AgentCRM = () => {
         district: prev.district,
         channel: prev.channel,
         category: prev.category,
+        inquiry_type: prev.inquiry_type || "", // Add inquiry_type
         functionId: prev.functionId,
         description: prev.description,
-        status: prev.status
+        status: prev.status,
+        // New fields for representative
+        requesterName: prev.requesterName || "",
+        requesterPhoneNumber: prev.requesterPhoneNumber || "",
+        requesterEmail: prev.requesterEmail || "",
+        requesterAddress: prev.requesterAddress || "",
+        relationshipToEmployee: prev.relationshipToEmployee || ""
       }));
-  
+
       setSnackbar({
         open: true,
         message: "Member found and form auto-filled.",
         severity: "success"
       });
-  
     } catch (error) {
       console.error("Search error:", error);
       setSnackbar({
@@ -1034,165 +1241,254 @@ const AgentCRM = () => {
       });
     }
   };
-  
+
   // Update the debouncedSearch function to handle phone numbers
-  const debouncedSearch = useCallback(async (searchText) => {
-    if (!searchText || searchText.length < 1) {
-      setSearchSuggestions([]);
-      return;
-    }
-
-    setIsSearching(true);
-    try {
-      const response = await fetch('https://demomspapi.wcf.go.tz/api/v1/search/details', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        mode: 'cors',
-        body: JSON.stringify({
-          type: searchType,
-          name: searchText,
-          employer_registration_number: searchBy === 'wcf_number' ? searchText : ''
-        })
-      });
-
-      const data = await response.json();
-      
-      if (response.ok && data.results?.length) {
-        const suggestions = data.results.map(result => {
-          const originalName = result.name || '';
-          // Parse the original name into components
-          const numberMatch = originalName.match(/^(\d+\.)\s*/);
-          const numberPrefix = numberMatch ? numberMatch[1] : '';
-          const nameWithoutNumber = originalName.replace(/^\d+\.\s*/, '');
-          const [namePart, ...rest] = nameWithoutNumber.split('—');
-          const employerPart = rest.join('—').trim();
-          const cleanName = namePart.trim();
-
-          // Extract employer name and phone from parentheses if present
-          const employerMatch = employerPart.match(/\(([^)]+)\)/);
-          let employerName = '';
-          let phoneNumber = '';
-
-          if (employerMatch) {
-            const employerInfo = employerMatch[1].trim();
-            // Check if the employer info contains a phone number
-            const phoneMatch = employerInfo.match(/(\d{10,})/); // Match 10 or more digits
-            if (phoneMatch) {
-              phoneNumber = phoneMatch[0];
-              // Remove the phone number from employer name
-              employerName = employerInfo.replace(phoneMatch[0], '').trim();
-            } else {
-              employerName = employerInfo;
-            }
-          }
-
-          // Also check if phone number is directly available in the result
-          if (!phoneNumber && result.phone) {
-            phoneNumber = result.phone;
-          }
-
-          return {
-            id: result.memberno,
-            numberPrefix,
-            originalName,
-            displayName: `${numberPrefix} ${cleanName}${employerName ? ` — (${employerName}${phoneNumber ? ` - ${phoneNumber}` : ''})` : ''}`,
-            cleanName,
-            employerName,
-            phoneNumber,
-            memberNo: result.memberno,
-            type: result.type,
-            status: result.status,
-            rawData: result
-          };
-        });
-        
-        setSearchSuggestions(suggestions);
-        setOpen(true);
-      } else {
+  const debouncedSearch = useCallback(
+    async (searchText) => {
+      if (!searchText || searchText.length < 1) {
         setSearchSuggestions([]);
+        return;
       }
-    } catch (error) {
-      console.error("Search suggestion error:", error);
-      setSearchSuggestions([]);
-    } finally {
-      setIsSearching(false);
-    }
-  }, [searchType, searchBy]);
+
+      setIsSearching(true);
+      try {
+        const response = await fetch(
+          "https://demomspapi.wcf.go.tz/api/v1/search/details",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json"
+            },
+            mode: "cors",
+            body: JSON.stringify({
+              type: searchType,
+              name: searchText,
+              employer_registration_number:
+                searchBy === "wcf_number" ? searchText : ""
+            })
+          }
+        );
+
+        const data = await response.json();
+
+        if (response.ok && data.results?.length) {
+          const suggestions = data.results.map((result) => {
+            const originalName = result.name || "";
+            // Parse the original name into components
+            const numberMatch = originalName.match(/^(\d+\.)\s*/);
+            const numberPrefix = numberMatch ? numberMatch[1] : "";
+            const nameWithoutNumber = originalName.replace(/^\d+\.\s*/, "");
+            const [namePart, ...rest] = nameWithoutNumber.split("—");
+            const employerPart = rest.join("—").trim();
+            const cleanName = namePart.trim();
+
+            // Extract employer name and phone from parentheses if present
+            const employerMatch = employerPart.match(/\(([^)]+)\)/);
+            let employerName = "";
+            let phoneNumber = "";
+
+            if (employerMatch) {
+              const employerInfo = employerMatch[1].trim();
+              // Check if the employer info contains a phone number
+              const phoneMatch = employerInfo.match(/(\d{10,})/); // Match 10 or more digits
+              if (phoneMatch) {
+                phoneNumber = phoneMatch[0];
+                // Remove the phone number from employer name
+                employerName = employerInfo.replace(phoneMatch[0], "").trim();
+              } else {
+                employerName = employerInfo;
+              }
+            }
+
+            // Also check if phone number is directly available in the result
+            if (!phoneNumber && result.phone) {
+              phoneNumber = result.phone;
+            }
+
+            return {
+              id: result.memberno,
+              numberPrefix,
+              originalName,
+              displayName: `${numberPrefix} ${cleanName}${
+                employerName
+                  ? ` — (${employerName}${
+                      phoneNumber ? ` - ${phoneNumber}` : ""
+                    })`
+                  : ""
+              }`,
+              cleanName,
+              employerName,
+              phoneNumber,
+              memberNo: result.memberno,
+              type: result.type,
+              status: result.status,
+              rawData: result
+            };
+          });
+
+          setSearchSuggestions(suggestions);
+          setOpen(true);
+        } else {
+          setSearchSuggestions([]);
+        }
+      } catch (error) {
+        console.error("Search suggestion error:", error);
+        setSearchSuggestions([]);
+      } finally {
+        setIsSearching(false);
+      }
+    },
+    [searchType, searchBy]
+  );
 
   // Update handleSuggestionSelected to handle phone numbers
   const handleSuggestionSelected = (event, suggestion) => {
+    console.log("Selected Suggestion:", suggestion);
+
     if (!suggestion) {
       setSelectedSuggestion(null);
+      setInputValue("");
       return;
     }
 
-    setSelectedSuggestion(suggestion);
-    setSearchQuery(suggestion.originalName);
+    // Get the raw data which contains the claim number and user details
+    const rawData = suggestion.rawData || suggestion;
+    console.log("Raw Data:", rawData);
 
-    // Parse the name more carefully
-    const cleanName = suggestion.cleanName || '';
-    const nameParts = cleanName.split(' ');
-    const firstName = nameParts[0] || '';
-    const middleName = nameParts.length > 2 ? nameParts.slice(1, -1).join(' ') : '';
-    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
+    // Extract institution name from display name (text between brackets)
+    const institutionMatch =
+      suggestion.displayName?.match(/—\s*\((.*?)\)/) ||
+      suggestion.originalName?.match(/—\s*\((.*?)\)/) ||
+      suggestion.name?.match(/—\s*\((.*?)\)/);
+    const institutionName = institutionMatch ? institutionMatch[1].trim() : "";
 
-    // Get employer details and phone number
-    const employerName = suggestion.employerName || '';
-    const phoneNumber = suggestion.phoneNumber || suggestion.rawData?.phone || '';
+    // Set the selected suggestion with claim information
+    const selectedWithClaim = {
+      ...suggestion,
+      hasClaim: Boolean(rawData.claim_number),
+      claimId: rawData.claim_number,
+      allocated_user: rawData.allocated_user,
+      allocated_user_id: rawData.allocated_user_id,
+      allocated_user_username: rawData.allocated_user_username
+    };
+    console.log("Selected with claim:", selectedWithClaim);
 
-    // Extract region and district if available in the raw data
-    const region = suggestion.rawData?.region || '';
-    const district = suggestion.rawData?.district || '';
+    setSelectedSuggestion(selectedWithClaim);
 
-    // Set form data with all available information
-    setFormData(prev => ({
-      ...prev,
-      // Personal Information
-      firstName: searchType === 'employer' ? cleanName : firstName,
-      middleName: searchType === 'employer' ? '' : middleName,
-      lastName: searchType === 'employer' ? '' : lastName,
-      memberNo: suggestion.memberNo?.toString() || '',
-      nidaNumber: suggestion.rawData?.nida_number || prev.nidaNumber,
-      phoneNumber: phoneNumber || prev.phoneNumber,
+    // Set the input value to the full name
+    setInputValue(suggestion.cleanName || suggestion.name || "");
+    setSearchQuery(suggestion.cleanName || suggestion.name || "");
+    setOpen(false);
 
-      // Employment Information
-      requester: searchType === 'employee' ? 'Employee' : 'Employer',
-      // For employers, use their name as the institution
-      institution: searchType === 'employer' ? cleanName : (employerName || prev.institution),
+    // Update form data with essential information from rawData
+    let updatedFormData = { ...formData };
 
-      // Location Information
-      region: region || prev.region,
-      district: district || prev.district,
+    if (searchType === "employee") {
+      updatedFormData = {
+        ...updatedFormData,
+        firstName: rawData.firstname || "",
+        middleName: rawData.middlename || "",
+        lastName: rawData.lastname || "",
+        nidaNumber: rawData.nin || "",
+        phoneNumber: rawData.phoneNumber || "",
+        institution: institutionName // Set the extracted institution name
+      };
+    } else if (searchType === "employer") {
+      updatedFormData = {
+        ...updatedFormData,
+        firstName: "", // Clear employee-specific fields
+        middleName: "",
+        lastName: "",
+        nidaNumber: rawData.tin || "", // Use TIN for employer's NIDA/identifier
+        phoneNumber: rawData.phone || "",
+        institution: rawData.name || "" // Employer's name goes to institution
+      };
+    }
 
-      // Keep existing values for fields that should be manually selected
-      channel: prev.channel,
-      category: prev.category,
-      functionId: prev.functionId,
-      description: prev.description,
-      status: prev.status
-    }));
+    // Keep existing values for other fields not covered by search results
+    updatedFormData = {
+      ...updatedFormData,
+      requester: updatedFormData.requester || formData.requester,
+      region: updatedFormData.region || formData.region,
+      district: updatedFormData.district || formData.district,
+      channel: updatedFormData.channel || formData.channel,
+      category: updatedFormData.category || formData.category,
+      inquiry_type: updatedFormData.inquiry_type || formData.inquiry_type || "",
+      functionId: updatedFormData.functionId || formData.functionId,
+      description: updatedFormData.description || formData.description,
+      status: updatedFormData.status || formData.status,
+      // New fields for representative (if applicable, keep existing or clear if no relevant data in rawData)
+      requesterName:
+        updatedFormData.requesterName || rawData.requesterName || "",
+      requesterPhoneNumber:
+        updatedFormData.requesterPhoneNumber ||
+        rawData.requesterPhoneNumber ||
+        "",
+      requesterEmail:
+        updatedFormData.requesterEmail || rawData.requesterEmail || "",
+      requesterAddress:
+        updatedFormData.requesterAddress || rawData.requesterAddress || "",
+      relationshipToEmployee:
+        updatedFormData.relationshipToEmployee ||
+        rawData.relationshipToEmployee ||
+        ""
+    };
+    console.log("Updated Form Data:", updatedFormData);
+
+    setFormData(updatedFormData);
+
+    // --- NEW: Update institution details based on selection ---
+    let selectedInstitutionName = "";
+    if (searchType === "employee") {
+      // Try to get institution name from the suggestion or rawData
+      selectedInstitutionName = rawData.institution || rawData.employerName || updatedFormData.institution || "";
+    } else if (searchType === "employer") {
+      selectedInstitutionName = rawData.name || updatedFormData.institution || "";
+    }
+
+    if (selectedInstitutionName) {
+      fetch("https://demomspapi.wcf.go.tz/api/v1/search/details", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json"
+        },
+        body: JSON.stringify({
+          type: "employer",
+          name: selectedInstitutionName,
+          employer_registration_number: ""
+        })
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && data.results && data.results.length > 0) {
+            setSelectedInstitution(data.results[0]);
+          } else {
+            setSelectedInstitution(null);
+          }
+        })
+        .catch(() => setSelectedInstitution(null));
+    } else {
+      setSelectedInstitution(null);
+    }
 
     setSnackbar({
       open: true,
-      message: `Form auto-filled with ${searchType === 'employer' ? 'employer' : 'member'}'s information`,
+      message: "User information loaded successfully",
       severity: "success"
     });
-
-    setOpen(false);
   };
 
   // Update handleInputChange for more immediate response
   const handleInputChange = (event, newValue, reason) => {
     setInputValue(newValue);
-    
+
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
 
-    if (reason === 'reset' || reason === 'clear') {
+    if (reason === "reset" || reason === "clear") {
       setSearchSuggestions([]);
       return;
     }
@@ -1210,36 +1506,42 @@ const AgentCRM = () => {
     inputValue={inputValue}
     onInputChange={handleInputChange}
     options={searchSuggestions}
-    getOptionLabel={(option) => option.displayName || ''}
+    getOptionLabel={(option) => option.displayName || ""}
     open={open}
     onOpen={() => setOpen(true)}
     onClose={() => setOpen(false)}
     loading={isSearching}
     loadingText={
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          gap: "10px"
+        }}
+      >
         <CircularProgress size={20} />
         <span>Searching...</span>
       </div>
     }
     noOptionsText={
-      inputValue.length < 1 ? 
-        "Start typing to search" : 
-        "No matching records found"
+      inputValue.length < 1
+        ? "Start typing to search"
+        : "No matching records found"
     }
     renderOption={(props, option) => (
       <li {...props}>
         <SuggestionItem>
           <div className="suggestion-name">
-            <span style={{ color: '#666' }}>{option.numberPrefix}</span>
-            {' '}
+            <span style={{ color: "#666" }}>{option.numberPrefix}</span>{" "}
             {highlightMatch(option.cleanName, inputValue)}
             {option.employerName && (
               <>
-                {' — ('}
-                <span style={{ color: '#666' }}>
+                {" — ("}
+                <span style={{ color: "#666" }}>
                   {highlightMatch(option.employerName, inputValue)}
                 </span>
-                {')'}
+                {")"}
               </>
             )}
           </div>
@@ -1254,7 +1556,9 @@ const AgentCRM = () => {
     renderInput={(params) => (
       <TextField
         {...params}
-        placeholder={searchBy === 'name' ? "Start typing name..." : "Enter WCF number..."}
+        placeholder={
+          searchBy === "name" ? "Start typing name..." : "Enter WCF number..."
+        }
         InputProps={{
           ...params.InputProps,
           endAdornment: (
@@ -1262,20 +1566,20 @@ const AgentCRM = () => {
               {isSearching && <CircularProgress color="inherit" size={20} />}
               {params.InputProps.endAdornment}
             </>
-          ),
+          )
         }}
         sx={{
-          '& .MuiOutlinedInput-root': {
-            '& fieldset': {
-              borderColor: '#e0e0e0',
+          "& .MuiOutlinedInput-root": {
+            "& fieldset": {
+              borderColor: "#e0e0e0"
             },
-            '&:hover fieldset': {
-              borderColor: '#1976d2',
+            "&:hover fieldset": {
+              borderColor: "#1976d2"
             },
-            '&.Mui-focused fieldset': {
-              borderColor: '#1976d2',
-            },
-          },
+            "&.Mui-focused fieldset": {
+              borderColor: "#1976d2"
+            }
+          }
         }}
       />
     )}
@@ -1287,16 +1591,26 @@ const AgentCRM = () => {
     clearOnBlur={false}
     selectOnFocus
     handleHomeEndKeys
-    style={{ width: '100%' }}
-  />
+    style={{ width: "100%" }}
+  />;
 
   // Highlight matching text in suggestions
+  function escapeRegExp(string) {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
   const highlightMatch = (text, query) => {
     if (!query) return text;
-    const parts = text.split(new RegExp(`(${query})`, 'gi'));
-    return parts.map((part, index) => 
-      part.toLowerCase() === query.toLowerCase() ? 
-        <span key={index} className="highlight">{part}</span> : part
+    const safeQuery = escapeRegExp(query);
+    const parts = text.split(new RegExp(`(${safeQuery})`, "gi"));
+    return parts.map((part, index) =>
+      part.toLowerCase() === query.toLowerCase() ? (
+        <span key={index} className="highlight">
+          {part}
+        </span>
+      ) : (
+        part
+      )
     );
   };
 
@@ -1308,6 +1622,111 @@ const AgentCRM = () => {
       setSearchSuggestions([]);
     }
   }, [searchQuery, debouncedSearch]);
+
+  // Fetch employer details when institution name changes (after employee selection)
+  useEffect(() => {
+    if (
+      formData.requester === "Employee" &&
+      formData.institution &&
+      formData.institution.trim() !== ""
+    ) {
+      // Call the external API with institution name (trimmed)
+      fetch("https://demomspapi.wcf.go.tz/api/v1/search/details", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json"
+        },
+        body: JSON.stringify({
+          type: "employer",
+          name: formData.institution.trim(),
+          employer_registration_number: ""
+        })
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && data.results && data.results.length > 0) {
+            console.log("Employer API result:", data.results[0]); // Debug log
+            setEmployerDetails(data.results[0]);
+          } else {
+            setEmployerDetails(null);
+          }
+        })
+        .catch(() => setEmployerDetails(null));
+    } else {
+      setEmployerDetails(null);
+    }
+  }, [formData.requester, formData.institution]);
+
+  // Auto-select institution in autocomplete after employee search
+  useEffect(() => {
+    if (
+      formData.institution &&
+      formData.institution.trim() !== "" &&
+      !selectedInstitution
+    ) {
+      fetch("https://demomspapi.wcf.go.tz/api/v1/search/details", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json"
+        },
+        body: JSON.stringify({
+          type: "employer",
+          name: formData.institution.trim(),
+          employer_registration_number: ""
+        })
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && data.results && data.results.length > 0) {
+            setSelectedInstitution(data.results[0]);
+          }
+        });
+    }
+    // Only run when institution changes and selectedInstitution is not set
+  }, [formData.institution]);
+
+  // Add phone normalization helper
+  function normalizePhone(phone) {
+    if (!phone) return '';
+    let p = phone.trim();
+    if (p.startsWith('+')) p = p.slice(1);
+    if (p.startsWith('0')) p = '255' + p.slice(1);
+    return p;
+  }
+
+  useEffect(() => {
+    const phone = formData.phoneNumber?.trim();
+    const normalizedPhone = normalizePhone(phone);
+    if (normalizedPhone && normalizedPhone.length >= 7) { // basic length check
+      setCreationTicketsLoading(true);
+      fetch(`${baseURL}/ticket/search-by-phone/${normalizedPhone}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.found && Array.isArray(data.tickets)) {
+            setCreationFoundTickets(data.tickets);
+          } else {
+            setCreationFoundTickets([]);
+          }
+        })
+        .catch(() => setCreationFoundTickets([]))
+        .finally(() => setCreationTicketsLoading(false));
+    } else {
+      setCreationFoundTickets([]);
+    }
+  }, [formData.phoneNumber, token, baseURL]);
+
+  // When ticket history loads, preselect the most recent ticket as active
+  useEffect(() => {
+    if (creationFoundTickets.length > 0) {
+      setCreationActiveTicketId(creationFoundTickets[0].id);
+    } else {
+      setCreationActiveTicketId(null);
+    }
+  }, [creationFoundTickets]);
 
   if (loading) {
     return (
@@ -1349,13 +1768,18 @@ const AgentCRM = () => {
           value={phoneSearch}
           onChange={(e) => setPhoneSearch(e.target.value)}
           onKeyPress={(e) => {
-            if (e.key === 'Enter') handlePhoneSearch(phoneSearch);
+            if (e.key === "Enter") handlePhoneSearch(phoneSearch);
           }}
           style={{ flex: 1 }}
         />
         <button
           className="add-user-button"
-          style={{ minWidth: 50, display: "flex", alignItems: "center", justifyContent: "center" }}
+          style={{
+            minWidth: 50,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center"
+          }}
           onClick={() => handlePhoneSearch(phoneSearch)}
           aria-label="Search"
         >
@@ -1368,32 +1792,35 @@ const AgentCRM = () => {
         open={existingTicketsModal}
         onClose={() => setExistingTicketsModal(false)}
       >
-        <Box sx={{
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: { xs: "90%", sm: 600 },
-          maxHeight: "80vh",
-          overflowY: "auto",
-          bgcolor: "background.paper",
-          boxShadow: 24,
-          borderRadius: 2,
-          p: 3
-        }}>
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: { xs: "90%", sm: 600 },
+            maxHeight: "80vh",
+            overflowY: "auto",
+            bgcolor: "background.paper",
+            boxShadow: 24,
+            borderRadius: 2,
+            p: 3
+          }}
+        >
           <Typography variant="h6" component="h2" gutterBottom>
             Existing Tickets for {phoneSearch}
           </Typography>
           <Divider sx={{ mb: 2 }} />
-          
+
           {foundTickets.map((ticket) => (
-            <Box key={ticket.id} sx={{ mb: 2, p: 2, border: "1px solid #eee", borderRadius: 1 }}>
+            <Box
+              key={ticket.id}
+              sx={{ mb: 2, p: 2, border: "1px solid #eee", borderRadius: 1 }}
+            >
               <Typography variant="subtitle1">
                 Ticket ID: {ticket.ticket_id}
               </Typography>
-              <Typography>
-                Status: {ticket.status}
-              </Typography>
+              <Typography>Status: {ticket.status}</Typography>
               <Typography>
                 Created: {new Date(ticket.created_at).toLocaleDateString()}
               </Typography>
@@ -1410,8 +1837,10 @@ const AgentCRM = () => {
               </Button>
             </Box>
           ))}
-          
-          <Box sx={{ mt: 2, display: "flex", justifyContent: "flex-end", gap: 1 }}>
+
+          <Box
+            sx={{ mt: 2, display: "flex", justifyContent: "flex-end", gap: 1 }}
+          >
             <Button
               variant="contained"
               color="primary"
@@ -1437,17 +1866,19 @@ const AgentCRM = () => {
         open={newTicketConfirmationModal}
         onClose={() => setNewTicketConfirmationModal(false)}
       >
-        <Box sx={{
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: { xs: "90%", sm: 400 },
-          bgcolor: "background.paper",
-          boxShadow: 24,
-          borderRadius: 2,
-          p: 3
-        }}>
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: { xs: "90%", sm: 400 },
+            bgcolor: "background.paper",
+            boxShadow: 24,
+            borderRadius: 2,
+            p: 3
+          }}
+        >
           <Typography variant="h6" component="h2" gutterBottom>
             No Existing Tickets Found
           </Typography>
@@ -1622,33 +2053,55 @@ const AgentCRM = () => {
       <Modal open={showDetailsModal} onClose={() => setShowDetailsModal(false)}>
         <Box
           sx={{
-            display: 'flex',
-            flexDirection: 'row',
-            width: 900,
-            maxWidth: '95vw',
-            minHeight: 400,
-            bgcolor: 'background.paper',
+            display: "flex",
+            flexDirection: "row",
+            width: 1050,
+            maxWidth: "98vw",
+            minHeight: 500,
+            maxHeight: "90vh",
+            bgcolor: "background.paper",
             boxShadow: 24,
             borderRadius: 2,
             p: 0
           }}
         >
           {/* Left: Ticket Details */}
-          <Box sx={{ flex: 2, p: 3, borderRight: '1px solid #eee', overflowY: 'auto', maxHeight: '80vh' }}>
+          <Box
+            sx={{
+              flex: 2,
+              p: 4,
+              borderRight: "1px solid #eee",
+              overflowY: "auto",
+              minWidth: 0,
+              maxHeight: "90vh"
+            }}
+          >
             {selectedTicket && (
               <>
-                <Typography variant="h5" sx={{ fontWeight: "bold", color: "#1976d2" }}>Ticket Details</Typography>
+                <Typography
+                  variant="h5"
+                  sx={{ fontWeight: "bold", color: "#1976d2" }}
+                >
+                  Ticket Details
+                </Typography>
                 <Divider sx={{ mb: 2 }} />
-                <div style={{ 
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(2, 1fr)',
-                  gap: '16px',
-                  width: '100%'
-                }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(2, 1fr)",
+                    gap: "16px",
+                    width: "100%"
+                  }}
+                >
                   {[
-                    // Left Column
+                    // If no first_name, show Institution only; else show First Name and Last Name
+                    ...(!selectedTicket.first_name
+                      ? [["Institution", selectedTicket.institution || "N/A"]]
+                      : [
+                          ["Full Name", selectedTicket.first_name  +' '+ selectedTicket.last_name||  "N/A"],
+                          // ["Last Name", selectedTicket.last_name || "N/A"]
+                        ]),
                     ["Ticket Number", selectedTicket.ticket_id || "N/A"],
-                    ["First Name", selectedTicket.first_name || "N/A"],
                     ["Phone", selectedTicket.phone_number || "N/A"],
                     ["Requester", selectedTicket.requester || "N/A"],
                     ["Region", selectedTicket.region || "N/A"],
@@ -1657,90 +2110,182 @@ const AgentCRM = () => {
                     ["Sub-section", selectedTicket.sub_section || "N/A"],
                     ["Subject", selectedTicket.subject || "N/A"],
                     ["Created By", selectedTicket?.creator?.name || "N/A"],
+                    // Always show Assigned To and Assigned Role
+                    ["Assigned To", selectedTicket?.assignee?.name || "N/A"],
+                    ["Assigned Role", selectedTicket.assigned_to_role || "N/A"]
                   ].map(([label, value], index) => (
-                    <div key={`left-${index}`} style={{ 
-                      padding: '12px 16px',
-                      backgroundColor: '#f8f9fa',
-                      borderRadius: '8px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                      border: label === "Section" || label === "Sub-section" || label === "Subject" ? '2px solid #e0e0e0' : 'none'
-                    }}>
-                      <strong style={{ 
-                        minWidth: '120px',
-                        color: label === "Section" || label === "Sub-section" || label === "Subject" ? '#1976d2' : '#555',
-                        fontSize: '0.9rem'
-                      }}>{label}:</strong>
-                      <span style={{
-                        flex: 1,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        fontSize: '0.9rem',
-                        color: label === "Section" || label === "Function" || label === "Subject" ? '#1976d2' : 'inherit'
-                      }}>{value}</span>
+                    <div
+                      key={`left-${index}`}
+                      style={{
+                        padding: "12px 16px",
+                        backgroundColor: "#f8f9fa",
+                        borderRadius: "8px",
+                        display: "flex",
+                        alignItems: "center",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                        border:
+                          label === "Section" ||
+                          label === "Sub-section" ||
+                          label === "Subject"
+                            ? "2px solid #e0e0e0"
+                            : "none"
+                      }}
+                    >
+                      <strong
+                        style={{
+                          minWidth: "120px",
+                          color:
+                            label === "Section" ||
+                            label === "Sub-section" ||
+                            label === "Subject"
+                              ? "#1976d2"
+                              : "#555",
+                          fontSize: "0.9rem"
+                        }}
+                      >
+                        {label}:
+                      </strong>
+                      <span
+                        style={{
+                          flex: 1,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          fontSize: "0.9rem",
+                          color:
+                            label === "Section" ||
+                            label === "Sub-section" ||
+                            label === "Subject"
+                              ? "#1976d2"
+                              : "inherit"
+                        }}
+                      >
+                        {value}
+                      </span>
                     </div>
                   ))}
 
                   {/* Right Column */}
                   {[
-                    ["Status", <span style={{ color: selectedTicket.status === "Open" ? "green" : selectedTicket.status === "Closed" ? "gray" : "blue" }}>{selectedTicket.status || "N/A"}</span>],
-                    ["Last Name", selectedTicket.last_name || "N/A"],
+                    [
+                      "Status",
+                      <span
+                        style={{
+                          color:
+                            selectedTicket.status === "Open"
+                              ? "green"
+                              : selectedTicket.status === "Closed"
+                              ? "gray"
+                              : "blue"
+                        }}
+                      >
+                        {selectedTicket.status || "N/A"}
+                      </span>
+                    ],
                     ["NIDA", selectedTicket.nida_number || "N/A"],
                     ["Institution", selectedTicket.institution || "N/A"],
                     ["District", selectedTicket.district || "N/A"],
                     ["Category", selectedTicket.category || "N/A"],
-                    ["Rated", <span style={{ color: selectedTicket.complaint_type === "Major" ? "red" : selectedTicket.complaint_type === "Minor" ? "orange" : "inherit" }}>{selectedTicket.complaint_type || "Unrated"}</span>],
-                    ["Assigned To", selectedTicket.assigned_to_id || "N/A"],
-                    ["Assigned Role", selectedTicket.assigned_to_role || "N/A"],
-                    ["Created At", selectedTicket.created_at ? new Date(selectedTicket.created_at).toLocaleString("en-US", { month: "numeric", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true }) : "N/A"]
+                    [
+                      "Rated",
+                      <span
+                        style={{
+                          color:
+                            selectedTicket.complaint_type === "Major"
+                              ? "red"
+                              : selectedTicket.complaint_type === "Minor"
+                              ? "orange"
+                              : "inherit"
+                        }}
+                      >
+                        {selectedTicket.complaint_type || "Unrated"}
+                      </span>
+                    ],
+                    // ["Assigned To", selectedTicket?.assignee?.name || "N/A"],
+                    // ["Assigned Role", selectedTicket.assigned_to_role || "N/A"],
+                    [
+                      "Created At",
+                      selectedTicket.created_at
+                        ? new Date(selectedTicket.created_at).toLocaleString(
+                            "en-US",
+                            {
+                              month: "numeric",
+                              day: "numeric",
+                              year: "numeric",
+                              hour: "numeric",
+                              minute: "2-digit",
+                              hour12: true
+                            }
+                          )
+                        : "N/A"
+                    ]
                   ].map(([label, value], index) => (
-                    <div key={`right-${index}`} style={{ 
-                      padding: '12px 16px',
-                      backgroundColor: '#f8f9fa',
-                      borderRadius: '8px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-                    }}>
-                      <strong style={{ 
-                        minWidth: '120px',
-                        color: '#555',
-                        fontSize: '0.9rem'
-                      }}>{label}:</strong>
-                      <span style={{
-                        flex: 1,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        fontSize: '0.9rem'
-                      }}>{value}</span>
+                    <div
+                      key={`right-${index}`}
+                      style={{
+                        padding: "12px 16px",
+                        backgroundColor: "#f8f9fa",
+                        borderRadius: "8px",
+                        display: "flex",
+                        alignItems: "center",
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
+                      }}
+                    >
+                      <strong
+                        style={{
+                          minWidth: "120px",
+                          color: "#555",
+                          fontSize: "0.9rem"
+                        }}
+                      >
+                        {label}:
+                      </strong>
+                      <span
+                        style={{
+                          flex: 1,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          fontSize: "0.9rem"
+                        }}
+                      >
+                        {value}
+                      </span>
                     </div>
                   ))}
                 </div>
 
                 {/* Description - Full Width */}
-                <div style={{ 
-                  width: '100%', 
-                  padding: '12px 16px',
-                  backgroundColor: '#f8f9fa',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-                  marginTop: '16px'
-                }}>
-                  <strong style={{ 
-                    minWidth: '120px',
-                    color: '#555',
-                    fontSize: '0.9rem'
-                  }}>Description:</strong>
-                  <span style={{
-                    flex: 1,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    fontSize: '0.9rem',
-                    lineHeight: '1.5'
-                  }}>{selectedTicket.description || "N/A"}</span>
+                <div
+                  style={{
+                    width: "94%",
+                    padding: "12px 16px",
+                    backgroundColor: "#f8f9fa",
+                    borderRadius: "8px",
+                    display: "flex",
+                    alignItems: "flex-start",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
+                    marginTop: "16px"
+                  }}
+                >
+                  <strong
+                    style={{
+                      minWidth: "120px",
+                      color: "#555",
+                      fontSize: "0.9rem"
+                    }}
+                  >
+                    Description:
+                  </strong>
+                  <span
+                    style={{
+                      flex: 1,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      fontSize: "0.9rem",
+                      lineHeight: "1.5"
+                    }}
+                  >
+                    {selectedTicket.description || "N/A"}
+                  </span>
                 </div>
 
                 <Box sx={{ mt: 3, textAlign: "right" }}>
@@ -1764,86 +2309,143 @@ const AgentCRM = () => {
             )}
           </Box>
           {/* Right: Ticket History */}
-          <Box sx={{ flex: 1, p: 3, overflowY: 'auto', maxHeight: '80vh', minWidth: 300 }}>
-            <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1976d2' }}>
+          <Box
+            sx={{
+              flex: 1,
+              p: 4,
+              overflowY: "auto",
+              minWidth: 350,
+              maxWidth: 420,
+              maxHeight: "90vh"
+            }}
+          >
+            {/* Add search input for ticket history */}
+            <div style={{ marginBottom: 16 }}>
+              <input
+                type="text"
+                placeholder="Search ticket history..."
+                value={historySearch || ""}
+                onChange={e => setHistorySearch(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "8px",
+                  borderRadius: "4px",
+                  border: "1px solid #ccc",
+                  fontSize: "0.95em"
+                }}
+              />
+            </div>
+            <Typography
+              variant="h6"
+              gutterBottom
+              sx={{ fontWeight: 600, color: "#1976d2" }}
+            >
               Ticket History
             </Typography>
             <Divider sx={{ mb: 2 }} />
-            {foundTickets && foundTickets.length > 0 ? (
-              foundTickets.map(ticket => (
-                <Box
-                  key={ticket.id}
-                  sx={{
-                    mb: 2,
-                    p: 2,
-                    borderRadius: 2,
-                    bgcolor: selectedTicket?.id === ticket.id ? '#e3f2fd' : '#fff',
-                    cursor: 'pointer',
-                    border: selectedTicket?.id === ticket.id ? '2px solid #1976d2' : '1px solid #e0e0e0',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 1,
-                    '&:hover': {
-                      boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-                      borderColor: '#1976d2'
-                    }
-                  }}
-                  onClick={() => openDetailsModal(ticket)}
-                >
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#1976d2' }}>
-                      {ticket.ticket_id}
-                    </Typography>
-                    <Typography
+            {/* Filter ticket history by search */}
+            {(foundTickets && foundTickets.length > 0
+              ? foundTickets.filter(ticket => {
+                  const s = (historySearch || "").toLowerCase();
+                  return (
+                    ticket.subject?.toLowerCase().includes(s) ||
+                    ticket.ticket_id?.toLowerCase().includes(s) ||
+                    ticket.description?.toLowerCase().includes(s)
+                  );
+                })
+              : []
+            ).length > 0 ? (
+              foundTickets
+                .filter(ticket => {
+                  const s = (historySearch || "").toLowerCase();
+                  return (
+                    ticket.subject?.toLowerCase().includes(s) ||
+                    ticket.ticket_id?.toLowerCase().includes(s) ||
+                    ticket.description?.toLowerCase().includes(s)
+                  );
+                })
+                .map(ticket => (
+                  <Box
+                    key={ticket.id}
+                    onClick={() => openDetailsModal(ticket)}
+                    sx={{
+                      mb: 2,
+                      p: 2,
+                      borderRadius: 2,
+                      bgcolor: selectedTicket?.id === ticket.id ? "#e3f2fd" : "#fff",
+                      cursor: "pointer",
+                      border: selectedTicket?.id === ticket.id ? "2px solid #1976d2" : "1px solid #e0e0e0",
+                      boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 1,
+                      "&:hover": {
+                        boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
+                        borderColor: "#1976d2"
+                      }
+                    }}
+                  >
+                    <Box
                       sx={{
-                        px: 1.5,
-                        py: 0.5,
-                        borderRadius: '12px',
-                        color: 'white',
-                        background: ticket.status === 'Closed' 
-                          ? '#757575' 
-                          : ticket.status === 'Open' 
-                          ? '#2e7d32' 
-                          : '#1976d2',
-                        fontSize: '0.75rem',
-                        fontWeight: 500
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center"
                       }}
                     >
-                      {ticket.status}
-                    </Typography>
+                      <Typography
+                        variant="subtitle1"
+                        sx={{ fontWeight: 600, color: "#1976d2" }}
+                      >
+                        {ticket.ticket_id}
+                      </Typography>
+                      <Typography
+                        sx={{
+                          px: 1.5,
+                          py: 0.5,
+                          borderRadius: "12px",
+                          color: "white",
+                          background:
+                            ticket.status === "Closed"
+                              ? "#757575"
+                              : ticket.status === "Open"
+                              ? "#2e7d32"
+                              : "#1976d2",
+                          fontSize: "0.75rem",
+                          fontWeight: 500
+                        }}
+                      >
+                        {ticket.status}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ mt: 1 }}>
+                      <Typography variant="body2" sx={{ color: "#666", mb: 0.5 }}>
+                        Created: {new Date(ticket.created_at).toLocaleDateString()}
+                      </Typography>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 500, color: "#333", mb: 1 }}>
+                        Subject: {ticket.subject}
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: "#666",
+                          display: "-webkit-box",
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis"
+                        }}
+                      >
+                        Description: {ticket.description}
+                      </Typography>
+                    </Box>
                   </Box>
-                  
-                  <Box sx={{ mt: 1 }}>
-                    <Typography variant="body2" sx={{ color: '#666', mb: 0.5 }}>
-                      Created: {new Date(ticket.created_at).toLocaleDateString()}
-                    </Typography>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 500, color: '#333', mb: 1 }}>
-                      Subject: {ticket.subject}
-                    </Typography>
-                    <Typography 
-                      variant="body2" 
-                      sx={{ 
-                        color: '#666',
-                        display: '-webkit-box',
-                        WebkitLineClamp: 2,
-                        WebkitBoxOrient: 'vertical',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis'
-                      }}
-                    >Description:
-                      {ticket.description}
-                    </Typography>
-                  </Box>
-                </Box>
-              ))
+                ))
             ) : (
-              <Typography sx={{ textAlign: 'center', color: '#666', mt: 3 }}>
+              <Typography sx={{ textAlign: "center", color: "#666", mt: 3 }}>
                 No ticket history found.
               </Typography>
             )}
-            
-            <Box sx={{ mt: 3, textAlign: 'center' }}>
+            <Box sx={{ mt: 3, textAlign: "center" }}>
               <Button
                 variant="contained"
                 color="primary"
@@ -1851,16 +2453,17 @@ const AgentCRM = () => {
                   px: 4,
                   py: 1.5,
                   borderRadius: 2,
-                  textTransform: 'none',
+                  textTransform: "none",
                   fontWeight: 500,
-                  boxShadow: '0 2px 4px rgba(25,118,210,0.2)',
-                  '&:hover': {
-                    boxShadow: '0 4px 8px rgba(25,118,210,0.3)'
+                  boxShadow: "0 2px 4px rgba(25,118,210,0.2)",
+                  "&:hover": {
+                    boxShadow: "0 4px 8px rgba(25,118,210,0.3)"
                   }
                 }}
                 onClick={() => {
                   let prev = selectedTicket;
-                  if (!prev && foundTickets && foundTickets.length > 0) prev = foundTickets[0];
+                  if (!prev && foundTickets && foundTickets.length > 0)
+                    prev = foundTickets[0];
                   if (prev) {
                     setFormData({
                       firstName: prev.first_name || "",
@@ -1874,12 +2477,22 @@ const AgentCRM = () => {
                       district: prev.district || "",
                       channel: prev.channel || "",
                       category: prev.category || "",
+                      inquiry_type: prev.inquiry_type || "", // Add inquiry_type
                       functionId: prev.function_id || "",
                       description: "",
-                      status: "Open"
+                      status: "Open",
+                      // New fields for representative
+                      requesterName: prev.requesterName || "",
+                      requesterPhoneNumber: prev.requesterPhoneNumber || "",
+                      requesterEmail: prev.requesterEmail || "",
+                      requesterAddress: prev.requesterAddress || "",
+                      relationshipToEmployee: prev.relationshipToEmployee || ""
                     });
                   } else {
-                    setFormData(prev => ({ ...prev, phoneNumber: phoneSearch }));
+                    setFormData((prev) => ({
+                      ...prev,
+                      phoneNumber: phoneSearch
+                    }));
                   }
                   setShowModal(true);
                   setShowDetailsModal(false);
@@ -1894,36 +2507,70 @@ const AgentCRM = () => {
 
       {/* Notification Modal */}
       <Modal open={showNotifyModal} onClose={() => setShowNotifyModal(false)}>
-        <Box sx={{ p: 3, bgcolor: 'background.paper', borderRadius: 2, minWidth: 350, maxWidth: 400, mx: 'auto', mt: '15vh' }}>
-          <Typography variant="h6" gutterBottom>Send Notification</Typography>
+        <Box
+          sx={{
+            p: 3,
+            bgcolor: "background.paper",
+            borderRadius: 2,
+            minWidth: 350,
+            maxWidth: 400,
+            mx: "auto",
+            mt: "15vh"
+          }}
+        >
+          <Typography variant="h6" gutterBottom>
+            Send Notification
+          </Typography>
           <TextField
             label="Message"
             multiline
             rows={3}
             fullWidth
             value={notifyMessage}
-            onChange={e => setNotifyMessage(e.target.value)}
+            onChange={(e) => setNotifyMessage(e.target.value)}
             sx={{ mb: 2 }}
           />
           <Button
             variant="contained"
             onClick={async () => {
-              await fetch(`${baseURL}/notifications/notify`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  Authorization: `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                  ticket_id: selectedTicket.id,
-                  category: selectedTicket.category, // or another user ID
-                  message: notifyMessage,
-                  channel: selectedTicket.channel,
-                  subject: selectedTicket.functionData?.name
-                })
-              });
-              setShowNotifyModal(false);
-              setSnackbar({ open: true, message: 'Notification sent!', severity: 'success' });
+              try {
+                const res = await fetch(`${baseURL}/notifications/notify`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                  },
+                  body: JSON.stringify({
+                    ticket_id: selectedTicket.id,
+                    category: selectedTicket.category, // or another user ID
+                    message: notifyMessage,
+                    channel: selectedTicket.channel,
+                    subject: selectedTicket.functionData?.name
+                  })
+                });
+                const data = await res.json();
+                setShowNotifyModal(false);
+                if (res.ok && data.notification) {
+                  setSnackbar({
+                    open: true,
+                    message: "Notification sent and saved!",
+                    severity: "success"
+                  });
+                } else {
+                  setSnackbar({
+                    open: true,
+                    message: data.message || "Failed to save notification.",
+                    severity: "error"
+                  });
+                }
+              } catch (error) {
+                setShowNotifyModal(false);
+                setSnackbar({
+                  open: true,
+                  message: "Network error: " + error.message,
+                  severity: "error"
+                });
+              }
             }}
             disabled={!notifyMessage.trim()}
           >
@@ -1934,39 +2581,66 @@ const AgentCRM = () => {
 
       {/* Ticket Creation Modal */}
       <Modal open={showModal} onClose={() => setShowModal(false)}>
-        <Box sx={{
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: { xs: "90%", sm: 600 },
-          maxHeight: "90vh",
-          overflowY: "auto",
-          bgcolor: "background.paper",
-          boxShadow: 24,
-          borderRadius: 3,
-          p: 4
-        }}>
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "row",
+            width: 1050,
+            maxWidth: "98vw",
+            minHeight: 500,
+            maxHeight: "90vh",
+            bgcolor: "background.paper",
+            boxShadow: 24,
+            borderRadius: 2,
+            p: 0
+          }}
+        >
+        <Box
+          sx={{
+            flex: 2,
+            p: 4,
+            borderRight: "1px solid #eee",
+            overflowY: "auto",
+            minWidth: 0,
+            maxHeight: "90vh"
+          }}
+        >
           <div className="modal-form-container">
             <h2 className="modal-title">New Ticket</h2>
 
             {/* Search Section */}
-            <div className="search-section" style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f5f5f5', borderRadius: '8px' }}>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Search Type:</label>
+            <div
+              className="search-section"
+              style={{
+                marginBottom: "20px",
+                padding: "15px",
+                backgroundColor: "#f5f5f5",
+                borderRadius: "8px"
+              }}
+            >
+              <div style={{ marginBottom: "15px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "8px",
+                    fontWeight: "bold"
+                  }}
+                >
+                  Search Type:
+                </label>
                 <select
                   value={searchType}
                   onChange={(e) => {
                     setSearchType(e.target.value);
                     setSearchSuggestions([]);
                     setSelectedSuggestion(null);
-                    setSearchQuery('');
+                    setSearchQuery("");
                   }}
                   style={{
-                    width: '100%',
-                    padding: '8px',
-                    borderRadius: '4px',
-                    border: '1px solid #ddd'
+                    width: "100%",
+                    padding: "8px",
+                    borderRadius: "4px",
+                    border: "1px solid #ddd"
                   }}
                 >
                   <option value="employee">Employee</option>
@@ -1974,21 +2648,29 @@ const AgentCRM = () => {
                 </select>
               </div>
 
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>Search By:</label>
+              <div style={{ marginBottom: "15px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "8px",
+                    fontWeight: "bold"
+                  }}
+                >
+                  Search By:
+                </label>
                 <select
                   value={searchBy}
                   onChange={(e) => {
                     setSearchBy(e.target.value);
                     setSearchSuggestions([]);
                     setSelectedSuggestion(null);
-                    setSearchQuery('');
+                    setSearchQuery("");
                   }}
                   style={{
-                    width: '100%',
-                    padding: '8px',
-                    borderRadius: '4px',
-                    border: '1px solid #ddd'
+                    width: "100%",
+                    padding: "8px",
+                    borderRadius: "4px",
+                    border: "1px solid #ddd"
                   }}
                 >
                   <option value="name">Name</option>
@@ -1996,46 +2678,65 @@ const AgentCRM = () => {
                 </select>
               </div>
 
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: 'bold' }}>
-                  {searchBy === 'name' ? 'Enter Name' : 'Enter WCF Number'}:
+              <div style={{ marginBottom: "15px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    marginBottom: "8px",
+                    fontWeight: "bold"
+                  }}
+                >
+                  {searchBy === "name" ? "Enter Name" : "Enter WCF Number"}:
                 </label>
                 <StyledAutocomplete
                   value={selectedSuggestion}
-                  onChange={(event, newValue) => handleSuggestionSelected(event, newValue)}
+                  onChange={(event, newValue) =>
+                    handleSuggestionSelected(event, newValue)
+                  }
                   inputValue={inputValue}
                   onInputChange={handleInputChange}
                   options={searchSuggestions}
-                  getOptionLabel={(option) => option.displayName || ''}
+                  getOptionLabel={(option) => option.displayName || ""}
                   open={open}
                   onOpen={() => setOpen(true)}
                   onClose={() => setOpen(false)}
                   loading={isSearching}
                   loadingText={
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: "10px"
+                      }}
+                    >
                       <CircularProgress size={20} />
                       <span>Searching...</span>
                     </div>
                   }
                   noOptionsText={
-                    inputValue.length < 1 ? 
-                      "Start typing to search" : 
-                      "No matching records found"
+                    inputValue.length < 1
+                      ? "Start typing to search"
+                      : "No matching records found"
                   }
                   renderOption={(props, option) => (
                     <li {...props}>
                       <SuggestionItem>
                         <div className="suggestion-name">
-                          <span style={{ color: '#666' }}>{option.numberPrefix}</span>
-                          {' '}
+                          <span style={{ color: "#666" }}>
+                            {option.numberPrefix}
+                          </span>{" "}
                           {highlightMatch(option.cleanName, inputValue)}
                           {option.employerName && (
                             <>
-                              {' — ('}
-                              <span style={{ color: '#666' }}>
-                                {highlightMatch(option.employerName, inputValue)}
+                              {" — ("}
+                              <span style={{ color: "#666" }}>
+                                {highlightMatch(
+                                  option.employerName,
+                                  inputValue
+                                )}
                               </span>
-                              {')'}
+                              {")"}
                             </>
                           )}
                         </div>
@@ -2050,28 +2751,34 @@ const AgentCRM = () => {
                   renderInput={(params) => (
                     <TextField
                       {...params}
-                      placeholder={searchBy === 'name' ? "Start typing name..." : "Enter WCF number..."}
+                      placeholder={
+                        searchBy === "name"
+                          ? "Start typing name..."
+                          : "Enter WCF number..."
+                      }
                       InputProps={{
                         ...params.InputProps,
                         endAdornment: (
                           <>
-                            {isSearching && <CircularProgress color="inherit" size={20} />}
+                            {isSearching && (
+                              <CircularProgress color="inherit" size={20} />
+                            )}
                             {params.InputProps.endAdornment}
                           </>
-                        ),
+                        )
                       }}
                       sx={{
-                        '& .MuiOutlinedInput-root': {
-                          '& fieldset': {
-                            borderColor: '#e0e0e0',
+                        "& .MuiOutlinedInput-root": {
+                          "& fieldset": {
+                            borderColor: "#e0e0e0"
                           },
-                          '&:hover fieldset': {
-                            borderColor: '#1976d2',
+                          "&:hover fieldset": {
+                            borderColor: "#1976d2"
                           },
-                          '&.Mui-focused fieldset': {
-                            borderColor: '#1976d2',
-                          },
-                        },
+                          "&.Mui-focused fieldset": {
+                            borderColor: "#1976d2"
+                          }
+                        }
                       }}
                     />
                   )}
@@ -2083,77 +2790,152 @@ const AgentCRM = () => {
                   clearOnBlur={false}
                   selectOnFocus
                   handleHomeEndKeys
-                  style={{ width: '100%' }}
+                  style={{ width: "100%" }}
                 />
               </div>
             </div>
+
+            {/* Update the claim status section */}
+            {searchType === "employee" && selectedSuggestion && (
+              <div
+                style={{
+                  marginTop: "10px",
+                  padding: "10px",
+                  backgroundColor: "#f5f5f5",
+                  borderRadius: "8px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center"
+                }}
+              >
+                <div>
+                  <Typography
+                    variant="subtitle2"
+                    style={{ fontWeight: "bold" }}
+                  >
+                    {selectedSuggestion.claimId ? (
+                      <>
+                        Claim Number:{" "}
+                        <span style={{ color: "#1976d2" }}>
+                          {selectedSuggestion.claimId}
+                        </span>
+                      </>
+                    ) : (
+                      "No Active Claim"
+                    )}
+                  </Typography>
+                </div>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  disabled={!selectedSuggestion?.claimId}
+                  onClick={async () => {
+                    console.log("Clicked claim:", selectedSuggestion.claimId);
+
+                    const response = await fetch(
+                      "http://127.0.0.1:8000/magic-login",
+                      {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Accept: "application/json"
+                        }, // important for Laravel session to persist
+                        body: JSON.stringify({
+                          username: "rehema.said",
+                          password: "TTCL@2026"
+                        }),
+                        credentials: "include" // important for Laravel session to persist
+                      }
+                    );
+
+                    const data = await response.json();
+
+                    if (data?.redirect) {
+                      window.open(data.redirect, "_blank");
+                    } else {
+                      console.error(data?.error || "Login failed");
+                    }
+                  }}
+                >
+                  View Claim
+                </Button>
+              </div>
+            )}
 
             {/* Existing form fields */}
-            <div className="modal-form-row">
-              <div className="modal-form-group" style={{ flex: 1 }}>
-                <label style={{ fontSize: "0.875rem" }}>First Name:</label>
-                <input
-                  name="firstName"
-                  value={formData.firstName}
-                  onChange={handleChange}
-                  placeholder="Enter first name"
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    border: formErrors.firstName
-                      ? "1px solid red"
-                      : "1px solid #ccc"
-                  }}
-                />
-                {formErrors.firstName && (
-                  <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.firstName}
-                  </span>
-                )}
-              </div>
+            {searchType !== "employer" && (
+              <div className="modal-form-row">
+                <div className="modal-form-group" style={{ flex: 1 }}>
+                  <label style={{ fontSize: "0.875rem" }}>First Name:</label>
+                  <input
+                    name="firstName"
+                    value={formData.firstName}
+                    onChange={handleChange}
+                    placeholder="Enter first name"
+                    style={{
+                      height: "32px",
+                      fontSize: "0.875rem",
+                      padding: "4px 8px",
+                      border: formErrors.firstName
+                        ? "1px solid red"
+                        : "1px solid #ccc"
+                    }}
+                  />
+                  {formErrors.firstName && (
+                    <span style={{ color: "red", fontSize: "0.75rem" }}>
+                      {formErrors.firstName}
+                    </span>
+                  )}
+                </div>
 
-              <div className="modal-form-group" style={{ flex: 1 }}>
-                <label style={{ fontSize: "0.875rem" }}>Middle Name (Optional):</label>
-                <input
-                  name="middleName"
-                  value={formData.middleName}
-                  onChange={handleChange}
-                  placeholder="Enter middle name"
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    border: "1px solid #ccc"
-                  }}
-                />
-              </div>
+                <div className="modal-form-group" style={{ flex: 1 }}>
+                  <label style={{ fontSize: "0.875rem" }}>
+                    Middle Name (Optional):
+                  </label>
+                  <input
+                    name="middleName"
+                    value={formData.middleName}
+                    onChange={handleChange}
+                    placeholder="Enter middle name"
+                    style={{
+                      height: "32px",
+                      fontSize: "0.875rem",
+                      padding: "4px 8px",
+                      border: "1px solid #ccc"
+                    }}
+                  />
+                </div>
 
-              <div className="modal-form-group" style={{ flex: 1 }}>
-                <label style={{ fontSize: "0.875rem" }}>
-                  Last Name{formData.requester === "Employer" ? " (Optional)" : ""}:
-                </label>
-                <input
-                  name="lastName"
-                  value={formData.lastName}
-                  onChange={handleChange}
-                  placeholder="Enter last name"
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    border: formErrors.lastName && formData.requester !== "Employer"
-                      ? "1px solid red"
-                      : "1px solid #ccc"
-                  }}
-                />
-                {formErrors.lastName && formData.requester !== "Employer" && (
-                  <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.lastName}
-                  </span>
-                )}
+                <div className="modal-form-group" style={{ flex: 1 }}>
+                  <label style={{ fontSize: "0.875rem" }}>
+                    Last Name
+                    {formData.requester === "Employer" ? " (Optional)" : ""}:
+                  </label>
+                  <input
+                    name="lastName"
+                    value={formData.lastName}
+                    onChange={handleChange}
+                    placeholder="Enter last name"
+                    style={{
+                      height: "32px",
+                      fontSize: "0.875rem",
+                      padding: "4px 8px",
+                      border:
+                        formErrors.lastName &&
+                        formData.requester !== "Employer"
+                          ? "1px solid red"
+                          : "1px solid #ccc"
+                    }}
+                  />
+                  {formErrors.lastName &&
+                    formData.requester !== "Employer" && (
+                      <span style={{ color: "red", fontSize: "0.75rem" }}>
+                        {formErrors.lastName}
+                      </span>
+                    )}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Phone & NIDA */}
             <div className="modal-form-row">
@@ -2183,13 +2965,19 @@ const AgentCRM = () => {
 
               <div className="modal-form-group">
                 <label style={{ fontSize: "0.875rem" }}>
-                  National Identification Number:
+                  {formData.requester === "Employer"
+                    ? "TIN:"
+                    : "National Identification Number:"}
                 </label>
                 <input
                   name="nidaNumber"
                   value={formData.nidaNumber}
                   onChange={handleChange}
-                  placeholder="Enter NIN number"
+                  placeholder={
+                    formData.requester === "Employer"
+                      ? "Enter TIN number"
+                      : "Enter NIN number"
+                  }
                   style={{
                     height: "32px",
                     fontSize: "0.875rem",
@@ -2230,6 +3018,7 @@ const AgentCRM = () => {
                   <option value="Employer">Employer</option>
                   <option value="Pensioners">Pensioners</option>
                   <option value="Stakeholders">Stakeholders</option>
+                  <option value="Representative">Representative</option>
                 </select>
                 {formErrors.requester && (
                   <span style={{ color: "red", fontSize: "0.75rem" }}>
@@ -2261,6 +3050,136 @@ const AgentCRM = () => {
                 )}
               </div>
             </div>
+
+            {/* New fields for Representative if selected */}
+            {formData.requester === "Representative" && (
+              <>
+                <Typography
+                  variant="h6"
+                  sx={{ mt: 3, mb: 1, fontWeight: "bold" }}
+                >
+                  Representative Details
+                </Typography>
+                <div className="modal-form-row">
+                  <div className="modal-form-group">
+                    <label style={{ fontSize: "0.875rem" }}>
+                      Representative Name:
+                    </label>
+                    <input
+                      name="requesterName"
+                      value={formData.requesterName}
+                      onChange={handleChange}
+                      placeholder="Enter representative's name"
+                      style={{
+                        height: "32px",
+                        fontSize: "0.875rem",
+                        padding: "4px 8px",
+                        border: formErrors.requesterName
+                          ? "1px solid red"
+                          : "1px solid #ccc"
+                      }}
+                    />
+                    {formErrors.requesterName && (
+                      <span style={{ color: "red", fontSize: "0.75rem" }}>
+                        {formErrors.requesterName}
+                      </span>
+                    )}
+                  </div>
+                  <div className="modal-form-group">
+                    <label style={{ fontSize: "0.875rem" }}>
+                      Representative Phone Number:
+                    </label>
+                    <input
+                      type="tel"
+                      name="requesterPhoneNumber"
+                      value={formData.requesterPhoneNumber}
+                      onChange={handleChange}
+                      placeholder="Enter representative's phone number"
+                      style={{
+                        height: "32px",
+                        fontSize: "0.875rem",
+                        padding: "4px 8px",
+                        border: formErrors.requesterPhoneNumber
+                          ? "1px solid red"
+                          : "1px solid #ccc"
+                      }}
+                    />
+                    {formErrors.requesterPhoneNumber && (
+                      <span style={{ color: "red", fontSize: "0.75rem" }}>
+                        {formErrors.requesterPhoneNumber}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="modal-form-row">
+                  <div className="modal-form-group">
+                    <label style={{ fontSize: "0.875rem" }}>
+                      Representative Email (Optional):
+                    </label>
+                    <input
+                      type="email"
+                      name="requesterEmail"
+                      value={formData.requesterEmail}
+                      onChange={handleChange}
+                      placeholder="Enter representative's email"
+                      style={{
+                        height: "32px",
+                        fontSize: "0.875rem",
+                        padding: "4px 8px",
+                        border: "1px solid #ccc"
+                      }}
+                    />
+                  </div>
+                  <div className="modal-form-group">
+                    <label style={{ fontSize: "0.875rem" }}>
+                      Representative Address (Optional):
+                    </label>
+                    <input
+                      name="requesterAddress"
+                      value={formData.requesterAddress}
+                      onChange={handleChange}
+                      placeholder="Enter representative's address"
+                      style={{
+                        height: "32px",
+                        fontSize: "0.875rem",
+                        padding: "4px 8px",
+                        border: "1px solid #ccc"
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="modal-form-row">
+                  <div className="modal-form-group">
+                    <label style={{ fontSize: "0.875rem" }}>
+                      Relationship to Employee/Employee:
+                    </label>
+                    <input
+                      name="relationshipToEmployee"
+                      value={formData.relationshipToEmployee}
+                      onChange={handleChange}
+                      placeholder="e.g., Parent, Spouse, Child"
+                      style={{
+                        height: "32px",
+                        fontSize: "0.875rem",
+                        padding: "4px 8px",
+                        border: formErrors.relationshipToEmployee
+                          ? "1px solid red"
+                          : "1px solid #ccc"
+                      }}
+                    />
+                    {formErrors.relationshipToEmployee && (
+                      <span style={{ color: "red", fontSize: "0.75rem" }}>
+                        {formErrors.relationshipToEmployee}
+                      </span>
+                    )}
+                  </div>
+                  <div className="modal-form-group"></div>{" "}
+                  {/* Empty for alignment */}
+                </div>
+              </>
+            )}
 
             {/* Region & District */}
             <div className="modal-form-row">
@@ -2369,6 +3288,36 @@ const AgentCRM = () => {
                 )}
               </div>
             </div>
+
+            {/* Inquiry Type */}
+            {formData.category === "Inquiry" && (
+              <div className="modal-form-group" style={{ flex: 1 }}>
+                <label style={{ fontSize: "0.875rem" }}>Inquiry Type:</label>
+                <select
+                  name="inquiry_type"
+                  value={formData.inquiry_type || ""}
+                  onChange={handleChange}
+                  style={{
+                    height: "32px",
+                    fontSize: "0.875rem",
+                    padding: "4px 8px",
+                    width: "100%",
+                    border: formErrors.inquiry_type
+                      ? "1px solid red"
+                      : "1px solid #ccc"
+                  }}
+                >
+                  <option value="">Select Inquiry Type</option>
+                  <option value="Claims">Claims</option>
+                  <option value="Compliance">Compliance</option>
+                </select>
+                {formErrors.inquiry_type && (
+                  <span style={{ color: "red", fontSize: "0.75rem" }}>
+                    {formErrors.inquiry_type}
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* Subject, Sub-section, Section */}
             <div className="modal-form-row">
@@ -2493,6 +3442,152 @@ const AgentCRM = () => {
             </div>
           </div>
         </Box>
+          <Box
+            sx={{
+              flex: 1,
+              p: 4,
+              overflowY: "auto",
+              minWidth: 350,
+              maxWidth: 420,
+              maxHeight: "90vh"
+            }}
+          >
+            {/* Employer/Institution Details */}
+            {selectedInstitution && (
+              <div
+                style={{
+                  flex: 1,
+                  background: "#e3f2fd",
+                  borderRadius: "8px",
+                  padding: "16px",
+                  minWidth: 0,
+                  marginBottom: 16
+                }}
+              >
+                <h4 style={{ color: "#1976d2", marginBottom: 12 }}>
+                  Institution Details
+                </h4>
+                <div>
+                  <strong>Name:</strong> {selectedInstitution.name}
+                </div>
+                <div>
+                  <strong>TIN:</strong> {selectedInstitution.tin}
+                </div>
+                <div>
+                  <strong>Phone:</strong> {selectedInstitution.phone}
+                </div>
+                <div>
+                  <strong>Email:</strong> {selectedInstitution.email}
+                </div>
+                <div>
+                  <strong>Status:</strong> {selectedInstitution.employer_status}
+                </div>
+                <div>
+                  <strong>Allocated User Name:</strong>{" "}
+                  {selectedInstitution.allocated_staff_name}
+                </div>
+                <div>
+                  <strong>Allocated Username:</strong>{" "}
+                  {selectedInstitution.allocated_staff_username}
+                </div>
+              </div>
+            )}
+            {/* Ticket history for entered phone number */}
+            {formData.phoneNumber && (
+              <div
+                style={{
+                  marginTop: 8,
+                  background: "#f8f9fa",
+                  borderRadius: 8,
+                  padding: 0,
+                  minHeight: 60
+                }}
+              >
+                <h4 style={{ color: "#1976d2", margin: '16px 0 8px 0', paddingLeft: 16 }}>
+                  Ticket History for {formData.phoneNumber}
+                </h4>
+                {creationTicketsLoading ? (
+                  <div style={{ textAlign: "center", padding: 12 }}>
+                    <CircularProgress size={22} />
+                  </div>
+                ) : creationFoundTickets.length > 0 ? (
+                  creationFoundTickets.map((ticket) => (
+                    <Box
+                      key={ticket.id}
+                      onClick={() => setCreationActiveTicketId(ticket.id)}
+                      sx={{
+                        mb: 2,
+                        p: 2,
+                        borderRadius: 2,
+                        bgcolor: creationActiveTicketId === ticket.id ? "#e3f2fd" : "#fff",
+                        cursor: "pointer",
+                        border: creationActiveTicketId === ticket.id ? "2px solid #1976d2" : "1px solid #e0e0e0",
+                        boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 1,
+                        transition: 'box-shadow 0.2s, border-color 0.2s',
+                        '&:hover': {
+                          boxShadow: '0 4px 8px rgba(25,118,210,0.1)',
+                          borderColor: '#1976d2'
+                        }
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#1976d2' }}>
+                          {ticket.ticket_id}
+                        </Typography>
+                        <Typography
+                          sx={{
+                            px: 1.5,
+                            py: 0.5,
+                            borderRadius: '12px',
+                            color: 'white',
+                            background:
+                              ticket.status === 'Closed'
+                                ? '#757575'
+                                : ticket.status === 'Open'
+                                ? '#2e7d32'
+                                : '#1976d2',
+                            fontSize: '0.75rem',
+                            fontWeight: 500
+                          }}
+                        >
+                          {ticket.status}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ mt: 1 }}>
+                        <Typography variant="body2" sx={{ color: '#666', mb: 0.5 }}>
+                          Created: {new Date(ticket.created_at).toLocaleDateString()}
+                        </Typography>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 500, color: '#333', mb: 1 }}>
+                          Subject: {ticket.subject}
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: '#666',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}
+                        >
+                          Description: {ticket.description}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  ))
+                ) : (
+                  <div style={{ color: '#888', fontSize: '0.95em', textAlign: 'center', padding: 16 }}>
+                    No previous tickets found for this number.
+                  </div>
+                )}
+              </div>
+            )}
+          </Box>
+        </Box>
       </Modal>
 
       {/* Column Selector Modal */}
@@ -2527,6 +3622,165 @@ const AgentCRM = () => {
           </div>
         </div>
       )}
+
+      {/* In the modal JSX, just below the Institution input field */}
+      {formData.requester === "Employee" && employerDetails && (
+        <div
+          style={{
+            margin: "10px 0",
+            padding: "10px",
+            background: "#e3f2fd",
+            borderRadius: "6px"
+          }}
+        >
+          <div>
+            <strong>Allocated User Name:</strong>{" "}
+            {employerDetails.allocated_staff_name
+              ? employerDetails.allocated_staff_name
+              : JSON.stringify(employerDetails)}
+          </div>
+          <div>
+            <strong>Allocated Username:</strong>{" "}
+            {employerDetails.allocated_staff_username
+              ? employerDetails.allocated_staff_username
+              : JSON.stringify(employerDetails)}
+          </div>
+        </div>
+      )}
+
+      {/* In the modal JSX, above the Institution input field */}
+      {/* <Autocomplete
+        value={selectedInstitution}
+        onChange={(event, newValue) => {
+          setSelectedInstitution(newValue);
+          if (newValue) {
+            setFormData((prev) => ({
+              ...prev,
+              institution: newValue.name || "",
+              employerTin: newValue.tin || "",
+              phoneNumber: newValue.phone || "",
+              employerEmail: newValue.email || "",
+              employerAllocatedStaffName: newValue.allocated_staff_name || "",
+              employerAllocatedStaffUsername:
+                newValue.allocated_staff_username || ""
+            }));
+          }
+        }}
+        inputValue={institutionSearch}
+        onInputChange={(event, newInputValue) => {
+          setInstitutionSearch(newInputValue);
+          handleInstitutionSearch(newInputValue);
+        }}
+        options={institutionSuggestions}
+        getOptionLabel={(option) => option.name || ""}
+        renderInput={(params) => (
+          <TextField
+            {...params}
+            label="Search Institution"
+            placeholder="Type institution name..."
+          />
+        )}
+        style={{ marginBottom: 16 }}
+      />
+
+      {selectedInstitution && (
+        <div
+          style={{
+            margin: "10px 0",
+            padding: "10px",
+            background: "#e3f2fd",
+            borderRadius: "6px"
+          }}
+        >
+          <div>
+            <strong>Allocated User Name:</strong>{" "}
+            {selectedInstitution.allocated_staff_name || "N/A"}
+          </div>
+          <div>
+            <strong>Allocated Username:</strong>{" "}
+            {selectedInstitution.allocated_staff_username || "N/A"}
+          </div>
+          <div>
+            <strong>TIN:</strong> {selectedInstitution.tin || "N/A"}
+          </div>
+          <div>
+            <strong>Phone:</strong> {selectedInstitution.phone || "N/A"}
+          </div>
+          <div>
+            <strong>Email:</strong> {selectedInstitution.email || "N/A"}
+          </div>
+        </div>
+      )}
+
+      {selectedInstitution && (
+        <Button
+          variant="outlined"
+          style={{ marginBottom: 8 }}
+          onClick={() => setShowInstitutionModal(true)}
+        >
+          View Institution Details
+        </Button>
+      )} */}
+
+      {/* Add the side modal for institution details */}
+      {/* <Modal
+        open={showInstitutionModal}
+        onClose={() => setShowInstitutionModal(false)}
+      >
+        <Box
+          sx={{
+            position: "fixed",
+            right: 0,
+            top: 0,
+            height: "100vh",
+            width: 400,
+            bgcolor: "background.paper",
+            boxShadow: 24,
+            p: 4,
+            overflowY: "auto"
+          }}
+        >
+          <Typography variant="h6" gutterBottom>
+            Institution Details
+          </Typography>
+          {selectedInstitution && (
+            <>
+              <div>
+                <strong>Name:</strong> {selectedInstitution.name}
+              </div>
+              <div>
+                <strong>TIN:</strong> {selectedInstitution.tin}
+              </div>
+              <div>
+                <strong>Phone:</strong> {selectedInstitution.phone}
+              </div>
+              <div>
+                <strong>Email:</strong> {selectedInstitution.email}
+              </div>
+              <div>
+                <strong>Status:</strong> {selectedInstitution.employer_status}
+              </div>
+              <div>
+                <strong>Allocated User Name:</strong>{" "}
+                {selectedInstitution.allocated_staff_name}
+              </div>
+              <div>
+                <strong>Allocated Username:</strong>{" "}
+                {selectedInstitution.allocated_staff_username}
+              </div>
+            </>
+          )}
+          <Button
+            variant="contained"
+            color="primary"
+            sx={{ mt: 2 }}
+            onClick={() => setShowInstitutionModal(false)}
+          >
+            Close
+          </Button>
+        </Box>
+      </Modal> */}
+
     </div>
   );
 };
