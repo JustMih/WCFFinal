@@ -12,11 +12,17 @@ import {
   Snackbar,
   Tooltip,
   Typography,
-  TextField
+  TextField,
+  Avatar,
+  Paper,
+  Dialog,
+  DialogTitle,
+  DialogContent
 } from "@mui/material";
 import ColumnSelector from "../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../config";
 import "./ticket.css";
+import ChatIcon from '@mui/icons-material/Chat';
 
 export default function Crm() {
   const [agentTickets, setAgentTickets] = useState([]);
@@ -44,6 +50,7 @@ export default function Crm() {
   const [loading, setLoading] = useState(true);
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   const [assignedUser, setAssignedUser] = useState(null);
+  const [isFlowModalOpen, setIsFlowModalOpen] = useState(false);
 
   useEffect(() => {
     const userId = localStorage.getItem("userId");
@@ -643,6 +650,37 @@ export default function Crm() {
     }
   };
 
+  function AssignmentFlowChat({ assignmentHistory }) {
+    return (
+      <Box sx={{ maxWidth: 400, ml: "auto" }}>
+        <Typography variant="h6" sx={{ color: "#3f51b5", mb: 2 }}>
+          Assignment Flow
+        </Typography>
+        {assignmentHistory.map((a, idx) => (
+          <Box key={idx} sx={{ display: "flex", mb: 2, alignItems: "flex-start" }}>
+            <Avatar sx={{ bgcolor: "#1976d2", mr: 2 }}>
+              {a.assigned_to_name ? a.assigned_to_name[0] : "?"}
+            </Avatar>
+            <Paper elevation={2} sx={{ p: 2, bgcolor: "#f5f5f5", flex: 1 }}>
+              <Typography sx={{ fontWeight: "bold" }}>
+                {a.assigned_to_name || "Unknown"}{" "}
+                <span style={{ color: "#888", fontWeight: "normal" }}>
+                  ({a.assigned_to_role || "N/A"})
+                </span>
+              </Typography>
+              <Typography variant="body2" sx={{ color: "#1976d2" }}>
+                {a.reason || <span style={{ color: "#888" }}>No reason provided</span>}
+              </Typography>
+              <Typography variant="caption" sx={{ color: "#888" }}>
+                {a.created_at ? new Date(a.created_at).toLocaleString() : ""}
+              </Typography>
+            </Paper>
+          </Box>
+        ))}
+      </Box>
+    );
+  }
+
   if (loading) {
     return (
       <div className="p-6">
@@ -795,9 +833,14 @@ export default function Crm() {
 
               {/* Workflow Status Section */}
               <Box sx={{ mb: 3, p: 2, bgcolor: "#f5f5f5", borderRadius: 1 }}>
-                <Typography variant="h6" sx={{ color: "#3f51b5", mb: 1 }}>
-                  Ticket Workflow
-                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                  <Typography variant="h6" sx={{ color: "#3f51b5", mr: 1 }}>
+                    Ticket Workflow
+                  </Typography>
+                  <IconButton size="small" onClick={() => setIsFlowModalOpen(true)} title="Show Assignment Flow Chart">
+                    <ChatIcon color="primary" />
+                  </IconButton>
+                </Box>
                 <Divider sx={{ mb: 2 }} />
 
                 {renderAssignmentStepper(assignmentHistory, selectedTicket)}
@@ -973,6 +1016,14 @@ export default function Crm() {
           )}
         </Box>
       </Modal>
+
+      {/* Assignment Flow Modal */}
+      <Dialog open={isFlowModalOpen} onClose={() => setIsFlowModalOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Assignment Flow</DialogTitle>
+        <DialogContent>
+          <AssignmentFlowChat assignmentHistory={assignmentHistory} />
+        </DialogContent>
+      </Dialog>
 
       {/* Column Selector */}
       <ColumnSelector
