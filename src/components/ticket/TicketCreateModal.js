@@ -47,6 +47,9 @@ export default function TicketCreateModal({ open, onClose, initialPhoneNumber = 
   const [submitAction, setSubmitAction] = useState("open");
   const [selectedFunction, setSelectedFunction] = useState("");
   const [selectedSection, setSelectedSection] = useState("");
+  const [customerTickets, setCustomerTickets] = useState([]);
+  const [loadingTickets, setLoadingTickets] = useState(false);
+  const [ticketError, setTicketError] = useState("");
 
   // --- Search section state ---
   const [searchType, setSearchType] = useState("employee");
@@ -312,6 +315,40 @@ export default function TicketCreateModal({ open, onClose, initialPhoneNumber = 
     }
     setLoading(false);
   };
+
+  // Fetch existing tickets for the phone number
+  useEffect(() => {
+    const fetchCustomerTickets = async () => {
+      if (!formData.phoneNumber) {
+        setCustomerTickets([]);
+        return;
+      }
+      setLoadingTickets(true);
+      setTicketError("");
+      try {
+        const token = localStorage.getItem("authToken");
+        const response = await fetch(`${baseURL}/ticket/all-customer-tickets`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+        const result = await response.json();
+        if (response.ok && Array.isArray(result.tickets)) {
+          // Filter tickets by phone number
+          const filtered = result.tickets.filter(t => t.phone_number === formData.phoneNumber);
+          setCustomerTickets(filtered);
+        } else {
+          setCustomerTickets([]);
+        }
+      } catch (error) {
+        setTicketError("Failed to load existing tickets.");
+        setCustomerTickets([]);
+      }
+      setLoadingTickets(false);
+    };
+    fetchCustomerTickets();
+  }, [formData.phoneNumber, open]);
 
   return (
     <Modal
@@ -732,6 +769,24 @@ export default function TicketCreateModal({ open, onClose, initialPhoneNumber = 
             {snackbar.message}
           </Alert>
         </Snackbar>
+        {/* Existing Tickets Section */}
+        {loadingTickets ? (
+          <div style={{ marginBottom: 16 }}>Loading existing tickets...</div>
+        ) : customerTickets.length > 0 ? (
+          <div style={{ marginBottom: 16, background: '#fff3cd', padding: 12, borderRadius: 8 }}>
+            <strong>Existing Tickets for this Number:</strong>
+            <ul style={{ margin: 0, paddingLeft: 20 }}>
+              {customerTickets.map(ticket => (
+                <li key={ticket.id} style={{ marginBottom: 6 }}>
+                  <span style={{ fontWeight: 500 }}>#{ticket.ticket_id}</span> - {ticket.status} - {ticket.category} - {ticket.description?.slice(0, 40)}
+                </li>
+              ))}
+            </ul>
+            <div style={{ color: '#b26a00', marginTop: 6 }}>
+              Please review existing tickets before creating a new one.
+            </div>
+          </div>
+        ) : null}
       </Box>
     </Modal>
   );
