@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import Autocomplete from '@mui/material/Autocomplete';
+import Autocomplete from "@mui/material/Autocomplete";
+import { FormControl, InputLabel, Select } from '@mui/material';
 
 // React Icons
 import { FaEye } from "react-icons/fa";
 import { FiSettings } from "react-icons/fi";
-import {
-  MdOutlineSupportAgent,
-  MdImportExport
-} from "react-icons/md";
+import { MdOutlineSupportAgent, MdImportExport } from "react-icons/md";
 
 // MUI Components
 import {
@@ -69,6 +67,8 @@ export default function FocalPersonDashboard() {
   const [selectedAttendee, setSelectedAttendee] = useState(null);
   const [assignReason, setAssignReason] = useState("");
   const [assignLoading, setAssignLoading] = useState(false);
+  const [selectedAction, setSelectedAction] = useState("");
+  const [assignmentHistory, setAssignmentHistory] = useState([]);
 
   // Dashboard Stats
   const [newTickets, setNewTickets] = useState({
@@ -85,8 +85,8 @@ export default function FocalPersonDashboard() {
   });
   const [ticketStatus, setTicketStatus] = useState({
     "On Progress": 0,
-    "Closed": 0,
-    "Total": 0
+    Closed: 0,
+    Total: 0
   });
 
   // Initialize activeColumns with default columns if empty
@@ -127,25 +127,25 @@ export default function FocalPersonDashboard() {
   const fetchTickets = async () => {
     try {
       const token = localStorage.getItem("authToken");
-      console.log('Fetching tickets with token:', token);
-      
+      console.log("Fetching tickets with token:", token);
+
       const response = await fetch(`${baseURL}/focal-person/new-tickets`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
+
       if (!response.ok) {
         throw new Error("Failed to fetch tickets");
       }
-      
+
       const data = await response.json();
-      console.log('Raw API Response:', data);
+      console.log("Raw API Response:", data);
 
       // Directly use the inquiries from the response
       setTickets(data.inquiries || []);
-      console.log('Tickets set in state:', data.inquiries);
+      console.log("Tickets set in state:", data.inquiries);
 
       if (!data.inquiries?.length) {
-        console.log('No tickets found');
+        console.log("No tickets found");
         setSnackbar({
           open: true,
           message: "No tickets found",
@@ -164,7 +164,7 @@ export default function FocalPersonDashboard() {
 
   // Add effect to log tickets whenever they change
   useEffect(() => {
-    console.log('Current tickets in state:', tickets);
+    console.log("Current tickets in state:", tickets);
   }, [tickets]);
 
   const fetchDashboardCounts = async (id) => {
@@ -172,22 +172,22 @@ export default function FocalPersonDashboard() {
     const token = localStorage.getItem("authToken");
 
     try {
-      console.log('Fetching dashboard counts for ID:', id);
-      
+      console.log("Fetching dashboard counts for ID:", id);
+
       const response = await axios.get(
         `${baseURL}/focal-person/dashboard-counts`,
         {
-          headers: { 
+          headers: {
             Authorization: `Bearer ${token}`
           }
         }
       );
 
-      console.log('Dashboard counts response:', response.data);
+      console.log("Dashboard counts response:", response.data);
 
       const data = response.data;
 
-      if (data && typeof data === 'object') {
+      if (data && typeof data === "object") {
         // Set the dashboard counts based on the response
         setNewTickets({
           "New Tickets": data.newInquiries || 0,
@@ -206,17 +206,17 @@ export default function FocalPersonDashboard() {
 
         setTicketStatus({
           "On Progress": data.inProgressInquiries || 0,
-          "Closed": data.closedInquiries || 0,
-          "Total": data.totalInquiries || 0
+          Closed: data.closedInquiries || 0,
+          Total: data.totalInquiries || 0
         });
       } else {
-        console.error('Invalid data structure received:', data);
-        throw new Error('Invalid data structure received from server');
+        console.error("Invalid data structure received:", data);
+        throw new Error("Invalid data structure received from server");
       }
     } catch (error) {
       console.error("Dashboard counts error:", error);
       console.error("Error response:", error.response?.data);
-      
+
       // Set default values in case of error
       setNewTickets({
         "New Tickets": 0,
@@ -232,13 +232,15 @@ export default function FocalPersonDashboard() {
       });
       setTicketStatus({
         "On Progress": 0,
-        "Closed": 0,
-        "Total": 0
+        Closed: 0,
+        Total: 0
       });
 
       setSnackbar({
         open: true,
-        message: `Error fetching dashboard counts: ${error.response?.data?.message || error.message}`,
+        message: `Error fetching dashboard counts: ${
+          error.response?.data?.message || error.message
+        }`,
         severity: "error"
       });
     } finally {
@@ -297,9 +299,11 @@ export default function FocalPersonDashboard() {
       }
 
       const data = await response.json();
-      setTickets(tickets.map(ticket =>
-        ticket.id === data.ticket.id ? data.ticket : ticket
-      ));
+      setTickets(
+        tickets.map((ticket) =>
+          ticket.id === data.ticket.id ? data.ticket : ticket
+        )
+      );
 
       setSnackbar({
         open: true,
@@ -330,11 +334,23 @@ export default function FocalPersonDashboard() {
     }
   }, [userId]);
 
-  const openModal = (ticket) => {
+  const openModal = async (ticket) => {
     setSelectedTicket(ticket);
     setResolutionType("");
     setResolutionDetails("");
     setIsModalOpen(true);
+
+    // Fetch assignment history
+    try {
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(`${baseURL}/ticket/${ticket.id}/assignments`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setAssignmentHistory(data);
+    } catch (e) {
+      setAssignmentHistory([]);
+    }
   };
 
   const closeModal = () => {
@@ -342,36 +358,42 @@ export default function FocalPersonDashboard() {
     setSelectedTicket(null);
     setResolutionType("");
     setResolutionDetails("");
+    setSelectedAction("");
   };
 
   const handleSnackbarClose = () => setSnackbar({ ...snackbar, open: false });
 
   const filteredTickets = tickets.filter((ticket) => {
-    console.log('Filtering ticket:', ticket);
+    console.log("Filtering ticket:", ticket);
     const searchValue = search.toLowerCase();
-    const fullName = `${ticket.first_name || ""} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.toLowerCase();
+    const fullName = `${ticket.first_name || ""} ${ticket.middle_name || ""} ${
+      ticket.last_name || ""
+    }`.toLowerCase();
 
-    let matches = (!searchValue || 
-      ticket.phone_number?.toLowerCase().includes(searchValue) ||
-      ticket.nida_number?.toLowerCase().includes(searchValue) ||
-      fullName.includes(searchValue)
-    ) && (!filterStatus || ticket.status === filterStatus);
+    let matches =
+      (!searchValue ||
+        ticket.phone_number?.toLowerCase().includes(searchValue) ||
+        ticket.nida_number?.toLowerCase().includes(searchValue) ||
+        fullName.includes(searchValue)) &&
+      (!filterStatus || ticket.status === filterStatus);
 
     // Apply advanced filters
     if (filters.category) {
       matches = matches && ticket.category === filters.category;
     }
     if (filters.startDate) {
-      matches = matches && new Date(ticket.created_at) >= new Date(filters.startDate);
+      matches =
+        matches && new Date(ticket.created_at) >= new Date(filters.startDate);
     }
     if (filters.endDate) {
-      matches = matches && new Date(ticket.created_at) <= new Date(filters.endDate);
+      matches =
+        matches && new Date(ticket.created_at) <= new Date(filters.endDate);
     }
 
     return matches;
   });
 
-  console.log('Filtered tickets:', filteredTickets);
+  console.log("Filtered tickets:", filteredTickets);
 
   const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
   const paginatedTickets = filteredTickets.slice(
@@ -379,7 +401,7 @@ export default function FocalPersonDashboard() {
     currentPage * itemsPerPage
   );
 
-  console.log('Paginated tickets to display:', paginatedTickets);
+  console.log("Paginated tickets to display:", paginatedTickets);
 
   const handleFilterChange = (newFilters) => {
     setFilters(newFilters);
@@ -389,7 +411,11 @@ export default function FocalPersonDashboard() {
   // Assignment handler
   const handleAssignTicket = async () => {
     if (!selectedAttendee) {
-      setSnackbar({ open: true, message: "Please select an attendee", severity: "warning" });
+      setSnackbar({
+        open: true,
+        message: "Please select an attendee",
+        severity: "warning"
+      });
       return;
     }
     setAssignLoading(true);
@@ -397,9 +423,9 @@ export default function FocalPersonDashboard() {
       const token = localStorage.getItem("authToken");
       const userId = localStorage.getItem("userId");
       const res = await fetch(`${baseURL}/ticket/${selectedTicket.id}/assign`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`
         },
         body: JSON.stringify({
@@ -408,27 +434,39 @@ export default function FocalPersonDashboard() {
           reason: assignReason
         })
       });
-      if (!res.ok) throw new Error('Failed to assign ticket');
-      setSnackbar({ open: true, message: 'Ticket assigned successfully', severity: 'success' });
-      setTickets(tickets.map(t => t.id === selectedTicket.id ? { ...t, status: 'Assigned', assigned_to: selectedAttendee.id } : t));
+      if (!res.ok) throw new Error("Failed to assign ticket");
+      setSnackbar({
+        open: true,
+        message: "Ticket assigned successfully",
+        severity: "success"
+      });
+      setTickets(
+        tickets.map((t) =>
+          t.id === selectedTicket.id
+            ? { ...t, status: "Assigned", assigned_to: selectedAttendee.id }
+            : t
+        )
+      );
       setSelectedAttendee(null);
       setAssignReason("");
       closeModal();
     } catch (e) {
-      setSnackbar({ open: true, message: e.message, severity: 'error' });
+      setSnackbar({ open: true, message: e.message, severity: "error" });
     } finally {
       setAssignLoading(false);
     }
   };
 
   // Restore attendee filtering logic
-  const ticketSection = (
-    selectedTicket?.section === 'Unit'
+  const ticketSection =
+    (selectedTicket?.section === "Unit"
       ? selectedTicket?.sub_section
-      : (selectedTicket?.section || selectedTicket?.responsible_unit_name)
-  ) || '';
+      : selectedTicket?.section || selectedTicket?.responsible_unit_name) || "";
   const ticketSectionNormalized = ticketSection.trim().toLowerCase();
-  const filteredAttendees = attendees.filter(a => (a.unit_section || '').trim().toLowerCase() === ticketSectionNormalized);
+  const filteredAttendees = attendees.filter(
+    (a) =>
+      (a.unit_section || "").trim().toLowerCase() === ticketSectionNormalized
+  );
   console.log("Attendees:", attendees);
   console.log("Ticket section:", ticketSectionNormalized);
   console.log("Filtered:", filteredAttendees);
@@ -476,12 +514,14 @@ export default function FocalPersonDashboard() {
 
       {/* Table Section */}
       <div style={{ overflowX: "auto", width: "100%" }}>
-        <div style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "16px"
-        }}>
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "16px"
+          }}
+        >
           <h2>Inquiry Tickets</h2>
           <Tooltip title="Columns Settings" arrow>
             <IconButton onClick={() => setIsColumnModalOpen(true)}>
@@ -504,7 +544,9 @@ export default function FocalPersonDashboard() {
               }}
             >
               {[5, 10, 25, 50, 100].map((n) => (
-                <option key={n} value={n}>{n}</option>
+                <option key={n} value={n}>
+                  {n}
+                </option>
               ))}
             </select>
           </div>
@@ -543,7 +585,9 @@ export default function FocalPersonDashboard() {
               {activeColumns.includes("status") && <th>Status</th>}
               {activeColumns.includes("subject") && <th>Subject</th>}
               {activeColumns.includes("category") && <th>Category</th>}
-              {activeColumns.includes("assigned_to_role") && <th>Assigned Role</th>}
+              {activeColumns.includes("assigned_to_role") && (
+                <th>Assigned Role</th>
+              )}
               {activeColumns.includes("createdAt") && <th>Created At</th>}
               <th>Actions</th>
             </tr>
@@ -556,26 +600,35 @@ export default function FocalPersonDashboard() {
                     <td>{(currentPage - 1) * itemsPerPage + i + 1}</td>
                   )}
                   {activeColumns.includes("fullName") && (
-                     <td>
-                     {ticket.first_name && ticket.first_name.trim() !== ""
-                       ? `${ticket.first_name} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim()
-                       : (typeof ticket.institution === "string"
-                           ? ticket.institution
-                           : ticket.institution && typeof ticket.institution === "object" && typeof ticket.institution.name === "string"
-                             ? ticket.institution.name
-                             : "N/A")}
-                   </td>
+                    <td>
+                      {ticket.first_name && ticket.first_name.trim() !== ""
+                        ? `${ticket.first_name} ${ticket.middle_name || ""} ${
+                            ticket.last_name || ""
+                          }`.trim()
+                        : typeof ticket.institution === "string"
+                        ? ticket.institution
+                        : ticket.institution &&
+                          typeof ticket.institution === "object" &&
+                          typeof ticket.institution.name === "string"
+                        ? ticket.institution.name
+                        : "N/A"}
+                    </td>
                   )}
                   {activeColumns.includes("phone_number") && (
                     <td>{ticket.phone_number || "N/A"}</td>
                   )}
                   {activeColumns.includes("status") && (
                     <td>
-                      <span style={{
-                        color: ticket.status === "Open" ? "green" :
-                               ticket.status === "Closed" ? "gray" :
-                               "blue"
-                      }}>
+                      <span
+                        style={{
+                          color:
+                            ticket.status === "Open"
+                              ? "green"
+                              : ticket.status === "Closed"
+                              ? "gray"
+                              : "blue"
+                        }}
+                      >
                         {ticket.status || "N/A"}
                       </span>
                     </td>
@@ -598,7 +651,7 @@ export default function FocalPersonDashboard() {
                             year: "numeric",
                             hour: "2-digit",
                             minute: "2-digit",
-                            hour12: true,
+                            hour12: true
                           })
                         : "N/A"}
                     </td>
@@ -617,7 +670,10 @@ export default function FocalPersonDashboard() {
               ))
             ) : (
               <tr>
-                <td colSpan={activeColumns.length + 1} style={{ textAlign: "center", color: "red" }}>
+                <td
+                  colSpan={activeColumns.length + 1}
+                  style={{ textAlign: "center", color: "red" }}
+                >
                   No tickets found.
                 </td>
               </tr>
@@ -639,7 +695,9 @@ export default function FocalPersonDashboard() {
           </span>
           <Button
             variant="outlined"
-            onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+            onClick={() =>
+              setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+            }
             disabled={currentPage === totalPages}
             sx={{ marginLeft: 1 }}
           >
@@ -650,229 +708,420 @@ export default function FocalPersonDashboard() {
 
       {/* Ticket Details Modal */}
       <Modal
-        open={isModalOpen}
-        onClose={closeModal}
-        aria-labelledby="ticket-details-title"
-      >
-        <Box sx={{
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          width: { xs: "90%", sm: 600 },
-          maxHeight: "85vh",
-          overflowY: "auto",
-          bgcolor: "background.paper",
-          boxShadow: 24,
-          borderRadius: 2,
-          p: 3,
-        }}>
-          {selectedTicket && (
-            <>
-              <Typography variant="h5" sx={{ fontWeight: "bold", color: "#1976d2", mb: 2 }}>
-                Ticket Details #{selectedTicket.ticket_id}
-              </Typography>
+  open={isModalOpen}
+  onClose={closeModal}
+  aria-labelledby="ticket-details-title"
+>
+  <Box
+    sx={{
+      position: "absolute",
+      top: "50%",
+      left: "50%",
+      transform: "translate(-50%, -50%)",
+      width: { xs: "90%", sm: 600 },
+      maxHeight: "85vh",
+      overflowY: "auto",
+      bgcolor: "background.paper",
+      boxShadow: 24,
+      borderRadius: 2,
+      p: 3,
+    }}
+  >
+    {selectedTicket && (
+      <>
+        {/* Title */}
+        <Typography
+          variant="h5"
+          sx={{ fontWeight: "bold", color: "#1976d2", mb: 2 }}
+        >
+          Ticket Details #{selectedTicket.ticket_id}
+        </Typography>
 
-              {/* Personal Information Section */}
-              <Typography variant="h6" sx={{ color: "#1976d2", mb: 1 }}>
-                Personal Information
-              </Typography>
-              <Grid container spacing={2} sx={{ mb: 3 }}>
+        {/* Personal Information */}
+        <Typography variant="h6" sx={{ color: "#1976d2", mb: 1 }}>
+          Personal Information
+        </Typography>
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Grid item xs={12} sm={6}>
+            <Typography>
+              <strong>Full Name:</strong>{" "}
+              {`${selectedTicket.first_name || ""} ${
+                selectedTicket.middle_name || ""
+              } ${selectedTicket.last_name || ""}`}
+            </Typography>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <Typography>
+              <strong>Phone:</strong> {selectedTicket.phone_number || "N/A"}
+            </Typography>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <Typography>
+              <strong>Email:</strong> {selectedTicket.email || "N/A"}
+            </Typography>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <Typography>
+              <strong>NIDA:</strong> {selectedTicket.nida_number || "N/A"}
+            </Typography>
+          </Grid>
+        </Grid>
+
+        {/* Ticket Info */}
+        <Typography variant="h6" sx={{ color: "#1976d2", mb: 1 }}>
+          Ticket Information
+        </Typography>
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Grid item xs={12} sm={6}>
+            <Typography>
+              <strong>Category:</strong> {selectedTicket.category || "N/A"}
+            </Typography>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <Typography>
+              <strong>Status:</strong>{" "}
+              <span
+                style={{
+                  color:
+                    selectedTicket.status === "Open"
+                      ? "green"
+                      : selectedTicket.status === "Closed"
+                      ? "gray"
+                      : "blue",
+                }}
+              >
+                {selectedTicket.status || "N/A"}
+              </span>
+            </Typography>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <Typography>
+              <strong>Subject:</strong> {selectedTicket.subject || "N/A"}
+            </Typography>
+          </Grid>
+          <Grid item xs={12} sm={6}>
+            <Typography>
+              <strong>Created At:</strong>{" "}
+              {selectedTicket.created_at
+                ? new Date(selectedTicket.created_at).toLocaleString("en-GB")
+                : "N/A"}
+            </Typography>
+          </Grid>
+        </Grid>
+
+        {/* Assignment Status Section */}
+        <Typography variant="h6" sx={{ color: "#1976d2", mb: 1 }}>
+          Assignment Status
+        </Typography>
+        <Box sx={{ mb: 2, p: 2, bgcolor: "#f5f5f5", borderRadius: 1 }}>
+          {selectedTicket.assigned_to_name || selectedTicket.assigned_to ? (
+            <Typography>
+              <strong>Assigned To:</strong> {selectedTicket.assigned_to_name || selectedTicket.assigned_to}
+            </Typography>
+          ) : (
+            <Typography color="text.secondary">
+              Not assigned yet
+            </Typography>
+          )}
+        </Box>
+
+        {/* Assignment History Section */}
+        <Typography variant="h6" sx={{ color: "#1976d2", mb: 1 }}>
+          Assignment History
+        </Typography>
+        <Box sx={{ mb: 2, p: 2, bgcolor: "#f5f5f5", borderRadius: 1 }}>
+          {assignmentHistory.length > 0 ? (
+            assignmentHistory.map((a, idx) => (
+              <Grid container spacing={2} key={idx} sx={{ mb: 1, pb: 1, borderBottom: idx < assignmentHistory.length - 1 ? '1px solid #eee' : 'none' }}>
                 <Grid item xs={12} sm={6}>
                   <Typography>
-                    <strong>Full Name:</strong> {`${selectedTicket.first_name || ""} ${selectedTicket.middle_name || ""} ${selectedTicket.last_name || ""}`}
+                    <strong>Assigned To:</strong> {a.assigned_to_name || a.assigned_to_id}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Typography>
-                    <strong>Phone:</strong> {selectedTicket.phone_number || "N/A"}
+                    <strong>Role:</strong> {a.assigned_to_role}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Typography>
-                    <strong>Email:</strong> {selectedTicket.email || "N/A"}
+                    <strong>Action:</strong> {a.action}
                   </Typography>
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <Typography>
-                    <strong>NIDA:</strong> {selectedTicket.nida_number || "N/A"}
+                    <strong>Date:</strong> {a.created_at ? new Date(a.created_at).toLocaleString() : ''}
                   </Typography>
                 </Grid>
+                {a.reason && (
+                  <Grid item xs={12}>
+                    <Typography>
+                      <strong>Reason:</strong> {a.reason}
+                    </Typography>
+                  </Grid>
+                )}
+                {a.assigned_by_name && (
+                  <Grid item xs={12}>
+                    <Typography>
+                      <strong>Assigned By:</strong> {a.assigned_by_name}
+                    </Typography>
+                  </Grid>
+                )}
               </Grid>
+            ))
+          ) : (
+            <Typography color="text.secondary">No assignment history.</Typography>
+          )}
+        </Box>
 
-              {/* Ticket Information Section */}
-              <Typography variant="h6" sx={{ color: "#1976d2", mb: 1 }}>
-                Ticket Information
-              </Typography>
-              <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Category:</strong> {selectedTicket.category || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Status:</strong>{" "}
-                    <span style={{
-                      color: selectedTicket.status === "Open" ? "green" :
-                             selectedTicket.status === "Closed" ? "gray" :
-                             "blue"
-                    }}>
-                      {selectedTicket.status || "N/A"}
-                    </span>
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Subject:</strong> {selectedTicket.subject || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Created At:</strong> {selectedTicket.created_at ? new Date(selectedTicket.created_at).toLocaleString("en-GB") : "N/A"}
-                  </Typography>
-                </Grid>
+        {/* Description */}
+        <Typography variant="h6" sx={{ color: "#1976d2", mb: 1 }}>
+          Description
+        </Typography>
+        <Box sx={{ mb: 3, p: 2, bgcolor: "#f5f5f5", borderRadius: 1 }}>
+          <Typography>
+            {selectedTicket.description || "No description provided"}
+          </Typography>
+        </Box>
+
+        {/* Action Section (Only if ticket is not closed) */}
+        {selectedTicket.status !== "Closed" && (
+          <>
+            <Typography color="primary" variant="body2" sx={{ mb: 1 }}>
+              Ticket Section: {ticketSection || "N/A"}
+            </Typography>
+
+            {/* Action Selection */}
+            {/* <Typography variant="subtitle1" sx={{ color: "#1976d2", mb: 1 }}>
+              Select Action
+            </Typography> */}
+            <Grid container spacing={1} sx={{ mb: 2 }}>
+              <Grid item xs={12}>
+                <TextField
+                  select
+                  fullWidth
+                  size="small"
+                  label="Choose Action"
+                  value={selectedAction}
+                  onChange={(e) => setSelectedAction(e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                  helperText="Please select what you want to do with this ticket"
+                  sx={{
+                    minWidth: 250,
+                    "& .MuiInputBase-input": { fontSize: "0.95rem" },
+                    "& .MuiSelect-select": {
+                      minHeight: "2.4em",
+                      display: "flex",
+                      alignItems: "center",
+                    },
+                  }}
+                >
+                  <MenuItem value="">Select an action...</MenuItem>
+                  <MenuItem value="assign">Assign to Attendee</MenuItem>
+                  <MenuItem value="close">Close Ticket</MenuItem>
+                </TextField>
               </Grid>
+            </Grid>
 
-              {/* Description Section */}
-              <Typography variant="h6" sx={{ color: "#1976d2", mb: 1 }}>
-                Description
-              </Typography>
-              <Box sx={{ mb: 3, p: 2, bgcolor: "#f5f5f5", borderRadius: 1 }}>
-                <Typography>
-                  {selectedTicket.description || "No description provided"}
+            {/* Assign Section */}
+            {selectedAction === "assign" && (
+              <>
+                <Typography
+                  variant="subtitle1"
+                  sx={{ color: "#1976d2", mb: 1 }}
+                >
+                  Assign to Attendee
                 </Typography>
-              </Box>
-
-              {/* Assignment Section (only if not closed) */}
-              {selectedTicket && selectedTicket.status !== "Closed" && (
-                <>
-                  <Typography color="primary" variant="body2">
-                    Ticket Section: {ticketSection || 'N/A'}
-                  </Typography>
-                  {/* <Typography variant="body2" color="secondary">
-                    All attendee unit_sections: {Array.from(new Set(attendees.map(a => a.unit_section))).join(', ')}
-                  </Typography> */}
-                  <Typography variant="h6" sx={{ color: "#1976d2", mb: 1 }}>
-                    Assign to Attendee
-                  </Typography>
-                  <Grid container spacing={2} sx={{ mb: 3 }}>
-                    <Grid item xs={12} sm={8}>
-                      <Autocomplete
-                        options={filteredAttendees}
-                        getOptionLabel={opt => opt?.name ? `${opt.name} (${opt.username})` : opt.username}
-                        value={selectedAttendee}
-                        onChange={(_, v) => setSelectedAttendee(v)}
-                        renderInput={params => <TextField {...params} label="Select Attendee" variant="outlined" />}
-                        isOptionEqualToValue={(opt, v) => opt.username === v.username}
-                      />
-                      {filteredAttendees.length === 0 && attendees.length > 0 && (
-                        <Typography color="error" variant="body2">
+                <Grid container spacing={1} sx={{ mb: 2 }}>
+                  <Grid item xs={12} sm={6}>
+                    <Autocomplete
+                      size="small"
+                      options={filteredAttendees}
+                      getOptionLabel={(opt) =>
+                        opt?.name
+                          ? `${opt.name} (${opt.username})`
+                          : opt.username
+                      }
+                      value={selectedAttendee}
+                      onChange={(_, v) => setSelectedAttendee(v)}
+                      isOptionEqualToValue={(opt, v) =>
+                        opt.username === v.username
+                      }
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="Select Attendee"
+                          fullWidth
+                          size="small"
+                          InputLabelProps={{ shrink: true }}
+                          sx={{
+                            "& .MuiInputBase-input": {
+                              fontSize: "0.95rem",
+                              height: "1.4em",
+                            },
+                            "& .MuiAutocomplete-inputRoot": {
+                              padding: "2px 8px",
+                              minHeight: "40px",
+                            },
+                          }}
+                        />
+                      )}
+                    />
+                    {filteredAttendees.length === 0 &&
+                      attendees.length > 0 && (
+                        <Typography
+                          color="error"
+                          variant="body2"
+                          sx={{ mt: 0.5 }}
+                        >
                           No attendees found for this unit/section.
                         </Typography>
                       )}
-                    </Grid>
-                    <Grid item xs={12} sm={4}>
-                      <TextField
-                        label="Reason for Assignment"
-                        value={assignReason}
-                        onChange={e => setAssignReason(e.target.value)}
-                        fullWidth
-                      />
-                    </Grid>
-                    <Grid item xs={12}>
-                      <Button
-                        variant="contained"
-                        color="primary"
-                        onClick={handleAssignTicket}
-                        disabled={assignLoading}
-                        fullWidth
-                      >
-                        {assignLoading ? 'Assigning...' : 'Assign Ticket'}
-                      </Button>
-                    </Grid>
                   </Grid>
-                </>
-              )}
 
-              {/* Resolution Section - Only shown if ticket is not closed */}
-              {selectedTicket.status !== "Closed" && (
-                <>
-                  <Typography variant="h6" sx={{ color: "#1976d2", mb: 1 }}>
-                    Close Ticket
-                  </Typography>
-                  <Grid container spacing={2} sx={{ mb: 3 }}>
-                    <Grid item xs={12}>
-                      <TextField
-                        select
-                        fullWidth
-                        label="Resolution Type"
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      label="Reason for Assignment"
+                      fullWidth
+                      size="small"
+                      multiline
+                      rows={3}
+                      value={assignReason}
+                      onChange={(e) => setAssignReason(e.target.value)}
+                      InputLabelProps={{ shrink: true }}
+                      sx={{
+                        "& .MuiInputBase-input": { fontSize: "0.95rem" },
+                      }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12}>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={handleAssignTicket}
+                      disabled={assignLoading}
+                      fullWidth
+                      size="small"
+                    >
+                      {assignLoading ? "Assigning..." : "Assign Ticket"}
+                    </Button>
+                  </Grid>
+                </Grid>
+              </>
+            )}
+
+            {/* Close Section */}
+            {selectedAction === "close" && (
+              <>
+                <Typography variant="subtitle1" sx={{ color: "#1976d2", mb: 1 }}>
+                  Close Ticket
+                </Typography>
+                <Grid container spacing={1} sx={{ mb: 2 }}>
+                  <Grid item xs={12}>
+                    <FormControl fullWidth size="small" sx={{ minWidth: 250 }}>
+                      <InputLabel id="resolution-type-label">Resolution Type</InputLabel>
+                      <Select
+                        labelId="resolution-type-label"
                         value={resolutionType}
+                        label="Resolution Type"
                         onChange={(e) => setResolutionType(e.target.value)}
-                        sx={{ mb: 2 }}
+                        sx={{
+                          '& .MuiSelect-select': {
+                            minHeight: '2.6em',
+                            display: 'flex',
+                            alignItems: 'center',
+                          },
+                        }}
                       >
                         <MenuItem value="Resolved">Resolved</MenuItem>
                         <MenuItem value="Not Applicable">Not Applicable</MenuItem>
                         <MenuItem value="Duplicate">Duplicate</MenuItem>
-                      </TextField>
-                    </Grid>
-                    <Grid item xs={12}>
-                      <TextField
-                        fullWidth
-                        label="Resolution Details"
-                        multiline
-                        rows={4}
-                        value={resolutionDetails}
-                        onChange={(e) => setResolutionDetails(e.target.value)}
-                      />
-                    </Grid>
-                    <Grid item xs={12}>
-                      <Button
-                        variant="contained"
-                        color="primary"
-                        onClick={handleCloseTicket}
-                        fullWidth
-                      >
-                        Close Ticket
-                      </Button>
-                    </Grid>
+                      </Select>
+                    </FormControl>
                   </Grid>
-                </>
-              )}
 
-              {/* Resolution Details - Only shown if ticket is closed */}
-              {selectedTicket.status === "Closed" && selectedTicket.resolution && (
-                <>
-                  <Typography variant="h6" sx={{ color: "#1976d2", mb: 1 }}>
-                    Resolution
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Resolution Details"
+                      multiline
+                      rows={3}
+                      value={resolutionDetails}
+                      onChange={(e) => setResolutionDetails(e.target.value)}
+                      InputLabelProps={{ shrink: true }}
+                    />
+                  </Grid>
+
+                  <Grid item xs={12}>
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      onClick={handleCloseTicket}
+                      fullWidth
+                      size="small"
+                    >
+                      Close Ticket
+                    </Button>
+                  </Grid>
+                </Grid>
+              </>
+            )}
+          </>
+        )}
+
+        {/* Resolution Info (if already closed) */}
+        {selectedTicket.status === "Closed" &&
+          selectedTicket.resolution && (
+            <>
+              <Typography variant="h6" sx={{ color: "#1976d2", mb: 1 }}>
+                Resolution
+              </Typography>
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={12}>
+                  <Typography>
+                    <strong>Resolution Type:</strong>{" "}
+                    {selectedTicket.resolution.type || "N/A"}
                   </Typography>
-                  <Grid container spacing={2} sx={{ mb: 3 }}>
-                    <Grid item xs={12}>
-                      <Typography>
-                        <strong>Resolution Type:</strong> {selectedTicket.resolution.type || "N/A"}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={12}>
-                      <Box sx={{ p: 2, bgcolor: "#f5f5f5", borderRadius: 1 }}>
-                        <Typography>
-                          <strong>Resolution Details:</strong> {selectedTicket.resolution.details || "N/A"}
-                        </Typography>
-                      </Box>
-                    </Grid>
-                  </Grid>
-                </>
-              )}
-
-              {/* Close Modal Button */}
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <Button variant="outlined" onClick={closeModal}>
-                  Close Modal
-                </Button>
-              </Box>
+                </Grid>
+                <Grid item xs={12}>
+                  <Box
+                    sx={{ p: 2, bgcolor: "#f5f5f5", borderRadius: 1 }}
+                  >
+                    <Typography>
+                      <strong>Resolution Details:</strong>{" "}
+                      {selectedTicket.resolution.details || "N/A"}
+                    </Typography>
+                  </Box>
+                </Grid>
+              </Grid>
             </>
           )}
+
+        {/* Sticky Footer Close Button */}
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "flex-end",
+            mt: 3,
+            pt: 2,
+            borderTop: "1px solid #e0e0e0",
+            background: "white",
+            position: "sticky",
+            bottom: 0,
+            zIndex: 1,
+          }}
+        >
+          <Button variant="outlined" onClick={closeModal}>
+            Close Modal
+          </Button>
         </Box>
-      </Modal>
+      </>
+    )}
+  </Box>
+</Modal>
+
 
       {/* Column Selector */}
       <ColumnSelector

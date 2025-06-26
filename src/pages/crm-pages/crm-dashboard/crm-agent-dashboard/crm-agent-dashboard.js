@@ -341,7 +341,7 @@ const AgentCRM = () => {
 
   const fetchDashboardData = async (userId, token) => {
     try {
-      const response = await fetch(`${baseURL}/ticket/count/${userId}`, {
+      const response = await fetch(`${baseURL}/ticket/dashboard-counts/${userId}`, {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,

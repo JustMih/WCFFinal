@@ -20,11 +20,10 @@ import "./ticket.css";
 import AdvancedFilterButton from '../../../components/AdvancedFilterButton';
 
 export default function Crm() {
-  const [agentTickets, setAgentTickets] = useState([]);
-  const [agentTicketsError, setAgentTicketsError] = useState(null);
+  const [assignments, setAssignments] = useState([]);
+  const [assignmentsError, setAssignmentsError] = useState(null);
   const [userId, setUserId] = useState("");
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
@@ -33,14 +32,10 @@ export default function Crm() {
   const [comments, setComments] = useState("");
   const [modal, setModal] = useState({ isOpen: false, type: "", message: "" });
   const [activeColumns, setActiveColumns] = useState([
-    "id",
-    "fullName",
+    "full_name",
     "phone_number",
     "status",
-    "subject",
-    "category",
-    "assigned_to_role",
-    "createdAt",
+    "actions"
   ]);
   const [loading, setLoading] = useState(true);
 
@@ -48,27 +43,26 @@ export default function Crm() {
     const userId = localStorage.getItem("userId");
     if (userId) {
       setUserId(userId);
-      console.log("user id is:", userId);
     } else {
-      setAgentTicketsError("User not authenticated. Please log in.");
+      setAssignmentsError("User not authenticated. Please log in.");
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     if (userId) {
-      fetchAgentTickets();
+      fetchInProgressAssignments();
     }
+    // eslint-disable-next-line
   }, [userId]);
 
-  const fetchAgentTickets = async () => {
+  const fetchInProgressAssignments = async () => {
     try {
       const token = localStorage.getItem("authToken");
       if (!token) {
         throw new Error("Authentication error. Please log in again.");
       }
-
-      const url = `${baseURL}/ticket/in-progress/${userId}`;
+      const url = `${baseURL}/ticket/assignments/in-progress`;
       const response = await fetch(url, {
         method: "GET",
         headers: {
@@ -76,27 +70,24 @@ export default function Crm() {
           "Content-Type": "application/json",
         },
       });
-
       if (!response.ok) {
         if (response.status === 404) {
-          setAgentTickets([]);
-          setAgentTicketsError("No tickets found for this agent.");
+          setAssignments([]);
+          setAssignmentsError("No assignments found for this agent.");
           return;
         }
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
-
       const data = await response.json();
-      console.log("Fetched tickets:", data);
-      if (data && Array.isArray(data.tickets)) {
-        setAgentTickets(data.tickets);
-        setAgentTicketsError(null);
+      if (data && Array.isArray(data.assignments)) {
+        setAssignments(data.assignments);
+        setAssignmentsError(null);
       } else {
-        setAgentTickets([]);
-        setAgentTicketsError("No tickets found for this agent.");
+        setAssignments([]);
+        setAssignmentsError("No assignments found for this agent.");
       }
     } catch (error) {
-      setAgentTicketsError(error.message);
+      setAssignmentsError(error.message);
     } finally {
       setLoading(false);
     }
@@ -126,7 +117,7 @@ export default function Crm() {
           type: "success",
           message: "Comments updated successfully.",
         });
-        fetchAgentTickets();
+        fetchInProgressAssignments();
       } else {
         const data = await response.json();
         setModal({
@@ -157,102 +148,53 @@ export default function Crm() {
     setModal({ isOpen: false, type: "", message: "" });
   };
 
-  const filteredTickets = agentTickets.filter((ticket) => {
+  const filteredAssignments = assignments.filter((assignment) => {
     const searchValue = search.toLowerCase();
-    const phone = (ticket.phone_number || "").toLowerCase();
-    const nida = (ticket.nida_number || "").toLowerCase();
     return (
-      (phone.includes(searchValue) || nida.includes(searchValue)) &&
-      (!filterStatus || ticket.status === filterStatus)
+      assignment.ticket_id?.toLowerCase().includes(searchValue) ||
+      assignment.assigned_by_id?.toLowerCase().includes(searchValue) ||
+      assignment.assigned_to_id?.toLowerCase().includes(searchValue) ||
+      assignment.assigned_to_role?.toLowerCase().includes(searchValue) ||
+      assignment.reason?.toLowerCase().includes(searchValue)
     );
   });
 
-  const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
-  const paginatedTickets = filteredTickets.slice(
+  const totalPages = Math.ceil(filteredAssignments.length / itemsPerPage);
+  const paginatedAssignments = filteredAssignments.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
 
   const renderTableHeader = () => (
     <tr>
-      {activeColumns.includes("id") && <th>#</th>}
-      {activeColumns.includes("fullName") && <th>Full Name</th>}
-      {activeColumns.includes("phone_number") && <th>Phone</th>}
-      {activeColumns.includes("status") && <th>Status</th>}
-      {activeColumns.includes("subject") && <th>Subject</th>}
-      {activeColumns.includes("category") && <th>Category</th>}
-      {activeColumns.includes("assigned_to_role") && <th>Assigned Role</th>}
-      {activeColumns.includes("createdAt") && <th>Created At</th>}
+      <th>#</th>
+      <th>Full Name</th>
+      <th>Phone</th>
+      <th>Status</th>
       <th>Actions</th>
     </tr>
   );
 
-  const renderTableRow = (ticket, index) => (
-    <tr key={ticket.id || index}>
-      {activeColumns.includes("id") && (
-        <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
-      )}
-      {activeColumns.includes("fullName") && (
-       <td>
-       {ticket.first_name && ticket.first_name.trim() !== ""
-         ? `${ticket.first_name} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim()
-         : (typeof ticket.institution === "string"
-             ? ticket.institution
-             : ticket.institution && typeof ticket.institution === "object" && typeof ticket.institution.name === "string"
-               ? ticket.institution.name
-               : "N/A")}
-     </td>
-      )}
-      {activeColumns.includes("phone_number") && (
+  const renderTableRow = (assignment, index) => {
+    const ticket = assignment.ticket || {};
+    let fullName = "N/A";
+    if (ticket.first_name || ticket.middle_name || ticket.last_name) {
+      fullName = `${ticket.first_name || ""} ${ticket.last_name || ""}`.trim();
+    }
+    return (
+      <tr key={assignment.id || index}>
+         <td>{(currentPage - 1) * itemsPerPage + index + 1}</td> {/* This is the row number */}
+        <td>{fullName}</td>
         <td>{ticket.phone_number || "N/A"}</td>
-      )}
-      {activeColumns.includes("status") && (
+        <td>{ticket.status || "N/A"}</td>
         <td>
-          <span
-            style={{
-              color:
-                ticket.status === "Open"
-                  ? "green"
-                  : ticket.status === "Closed"
-                  ? "gray"
-                  : "blue",
-            }}
-          >
-            {ticket.status || "N/A"}
-          </span>
-        </td>
-      )}
-      {activeColumns.includes("subject") && <td>{ticket.subject || "N/A"}</td>}
-      {activeColumns.includes("category") && <td>{ticket.category || "N/A"}</td>}
-      {activeColumns.includes("assigned_to_role") && (
-        <td>{ticket.assigned_to_role || "N/A"}</td>
-      )}
-      {activeColumns.includes("createdAt") && (
-        <td>
-          {ticket.created_at
-            ? new Date(ticket.created_at).toLocaleString("en-GB", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: true,
-              })
-            : "N/A"}
-        </td>
-      )}
-      <td>
-        <Tooltip title="Ticket Details">
-          <button
-            className="view-ticket-details-btn"
-            onClick={() => openModal(ticket)}
-          >
-            <FaEye />
+          <button onClick={() => openModal(assignment)} style={{ marginRight: 8 }}>
+            View
           </button>
-        </Tooltip>
-      </td>
-    </tr>
-  );
+        </td>
+      </tr>
+    );
+  };
 
   if (loading) {
     return (
@@ -273,10 +215,9 @@ export default function Crm() {
             marginBottom: "16px",
           }}
         >
-          <h2>In-progress Tickets List</h2>
+          <h2>In-progress Assignments List</h2>
           <AdvancedFilterButton onClick={() => setIsColumnModalOpen(true)} />
         </div>
-
         <div className="controls">
           <div>
             <label style={{ marginRight: "8px" }}>
@@ -288,7 +229,7 @@ export default function Crm() {
               onChange={(e) => {
                 const value = e.target.value;
                 setItemsPerPage(
-                  value === "All" ? filteredTickets.length : parseInt(value)
+                  value === "All" ? filteredAssignments.length : parseInt(value)
                 );
                 setCurrentPage(1);
               }}
@@ -305,43 +246,29 @@ export default function Crm() {
             <input
               className="search-input"
               type="text"
-              placeholder="Search by phone or NIDA..."
+              placeholder="Search by ticket ID, assigned by, assigned to, role, or reason..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
-            <select
-              className="filter-select"
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-            >
-              <option value="">All</option>
-              <option value="Open">Open</option>
-              <option value="Closed">Closed</option>
-            </select>
-            {/* <button className="add-ticket-button">
-              <FaPlus /> Add Ticket
-            </button> */}
           </div>
         </div>
-
         <table className="user-table">
           <thead>{renderTableHeader()}</thead>
           <tbody>
-            {paginatedTickets.length > 0 ? (
-              paginatedTickets.map((ticket, i) => renderTableRow(ticket, i))
+            {paginatedAssignments.length > 0 ? (
+              paginatedAssignments.map((assignment, i) => renderTableRow(assignment, i))
             ) : (
               <tr>
                 <td
-                  colSpan={activeColumns.length + 1}
+                  colSpan={activeColumns.length}
                   style={{ textAlign: "center", color: "red" }}
                 >
-                  {agentTicketsError || "No tickets found for this agent."}
+                  {assignmentsError || "No assignments found for this agent."}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
-
         <div style={{ marginTop: "16px", textAlign: "center" }}>
           <Button
             variant="outlined"
@@ -571,7 +498,7 @@ export default function Crm() {
       <ColumnSelector
         open={isColumnModalOpen}
         onClose={() => setIsColumnModalOpen(false)}
-        data={agentTickets}
+        data={assignments}
         onColumnsChange={setActiveColumns}
       />
 
