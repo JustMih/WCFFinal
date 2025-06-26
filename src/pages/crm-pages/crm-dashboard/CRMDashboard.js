@@ -14,7 +14,9 @@ export default function CRMDashboard() {
        {(role === "agent") && (<AgentDashboard /> )}
        {role === "coordinator" && <CoordinatorDashboard />}
        {role === "attendee" && <AgentDashboard />}
-       {role === "focal-person" && (<FocalPersonDashboard />)}
+       {["focal-person", "claim-focal-person", "compliance-focal-person"].includes(role) && (
+         <FocalPersonDashboard />
+       )}
      </>
    );
 }

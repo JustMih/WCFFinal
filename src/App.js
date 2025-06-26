@@ -17,7 +17,6 @@ const queryClient = new QueryClient({
   },
 });
 
-
 function App() {
   const role = localStorage.getItem("role");
   return (
@@ -29,7 +28,8 @@ function App() {
        <Routes>
           <Route path="/crm-tickets" element={<CrmTicketsAssigned />} />
         </Routes> 
-        {role ? <Dashboard /> : ""}
+       
+      {role ? <Dashboard /> : ""}
       </div>
     </QueryClientProvider>
   );

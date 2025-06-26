@@ -59,7 +59,7 @@ export default function Dashboard() {
         role === "supervisor"
       ) {
         setActiveSystem("call-center");
-      } else if (role === "attendee" || role === "coordinator" || role === "focal-person") {
+      } else if (role === "attendee" || role === "coordinator" || ["focal-person", "claim-focal-person", "compliance-focal-person"].includes(role)) {
         setActiveSystem("crm");
       }
     }

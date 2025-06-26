@@ -451,9 +451,11 @@ export default function CoordinatorDashboard() {
         <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
       )}
       {activeColumns.includes("fullName") && (
-        <td>{`${ticket.firstName || ""} ${ticket.middleName || ""} ${
-          ticket.lastName || ""
-        }`}</td>
+        <td>
+          {!ticket.first_name
+            ? (ticket.institution || "N/A")
+            : `${ticket.first_name || ""} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim() || "N/A"}
+        </td>
       )}
       {activeColumns.includes("phone_number") && (
         <td>{ticket.phone_number || "N/A"}</td>
@@ -716,9 +718,11 @@ export default function CoordinatorDashboard() {
                     <td>{(currentPage - 1) * itemsPerPage + i + 1}</td>
                   )}
                   {activeColumns.includes("fullName") && (
-                    <td>{`${ticket.first_name || ""} ${
-                      ticket.middle_name || ""
-                    } ${ticket.last_name || ""}`}</td>
+                    <td>
+                      {!ticket.first_name
+                        ? (ticket.institution || "N/A")
+                        : `${ticket.first_name || ""} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim() || "N/A"}
+                    </td>
                   )}
                   {activeColumns.includes("phone_number") && (
                     <td>{ticket.phone_number || "N/A"}</td>
