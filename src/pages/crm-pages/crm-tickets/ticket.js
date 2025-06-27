@@ -23,6 +23,7 @@ import ColumnSelector from "../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../config";
 import "./ticket.css";
 import ChatIcon from '@mui/icons-material/Chat';
+import TicketDetailsModal from '../../../components/TicketDetailsModal';
 
 export default function Crm() {
   const [agentTickets, setAgentTickets] = useState([]);
@@ -183,8 +184,6 @@ export default function Crm() {
   const openModal = async (ticket) => {
     setSelectedTicket(ticket);
     setIsModalOpen(true);
-
-    // Fetch assignment history
     try {
       const token = localStorage.getItem("authToken");
       const res = await fetch(`${baseURL}/ticket/${ticket.id}/assignments`, {
@@ -829,225 +828,12 @@ export default function Crm() {
       </div>
 
       {/* Details Modal */}
-      <Modal
+      <TicketDetailsModal
         open={isModalOpen}
         onClose={closeModal}
-        aria-labelledby="ticket-details-modal"
-        aria-describedby="ticket-details-modal-description"
-      >
-        <Box
-          sx={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: { xs: "90%", sm: 600 },
-            maxHeight: "85vh",
-            overflowY: "auto",
-            bgcolor: "background.paper",
-            boxShadow: 24,
-            borderRadius: 2,
-            p: 3
-          }}
-        >
-          {selectedTicket && (
-            <>
-              <Typography
-                id="ticket-details-title"
-                variant="h5"
-                sx={{ fontWeight: "bold", color: "#1976d2", mb: 2 }}
-              >
-                Ticket Details {selectedTicket.ticket_id ? `#${selectedTicket.ticket_id}` : ""}
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-
-              {/* Workflow Status Section */}
-              <Box sx={{ mb: 3, p: 2, bgcolor: "#f5f5f5", borderRadius: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                  <Typography variant="h6" sx={{ color: "#3f51b5", flexGrow: 1 }}>
-                    Ticket History
-                  </Typography>
-                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', flex: 1 }}>
-                    <IconButton size="small" onClick={() => setIsFlowModalOpen(true)} title="Show Assignment Flow Chart">
-                      <ChatIcon color="primary" />
-                    </IconButton>
-                  </Box>
-                </Box>
-                <Divider sx={{ mb: 2 }} />
-
-                {renderAssignmentStepper(assignmentHistory, selectedTicket)}
-
-                {/* Current Status */}
-                <Box sx={{ mt: 2, p: 2, bgcolor: "white", borderRadius: 1 }}>
-                  <Typography
-                    variant="subtitle1"
-                    sx={{ fontWeight: "bold", mb: 1 }}
-                  >
-                    Current Status
-                  </Typography>
-                  <Typography>
-                    <strong>Status:</strong>{" "}
-                    <span
-                      style={{
-                        color:
-                          selectedTicket.status === "Open"
-                            ? "green"
-                            : selectedTicket.status === "Closed"
-                            ? "gray"
-                            : selectedTicket.status === "In Progress"
-                            ? "blue"
-                            : selectedTicket.status === "Assigned"
-                            ? "orange"
-                            : "inherit"
-                      }}
-                    >
-                      {selectedTicket.status || "N/A"}
-                    </span>
-                  </Typography>
-                  <Typography>
-                    <strong>Created By:</strong>{" "}
-                    {selectedTicket.created_by ||
-                      (selectedTicket.creator && selectedTicket.creator.name) ||
-                      `${selectedTicket.first_name || ""} ${selectedTicket.last_name || ""}`.trim() ||
-                      "N/A"}
-                  </Typography>
-                  {selectedTicket.resolution_details && (
-                    <Typography sx={{ mt: 1 }}>
-                      <strong>Resolution Details:</strong>{" "}
-                      {selectedTicket.resolution_details}
-                    </Typography>
-                  )}
-                </Box>
-              </Box>
-
-              {/* Two-Column Ticket Fields */}
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "16px" }}>
-                <div style={{ flex: "1 1 45%" }}>
-                  <Typography>
-                    <strong>Name:</strong>{" "}
-                    {selectedTicket.first_name
-                      ? `${selectedTicket.first_name} ${
-                          selectedTicket.middle_name || ""
-                        } ${selectedTicket.last_name || ""}`.trim()
-                      : selectedTicket.institution}
-                  </Typography>
-                </div>
-                <div style={{ flex: "1 1 45%" }}>
-                  <Typography>
-                    <strong>Phone:</strong>{" "}
-                    {selectedTicket.phone_number || "N/A"}
-                  </Typography>
-                </div>
-
-                <div style={{ flex: "1 1 45%" }}>
-                  <Typography>
-                    <strong>NIDA:</strong> {selectedTicket.nida_number || "N/A"}
-                  </Typography>
-                </div>
-                <div style={{ flex: "1 1 45%" }}>
-                  <Typography>
-                    <strong>Institution:</strong>{" "}
-                    {selectedTicket.institution || "N/A"}
-                  </Typography>
-                </div>
-
-                <div style={{ flex: "1 1 45%" }}>
-                  <Typography>
-                    <strong>Region:</strong> {selectedTicket.region || "N/A"}
-                  </Typography>
-                </div>
-                <div style={{ flex: "1 1 45%" }}>
-                  <Typography>
-                    <strong>District:</strong>{" "}
-                    {selectedTicket.district || "N/A"}
-                  </Typography>
-                </div>
-
-                <div style={{ flex: "1 1 45%" }}>
-                  <Typography>
-                    <strong>Subject:</strong> {selectedTicket.subject || "N/A"}
-                  </Typography>
-                </div>
-                <div style={{ flex: "1 1 45%" }}>
-                  <Typography>
-                    <strong>Category:</strong>{" "}
-                    {selectedTicket.category || "N/A"}
-                  </Typography>
-                </div>
-
-                <div style={{ flex: "1 1 45%" }}>
-                  <Typography>
-                    <strong>Channel:</strong> {selectedTicket.channel || "N/A"}
-                  </Typography>
-                </div>
-
-                <div style={{ flex: "1 1 100%" }}>
-                  <Typography>
-                    <strong>Description:</strong>{" "}
-                    {selectedTicket.description || "N/A"}
-                  </Typography>
-                </div>
-              </div>
-
-              {/* Assignment History Section */}
-              {/* <Typography variant="h6" sx={{ color: "#1976d2", mb: 1 }}>
-                Assignment History
-              </Typography>
-              <Box sx={{ mb: 2, p: 2, bgcolor: "#f5f5f5", borderRadius: 1 }}>
-                {assignmentHistory.length > 0 ? (
-                  assignmentHistory.map((a, idx) => (
-                    <Grid container spacing={2} key={idx} sx={{ mb: 1, pb: 1, borderBottom: idx < assignmentHistory.length - 1 ? '1px solid #eee' : 'none' }}>
-                      <Grid item xs={12} sm={6}>
-                        <Typography>
-                          <strong>Assigned To:</strong> {a.assigned_to_name || a.assigned_to_id}
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <Typography>
-                          <strong>Role:</strong> {a.assigned_to_role}
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <Typography>
-                          <strong>Action:</strong> {a.action}
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={12} sm={6}>
-                        <Typography>
-                          <strong>Date:</strong> {a.created_at ? new Date(a.created_at).toLocaleString() : ''}
-                        </Typography>
-                      </Grid>
-                      {a.reason && (
-                        <Grid item xs={12}>
-                          <Typography>
-                            <strong>Reason:</strong> {a.reason}
-                          </Typography>
-                        </Grid>
-                      )}
-                      {a.assigned_by_name && (
-                        <Grid item xs={12}>
-                          <Typography>
-                            <strong>Assigned By:</strong> {a.assigned_by_name}
-                          </Typography>
-                        </Grid>
-                      )}
-                    </Grid>
-                  ))
-                ) : (
-                  <Typography color="text.secondary">No assignment history.</Typography>
-                )}
-              </Box> */}
-
-              {/* Action Buttons */}
-              <Box sx={{ mt: 2, textAlign: "right" }}>
-                <Button variant="outlined" onClick={closeModal}>
-                  Close
-                </Button>
-              </Box>
-            </>
-          )}
-        </Box>
-      </Modal>
+        selectedTicket={selectedTicket}
+        assignmentHistory={assignmentHistory}
+      />
 
       {/* Assignment Flow Modal */}
       <Dialog open={isFlowModalOpen} onClose={() => setIsFlowModalOpen(false)} maxWidth="xs" fullWidth>
