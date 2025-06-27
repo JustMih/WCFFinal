@@ -478,7 +478,7 @@ const AgentCRM = () => {
   };
 
   // Handle form submission
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e, action = "create") => {
     e.preventDefault();
 
     const requiredFields = {
@@ -570,8 +570,9 @@ const AgentCRM = () => {
         section: parentSection ? parentSection.name : "",
         responsible_unit_id: formData.functionId,
         responsible_unit_name: parentSection ? parentSection.name : "",
-        status: submitAction === "closed" ? "Closed" : "Open",
+        status: action === "closed" ? "Closed" : "Open",
         employerAllocatedStaffUsername,
+        shouldClose: action === "closed",
       };
 
       // Add employer-specific fields if requester is Employer
@@ -3422,20 +3423,14 @@ const AgentCRM = () => {
               </button>
               <button
                 className="submit-btn"
-                onClick={(e) => {
-                  setSubmitAction("open");
-                  handleSubmit(e);
-                }}
+                onClick={(e) => handleSubmit(e)}
               >
                 Submit to Backoffice
               </button>
               <button
                 className="close-btn"
                 style={{ background: "gray", color: "white" }}
-                onClick={(e) => {
-                  setSubmitAction("closed");
-                  handleSubmit(e);
-                }}
+                onClick={(e) => handleSubmit(e, "closed")}
               >
                 Close Ticket
               </button>

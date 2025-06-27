@@ -196,12 +196,12 @@ export default function CRMSidebar({ isSidebarOpen }) {
                             value: ticketStats.assigned,
                             icon: "📋"
                           },
-                          {
-                            label: "In Progress",
-                            to: "/ticket/in-progress",
-                            value: ticketStats.inProgress,
-                            icon: "⏳"
-                          },
+                          // {
+                          //   label: "In Progress",
+                          //   to: "/ticket/in-progress",
+                          //   value: ticketStats.inProgress,
+                          //   icon: "⏳"
+                          // },
                           {
                             label: "Carried Forward",
                             to: "/ticket/carried-forward",
