@@ -186,9 +186,9 @@ function AssignmentFlowChat({ assignmentHistory = [], selectedTicket }) {
   return (
     <Box sx={{ maxWidth: 400, ml: 'auto', mr: 0 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, justifyContent: 'space-between' }}>
-        <Typography sx={{ color: "#3f51b5", wordBreak: 'break-word', whiteSpace: 'pre-line' }}>
+        {/* <Typography sx={{ color: "#3f51b5", wordBreak: 'break-word', whiteSpace: 'pre-line' }}>
           Ticket History
-        </Typography>
+        </Typography> */}
       </Box>
       <Divider sx={{ mb: 2 }} />
       {steps.map((a, idx) => {
@@ -202,7 +202,7 @@ function AssignmentFlowChat({ assignmentHistory = [], selectedTicket }) {
           if (selectedTicket.status === "Closed") {
             if (selectedTicket.resolution_details) {
               message = `Message from ${prevUser}: ${selectedTicket.resolution_details}`;
-            } else if (a.action){
+            } else if (a.reason){
               message = `Message from ${prevUser}: ${a.reason || 'No message'}`;
             }
           } else {
@@ -527,7 +527,7 @@ export default function TicketDetailsModal({
       </Modal>
       {/* Assignment Flow Chart Dialog */}
       <Dialog open={isFlowModalOpen} onClose={() => setIsFlowModalOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Ticket History</DialogTitle>
+        <DialogTitle>Justification History</DialogTitle>
         <DialogContent>
           <AssignmentFlowChat assignmentHistory={assignmentHistory} selectedTicket={selectedTicket} />
         </DialogContent>
