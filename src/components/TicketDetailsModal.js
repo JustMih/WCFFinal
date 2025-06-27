@@ -47,32 +47,43 @@ const getStepStatus = (stepIndex, currentStepIndex) => {
   return "pending";
 };
 
-const AssignmentStepper = ({ assignmentHistory, selectedTicket }) => {
+const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser }) => {
   if (!selectedTicket) return null;
-  const creatorName = selectedTicket.created_by ||
-    (selectedTicket.creator && selectedTicket.creator.name) ||
-    `${selectedTicket.first_name || ""} ${selectedTicket.last_name || ""}`.trim() ||
-    "N/A";
-  let steps = [
+  // Build steps array
+  const steps = [
     {
-      assigned_to_name: creatorName,
+      assigned_to_name: selectedTicket.created_by ||
+        (selectedTicket.creator && selectedTicket.creator.name) ||
+        `${selectedTicket.first_name || ""} ${selectedTicket.last_name || ""}`.trim() ||
+        "N/A",
       assigned_to_role: "Creator",
       action: "Created",
       created_at: selectedTicket.created_at,
       assigned_to_id: "creator"
     }
   ];
+
   if (Array.isArray(assignmentHistory) && assignmentHistory.length > 0) {
-    const firstAssignee = assignmentHistory[0];
-    if (
-      firstAssignee.assigned_to_name === creatorName
-    ) {
-      steps[0].assigned_to_role = "Creator & " + (firstAssignee.assigned_to_role || "Agent");
-      steps = steps.concat(assignmentHistory.slice(1));
-    } else {
-      steps = steps.concat(assignmentHistory);
-    }
+    steps.push(...assignmentHistory);
+  } else if (
+    selectedTicket.assigned_to_id &&
+    selectedTicket.assigned_to_id !== "creator"
+  ) {
+    steps.push({
+      assigned_to_name: (assignedUser && assignedUser.name) ||
+        (selectedTicket.assignee && selectedTicket.assignee.name) ||
+        selectedTicket.assigned_to_name ||
+        selectedTicket.assigned_to_id || "Unknown",
+      assigned_to_role: (assignedUser && assignedUser.role) ||
+        (selectedTicket.assignee && selectedTicket.assignee.role) ||
+        selectedTicket.assigned_to_role || "Unknown",
+      action: selectedTicket.status === "Assigned" ? "Assigned" : "Open",
+      created_at: selectedTicket.assigned_at,
+      assigned_to_id: selectedTicket.assigned_to_id
+    });
   }
+
+  // Determine current step index
   let currentAssigneeIdx = 0;
   if (
     selectedTicket.status === "Open" &&
@@ -85,40 +96,71 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket }) => {
     );
     currentAssigneeIdx = idx !== -1 ? idx : steps.length - 1;
   }
+
   return (
-    <Box sx={{ my: 2 }}>
-      {steps.map((a, idx) => (
-        <Box key={idx} sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
-          <Box
-            sx={{
-              width: 30,
-              height: 30,
-              borderRadius: "50%",
-              bgcolor:
-                idx < currentAssigneeIdx
-                  ? "green"
-                  : idx === currentAssigneeIdx
-                  ? "gray"
-                  : "#1976d2",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "white",
-              fontWeight: "bold"
-            }}
-          >
-            {idx + 1}
+    <Box>
+      {steps.map((a, idx) => {
+        // Determine if this is the last step and ticket is closed
+        const isLastStep = idx === steps.length - 1;
+        const isClosed = selectedTicket.status === "Closed" && isLastStep;
+
+        // Set color: green for completed, blue for current, gray for pending, green for closed last step
+        let color;
+        if (isClosed) {
+          color = "green";
+        } else if (idx < currentAssigneeIdx) {
+          color = "green";
+        } else if (idx === currentAssigneeIdx) {
+          color = "#1976d2";
+        } else {
+          color = "gray";
+        }
+
+        // Set action label
+        let actionLabel = a.action;
+        if (isClosed) {
+          actionLabel = "Closed";
+        }
+
+        // Set who closed
+        let closedBy = "";
+        if (isClosed) {
+          closedBy = a.assigned_to_name || "N/A";
+        }
+
+        return (
+          <Box key={idx} sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+            <Box
+              sx={{
+                width: 30,
+                height: 30,
+                borderRadius: "50%",
+                bgcolor: color,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "white",
+                fontWeight: "bold"
+              }}
+            >
+              {idx + 1}
+            </Box>
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
+                {a.assigned_to_name} ({a.assigned_to_role})
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {actionLabel} - {a.created_at ? new Date(a.created_at).toLocaleString() : ''}
+                {isClosed && (
+                  <span style={{ color: "green", marginLeft: 8 }}>
+                    (Closed by: {closedBy})
+                  </span>
+                )}
+              </Typography>
+            </Box>
           </Box>
-          <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-              {a.assigned_to_name} ({a.assigned_to_role})
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {a.action} - {a.created_at ? new Date(a.created_at).toLocaleString() : ''}
-            </Typography>
-          </Box>
-        </Box>
-      ))}
+        );
+      })}
     </Box>
   );
 };
@@ -135,47 +177,44 @@ function AssignmentFlowChat({ assignmentHistory = [], selectedTicket }) {
   // Always add all assignments as steps, even if assignee is same as creator
   const steps = creatorStep ? [creatorStep, ...assignmentHistory] : assignmentHistory;
   return (
-    // <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-      <Box sx={{ maxWidth: 400, ml: 'auto', mr: 0 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, justifyContent: 'space-between' }}>
-          <Typography sx={{ color: "#3f51b5", wordBreak: 'break-word', whiteSpace: 'pre-line' }}>
-            Ticket History
-          </Typography>
-        </Box>
-        <Divider sx={{ mb: 2 }} />
-        <AssignmentStepper assignmentHistory={assignmentHistory} selectedTicket={selectedTicket} />
-        {steps.map((a, idx) => {
-          let message;
-          if (idx === 0) {
-            message = 'Created the ticket';
-          } else {
-            const prevUser = steps[idx - 1]?.assigned_to_name || 'Previous User';
-            message = `Message from ${prevUser}: ${a.reason || 'No message'}`;
-          }
-          return (
-            <Box key={idx} sx={{ display: "flex", mb: 2, alignItems: "flex-start" }}>
-              <Avatar sx={{ bgcolor: idx === 0 ? "#43a047" : "#1976d2", mr: 2 }}>
-                {a.assigned_to_name ? a.assigned_to_name[0] : "?"}
-              </Avatar>
-              <Paper elevation={2} sx={{ p: 2, bgcolor: idx === 0 ? "#e8f5e9" : "#f5f5f5", flex: 1 }}>
-                <Typography sx={{ fontWeight: "bold" }}>
-                  {a.assigned_to_name || a.assigned_to_id || 'Unknown'} {" "}
-                  <span style={{ color: "#888", fontWeight: "normal" }}>
-                    ({a.assigned_to_role || "N/A"})
-                  </span>
-                </Typography>
-                <Typography variant="body2" sx={{ color: idx === 0 ? "#43a047" : "#1976d2", wordBreak: 'break-word', whiteSpace: 'pre-line', overflowWrap: 'break-word' }}>
-                  {message}
-                </Typography>
-                <Typography variant="caption" sx={{ color: "#888" }}>
-                  {a.created_at ? new Date(a.created_at).toLocaleString() : ""}
-                </Typography>
-              </Paper>
-            </Box>
-          );
-        })}
+    <Box sx={{ maxWidth: 400, ml: 'auto', mr: 0 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, justifyContent: 'space-between' }}>
+        <Typography sx={{ color: "#3f51b5", wordBreak: 'break-word', whiteSpace: 'pre-line' }}>
+          Ticket History
+        </Typography>
       </Box>
-    // </Box>
+      <Divider sx={{ mb: 2 }} />
+      {steps.map((a, idx) => {
+        let message;
+        if (idx === 0) {
+          message = 'Created the ticket';
+        } else {
+          const prevUser = steps[idx - 1]?.assigned_to_name || 'Previous User';
+          message = `Message from ${prevUser}: ${a.reason || 'No message'}`;
+        }
+        return (
+          <Box key={idx} sx={{ display: "flex", mb: 2, alignItems: "flex-start" }}>
+            <Avatar sx={{ bgcolor: idx === 0 ? "#43a047" : "#1976d2", mr: 2 }}>
+              {a.assigned_to_name ? a.assigned_to_name[0] : "?"}
+            </Avatar>
+            <Paper elevation={2} sx={{ p: 2, bgcolor: idx === 0 ? "#e8f5e9" : "#f5f5f5", flex: 1 }}>
+              <Typography sx={{ fontWeight: "bold" }}>
+                {a.assigned_to_name || a.assigned_to_id || 'Unknown'} {" "}
+                <span style={{ color: "#888", fontWeight: "normal" }}>
+                  ({a.assigned_to_role || "N/A"})
+                </span>
+              </Typography>
+              <Typography variant="body2" sx={{ color: idx === 0 ? "#43a047" : "#1976d2", wordBreak: 'break-word', whiteSpace: 'pre-line', overflowWrap: 'break-word' }}>
+                {message}
+              </Typography>
+              <Typography variant="caption" sx={{ color: "#888" }}>
+                {a.created_at ? new Date(a.created_at).toLocaleString() : ""}
+              </Typography>
+            </Paper>
+          </Box>
+        );
+      })}
+    </Box>
   );
 }
 
@@ -234,6 +273,7 @@ export default function TicketDetailsModal({
                   </Box>
                 </Box>
                 <Divider sx={{ mb: 2 }} />
+
                 <AssignmentStepper assignmentHistory={assignmentHistory} selectedTicket={selectedTicket} />
 
                 {/* Current Status */}
