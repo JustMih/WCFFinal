@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { Modal, Box, Typography, Divider, IconButton, Button, Dialog, DialogTitle, DialogContent, Avatar, Paper } from "@mui/material";
+import { Modal, Box, Typography, Divider, IconButton, Button, Dialog, DialogTitle, DialogContent, Avatar, Paper, TextField } from "@mui/material";
 import ChatIcon from '@mui/icons-material/Chat';
+import { baseURL } from "../config";
 
 const getCreatorName = (selectedTicket) =>
   selectedTicket.created_by ||
@@ -176,7 +177,7 @@ function AssignmentFlowChat({ assignmentHistory = [], selectedTicket }) {
     ? {
         assigned_to_name: getCreatorName(selectedTicket),
         assigned_to_role: 'Creator',
-        reason: 'Created the ticket',
+        reason: selectedTicket.description,
         created_at: selectedTicket.created_at,
       }
     : null;
@@ -193,10 +194,20 @@ function AssignmentFlowChat({ assignmentHistory = [], selectedTicket }) {
       {steps.map((a, idx) => {
         let message;
         if (idx === 0) {
-          message = 'Created the ticket';
+          message = selectedTicket.description
+            ? `Created the ticket\n${selectedTicket.description}`
+            : 'Created the ticket';
         } else {
           const prevUser = steps[idx - 1]?.assigned_to_name || 'Previous User';
-          message = `Message from ${prevUser}: ${a.reason || selectedTicket.resolution_details ||'No message'}`;
+          if (selectedTicket.status === "Closed") {
+            if (selectedTicket.resolution_details) {
+              message = `Message from ${prevUser}: ${selectedTicket.resolution_details}`;
+            } else if (a.action){
+              message = `Message from ${prevUser}: ${a.reason || 'No message'}`;
+            }
+          } else {
+            message = `Message from ${prevUser}: ${a.action ? a.action + ' - ' : ''}${a.reason || 'No message'}`;
+          }
         }
         return (
           <Box key={idx} sx={{ display: "flex", mb: 2, alignItems: "flex-start" }}>
@@ -228,10 +239,58 @@ export default function TicketDetailsModal({
   open,
   onClose,
   selectedTicket,
-  assignmentHistory,
-  renderAssignmentStepper
+  assignmentHistory
 }) {
   const [isFlowModalOpen, setIsFlowModalOpen] = useState(false);
+  const userRole = localStorage.getItem("role");
+  const userId = localStorage.getItem("userId");
+  const [isAttendDialogOpen, setIsAttendDialogOpen] = useState(false);
+  const [resolutionDetails, setResolutionDetails] = useState("");
+  const [attachment, setAttachment] = useState(null);
+
+  const showAttendButton =
+    (userRole === "agent" || userRole === "attendee") &&
+    selectedTicket &&
+    selectedTicket.status !== "Closed" &&
+    selectedTicket.assigned_to_id &&
+    selectedTicket.assigned_to_id.toString() === userId;
+
+  const handleAttend = () => {
+    setIsAttendDialogOpen(true);
+  };
+
+  const handleAttendSubmit = async () => {
+    try {
+      const token = localStorage.getItem("authToken");
+      const formData = new FormData();
+      formData.append("status", "Closed");
+      formData.append("resolution_details", resolutionDetails);
+      formData.append("date_of_resolution", new Date().toISOString());
+      if (attachment) {
+        formData.append("attachment", attachment);
+      }
+      const response = await fetch(
+        `${baseURL}/ticket/${selectedTicket.id}/close`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`
+            // Do NOT set Content-Type; browser will set it for FormData
+          },
+          body: formData
+        }
+      );
+      if (response.ok) {
+        setIsAttendDialogOpen(false);
+        onClose();
+      } else {
+        // Optionally show an error message
+      }
+    } catch (error) {
+      // Optionally show an error message
+    }
+  };
+
   return (
     <>
       <Modal
@@ -453,6 +512,11 @@ export default function TicketDetailsModal({
 
               {/* Action Buttons */}
               <Box sx={{ mt: 2, textAlign: "right" }}>
+                {showAttendButton && (
+                  <Button variant="contained" color="primary" onClick={handleAttend} sx={{ mr: 1 }}>
+                    Attend
+                  </Button>
+                )}
                 <Button variant="outlined" onClick={onClose}>
                   Close
                 </Button>
@@ -466,6 +530,44 @@ export default function TicketDetailsModal({
         <DialogTitle>Ticket History</DialogTitle>
         <DialogContent>
           <AssignmentFlowChat assignmentHistory={assignmentHistory} selectedTicket={selectedTicket} />
+        </DialogContent>
+      </Dialog>
+      {/* Attend/Resolve Dialog */}
+      <Dialog open={isAttendDialogOpen} onClose={() => setIsAttendDialogOpen(false)}>
+        <DialogTitle>Enter Resolution Details</DialogTitle>
+        <DialogContent>
+          <TextField
+            label="Resolution Details"
+            multiline
+            rows={4}
+            value={resolutionDetails}
+            onChange={e => setResolutionDetails(e.target.value)}
+            fullWidth
+            sx={{ mt: 2 }}
+          />
+          <input
+            type="file"
+            accept="*"
+            onChange={e => setAttachment(e.target.files[0])}
+            style={{ marginTop: 16 }}
+          />
+          <Box sx={{ mt: 2, textAlign: "right" }}>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleAttendSubmit}
+              disabled={!resolutionDetails.trim()}
+            >
+              Submit
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => setIsAttendDialogOpen(false)}
+              sx={{ ml: 1 }}
+            >
+              Cancel
+            </Button>
+          </Box>
         </DialogContent>
       </Dialog>
     </>

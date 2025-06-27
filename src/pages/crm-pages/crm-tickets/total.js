@@ -301,12 +301,12 @@ export default function Crm() {
               <FaEye />
             </button>
           </Tooltip>
-          <button onClick={() => handleShowStepper(ticket)} style={{ marginLeft: 8 }}>
+          {/* <button onClick={() => handleShowStepper(ticket)} style={{ marginLeft: 8 }}>
             {openStepperTicketId === ticket.id ? "Hide Stepper" : "Show Stepper"}
-          </button>
+          </button> */}
         </td>
       </tr>
-      {openStepperTicketId === ticket.id && (
+      {/* {openStepperTicketId === ticket.id && (
         <tr>
           <td colSpan={activeColumns.length + 1}>
             <AssignmentStepper
@@ -315,7 +315,7 @@ export default function Crm() {
             />
           </td>
         </tr>
-      )}
+      )} */}
     </React.Fragment>
   );
 
