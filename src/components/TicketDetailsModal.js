@@ -169,6 +169,8 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser }) 
   );
 };
 
+export { AssignmentStepper };
+
 function AssignmentFlowChat({ assignmentHistory = [], selectedTicket }) {
   const creatorStep = selectedTicket
     ? {
@@ -307,41 +309,67 @@ export default function TicketDetailsModal({
                       {selectedTicket.status || "N/A"}
                     </span>
                   </Typography>
-                  <Typography>
-                    <strong>
-                      {selectedTicket.status === "Open"
-                        ? "Created By:"
-                        : selectedTicket.status === "Closed"
-                        ? "Closed By:"
-                        : "Assigned To:"}
-                    </strong>{" "}
-                    {selectedTicket.status === "Open" && (
-                      selectedTicket.created_by ||
-                      (selectedTicket.creator && selectedTicket.creator.name) ||
-                      `${selectedTicket.first_name || ""} ${selectedTicket.last_name || ""}`.trim() ||
-                      "N/A"
-                    )}
-                    {(selectedTicket.status === "Assigned" || selectedTicket.status === "In Progress") && (
-                      selectedTicket.assigned_to_name ||
-                      (selectedTicket.assignee && selectedTicket.assignee.name) ||
-                      "N/A"
-                    )}
-                    {selectedTicket.status === "Closed" && (
-                      selectedTicket.closedBy ||
-                      (assignmentHistory && assignmentHistory.length > 0
-                        ? assignmentHistory[assignmentHistory.length - 1].assigned_to_name
-                        : "N/A")
-                    )}
-                  </Typography>
-                  {selectedTicket.status === "Open" && selectedTicket.description && (
-                    <Typography sx={{ mt: 1 }}>
-                      <strong>Description:</strong> {selectedTicket.description}
-                    </Typography>
+
+                  {/* Show creator if open */}
+                  {selectedTicket.status === "Open" && (
+                    <>
+                      <Typography>
+                        <strong>Created By:</strong>{" "}
+                        {selectedTicket.created_by ||
+                          (selectedTicket.creator && selectedTicket.creator.name) ||
+                          `${selectedTicket.first_name || ""} ${selectedTicket.last_name || ""}`.trim() ||
+                          "N/A"}
+                      </Typography>
+                      {selectedTicket.description && (
+                        <Typography sx={{ mt: 1 }}>
+                          <strong>Description:</strong> {selectedTicket.description}
+                        </Typography>
+                      )}
+                    </>
                   )}
-                  {selectedTicket.resolution_details && (
-                    <Typography sx={{ mt: 1 }}>
-                      <strong>Resolution Details:</strong> {selectedTicket.resolution_details}
-                    </Typography>
+
+                  {/* Show last assignment if assigned/in progress/closed */}
+                  {(selectedTicket.status === "Assigned" ||
+                    selectedTicket.status === "In Progress" ||
+                    selectedTicket.status === "Closed") && (
+                    (() => {
+                      const last =
+                        assignmentHistory && assignmentHistory.length > 0
+                          ? assignmentHistory[assignmentHistory.length - 1]
+                          : null;
+                      if (!last) return null;
+                      return (
+                        <>
+                          <Typography>
+                            <strong>
+                              {selectedTicket.status === "Closed"
+                                ? "Closed By:"
+                                : "Assigned To:"}
+                            </strong>{" "}
+                            {last.assigned_to_name || last.assigned_to_id || "N/A"}{" "}
+                            <span style={{ color: "#888" }}>
+                              ({last.assigned_to_role || "N/A"})
+                            </span>
+                          </Typography>
+                          <Typography>
+                            <strong>Date:</strong>{" "}
+                            {last.created_at
+                              ? new Date(last.created_at).toLocaleString()
+                              : "N/A"}
+                          </Typography>
+                          {last.reason && (
+                            <Typography>
+                              <strong>Message:</strong> {last.reason}
+                            </Typography>
+                          )}
+                          {selectedTicket.status === "Closed" && selectedTicket.resolution_details && (
+                            <Typography sx={{ mt: 1 }}>
+                              <strong>Resolution Details:</strong> {selectedTicket.resolution_details}
+                            </Typography>
+                          )}
+                        </>
+                      );
+                    })()
                   )}
                 </Box>
 

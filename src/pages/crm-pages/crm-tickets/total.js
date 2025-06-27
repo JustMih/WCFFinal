@@ -25,6 +25,7 @@ import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import TicketDetailsModal from '../../../components/TicketDetailsModal';
+import { AssignmentStepper } from '../../../components/TicketDetailsModal';
 
 export default function Crm() {
   const [agentTickets, setAgentTickets] = useState([]);
@@ -164,10 +165,21 @@ export default function Crm() {
     }
   };
 
-  const openModal = (ticket) => {
+  const openModal = async (ticket) => {
     setSelectedTicket(ticket);
     setComments(ticket.comments || "");
-    setIsModalOpen(true);
+    try {
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(`${baseURL}/ticket/${ticket.id}/assignments`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setAssignmentHistory(data);
+      setIsModalOpen(true);
+    } catch (e) {
+      setAssignmentHistory([]);
+      setIsModalOpen(true);
+    }
   };
 
   const closeModal = () => {
@@ -557,79 +569,3 @@ function AssignmentFlowChat({ assignmentHistory, selectedTicket }) {
     </Box>
   );
 }
-
-const AssignmentStepper = ({ assignmentHistory, selectedTicket }) => {
-  if (!selectedTicket) return null;
-  const creatorName = selectedTicket.created_by ||
-    (selectedTicket.creator && selectedTicket.creator.name) ||
-    `${selectedTicket.first_name || ""} ${selectedTicket.last_name || ""}`.trim() ||
-    "N/A";
-  let steps = [
-    {
-      assigned_to_name: creatorName,
-      assigned_to_role: "Creator",
-      action: "Created",
-      created_at: selectedTicket.created_at,
-      assigned_to_id: "creator"
-    }
-  ];
-  if (Array.isArray(assignmentHistory) && assignmentHistory.length > 0) {
-    const firstAssignee = assignmentHistory[0];
-    if (
-      firstAssignee.assigned_to_name === creatorName
-    ) {
-      steps[0].assigned_to_role = "Creator & " + (firstAssignee.assigned_to_role || "Agent");
-      steps = steps.concat(assignmentHistory.slice(1));
-    } else {
-      steps = steps.concat(assignmentHistory);
-    }
-  }
-  let currentAssigneeIdx = 0;
-  if (
-    selectedTicket.status === "Open" &&
-    (!selectedTicket.assigned_to_id || steps.length === 1)
-  ) {
-    currentAssigneeIdx = 0;
-  } else {
-    const idx = steps.findIndex(
-      a => a.assigned_to_id === selectedTicket.assigned_to_id
-    );
-    currentAssigneeIdx = idx !== -1 ? idx : steps.length - 1;
-  }
-  return (
-    <Box sx={{ my: 2 }}>
-      {steps.map((a, idx) => (
-        <Box key={idx} sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
-          <Box
-            sx={{
-              width: 30,
-              height: 30,
-              borderRadius: "50%",
-              bgcolor:
-                idx < currentAssigneeIdx
-                  ? "green"
-                  : idx === currentAssigneeIdx
-                  ? "#1976d2"
-                  : "gray",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: "white",
-              fontWeight: "bold"
-            }}
-          >
-            {idx + 1}
-          </Box>
-          <Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-              {a.assigned_to_name} ({a.assigned_to_role})
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {a.action} - {a.created_at ? new Date(a.created_at).toLocaleString() : ''}
-            </Typography>
-          </Box>
-        </Box>
-      ))}
-    </Box>
-  );
-};
