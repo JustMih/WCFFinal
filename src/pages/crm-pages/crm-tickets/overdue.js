@@ -484,9 +484,6 @@ export default function Crm() {
         selectedTicket={selectedTicket}
         assignmentHistory={assignmentHistory}
         renderAssignmentStepper={renderAssignmentStepper}
-        setIsFlowModalOpen={setIsFlowModalOpen}
-        isFlowModalOpen={isFlowModalOpen}
-        AssignmentFlowChat={AssignmentFlowChat}
       />
 
       {/* Column Selector */}

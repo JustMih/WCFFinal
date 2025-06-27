@@ -61,6 +61,8 @@ export default function Crm() {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   const [isFlowModalOpen, setIsFlowModalOpen] = useState(false);
+  const [openStepperTicketId, setOpenStepperTicketId] = useState(null);
+  const [rowAssignmentHistory, setRowAssignmentHistory] = useState({});
 
   useEffect(() => {
     const userId = localStorage.getItem("userId");
@@ -224,73 +226,85 @@ export default function Crm() {
   );
 
   const renderTableRow = (ticket, index) => (
-    <tr key={ticket.id || index}>
-      {activeColumns.includes("id") && (
-        <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
-      )}
-      {activeColumns.includes("fullName") && (
-        <td>
-        {ticket.first_name && ticket.first_name.trim() !== ""
-          ? `${ticket.first_name} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim()
-          : (typeof ticket.institution === "string"
-              ? ticket.institution
-              : ticket.institution && typeof ticket.institution === "object" && typeof ticket.institution.name === "string"
-                ? ticket.institution.name
-                : "N/A")}
-      </td>
-      )}
-      {activeColumns.includes("phone_number") && (
-        <td>{ticket.phone_number || "N/A"}</td>
-      )}
-      {activeColumns.includes("status") && (
-        <td>
-          <span
-            style={{
-              color:
-                ticket.status === "Open"
-                  ? "green"
-                  : ticket.status === "Closed"
-                  ? "gray"
-                  : "blue",
-            }}
-          >
-            {ticket.status || "N/A"}
-          </span>
+    <React.Fragment key={ticket.id || index}>
+      <tr>
+        {activeColumns.includes("id") && (
+          <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
+        )}
+        {activeColumns.includes("fullName") && (
+          <td>
+          {ticket.first_name && ticket.first_name.trim() !== ""
+            ? `${ticket.first_name} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim()
+            : (typeof ticket.institution === "string"
+                ? ticket.institution
+                : ticket.institution && typeof ticket.institution === "object" && typeof ticket.institution.name === "string"
+                  ? ticket.institution.name
+                  : "N/A")}
         </td>
-      )}
-      {activeColumns.includes("subject") && <td>{ticket.subject || "N/A"}</td>}
-      {activeColumns.includes("category") && <td>{ticket.category || "N/A"}</td>}
-      {activeColumns.includes("assigned_to_role") && (
-        <td>{ticket.assigned_to_role || "N/A"}</td>
-      )}
-      {activeColumns.includes("createdAt") && (
+        )}
+        {activeColumns.includes("phone_number") && (
+          <td>{ticket.phone_number || "N/A"}</td>
+        )}
+        {activeColumns.includes("status") && (
+          <td>
+            <span
+              style={{
+                color:
+                  ticket.status === "Open"
+                    ? "green"
+                    : ticket.status === "Closed"
+                    ? "gray"
+                    : "blue",
+              }}
+            >
+              {ticket.status || "N/A"}
+            </span>
+          </td>
+        )}
+        {activeColumns.includes("subject") && <td>{ticket.subject || "N/A"}</td>}
+        {activeColumns.includes("category") && <td>{ticket.category || "N/A"}</td>}
+        {activeColumns.includes("assigned_to_role") && (
+          <td>{ticket.assigned_to_role || "N/A"}</td>
+        )}
+        {activeColumns.includes("createdAt") && (
+          <td>
+            {ticket.created_at
+              ? new Date(ticket.created_at).toLocaleString("en-GB", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: true,
+                })
+              : "N/A"}
+          </td>
+        )}
         <td>
-          {ticket.created_at
-            ? new Date(ticket.created_at).toLocaleString("en-GB", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: true,
-              })
-            : "N/A"}
-        </td>
-      )}
-      <td>
-        <Tooltip title="Ticket Details">
-          <button
-            className="view-ticket-details-btn"
-            onClick={() => openModal(ticket)}
-          >
-            <FaEye />
+          <Tooltip title="Ticket Details">
+            <button
+              className="view-ticket-details-btn"
+              onClick={() => openModal(ticket)}
+            >
+              <FaEye />
+            </button>
+          </Tooltip>
+          <button onClick={() => handleShowStepper(ticket)} style={{ marginLeft: 8 }}>
+            {openStepperTicketId === ticket.id ? "Hide Stepper" : "Show Stepper"}
           </button>
-        </Tooltip>
-        {/* <IconButton onClick={() => openHistoryModal(ticket)}>
-          <ChatIcon color="primary" />
-        </IconButton> */}
-      </td>
-    </tr>
+        </td>
+      </tr>
+      {openStepperTicketId === ticket.id && (
+        <tr>
+          <td colSpan={activeColumns.length + 1}>
+            <AssignmentStepper
+              assignmentHistory={rowAssignmentHistory[ticket.id] || []}
+              selectedTicket={ticket}
+            />
+          </td>
+        </tr>
+      )}
+    </React.Fragment>
   );
 
   const openHistoryModal = async (ticket) => {
@@ -308,81 +322,23 @@ export default function Crm() {
     }
   };
 
-  const renderAssignmentStepper = (assignmentHistory, selectedTicket) => {
-    const steps = [
-      {
-        assigned_to_name: selectedTicket.created_by ||
-          (selectedTicket.creator && selectedTicket.creator.name) ||
-          `${selectedTicket.first_name || ""} ${selectedTicket.last_name || ""}`.trim() ||
-          "N/A",
-        assigned_to_role: "Creator",
-        action: "Created",
-        created_at: selectedTicket.created_at,
-        assigned_to_id: "creator"
-      }
-    ];
-    if (Array.isArray(assignmentHistory) && assignmentHistory.length > 0) {
-      steps.push(...assignmentHistory);
-    } else if (
-      selectedTicket.assigned_to_id &&
-      selectedTicket.assigned_to_id !== "creator"
-    ) {
-      steps.push({
-        assigned_to_name: selectedTicket.assigned_to_name || selectedTicket.assigned_to_id || "Unknown",
-        assigned_to_role: selectedTicket.assigned_to_role || "Unknown",
-        action: selectedTicket.status === "Assigned" ? "Assigned" : "Open",
-        created_at: selectedTicket.assigned_at,
-        assigned_to_id: selectedTicket.assigned_to_id
+  const handleShowStepper = async (ticket) => {
+    if (openStepperTicketId === ticket.id) {
+      setOpenStepperTicketId(null);
+      return;
+    }
+    setOpenStepperTicketId(ticket.id);
+    // Fetch assignment history for this ticket
+    try {
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(`${baseURL}/ticket/${ticket.id}/assignments`, {
+        headers: { Authorization: `Bearer ${token}` }
       });
+      const data = await res.json();
+      setRowAssignmentHistory(prev => ({ ...prev, [ticket.id]: data }));
+    } catch (e) {
+      setRowAssignmentHistory(prev => ({ ...prev, [ticket.id]: [] }));
     }
-    let currentAssigneeIdx = 0;
-    if (
-      selectedTicket.status === "Open" &&
-      (!selectedTicket.assigned_to_id || steps.length === 1)
-    ) {
-      currentAssigneeIdx = 0;
-    } else {
-      const idx = steps.findIndex(
-        a => a.assigned_to_id === selectedTicket.assigned_to_id
-      );
-      currentAssigneeIdx = idx !== -1 ? idx : steps.length - 1;
-    }
-    return (
-      <Box>
-        {steps.map((a, idx) => (
-          <Box key={idx} sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
-            <Box
-              sx={{
-                width: 30,
-                height: 30,
-                borderRadius: "50%",
-                bgcolor:
-                  idx < currentAssigneeIdx
-                    ? "green"
-                    : idx === currentAssigneeIdx
-                    ? "#1976d2"
-                    : "gray",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "white",
-                fontWeight: "bold"
-              }}
-            >
-              {idx + 1}
-            </Box>
-            <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-                {a.assigned_to_name} ({a.assigned_to_role})
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {a.action} - {a.created_at ? new Date(a.created_at).toLocaleString() : ''}
-              </Typography>
-            </Box>
-          </Box>
-        ))}
-      </Box>
-    );
   };
 
   if (loading) {
@@ -509,8 +465,6 @@ export default function Crm() {
         onClose={closeModal}
         selectedTicket={selectedTicket}
         assignmentHistory={assignmentHistory}
-        renderAssignmentStepper={renderAssignmentStepper}
-        setIsFlowModalOpen={setIsFlowModalOpen}
       />
 
       {/* Column Selector */}
@@ -603,3 +557,79 @@ function AssignmentFlowChat({ assignmentHistory, selectedTicket }) {
     </Box>
   );
 }
+
+const AssignmentStepper = ({ assignmentHistory, selectedTicket }) => {
+  if (!selectedTicket) return null;
+  const creatorName = selectedTicket.created_by ||
+    (selectedTicket.creator && selectedTicket.creator.name) ||
+    `${selectedTicket.first_name || ""} ${selectedTicket.last_name || ""}`.trim() ||
+    "N/A";
+  let steps = [
+    {
+      assigned_to_name: creatorName,
+      assigned_to_role: "Creator",
+      action: "Created",
+      created_at: selectedTicket.created_at,
+      assigned_to_id: "creator"
+    }
+  ];
+  if (Array.isArray(assignmentHistory) && assignmentHistory.length > 0) {
+    const firstAssignee = assignmentHistory[0];
+    if (
+      firstAssignee.assigned_to_name === creatorName
+    ) {
+      steps[0].assigned_to_role = "Creator & " + (firstAssignee.assigned_to_role || "Agent");
+      steps = steps.concat(assignmentHistory.slice(1));
+    } else {
+      steps = steps.concat(assignmentHistory);
+    }
+  }
+  let currentAssigneeIdx = 0;
+  if (
+    selectedTicket.status === "Open" &&
+    (!selectedTicket.assigned_to_id || steps.length === 1)
+  ) {
+    currentAssigneeIdx = 0;
+  } else {
+    const idx = steps.findIndex(
+      a => a.assigned_to_id === selectedTicket.assigned_to_id
+    );
+    currentAssigneeIdx = idx !== -1 ? idx : steps.length - 1;
+  }
+  return (
+    <Box sx={{ my: 2 }}>
+      {steps.map((a, idx) => (
+        <Box key={idx} sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+          <Box
+            sx={{
+              width: 30,
+              height: 30,
+              borderRadius: "50%",
+              bgcolor:
+                idx < currentAssigneeIdx
+                  ? "green"
+                  : idx === currentAssigneeIdx
+                  ? "#1976d2"
+                  : "gray",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: "white",
+              fontWeight: "bold"
+            }}
+          >
+            {idx + 1}
+          </Box>
+          <Box>
+            <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
+              {a.assigned_to_name} ({a.assigned_to_role})
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {a.action} - {a.created_at ? new Date(a.created_at).toLocaleString() : ''}
+            </Typography>
+          </Box>
+        </Box>
+      ))}
+    </Box>
+  );
+};
