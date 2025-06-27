@@ -421,12 +421,12 @@ export default function TicketDetailsModal({
                               : "N/A"}
                           </Typography>
                           {last.reason && (
-                            <Typography>
+                            <Typography sx={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}>
                               <strong>Message:</strong> {last.reason}
                             </Typography>
                           )}
                           {selectedTicket.status === "Closed" && selectedTicket.resolution_details && (
-                            <Typography sx={{ mt: 1 }}>
+                              <Typography sx={{ wordBreak: 'break-word', whiteSpace: 'pre-line', mt: 1 }}>
                               <strong>Resolution Details:</strong> {selectedTicket.resolution_details}
                             </Typography>
                           )}
