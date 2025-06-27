@@ -2,21 +2,126 @@ import React, { useState } from "react";
 import { Modal, Box, Typography, Divider, IconButton, Button, Dialog, DialogTitle, DialogContent, Avatar, Paper } from "@mui/material";
 import ChatIcon from '@mui/icons-material/Chat';
 
-function AssignmentFlowChat({ assignmentHistory, selectedTicket }) {
+const getCreatorName = (selectedTicket) =>
+  selectedTicket.created_by ||
+  (selectedTicket.creator && selectedTicket.creator.name) ||
+  `${selectedTicket.first_name || ""} ${selectedTicket.last_name || ""}`.trim() ||
+  "N/A";
+
+const renderWorkflowStep = (stepNumber, title, details, status) => (
+  <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+    <Box
+      sx={{
+        width: 30,
+        height: 30,
+        borderRadius: "50%",
+        bgcolor:
+          status === "completed"
+            ? "green"
+            : status === "current"
+            ? "#1976d2"
+            : "gray",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        color: "white",
+        fontWeight: "bold"
+      }}
+    >
+      {stepNumber}
+    </Box>
+    <Box>
+      <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
+        {title}
+      </Typography>
+      <Typography variant="body2" color="text.secondary">
+        {details}
+      </Typography>
+    </Box>
+  </Box>
+);
+
+const getStepStatus = (stepIndex, currentStepIndex) => {
+  if (stepIndex < currentStepIndex) return "completed";
+  if (stepIndex === currentStepIndex) return "current";
+  return "pending";
+};
+
+const AssignmentStepper = (assignmentHistory, selectedTicket, assignedUser) => {
+  // Always start with the creator step
+  const steps = [
+    {
+      assigned_to_name: getCreatorName(selectedTicket),
+      assigned_to_role: "Creator",
+      action: "Created",
+      created_at: selectedTicket.created_at,
+      assigned_to_id: "creator"
+    }
+  ];
+
+  // If assignmentHistory is not empty, use it
+  if (Array.isArray(assignmentHistory) && assignmentHistory.length > 0) {
+    steps.push(...assignmentHistory);
+  } else if (
+    selectedTicket.assigned_to_id &&
+    selectedTicket.assigned_to_id !== "creator"
+  ) {
+    // Add a synthetic step for the assigned user from the ticket table
+    steps.push({
+      assigned_to_name: (assignedUser && assignedUser.name) ||
+        (selectedTicket.assignee && selectedTicket.assignee.name) ||
+        selectedTicket.assigned_to_name ||
+        selectedTicket.assigned_to_id || "Unknown",
+      assigned_to_role: (assignedUser && assignedUser.role) ||
+        (selectedTicket.assignee && selectedTicket.assignee.role) ||
+        selectedTicket.assigned_to_role || "Unknown",
+      action: selectedTicket.status === "Assigned" ? "Assigned" : "Open",
+      created_at: selectedTicket.assigned_at,
+      assigned_to_id: selectedTicket.assigned_to_id
+    });
+  }
+
+  // Determine current step index
+  let currentAssigneeIdx = 0;
+  if (
+    selectedTicket.status === "Open" &&
+    (!selectedTicket.assigned_to_id || steps.length === 1)
+  ) {
+    currentAssigneeIdx = 0; // Still with creator
+  } else {
+    const idx = steps.findIndex(
+      a => a.assigned_to_id === selectedTicket.assigned_to_id
+    );
+    currentAssigneeIdx = idx !== -1 ? idx : steps.length - 1;
+  }
+
+      return (
+        <Box>
+      {steps.map((a, idx) =>
+        renderWorkflowStep(
+          idx + 1,
+          `${a.assigned_to_name} (${a.assigned_to_role})`,
+          `${a.action} - ${a.created_at ? new Date(a.created_at).toLocaleString() : ''}`,
+          getStepStatus(idx, currentAssigneeIdx)
+        )
+      )}
+        </Box>
+      );
+};
+
+function AssignmentFlowChat({ assignmentHistory = [], selectedTicket }) {
   const creatorStep = selectedTicket
     ? {
-        assigned_to_name: selectedTicket.created_by ||
-          (selectedTicket.creator && selectedTicket.creator.name) ||
-          `${selectedTicket.first_name || ''} ${selectedTicket.last_name || ''}`.trim() ||
-          'N/A',
+        assigned_to_name: getCreatorName(selectedTicket),
         assigned_to_role: 'Creator',
         reason: 'Created the ticket',
         created_at: selectedTicket.created_at,
       }
     : null;
+  // Always add all assignments as steps, even if assignee is same as creator
   const steps = creatorStep ? [creatorStep, ...assignmentHistory] : assignmentHistory;
   return (
-    <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+    // <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
       <Box sx={{ maxWidth: 400, ml: 'auto', mr: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, justifyContent: 'space-between' }}>
           <Typography sx={{ color: "#3f51b5", wordBreak: 'break-word', whiteSpace: 'pre-line' }}>
@@ -39,7 +144,7 @@ function AssignmentFlowChat({ assignmentHistory, selectedTicket }) {
               </Avatar>
               <Paper elevation={2} sx={{ p: 2, bgcolor: idx === 0 ? "#e8f5e9" : "#f5f5f5", flex: 1 }}>
                 <Typography sx={{ fontWeight: "bold" }}>
-                  {a.assigned_to_name || a.assigned_to_id || "Unknown"} {" "}
+                  {a.assigned_to_name || a.assigned_to_id || 'Unknown'} {" "}
                   <span style={{ color: "#888", fontWeight: "normal" }}>
                     ({a.assigned_to_role || "N/A"})
                   </span>
@@ -55,7 +160,7 @@ function AssignmentFlowChat({ assignmentHistory, selectedTicket }) {
           );
         })}
       </Box>
-    </Box>
+    // </Box>
   );
 }
 

@@ -19,7 +19,7 @@ import { baseURL } from "../../../config";
 import "../crm-tickets/ticket.css";
 import TicketActions from "../../../components/coordinator/TicketActions";
 import TicketReassignModal from '../../../components/ticket/TicketReassignModal';
-import TicketDetails from '../../../components/TicketDetails';
+import TicketDetailsModal from '../../../components/TicketDetailsModal';
 
 export default function CRMFocalPersonTickets() {
   const { status } = useParams();
@@ -52,6 +52,7 @@ export default function CRMFocalPersonTickets() {
   const [showReassignModal, setShowReassignModal] = useState(false);
   const [ticketToReassign, setTicketToReassign] = useState(null);
   const token = localStorage.getItem("authToken");
+  const [assignmentHistory, setAssignmentHistory] = useState([]);
 
   useEffect(() => {
     fetchTickets();
@@ -95,14 +96,26 @@ export default function CRMFocalPersonTickets() {
     }
   };
 
-  const openModal = (ticket) => {
+  const openModal = async (ticket) => {
     setSelectedTicket(ticket);
     setIsModalOpen(true);
+    // Fetch assignment history
+    try {
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(`${baseURL}/ticket/${ticket.id}/assignments`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setAssignmentHistory(data);
+    } catch (e) {
+      setAssignmentHistory([]);
+    }
   };
 
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedTicket(null);
+    setAssignmentHistory([]);
   };
 
   const filteredTickets = tickets.filter((ticket) => {
@@ -198,15 +211,6 @@ export default function CRMFocalPersonTickets() {
             <FaEye />
           </button>
         </Tooltip>
-        <Tooltip title="View Status">
-          <button
-            className="view-status-btn"
-            onClick={() => openModal(ticket)}
-            style={{ marginLeft: 8 }}
-          >
-            Status
-          </button>
-        </Tooltip>
         {/* Show Reassign button if ticket is assigned to an attendee */}
         {(ticket.assigned_to_role && ticket.status &&
           ticket.assigned_to_role.toLowerCase() === 'attendee' &&
@@ -295,6 +299,84 @@ export default function CRMFocalPersonTickets() {
 
   const handleReassignSuccess = () => {
     fetchTickets(); // refresh ticket list
+  };
+
+  // Assignment Stepper Logic (copied from ticket.js)
+  const renderAssignmentStepper = (assignmentHistory, selectedTicket) => {
+    const steps = [
+      {
+        assigned_to_name: selectedTicket.created_by ||
+          (selectedTicket.creator && selectedTicket.creator.name) ||
+          `${selectedTicket.first_name || ""} ${selectedTicket.last_name || ""}`.trim() ||
+          "N/A",
+        assigned_to_role: "Creator",
+        action: "Created",
+        created_at: selectedTicket.created_at,
+        assigned_to_id: "creator"
+      }
+    ];
+    if (Array.isArray(assignmentHistory) && assignmentHistory.length > 0) {
+      steps.push(...assignmentHistory);
+    } else if (
+      selectedTicket.assigned_to_id &&
+      selectedTicket.assigned_to_id !== "creator"
+    ) {
+      steps.push({
+        assigned_to_name: selectedTicket.assigned_to_name || selectedTicket.assigned_to_id || "Unknown",
+        assigned_to_role: selectedTicket.assigned_to_role || "Unknown",
+        action: selectedTicket.status === "Assigned" ? "Assigned" : "Open",
+        created_at: selectedTicket.assigned_at,
+        assigned_to_id: selectedTicket.assigned_to_id
+      });
+    }
+    let currentAssigneeIdx = 0;
+    if (
+      selectedTicket.status === "Open" &&
+      (!selectedTicket.assigned_to_id || steps.length === 1)
+    ) {
+      currentAssigneeIdx = 0;
+    } else {
+      const idx = steps.findIndex(
+        a => a.assigned_to_id === selectedTicket.assigned_to_id
+      );
+      currentAssigneeIdx = idx !== -1 ? idx : steps.length - 1;
+    }
+    return (
+      <Box>
+        {steps.map((a, idx) => (
+          <Box key={idx} sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+            <Box
+              sx={{
+                width: 30,
+                height: 30,
+                borderRadius: "50%",
+                bgcolor:
+                  idx < currentAssigneeIdx
+                    ? "green"
+                    : idx === currentAssigneeIdx
+                    ? "#1976d2"
+                    : "gray",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "white",
+                fontWeight: "bold"
+              }}
+            >
+              {idx + 1}
+            </Box>
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
+                {a.assigned_to_name} ({a.assigned_to_role})
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {a.action} - {a.created_at ? new Date(a.created_at).toLocaleString() : ''}
+              </Typography>
+            </Box>
+          </Box>
+        ))}
+      </Box>
+    );
   };
 
   if (loading) {
@@ -412,103 +494,13 @@ export default function CRMFocalPersonTickets() {
       </div>
 
       {/* Details Modal */}
-      <Modal
+      <TicketDetailsModal
         open={isModalOpen}
         onClose={closeModal}
-        aria-labelledby="ticket-details-title"
-        aria-describedby="ticket-details-description"
-      >
-        <Box
-          sx={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: { xs: "90%", sm: 900 },
-            maxHeight: "85vh",
-            overflowY: "auto",
-            bgcolor: "background.paper",
-            boxShadow: 24,
-            borderRadius: 2,
-            p: 3,
-          }}
-        >
-          {selectedTicket && (
-            <>
-              <TicketDetails ticketId={selectedTicket.id} onClose={closeModal} />
-              {/* Convert and Forward Actions */}
-              <Typography variant="h6" sx={{ color: "#1976d2", mb: 1, mt: 3 }}>
-                Actions
-              </Typography>
-              <Box sx={{ mb: 3, display: "flex", flexDirection: "column", gap: 2 }}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <select
-                    style={{ 
-                      padding: "8px 12px", 
-                      fontSize: "0.9rem", 
-                      height: "40px", 
-                      borderRadius: "4px",
-                      minWidth: "200px",
-                      border: "1px solid #ccc"
-                    }}
-                    value={convertCategory[selectedTicket.id] || ""}
-                    onChange={(e) =>
-                      setConvertCategory((prev) => ({ ...prev, [selectedTicket.id]: e.target.value }))
-                    }
-                  >
-                    <option value="">Convert To</option>
-                    {categories.map((cat) => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </select>
-                  <Button 
-                    variant="contained" 
-                    onClick={() => handleConvertOrForward(selectedTicket.id)}
-                  >
-                    Convert
-                  </Button>
-                </Box>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <select
-                    style={{ 
-                      padding: "8px 12px", 
-                      fontSize: "0.9rem", 
-                      height: "40px", 
-                      borderRadius: "4px",
-                      minWidth: "200px",
-                      border: "1px solid #ccc"
-                    }}
-                    value={forwardUnit[selectedTicket.id] || ""}
-                    onChange={(e) =>
-                      setForwardUnit((prev) => ({ ...prev, [selectedTicket.id]: e.target.value }))
-                    }
-                  >
-                    <option value="">Forward To Unit</option>
-                    {units.map((unit) => (
-                      <option key={unit.id} value={unit.id}>{unit.name}</option>
-                    ))}
-                  </select>
-                  <Button 
-                    variant="contained" 
-                    onClick={() => handleConvertOrForward(selectedTicket.id)}
-                  >
-                    Forward
-                  </Button>
-                </Box>
-              </Box>
-              {/* Close Modal Button */}
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <Button 
-                  variant="outlined" 
-                  onClick={closeModal}
-                >
-                  Close Modal
-                </Button>
-              </Box>
-            </>
-          )}
-        </Box>
-      </Modal>
+        selectedTicket={selectedTicket}
+        assignmentHistory={assignmentHistory}
+        renderAssignmentStepper={renderAssignmentStepper}
+      />
 
       <ColumnSelector
         open={isColumnModalOpen}
