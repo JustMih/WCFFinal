@@ -64,7 +64,11 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser }) 
   ];
 
   if (Array.isArray(assignmentHistory) && assignmentHistory.length > 0) {
-    steps.push(...assignmentHistory);
+    // Use assignmentHistory as-is, do not override assigned_to_role unless missing
+    steps.push(...assignmentHistory.map(a => ({
+      ...a,
+      assigned_to_role: a.assigned_to_role ? a.assigned_to_role : "Unknown"
+    })));
   } else if (
     selectedTicket.assigned_to_id &&
     selectedTicket.assigned_to_id !== "creator"
@@ -190,7 +194,7 @@ function AssignmentFlowChat({ assignmentHistory = [], selectedTicket }) {
           message = 'Created the ticket';
         } else {
           const prevUser = steps[idx - 1]?.assigned_to_name || 'Previous User';
-          message = `Message from ${prevUser}: ${a.reason || 'No message'}`;
+          message = `Message from ${prevUser}: ${a.reason || selectedTicket.resolution_details ||'No message'}`;
         }
         return (
           <Box key={idx} sx={{ display: "flex", mb: 2, alignItems: "flex-start" }}>
@@ -304,32 +308,50 @@ export default function TicketDetailsModal({
                     </span>
                   </Typography>
                   <Typography>
-                    <strong>Created By:</strong>{" "}
-                    {selectedTicket.created_by ||
+                    <strong>
+                      {selectedTicket.status === "Open"
+                        ? "Created By:"
+                        : selectedTicket.status === "Closed"
+                        ? "Closed By:"
+                        : "Assigned To:"}
+                    </strong>{" "}
+                    {selectedTicket.status === "Open" && (
+                      selectedTicket.created_by ||
                       (selectedTicket.creator && selectedTicket.creator.name) ||
                       `${selectedTicket.first_name || ""} ${selectedTicket.last_name || ""}`.trim() ||
-                      "N/A"}
+                      "N/A"
+                    )}
+                    {(selectedTicket.status === "Assigned" || selectedTicket.status === "In Progress") && (
+                      selectedTicket.assigned_to_name ||
+                      (selectedTicket.assignee && selectedTicket.assignee.name) ||
+                      "N/A"
+                    )}
+                    {selectedTicket.status === "Closed" && (
+                      selectedTicket.closedBy ||
+                      (assignmentHistory && assignmentHistory.length > 0
+                        ? assignmentHistory[assignmentHistory.length - 1].assigned_to_name
+                        : "N/A")
+                    )}
                   </Typography>
+                  {selectedTicket.status === "Open" && selectedTicket.description && (
+                    <Typography sx={{ mt: 1 }}>
+                      <strong>Description:</strong> {selectedTicket.description}
+                    </Typography>
+                  )}
                   {selectedTicket.resolution_details && (
                     <Typography sx={{ mt: 1 }}>
-                      <strong>Resolution Details:</strong>{" "}
-                      {selectedTicket.resolution_details}
+                      <strong>Resolution Details:</strong> {selectedTicket.resolution_details}
                     </Typography>
                   )}
                 </Box>
 
-                {selectedTicket.status === 'Closed' && (
+                {/* {selectedTicket.status === 'Closed' && (
                   <Box sx={{ mt: 2, p: 2, bgcolor: "#f5f5f5", borderRadius: 1 }}>
                     <Typography>
-                      <strong>Closed By:</strong> {selectedTicket.closedBy || "N/A"}
+                      <strong>Closure Details:</strong> {selectedTicket.closureDetails}
                     </Typography>
-                    {selectedTicket.closureDetails && (
-                      <Typography>
-                        <strong>Closure Details:</strong> {selectedTicket.closureDetails}
-                      </Typography>
-                    )}
                   </Box>
-                )}
+                )} */}
               </Box>
 
               {/* Two-Column Ticket Fields */}
