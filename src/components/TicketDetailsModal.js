@@ -195,7 +195,7 @@ function AssignmentFlowChat({ assignmentHistory = [], selectedTicket }) {
         let message;
         if (idx === 0) {
           message = selectedTicket.description
-            ? `Created the ticket\n${selectedTicket.description}`
+            ? `Created the ticket\n Description:${selectedTicket.description}`
             : 'Created the ticket';
         } else {
           const prevUser = steps[idx - 1]?.assigned_to_name || 'Previous User';
@@ -206,7 +206,7 @@ function AssignmentFlowChat({ assignmentHistory = [], selectedTicket }) {
               message = `Message from ${prevUser}: ${a.reason || 'No message'}`;
             }
           } else {
-            message = `Message from ${prevUser}: ${a.action ? a.action + ' - ' : ''}${a.reason || 'No message'}`;
+            message = `Message from ${prevUser}: ${a.reason || 'No message'}`;
           }
         }
         return (
