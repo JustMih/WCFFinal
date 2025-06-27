@@ -195,15 +195,19 @@ function AssignmentFlowChat({ assignmentHistory = [], selectedTicket }) {
         let message;
         if (idx === 0) {
           message = selectedTicket.description
-            ? `Created the ticket\n Description:${selectedTicket.description}`
+            ? `Created the ticket\nDescription: ${selectedTicket.description}`
             : 'Created the ticket';
         } else {
           const prevUser = steps[idx - 1]?.assigned_to_name || 'Previous User';
-          if (selectedTicket.status === "Closed") {
-            if (selectedTicket.resolution_details) {
-              message = `Message from ${prevUser}: ${selectedTicket.resolution_details}`;
-            } else if (a.reason){
-              message = `Message from ${prevUser}: ${a.reason || 'No message'}`;
+          if (selectedTicket.status === "Closed" && idx === steps.length - 1) {
+            if (a.reason && selectedTicket.resolution_details) {
+              message = `Message from ${prevUser}: ${a.reason}\nResolution: ${selectedTicket.resolution_details}`;
+            } else if (a.reason) {
+              message = `Message from ${prevUser}: ${a.reason}`;
+            } else if (selectedTicket.resolution_details) {
+              message = `Resolution: ${selectedTicket.resolution_details}`;
+            } else {
+              message = `Message from ${prevUser}: No message`;
             }
           } else {
             message = `Message from ${prevUser}: ${a.reason || 'No message'}`;
