@@ -776,6 +776,7 @@ export default function Crm() {
             >
               <option value="">All</option>
               <option value="Open">Open</option>
+              <option value="Assigned">Assigned</option>
               <option value="Closed">Closed</option>
             </select>
             {/* <button className="add-ticket-button">

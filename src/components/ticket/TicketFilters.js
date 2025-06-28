@@ -7,7 +7,7 @@ import {
   Paper,
   Button,
   Collapse,
-  IconButton,
+  Typography,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
@@ -37,18 +37,13 @@ const TicketFilters = ({ onFilterChange, initialFilters }) => {
   };
 
   return (
-    <Paper sx={{ p: 1, mb: 1 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', mb: 2 }}>
-        <Box sx={{ display: 'flex', gap: 0.5 }}>
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<FaFilter />}
-            endIcon={showAdvanced ? <FaChevronUp /> : <FaChevronDown />}
-            onClick={() => setShowAdvanced(!showAdvanced)}
-          >
-            Advanced Filters
-          </Button>
+    <Paper sx={{ p: 2, mb: 2, boxShadow: 2, borderRadius: 2 }}>
+      {/* Header Row */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h6" fontWeight="bold" color="primary">
+          Filter Tickets
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
             variant="outlined"
             color="secondary"
@@ -58,62 +53,105 @@ const TicketFilters = ({ onFilterChange, initialFilters }) => {
           >
             Reset
           </Button>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<FaFilter />}
+            endIcon={showAdvanced ? <FaChevronUp /> : <FaChevronDown />}
+            onClick={() => setShowAdvanced(!showAdvanced)}
+          >
+            Advanced Filters
+          </Button>
         </Box>
       </Box>
 
+  
+
+      {/* Advanced Filters - Collapsible */}
       <Collapse in={showAdvanced}>
-        <Grid container spacing={2}>
-          {/* <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              select
-              sx={{ width: '150px' }}
-              label="Priority"
-              value={initialFilters.priority}
-              onChange={(e) => handleFilterChange('priority', e.target.value)}
-              size="small"
-            >
-              <MenuItem value="">All</MenuItem>
-              <MenuItem value="High">High</MenuItem>
-              <MenuItem value="Medium">Medium</MenuItem>
-              <MenuItem value="Low">Low</MenuItem>
-            </TextField>
+        <Box sx={{ pt: 2, borderTop: '1px solid #e0e0e0' }}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
+            Advanced Filters
+          </Typography>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6} md={3}>
+              <TextField
+                select
+                label="Category"
+                value={initialFilters.category || ""}
+                onChange={(e) => handleFilterChange('category', e.target.value)}
+                size="small"
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                sx={{ minWidth: 180}}
+              >
+                <MenuItem value="" disabled hidden>
+                  Select Category
+                </MenuItem>
+                <MenuItem value="Inquiry">Inquiry</MenuItem>
+                <MenuItem value="Suggestion">Suggestion</MenuItem>
+                <MenuItem value="Complement">Complement</MenuItem>
+                <MenuItem value="Complaint">Complaint</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <TextField
+                select
+                label="Channel"
+                value={initialFilters.channel || ""}
+                onChange={(e) => handleFilterChange('channel', e.target.value)}
+                size="small"
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+                sx={{ minWidth: 180}}
+              >
+                <MenuItem value="" disabled hidden>
+                  Select Channel
+                </MenuItem>
+                <MenuItem value="Email">Email</MenuItem>
+                <MenuItem value="Phone">Phone</MenuItem>
+                <MenuItem value="Web">Web</MenuItem>
+                <MenuItem value="Social Media">Social</MenuItem>
+              </TextField>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <DatePicker
+                  label="Start Date"
+                  value={initialFilters.startDate}
+                  onChange={(date) => handleFilterChange('startDate', date)}
+                  renderInput={(params) => (
+                    <TextField 
+                      {...params} 
+                      size="small" 
+                      fullWidth 
+                      InputLabelProps={{ shrink: true }}
+                      placeholder="Select start date..."
+                    />
+                  )}
+                />
+              </LocalizationProvider>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <DatePicker
+                  label="End Date"
+                  value={initialFilters.endDate}
+                  onChange={(date) => handleFilterChange('endDate', date)}
+                  renderInput={(params) => (
+                    <TextField 
+                      {...params} 
+                      size="small" 
+                      fullWidth 
+                      InputLabelProps={{ shrink: true }}
+                      placeholder="Select end date..."
+                    />
+                  )}
+                />
+              </LocalizationProvider>
+            </Grid>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <TextField
-              select
-              sx={{ width: '150px' }}
-              label="Category"
-              value={initialFilters.category}
-              onChange={(e) => handleFilterChange('category', e.target.value)}
-              size="small"
-            >
-              <MenuItem value="">All</MenuItem>
-              <MenuItem value="Technical">Technical</MenuItem>
-              <MenuItem value="Billing">Billing</MenuItem>
-              <MenuItem value="General">General</MenuItem>
-            </TextField>
-          </Grid> */}
-          <Grid item xs={12} sm={6} md={3}>
-            <LocalizationProvider dateAdapter={AdapterDateFns}>
-              <DatePicker
-                label="Start Date"
-                value={initialFilters.startDate}
-                onChange={(date) => handleFilterChange('startDate', date)}
-                renderInput={(params) => <TextField {...params} sx={{ width: '200px' }} size="small" />}
-              />
-            </LocalizationProvider>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <LocalizationProvider dateAdapter={AdapterDateFns}>
-              <DatePicker
-                label="End Date"
-                value={initialFilters.endDate}
-                onChange={(date) => handleFilterChange('endDate', date)}
-                renderInput={(params) => <TextField {...params} sx={{ width: '200px' }} size="small" />}
-              />
-            </LocalizationProvider>
-          </Grid>
-        </Grid>
+        </Box>
       </Collapse>
     </Paper>
   );

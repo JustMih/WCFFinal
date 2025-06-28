@@ -333,6 +333,7 @@ const AgentCRM = () => {
         setCustomerTickets(result.tickets);
         updateTicketStats(result.tickets);
       }
+      console.log('tickets', response);
     } catch (error) {
       console.error("Error fetching tickets:", error);
       setError("Failed to load tickets.");
@@ -2000,6 +2001,7 @@ const AgentCRM = () => {
               >
                 <option value="">All</option>
                 <option value="Open">Open</option>
+                <option value="Assigned">Assigned</option>
                 <option value="Closed">Closed</option>
               </select>
             </div>
@@ -2016,7 +2018,7 @@ const AgentCRM = () => {
                     colSpan={activeColumns.length + 1}
                     style={{ textAlign: "center", color: "red" }}
                   >
-                    No complaints found.
+                    No ticket found.
                   </td>
                 </tr>
               )}
@@ -2024,25 +2026,32 @@ const AgentCRM = () => {
           </table>
 
           {/* Pagination */}
-          <div className="pagination">
+          <div
+            className="pagination"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "16px",
+              margin: "16px 0"
+            }}
+          >
             <Button
               variant="outlined"
+              size="small"
               onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
               disabled={currentPage === 1}
-              sx={{ marginRight: 1 }}
             >
               Previous
             </Button>
-            <span>
+            <span style={{ fontWeight: 500, fontSize: "1rem" }}>
               Page {currentPage} of {totalPages}
             </span>
             <Button
               variant="outlined"
-              onClick={() =>
-                setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-              }
+              size="small"
+              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
               disabled={currentPage === totalPages}
-              sx={{ marginLeft: 1 }}
             >
               Next
             </Button>
@@ -2110,7 +2119,12 @@ const AgentCRM = () => {
                     ["Section", selectedTicket.responsible_unit_name || "Unit"],
                     ["Sub-section", selectedTicket.sub_section || "N/A"],
                     ["Subject", selectedTicket.subject || "N/A"],
-                    ["Created By", selectedTicket?.creator?.name || "N/A"],
+                    [
+                      "Created By",
+                      selectedTicket?.creator?.name
+                        ? `${selectedTicket.creator.name}${selectedTicket.role ? ` (${selectedTicket.role})` : ''}`
+                        : "N/A"
+                    ],
                     // Always show Assigned To and Assigned Role
                     ["Assigned To", selectedTicket?.assignee?.name || "N/A"],
                     ["Assigned Role", selectedTicket.assigned_to_role || "N/A"]

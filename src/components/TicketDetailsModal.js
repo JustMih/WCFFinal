@@ -495,6 +495,16 @@ export default function TicketDetailsModal({
                 </div>
                 <div style={{ flex: "1 1 45%" }}>
                   <Typography>
+                    <strong>Subject:</strong> {selectedTicket.sub_section || "N/A"}
+                  </Typography>
+                </div>
+                <div style={{ flex: "1 1 45%" }}>
+                  <Typography>
+                    <strong>Subject:</strong> {selectedTicket.section || "N/A"}
+                  </Typography>
+                </div>
+                <div style={{ flex: "1 1 45%" }}>
+                  <Typography>
                     <strong>Category:</strong>{" "}
                     {selectedTicket.category || "N/A"}
                   </Typography>
