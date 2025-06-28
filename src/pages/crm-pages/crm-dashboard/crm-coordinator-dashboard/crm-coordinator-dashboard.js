@@ -219,12 +219,12 @@ export default function CoordinatorDashboard() {
         );
       }
 
-      if (result.data) {
-        setNewTickets(result.data.newTickets);
-        setConvertedTickets(result.data.convertedTickets);
-        setTotalTickets(result.data.channeledTickets);
-        setTicketStatus(result.data.ticketStatus);
-        setTicketStatusTotal(result.data.ticketStatusTotal);
+      if (result.ticketStats) {
+        setNewTickets(result.ticketStats.newTickets);
+        setConvertedTickets(result.ticketStats.convertedTickets);
+        setTotalTickets(result.ticketStats.channeledTickets);
+        setTicketStatus(result.ticketStats.ticketStatus);
+        setTicketStatusTotal(result.ticketStats.ticketStatusTotal);
       } else {
         throw new Error("No data received from server");
       }
