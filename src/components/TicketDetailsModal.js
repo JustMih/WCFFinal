@@ -270,7 +270,17 @@ export default function TicketDetailsModal({
   open,
   onClose,
   selectedTicket,
-  assignmentHistory
+  assignmentHistory,
+  handleRating,
+  handleConvertOrForward,
+  handleCategoryChange,
+  handleUnitChange,
+  categories = [],
+  units = [],
+  convertCategory = {},
+  forwardUnit = {},
+  refreshTickets = () => {},
+  setSnackbar = () => {},
 }) {
   const [isFlowModalOpen, setIsFlowModalOpen] = useState(false);
   const userRole = localStorage.getItem("role");
@@ -281,9 +291,6 @@ export default function TicketDetailsModal({
   
   // Coordinator-specific states
   const [resolutionType, setResolutionType] = useState("");
-  const [convertCategory, setConvertCategory] = useState("");
-  const [forwardUnit, setForwardUnit] = useState("");
-  const [units, setUnits] = useState([]);
   const [isCoordinatorCloseDialogOpen, setIsCoordinatorCloseDialogOpen] = useState(false);
 
   const showAttendButton =
@@ -327,75 +334,13 @@ export default function TicketDetailsModal({
       if (response.ok) {
         setIsAttendDialogOpen(false);
         onClose();
+        refreshTickets();
+        setSnackbar({open: true, message: 'Ticket closed successfully', severity: 'success'});
       } else {
         // Optionally show an error message
       }
     } catch (error) {
       // Optionally show an error message
-    }
-  };
-
-  // Coordinator actions
-  const handleRating = async (rating) => {
-    try {
-      const token = localStorage.getItem("authToken");
-      const response = await fetch(`${baseURL}/coordinator/${selectedTicket.id}/rate`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ complaintType: rating, userId })
-      });
-      if (response.ok) {
-        // Refresh the modal or show success message
-        window.location.reload(); // Simple refresh for now
-      } else {
-        throw new Error("Failed to rate ticket.");
-      }
-    } catch (error) {
-      console.error("Error rating ticket:", error);
-    }
-  };
-
-  const handleConvertOrForward = async () => {
-    const category = convertCategory;
-    const unitName = forwardUnit;
-
-    // Validate that at least one option is selected
-    if (!category && !unitName) {
-      alert("Please select either a category to convert to, or a unit to forward to, or both");
-      return;
-    }
-
-    try {
-      const token = localStorage.getItem("authToken");
-      const payload = { 
-        userId,
-        responsible_unit_name: unitName || undefined,
-        category: category || undefined,
-        complaintType: selectedTicket?.complaint_type || undefined
-      };
-
-      const response = await fetch(
-        `${baseURL}/coordinator/${selectedTicket.id}/convert-or-forward-ticket`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify(payload)
-        }
-      );
-
-      if (response.ok) {
-        window.location.reload(); // Simple refresh for now
-      } else {
-        throw new Error("Failed to update ticket");
-      }
-    } catch (error) {
-      console.error("Error updating ticket:", error);
     }
   };
 
@@ -436,7 +381,8 @@ export default function TicketDetailsModal({
       if (response.ok) {
         setIsCoordinatorCloseDialogOpen(false);
         onClose();
-        window.location.reload(); // Refresh to show updated data
+        refreshTickets();
+        setSnackbar({open: true, message: 'Ticket closed successfully', severity: 'success'});
       } else {
         throw new Error("Failed to close ticket");
       }
@@ -444,31 +390,6 @@ export default function TicketDetailsModal({
       console.error("Error closing ticket:", error);
     }
   };
-
-  // Fetch units for forwarding
-  useEffect(() => {
-    const fetchUnits = async () => {
-      const token = localStorage.getItem("authToken");
-      try {
-        const res = await fetch(`${baseURL}/section/units-data`, {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-        const json = await res.json();
-        
-        if (json.data && Array.isArray(json.data)) {
-          const validUnits = json.data.filter(unit => unit.id && unit.name);
-          setUnits(validUnits);
-        }
-      } catch (err) {
-        console.error("Error fetching units:", err);
-      }
-    };
-    if (showCoordinatorActions) {
-      fetchUnits();
-    }
-  }, [showCoordinatorActions]);
 
   return (
     <>
@@ -714,7 +635,7 @@ export default function TicketDetailsModal({
                       size="small"
                       variant="contained"
                       color="primary"
-                      onClick={() => handleRating("Minor")}
+                      onClick={() => handleRating(selectedTicket.id, "Minor")}
                     >
                       Minor
                     </Button>
@@ -722,7 +643,7 @@ export default function TicketDetailsModal({
                       size="small"
                       variant="contained"
                       color="primary"
-                      onClick={() => handleRating("Major")}
+                      onClick={() => handleRating(selectedTicket.id, "Major")}
                     >
                       Major
                     </Button>
@@ -736,8 +657,8 @@ export default function TicketDetailsModal({
                             height: "32px",
                             borderRadius: "4px"
                           }}
-                          value={convertCategory}
-                          onChange={(e) => setConvertCategory(e.target.value)}
+                          value={convertCategory[selectedTicket.id] || ""}
+                          onChange={(e) => handleCategoryChange(selectedTicket.id, e.target.value)}
                         >
                           <option value="">Convert To</option>
                           <option value="Inquiry">Inquiry</option>
@@ -745,7 +666,7 @@ export default function TicketDetailsModal({
                         <Button
                           size="small"
                           variant="contained"
-                          onClick={handleConvertOrForward}
+                          onClick={() => handleConvertOrForward(selectedTicket.id)}
                         >
                           Convert
                         </Button>
@@ -760,8 +681,8 @@ export default function TicketDetailsModal({
                           height: "32px",
                           borderRadius: "4px"
                         }}
-                        value={forwardUnit}
-                        onChange={(e) => setForwardUnit(e.target.value)}
+                        value={forwardUnit[selectedTicket.id] || selectedTicket.section || selectedTicket.responsible_unit_name || ""}
+                        onChange={(e) => handleUnitChange(selectedTicket.id, e.target.value)}
                       >
                         <option value="">Forward To</option>
                         {units.map((unit) => (
@@ -771,7 +692,7 @@ export default function TicketDetailsModal({
                       <Button
                         size="small"
                         variant="contained"
-                        onClick={handleConvertOrForward}
+                        onClick={() => handleConvertOrForward(selectedTicket.id)}
                       >
                         Forward
                       </Button>
