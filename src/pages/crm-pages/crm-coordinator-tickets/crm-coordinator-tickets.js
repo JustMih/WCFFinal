@@ -211,12 +211,18 @@ export default function CRMCoordinatorTickets() {
     const category = convertCategory[ticketId];
     const responsible_unit_id = forwardUnit[ticketId];
 
+    // Get the current ticket to check its rating
+    const currentTicket = tickets.find(t => t.id === ticketId);
+
     if (!category && !responsible_unit_id) {
       setSnackbar({ open: true, message: "Select either category or unit to forward", severity: "warning" });
       return;
     }
 
-    const payload = { userId };
+    const payload = { 
+      userId,
+      complaintType: currentTicket?.complaint_type || undefined
+    };
     if (category) payload.category = category;
     if (responsible_unit_id) payload.responsible_unit_id = responsible_unit_id;
 

@@ -1,5 +1,5 @@
 import React from "react";
-import { Modal, Box, Typography, Divider, Button } from "@mui/material";
+import { Modal, Box, Typography, Divider, Button, Tooltip } from "@mui/material";
 
 export default function CoordinatorActionModal({
   open,
@@ -193,12 +193,12 @@ export default function CoordinatorActionModal({
                 height: "32px",
                 borderRadius: "4px"
               }}
-              value={forwardUnit[ticket.id] || ""}
+              value={forwardUnit[ticket.id] || ticket.section || ticket.responsible_unit_name || ""}
               onChange={(e) =>
                 handleUnitChange(ticket.id, e.target.value)
               }
             >
-              <option value="">To Unit</option>
+              <option value="">Select Unit</option>
               {units.map((unit) => (
                 <option key={unit.name} value={unit.name}>{unit.name}</option>
               ))}

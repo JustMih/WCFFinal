@@ -76,6 +76,10 @@ export default function CoordinatorDashboard() {
   const [isActionModalOpen, setIsActionModalOpen] = useState(false);
   const [modalTicket, setModalTicket] = useState(null);
   const [ticketStatusTotal, setTicketStatusTotal] = useState(0);
+  const [resolutionType, setResolutionType] = useState("");
+  const [resolutionDetails, setResolutionDetails] = useState("");
+  const [attachment, setAttachment] = useState(null);
+  const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
 
   // Initialize activeColumns with default columns if empty
   useEffect(() => {
@@ -280,11 +284,28 @@ export default function CoordinatorDashboard() {
       forwardUnit
     });
 
+    // Get the current ticket to check its section
+    const currentTicket = tickets.find(t => t.id === ticketId);
+    const ticketSection = currentTicket?.section || currentTicket?.responsible_unit_name;
+
     // Validate that at least one option is selected
-    if (!category && !unitName) {
+    // If unitName is empty but ticket has a section, use the ticket's section
+    const effectiveUnitName = unitName || ticketSection;
+    
+    if (!category && !effectiveUnitName) {
       setSnackbar({
         open: true,
         message: "Please select either a category to convert to, or a unit to forward to, or both",
+        severity: "warning"
+      });
+      return;
+    }
+
+    // Check if trying to forward without rating
+    if (effectiveUnitName && !currentTicket?.complaint_type) {
+      setSnackbar({
+        open: true,
+        message: "Ticket must be rated (Minor or Major) before it can be forwarded",
         severity: "warning"
       });
       return;
@@ -296,8 +317,9 @@ export default function CoordinatorDashboard() {
       // Prepare the payload to match backend expectations
       const payload = { 
         userId,
-        responsible_unit_name: unitName || undefined,
-        category: category || undefined
+        responsible_unit_name: effectiveUnitName || undefined,
+        category: category || undefined,
+        complaintType: currentTicket?.complaint_type || undefined
       };
 
       console.log('Sending payload:', payload);
@@ -356,10 +378,20 @@ export default function CoordinatorDashboard() {
   };
 
   const handleUnitChange = (ticketId, value) => {
-    setForwardUnit(prev => ({
-      ...prev,
-      [ticketId]: value
-    }));
+    // If value is empty, don't set it in state (will use ticket's current section)
+    if (value) {
+      setForwardUnit(prev => ({
+        ...prev,
+        [ticketId]: value
+      }));
+    } else {
+      // Remove from state if empty, so it will use ticket's current section
+      setForwardUnit(prev => {
+        const newState = { ...prev };
+        delete newState[ticketId];
+        return newState;
+      });
+    }
   };
 
   // Add a refresh function that can be called periodically
@@ -562,6 +594,74 @@ export default function CoordinatorDashboard() {
       message: "Ticket updated successfully",
       severity: "success"
     });
+  };
+
+  const handleCloseTicket = async () => {
+    if (!resolutionDetails) {
+      setSnackbar({
+        open: true,
+        message: "Please provide resolution details",
+        severity: "warning"
+      });
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("authToken");
+      const url = `${baseURL}/ticket/${selectedTicket.id}/close`;
+      console.log('Closing ticket with URL:', url);
+      console.log('Ticket ID:', selectedTicket.id);
+      console.log('Resolution details:', resolutionDetails);
+      
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          resolution_details: resolutionDetails,
+          userId: userId
+        })
+      });
+
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.log('Error data:', errorData);
+        throw new Error(errorData.message || "Failed to close ticket");
+      }
+
+      const data = await response.json();
+      console.log('Success data:', data);
+      
+      setTickets(
+        tickets.map((ticket) =>
+          ticket.id === data.ticket.id ? data.ticket : ticket
+        )
+      );
+
+      setSnackbar({
+        open: true,
+        message: "Ticket closed successfully",
+        severity: "success"
+      });
+
+      setIsCloseModalOpen(false);
+      setResolutionType("");
+      setResolutionDetails("");
+      setAttachment(null);
+      fetchDashboardCounts(userId);
+    } catch (error) {
+      console.error('Error in handleCloseTicket:', error);
+      setSnackbar({
+        open: true,
+        message: error.message,
+        severity: "error"
+      });
+    }
   };
 
   // Place this above the return statement, inside the component but outside JSX:
@@ -963,12 +1063,12 @@ export default function CoordinatorDashboard() {
                 height: "32px",
                 borderRadius: "4px"
               }}
-              value={forwardUnit[selectedTicket.id] || ""}
+              value={forwardUnit[selectedTicket.id] || selectedTicket.section || selectedTicket.responsible_unit_name || ""}
               onChange={(e) =>
                 handleUnitChange(selectedTicket.id, e.target.value)
               }
             >
-              <option value="">{selectedTicket.section}</option>
+              <option value="">Select Unit</option>
               {units.map((unit) => (
                 <option key={unit.name} value={unit.name}>{unit.name}</option>
               ))}
@@ -981,6 +1081,15 @@ export default function CoordinatorDashboard() {
               Forward
             </Button>
           </Box>
+
+          <Button
+            size="small"
+            variant="contained"
+            color="error"
+            onClick={() => setIsCloseModalOpen(true)}
+          >
+            Close Ticket
+          </Button>
         </Box>
 
         {/* Close Button */}
@@ -993,6 +1102,72 @@ export default function CoordinatorDashboard() {
     )}
   </Box>
 </Modal>
+
+      {/* Close Ticket Modal */}
+      <Modal open={isCloseModalOpen} onClose={() => setIsCloseModalOpen(false)}>
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: { xs: "90%", sm: 500 },
+            maxHeight: "80vh",
+            overflowY: "auto",
+            bgcolor: "background.paper",
+            boxShadow: 24,
+            borderRadius: 2,
+            p: 3
+          }}
+        >
+          <Typography variant="h5" sx={{ fontWeight: "bold", color: "#1976d2", mb: 2 }}>
+            Close Ticket
+          </Typography>
+          <Divider sx={{ mb: 2 }} />
+
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Resolution Details:
+              </Typography>
+              <textarea
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  fontSize: "0.9rem",
+                  borderRadius: "4px",
+                  border: "1px solid #ccc",
+                  minHeight: "100px",
+                  resize: "vertical"
+                }}
+                value={resolutionDetails}
+                onChange={(e) => setResolutionDetails(e.target.value)}
+                placeholder="Enter resolution details..."
+              />
+            </Box>
+
+            <Box sx={{ mt: 2, display: "flex", gap: 2, justifyContent: "flex-end" }}>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  setIsCloseModalOpen(false);
+                  setResolutionDetails("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="contained"
+                color="error"
+                onClick={handleCloseTicket}
+                disabled={!resolutionDetails.trim()}
+              >
+                Close Ticket
+              </Button>
+            </Box>
+          </Box>
+        </Box>
+      </Modal>
 
       {/* Column Selector */}
       <ColumnSelector

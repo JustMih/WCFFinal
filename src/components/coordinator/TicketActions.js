@@ -37,11 +37,13 @@ const TicketActions = ({ ticket, onTicketUpdate }) => {
       setError('');
 
       const token = localStorage.getItem('authToken');
+      const userId = localStorage.getItem('userId');
+      
       const response = await axios.post(
-        `${baseURL}/coordinator/complaints/${ticket.id}/close`,
+        `${baseURL}/ticket/${ticket.id}/close`,
         {
           resolution_details: resolutionDetails,
-          resolution_type: resolutionType
+          userId: userId
         },
         {
           headers: {
@@ -54,6 +56,8 @@ const TicketActions = ({ ticket, onTicketUpdate }) => {
       if (response.data) {
         onTicketUpdate(response.data.ticket);
         setOpenCloseDialog(false);
+        setResolutionDetails('');
+        setResolutionType('Resolved');
       }
     } catch (error) {
       setError(error.response?.data?.message || 'Failed to close ticket');
@@ -108,19 +112,6 @@ const TicketActions = ({ ticket, onTicketUpdate }) => {
           <Box sx={{ mt: 2 }}>
             <Stack spacing={2}>
               <TextField
-                select
-                fullWidth
-                label="Resolution Type"
-                value={resolutionType}
-                onChange={(e) => setResolutionType(e.target.value)}
-              >
-                {resolutionTypes.map((option) => (
-                  <MenuItem key={option.value} value={option.value}>
-                    {option.label}
-                  </MenuItem>
-                ))}
-              </TextField>
-              <TextField
                 fullWidth
                 multiline
                 rows={4}
@@ -129,6 +120,7 @@ const TicketActions = ({ ticket, onTicketUpdate }) => {
                 onChange={(e) => setResolutionDetails(e.target.value)}
                 error={!resolutionDetails}
                 helperText={!resolutionDetails ? 'Resolution details are required' : ''}
+                placeholder="Enter resolution details..."
               />
             </Stack>
             {error && (
