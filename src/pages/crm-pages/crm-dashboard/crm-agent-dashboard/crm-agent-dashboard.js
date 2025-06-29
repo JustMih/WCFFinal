@@ -774,13 +774,13 @@ const AgentCRM = () => {
 
   // Card component
   const Card = ({ title, data, color, icon }) => (
-    <div className="card">
-      <div className="card-header">
-        {icon}
-        <h4>{title}</h4>
+    <div className="crm-card">
+      <div className="crm-header">
+       
+        <h4> {icon}{title}</h4>
       </div>
-      <div className="card-body" style={{ backgroundColor: color }}>
-        <div className="card-data">
+      <div className="crm-card-body" style={{ backgroundColor: color }}>
+        <div className="crm-card-data">
           {Object.entries(data).map(([key, value]) => (
             <div key={key} className="data-item">
               <h4>{key}</h4>
@@ -1750,7 +1750,7 @@ const AgentCRM = () => {
     <div className="main--content">
       <h3 className="title">CRM Dashboard</h3>
 
-      <div
+      {/* <div
         style={{
           display: "flex",
           justifyContent: "flex-end",
@@ -1760,11 +1760,11 @@ const AgentCRM = () => {
         <button className="add-user-button" onClick={() => setShowModal(true)}>
           <FaPlus /> New Ticket
         </button>
-      </div>
+      </div> */}
       {/* Full-width Phone/NIDA Search Section */}
-      <div style={{ display: "flex", gap: "10px", marginBottom: "1rem" }}>
+      <div style={{ display: "flex", gap: "10px", marginBottom: "1rem", alignItems: "center" }}>
         <input
-          className="search-input"
+          className="crm-search-input"
           type="text"
           placeholder="Search by phone or NIDA..."
           value={phoneSearch}
@@ -1775,17 +1775,14 @@ const AgentCRM = () => {
           style={{ flex: 1 }}
         />
         <button
-          className="add-user-button"
-          style={{
-            minWidth: 50,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center"
-          }}
+          className="search-btn"
           onClick={() => handlePhoneSearch(phoneSearch)}
           aria-label="Search"
         >
           <FaSearch />
+        </button>
+        <button className="add-user-button" onClick={() => setShowModal(true)}>
+          <FaPlus /> New Ticket
         </button>
       </div>
 
@@ -1988,7 +1985,7 @@ const AgentCRM = () => {
             </div>
             <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
               <input
-                className="search-input"
+                className="crm-search-input"
                 type="text"
                 placeholder="Search by phone or NIDA..."
                 value={search}

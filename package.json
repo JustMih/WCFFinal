@@ -3,6 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@emoji-mart/data": "^1.2.1",
+    "@emoji-mart/react": "^1.1.1",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@mui/icons-material": "^7.1.0",
@@ -13,12 +15,15 @@
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.2.0",
     "@testing-library/user-event": "^13.5.0",
+    "apexcharts": "^4.7.0",
     "ari-client": "^2.2.0",
     "axios": "^1.9.0",
     "chart.js": "^4.4.9",
     "cors": "^2.8.5",
     "date-fns": "^4.1.0",
     "express": "^4.21.2",
+    "file-saver": "^2.0.5",
+    "html-docx-js": "^0.3.1",
     "http-proxy-middleware": "^3.0.3",
     "icons-material": "^0.0.1-security",
     "jspdf": "^3.0.1",
@@ -27,7 +32,10 @@
     "node-fetch": "^2.7.0",
     "papaparse": "^5.5.2",
     "react": "^19.0.0",
+    "react-apexcharts": "^1.7.0",
     "react-chartjs-2": "^5.3.0",
+    "react-csv": "^2.2.2",
+    "react-data-table-component": "^7.7.0",
     "react-dom": "^19.0.0",
     "react-icons": "^5.5.0",
     "react-router-dom": "^7.3.0",
@@ -35,12 +43,14 @@
     "sip.js": "^0.21.2",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
+    "styled-components": "^6.1.19",
     "web-vitals": "^2.1.4",
-    "ws": "^8.18.1"
+    "ws": "^8.18.1",
+    "xlsx": "^0.18.5"
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "NODE_OPTIONS='--max-old-space-size=4096' react-scripts build",
+    "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
@@ -61,5 +71,10 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^4.1.7"
   }
 }

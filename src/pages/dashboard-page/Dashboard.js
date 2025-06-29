@@ -4,6 +4,7 @@ import Navbar from "../../components/nav-bar/Navbar";
 import CallCenterSidebar from "../../components/side-bar/side-bar-call-center/CallCenterSidebar";
 import CRMSidebar from "../../components/side-bar/side-bar-crm/CRMSidebar";
 import CallCenterDashboard from "../call-center-pages/call-center-dashboard/callCenterDashboard";
+import Dashboard2 from "../call-center-pages/call-center-dashboard/Dashboard2";
 import CRMDashboard from "../crm-pages/crm-dashboard/CRMDashboard";
 import CRMNotificationTickets from "../crm-pages/crm-notifications/notifications";
 import CRMAssignedTickets from "../crm-pages/crm-tickets/assigned";
@@ -29,7 +30,18 @@ import CallCenterIvrActions from "../call-center-pages/call-center-ivr-actions/C
 import CallCenterWCFIvr from "../call-center-pages/call-center-wcf-ivrs/CallCenterWCFIvr";
 import CallCenterIvrDTMFMapping from "../call-center-pages/cal-center-ivr/CallCenterIvrActions";
 import RecordedSounds from "../call-center-pages/cal-center-ivr/RecordedSounds";
+import HolidayManager from "../call-center-pages/cal-center-ivr/HolidayManager";
+import EmegencyManager from "../call-center-pages/cal-center-ivr/EmergencyManager";
+import VoiceNotesReport from "../call-center-pages/cal-center-ivr/VoiceNotesReport";
+import CDRReports from "../call-center-pages/cal-center-ivr/CDRReports";
+import IVRInteractions from "../call-center-pages/cal-center-ivr/IVRInteractions";
+import Livestream from "../call-center-pages/cal-center-ivr/Livestream";
+import RecordedAudio from "../call-center-pages/cal-center-ivr/RecordedAudio";
 import Message from "../call-center-pages/call-center-social-message/CallCenterSocialMessage";
+import IvrCardsPage from "../call-center-pages/cal-center-ivr/IvrCardsPage";
+import DTMFStats from "../call-center-pages/cal-center-ivr/DTMFStats";
+
+
 
 export default function Dashboard() {
   const [isDarkMode, setDarkMode] = useState(false);
@@ -95,6 +107,10 @@ export default function Dashboard() {
                   element={<PrivateRoute element={<CallCenterDashboard />} />}
                 />
                 <Route
+                  path="/dashboard2"
+                  element={<PrivateRoute element={<Dashboard2 />} />}
+                />
+                <Route
                   path="/agents"
                   element={<PrivateRoute element={<CallCenterAgents />} />}
                 />
@@ -134,9 +150,32 @@ export default function Dashboard() {
                 />
                 <Route
                   path="/ivr-dtmf-mappings"
-                  element={<PrivateRoute element={<CallCenterIvrDTMFMapping />} />}
+                  element={
+                    <PrivateRoute element={<CallCenterIvrDTMFMapping />} />
+                  }
                 />
                 <Route path="/recorded-sounds" element={<RecordedSounds />} />
+                <Route
+                  path="/ivr-dtmf-mappings"
+                  element={
+                    <PrivateRoute element={<CallCenterIvrDTMFMapping />} />
+                  }
+                />
+                <Route
+                  path="/recorded-sounds"
+                  element={<PrivateRoute element={<RecordedSounds />} />}
+                />
+
+                <Route path="/ivr-holidays" element={<HolidayManager />} />
+                <Route path="/ivr-emegency" element={<EmegencyManager />} />
+
+                <Route path="/voice-notes" element={<VoiceNotesReport />} />
+                <Route path="/cdr-reports" element={<CDRReports />} />
+                <Route path="/ivr-interactions" element={<IVRInteractions />} />
+                <Route path="/livestream" element={<Livestream />} />
+                <Route path="/recorded-audio" element={<RecordedAudio />} />
+                <Route path="/dtmf-stats" element={<DTMFStats />} />
+                <Route path="/ivr-cards" element={<IvrCardsPage/>} />
                 <Route
                   path="/social-message"
                   element={<PrivateRoute element={<Message />} />}
@@ -168,7 +207,9 @@ export default function Dashboard() {
                 />
                 <Route
                   path="/ticket/carried-forward"
-                  element={<PrivateRoute element={<CRMCarriedForawardTickets />} />}
+                  element={
+                    <PrivateRoute element={<CRMCarriedForawardTickets />} />
+                  }
                 />
                 <Route
                   path="/ticket/closed"

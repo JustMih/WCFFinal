@@ -4,9 +4,13 @@ const dotenv = require("dotenv");
 const sequelize = require("./config/mysql_connection.js");
 const { registerSuperAdmin } = require("./controllers/auth/authController");
 const recordingRoutes = require('./routes/recordingRoutes');
+const agentMetricsRoutes = require('./routes/agentMetricsRoutes');
+const missedCallRoutes = require('./routes/missedCallRoutes');
 const ChatMassage = require("./models/chart_message")
 const { Server } = require("socket.io");
 const http = require("http");
+const { router: agentMetricsRouter, initializeDatabase } = require('./src/api/agentMetrics');
+const mysql = require('mysql2/promise');
 
 dotenv.config();
 const app = express();
@@ -23,8 +27,10 @@ app.use(cors({
 // Routes
 app.use("/api", require("./routes/ivr-dtmf-routes"));
 app.use('/api', recordingRoutes);
-
-// Static file config
+app.use('/api/agent-metrics', agentMetricsRoutes);
+app.use('/api/missed-calls', missedCallRoutes);
+ 
+// Replace existing static file config with:
 app.use("/sounds", express.static("/var/lib/asterisk/sounds", {
   setHeaders: (res, path) => {
     if (path.endsWith('.wav')) {
@@ -90,6 +96,36 @@ io.on("connection", (socket) => {
     });
   });
 });
+
+// Database connection
+const createDatabaseConnection = async () => {
+  try {
+    const connection = await mysql.createPool({
+      host: process.env.DB_HOST || 'localhost',
+      user: process.env.DB_USER || 'root',
+      password: process.env.DB_PASSWORD || '',
+      database: process.env.DB_NAME || 'call_center_db',
+      waitForConnections: true,
+      connectionLimit: 10,
+      queueLimit: 0
+    });
+
+    // Initialize the agent metrics module with the database connection
+    initializeDatabase(connection);
+
+    console.log('Database connection established successfully');
+    return connection;
+  } catch (error) {
+    console.error('Error connecting to the database:', error);
+    process.exit(1);
+  }
+};
+
+// Initialize database connection
+createDatabaseConnection();
+
+// Routes
+app.use('/api/agent-metrics', agentMetricsRouter);
 
 // Start the server and sync database
 sequelize.sync({ force: false, alter: false }).then(() => {
