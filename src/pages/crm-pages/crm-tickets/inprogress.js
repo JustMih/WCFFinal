@@ -18,6 +18,7 @@ import ColumnSelector from "../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../config";
 import "./ticket.css";
 import AdvancedFilterButton from '../../../components/AdvancedFilterButton';
+import TicketDetailsModal from '../../../components/TicketDetailsModal';
 
 export default function Crm() {
   const [assignments, setAssignments] = useState([]);
@@ -38,6 +39,8 @@ export default function Crm() {
     "actions"
   ]);
   const [loading, setLoading] = useState(true);
+  const [assignmentHistory, setAssignmentHistory] = useState([]);
+  const [isFlowModalOpen, setIsFlowModalOpen] = useState(false);
 
   useEffect(() => {
     const userId = localStorage.getItem("userId");
@@ -196,6 +199,83 @@ export default function Crm() {
     );
   };
 
+  const renderAssignmentStepper = (assignmentHistory, selectedTicket) => {
+    const steps = [
+      {
+        assigned_to_name: selectedTicket.created_by ||
+          (selectedTicket.creator && selectedTicket.creator.name) ||
+          `${selectedTicket.first_name || ""} ${selectedTicket.last_name || ""}`.trim() ||
+          "N/A",
+        assigned_to_role: "Creator",
+        action: "Created",
+        created_at: selectedTicket.created_at,
+        assigned_to_id: "creator"
+      }
+    ];
+    if (Array.isArray(assignmentHistory) && assignmentHistory.length > 0) {
+      steps.push(...assignmentHistory);
+    } else if (
+      selectedTicket.assigned_to_id &&
+      selectedTicket.assigned_to_id !== "creator"
+    ) {
+      steps.push({
+        assigned_to_name: selectedTicket.assigned_to_name || selectedTicket.assigned_to_id || "Unknown",
+        assigned_to_role: selectedTicket.assigned_to_role || "Unknown",
+        action: selectedTicket.status === "Assigned" ? "Assigned" : "Open",
+        created_at: selectedTicket.assigned_at,
+        assigned_to_id: selectedTicket.assigned_to_id
+      });
+    }
+    let currentAssigneeIdx = 0;
+    if (
+      selectedTicket.status === "Open" &&
+      (!selectedTicket.assigned_to_id || steps.length === 1)
+    ) {
+      currentAssigneeIdx = 0;
+    } else {
+      const idx = steps.findIndex(
+        a => a.assigned_to_id === selectedTicket.assigned_to_id
+      );
+      currentAssigneeIdx = idx !== -1 ? idx : steps.length - 1;
+    }
+    return (
+      <Box>
+        {steps.map((a, idx) => (
+          <Box key={idx} sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+            <Box
+              sx={{
+                width: 30,
+                height: 30,
+                borderRadius: "50%",
+                bgcolor:
+                  idx < currentAssigneeIdx
+                    ? "green"
+                    : idx === currentAssigneeIdx
+                    ? "#1976d2"
+                    : "gray",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "white",
+                fontWeight: "bold"
+              }}
+            >
+              {idx + 1}
+            </Box>
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
+                {a.assigned_to_name} ({a.assigned_to_role})
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                {a.action} - {a.created_at ? new Date(a.created_at).toLocaleString() : ''}
+              </Typography>
+            </Box>
+          </Box>
+        ))}
+      </Box>
+    );
+  };
+
   if (loading) {
     return (
       <div className="p-6">
@@ -295,204 +375,13 @@ export default function Crm() {
       </div>
 
       {/* Details Modal */}
-      <Modal
+      <TicketDetailsModal
         open={isModalOpen}
         onClose={closeModal}
-        aria-labelledby="ticket-details-title"
-        aria-describedby="ticket-details-description"
-      >
-        <Box
-          sx={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: { xs: "90%", sm: 600 },
-            maxHeight: "85vh",
-            overflowY: "auto",
-            bgcolor: "background.paper",
-            boxShadow: 24,
-            borderRadius: 2,
-            p: 3,
-          }}
-        >
-          {selectedTicket && (
-            <>
-              <Typography
-                id="ticket-details-title"
-                variant="h5"
-                sx={{ fontWeight: "bold", color: "#1976d2" }}
-              >
-                Ticket Details
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              <Grid container spacing={2} id="ticket-details-description">
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Name:</strong>{" "}
-                    {`${selectedTicket.first_name || "N/A"} ${
-                      selectedTicket.middle_name || " "
-                    } ${selectedTicket.last_name || "N/A"}`}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Phone:</strong>{" "}
-                    {selectedTicket.phone_number || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>NIDA:</strong> {selectedTicket.nida_number || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Institution:</strong>{" "}
-                    {selectedTicket.institution || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Region:</strong> {selectedTicket.region || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>District:</strong>{" "}
-                    {selectedTicket.district || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Subject:</strong> {selectedTicket.subject || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Sub-category:</strong>{" "}
-                    {selectedTicket.sub_category || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Channel:</strong> {selectedTicket.channel || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Complaint Type:</strong>{" "}
-                    {selectedTicket.complaint_type || "Unrated"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Rated:</strong>{" "}
-                    <span
-                      style={{
-                        color:
-                          selectedTicket.complaint_type === "Major"
-                            ? "red"
-                            : selectedTicket.complaint_type === "Minor"
-                            ? "orange"
-                            : "inherit",
-                      }}
-                    >
-                      {selectedTicket.complaint_type || "N/A"}
-                    </span>
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Status:</strong>{" "}
-                    <span
-                      style={{
-                        color:
-                          selectedTicket.status === "Open"
-                            ? "green"
-                            : selectedTicket.status === "Closed"
-                            ? "gray"
-                            : "blue",
-                      }}
-                    >
-                      {selectedTicket.status || "N/A"}
-                    </span>
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Created By:</strong>{" "}
-                    {selectedTicket.createdBy?.name || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Assigned To:</strong>{" "}
-                    {selectedTicket.assigned_to_id || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Assigned Role:</strong>{" "}
-                    {selectedTicket.assigned_to_role || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Created At:</strong>{" "}
-                    {selectedTicket.created_at
-                      ? new Date(selectedTicket.created_at).toLocaleString(
-                          "en-US",
-                          {
-                            month: "numeric",
-                            day: "numeric",
-                            year: "numeric",
-                            hour: "numeric",
-                            minute: "2-digit",
-                            hour12: true,
-                          }
-                        )
-                      : "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <Typography>
-                    <strong>Description:</strong>{" "}
-                    {selectedTicket.description || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12}>
-                  <Typography>
-                    <strong>Comments:</strong>
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    multiline
-                    rows={4}
-                    value={comments}
-                    onChange={handleCommentsChange}
-                    placeholder="Add comments or notes..."
-                    sx={{ mt: 1 }}
-                  />
-                  <Box sx={{ mt: 2, textAlign: "right" }}>
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      onClick={handleCommentsSubmit}
-                      sx={{ mr: 1 }}
-                    >
-                      Save Comments
-                    </Button>
-                    <Button variant="outlined" onClick={closeModal}>
-                      Close
-                    </Button>
-                  </Box>
-                </Grid>
-              </Grid>
-            </>
-          )}
-        </Box>
-      </Modal>
+        selectedTicket={selectedTicket}
+        assignmentHistory={assignmentHistory}
+        renderAssignmentStepper={renderAssignmentStepper}
+      />
 
       {/* Column Selector */}
       <ColumnSelector
