@@ -1,5 +1,5 @@
-import React from "react";
-import { Modal, Box, Typography, Divider, Button } from "@mui/material";
+import React, { useState, useEffect } from "react";
+import { Modal, Box, Typography, Divider, Button, Tooltip } from "@mui/material";
 
 export default function CoordinatorActionModal({
   open,
@@ -13,8 +13,21 @@ export default function CoordinatorActionModal({
   handleUnitChange = () => {},
   handleConvertOrForward = () => {},
   handleRating = () => {},
+  handleAttend = () => {},
 }) {
+  const [localStatus, setLocalStatus] = useState(ticket?.status);
+
+  useEffect(() => {
+    setLocalStatus(ticket?.status);
+  }, [ticket]);
+
   if (!ticket) return null;
+
+  // Handler for Attend button
+  const onAttend = async () => {
+    await handleAttend(ticket.id);
+    setLocalStatus("Attended");
+  };
 
   return (
     <Modal open={open} onClose={onClose}>
@@ -105,7 +118,7 @@ export default function CoordinatorActionModal({
                   ticket.status === "Closed" ? "gray" :
                     "blue"
               }}>
-                {ticket.status || "N/A"}
+                {localStatus || "N/A"}
               </span>
             </Typography>
           </div>
@@ -139,78 +152,101 @@ export default function CoordinatorActionModal({
             alignItems: "center"
           }}
         >
-          <Button
-            size="small"
-            variant="contained"
-            color="primary"
-            onClick={() => handleRating(ticket.id, "Minor")}
-          >
-            Minor
-          </Button>
-          <Button
-            size="small"
-            variant="contained"
-            color="primary"
-            onClick={() => handleRating(ticket.id, "Major")}
-          >
-            Major
-          </Button>
-
-          {ticket.category === "Complaint" && (
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <select
-                style={{
-                  padding: "4px 8px",
-                  fontSize: "0.8rem",
-                  height: "32px",
-                  borderRadius: "4px"
-                }}
-                value={convertCategory[ticket.id] || ""}
-                onChange={(e) =>
-                  handleCategoryChange(ticket.id, e.target.value)
-                }
-              >
-                <option value="">Convert To</option>
-                {categories.map((cat) => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
-              <Button
-                size="small"
-                variant="contained"
-                onClick={() => handleConvertOrForward(ticket.id)}
-              >
-                Convert
-              </Button>
-            </Box>
-          )}
-
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <select
-              style={{
-                padding: "4px 8px",
-                fontSize: "0.8rem",
-                height: "32px",
-                borderRadius: "4px"
-              }}
-              value={forwardUnit[ticket.id] || ""}
-              onChange={(e) =>
-                handleUnitChange(ticket.id, e.target.value)
-              }
-            >
-              <option value="">To Unit</option>
-              {units.map((unit) => (
-                <option key={unit.name} value={unit.name}>{unit.name}</option>
-              ))}
-            </select>
+          {/* Show only Attend if status is Open */}
+          {localStatus === "Open" && (
             <Button
               size="small"
               variant="contained"
-              onClick={() => handleConvertOrForward(ticket.id)}
+              color="primary"
+              onClick={onAttend}
             >
-              Forward
+              Attend
             </Button>
-          </Box>
+          )}
+
+          {/* Show all other actions if status is Attended */}
+          {localStatus === "Attended" && (
+            <>
+              <Button
+                size="small"
+                variant="contained"
+                color="primary"
+                onClick={() => handleConvertOrForward(ticket.id, "close")}
+              >
+                Close Ticket
+              </Button>
+              <Button
+                size="small"
+                variant="contained"
+                color="primary"
+                onClick={() => handleRating(ticket.id, "Minor")}
+              >
+                Minor
+              </Button>
+              <Button
+                size="small"
+                variant="contained"
+                color="primary"
+                onClick={() => handleRating(ticket.id, "Major")}
+              >
+                Major
+              </Button>
+              {ticket.category === "Complaint" && (
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                  <select
+                    style={{
+                      padding: "4px 8px",
+                      fontSize: "0.8rem",
+                      height: "32px",
+                      borderRadius: "4px"
+                    }}
+                    value={convertCategory[ticket.id] || ""}
+                    onChange={(e) =>
+                      handleCategoryChange(ticket.id, e.target.value)
+                    }
+                  >
+                    <option value="">Convert To</option>
+                    {categories.map((cat) => (
+                      <option key={cat} value={cat}>{cat}</option>
+                    ))}
+                  </select>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    onClick={() => handleConvertOrForward(ticket.id, "convert")}
+                  >
+                    Convert
+                  </Button>
+                </Box>
+              )}
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <select
+                  style={{
+                    padding: "4px 8px",
+                    fontSize: "0.8rem",
+                    height: "32px",
+                    borderRadius: "4px"
+                  }}
+                  value={forwardUnit[ticket.id] || ticket.section || ticket.responsible_unit_name || ""}
+                  onChange={(e) =>
+                    handleUnitChange(ticket.id, e.target.value)
+                  }
+                >
+                  <option value="">Select Unit</option>
+                  {units.map((unit) => (
+                    <option key={unit.name} value={unit.name}>{unit.name}</option>
+                  ))}
+                </select>
+                <Button
+                  size="small"
+                  variant="contained"
+                  onClick={() => handleConvertOrForward(ticket.id, "forward")}
+                >
+                  Forward
+                </Button>
+              </Box>
+            </>
+          )}
         </Box>
 
         {/* Close Button */}

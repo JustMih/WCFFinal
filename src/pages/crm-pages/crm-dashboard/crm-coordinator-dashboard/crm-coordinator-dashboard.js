@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import TicketActions from "../../../../components/coordinator/TicketActions";
+import TicketDetailsModal from "../../../../components/TicketDetailsModal";
 
 // React Icons
 import { FaEye, FaRegCheckCircle } from "react-icons/fa";
@@ -76,6 +77,12 @@ export default function CoordinatorDashboard() {
   const [isActionModalOpen, setIsActionModalOpen] = useState(false);
   const [modalTicket, setModalTicket] = useState(null);
   const [ticketStatusTotal, setTicketStatusTotal] = useState(0);
+  const [resolutionType, setResolutionType] = useState("");
+  const [resolutionDetails, setResolutionDetails] = useState("");
+  const [attachment, setAttachment] = useState(null);
+  const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [detailsModalTicket, setDetailsModalTicket] = useState(null);
 
   // Initialize activeColumns with default columns if empty
   useEffect(() => {
@@ -219,12 +226,12 @@ export default function CoordinatorDashboard() {
         );
       }
 
-      if (result.data) {
-        setNewTickets(result.data.newTickets);
-        setConvertedTickets(result.data.convertedTickets);
-        setTotalTickets(result.data.channeledTickets);
-        setTicketStatus(result.data.ticketStatus);
-        setTicketStatusTotal(result.data.ticketStatusTotal);
+      if (result.ticketStats) {
+        setNewTickets(result.ticketStats.newTickets);
+        setConvertedTickets(result.ticketStats.convertedTickets);
+        setTotalTickets(result.ticketStats.channeledTickets);
+        setTicketStatus(result.ticketStats.ticketStatus);
+        setTicketStatusTotal(result.ticketStats.ticketStatusTotal);
       } else {
         throw new Error("No data received from server");
       }
@@ -280,11 +287,28 @@ export default function CoordinatorDashboard() {
       forwardUnit
     });
 
+    // Get the current ticket to check its section
+    const currentTicket = tickets.find(t => t.id === ticketId);
+    const ticketSection = currentTicket?.section || currentTicket?.responsible_unit_name;
+
     // Validate that at least one option is selected
-    if (!category && !unitName) {
+    // If unitName is empty but ticket has a section, use the ticket's section
+    const effectiveUnitName = unitName || ticketSection;
+    
+    if (!category && !effectiveUnitName) {
       setSnackbar({
         open: true,
         message: "Please select either a category to convert to, or a unit to forward to, or both",
+        severity: "warning"
+      });
+      return;
+    }
+
+    // Check if trying to forward without rating
+    if (effectiveUnitName && !currentTicket?.complaint_type) {
+      setSnackbar({
+        open: true,
+        message: "Ticket must be rated (Minor or Major) before it can be forwarded",
         severity: "warning"
       });
       return;
@@ -296,8 +320,9 @@ export default function CoordinatorDashboard() {
       // Prepare the payload to match backend expectations
       const payload = { 
         userId,
-        responsible_unit_name: unitName || undefined,
-        category: category || undefined
+        responsible_unit_name: effectiveUnitName || undefined,
+        category: category || undefined,
+        complaintType: currentTicket?.complaint_type || undefined
       };
 
       console.log('Sending payload:', payload);
@@ -356,10 +381,20 @@ export default function CoordinatorDashboard() {
   };
 
   const handleUnitChange = (ticketId, value) => {
-    setForwardUnit(prev => ({
-      ...prev,
-      [ticketId]: value
-    }));
+    // If value is empty, don't set it in state (will use ticket's current section)
+    if (value) {
+      setForwardUnit(prev => ({
+        ...prev,
+        [ticketId]: value
+      }));
+    } else {
+      // Remove from state if empty, so it will use ticket's current section
+      setForwardUnit(prev => {
+        const newState = { ...prev };
+        delete newState[ticketId];
+        return newState;
+      });
+    }
   };
 
   // Add a refresh function that can be called periodically
@@ -486,7 +521,10 @@ export default function CoordinatorDashboard() {
         <button
           className="view-ticket-details-btn"
           title="View"
-          onClick={() => openModal(ticket)}
+          onClick={() => {
+            setDetailsModalTicket(ticket);
+            setIsDetailsModalOpen(true);
+          }}
         >
           <FaEye />
         </button>
@@ -562,6 +600,74 @@ export default function CoordinatorDashboard() {
       message: "Ticket updated successfully",
       severity: "success"
     });
+  };
+
+  const handleCloseTicket = async () => {
+    if (!resolutionDetails) {
+      setSnackbar({
+        open: true,
+        message: "Please provide resolution details",
+        severity: "warning"
+      });
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("authToken");
+      const url = `${baseURL}/ticket/${selectedTicket.id}/close`;
+      console.log('Closing ticket with URL:', url);
+      console.log('Ticket ID:', selectedTicket.id);
+      console.log('Resolution details:', resolutionDetails);
+      
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          resolution_details: resolutionDetails,
+          userId: userId
+        })
+      });
+
+      console.log('Response status:', response.status);
+      console.log('Response ok:', response.ok);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.log('Error data:', errorData);
+        throw new Error(errorData.message || "Failed to close ticket");
+      }
+
+      const data = await response.json();
+      console.log('Success data:', data);
+      
+      setTickets(
+        tickets.map((ticket) =>
+          ticket.id === data.ticket.id ? data.ticket : ticket
+        )
+      );
+
+      setSnackbar({
+        open: true,
+        message: "Ticket closed successfully",
+        severity: "success"
+      });
+
+      setIsCloseModalOpen(false);
+      setResolutionType("");
+      setResolutionDetails("");
+      setAttachment(null);
+      fetchDashboardCounts(userId);
+    } catch (error) {
+      console.error('Error in handleCloseTicket:', error);
+      setSnackbar({
+        open: true,
+        message: error.message,
+        severity: "error"
+      });
+    }
   };
 
   // Place this above the return statement, inside the component but outside JSX:
@@ -735,7 +841,10 @@ export default function CoordinatorDashboard() {
                     <button
                       className="view-ticket-details-btn"
                       title="View"
-                      onClick={() => openModal(ticket)}
+                      onClick={() => {
+                        setDetailsModalTicket(ticket);
+                        setIsDetailsModalOpen(true);
+                      }}
                     >
                       <FaEye />
                     </button>
@@ -787,212 +896,88 @@ export default function CoordinatorDashboard() {
         </div>
       </div>
 {/* Ticket Details Modal */}
-<Modal open={isModalOpen} onClose={() => setIsModalOpen(false)}>
-  <Box
-    sx={{
-      position: "absolute",
-      top: "50%",
-      left: "50%",
-      transform: "translate(-50%, -50%)",
-      width: { xs: "90%", sm: 500 },
-      maxHeight: "80vh",
-      overflowY: "auto",
-      bgcolor: "background.paper",
-      boxShadow: 24,
-      borderRadius: 2,
-      p: 3
-    }}
-  >
-    {selectedTicket && (
-      <>
-        <Typography
-          variant="h5"
-          sx={{ fontWeight: "bold", color: "#1976d2" }}
-        >
-          Ticket Details
-        </Typography>
-        <Divider sx={{ mb: 2 }} />
+<TicketDetailsModal
+  open={isDetailsModalOpen}
+  onClose={() => setIsDetailsModalOpen(false)}
+  selectedTicket={detailsModalTicket}
+  assignmentHistory={detailsModalTicket?.assignmentHistory || []}
+  handleRating={handleRating}
+  handleConvertOrForward={handleConvertOrForward}
+  handleCategoryChange={handleCategoryChange}
+  handleUnitChange={handleUnitChange}
+  categories={categories}
+  units={units}
+  convertCategory={convertCategory}
+  forwardUnit={forwardUnit}
+  refreshTickets={fetchTickets}
+  setSnackbar={setSnackbar}
+/>
 
-        {/* Two-Column Ticket Fields */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: "16px" }}>
-          <div style={{ flex: "1 1 45%" }}>
-            <Typography><strong>Name:</strong> {`${selectedTicket.first_name || "N/A"} ${selectedTicket.middle_name || "N/A"} ${selectedTicket.last_name || "N/A"}`}</Typography>
-          </div>
-          <div style={{ flex: "1 1 45%" }}>
-            <Typography><strong>Phone:</strong> {selectedTicket.phone_number || "N/A"}</Typography>
-          </div>
-
-          <div style={{ flex: "1 1 45%" }}>
-            <Typography><strong>NIDA:</strong> {selectedTicket.nida_number || "N/A"}</Typography>
-          </div>
-          <div style={{ flex: "1 1 45%" }}>
-            <Typography><strong>Institution:</strong> {selectedTicket.institution || "N/A"}</Typography>
-          </div>
-
-          <div style={{ flex: "1 1 45%" }}>
-            <Typography><strong>Region:</strong> {selectedTicket.region || "N/A"}</Typography>
-          </div>
-          <div style={{ flex: "1 1 45%" }}>
-            <Typography><strong>District:</strong> {selectedTicket.district || "N/A"}</Typography>
-          </div>
-
-          <div style={{ flex: "1 1 45%" }}>
-            <Typography><strong>Subject:</strong> {selectedTicket.subject || "N/A"}</Typography>
-          </div>
-          <div style={{ flex: "1 1 45%" }}>
-            <Typography><strong>Category:</strong> {selectedTicket.category || "N/A"}</Typography>
-          </div>
-
-          <div style={{ flex: "1 1 45%" }}>
-            <Typography><strong>Channel:</strong> {selectedTicket.channel || "N/A"}</Typography>
-          </div>
-          <div style={{ flex: "1 1 45%" }}>
-            <Typography>
-              <strong>Rated:</strong>{" "}
-              <span style={{
-                color: selectedTicket.complaint_type === "Major" ? "red" :
-                       selectedTicket.complaint_type === "Minor" ? "orange" :
-                       "inherit"
-              }}>
-                {selectedTicket.complaint_type || "N/A"}
-              </span>
-            </Typography>
-          </div>
-
-          <div style={{ flex: "1 1 45%" }}>
-            <Typography>
-              <strong>Status:</strong>{" "}
-              <span style={{
-                color: selectedTicket.status === "Open" ? "green" :
-                       selectedTicket.status === "Closed" ? "gray" :
-                       "blue"
-              }}>
-                {selectedTicket.status || "N/A"}
-              </span>
-            </Typography>
-          </div>
-          <div style={{ flex: "1 1 45%" }}>
-            <Typography><strong>Created By:</strong> {selectedTicket?.createdBy?.name || "N/A"}</Typography>
-          </div>
-
-          <div style={{ flex: "1 1 45%" }}>
-            <Typography><strong>Assigned To:</strong> {selectedTicket?.assignee?.name || "N/A"}</Typography>
-          </div>
-          <div style={{ flex: "1 1 45%" }}>
-            <Typography><strong>Assigned Role:</strong> {selectedTicket.assigned_to_role || "N/A"}</Typography>
-          </div>
-
-          <div style={{ flex: "1 1 45%" }}>
-            <Typography><strong>Created At:</strong> {selectedTicket.created_at ? new Date(selectedTicket.created_at).toLocaleString("en-US", {
-              month: "numeric", day: "numeric", year: "numeric",
-              hour: "numeric", minute: "2-digit", hour12: true
-            }) : "N/A"}</Typography>
-          </div>
-
-          <div style={{ flex: "1 1 100%" }}>
-            <Typography><strong>Description:</strong> {selectedTicket.description || "N/A"}</Typography>
-          </div>
-        </div>
-
-        {/* Action Buttons */}
+      {/* Close Ticket Modal */}
+      <Modal open={isCloseModalOpen} onClose={() => setIsCloseModalOpen(false)}>
         <Box
           sx={{
-            mt: 3,
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 2,
-            alignItems: "center"
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: { xs: "90%", sm: 500 },
+            maxHeight: "80vh",
+            overflowY: "auto",
+            bgcolor: "background.paper",
+            boxShadow: 24,
+            borderRadius: 2,
+            p: 3
           }}
         >
-          <TicketActions 
-            ticket={selectedTicket}
-            onTicketUpdate={handleTicketUpdate}
-          />
+          <Typography variant="h5" sx={{ fontWeight: "bold", color: "#1976d2", mb: 2 }}>
+            Close Ticket
+          </Typography>
+          <Divider sx={{ mb: 2 }} />
 
-          <Button
-            size="small"
-            variant="contained"
-            color="primary"
-            onClick={() => handleRating(selectedTicket.id, "Minor")}
-          >
-            Minor
-          </Button>
-          <Button
-            size="small"
-            variant="contained"
-            color="primary"
-            onClick={() => handleRating(selectedTicket.id, "Major")}
-          >
-            Major
-          </Button>
-
-          {selectedTicket.category === "Complaint" && (
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-              <select
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Resolution Details:
+              </Typography>
+              <textarea
                 style={{
-                  padding: "4px 8px",
-                  fontSize: "0.8rem",
-                  height: "32px",
-                  borderRadius: "4px"
+                  width: "100%",
+                  padding: "8px 12px",
+                  fontSize: "0.9rem",
+                  borderRadius: "4px",
+                  border: "1px solid #ccc",
+                  minHeight: "100px",
+                  resize: "vertical"
                 }}
-                value={convertCategory[selectedTicket.id] || ""}
-                onChange={(e) =>
-                  handleCategoryChange(selectedTicket.id, e.target.value)
-                }
-              >
-                <option value="">Convert To</option>
-                {categories.map((cat) => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
+                value={resolutionDetails}
+                onChange={(e) => setResolutionDetails(e.target.value)}
+                placeholder="Enter resolution details..."
+              />
+            </Box>
+
+            <Box sx={{ mt: 2, display: "flex", gap: 2, justifyContent: "flex-end" }}>
               <Button
-                size="small"
-                variant="contained"
-                onClick={() => handleConvertOrForward(selectedTicket.id)}
+                variant="outlined"
+                onClick={() => {
+                  setIsCloseModalOpen(false);
+                  setResolutionDetails("");
+                }}
               >
-                Convert
+                Cancel
+              </Button>
+              <Button
+                variant="contained"
+                color="error"
+                onClick={handleCloseTicket}
+                disabled={!resolutionDetails.trim()}
+              >
+                Close Ticket
               </Button>
             </Box>
-          )}
-
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <select
-              style={{
-                padding: "4px 8px",
-                fontSize: "0.8rem",
-                height: "32px",
-                borderRadius: "4px"
-              }}
-              value={forwardUnit[selectedTicket.id] || ""}
-              onChange={(e) =>
-                handleUnitChange(selectedTicket.id, e.target.value)
-              }
-            >
-              <option value="">{selectedTicket.section}</option>
-              {units.map((unit) => (
-                <option key={unit.name} value={unit.name}>{unit.name}</option>
-              ))}
-            </select>
-            <Button
-              size="small"
-              variant="contained"
-              onClick={() => handleConvertOrForward(selectedTicket.id)}
-            >
-              Forward
-            </Button>
           </Box>
         </Box>
-
-        {/* Close Button */}
-        <Box sx={{ mt: 2, textAlign: "right" }}>
-          <Button color="primary" onClick={() => setIsModalOpen(false)}>
-            Close
-          </Button>
-        </Box>
-      </>
-    )}
-  </Box>
-</Modal>
+      </Modal>
 
       {/* Column Selector */}
       <ColumnSelector

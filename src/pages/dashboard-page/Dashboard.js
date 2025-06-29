@@ -9,7 +9,7 @@ import CRMDashboard from "../crm-pages/crm-dashboard/CRMDashboard";
 import CRMNotificationTickets from "../crm-pages/crm-notifications/notifications";
 import CRMAssignedTickets from "../crm-pages/crm-tickets/assigned";
 import CRMOpenedTickets from "../crm-pages/crm-tickets/ticket";
-import CRMInProgressTickets from "../crm-pages/crm-tickets/inprogress";
+import CRMInProgressTickets from "../crm-pages/crm-tickets/inprogress-bak";
 import CRMCarriedForawardTickets from "../crm-pages/crm-tickets/carried-forward";
 import CRMOverdueTickets from "../crm-pages/crm-tickets/overdue";
 import CRMClosedTickets from "../crm-pages/crm-tickets/closed";

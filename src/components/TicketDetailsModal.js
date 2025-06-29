@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Modal, Box, Typography, Divider, IconButton, Button, Dialog, DialogTitle, DialogContent, Avatar, Paper, TextField } from "@mui/material";
+import React, { useState, useEffect } from "react";
+import { Modal, Box, Typography, Divider, IconButton, Button, Dialog, DialogTitle, DialogContent, Avatar, Paper, TextField, Tooltip } from "@mui/material";
 import ChatIcon from '@mui/icons-material/Chat';
 import { baseURL } from "../config";
 
@@ -50,6 +50,7 @@ const getStepStatus = (stepIndex, currentStepIndex) => {
 
 const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser }) => {
   if (!selectedTicket) return null;
+  
   // Build steps array
   const steps = [
     {
@@ -64,7 +65,20 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser }) 
     }
   ];
 
-  if (Array.isArray(assignmentHistory) && assignmentHistory.length > 0) {
+  // Check if ticket should be with coordinator
+  const isWithCoordinator = selectedTicket.status === "Open" && 
+    ["Complaint", "Compliment", "Suggestion"].includes(selectedTicket.category);
+
+  if (isWithCoordinator) {
+    // Add coordinator step for open complaints/compliments/suggestions
+    steps.push({
+      assigned_to_name: "Coordinator",
+      assigned_to_role: "Coordinator",
+      action: "Currently with",
+      created_at: selectedTicket.created_at,
+      assigned_to_id: "coordinator"
+    });
+  } else if (Array.isArray(assignmentHistory) && assignmentHistory.length > 0) {
     // Use assignmentHistory as-is, do not override assigned_to_role unless missing
     steps.push(...assignmentHistory.map(a => ({
       ...a,
@@ -90,7 +104,10 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser }) 
 
   // Determine current step index
   let currentAssigneeIdx = 0;
-  if (
+  if (isWithCoordinator) {
+    // If ticket is with coordinator, the coordinator step is current
+    currentAssigneeIdx = 1; // Index 1 is the coordinator step
+  } else if (
     selectedTicket.status === "Open" &&
     (!selectedTicket.assigned_to_id || steps.length === 1)
   ) {
@@ -108,11 +125,14 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser }) 
         // Determine if this is the last step and ticket is closed
         const isLastStep = idx === steps.length - 1;
         const isClosed = selectedTicket.status === "Closed" && isLastStep;
+        const isCurrentWithCoordinator = isWithCoordinator && idx === 1; // Coordinator step
 
         // Set color: green for completed, blue for current, gray for pending, green for closed last step
         let color;
         if (isClosed) {
           color = "green";
+        } else if (isCurrentWithCoordinator) {
+          color = "#1976d2"; // Blue for current coordinator step
         } else if (idx < currentAssigneeIdx) {
           color = "green";
         } else if (idx === currentAssigneeIdx) {
@@ -125,6 +145,8 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser }) 
         let actionLabel = a.action;
         if (isClosed) {
           actionLabel = "Closed";
+        } else if (isCurrentWithCoordinator) {
+          actionLabel = "Currently with";
         }
 
         // Set who closed
@@ -161,6 +183,11 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser }) 
                     (Closed by: {closedBy})
                   </span>
                 )}
+                {isCurrentWithCoordinator && (
+                  <span style={{ color: "#1976d2", marginLeft: 8, fontWeight: "bold" }}>
+                    (Current)
+                  </span>
+                )}
               </Typography>
             </Box>
           </Box>
@@ -186,27 +213,31 @@ function AssignmentFlowChat({ assignmentHistory = [], selectedTicket }) {
   return (
     <Box sx={{ maxWidth: 400, ml: 'auto', mr: 0 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, justifyContent: 'space-between' }}>
-        <Typography sx={{ color: "#3f51b5", wordBreak: 'break-word', whiteSpace: 'pre-line' }}>
+        {/* <Typography sx={{ color: "#3f51b5", wordBreak: 'break-word', whiteSpace: 'pre-line' }}>
           Ticket History
-        </Typography>
+        </Typography> */}
       </Box>
       <Divider sx={{ mb: 2 }} />
       {steps.map((a, idx) => {
         let message;
         if (idx === 0) {
           message = selectedTicket.description
-            ? `Created the ticket\n${selectedTicket.description}`
+            ? `Created the ticket\nDescription: ${selectedTicket.description}`
             : 'Created the ticket';
         } else {
           const prevUser = steps[idx - 1]?.assigned_to_name || 'Previous User';
-          if (selectedTicket.status === "Closed") {
-            if (selectedTicket.resolution_details) {
-              message = `Message from ${prevUser}: ${selectedTicket.resolution_details}`;
-            } else if (a.action){
-              message = `Message from ${prevUser}: ${a.reason || 'No message'}`;
+          if (selectedTicket.status === "Closed" && idx === steps.length - 1) {
+            if (a.reason && selectedTicket.resolution_details) {
+              message = `Message from ${prevUser}: ${a.reason}\nResolution: ${selectedTicket.resolution_details}`;
+            } else if (a.reason) {
+              message = `Message from ${prevUser}: ${a.reason}`;
+            } else if (selectedTicket.resolution_details) {
+              message = `Resolution: ${selectedTicket.resolution_details}`;
+            } else {
+              message = `Message from ${prevUser}: No message`;
             }
           } else {
-            message = `Message from ${prevUser}: ${a.action ? a.action + ' - ' : ''}${a.reason || 'No message'}`;
+            message = `Message from ${prevUser}: ${a.reason || 'No message'}`;
           }
         }
         return (
@@ -239,7 +270,17 @@ export default function TicketDetailsModal({
   open,
   onClose,
   selectedTicket,
-  assignmentHistory
+  assignmentHistory,
+  handleRating,
+  handleConvertOrForward,
+  handleCategoryChange,
+  handleUnitChange,
+  categories = [],
+  units = [],
+  convertCategory = {},
+  forwardUnit = {},
+  refreshTickets = () => {},
+  setSnackbar = () => {},
 }) {
   const [isFlowModalOpen, setIsFlowModalOpen] = useState(false);
   const userRole = localStorage.getItem("role");
@@ -247,13 +288,23 @@ export default function TicketDetailsModal({
   const [isAttendDialogOpen, setIsAttendDialogOpen] = useState(false);
   const [resolutionDetails, setResolutionDetails] = useState("");
   const [attachment, setAttachment] = useState(null);
+  
+  // Coordinator-specific states
+  const [resolutionType, setResolutionType] = useState("");
+  const [isCoordinatorCloseDialogOpen, setIsCoordinatorCloseDialogOpen] = useState(false);
 
   const showAttendButton =
-    (userRole === "agent" || userRole === "attendee") &&
+    // (userRole === "agent" || userRole === "attendee") &&
     selectedTicket &&
     selectedTicket.status !== "Closed" &&
     selectedTicket.assigned_to_id &&
     selectedTicket.assigned_to_id.toString() === userId;
+
+  // Coordinator-specific conditions
+  const showCoordinatorActions = 
+    userRole === "coordinator" && 
+    selectedTicket && 
+    selectedTicket.status !== "Closed";
 
   const handleAttend = () => {
     setIsAttendDialogOpen(true);
@@ -283,11 +334,60 @@ export default function TicketDetailsModal({
       if (response.ok) {
         setIsAttendDialogOpen(false);
         onClose();
+        refreshTickets();
+        setSnackbar({open: true, message: 'Ticket closed successfully', severity: 'success'});
       } else {
         // Optionally show an error message
       }
     } catch (error) {
       // Optionally show an error message
+    }
+  };
+
+  const handleCoordinatorClose = () => {
+    setIsCoordinatorCloseDialogOpen(true);
+  };
+
+  const handleCoordinatorCloseSubmit = async () => {
+    if (!resolutionType || !resolutionDetails) {
+      alert("Please provide both resolution type and details");
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("authToken");
+      const formData = new FormData();
+      formData.append("status", "Closed");
+      formData.append("resolution_type", resolutionType);
+      formData.append("resolution_details", resolutionDetails);
+      formData.append("date_of_resolution", new Date().toISOString());
+      formData.append("userId", userId);
+      
+      if (attachment) {
+        formData.append("attachment", attachment);
+      }
+
+      const response = await fetch(
+        `${baseURL}/coordinator/${selectedTicket.id}/close`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`
+          },
+          body: formData
+        }
+      );
+
+      if (response.ok) {
+        setIsCoordinatorCloseDialogOpen(false);
+        onClose();
+        refreshTickets();
+        setSnackbar({open: true, message: 'Ticket closed successfully', severity: 'success'});
+      } else {
+        throw new Error("Failed to close ticket");
+      }
+    } catch (error) {
+      console.error("Error closing ticket:", error);
     }
   };
 
@@ -417,12 +517,12 @@ export default function TicketDetailsModal({
                               : "N/A"}
                           </Typography>
                           {last.reason && (
-                            <Typography>
+                            <Typography sx={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}>
                               <strong>Message:</strong> {last.reason}
                             </Typography>
                           )}
                           {selectedTicket.status === "Closed" && selectedTicket.resolution_details && (
-                            <Typography sx={{ mt: 1 }}>
+                              <Typography sx={{ wordBreak: 'break-word', whiteSpace: 'pre-line', mt: 1 }}>
                               <strong>Resolution Details:</strong> {selectedTicket.resolution_details}
                             </Typography>
                           )}
@@ -491,6 +591,16 @@ export default function TicketDetailsModal({
                 </div>
                 <div style={{ flex: "1 1 45%" }}>
                   <Typography>
+                    <strong>Sub-section:</strong> {selectedTicket.sub_section || "N/A"}
+                  </Typography>
+                </div>
+                <div style={{ flex: "1 1 45%" }}>
+                  <Typography>
+                    <strong>Section:</strong> {selectedTicket.section || "N/A"}
+                  </Typography>
+                </div>
+                <div style={{ flex: "1 1 45%" }}>
+                  <Typography>
                     <strong>Category:</strong>{" "}
                     {selectedTicket.category || "N/A"}
                   </Typography>
@@ -517,6 +627,87 @@ export default function TicketDetailsModal({
                     Attend
                   </Button>
                 )}
+                
+                {/* Coordinator Actions */}
+                {showCoordinatorActions && (
+                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2, justifyContent: "flex-end" }}>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="primary"
+                      onClick={() => handleRating(selectedTicket.id, "Minor")}
+                    >
+                      Minor
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="primary"
+                      onClick={() => handleRating(selectedTicket.id, "Major")}
+                    >
+                      Major
+                    </Button>
+
+                    {selectedTicket.category === "Complaint" && (
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                        <select
+                          style={{
+                            padding: "4px 8px",
+                            fontSize: "0.8rem",
+                            height: "32px",
+                            borderRadius: "4px"
+                          }}
+                          value={convertCategory[selectedTicket.id] || ""}
+                          onChange={(e) => handleCategoryChange(selectedTicket.id, e.target.value)}
+                        >
+                          <option value="">Convert To</option>
+                          <option value="Inquiry">Inquiry</option>
+                        </select>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          onClick={() => handleConvertOrForward(selectedTicket.id)}
+                        >
+                          Convert
+                        </Button>
+                      </Box>
+                    )}
+
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      <select
+                        style={{
+                          padding: "4px 8px",
+                          fontSize: "0.8rem",
+                          height: "32px",
+                          borderRadius: "4px"
+                        }}
+                        value={forwardUnit[selectedTicket.id] || selectedTicket.section || selectedTicket.responsible_unit_name || ""}
+                        onChange={(e) => handleUnitChange(selectedTicket.id, e.target.value)}
+                      >
+                        <option value="">Forward To</option>
+                        {units.map((unit) => (
+                          <option key={unit.name} value={unit.name}>{unit.name}</option>
+                        ))}
+                      </select>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        onClick={() => handleConvertOrForward(selectedTicket.id)}
+                      >
+                        Forward
+                      </Button>
+                    </Box>
+
+                    <Button
+                      variant="contained"
+                      color="success"
+                      onClick={handleCoordinatorClose}
+                    >
+                      Close Ticket
+                    </Button>
+                  </Box>
+                )}
+                
                 <Button variant="outlined" onClick={onClose}>
                   Close
                 </Button>
@@ -527,7 +718,7 @@ export default function TicketDetailsModal({
       </Modal>
       {/* Assignment Flow Chart Dialog */}
       <Dialog open={isFlowModalOpen} onClose={() => setIsFlowModalOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Ticket History</DialogTitle>
+        <DialogTitle>Justification History</DialogTitle>
         <DialogContent>
           <AssignmentFlowChat assignmentHistory={assignmentHistory} selectedTicket={selectedTicket} />
         </DialogContent>
@@ -567,6 +758,92 @@ export default function TicketDetailsModal({
             >
               Cancel
             </Button>
+          </Box>
+        </DialogContent>
+      </Dialog>
+
+      {/* Coordinator Close Dialog */}
+      <Dialog open={isCoordinatorCloseDialogOpen} onClose={() => setIsCoordinatorCloseDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Close Ticket</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Resolution Type:
+              </Typography>
+              <select
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  fontSize: "0.9rem",
+                  borderRadius: "4px",
+                  border: "1px solid #ccc"
+                }}
+                value={resolutionType}
+                onChange={(e) => setResolutionType(e.target.value)}
+              >
+                <option value="">Select Resolution Type</option>
+                <option value="Resolved">Resolved</option>
+                <option value="Not Applicable">Not Applicable</option>
+                <option value="Duplicate">Duplicate</option>
+                <option value="Referred">Referred</option>
+              </select>
+            </Box>
+
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Resolution Details:
+              </Typography>
+              <TextField
+                multiline
+                rows={4}
+                value={resolutionDetails}
+                onChange={(e) => setResolutionDetails(e.target.value)}
+                fullWidth
+                placeholder="Enter resolution details..."
+              />
+            </Box>
+
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Attachment (Optional):
+              </Typography>
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+                onChange={(e) => setAttachment(e.target.files[0])}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  fontSize: "0.9rem",
+                  borderRadius: "4px",
+                  border: "1px solid #ccc"
+                }}
+              />
+              {attachment && (
+                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
+                  File selected: {attachment.name}
+                </Typography>
+              )}
+            </Box>
+
+            <Box sx={{ mt: 2, textAlign: "right" }}>
+              <Button
+                variant="contained"
+                color="success"
+                onClick={handleCoordinatorCloseSubmit}
+                disabled={!resolutionType || !resolutionDetails.trim()}
+              >
+                Close Ticket
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={() => setIsCoordinatorCloseDialogOpen(false)}
+                sx={{ ml: 1 }}
+              >
+                Cancel
+              </Button>
+            </Box>
           </Box>
         </DialogContent>
       </Dialog>

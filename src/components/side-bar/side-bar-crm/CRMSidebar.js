@@ -72,7 +72,16 @@ export default function CRMSidebar({ isSidebarOpen }) {
       return;
     }
     try {
-      const url = `${baseURL}/ticket/dashboard-counts/${userId}`;
+      // Use different endpoints based on role
+      let url;
+      if (role === "coordinator") {
+        url = `${baseURL}/coordinator/dashboard-counts/${userId}`;
+      } else if (['focal-person', 'claim-focal-person', 'compliance-focal-person'].includes(role)) {
+        url = `${baseURL}/focal-person/dashboard-counts`;
+      } else {
+        url = `${baseURL}/ticket/dashboard-counts/${userId}`;
+      }
+      
       const response = await fetch(url, {
         method: "GET",
         headers: {
@@ -184,17 +193,18 @@ export default function CRMSidebar({ isSidebarOpen }) {
                     {openSection === "agentTickets" && (
                       <div className="section-items">
                         {[
-                          {
-                            label: "Opened Tickets",
-                            to: "/ticket/opened",
-                            value: ticketStats.open,
-                            icon: "🔓"
-                          },
+                          
                           {
                             label: "Assigned Tickets",
                             to: "/ticket/assigned",
                             value: ticketStats.assigned,
                             icon: "📋"
+                          },
+                          {
+                            label: "In Progress",
+                            to: "/ticket/opened",
+                            value: ticketStats.open,
+                            icon: "🔓"
                           },
                           // {
                           //   label: "In Progress",
@@ -202,12 +212,12 @@ export default function CRMSidebar({ isSidebarOpen }) {
                           //   value: ticketStats.inProgress,
                           //   icon: "⏳"
                           // },
-                          {
-                            label: "Carried Forward",
-                            to: "/ticket/carried-forward",
-                            value: ticketStats.carriedForward,
-                            icon: "↪️"
-                          },
+                          // {
+                          //   label: "Carried Forward",
+                          //   to: "/ticket/carried-forward",
+                          //   value: ticketStats.carriedForward,
+                          //   icon: "↪️"
+                          // },
                           {
                             label: "Closed Tickets",
                             to: "/ticket/closed",
