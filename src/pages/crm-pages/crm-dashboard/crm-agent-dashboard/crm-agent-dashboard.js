@@ -360,7 +360,7 @@ const AgentCRM = () => {
 
       setAgentData({
         agentActivity: {
-          "Open Tickets": stats.open || 0,
+          // "Open Tickets": stats.open || 0,
           "In Progress": stats.inProgress || 0,
           "Closed Tickets": stats.closed || 0,
           Overdue: stats.overdue || 0,

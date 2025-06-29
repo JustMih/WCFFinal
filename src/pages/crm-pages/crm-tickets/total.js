@@ -97,6 +97,7 @@ export default function Crm() {
           "Content-Type": "application/json",
         },
       });
+      console.log('total', response);
 
       if (!response.ok) {
         if (response.status === 404) {
