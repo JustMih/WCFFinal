@@ -29,8 +29,7 @@ import {
 } from "@mui/material";
 
 const CallCenterExtensions = () => {
-  const [extensions, setExtensions] = useState([]);
-  const [users, setUsers] = useState([]); // Ensure users is always an array
+  const [usersWithExtensions, setUsersWithExtensions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showModal, setShowModal] = useState(false);
@@ -50,51 +49,31 @@ const CallCenterExtensions = () => {
   const authToken = localStorage.getItem("authToken");
 
   useEffect(() => {
-    fetchExtensions();
-    fetchUsers();
+    fetchUsersWithExtensions();
   }, []);
 
-  // Fetch extensions
-  const fetchExtensions = async () => {
+  // Fetch users and filter those with non-null extension
+  const fetchUsersWithExtensions = async () => {
     try {
-      const response = await fetch(`${baseURL}/extensions/`, {
+      const response = await fetch(`${baseURL}/users/`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${authToken}`,
         },
       });
-
-      if (!response.ok) throw new Error("Failed to fetch extensions");
-
-      const data = await response.json();
-      setExtensions(data.extensions);
-    } catch (error) {
-      console.error("Error:", error);
-      showSnackbar("Failed to fetch extensions", "error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fetch users for selecting userId
-  const fetchUsers = async () => {
-    try {
-      const response = await fetch(`${baseURL}/users/agents`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
-        },
-      });
-
       if (!response.ok) throw new Error("Failed to fetch users");
-
       const data = await response.json();
-      setUsers(Array.isArray(data) ? data : []); // Ensure users is always an array
+      // Filter users with non-null extension
+      const filtered = Array.isArray(data)
+        ? data.filter((user) => user.extension)
+        : [];
+      setUsersWithExtensions(filtered);
     } catch (error) {
       console.error("Error:", error);
       showSnackbar("Failed to fetch users", "error");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -159,9 +138,9 @@ const CallCenterExtensions = () => {
       if (!response.ok) throw new Error("Failed to add extension");
 
       const data = await response.json();
-      setExtensions([...extensions, data.extension]);
+      setUsersWithExtensions([...usersWithExtensions, data.extension]);
       handleCloseModal();
-      fetchExtensions(); // Refresh extensions list
+      fetchUsersWithExtensions(); // Refresh users with extensions list
       showSnackbar("Extension added successfully!", "success");
     } catch (error) {
       console.error("Error:", error);
@@ -203,13 +182,13 @@ const CallCenterExtensions = () => {
       if (!response.ok) throw new Error("Failed to update extension");
 
       const data = await response.json();
-      setExtensions(
-        extensions.map((ext) =>
-          ext.id === currentExtension.id ? data.extension : ext
+      setUsersWithExtensions(
+        usersWithExtensions.map((user) =>
+          user.id === currentExtension.id ? data.extension : user
         )
       );
       handleCloseModal();
-      fetchExtensions(); // Refresh extensions list
+      fetchUsersWithExtensions(); // Refresh users with extensions list
       showSnackbar("Extension updated successfully!", "success");
     } catch (error) {
       console.error("Error:", error);
@@ -232,7 +211,7 @@ const CallCenterExtensions = () => {
 
       if (!response.ok) throw new Error("Failed to delete extension");
 
-      setExtensions(extensions.filter((ext) => ext.id !== id));
+      setUsersWithExtensions(usersWithExtensions.filter((user) => user.id !== id));
       showSnackbar("Extension deleted successfully!", "success");
     } catch (error) {
       console.error("Error:", error);
@@ -253,9 +232,9 @@ const CallCenterExtensions = () => {
 
       if (!response.ok) throw new Error("Failed to activate extension");
 
-      setExtensions(
-        extensions.map((ext) =>
-          ext.id === id ? { ...ext, isActive: true } : ext
+      setUsersWithExtensions(
+        usersWithExtensions.map((user) =>
+          user.id === id ? { ...user, isActive: true } : user
         )
       );
       showSnackbar("Extension Activated!", "success");
@@ -278,9 +257,9 @@ const CallCenterExtensions = () => {
 
       if (!response.ok) throw new Error("Failed to deactivate extension");
 
-      setExtensions(
-        extensions.map((ext) =>
-          ext.id === id ? { ...ext, isActive: false } : ext
+      setUsersWithExtensions(
+        usersWithExtensions.map((user) =>
+          user.id === id ? { ...user, isActive: false } : user
         )
       );
       showSnackbar("Extension Deactivated!", "warning");
@@ -334,21 +313,21 @@ const CallCenterExtensions = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {extensions
-              .filter((ext) =>
-                ext.User?.name.toLowerCase().includes(search.toLowerCase())
+            {usersWithExtensions
+              .filter((user) =>
+                user.name.toLowerCase().includes(search.toLowerCase())
               )
-              .map((ext) => (
-                <TableRow key={ext.id}>
-                  <TableCell>{ext.id_alias}</TableCell>
-                  <TableCell>{ext.User?.name || "N/A"}</TableCell>
-                  <TableCell>{ext.User?.email || "N/A"}</TableCell>
+              .map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell>{user.extension}</TableCell>
+                  <TableCell>{user.name}</TableCell>
+                  <TableCell>{user.email}</TableCell>
                   <TableCell className="call-center-extension-action-buttons">
                     <Tooltip title="Edit Extension">
                       <button
                         className="call-center-extension-edit-button"
                         onClick={() => {
-                          setCurrentExtension(ext);
+                          setCurrentExtension(user);
                           setShowModal(true);
                           setIsEditing(true);
                         }}
@@ -359,7 +338,7 @@ const CallCenterExtensions = () => {
                     <Tooltip title={"Activate"}>
                       <button
                         className="call-center-extension-activated-button"
-                        onClick={() => handleActivateExtension(ext.id)}
+                        onClick={() => handleActivateExtension(user.id)}
                       >
                         <HiMiniLockOpen color="white" />
                       </button>
@@ -367,7 +346,7 @@ const CallCenterExtensions = () => {
                     <Tooltip title={"De-Activate"}>
                       <button
                         className="call-center-extension-deactivated-button"
-                        onClick={() => handleDeactivateExtension(ext.id)}
+                        onClick={() => handleDeactivateExtension(user.id)}
                       >
                         <HiMiniLockClosed color="white" />
                       </button>
@@ -376,7 +355,7 @@ const CallCenterExtensions = () => {
                     <Tooltip title="Delete">
                       <button
                         className="call-center-extension-delete-button"
-                        onClick={() => handleDeleteExtension(ext.id)}
+                        onClick={() => handleDeleteExtension(user.id)}
                       >
                         <MdDeleteForever color="white" />
                       </button>
@@ -410,7 +389,7 @@ const CallCenterExtensions = () => {
               value={isEditing ? currentExtension.userId : newExtension.userId}
               onChange={handleUserSelect}
             >
-              {users.map((user) => (
+              {usersWithExtensions.map((user) => (
                 <MenuItem key={user.id} value={user.id}>
                   {user.name}
                 </MenuItem>
