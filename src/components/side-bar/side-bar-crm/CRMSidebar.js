@@ -710,6 +710,281 @@ export default function CRMSidebar({ isSidebarOpen }) {
             </li>
           </>
         )}
+        
+        {role === "head-of-unit" && (
+          <>
+            <li>
+              <NavLink
+                to="/dashboard"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <RxDashboard className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">Coordinator Dashboard</span>
+                  )}
+                </div>
+              </NavLink>
+              <NavLink
+                to="/notifications"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <MdEmail className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">Notifications</span>
+                  )}
+                </div>
+              </NavLink>
+              <NavLink
+                to="/coordinator/ticket"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+                onClick={toggleAgentsDropdown}
+                style={{ cursor: "pointer", padding: "11px 11px", textDecoration: "none" }}
+              >
+                <MdOutlineSupportAgent className="menu-icon" />
+                {isSidebarOpen && (
+                  <span className="menu-text">
+                    Ticket Management{" "}
+                    {isAgentsOpen ? <FaChevronUp /> : <FaChevronDown />}
+                  </span>
+                )}
+              </NavLink>
+
+              {isSidebarOpen && isAgentsOpen && (
+                <div className="dropdown-menu submenu coordinator-menu">
+                  <div className="menu-section">
+                    <div
+                      className={`section-header ${
+                        openSection === "newTickets" ? "" : "collapsed"
+                      }`}
+                      onClick={() => toggleSection("newTickets")}
+                    >
+                      <span className="section-title">New Tickets</span>
+                      <span className="section-count">
+                        {ticketStats.newTickets?.Total || 0}
+                      </span>
+                    </div>
+                    {openSection === "newTickets" && (
+                      <div className="section-items">
+                        {[
+                          {
+                            label: "New Tickets",
+                            to: `/coordinator/new`,
+                            value: ticketStats.newTickets?.["New Tickets"] || 0,
+                            icon: "🆕"
+                          },
+                          {
+                            label: "Escalated",
+                            to: `/coordinator/escalated`,
+                            value:
+                              ticketStats.newTickets?.["Escalated Tickets"] ||
+                              0,
+                            icon: "⚠️"
+                          }
+                        ].map((item, idx) => (
+                          <NavLink
+                            key={idx}
+                            to={item.to}
+                            className={({ isActive }) =>
+                              isActive
+                                ? "dropdown-item active-link"
+                                : "dropdown-item"
+                            }
+                            style={{ padding: "12px 20px" }}
+                          >
+                            <div className="metric-row">
+                              <span className="metric-icon">{item.icon}</span>
+                              <span className="metric-label">{item.label}</span>
+                              <span className="metric-value">{item.value}</span>
+                            </div>
+                          </NavLink>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="menu-section">
+                    <div
+                      className={`section-header ${
+                        openSection === "convertedTickets" ? "" : "collapsed"
+                      }`}
+                      onClick={() => toggleSection("convertedTickets")}
+                    >
+                      <span className="section-title">Tickets Category</span>
+                      <span className="section-count">
+                        {Object.values(
+                          ticketStats.convertedTickets || {}
+                        ).reduce((a, b) => a + b, 0)}
+                      </span>
+                    </div>
+                    {openSection === "convertedTickets" && (
+                      <div className="section-items">
+                        {[
+                          {
+                            label: "Complaints",
+                            to: "/coordinator/complaints",
+                            value:
+                              ticketStats.convertedTickets?.Complaints || 0,
+                            icon: "📋"
+                          },
+                          {
+                            label: "Suggestions",
+                            to: "/coordinator/suggestions",
+                            value:
+                              ticketStats.convertedTickets?.Suggestions || 0,
+                            icon: "💡"
+                          },
+                          {
+                            label: "Compliments",
+                            to: "/coordinator/complements",
+                            value:
+                              ticketStats.convertedTickets?.Compliments || 0,
+                            icon: "⭐"
+                          }
+                        ].map((item, idx) => (
+                          <NavLink
+                            key={idx}
+                            to={item.to}
+                            className={({ isActive }) =>
+                              isActive
+                                ? "dropdown-item active-link"
+                                : "dropdown-item"
+                            }
+                            style={{ padding: "12px 20px" }}
+                          >
+                            <div className="metric-row">
+                              <span className="metric-icon">{item.icon}</span>
+                              <span className="metric-label">{item.label}</span>
+                              <span className="metric-value">{item.value}</span>
+                            </div>
+                          </NavLink>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="menu-section">
+                    <div
+                      className={`section-header ${
+                        openSection === "channeledTickets" ? "" : "collapsed"
+                      }`}
+                      onClick={() => toggleSection("channeledTickets")}
+                    >
+                      <span className="section-title">Channeled Tickets</span>
+                      <span className="section-count">
+                        {Object.values(
+                          ticketStats.channeledTickets || {}
+                        ).reduce((a, b) => a + b, 0)}
+                      </span>
+                    </div>
+                    {openSection === "channeledTickets" && (
+                      <div className="section-items">
+                        {[
+                          {
+                            label: "Directorate",
+                            to: "/coordinator/directorate",
+                            value:
+                              ticketStats.channeledTickets?.Directorate || 0,
+                            icon: "🏢"
+                          },
+                          {
+                            label: "Units",
+                            to: "/coordinator/units",
+                            value: ticketStats.channeledTickets?.Units || 0,
+                            icon: "👥"
+                          }
+                        ].map((item, idx) => (
+                          <NavLink
+                            key={idx}
+                            to={item.to}
+                            className={({ isActive }) =>
+                              isActive
+                                ? "dropdown-item active-link"
+                                : "dropdown-item"
+                            }
+                            style={{ padding: "12px 20px" }}
+                          >
+                            <div className="metric-row">
+                              <span className="metric-icon">{item.icon}</span>
+                              <span className="metric-label">{item.label}</span>
+                              <span className="metric-value">{item.value}</span>
+                            </div>
+                          </NavLink>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="menu-section">
+                    <div
+                      className={`section-header ${
+                        openSection === "ticketStatus" ? "" : "collapsed"
+                      }`}
+                      onClick={() => toggleSection("ticketStatus")}
+                    >
+                      <span className="section-title">Ticket Status</span>
+                      <span className="section-count">
+                        {/* {(ticketStats.ticketStatus?.["On Progress"] || 0) + (ticketStats.ticketStatus?.Closed || 0)} */}
+                        {ticketStats.ticketStatus?.Closed || 0}
+                      </span>
+                    </div>
+                    {openSection === "ticketStatus" && (
+                      <div className="section-items">
+                        {[
+                          // {
+                          //   label: "On Progress",
+                          //   to: "/coordinator/on-progress",
+                          //   value:
+                          //     ticketStats.ticketStatus?.["On Progress"] || 0,
+                          //   icon: "⏳"
+                          // },
+                          {
+                            label: "Closed",
+                            to: `/coordinator/closed`,
+                            value: ticketStats.ticketStatus?.Closed || 0,
+                            icon: "🔒"
+                          }
+                        ].map((item, idx) => (
+                          <NavLink
+                            key={idx}
+                            to={item.to}
+                            className={({ isActive }) =>
+                              isActive
+                                ? "dropdown-item active-link"
+                                : "dropdown-item"
+                            }
+                            style={{ padding: "12px 20px" }}
+                          >
+                            <div className="metric-row">
+                              <span className="metric-icon">{item.icon}</span>
+                              <span className="metric-label">{item.label}</span>
+                              <span className="metric-value">{item.value}</span>
+                            </div>
+                          </NavLink>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {fetchError && (
+                    <div className="section error-message">
+                      <span style={{ color: "red", padding: "0 1rem" }}>
+                        {fetchError}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </li>
+          </>
+        )}
       </ul>
     </aside>
   );
