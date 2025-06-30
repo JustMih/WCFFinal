@@ -26,7 +26,6 @@ import {
 } from "@mui/material";
 
 // Custom Components
-import Card from "../../../../components/card/card";
 import ColumnSelector from "../../../../components/colums-select/ColumnSelector";
 import TicketFilters from "../../../../components/ticket/TicketFilters";
 
@@ -66,6 +65,24 @@ function AssignmentFlowChat({ assignmentHistory }) {
     </Box>
   );
 }
+
+const Card = ({ title, data, color, icon }) => (
+  <div className="crm-card">
+    <div className="crm-header">
+      <h4> {icon}{title}</h4>
+    </div>
+    <div className="crm-card-body" style={{ backgroundColor: color }}>
+      <div className="crm-card-data">
+        {Object.entries(data).map(([key, value]) => (
+          <div key={key} className="data-item">
+            <h4>{key}</h4>
+            <p>{value}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
 
 export default function FocalPersonDashboard() {
   const [tickets, setTickets] = useState([]);
@@ -207,7 +224,7 @@ export default function FocalPersonDashboard() {
       console.log("Fetching dashboard counts for ID:", id);
 
       const response = await axios.get(
-        `${baseURL}/focal-person/dashboard-counts`,
+        `${baseURL}/ticket/dashboard-counts/${id}`,
         {
           headers: {
             Authorization: `Bearer ${token}`
@@ -217,7 +234,7 @@ export default function FocalPersonDashboard() {
 
       console.log("Dashboard counts response:", response.data);
 
-      const data = response.data;
+      const data = response.data.ticketStats;
 
       if (data && typeof data === "object") {
         // Set the dashboard counts based on the response
