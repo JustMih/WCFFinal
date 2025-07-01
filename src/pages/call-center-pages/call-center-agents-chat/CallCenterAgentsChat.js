@@ -107,10 +107,7 @@ const CallCenterAgentChat = () => {
 
   return (
     <Card className="chat-card">
-      <CardHeader
-        title="Chat with Supervisor"
-        className="chat-header"
-      />
+      <CardHeader title="Chat with Supervisor" className="chat-header" />
       <CardContent className="chat-body">
         {/* Left: Supervisor List */}
         <div className="supervisor-pane">
@@ -123,8 +120,9 @@ const CallCenterAgentChat = () => {
                 <div
                   key={supervisor.id}
                   onClick={() => setSelectedSupervisor(supervisor.id)}
-                  className={`supervisor-item ${selectedSupervisor === supervisor.id ? "selected" : ""
-                    }`}
+                  className={`supervisor-item ${
+                    selectedSupervisor === supervisor.id ? "selected" : ""
+                  }`}
                 >
                   <div className="avatar">
                     {supervisor.name?.charAt(0).toUpperCase()}
@@ -144,7 +142,8 @@ const CallCenterAgentChat = () => {
           {/* Chat Header */}
           {selectedSupervisor && (
             <div className="chatting-with">
-              Chatting with {supervisors.find(s => s.id === selectedSupervisor)?.name}
+              Chatting with{" "}
+              {supervisors.find((s) => s.id === selectedSupervisor)?.name}
             </div>
           )}
 
@@ -159,10 +158,13 @@ const CallCenterAgentChat = () => {
                 >
                   {msg.message}
                   <div className="chat-timestamp">
-                    {new Date(msg.timestamp || Date.now()).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                    {new Date(msg.timestamp || Date.now()).toLocaleTimeString(
+                      [],
+                      {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }
+                    )}
                   </div>
                 </div>
               );
@@ -190,7 +192,6 @@ const CallCenterAgentChat = () => {
         </div>
       </CardContent>
     </Card>
-
   );
 };
 

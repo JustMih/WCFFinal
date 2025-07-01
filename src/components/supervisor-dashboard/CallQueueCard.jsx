@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { FaUsers, FaClock, FaExclamationTriangle } from "react-icons/fa";
 import "./CallQueueCard.css";
-import { amiURL } from "../../config";
+import { amiURL, baseURL } from "../../config";
 
 // Helper function for wait time color coding
 const getWaitTimeClass = (waitTime) => {
@@ -25,21 +25,35 @@ const CallQueueCard = () => {
   const [queueData, setQueueData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [calling, setCalling] = useState([]); // State for "calling" status calls
 
   const fetchQueueData = async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${amiURL}/api/queue-call-stats`);
+      const response = await fetch(`${baseURL}/livestream/live-calls`);
       if (!response.ok) throw new Error("Failed to fetch queue data");
       const data = await response.json();
       setQueueData(data);
+
+      const callingCalls = data.filter((call) => call.status === "calling");
+      setCalling(callingCalls);
+
     } catch (err) {
       setError("Failed to load queue data");
       setQueueData(null);
     } finally {
       setLoading(false);
     }
+  };
+
+  const getCallType = (caller) => {
+    if (caller.startsWith("1")) {
+      return "outbound";
+    } else if (caller.startsWith("+") || caller.startsWith("0")) {
+      return "inbound";
+    }
+    return "unknown";
   };
 
   useEffect(() => {
@@ -86,7 +100,9 @@ const CallQueueCard = () => {
             <FaClock />
           </div>
           <div className="queue-stat-info">
-            <span className="queue-stat-value">{queueData.averageWaitTime}</span>
+            <span className="queue-stat-value">
+              {queueData.averageWaitTime}
+            </span>
             <span className="queue-stat-label">Avg Wait Time</span>
           </div>
         </div>
@@ -104,41 +120,58 @@ const CallQueueCard = () => {
         <table className="waiting-calls-table">
           <thead>
             <tr>
-              <th>Queue ID</th>
-              <th>Customer</th>
-              <th>Wait Time</th>
-              <th>Priority</th>
-              <th>Call Type</th>
+              <th>Source</th>
+              <th>Destination</th>
               <th>Status</th>
+              <th>Duration</th>
+              <th>Call Type</th>
+              <th>Action</th>
             </tr>
           </thead>
           <tbody>
-            {waitingCalls.length > 0 ? (
-              waitingCalls.map((call) => (
-                <tr key={call.id} className={call.priority === 'High' ? 'priority-row-high' : ''}>
-                  <td className="queue-id">{call.id}</td>
-                  <td className="customer-number">{call.customer}</td>
+            {calling.length > 0 ? (
+              calling.map((call) => (
+                <tr
+                  key={call.id}
+                  className={
+                    call.priority === "High" ? "priority-row-high" : ""
+                  }
+                >
+                  <td className="queue-id">{call.caller}</td>
+                  <td className="customer-number">{call.callee}</td>
                   <td>
-                    <span className={`wait-time-badge ${getWaitTimeClass(call.waitTime)}`}>
-                      {call.waitTime}
+                    <span
+                      className={`wait-time-badge ${getWaitTimeClass(
+                        call.status
+                      )}`}
+                    >
+                      {call.status}
                     </span>
                   </td>
                   <td>
-                    <span className={`priority-badge ${call.priority.toLowerCase()}`}>
-                      {call.priority}
+                    <span
+                      className={`priority-badge ${call.priority.toLowerCase()}`}
+                    >
+                      {call.estimated_wait_time}
                     </span>
                   </td>
-                  <td className="call-type">{call.callType}</td>
-                  <td>
-                    <span className={`status-badge ${getQueueCallStatus(call).toLowerCase()}`}>
+                  <td className="call-type">{getCallType(call.caller)}</td>
+                  {/* <td>
+                    <span
+                      className={`status-badge ${getQueueCallStatus(
+                        call
+                      ).toLowerCase()}`}
+                    >
                       {getQueueCallStatus(call)}
                     </span>
-                  </td>
+                  </td> */}
                 </tr>
               ))
             ) : (
               <tr>
-                <td colSpan="6" style={{ textAlign: 'center' }}>No waiting calls in the queue.</td>
+                <td colSpan="6" style={{ textAlign: "center" }}>
+                  No waiting calls in the queue.
+                </td>
               </tr>
             )}
           </tbody>
