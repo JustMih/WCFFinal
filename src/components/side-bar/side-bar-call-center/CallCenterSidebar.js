@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import { RxDashboard } from "react-icons/rx";
 import { MdOutlineSupportAgent, MdOutlineAudiotrack } from "react-icons/md";
@@ -7,25 +7,54 @@ import {
   FaRegUser,
   FaInstagram,
   FaFacebook,
-  FaWhatsapp
+  FaWhatsapp,
 } from "react-icons/fa6";
 import { TiFlowSwitch } from "react-icons/ti";
 import { GiVrHeadset } from "react-icons/gi";
 import { BsChatRightTextFill } from "react-icons/bs";
 import logo from "../../../asserts/images/logo.png";
 import "./callCenterSidebar.css";
-import {
-  Collapse,
-  List,
-  ListItemButton,
-  Badge
-} from "@mui/material";
-export default function CallCenterSidebar({ isSidebarOpen, role, instagramUnreadCount = 0 }) {
+import { baseURL } from "../../../config";
+import { Collapse, List, ListItemButton, Badge } from "@mui/material";
+export default function CallCenterSidebar({
+  isSidebarOpen,
+  role,
+  instagramUnreadCount = 0,
+}) {
   const [openSocial, setOpenSocial] = useState(false);
   const toggleSocialMenu = () => setOpenSocial((prev) => !prev);
 
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  const userId = localStorage.getItem("userId");
+
+  useEffect(() => {
+    // Fetch the unread messages count
+    const fetchUnreadMessagesCount = async () => {
+      try {
+        const response = await fetch(
+          `${baseURL}/users/unread-messages/${userId}`
+        );
+        if (!response.ok) {
+          throw new Error("Failed to fetch unread messages");
+        }
+        const data = await response.json();
+        setUnreadMessagesCount(data.unreadCount || 0);
+      } catch (error) {
+        console.error("Error fetching unread messages count:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUnreadMessagesCount();
+  }, [userId]);
+
   return (
-    <aside className={`call-center-sidebar ${isSidebarOpen ? "open" : "closed"}`}>
+    <aside
+      className={`call-center-sidebar ${isSidebarOpen ? "open" : "closed"}`}
+    >
       {isSidebarOpen && (
         <img src={logo} alt="Avatar" className="sidebar-logo" />
       )}
@@ -211,15 +240,20 @@ export default function CallCenterSidebar({ isSidebarOpen, role, instagramUnread
     {isSidebarOpen && <span className="menu-text">Recorded Audio</span>}
   </div>
 </NavLink> */}
-<NavLink to="/ivr-cards" className={({ isActive }) => (isActive ? "menu-item active-link" : "menu-item")}>
-  <div className="menu-item">
-    <GiVrHeadset className="menu-icon" />
-    {isSidebarOpen && <span className="menu-text">IVR Management</span>}
-  </div>
-</NavLink>
-
+              <NavLink
+                to="/ivr-cards"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <GiVrHeadset className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">IVR Management</span>
+                  )}
+                </div>
+              </NavLink>
             </>
-            
           )}
           {role === "agent" && (
             <>
@@ -247,19 +281,29 @@ export default function CallCenterSidebar({ isSidebarOpen, role, instagramUnread
                   {isSidebarOpen && (
                     <span className="menu-text">Supervisor Chat</span>
                   )}
+                  {/* Display badge if there are unread messages */}
+                  {!loading && unreadMessagesCount > 0 && (
+                    <Badge
+                      badgeContent={unreadMessagesCount}
+                      color="error"
+                      sx={{ marginLeft: 1 }}
+                    />
+                  )}
                 </div>
               </NavLink>
               <NavLink
-                  to="/voice-notes"
-                  className={({ isActive }) =>
-                    isActive ? "menu-item active-link" : "menu-item"
-                  }
-                >
-                  <div className="menu-item">
-                    <MdOutlineAudiotrack className="menu-icon" />
-                    {isSidebarOpen && <span className="menu-text">Voice Notes Reports</span>}
-                  </div>
-                </NavLink>
+                to="/voice-notes"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <MdOutlineAudiotrack className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">Voice Notes Reports</span>
+                  )}
+                </div>
+              </NavLink>
             </>
           )}
           {role === "supervisor" && (
@@ -286,7 +330,7 @@ export default function CallCenterSidebar({ isSidebarOpen, role, instagramUnread
                 <div className="menu-item">
                   <RxDashboard className="menu-icon" />
                   {isSidebarOpen && (
-                    <span className="menu-text">Supervisor Dashboard2</span>
+                    <span className="menu-text">Supervisor Dashboard Two</span>
                   )}
                 </div>
               </NavLink>
@@ -328,11 +372,19 @@ export default function CallCenterSidebar({ isSidebarOpen, role, instagramUnread
                   {isSidebarOpen && (
                     <span className="menu-text">Agents Chat</span>
                   )}
+                  {/* Display badge if there are unread messages */}
+                  {!loading && unreadMessagesCount > 0 && (
+                    <Badge
+                      badgeContent={unreadMessagesCount}
+                      color="error"
+                      sx={{ marginLeft: 1,}}
+                    />
+                  )}
                 </div>
               </NavLink>
 
               {/* Social Notifications Toggle */}
-              <ListItemButton 
+              <ListItemButton
                 onClick={toggleSocialMenu}
                 className={openSocial ? "active-link" : "menu-item"}
                 sx={{ padding: 0 }}
@@ -347,7 +399,11 @@ export default function CallCenterSidebar({ isSidebarOpen, role, instagramUnread
 
               {/* Dropdown */}
               <Collapse in={openSocial} timeout="auto" unmountOnExit>
-                <List component="div" disablePadding sx={{ marginLeft: '1rem' }}>
+                <List
+                  component="div"
+                  disablePadding
+                  sx={{ marginLeft: "1rem" }}
+                >
                   <NavLink
                     to="/social-message"
                     className={({ isActive }) =>
@@ -362,7 +418,9 @@ export default function CallCenterSidebar({ isSidebarOpen, role, instagramUnread
                       >
                         <FaInstagram className="menu-icon" color="#E1306C" />
                       </Badge>
-                      {isSidebarOpen && <span className="menu-text">Instagram</span>}
+                      {isSidebarOpen && (
+                        <span className="menu-text">Instagram</span>
+                      )}
                     </div>
                   </NavLink>
 
@@ -374,7 +432,9 @@ export default function CallCenterSidebar({ isSidebarOpen, role, instagramUnread
                   >
                     <div className="menu-item">
                       <FaFacebook className="menu-icon" color="#1877F3" />
-                      {isSidebarOpen && <span className="menu-text">Facebook</span>}
+                      {isSidebarOpen && (
+                        <span className="menu-text">Facebook</span>
+                      )}
                     </div>
                   </NavLink>
 
@@ -386,7 +446,9 @@ export default function CallCenterSidebar({ isSidebarOpen, role, instagramUnread
                   >
                     <div className="menu-item">
                       <FaWhatsapp className="menu-icon" color="#25D366" />
-                      {isSidebarOpen && <span className="menu-text">WhatsApp</span>}
+                      {isSidebarOpen && (
+                        <span className="menu-text">WhatsApp</span>
+                      )}
                     </div>
                   </NavLink>
                 </List>
