@@ -1,0 +1,203 @@
+.supervisor-chat-card {
+  max-width: 1200px;
+  width: 100%;
+  margin: 40px auto;
+  background: #f9f9f9;
+  border-radius: 12px;
+}
+
+.supervisor-chat-header {
+  background: #1976d2;
+  color: white;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
+  text-align: center;
+}
+
+.supervisor-chat-body {
+  display: flex;
+  flex-direction: row;
+  gap: 20px;
+  height: 600px;
+  padding: 16px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* Agent Panel */
+.agent-list {
+  width: 260px;
+  border-right: 1px solid #ccc;
+  padding-right: 12px;
+  display: flex;
+  flex-direction: column;
+}
+
+.agent-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #1976d2;
+  margin-bottom: 10px;
+}
+
+.agent-scroll {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.agent-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.2s ease;
+}
+
+.agent-item:hover {
+  background: #f0f0f0;
+}
+
+.agent-item.selected {
+  background: #e3f2fd;
+}
+
+.agent-name {
+  font-weight: 500;
+  font-size: 15px;
+  color: #333;
+}
+
+.avatar {
+  width: 34px;
+  height: 34px;
+  background: #1976d2;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+/* Chat Panel */
+.supervisor-chat-pane {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.chatting-with {
+  font-weight: 600;
+  font-size: 15px;
+  margin-bottom: 10px;
+  text-align: center;
+  color: #444;
+}
+
+.chat-window {
+  flex-grow: 1;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.chat-bubble {
+  padding: 10px 14px;
+  border-radius: 16px;
+  max-width: 75%;
+  font-size: 15px;
+  position: relative;
+  word-break: break-word;
+}
+
+.chat-bubble.supervisor {
+  align-self: flex-end;
+  background: #1976d2;
+  color: white;
+}
+
+.chat-bubble.agent {
+  align-self: flex-start;
+  background: #e0e0e0;
+  color: #000;
+}
+
+.chat-timestamp {
+  font-size: 10px;
+  text-align: right;
+  margin-top: 4px;
+  opacity: 0.6;
+}
+
+.chat-input-wrapper {
+  display: flex;
+  gap: 10px;
+}
+
+.chat-input {
+  flex-grow: 1;
+  padding: 10px 14px;
+  font-size: 15px;
+  border: 1px solid #ccc;
+  border-radius: 20px;
+}
+
+.send-button {
+  padding: 10px 24px !important;
+  font-weight: 600 !important;
+  border-radius: 12px !important;
+}
+
+/* Mobile Responsiveness */
+.desktop-only {
+  display: block;
+}
+
+.mobile-only {
+  display: none;
+}
+
+/* Unread message badge */
+.unread-badge {
+  background-color: red; /* Red background for unread badge */
+  color: white; /* White text color */
+  border-radius: 50%; /* Makes the badge round */
+  padding: 1px 1px; /* Padding for a small round appearance */
+  font-size: 0.75rem; /* Small font size */
+  display: inline-flex; /* Ensures it stays inline with the name */
+  align-items: center; /* Vertically centers the badge */
+  justify-content: center; /* Horizontally centers the badge */
+  min-width: 20px; /* Minimum width for the badge */
+  height: 20px; /* Equal height to make it round */
+  margin-right: 3px;
+}
+
+@media (max-width: 768px) {
+  .supervisor-chat-body {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .desktop-only {
+    display: none;
+  }
+
+  .mobile-only {
+    display: block;
+  }
+
+  .agent-list.mobile-pane {
+    width: 250px;
+    padding: 16px;
+  }
+}

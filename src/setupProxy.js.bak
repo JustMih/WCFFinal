@@ -1,0 +1,16 @@
+console.log(">>> setupProxy.js loaded <<<");
+
+const { createProxyMiddleware } = require('http-proxy-middleware');
+
+module.exports = function(app) {
+  console.log(">>> Proxy applied to /ari <<<");
+
+  app.use(
+    '/ari',
+    createProxyMiddleware({
+      target: 'http://10.52.0.19:8088',
+      changeOrigin: true,
+      secure: false,
+    })
+  );
+};

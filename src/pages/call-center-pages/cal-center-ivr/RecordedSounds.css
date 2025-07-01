@@ -1,0 +1,36 @@
+.recorded-sounds {
+  padding: 20px;
+}
+
+h2 {
+  margin-bottom: 20px;
+  color: var(--text-color); /* Adjust based on your theme */
+}
+
+.voice-notes-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: var(--background-color); /* Adjust based on your theme */
+}
+
+.voice-notes-table th,
+.voice-notes-table td {
+  padding: 10px;
+  text-align: left;
+  border-bottom: 1px solid #ddd;
+}
+
+.voice-notes-table th {
+  background-color: #f4f4f4;
+  color: #333;
+}
+
+.voice-notes-table audio {
+  width: 200px;
+}
+
+@media (max-width: 768px) {
+  .voice-notes-table audio {
+    width: 150px;
+  }
+}

@@ -1,0 +1,199 @@
+.navbar {
+  background-color: var(--background-color);
+  color: white;
+  padding: 10px;
+  height: 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: fixed; /* Fix the navbar at the top */
+  top: 0; /* Align with the top of the screen */
+  width: 100%; /* Ensure it spans the full width of the screen */
+  z-index: 1000; /* Optional: Ensure the navbar stays on top of other content */
+}
+.navbar-left {
+  display: flex;
+  align-items: center;
+  margin-left: 240px;
+}
+.navbar-left.closed {
+  margin-left: 60px;
+}
+.navbar-title {
+  font-size: 18px;
+  font-weight: bold;
+  margin-right: 20px;
+  color: var(--active-color);
+}
+.navbar-right {
+  display: flex;
+  align-items: center;
+  margin-right: 20px;
+}
+.theme-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: 10px;
+  color: var(--active-color);
+}
+.navbar-profile-container {
+  position: relative;
+  cursor: pointer;
+}
+.navbar-profile {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 10px;
+  background-color: var(--sidebar-color);
+  color: var(--active-color);
+  border-radius: 10px;
+  gap: 5px;
+  font-size: 15px;
+}
+.navbar-profile-icon {
+  font-size: 1.5rem;
+  color: var(--active-color);
+}
+.navbar-dropdown-menu {
+  display: none;
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background-color: var(--sidebar-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  min-width: 200px;
+  padding: 10px;
+  margin-top: 0px;
+  z-index: 1000;
+}
+.navbar-profile-container:hover .navbar-dropdown-menu {
+ display: block;
+}
+
+.navbar-service-button {
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-family);
+  color: var(--active-color);
+  font-size: 0.8rem;
+  width: 100%;
+  padding: 10px;
+  text-align: left;
+  border-radius: 8px;
+  margin-bottom: 5px;
+}
+
+.navbar-service-button:hover {
+  background-color: var(--hover-color);
+  font-weight: bold;
+}
+
+.menu-icon {
+  font-size: 1.5rem;
+  color: var(--active-color);
+  cursor: pointer;
+}
+.navbar-icon{
+  font-size: 1.5rem;
+  color: var(--active-color);
+  margin-right: 15px;
+  cursor: pointer;
+}
+.navbar-system-icons{
+  display: flex;
+  align-items: center;
+  color: var(--active-color);
+  gap: 10px;
+}
+.active-button {
+  background-color: var(--hover-color) !important;
+  color: var(--active-color);
+}
+.navbar-system-icons:hover {
+  cursor: pointer;
+  opacity: 0.8;
+}
+
+.navbar-notification-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.navbar-notification-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  background-color: var(--sidebar-color);
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  min-width: 300px;
+  max-height: 400px;
+  overflow-y: auto;
+  z-index: 1000;
+  margin-top: 10px;
+}
+
+.notification-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.notification-item:hover {
+  background-color: var(--hover-color);
+}
+
+.notification-item.unread {
+  background-color: rgba(0, 123, 255, 0.1);
+  border-left: 4px solid #007bff;
+}
+
+.notification-message {
+  color: var(--active-color);
+  font-size: 14px;
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.notification-type {
+  color: #007bff;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.notification-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--active-color);
+  font-size: 14px;
+}
+
+/* Custom scrollbar for notification dropdown */
+.navbar-notification-dropdown::-webkit-scrollbar {
+  width: 6px;
+}
+
+.navbar-notification-dropdown::-webkit-scrollbar-track {
+  background: var(--sidebar-color);
+}
+
+.navbar-notification-dropdown::-webkit-scrollbar-thumb {
+  background: #007bff;
+  border-radius: 3px;
+}
+
+.navbar-notification-dropdown::-webkit-scrollbar-thumb:hover {
+  background: #0056b3;
+}
