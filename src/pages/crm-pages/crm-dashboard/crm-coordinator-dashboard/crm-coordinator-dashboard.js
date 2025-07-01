@@ -101,6 +101,7 @@ export default function CoordinatorDashboard() {
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [detailsModalTicket, setDetailsModalTicket] = useState(null);
+  const [detailsModalAssignmentHistory, setDetailsModalAssignmentHistory] = useState([]);
 
   // Initialize activeColumns with default columns if empty
   useEffect(() => {
@@ -539,10 +540,7 @@ export default function CoordinatorDashboard() {
         <button
           className="view-ticket-details-btn"
           title="View"
-          onClick={() => {
-            setDetailsModalTicket(ticket);
-            setIsDetailsModalOpen(true);
-          }}
+          onClick={() => openDetailsModal(ticket)}
         >
           <FaEye />
         </button>
@@ -720,6 +718,22 @@ export default function CoordinatorDashboard() {
     detailPairs.push([details[i], details[i + 1]]);
   }
 
+  const openDetailsModal = async (ticket) => {
+    setDetailsModalTicket(ticket);
+    setIsDetailsModalOpen(true);
+    // Fetch assignment history for the ticket
+    try {
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(`${baseURL}/ticket/${ticket.id}/assignments`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setDetailsModalAssignmentHistory(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setDetailsModalAssignmentHistory([]);
+    }
+  };
+
   return (
     <div className="coordinator-dashboard-container">
       <h2 className="title">Coordinator Dashboard</h2>
@@ -859,10 +873,7 @@ export default function CoordinatorDashboard() {
                     <button
                       className="view-ticket-details-btn"
                       title="View"
-                      onClick={() => {
-                        setDetailsModalTicket(ticket);
-                        setIsDetailsModalOpen(true);
-                      }}
+                      onClick={() => openDetailsModal(ticket)}
                     >
                       <FaEye />
                     </button>
@@ -918,7 +929,7 @@ export default function CoordinatorDashboard() {
   open={isDetailsModalOpen}
   onClose={() => setIsDetailsModalOpen(false)}
   selectedTicket={detailsModalTicket}
-  assignmentHistory={detailsModalTicket?.assignmentHistory || []}
+  assignmentHistory={detailsModalAssignmentHistory}
   handleRating={handleRating}
   handleConvertOrForward={handleConvertOrForward}
   handleCategoryChange={handleCategoryChange}

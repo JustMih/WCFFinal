@@ -224,21 +224,21 @@ export default function FocalPersonDashboard() {
       );
       const stats = response.data.ticketStats;
       // Map unified fields to cards
-      setNewTickets({
+        setNewTickets({
         "New Tickets": stats.newTickets || 0,
         "Assigned": stats.assigned || 0,
         "Escalated": stats.escalated || 0
-      });
-      setTotalTickets({
+        });
+        setTotalTickets({
         "Total": stats.total || 0,
         "Closed": stats.closed || 0
-      });
-      setTicketCategories({
+        });
+        setTicketCategories({
         "Open": stats.open || 0,
         "In Progress": stats.inProgress || 0,
         "Carried Forward": stats.carriedForward || 0
-      });
-      setTicketStatus({
+        });
+        setTicketStatus({
         "Overdue": stats.overdue || 0,
         "Pending": stats.pending || 0,
         "SLA Breaches": stats.slaBreaches || 0
@@ -708,17 +708,17 @@ export default function FocalPersonDashboard() {
                   )}
                   <td>
                     {!["agent", "coordinator", "attendee"].includes(role) && (
-                      <Tooltip title="View Details">
-                        <button
-                          className="view-ticket-details-btn"
+                    <Tooltip title="View Details">
+                      <button
+                        className="view-ticket-details-btn"
                           onClick={() => {
                             setSelectedTicket(ticket);
                             setIsModalOpen(true);
                           }}
-                        >
-                          <FaEye />
-                        </button>
-                      </Tooltip>
+                      >
+                        <FaEye />
+                      </button>
+                    </Tooltip>
                     )}
                   </td>
                 </tr>
@@ -763,7 +763,7 @@ export default function FocalPersonDashboard() {
 
       {/* Ticket Details Modal */}
       <TicketDetailsModal
-        open={isModalOpen}
+  open={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         selectedTicket={selectedTicket}
         assignmentHistory={assignmentHistory}

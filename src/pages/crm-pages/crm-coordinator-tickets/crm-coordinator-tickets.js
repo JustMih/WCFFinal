@@ -18,6 +18,7 @@ import ColumnSelector from "../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../config";
 import "../crm-tickets/ticket.css";
 import TicketActions from "../../../components/coordinator/TicketActions";
+import TicketDetailsModal from '../../../components/TicketDetailsModal';
 
 export default function CRMCoordinatorTickets() {
   const { status } = useParams();
@@ -30,6 +31,7 @@ export default function CRMCoordinatorTickets() {
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
+  const [assignmentHistory, setAssignmentHistory] = useState([]);
   const DEFAULT_COLUMNS = [
     "id",
     "fullName",
@@ -90,14 +92,26 @@ export default function CRMCoordinatorTickets() {
     }
   };
 
-  const openModal = (ticket) => {
+  const openModal = async (ticket) => {
     setSelectedTicket(ticket);
     setIsModalOpen(true);
+    // Fetch assignment history for the ticket
+    try {
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(`${baseURL}/ticket/${ticket.id}/assignments`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setAssignmentHistory(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setAssignmentHistory([]);
+    }
   };
 
   const closeModal = () => {
     setIsModalOpen(false);
     setSelectedTicket(null);
+    setAssignmentHistory([]);
   };
 
   const filteredTickets = tickets.filter((ticket) => {
@@ -380,241 +394,21 @@ export default function CRMCoordinatorTickets() {
         </div>
       </div>
 
-      {/* Details Modal */}
-      <Modal
+      <TicketDetailsModal
         open={isModalOpen}
-        onClose={closeModal}
-        aria-labelledby="ticket-details-title"
-        aria-describedby="ticket-details-description"
-      >
-        <Box
-          sx={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: { xs: "90%", sm: 600 },
-            maxHeight: "85vh",
-            overflowY: "auto",
-            bgcolor: "background.paper",
-            boxShadow: 24,
-            borderRadius: 2,
-            p: 3,
-          }}
-        >
-          {selectedTicket && (
-            <>
-              <Typography
-                id="ticket-details-title"
-                variant="h5"
-                sx={{ fontWeight: "bold", color: "#1976d2", mb: 2 }}
-              >
-                Ticket Details #{selectedTicket.id}
-              </Typography>
-
-              {/* Action Buttons at Top */}
-              <Box sx={{ mb: 3, display: 'flex', gap: 2, alignItems: 'center' }}>
-                <TicketActions 
-                  ticket={selectedTicket}
-                  onTicketUpdate={handleTicketUpdate}
-                />
-              </Box>
-
-              {/* Personal Information Section */}
-              <Typography variant="h6" sx={{ color: "#1976d2", mb: 1 }}>
-                Personal Information
-              </Typography>
-              <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Full Name:</strong> {`${selectedTicket.first_name || ""} ${selectedTicket.middle_name || ""} ${selectedTicket.last_name || ""}`}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Phone:</strong> {selectedTicket.phone_number || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Email:</strong> {selectedTicket.email || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>NIDA:</strong> {selectedTicket.nida_number || "N/A"}
-                  </Typography>
-                </Grid>
-              </Grid>
-
-              {/* Ticket Information Section */}
-              <Typography variant="h6" sx={{ color: "#1976d2", mb: 1 }}>
-                Ticket Information
-              </Typography>
-              <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Category:</strong> {selectedTicket.category || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Status:</strong>{" "}
-                    <span style={{
-                      color: selectedTicket.status === "Open" ? "green" :
-                             selectedTicket.status === "Closed" ? "gray" :
-                             "blue"
-                    }}>
-                      {selectedTicket.status || "N/A"}
-                    </span>
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Subject:</strong> {selectedTicket.subject || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Created At:</strong> {selectedTicket.created_at ? new Date(selectedTicket.created_at).toLocaleString("en-GB") : "N/A"}
-                  </Typography>
-                </Grid>
-              </Grid>
-
-              {/* Assignment Information Section */}
-              <Typography variant="h6" sx={{ color: "#1976d2", mb: 1 }}>
-                Assignment Information
-              </Typography>
-              <Grid container spacing={2} sx={{ mb: 3 }}>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Assigned Role:</strong> {selectedTicket.assigned_to_role || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Assigned To:</strong> {selectedTicket.assigned_to || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Responsible Unit:</strong> {selectedTicket.responsible_unit || "N/A"}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography>
-                    <strong>Directorate:</strong> {selectedTicket.directorate || "N/A"}
-                  </Typography>
-                </Grid>
-              </Grid>
-
-              {/* Description Section */}
-              <Typography variant="h6" sx={{ color: "#1976d2", mb: 1 }}>
-                Description
-              </Typography>
-              <Box sx={{ mb: 3, p: 2, bgcolor: "#f5f5f5", borderRadius: 1 }}>
-                <Typography>
-                  {selectedTicket.description || "No description provided"}
-                </Typography>
-              </Box>
-
-              {/* Resolution Section - Only shown if exists */}
-              {selectedTicket.resolution && (
-                <>
-                  <Typography variant="h6" sx={{ color: "#1976d2", mb: 1 }}>
-                    Resolution
-                  </Typography>
-                  <Grid container spacing={2} sx={{ mb: 3 }}>
-                    <Grid item xs={12}>
-                      <Typography>
-                        <strong>Resolution Type:</strong> {selectedTicket.resolution.type || "N/A"}
-                      </Typography>
-                    </Grid>
-                    <Grid item xs={12}>
-                      <Box sx={{ p: 2, bgcolor: "#f5f5f5", borderRadius: 1 }}>
-                        <Typography>
-                          <strong>Resolution Details:</strong> {selectedTicket.resolution.details || "N/A"}
-                        </Typography>
-                      </Box>
-                    </Grid>
-                  </Grid>
-                </>
-              )}
-
-              {/* Convert and Forward Actions */}
-              <Typography variant="h6" sx={{ color: "#1976d2", mb: 1 }}>
-                Actions
-              </Typography>
-              <Box sx={{ mb: 3, display: "flex", flexDirection: "column", gap: 2 }}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <select
-                    style={{ 
-                      padding: "8px 12px", 
-                      fontSize: "0.9rem", 
-                      height: "40px", 
-                      borderRadius: "4px",
-                      minWidth: "200px",
-                      border: "1px solid #ccc"
-                    }}
-                    value={convertCategory[selectedTicket.id] || ""}
-                    onChange={(e) =>
-                      setConvertCategory((prev) => ({ ...prev, [selectedTicket.id]: e.target.value }))
-                    }
-                  >
-                    <option value="">Convert To</option>
-                    {categories.map((cat) => (
-                      <option key={cat} value={cat}>{cat}</option>
-                    ))}
-                  </select>
-                  <Button 
-                    variant="contained" 
-                    onClick={() => handleConvertOrForward(selectedTicket.id)}
-                  >
-                    Convert
-                  </Button>
-                </Box>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                  <select
-                    style={{ 
-                      padding: "8px 12px", 
-                      fontSize: "0.9rem", 
-                      height: "40px", 
-                      borderRadius: "4px",
-                      minWidth: "200px",
-                      border: "1px solid #ccc"
-                    }}
-                    value={forwardUnit[selectedTicket.id] || ""}
-                    onChange={(e) =>
-                      setForwardUnit((prev) => ({ ...prev, [selectedTicket.id]: e.target.value }))
-                    }
-                  >
-                    <option value="">Forward To Unit</option>
-                    {units.map((unit) => (
-                      <option key={unit.id} value={unit.id}>{unit.name}</option>
-                    ))}
-                  </select>
-                  <Button 
-                    variant="contained" 
-                    onClick={() => handleConvertOrForward(selectedTicket.id)}
-                  >
-                    Forward
-                  </Button>
-                </Box>
-              </Box>
-
-              {/* Close Modal Button */}
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <Button 
-                  variant="outlined" 
-                  onClick={closeModal}
-                >
-                  Close Modal
-                </Button>
-              </Box>
-            </>
-          )}
-        </Box>
-      </Modal>
+        onClose={() => { setIsModalOpen(false); setSelectedTicket(null); setAssignmentHistory([]); }}
+        selectedTicket={selectedTicket}
+        assignmentHistory={assignmentHistory}
+        handleConvertOrForward={handleConvertOrForward}
+        handleCategoryChange={(ticketId, value) => setConvertCategory((prev) => ({ ...prev, [ticketId]: value }))}
+        handleUnitChange={(ticketId, value) => setForwardUnit((prev) => ({ ...prev, [ticketId]: value }))}
+        categories={categories}
+        units={units}
+        convertCategory={convertCategory}
+        forwardUnit={forwardUnit}
+        refreshTickets={fetchTickets}
+        setSnackbar={setSnackbar}
+      />
 
       <ColumnSelector
         open={isColumnModalOpen}

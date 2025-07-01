@@ -204,6 +204,24 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
                   </span>
                 )}
               </Typography>
+              {/* Attachment/Evidence link if present, else show 'No attachment' */}
+              {a.attachment_path ? (
+                <Typography variant="body2" color="primary">
+                  <a href={`${baseURL}/${a.attachment_path}`} target="_blank" rel="noopener noreferrer">
+                    View Attachment
+                  </a>
+                </Typography>
+              ) : a.evidence_url ? (
+                <Typography variant="body2" color="primary">
+                  <a href={a.evidence_url} target="_blank" rel="noopener noreferrer">
+                    View Evidence
+                  </a>
+                </Typography>
+              ) : (
+                <Typography variant="body2" color="text.secondary">
+                  No attachment
+                </Typography>
+              )}
             </Box>
           </Box>
         );
@@ -308,6 +326,11 @@ export default function TicketDetailsModal({
   const [resolutionType, setResolutionType] = useState("");
   const [isCoordinatorCloseDialogOpen, setIsCoordinatorCloseDialogOpen] = useState(false);
 
+  // Reverse modal state
+  const [isReverseModalOpen, setIsReverseModalOpen] = useState(false);
+  const [reverseReason, setReverseReason] = useState("");
+  const [isReversing, setIsReversing] = useState(false);
+
   const showAttendButton =
     // (userRole === "agent" || userRole === "attendee") &&
     selectedTicket &&
@@ -406,6 +429,36 @@ export default function TicketDetailsModal({
     }
   };
 
+  // Reverse handler
+  const handleReverse = async () => {
+    setIsReversing(true);
+    try {
+      const token = localStorage.getItem("authToken");
+      const response = await fetch(`${baseURL}/ticket/${selectedTicket.id}/reverse`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ userId, reason: reverseReason })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setSnackbar({ open: true, message: data.message, severity: "success" });
+        refreshTickets();
+        setIsReverseModalOpen(false);
+        onClose();
+      } else {
+        setSnackbar({ open: true, message: data.message, severity: "error" });
+      }
+    } catch (error) {
+      setSnackbar({ open: true, message: error.message, severity: "error" });
+    } finally {
+      setIsReversing(false);
+      setReverseReason("");
+    }
+  };
+
   return (
     <>
       <Modal
@@ -477,6 +530,8 @@ export default function TicketDetailsModal({
                             ? "blue"
                             : selectedTicket.status === "Assigned"
                             ? "orange"
+                            : selectedTicket.status === "Returned"
+                            ? "purple"
                             : "inherit"
                       }}
                     >
@@ -722,7 +777,29 @@ export default function TicketDetailsModal({
                     </Button>
                   </Box>
                 )}
-                
+
+                {/* Reverse and Assign buttons for roles other than agent, coordinator, attendee */}
+                {!["agent", "coordinator", "attendee"].includes(localStorage.getItem("role")) && (
+                  <>
+                    <Button
+                      variant="contained"
+                      color="warning"
+                      sx={{ mr: 1 }}
+                      onClick={() => setIsReverseModalOpen(true)}
+                      disabled={isReversing}
+                    >
+                      Reverse
+                    </Button>
+                    <Button
+                      variant="contained"
+                      color="info"
+                      sx={{ mr: 1 }}
+                      onClick={() => {/* handle assign logic here */}}
+                    >
+                      Assign
+                    </Button>
+                  </>
+                )}
                 <Button variant="outlined" onClick={onClose}>
                   Close
                 </Button>
@@ -859,6 +936,40 @@ export default function TicketDetailsModal({
                 Cancel
               </Button>
             </Box>
+          </Box>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reverse Modal */}
+      <Dialog open={isReverseModalOpen} onClose={() => setIsReverseModalOpen(false)}>
+        <DialogTitle>Reverse Ticket to Previous User</DialogTitle>
+        <DialogContent>
+          <TextField
+            label="Reason for Reversal"
+            multiline
+            rows={3}
+            value={reverseReason}
+            onChange={e => setReverseReason(e.target.value)}
+            fullWidth
+            sx={{ mt: 2 }}
+          />
+          <Box sx={{ mt: 2, textAlign: "right" }}>
+            <Button
+              variant="contained"
+              color="warning"
+              onClick={handleReverse}
+              disabled={isReversing || !reverseReason.trim()}
+            >
+              {isReversing ? "Reversing..." : "Confirm Reverse"}
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => setIsReverseModalOpen(false)}
+              sx={{ ml: 1 }}
+              disabled={isReversing}
+            >
+              Cancel
+            </Button>
           </Box>
         </DialogContent>
       </Dialog>
