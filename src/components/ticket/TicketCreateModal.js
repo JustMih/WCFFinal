@@ -256,11 +256,11 @@ export default function TicketCreateModal({ open, onClose, initialPhoneNumber = 
     }
   };
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e, action = "open") => {
     e.preventDefault();
     setLoading(true);
     setFormErrors({});
-    // Validate required fields
+    // Use CRM's required fields logic
     const requiredFields = {
       phoneNumber: "Phone Number",
       nidaNumber: "NIDA Number",
@@ -279,9 +279,14 @@ export default function TicketCreateModal({ open, onClose, initialPhoneNumber = 
       requiredFields.requesterPhoneNumber = "Representative Phone Number";
       requiredFields.relationshipToEmployee = "Relationship to Employee";
     }
+    if (formData.requester === "Employer") {
+      requiredFields.nidaNumber = "Employer Registration Number / TIN";
+      requiredFields.institution = "Employer Name";
+      requiredFields.phoneNumber = "Employer Phone";
+    }
     const errors = {};
     Object.entries(requiredFields).forEach(([key, label]) => {
-      if (!formData[key] || formData[key].trim() === "") {
+      if (!formData[key] || formData[key].toString().trim() === "") {
         errors[key] = `${label} is required`;
       }
     });
@@ -290,8 +295,32 @@ export default function TicketCreateModal({ open, onClose, initialPhoneNumber = 
       setLoading(false);
       return;
     }
-    // Prepare payload
-    const payload = { ...formData, status: submitAction === "closed" ? "Closed" : "Open" };
+    // Build payload as in CRM
+    let selectedSubject = functionData.find(fd => fd.id === formData.functionId);
+    let parentFunction = selectedSubject?.function || {};
+    let parentSection = parentFunction?.section || {};
+    const ticketData = {
+      ...formData,
+      subject: selectedSubject ? selectedSubject.name : "",
+      sub_section: parentFunction ? parentFunction.name : "",
+      section: parentSection ? parentSection.name : "",
+      responsible_unit_id: formData.functionId,
+      responsible_unit_name: parentSection ? parentSection.name : "",
+      status: action === "closed" ? "Closed" : "Open",
+      shouldClose: action === "closed",
+    };
+    // Employer-specific fields
+    if (formData.requester === "Employer") {
+      ticketData.employerRegistrationNumber = formData.nidaNumber;
+      ticketData.employerName = formData.institution;
+      ticketData.employerTin = formData.nidaNumber;
+      ticketData.employerPhone = formData.phoneNumber;
+      ticketData.employerEmail = formData.employerEmail || "";
+      ticketData.employerStatus = formData.employerStatus || "";
+      ticketData.employerAllocatedStaffId = formData.employerAllocatedStaffId || "";
+      ticketData.employerAllocatedStaffName = formData.employerAllocatedStaffName || "";
+      ticketData.employerAllocatedStaffUsername = formData.employerAllocatedStaffUsername || "";
+    }
     try {
       const token = localStorage.getItem("authToken");
       const response = await fetch(`${baseURL}/ticket/create-ticket`, {
@@ -300,7 +329,7 @@ export default function TicketCreateModal({ open, onClose, initialPhoneNumber = 
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(ticketData),
       });
       const data = await response.json();
       if (response.ok) {
@@ -694,6 +723,7 @@ export default function TicketCreateModal({ open, onClose, initialPhoneNumber = 
                 value={formData.functionId}
                 onChange={handleChange}
                 label="Subject"
+                disabled={functionData.length === 0}
               >
                 <MenuItem value="">Select Subject</MenuItem>
                 {functionData.map((item) => (
@@ -703,6 +733,14 @@ export default function TicketCreateModal({ open, onClose, initialPhoneNumber = 
                 ))}
               </Select>
               {formErrors.functionId && <Typography color="error" variant="caption">{formErrors.functionId}</Typography>}
+              {functionData.length === 0 && (
+                <Typography color="error" variant="caption">
+                  No subjects available. Please contact admin or try again later.
+                </Typography>
+              )}
+              <Typography variant="caption" color="textSecondary">
+                Subject is required.
+              </Typography>
             </FormControl>
             <TextField
               label="Sub-section"
@@ -737,7 +775,7 @@ export default function TicketCreateModal({ open, onClose, initialPhoneNumber = 
               type="submit"
               variant="contained"
               color="primary"
-              disabled={loading}
+              disabled={loading || functionData.length === 0}
               onClick={() => setSubmitAction("open")}
             >
               {loading ? <CircularProgress size={20} /> : "Submit to Backoffice"}
@@ -745,7 +783,7 @@ export default function TicketCreateModal({ open, onClose, initialPhoneNumber = 
             <Button
               variant="contained"
               style={{ background: "gray", color: "white" }}
-              disabled={loading}
+              disabled={loading || functionData.length === 0}
               onClick={(e) => {
                 setSubmitAction("closed");
                 handleSubmit(e);

@@ -1683,30 +1683,17 @@ export default function AgentsDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Create Ticket Modal */}
-      <Dialog
-        open={showCreateTicketModal}
-        onClose={() => setShowCreateTicketModal(false)}
+      {/* Create Ticket Button (example, place where appropriate) */}
+      <Button
+        variant="contained"
+        color="primary"
+        onClick={() => {
+          setTicketPhoneNumber(phoneNumber || ""); // or use the relevant phone number
+          setShowTicketModal(true);
+        }}
       >
-        <DialogTitle>No Tickets Found</DialogTitle>
-        <DialogContent>
-          <div>
-            No tickets found for this number. Would you like to create a new
-            ticket?
-          </div>
-          <Button
-            onClick={() => {
-              setShowCreateTicketModal(false);
-              // Open your ticket creation form/modal here, pre-fill phone number
-            }}
-          >
-            Create Ticket
-          </Button>
-          <Button onClick={() => setShowCreateTicketModal(false)}>
-            Cancel
-          </Button>
-        </DialogContent>
-      </Dialog>
+        Create Ticket
+      </Button>
 
       {/* Ticket Create Modal (after answering call) */}
       <TicketCreateModal

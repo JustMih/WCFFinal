@@ -152,10 +152,29 @@ export default function Crm() {
     }
   };
 
-  const openModal = (ticket) => {
-    setSelectedTicket(ticket);
-    setComments(ticket.comments || "");
+  const openModal = async (ticket) => {
     setIsModalOpen(true);
+    try {
+      const token = localStorage.getItem("authToken");
+      // Fetch full ticket details (with associations)
+      const res = await fetch(`${baseURL}/ticket/${ticket.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setSelectedTicket(data.ticket || ticket); // Use full ticket if available
+      setComments((data.ticket && data.ticket.comments) || ticket.comments || "");
+
+      // Fetch assignment history as before
+      const res2 = await fetch(`${baseURL}/ticket/${ticket.id}/assignments`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data2 = await res2.json();
+      setAssignmentHistory(data2);
+    } catch (e) {
+      setAssignmentHistory([]);
+      setSelectedTicket(ticket); // fallback
+      setComments(ticket.comments || "");
+    }
   };
 
   const closeModal = () => {
