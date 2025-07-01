@@ -88,7 +88,7 @@ export default function Crm() {
       if (!response.ok) {
         if (response.status === 404) {
           setAssignments([]);
-          setAssignmentsError("No assignments found for this agent.");
+          setAssignmentsError("No ticket found.");
           return;
         }
         throw new Error(`HTTP error! Status: ${response.status}`);
@@ -99,7 +99,7 @@ export default function Crm() {
         setAssignmentsError(null);
       } else {
         setAssignments([]);
-        setAssignmentsError("No assignments found for this agent.");
+        setAssignmentsError("No ticket found.");
       }
     } catch (error) {
       setAssignmentsError(error.message);
@@ -432,7 +432,7 @@ export default function Crm() {
                   colSpan={5}
                   style={{ textAlign: "center", color: "red" }}
                 >
-                  {assignmentsError || "No assignments found for this agent."}
+                  {assignmentsError || "No ticket found"}
                 </td>
               </tr>
             )}
