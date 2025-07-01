@@ -13,18 +13,24 @@ import {
   Tooltip,
   Typography,
   TextField,
+  Avatar,
+  Paper,
 } from "@mui/material";
 import ColumnSelector from "../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../config";
 import "./ticket.css";
-import AdvancedFilterButton from '../../../components/AdvancedFilterButton';
-import TicketDetailsModal from '../../../components/TicketDetailsModal';
+import ChatIcon from '@mui/icons-material/Chat';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import TicketDetailsModal from '../../../components/TicketDetailsModal'; 
 
 export default function Crm() {
-  const [assignments, setAssignments] = useState([]);
-  const [assignmentsError, setAssignmentsError] = useState(null);
+  const [agentTickets, setAgentTickets] = useState([]);
+  const [agentTicketsError, setAgentTicketsError] = useState(null);
   const [userId, setUserId] = useState("");
   const [search, setSearch] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
@@ -33,14 +39,21 @@ export default function Crm() {
   const [comments, setComments] = useState("");
   const [modal, setModal] = useState({ isOpen: false, type: "", message: "" });
   const [activeColumns, setActiveColumns] = useState([
-    "full_name",
+    "id",
+    "fullName",
     "phone_number",
     "status",
-    "actions"
+    "subject",
+    "category",
+    "assigned_to_role",
+    "createdAt",
   ]);
   const [loading, setLoading] = useState(true);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   const [isFlowModalOpen, setIsFlowModalOpen] = useState(false);
+  const [assignments, setAssignments] = useState([]);
+  const [assignmentsError, setAssignmentsError] = useState(null);
 
   useEffect(() => {
     const userId = localStorage.getItem("userId");
@@ -56,7 +69,6 @@ export default function Crm() {
     if (userId) {
       fetchInProgressAssignments();
     }
-    // eslint-disable-next-line
   }, [userId]);
 
   const fetchInProgressAssignments = async () => {
@@ -138,10 +150,60 @@ export default function Crm() {
     }
   };
 
-  const openModal = (ticket) => {
-    setSelectedTicket(ticket);
-    setComments(ticket.comments || "");
+  const openModal = async (assignment) => {
+    if (!assignment?.ticket?.id) {
+      console.error("Invalid assignment or ticket ID for modal");
+      return;
+    }
+
+    const ticketId = assignment.ticket.id;
+    
+    // Set initial data so modal opens immediately
+    setSelectedTicket(assignment.ticket);
     setIsModalOpen(true);
+    setAssignmentHistory([]);
+
+    try {
+      const token = localStorage.getItem("authToken");
+      if (!token) {
+        // Handle no token case
+        return;
+      }
+      
+      // Fetch full ticket details and assignment history
+      const [ticketResponse, historyResponse] = await Promise.all([
+        fetch(`${baseURL}/ticket/${ticketId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${baseURL}/ticket/${ticketId}/assignments`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+      ]);
+
+      // Process ticket details
+      if (ticketResponse.ok) {
+        const ticketData = await ticketResponse.json();
+        // Assuming the response for a single ticket is { success: true, ticket: {...} }
+        if (ticketData.success && ticketData.ticket) {
+          setSelectedTicket(ticketData.ticket);
+        } else {
+          console.warn("Ticket details response not successful or missing ticket data.", ticketData);
+        }
+      } else {
+        console.error(`Failed to fetch ticket details: ${ticketResponse.status}`);
+      }
+      
+      // Process assignment history
+      if (historyResponse.ok) {
+        const historyData = await historyResponse.json();
+        setAssignmentHistory(historyData);
+      } else {
+        console.error(`Failed to fetch assignment history: ${historyResponse.status}`);
+      }
+
+    } catch (error) {
+      console.error("Error fetching data for modal:", error);
+    }
   };
 
   const closeModal = () => {
@@ -151,14 +213,28 @@ export default function Crm() {
     setModal({ isOpen: false, type: "", message: "" });
   };
 
+  const openHistoryModal = async (ticket) => {
+    setSelectedTicket(ticket);
+    setIsHistoryModalOpen(true);
+    try {
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(`${baseURL}/ticket/${ticket.id}/assignments`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setAssignmentHistory(data);
+    } catch (e) {
+      setAssignmentHistory([]);
+    }
+  };
+
   const filteredAssignments = assignments.filter((assignment) => {
     const searchValue = search.toLowerCase();
+    const ticket = assignment.ticket || {};
+    const phone = (ticket.phone_number || "").toLowerCase();
+    const nida = (ticket.nida_number || "").toLowerCase();
     return (
-      assignment.ticket_id?.toLowerCase().includes(searchValue) ||
-      assignment.assigned_by_id?.toLowerCase().includes(searchValue) ||
-      assignment.assigned_to_id?.toLowerCase().includes(searchValue) ||
-      assignment.assigned_to_role?.toLowerCase().includes(searchValue) ||
-      assignment.reason?.toLowerCase().includes(searchValue)
+      (phone.includes(searchValue) || nida.includes(searchValue))
     );
   });
 
@@ -181,19 +257,28 @@ export default function Crm() {
   const renderTableRow = (assignment, index) => {
     const ticket = assignment.ticket || {};
     let fullName = "N/A";
-    if (ticket.first_name || ticket.middle_name || ticket.last_name) {
-      fullName = `${ticket.first_name || ""} ${ticket.last_name || ""}`.trim();
+    if (ticket.first_name && ticket.first_name.trim() !== "") {
+      fullName = `${ticket.first_name} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim();
+    } else if (typeof ticket.institution === "string") {
+      fullName = ticket.institution;
+    } else if (ticket.institution && typeof ticket.institution === "object" && typeof ticket.institution.name === "string") {
+      fullName = ticket.institution.name;
     }
     return (
       <tr key={assignment.id || index}>
-         <td>{(currentPage - 1) * itemsPerPage + index + 1}</td> {/* This is the row number */}
+         <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
         <td>{fullName}</td>
         <td>{ticket.phone_number || "N/A"}</td>
         <td>{ticket.status || "N/A"}</td>
         <td>
-          <button onClick={() => openModal(assignment)} style={{ marginRight: 8 }}>
-            View
-          </button>
+        <Tooltip title="Ticket Details">
+  <button
+    className="view-ticket-details-btn"
+    onClick={() => openModal(assignment)}
+  >
+    <FaEye />
+  </button>
+</Tooltip>
         </td>
       </tr>
     );
@@ -295,8 +380,12 @@ export default function Crm() {
             marginBottom: "16px",
           }}
         >
-          <h2>In-progress Assignments List</h2>
-          <AdvancedFilterButton onClick={() => setIsColumnModalOpen(true)} />
+          <h2>In-progress Assignments</h2>
+          <Tooltip title="Columns Settings and Export" arrow>
+            <IconButton onClick={() => setIsColumnModalOpen(true)}>
+              <FiSettings size={20} />
+            </IconButton>
+          </Tooltip>
         </div>
         <div className="controls">
           <div>
@@ -326,7 +415,7 @@ export default function Crm() {
             <input
               className="search-input"
               type="text"
-              placeholder="Search by ticket ID, assigned by, assigned to, role, or reason..."
+              placeholder="Search by phone or NIDA..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -340,7 +429,7 @@ export default function Crm() {
             ) : (
               <tr>
                 <td
-                  colSpan={activeColumns.length}
+                  colSpan={5}
                   style={{ textAlign: "center", color: "red" }}
                 >
                   {assignmentsError || "No assignments found for this agent."}
@@ -373,7 +462,6 @@ export default function Crm() {
           </Button>
         </div>
       </div>
-
       {/* Details Modal */}
       <TicketDetailsModal
         open={isModalOpen}
@@ -382,7 +470,6 @@ export default function Crm() {
         assignmentHistory={assignmentHistory}
         renderAssignmentStepper={renderAssignmentStepper}
       />
-
       {/* Column Selector */}
       <ColumnSelector
         open={isColumnModalOpen}
@@ -390,7 +477,6 @@ export default function Crm() {
         data={assignments}
         onColumnsChange={setActiveColumns}
       />
-
       {/* Snackbar for notifications */}
       <Snackbar
         open={modal.isOpen}

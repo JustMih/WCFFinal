@@ -430,4 +430,38 @@
   background-color: #b3e5fc;
 }
 
+/* --- Improved Card and Container Styles (from agent dashboard) --- */
+.crm-card {
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 20px;
+  padding-top: 16px;
+  padding: 24px 16px;
+  width: 455px;
+  height: 140px;
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.18);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  transition: transform 0.3s cubic-bezier(.4,2,.3,1), box-shadow 0.3s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  margin-bottom: 8px;
+}
+
+.crm-dashboard {
+  display: flex;
+  justify-content: center;
+  padding: 0px;
+}
+
+.crm-cards-container {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+/* You may want to update your Card component to use .crm-card if not already */
+
   

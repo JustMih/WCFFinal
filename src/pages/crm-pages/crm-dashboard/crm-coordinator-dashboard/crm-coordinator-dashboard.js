@@ -32,7 +32,6 @@ import {
 } from "@mui/material";
 
 // Custom Components
-import Card from "../../../../components/card/card";
 import ColumnSelector from "../../../../components/colums-select/ColumnSelector";
 import TicketFilters from "../../../../components/ticket/TicketFilters";
 import CoordinatorActionModal from "../../../../components/coordinator/CoordinatorActionModal";
@@ -42,6 +41,25 @@ import { baseURL } from "../../../../config";
 
 // Styles
 import "./crm-coordinator-dashboard.css";
+
+// Card component
+const Card = ({ title, data, color, icon }) => (
+  <div className="crm-card">
+    <div className="crm-header">
+      <h4> {icon}{title}</h4>
+    </div>
+    <div className="crm-card-body" style={{ backgroundColor: color }}>
+      <div className="crm-card-data">
+        {Object.entries(data).map(([key, value]) => (
+          <div key={key} className="data-item">
+            <h4>{key}</h4>
+            <p>{value}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
 
 export default function CoordinatorDashboard() {
   const [tickets, setTickets] = useState([]);
@@ -83,6 +101,7 @@ export default function CoordinatorDashboard() {
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [detailsModalTicket, setDetailsModalTicket] = useState(null);
+  const [detailsModalAssignmentHistory, setDetailsModalAssignmentHistory] = useState([]);
 
   // Initialize activeColumns with default columns if empty
   useEffect(() => {
@@ -521,10 +540,7 @@ export default function CoordinatorDashboard() {
         <button
           className="view-ticket-details-btn"
           title="View"
-          onClick={() => {
-            setDetailsModalTicket(ticket);
-            setIsDetailsModalOpen(true);
-          }}
+          onClick={() => openDetailsModal(ticket)}
         >
           <FaEye />
         </button>
@@ -702,12 +718,28 @@ export default function CoordinatorDashboard() {
     detailPairs.push([details[i], details[i + 1]]);
   }
 
+  const openDetailsModal = async (ticket) => {
+    setDetailsModalTicket(ticket);
+    setIsDetailsModalOpen(true);
+    // Fetch assignment history for the ticket
+    try {
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(`${baseURL}/ticket/${ticket.id}/assignments`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setDetailsModalAssignmentHistory(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setDetailsModalAssignmentHistory([]);
+    }
+  };
+
   return (
     <div className="coordinator-dashboard-container">
       <h2 className="title">Coordinator Dashboard</h2>
 
       {/* Cards */}
-      <div className="crm-dashboard">
+      <div className="crm-cards">
         <div className="crm-cards-container">
           <Card
             title="New Tickets"
@@ -841,10 +873,7 @@ export default function CoordinatorDashboard() {
                     <button
                       className="view-ticket-details-btn"
                       title="View"
-                      onClick={() => {
-                        setDetailsModalTicket(ticket);
-                        setIsDetailsModalOpen(true);
-                      }}
+                      onClick={() => openDetailsModal(ticket)}
                     >
                       <FaEye />
                     </button>
@@ -900,7 +929,7 @@ export default function CoordinatorDashboard() {
   open={isDetailsModalOpen}
   onClose={() => setIsDetailsModalOpen(false)}
   selectedTicket={detailsModalTicket}
-  assignmentHistory={detailsModalTicket?.assignmentHistory || []}
+  assignmentHistory={detailsModalAssignmentHistory}
   handleRating={handleRating}
   handleConvertOrForward={handleConvertOrForward}
   handleCategoryChange={handleCategoryChange}

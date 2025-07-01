@@ -9,7 +9,7 @@ import CRMDashboard from "../crm-pages/crm-dashboard/CRMDashboard";
 import CRMNotificationTickets from "../crm-pages/crm-notifications/notifications";
 import CRMAssignedTickets from "../crm-pages/crm-tickets/assigned";
 import CRMOpenedTickets from "../crm-pages/crm-tickets/ticket";
-import CRMInProgressTickets from "../crm-pages/crm-tickets/inprogress-bak";
+import CRMInProgressTickets from "../crm-pages/crm-tickets/inprogress";
 import CRMCarriedForawardTickets from "../crm-pages/crm-tickets/carried-forward";
 import CRMOverdueTickets from "../crm-pages/crm-tickets/overdue";
 import CRMClosedTickets from "../crm-pages/crm-tickets/closed";
@@ -62,8 +62,19 @@ export default function Dashboard() {
         role === "supervisor"
       ) {
         setActiveSystem("call-center");
-      } else if (role === "attendee" || role === "coordinator" || "head-of-unit"
-        || ["focal-person", "claim-focal-person", "compliance-focal-person"].includes(role)) {
+      } else if (role === "attendee" || role === "coordinator" ||
+        role === "head-of-unit" ||
+        role === "manager" ||
+        role === "supervisor" ||
+        role === "director-general" ||
+        role === "director" ||
+        role === "admin" ||
+        role === "super-admin" ||
+        role === "focal-person" ||
+        role === "claim-focal-person" ||
+        role === "compliance-focal-person"
+      
+      ) {
         setActiveSystem("crm");
       }
     }

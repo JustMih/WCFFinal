@@ -178,10 +178,23 @@
   background-color: rgba(25, 118, 210, 0.08);
 }
 
-.metric-icon {
+.crm-metric-icon {
   margin-right: 4px;
   font-size: 0.9rem;
 }
+
+/* .metric-icon {
+  background: #e3f2fd;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1976d2;
+  font-size: 1.5rem;
+  flex-shrink: 0;
+} */
 
 .metric-label {
   flex: 1;

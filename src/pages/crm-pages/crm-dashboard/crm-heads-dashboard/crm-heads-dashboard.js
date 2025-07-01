@@ -34,7 +34,7 @@ import TicketDetailsModal from "../../../../components/TicketDetailsModal";
 import { baseURL } from "../../../../config";
 
 // Styles
-import "./crm-focal-person-dashboard.css";
+import "./crm-heads-dashboard.css";
 
 function AssignmentFlowChat({ assignmentHistory }) {
   return (
