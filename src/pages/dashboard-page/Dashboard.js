@@ -62,9 +62,19 @@ export default function Dashboard() {
         role === "supervisor"
       ) {
         setActiveSystem("call-center");
-      } else if (role === "attendee" || role === "coordinator" || "head-of-unit"
-        || ["focal-person", "claim-focal-person", "compliance-focal-person", "head-of-unit", "manager", "supervisor",
-           "director-general", "director", "admin", "super-admin"].includes(role)) {
+      } else if (role === "attendee" || role === "coordinator" ||
+        role === "head-of-unit" ||
+        role === "manager" ||
+        role === "supervisor" ||
+        role === "director-general" ||
+        role === "director" ||
+        role === "admin" ||
+        role === "super-admin" ||
+        role === "focal-person" ||
+        role === "claim-focal-person" ||
+        role === "compliance-focal-person"
+      
+      ) {
         setActiveSystem("crm");
       }
     }

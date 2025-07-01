@@ -45,6 +45,16 @@ export default function CRMSidebar({ isSidebarOpen }) {
 
   const role = localStorage.getItem("role");
 
+  const getDashboardTitle = (role) => {
+    if (role === "focal-person") return "Focal Person Dashboard";
+    if (role === "claim-focal-person") return "Claim Focal Person Dashboard";
+    if (role === "compliance-focal-person") return "Compliance Focal Person Dashboard";
+    if (role === "head-of-unit") return "Head of Unit Dashboard";
+    if (role === "coordinator") return "Coordinator Dashboard";
+    if (role === "agent" || role === "attendee") return "Agent Dashboard";
+    return "Dashboard";
+  };
+
   // Helper to fetch in-progress assignments count
   const fetchInProgressAssignmentsCount = async (userId, token) => {
     try {
@@ -128,7 +138,20 @@ export default function CRMSidebar({ isSidebarOpen }) {
         <img src={logo} alt="Avatar" className="crm-sidebar-logo" />
       )}
       <ul>
-        {(role === "agent" || role === "attendee") && (
+        {(
+          role === "agent" ||
+          role === "attendee" ||
+          role === "head-of-unit" ||
+          role === "manager" ||
+          role === "supervisor" ||
+          role === "director-general" ||
+          role === "director" ||
+          role === "admin" ||
+          role === "super-admin" ||
+          role === "focal-person" ||
+          role === "claim-focal-person" ||
+          role === "compliance-focal-person"
+        ) && (
           <>
             <li>
               <NavLink
@@ -140,7 +163,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                 <div className="menu-item">
                   <RxDashboard className="menu-icon" />
                   {isSidebarOpen && (
-                    <span className="menu-text">Agent Dashboard</span>
+                    <span className="menu-text">{getDashboardTitle(role)}</span>
                   )}
                 </div>
               </NavLink>
@@ -270,6 +293,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
             </li>
           </>
         )}
+        
         {role === "coordinator" && (
           <>
             <li>
@@ -282,7 +306,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                 <div className="menu-item">
                   <RxDashboard className="menu-icon" />
                   {isSidebarOpen && (
-                    <span className="menu-text">Coordinator Dashboard</span>
+                    <span className="menu-text">{getDashboardTitle(role)}</span>
                   )}
                 </div>
               </NavLink>
@@ -544,175 +568,6 @@ export default function CRMSidebar({ isSidebarOpen }) {
             </li>
           </>
         )}
-        {['focal-person', 'claim-focal-person', 'compliance-focal-person', 'head-of-unit', 
-        'manager', 'supervisor', 'director-general', 'director', 'admin', 'super-admin'].includes(role) && (
-          <>
-            <li>
-              <NavLink
-                to="/dashboard"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <RxDashboard className="menu-icon" />
-                  {isSidebarOpen && (
-                    <span className="menu-text">Focal Person Dashboard</span>
-                  )}
-                </div>
-              </NavLink>
-              <NavLink
-                to="/notifications"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <MdEmail className="menu-icon" />
-                  {isSidebarOpen && (
-                    <span className="menu-text">Notifications</span>
-                  )}
-                </div>
-              </NavLink>
-              <NavLink
-                to="/focal-person/ticket"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-                onClick={toggleAgentsDropdown}
-                style={{ cursor: "pointer", padding: "11px 11px", textDecoration: "none" }}
-              >
-                <MdOutlineSupportAgent className="menu-icon" />
-                {isSidebarOpen && (
-                  <span className="menu-text">
-                    Ticket Management{" "}
-                    {isAgentsOpen ? <FaChevronUp /> : <FaChevronDown />}
-                  </span>
-                )}
-              </NavLink>
-
-              {isSidebarOpen && isAgentsOpen && (
-                <div className="dropdown-menu submenu coordinator-menu">
-                  <div className="menu-section">
-                    <div
-                      className={`section-header ${
-                        openSection === "newTickets" ? "" : "collapsed"
-                      }`}
-                      onClick={() => toggleSection("newTickets")}
-                    >
-                      <span className="section-title">New Tickets</span>
-                      <span className="section-count">
-                        {ticketStats.newTickets?.Total || 0}
-                      </span>
-                    </div>
-                    {openSection === "newTickets" && (
-                      <div className="section-items">
-                        {[
-                          {
-                            label: "New Tickets",
-                            to: `/focal-person/new`,
-                            value: ticketStats.newTickets?.["New Tickets"] || 0,
-                            icon: "🆕"
-                          },
-                          {
-                            label: "Escalated",
-                            to: `/focal-person/escalated`,
-                            value:
-                              ticketStats.newTickets?.["Escalated Tickets"] ||
-                              0,
-                            icon: "⚠️"
-                          }
-                        ].map((item, idx) => (
-                          <NavLink
-                            key={idx}
-                            to={item.to}
-                            className={({ isActive }) =>
-                              isActive
-                                ? "dropdown-item active-link"
-                                : "dropdown-item"
-                            }
-                            style={{ padding: "12px 20px" }}
-                          >
-                            <div className="metric-row">
-                              <span className="metric-icon">{item.icon}</span>
-                              <span className="metric-label">{item.label}</span>
-                              <span className="metric-value">{item.value}</span>
-                            </div>
-                          </NavLink>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="menu-section">
-                    <div
-                      className={`section-header ${
-                        openSection === "ticketStatus" ? "" : "collapsed"
-                      }`}
-                      onClick={() => toggleSection("ticketStatus")}
-                    >
-                      <span className="section-title">Ticket Status</span>
-                      <span className="section-count">
-                        {(ticketStats.ticketStatus?.["Open"] || 0) + (ticketStats.ticketStatus?.Closed || 0)}
-                        {/* {ticketStats.ticketStatus?.Closed || 0} */}
-                      </span>
-                    </div>
-                    {openSection === "ticketStatus" && (
-                      <div className="section-items">
-                        {[
-                          {
-                            label: "Open",
-                            to: "/focal-person/open",
-                            value: ticketStats.ticketStatus?.Open || 0,
-                            icon: "🔓"
-                          },
-                          // {
-                          //   label: "Assigned Attendees",
-                          //   to: "/focal-person/assigned",
-                          //   value: ticketStats.ticketStatus?.AssignedAttendees || 0,
-                          //   icon: "👤"
-                          // },
-                          {
-                            label: "Closed",
-                            to: "/focal-person/closed",
-                            value: ticketStats.ticketStatus?.Closed || 0,
-                            icon: "🔒"
-                          }
-                        ].map((item, idx) => (
-                          <NavLink
-                            key={idx}
-                            to={item.to}
-                            className={({ isActive }) =>
-                              isActive
-                                ? "dropdown-item active-link"
-                                : "dropdown-item"
-                            }
-                            style={{ padding: "12px 20px" }}
-                          >
-                            <div className="metric-row">
-                              <span className="metric-icon">{item.icon}</span>
-                              <span className="metric-label">{item.label}</span>
-                              <span className="metric-value">{item.value}</span>
-                            </div>
-                          </NavLink>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {fetchError && (
-                    <div className="section error-message">
-                      <span style={{ color: "red", padding: "0 1rem" }}>
-                        {fetchError}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </li>
-          </>
-        )}
-        
       </ul>
     </aside>
   );

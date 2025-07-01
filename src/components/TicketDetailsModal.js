@@ -48,16 +48,31 @@ const getStepStatus = (stepIndex, currentStepIndex) => {
   return "pending";
 };
 
-const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser }) => {
+const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, usersList = [] }) => {
   if (!selectedTicket) return null;
   
+  // Use creator_name from assignmentHistory[0] if available
+  let creatorName = assignmentHistory && assignmentHistory[0] && assignmentHistory[0].creator_name;
+  if (!creatorName) {
+    // Try to get the creator's name from usersList if available
+    if (selectedTicket.created_by && Array.isArray(usersList) && usersList.length > 0) {
+      const creatorUser = usersList.find(u => u.id === selectedTicket.created_by || u.user_id === selectedTicket.created_by);
+      if (creatorUser) {
+        creatorName = creatorUser.name || `${creatorUser.first_name || ''} ${creatorUser.last_name || ''}`.trim();
+      }
+    }
+    if (!creatorName) {
+      creatorName = selectedTicket.created_by ||
+        (selectedTicket.creator && selectedTicket.creator.name) ||
+        `${selectedTicket.first_name || ""} ${selectedTicket.last_name || ""}`.trim() ||
+        "N/A";
+    }
+  }
+
   // Build steps array
   const steps = [
     {
-      assigned_to_name: selectedTicket.created_by ||
-        (selectedTicket.creator && selectedTicket.creator.name) ||
-        `${selectedTicket.first_name || ""} ${selectedTicket.last_name || ""}`.trim() ||
-        "N/A",
+      assigned_to_name: creatorName,
       assigned_to_role: "Creator",
       action: "Created",
       created_at: selectedTicket.created_at,
