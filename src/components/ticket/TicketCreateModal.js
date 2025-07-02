@@ -50,6 +50,7 @@ export default function TicketCreateModal({ open, onClose, initialPhoneNumber = 
   const [customerTickets, setCustomerTickets] = useState([]);
   const [loadingTickets, setLoadingTickets] = useState(false);
   const [ticketError, setTicketError] = useState("");
+  const [functionDataState, setFunctionDataState] = useState(functionData);
 
   // --- Search section state ---
   const [searchType, setSearchType] = useState("employee");
@@ -61,6 +62,11 @@ export default function TicketCreateModal({ open, onClose, initialPhoneNumber = 
   const [openAuto, setOpenAuto] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const searchTimeoutRef = useRef(null);
+
+  // --- Call history state ---
+  const [callHistory, setCallHistory] = useState([]);
+  const [loadingCallHistory, setLoadingCallHistory] = useState(false);
+  const [callHistoryError, setCallHistoryError] = useState("");
 
   // --- Debounced search logic ---
   const debouncedSearch = useCallback(
@@ -245,7 +251,7 @@ export default function TicketCreateModal({ open, onClose, initialPhoneNumber = 
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
     if (name === "functionId") {
-      const selectedFunctionData = functionData.find((item) => item.id === value);
+      const selectedFunctionData = functionDataState.find((item) => item.id === value);
       if (selectedFunctionData) {
         setSelectedFunction(selectedFunctionData.function?.name || "");
         setSelectedSection(selectedFunctionData.function?.section?.name || "");
@@ -296,7 +302,7 @@ export default function TicketCreateModal({ open, onClose, initialPhoneNumber = 
       return;
     }
     // Build payload as in CRM
-    let selectedSubject = functionData.find(fd => fd.id === formData.functionId);
+    let selectedSubject = functionDataState.find(fd => fd.id === formData.functionId);
     let parentFunction = selectedSubject?.function || {};
     let parentSection = parentFunction?.section || {};
     const ticketData = {
@@ -379,6 +385,59 @@ export default function TicketCreateModal({ open, onClose, initialPhoneNumber = 
     fetchCustomerTickets();
   }, [formData.phoneNumber, open]);
 
+  // Always fetch function data every time the modal opens
+  useEffect(() => {
+    const fetchFunctionData = async () => {
+      try {
+        const token = localStorage.getItem("authToken");
+        const res = await fetch(`${baseURL}/section/functions-data`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const json = await res.json();
+        setFunctionDataState(json.data || []);
+      } catch (err) {
+        setFunctionDataState([]);
+      }
+    };
+    if (open) {
+      fetchFunctionData();
+    }
+  }, [open]);
+
+  // Fetch call history for the phone number
+  useEffect(() => {
+    const fetchCallHistory = async () => {
+      if (!formData.phoneNumber) {
+        setCallHistory([]);
+        return;
+      }
+      setLoadingCallHistory(true);
+      setCallHistoryError("");
+      try {
+        const token = localStorage.getItem("authToken");
+        const response = await fetch(`${baseURL}/call-history?phone=${encodeURIComponent(formData.phoneNumber)}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+        const result = await response.json();
+        if (response.ok && Array.isArray(result.calls)) {
+          setCallHistory(result.calls);
+        } else {
+          setCallHistory([]);
+        }
+      } catch (error) {
+        setCallHistoryError("Failed to load call history.");
+        setCallHistory([]);
+      }
+      setLoadingCallHistory(false);
+    };
+    if (open && formData.phoneNumber) {
+      fetchCallHistory();
+    }
+  }, [formData.phoneNumber, open]);
+
   return (
     <Modal
       open={open}
@@ -392,8 +451,8 @@ export default function TicketCreateModal({ open, onClose, initialPhoneNumber = 
         sx={{
           position: "absolute",
           top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
+          left: 40,
+          transform: "translateY(-50%)",
           width: { xs: "90%", sm: 600 },
           maxHeight: "90vh",
           overflowY: "auto",
@@ -723,17 +782,17 @@ export default function TicketCreateModal({ open, onClose, initialPhoneNumber = 
                 value={formData.functionId}
                 onChange={handleChange}
                 label="Subject"
-                disabled={functionData.length === 0}
+                disabled={functionDataState.length === 0}
               >
                 <MenuItem value="">Select Subject</MenuItem>
-                {functionData.map((item) => (
+                {functionDataState.map((item) => (
                   <MenuItem key={item.id} value={item.id}>
                     {item.name}
                   </MenuItem>
                 ))}
               </Select>
               {formErrors.functionId && <Typography color="error" variant="caption">{formErrors.functionId}</Typography>}
-              {functionData.length === 0 && (
+              {functionDataState.length === 0 && (
                 <Typography color="error" variant="caption">
                   No subjects available. Please contact admin or try again later.
                 </Typography>
@@ -775,7 +834,7 @@ export default function TicketCreateModal({ open, onClose, initialPhoneNumber = 
               type="submit"
               variant="contained"
               color="primary"
-              disabled={loading || functionData.length === 0}
+              disabled={loading || functionDataState.length === 0}
               onClick={() => setSubmitAction("open")}
             >
               {loading ? <CircularProgress size={20} /> : "Submit to Backoffice"}
@@ -783,7 +842,7 @@ export default function TicketCreateModal({ open, onClose, initialPhoneNumber = 
             <Button
               variant="contained"
               style={{ background: "gray", color: "white" }}
-              disabled={loading || functionData.length === 0}
+              disabled={loading || functionDataState.length === 0}
               onClick={(e) => {
                 setSubmitAction("closed");
                 handleSubmit(e);
@@ -823,6 +882,24 @@ export default function TicketCreateModal({ open, onClose, initialPhoneNumber = 
             <div style={{ color: '#b26a00', marginTop: 6 }}>
               Please review existing tickets before creating a new one.
             </div>
+          </div>
+        ) : null}
+        {/* Existing Call History Section */}
+        {loadingCallHistory ? (
+          <div style={{ marginBottom: 16 }}>Loading call history...</div>
+        ) : callHistory.length > 0 ? (
+          <div style={{ marginBottom: 16, background: '#e3f2fd', padding: 12, borderRadius: 8 }}>
+            <strong>Call History for this Number:</strong>
+            <ul style={{ margin: 0, paddingLeft: 20 }}>
+              {callHistory.map(call => (
+                <li key={call.id || call.call_id || call.time} style={{ marginBottom: 6 }}>
+                  <span style={{ fontWeight: 500 }}>{call.time ? new Date(call.time).toLocaleString() : call.date || 'Unknown Date'}</span>
+                  {call.status && ` - ${call.status}`}
+                  {call.duration && ` - Duration: ${call.duration} sec`}
+                  {call.direction && ` - ${call.direction}`}
+                </li>
+              ))}
+            </ul>
           </div>
         ) : null}
       </Box>

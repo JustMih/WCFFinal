@@ -134,6 +134,7 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
     currentAssigneeIdx = idx !== -1 ? idx : steps.length - 1;
   }
 
+  console.log('currentAssigneeIdx:', currentAssigneeIdx, 'steps:', steps, 'assigned_to_id:', selectedTicket.assigned_to_id);
   return (
     <Box>
       {steps.map((a, idx) => {
@@ -142,16 +143,18 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
         const isClosed = selectedTicket.status === "Closed" && isLastStep;
         const isCurrentWithCoordinator = isWithCoordinator && idx === 1; // Coordinator step
 
-        // Set color: green for completed, blue for current, gray for pending, green for closed last step
+        // Set color: all green if closed, otherwise all previous are green, current is gray, rest gray
         let color;
-        if (isClosed) {
+        if (steps.length === 1) {
           color = "green";
-        } else if (isCurrentWithCoordinator) {
-          color = "#1976d2"; // Blue for current coordinator step
+        } else if (selectedTicket.status === "Closed") {
+          color = "green";
+        } else if (currentAssigneeIdx === 0 && idx === 0) {
+          color = "green";
         } else if (idx < currentAssigneeIdx) {
           color = "green";
         } else if (idx === currentAssigneeIdx) {
-          color = "#1976d2";
+          color = "gray";
         } else {
           color = "gray";
         }
