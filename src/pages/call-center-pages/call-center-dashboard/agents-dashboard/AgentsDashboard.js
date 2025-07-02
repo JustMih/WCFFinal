@@ -51,7 +51,7 @@ import SingleAgentDashboardCard from "../../../../components/agent-dashboard/Sin
 import QueueStatusTable from "../../../../components/agent-dashboard/QueueStatusTable";
 import WaitingCallsTable from "../../../../components/agent-dashboard/WaitingCallsTable";
 import AgentPerformanceScore from "../../../../components/agent-dashboard/AgentPerformanceScore";
-import TicketCreateModal from "../../../../components/ticket/TicketCreateModal";
+import AdvancedTicketCreateModal from "../../../../components/ticket/AdvancedTicketCreateModal";
 import VoiceNotesReport from "../../cal-center-ivr/VoiceNotesReport";
 
 export default function AgentsDashboard() {
@@ -658,6 +658,7 @@ export default function AgentsDashboard() {
         // Show ticket modal after answering
         setTicketPhoneNumber(callerId || "");
         setShowTicketModal(true);
+        // setShowPhonePopup(false); // Keep call modal open after accept
 
         incomingCall.stateChange.addListener((state) => {
           if (state === SessionState.Established) {
@@ -1696,7 +1697,7 @@ export default function AgentsDashboard() {
       </Button>
 
       {/* Ticket Create Modal (after answering call) */}
-      <TicketCreateModal
+      <AdvancedTicketCreateModal
         open={showTicketModal}
         onClose={() => setShowTicketModal(false)}
         initialPhoneNumber={ticketPhoneNumber}
