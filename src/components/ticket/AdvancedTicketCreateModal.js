@@ -1479,4 +1479,5 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
   );
 }
 
-export default AdvancedTicketCreateModal; 
+export default AdvancedTicketCreateModal;
+
