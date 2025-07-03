@@ -6,6 +6,7 @@ import { MdOutlineSupportAgent, MdEmail } from "react-icons/md";
 import { FaChevronUp, FaChevronDown } from "react-icons/fa";
 import { baseURL } from "../../../config";
 import "./crmSidebar.css";
+import { IconButton, Badge } from "@mui/material";
 
 export default function CRMSidebar({ isSidebarOpen }) {
   const [isAgentsOpen, setIsAgentsOpen] = useState(false);
@@ -42,6 +43,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
     }
   });
   const [fetchError, setFetchError] = useState(null);
+  const [notifiedCount, setNotifiedCount] = useState(0);
 
   const role = localStorage.getItem("role");
 
@@ -130,6 +132,25 @@ export default function CRMSidebar({ isSidebarOpen }) {
 
   useEffect(() => {
     fetchTicketCounts();
+    const userId = localStorage.getItem("userId");
+    const token = localStorage.getItem("authToken");
+    if (userId && token) {
+      fetch(`${baseURL}/notifications/notified-tickets-count/${userId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+        .then(res => {
+          const contentType = res.headers.get("content-type");
+          if (!res.ok || !contentType || !contentType.includes("application/json")) {
+            throw new Error("Invalid response");
+          }
+          return res.json();
+        })
+        .then(data => setNotifiedCount(data.notifiedTicketCount || 0))
+        .catch(err => {
+          setNotifiedCount(0); // fallback
+          // Optionally log or show error
+        });
+    }
   }, []);
 
   return (
@@ -177,7 +198,24 @@ export default function CRMSidebar({ isSidebarOpen }) {
                 <div className="menu-item">
                   <MdEmail className="menu-icon" />
                   {isSidebarOpen && (
-                    <span className="menu-text">Notifications</span>
+                    <span className="menu-text" style={{ position: 'relative', display: 'inline-block' }}>
+                      Notifications
+                      {/* {notifiedCount > 0 && (
+                        <span style={{
+                          background: 'red',
+                          color: 'white',
+                          borderRadius: '50%',
+                          padding: '2px 7px',
+                          fontSize: '0.75rem',
+                          position: 'absolute',
+                          top: '-8px',
+                          right: '-18px',
+                          minWidth: '20px',
+                          textAlign: 'center',
+                          fontWeight: 'bold',
+                        }}>{notifiedCount}</span>
+                      )} */}
+                    </span>
                   )}
                 </div>
               </NavLink>
@@ -319,7 +357,24 @@ export default function CRMSidebar({ isSidebarOpen }) {
                 <div className="menu-item">
                   <MdEmail className="menu-icon" />
                   {isSidebarOpen && (
-                    <span className="menu-text">Notifications</span>
+                    <span className="menu-text" style={{ position: 'relative', display: 'inline-block' }}>
+                      Notifications
+                      {notifiedCount > 0 && (
+                        <span style={{
+                          background: 'red',
+                          color: 'white',
+                          borderRadius: '50%',
+                          padding: '2px 7px',
+                          fontSize: '0.75rem',
+                          position: 'absolute',
+                          top: '-8px',
+                          right: '-18px',
+                          minWidth: '20px',
+                          textAlign: 'center',
+                          fontWeight: 'bold',
+                        }}>{notifiedCount}</span>
+                      )}
+                    </span>
                   )}
                 </div>
               </NavLink>
