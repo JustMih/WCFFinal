@@ -89,7 +89,7 @@ export default function Crm() {
       if (!response.ok) {
         if (response.status === 404) {
           setAgentTickets([]);
-          setAgentTicketsError("No ticket found");
+          setAgentTicketsError("No tickets found for this agent.");
           return;
         }
         throw new Error(`HTTP error! Status: ${response.status}`);
@@ -102,7 +102,7 @@ export default function Crm() {
         setAgentTicketsError(null);
       } else {
         setAgentTickets([]);
-        setAgentTicketsError("No ticket found");
+        setAgentTicketsError("No tickets found for this agent.");
       }
     } catch (error) {
       setAgentTicketsError(error.message);
@@ -374,7 +374,7 @@ export default function Crm() {
                   colSpan={activeColumns.length + 1}
                   style={{ textAlign: "center", color: "red" }}
                 >
-                  {agentTicketsError || "No ticket found"}
+                  {agentTicketsError || "No tickets found for this agent."}
                 </td>
               </tr>
             )}

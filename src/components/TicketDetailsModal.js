@@ -134,7 +134,6 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
     currentAssigneeIdx = idx !== -1 ? idx : steps.length - 1;
   }
 
-  console.log('currentAssigneeIdx:', currentAssigneeIdx, 'steps:', steps, 'assigned_to_id:', selectedTicket.assigned_to_id);
   return (
     <Box>
       {steps.map((a, idx) => {
@@ -143,18 +142,16 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
         const isClosed = selectedTicket.status === "Closed" && isLastStep;
         const isCurrentWithCoordinator = isWithCoordinator && idx === 1; // Coordinator step
 
-        // Set color: all green if closed, otherwise all previous are green, current is gray, rest gray
+        // Set color: green for completed, blue for current, gray for pending, green for closed last step
         let color;
-        if (steps.length === 1) {
+        if (isClosed) {
           color = "green";
-        } else if (selectedTicket.status === "Closed") {
-          color = "green";
-        } else if (currentAssigneeIdx === 0 && idx === 0) {
-          color = "green";
+        } else if (isCurrentWithCoordinator) {
+          color = "#1976d2"; // Blue for current coordinator step
         } else if (idx < currentAssigneeIdx) {
           color = "green";
         } else if (idx === currentAssigneeIdx) {
-          color = "gray";
+          color = "#1976d2";
         } else {
           color = "gray";
         }
@@ -335,14 +332,7 @@ export default function TicketDetailsModal({
   const [isReversing, setIsReversing] = useState(false);
 
   const showAttendButton =
-    userRole === "attendee" &&
-    selectedTicket &&
-    selectedTicket.status !== "Closed" &&
-    selectedTicket.assigned_to_id &&
-    selectedTicket.assigned_to_id.toString() === userId;
-
-  const showAgentAttendButton =
-    userRole === "agent" &&
+    // (userRole === "agent" || userRole === "attendee") &&
     selectedTicket &&
     selectedTicket.status !== "Closed" &&
     selectedTicket.assigned_to_id &&
@@ -621,32 +611,6 @@ export default function TicketDetailsModal({
                 )} */}
               </Box>
 
-              {/* Representative Details */}
-              {selectedTicket && (selectedTicket.RequesterDetail || selectedTicket.requester_detail) && (
-                <Box sx={{ mb: 2, p: 2, bgcolor: '#e3f2fd', borderRadius: 1 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#1976d2', mb: 1 }}>
-                    Representative Details
-                  </Typography>
-                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-                    <Box sx={{ flex: '1 1 45%' }}>
-                      <Typography><strong>Name:</strong> {(selectedTicket.RequesterDetail || selectedTicket.requester_detail).name || 'N/A'}</Typography>
-                    </Box>
-                    <Box sx={{ flex: '1 1 45%' }}>
-                      <Typography><strong>Phone:</strong> {(selectedTicket.RequesterDetail || selectedTicket.requester_detail).phoneNumber || 'N/A'}</Typography>
-                    </Box>
-                    <Box sx={{ flex: '1 1 45%' }}>
-                      <Typography><strong>Email:</strong> {(selectedTicket.RequesterDetail || selectedTicket.requester_detail).email || 'N/A'}</Typography>
-                    </Box>
-                    <Box sx={{ flex: '1 1 45%' }}>
-                      <Typography><strong>Address:</strong> {(selectedTicket.RequesterDetail || selectedTicket.requester_detail).address || 'N/A'}</Typography>
-                    </Box>
-                    <Box sx={{ flex: '1 1 100%' }}>
-                      <Typography><strong>Relationship to Employee:</strong> {(selectedTicket.RequesterDetail || selectedTicket.requester_detail).relationshipToEmployee || 'N/A'}</Typography>
-                    </Box>
-                  </Box>
-                </Box>
-              )}
-
               {/* Two-Column Ticket Fields */}
               <div style={{ display: "flex", flexWrap: "wrap", gap: "16px" }}>
                 <div style={{ flex: "1 1 45%" }}>
@@ -729,18 +693,8 @@ export default function TicketDetailsModal({
               {/* Action Buttons */}
               <Box sx={{ mt: 2, textAlign: "right" }}>
                 {showAttendButton && (
-                  <Button variant="contained" color="primary" onClick={() => handleCoordinatorClose(true)} sx={{ mr: 1 }}>
+                  <Button variant="contained" color="primary" onClick={handleAttend} sx={{ mr: 1 }}>
                     Attend
-                  </Button>
-                )}
-                {showAgentAttendButton && (
-                  <Button variant="contained" color="primary" onClick={() => handleCoordinatorClose(true)} sx={{ mr: 1 }}>
-                    Attend
-                  </Button>
-                )}
-                {selectedTicket && selectedTicket.status !== "Closed" && !showAttendButton && !showAgentAttendButton && selectedTicket.assigned_to_id && selectedTicket.assigned_to_id.toString() === userId && (
-                  <Button variant="contained" color="primary" onClick={() => setIsAttendDialogOpen(true)} sx={{ mr: 1 }}>
-                    Close Ticket
                   </Button>
                 )}
                 
@@ -924,7 +878,7 @@ export default function TicketDetailsModal({
                 <option value="Resolved">Resolved</option>
                 <option value="Not Applicable">Not Applicable</option>
                 <option value="Duplicate">Duplicate</option>
-                {/* <option value="Referred">Referred</option> */}
+                <option value="Referred">Referred</option>
               </select>
             </Box>
 

@@ -333,7 +333,7 @@ const AgentCRM = () => {
         setCustomerTickets(result.tickets);
         updateTicketStats(result.tickets);
       }
-      console.log('tickets', response);
+      console.log("tickets", response);
     } catch (error) {
       console.error("Error fetching tickets:", error);
       setError("Failed to load tickets.");
@@ -342,13 +342,16 @@ const AgentCRM = () => {
 
   const fetchDashboardData = async (userId, token) => {
     try {
-      const response = await fetch(`${baseURL}/ticket/dashboard-counts/${userId}`, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json"
+      const response = await fetch(
+        `${baseURL}/ticket/dashboard-counts/${userId}`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+          }
         }
-      });
+      );
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -400,8 +403,7 @@ const AgentCRM = () => {
       totalComplaints: tickets.length,
       pendingRating: tickets.filter((t) => !t.complaintType).length,
       ratedMajor: tickets.filter((t) => t.complaintType === "Major").length,
-      ratedMinor: tickets.filter((t) => t.complaintType === "Minor").length,
-      inProgress: tickets.filter((t) => t.status === "In Progress").length // Add inProgress count
+      ratedMinor: tickets.filter((t) => t.complaintType === "Minor").length
     });
   };
 
@@ -412,7 +414,9 @@ const AgentCRM = () => {
 
     if (name === "functionId") {
       // Find the selected functionData object
-      const selectedFunctionData = functionData.find((item) => item.id === value);
+      const selectedFunctionData = functionData.find(
+        (item) => item.id === value
+      );
       if (selectedFunctionData) {
         // Use new structure: function and function.section
         setSelectedFunction(selectedFunctionData.function?.name || "");
@@ -432,7 +436,10 @@ const AgentCRM = () => {
       if (cleaned.length > 14) cleaned = cleaned.slice(0, 14);
       setFormData((prev) => ({ ...prev, [name]: cleaned }));
       if (!/^\+?\d{0,13}$/.test(cleaned)) {
-        setFormErrors((prev) => ({ ...prev, phoneNumber: "Phone number must contain only numbers" }));
+        setFormErrors((prev) => ({
+          ...prev,
+          phoneNumber: "Phone number must contain only numbers"
+        }));
       } else {
         setFormErrors((prev) => ({ ...prev, phoneNumber: undefined }));
       }
@@ -454,26 +461,27 @@ const AgentCRM = () => {
 
     if (name === "nidaNumber") {
       let cleaned = value.replace(/[^\d-]/g, "");
-    
+
       // Optional: prevent consecutive dashes
       cleaned = cleaned.replace(/--+/g, "-");
-    
+
       // Limit total length to 20 characters
       if (cleaned.length > 20) cleaned = cleaned.slice(0, 20);
-    
+
       setFormData((prev) => ({ ...prev, [name]: cleaned }));
-    
+
       const isValid = /^(\d+(-\d+)*$)/.test(cleaned); // Multiple dashes allowed, no start/end dash
-    
+
       if (!isValid) {
         setFormErrors((prev) => ({
           ...prev,
-          nidaNumber: "Only digits and dashes are allowed. No leading/trailing or repeated dashes.",
+          nidaNumber:
+            "Only digits and dashes are allowed. No leading/trailing or repeated dashes."
         }));
       } else {
         setFormErrors((prev) => ({ ...prev, nidaNumber: undefined }));
       }
-    
+
       return;
     }
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -539,7 +547,9 @@ const AgentCRM = () => {
       let selectedSubject, parentFunction, parentSection;
       for (const func of functionData) {
         if (func.function && func.function.functionData) {
-          selectedSubject = func.function.functionData.find(fd => fd.id === formData.functionId);
+          selectedSubject = func.function.functionData.find(
+            (fd) => fd.id === formData.functionId
+          );
           if (selectedSubject) {
             parentFunction = func.function;
             parentSection = func.function.section;
@@ -550,19 +560,29 @@ const AgentCRM = () => {
 
       // --- Allocated User Logic ---
       let employerAllocatedStaffUsername = "";
-      if (selectedSuggestion && selectedSuggestion.claimId && selectedSuggestion.allocated_user_username) {
+      if (
+        selectedSuggestion &&
+        selectedSuggestion.claimId &&
+        selectedSuggestion.allocated_user_username
+      ) {
         // If employee has claim number, use allocated user from claim
-        employerAllocatedStaffUsername = selectedSuggestion.allocated_user_username;
+        employerAllocatedStaffUsername =
+          selectedSuggestion.allocated_user_username;
       } else if (
         (!selectedSuggestion || !selectedSuggestion.claimId) &&
         formData.category === "Inquiry" &&
-        selectedInstitution && selectedInstitution.allocated_staff_username
+        selectedInstitution &&
+        selectedInstitution.allocated_staff_username
       ) {
         // If no claim and Inquiry, use allocated user from institution
-        employerAllocatedStaffUsername = selectedInstitution.allocated_staff_username;
+        employerAllocatedStaffUsername =
+          selectedInstitution.allocated_staff_username;
       } else {
         // Fallback to previous logic if any
-        employerAllocatedStaffUsername = selectedInstitution?.allocated_staff_username || formData.employerAllocatedStaffUsername || "";
+        employerAllocatedStaffUsername =
+          selectedInstitution?.allocated_staff_username ||
+          formData.employerAllocatedStaffUsername ||
+          "";
       }
 
       const ticketData = {
@@ -574,7 +594,7 @@ const AgentCRM = () => {
         responsible_unit_name: parentSection ? parentSection.name : "",
         status: action === "closed" ? "Closed" : "Open",
         employerAllocatedStaffUsername,
-        shouldClose: action === "closed",
+        shouldClose: action === "closed"
       };
 
       // Add employer-specific fields if requester is Employer
@@ -734,11 +754,13 @@ const AgentCRM = () => {
         <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
       )}
       {activeColumns.includes("fullName") && (
-        <td>{
-          ticket.first_name
-            ? `${ticket.first_name || ""} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim()
-            : ticket.institution || ""
-        }</td>
+        <td>
+          {ticket.first_name
+            ? `${ticket.first_name || ""} ${ticket.middle_name || ""} ${
+                ticket.last_name || ""
+              }`.trim()
+            : ticket.institution || ""}
+        </td>
       )}
       {activeColumns.includes("phone_number") && <td>{ticket.phone_number}</td>}
       {activeColumns.includes("status") && <td>{ticket.status}</td>}
@@ -777,8 +799,11 @@ const AgentCRM = () => {
   const Card = ({ title, data, color, icon }) => (
     <div className="crm-card">
       <div className="crm-header">
-       
-        <h4> {icon}{title}</h4>
+        <h4>
+          {" "}
+          {icon}
+          {title}
+        </h4>
       </div>
       <div className="crm-card-body" style={{ backgroundColor: color }}>
         <div className="crm-card-data">
@@ -1445,9 +1470,14 @@ const AgentCRM = () => {
     let selectedInstitutionName = "";
     if (searchType === "employee") {
       // Try to get institution name from the suggestion or rawData
-      selectedInstitutionName = rawData.institution || rawData.employerName || updatedFormData.institution || "";
+      selectedInstitutionName =
+        rawData.institution ||
+        rawData.employerName ||
+        updatedFormData.institution ||
+        "";
     } else if (searchType === "employer") {
-      selectedInstitutionName = rawData.name || updatedFormData.institution || "";
+      selectedInstitutionName =
+        rawData.name || updatedFormData.institution || "";
     }
 
     if (selectedInstitutionName) {
@@ -1599,7 +1629,7 @@ const AgentCRM = () => {
 
   // Highlight matching text in suggestions
   function escapeRegExp(string) {
-    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return string.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 
   const highlightMatch = (text, query) => {
@@ -1692,17 +1722,18 @@ const AgentCRM = () => {
 
   // Add phone normalization helper
   function normalizePhone(phone) {
-    if (!phone) return '';
+    if (!phone) return "";
     let p = phone.trim();
-    if (p.startsWith('+')) p = p.slice(1);
-    if (p.startsWith('0')) p = '255' + p.slice(1);
+    if (p.startsWith("+")) p = p.slice(1);
+    if (p.startsWith("0")) p = "255" + p.slice(1);
     return p;
   }
 
   useEffect(() => {
     const phone = formData.phoneNumber?.trim();
     const normalizedPhone = normalizePhone(phone);
-    if (normalizedPhone && normalizedPhone.length >= 7) { // basic length check
+    if (normalizedPhone && normalizedPhone.length >= 7) {
+      // basic length check
       setCreationTicketsLoading(true);
       fetch(`${baseURL}/ticket/search-by-phone/${normalizedPhone}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -1763,7 +1794,14 @@ const AgentCRM = () => {
         </button>
       </div> */}
       {/* Full-width Phone/NIDA Search Section */}
-      <div style={{ display: "flex", gap: "10px", marginBottom: "1rem", alignItems: "center" }}>
+      <div
+        style={{
+          display: "flex",
+          gap: "10px",
+          marginBottom: "1rem",
+          alignItems: "center"
+        }}
+      >
         <input
           className="crm-search-input"
           type="text"
@@ -2048,7 +2086,9 @@ const AgentCRM = () => {
             <Button
               variant="outlined"
               size="small"
-              onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+              onClick={() =>
+                setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+              }
               disabled={currentPage === totalPages}
             >
               Next
@@ -2106,7 +2146,12 @@ const AgentCRM = () => {
                     ...(!selectedTicket.first_name
                       ? [["Institution", selectedTicket.institution || "N/A"]]
                       : [
-                          ["Full Name", selectedTicket.first_name  +' '+ selectedTicket.last_name||  "N/A"],
+                          [
+                            "Full Name",
+                            selectedTicket.first_name +
+                              " " +
+                              selectedTicket.last_name || "N/A"
+                          ]
                           // ["Last Name", selectedTicket.last_name || "N/A"]
                         ]),
                     ["Ticket Number", selectedTicket.ticket_id || "N/A"],
@@ -2120,7 +2165,11 @@ const AgentCRM = () => {
                     [
                       "Created By",
                       selectedTicket?.creator?.name
-                        ? `${selectedTicket.creator.name}${selectedTicket.role ? ` (${selectedTicket.role})` : ''}`
+                        ? `${selectedTicket.creator.name}${
+                            selectedTicket.role
+                              ? ` (${selectedTicket.role})`
+                              : ""
+                          }`
                         : "N/A"
                     ],
                     // Always show Assigned To and Assigned Role
@@ -2338,7 +2387,7 @@ const AgentCRM = () => {
                 type="text"
                 placeholder="Search ticket history..."
                 value={historySearch || ""}
-                onChange={e => setHistorySearch(e.target.value)}
+                onChange={(e) => setHistorySearch(e.target.value)}
                 style={{
                   width: "100%",
                   padding: "8px",
@@ -2358,7 +2407,7 @@ const AgentCRM = () => {
             <Divider sx={{ mb: 2 }} />
             {/* Filter ticket history by search */}
             {(foundTickets && foundTickets.length > 0
-              ? foundTickets.filter(ticket => {
+              ? foundTickets.filter((ticket) => {
                   const s = (historySearch || "").toLowerCase();
                   return (
                     ticket.subject?.toLowerCase().includes(s) ||
@@ -2369,7 +2418,7 @@ const AgentCRM = () => {
               : []
             ).length > 0 ? (
               foundTickets
-                .filter(ticket => {
+                .filter((ticket) => {
                   const s = (historySearch || "").toLowerCase();
                   return (
                     ticket.subject?.toLowerCase().includes(s) ||
@@ -2377,7 +2426,7 @@ const AgentCRM = () => {
                     ticket.description?.toLowerCase().includes(s)
                   );
                 })
-                .map(ticket => (
+                .map((ticket) => (
                   <Box
                     key={ticket.id}
                     onClick={() => openDetailsModal(ticket)}
@@ -2385,9 +2434,13 @@ const AgentCRM = () => {
                       mb: 2,
                       p: 2,
                       borderRadius: 2,
-                      bgcolor: selectedTicket?.id === ticket.id ? "#e3f2fd" : "#fff",
+                      bgcolor:
+                        selectedTicket?.id === ticket.id ? "#e3f2fd" : "#fff",
                       cursor: "pointer",
-                      border: selectedTicket?.id === ticket.id ? "2px solid #1976d2" : "1px solid #e0e0e0",
+                      border:
+                        selectedTicket?.id === ticket.id
+                          ? "2px solid #1976d2"
+                          : "1px solid #e0e0e0",
                       boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
                       display: "flex",
                       flexDirection: "column",
@@ -2431,10 +2484,17 @@ const AgentCRM = () => {
                       </Typography>
                     </Box>
                     <Box sx={{ mt: 1 }}>
-                      <Typography variant="body2" sx={{ color: "#666", mb: 0.5 }}>
-                        Created: {new Date(ticket.created_at).toLocaleDateString()}
+                      <Typography
+                        variant="body2"
+                        sx={{ color: "#666", mb: 0.5 }}
+                      >
+                        Created:{" "}
+                        {new Date(ticket.created_at).toLocaleDateString()}
                       </Typography>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 500, color: "#333", mb: 1 }}>
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ fontWeight: 500, color: "#333", mb: 1 }}
+                      >
                         Subject: {ticket.subject}
                       </Typography>
                       <Typography
@@ -2608,847 +2668,844 @@ const AgentCRM = () => {
             p: 0
           }}
         >
-        <Box
-          sx={{
-            flex: 2,
-            p: 4,
-            borderRight: "1px solid #eee",
-            overflowY: "auto",
-            minWidth: 0,
-            maxHeight: "90vh"
-          }}
-        >
-          <div className="modal-form-container">
-            <h2 className="modal-title">New Ticket</h2>
+          <Box
+            sx={{
+              flex: 2,
+              p: 4,
+              borderRight: "1px solid #eee",
+              overflowY: "auto",
+              minWidth: 0,
+              maxHeight: "90vh"
+            }}
+          >
+            <div className="modal-form-container">
+              <h2 className="modal-title">New Ticket</h2>
 
-            {/* Search Section */}
-            <div
-              className="search-section"
-              style={{
-                marginBottom: "20px",
-                padding: "15px",
-                backgroundColor: "#f5f5f5",
-                borderRadius: "8px"
-              }}
-            >
-              <div style={{ marginBottom: "15px" }}>
-                <label
-                  style={{
-                    display: "block",
-                    marginBottom: "8px",
-                    fontWeight: "bold"
-                  }}
-                >
-                  Search Type:
-                </label>
-                <select
-                  value={searchType}
-                  onChange={(e) => {
-                    setSearchType(e.target.value);
-                    setSearchSuggestions([]);
-                    setSelectedSuggestion(null);
-                    setSearchQuery("");
-                  }}
-                  style={{
-                    width: "100%",
-                    padding: "8px",
-                    borderRadius: "4px",
-                    border: "1px solid #ddd"
-                  }}
-                >
-                  <option value="employee">Employee</option>
-                  <option value="employer">Employer</option>
-                </select>
-              </div>
-
-              <div style={{ marginBottom: "15px" }}>
-                <label
-                  style={{
-                    display: "block",
-                    marginBottom: "8px",
-                    fontWeight: "bold"
-                  }}
-                >
-                  Search By:
-                </label>
-                <select
-                  value={searchBy}
-                  onChange={(e) => {
-                    setSearchBy(e.target.value);
-                    setSearchSuggestions([]);
-                    setSelectedSuggestion(null);
-                    setSearchQuery("");
-                  }}
-                  style={{
-                    width: "100%",
-                    padding: "8px",
-                    borderRadius: "4px",
-                    border: "1px solid #ddd"
-                  }}
-                >
-                  <option value="name">Name</option>
-                  <option value="wcf_number">WCF Number</option>
-                </select>
-              </div>
-
-              <div style={{ marginBottom: "15px" }}>
-                <label
-                  style={{
-                    display: "block",
-                    marginBottom: "8px",
-                    fontWeight: "bold"
-                  }}
-                >
-                  {searchBy === "name" ? "Enter Name" : "Enter WCF Number"}:
-                </label>
-                <StyledAutocomplete
-                  value={selectedSuggestion}
-                  onChange={(event, newValue) =>
-                    handleSuggestionSelected(event, newValue)
-                  }
-                  inputValue={inputValue}
-                  onInputChange={handleInputChange}
-                  options={searchSuggestions}
-                  getOptionLabel={(option) => option.displayName || ""}
-                  open={open}
-                  onOpen={() => setOpen(true)}
-                  onClose={() => setOpen(false)}
-                  loading={isSearching}
-                  loadingText={
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: "10px"
-                      }}
-                    >
-                      <CircularProgress size={20} />
-                      <span>Searching...</span>
-                    </div>
-                  }
-                  noOptionsText={
-                    inputValue.length < 1
-                      ? "Start typing to search"
-                      : "No matching records found"
-                  }
-                  renderOption={(props, option) => (
-                    <li {...props}>
-                      <SuggestionItem>
-                        <div className="suggestion-name">
-                          <span style={{ color: "#666" }}>
-                            {option.numberPrefix}
-                          </span>{" "}
-                          {highlightMatch(option.cleanName, inputValue)}
-                          {option.employerName && (
-                            <>
-                              {" — ("}
-                              <span style={{ color: "#666" }}>
-                                {highlightMatch(
-                                  option.employerName,
-                                  inputValue
-                                )}
-                              </span>
-                              {")"}
-                            </>
-                          )}
-                        </div>
-                        <div className="suggestion-details">
-                          Member No: {option.memberNo}
-                          {option.type && ` • Type: ${option.type}`}
-                          {option.status && ` • Status: ${option.status}`}
-                        </div>
-                      </SuggestionItem>
-                    </li>
-                  )}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      placeholder={
-                        searchBy === "name"
-                          ? "Start typing name..."
-                          : "Enter WCF number..."
-                      }
-                      InputProps={{
-                        ...params.InputProps,
-                        endAdornment: (
-                          <>
-                            {isSearching && (
-                              <CircularProgress color="inherit" size={20} />
-                            )}
-                            {params.InputProps.endAdornment}
-                          </>
-                        )
-                      }}
-                      sx={{
-                        "& .MuiOutlinedInput-root": {
-                          "& fieldset": {
-                            borderColor: "#e0e0e0"
-                          },
-                          "&:hover fieldset": {
-                            borderColor: "#1976d2"
-                          },
-                          "&.Mui-focused fieldset": {
-                            borderColor: "#1976d2"
-                          }
-                        }
-                      }}
-                    />
-                  )}
-                  filterOptions={(x) => x}
-                  freeSolo={false}
-                  autoComplete
-                  includeInputInList
-                  blurOnSelect
-                  clearOnBlur={false}
-                  selectOnFocus
-                  handleHomeEndKeys
-                  style={{ width: "100%" }}
-                />
-              </div>
-            </div>
-
-            {/* Update the claim status section */}
-            {searchType === "employee" && selectedSuggestion && (
+              {/* Search Section */}
               <div
+                className="search-section"
                 style={{
-                  marginTop: "10px",
-                  padding: "10px",
+                  marginBottom: "20px",
+                  padding: "15px",
                   backgroundColor: "#f5f5f5",
-                  borderRadius: "8px",
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center"
+                  borderRadius: "8px"
                 }}
               >
-                <div>
-                  <Typography
-                    variant="subtitle2"
-                    style={{ fontWeight: "bold" }}
+                <div style={{ marginBottom: "15px" }}>
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "8px",
+                      fontWeight: "bold"
+                    }}
                   >
-                    {selectedSuggestion.claimId ? (
-                      <>
-                        Claim Number:{" "}
-                        <span style={{ color: "#1976d2" }}>
-                          {selectedSuggestion.claimId}
-                        </span>
-                      </>
-                    ) : (
-                      "No Active Claim"
-                    )}
-                  </Typography>
+                    Search Type:
+                  </label>
+                  <select
+                    value={searchType}
+                    onChange={(e) => {
+                      setSearchType(e.target.value);
+                      setSearchSuggestions([]);
+                      setSelectedSuggestion(null);
+                      setSearchQuery("");
+                    }}
+                    style={{
+                      width: "100%",
+                      padding: "8px",
+                      borderRadius: "4px",
+                      border: "1px solid #ddd"
+                    }}
+                  >
+                    <option value="employee">Employee</option>
+                    <option value="employer">Employer</option>
+                  </select>
                 </div>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  disabled={!selectedSuggestion?.claimId}
-                  onClick={async () => {
-                    console.log("Clicked claim:", selectedSuggestion.claimId);
 
-                    const response = await fetch(
-                      "http://127.0.0.1:8000/magic-login",
-                      {
-                        method: "POST",
-                        headers: {
-                          "Content-Type": "application/json",
-                          Accept: "application/json"
-                        }, // important for Laravel session to persist
-                        body: JSON.stringify({
-                          username: "rehema.said",
-                          password: "TTCL@2026"
-                        }),
-                        credentials: "include" // important for Laravel session to persist
-                      }
-                    );
+                <div style={{ marginBottom: "15px" }}>
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "8px",
+                      fontWeight: "bold"
+                    }}
+                  >
+                    Search By:
+                  </label>
+                  <select
+                    value={searchBy}
+                    onChange={(e) => {
+                      setSearchBy(e.target.value);
+                      setSearchSuggestions([]);
+                      setSelectedSuggestion(null);
+                      setSearchQuery("");
+                    }}
+                    style={{
+                      width: "100%",
+                      padding: "8px",
+                      borderRadius: "4px",
+                      border: "1px solid #ddd"
+                    }}
+                  >
+                    <option value="name">Name</option>
+                    <option value="wcf_number">WCF Number</option>
+                  </select>
+                </div>
 
-                    const data = await response.json();
-
-                    if (data?.redirect) {
-                      window.open(data.redirect, "_blank");
-                    } else {
-                      console.error(data?.error || "Login failed");
+                <div style={{ marginBottom: "15px" }}>
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "8px",
+                      fontWeight: "bold"
+                    }}
+                  >
+                    {searchBy === "name" ? "Enter Name" : "Enter WCF Number"}:
+                  </label>
+                  <StyledAutocomplete
+                    value={selectedSuggestion}
+                    onChange={(event, newValue) =>
+                      handleSuggestionSelected(event, newValue)
                     }
+                    inputValue={inputValue}
+                    onInputChange={handleInputChange}
+                    options={searchSuggestions}
+                    getOptionLabel={(option) => option.displayName || ""}
+                    open={open}
+                    onOpen={() => setOpen(true)}
+                    onClose={() => setOpen(false)}
+                    loading={isSearching}
+                    loadingText={
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: "10px"
+                        }}
+                      >
+                        <CircularProgress size={20} />
+                        <span>Searching...</span>
+                      </div>
+                    }
+                    noOptionsText={
+                      inputValue.length < 1
+                        ? "Start typing to search"
+                        : "No matching records found"
+                    }
+                    renderOption={(props, option) => (
+                      <li {...props}>
+                        <SuggestionItem>
+                          <div className="suggestion-name">
+                            <span style={{ color: "#666" }}>
+                              {option.numberPrefix}
+                            </span>{" "}
+                            {highlightMatch(option.cleanName, inputValue)}
+                            {option.employerName && (
+                              <>
+                                {" — ("}
+                                <span style={{ color: "#666" }}>
+                                  {highlightMatch(
+                                    option.employerName,
+                                    inputValue
+                                  )}
+                                </span>
+                                {")"}
+                              </>
+                            )}
+                          </div>
+                          <div className="suggestion-details">
+                            Member No: {option.memberNo}
+                            {option.type && ` • Type: ${option.type}`}
+                            {option.status && ` • Status: ${option.status}`}
+                          </div>
+                        </SuggestionItem>
+                      </li>
+                    )}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        placeholder={
+                          searchBy === "name"
+                            ? "Start typing name..."
+                            : "Enter WCF number..."
+                        }
+                        InputProps={{
+                          ...params.InputProps,
+                          endAdornment: (
+                            <>
+                              {isSearching && (
+                                <CircularProgress color="inherit" size={20} />
+                              )}
+                              {params.InputProps.endAdornment}
+                            </>
+                          )
+                        }}
+                        sx={{
+                          "& .MuiOutlinedInput-root": {
+                            "& fieldset": {
+                              borderColor: "#e0e0e0"
+                            },
+                            "&:hover fieldset": {
+                              borderColor: "#1976d2"
+                            },
+                            "&.Mui-focused fieldset": {
+                              borderColor: "#1976d2"
+                            }
+                          }
+                        }}
+                      />
+                    )}
+                    filterOptions={(x) => x}
+                    freeSolo={false}
+                    autoComplete
+                    includeInputInList
+                    blurOnSelect
+                    clearOnBlur={false}
+                    selectOnFocus
+                    handleHomeEndKeys
+                    style={{ width: "100%" }}
+                  />
+                </div>
+              </div>
+
+              {/* Update the claim status section */}
+              {searchType === "employee" && selectedSuggestion && (
+                <div
+                  style={{
+                    marginTop: "10px",
+                    padding: "10px",
+                    backgroundColor: "#f5f5f5",
+                    borderRadius: "8px",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center"
                   }}
                 >
-                  View Claim
-                </Button>
-              </div>
-            )}
+                  <div>
+                    <Typography
+                      variant="subtitle2"
+                      style={{ fontWeight: "bold" }}
+                    >
+                      {selectedSuggestion.claimId ? (
+                        <>
+                          Claim Number:{" "}
+                          <span style={{ color: "#1976d2" }}>
+                            {selectedSuggestion.claimId}
+                          </span>
+                        </>
+                      ) : (
+                        "No Active Claim"
+                      )}
+                    </Typography>
+                  </div>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    disabled={!selectedSuggestion?.claimId}
+                    onClick={async () => {
+                      console.log("Clicked claim:", selectedSuggestion.claimId);
 
-            {/* Existing form fields */}
-            {searchType !== "employer" && (
+                      const response = await fetch(
+                        "http://127.0.0.1:8000/magic-login",
+                        {
+                          method: "POST",
+                          headers: {
+                            "Content-Type": "application/json",
+                            Accept: "application/json"
+                          }, // important for Laravel session to persist
+                          body: JSON.stringify({
+                            username: "rehema.said",
+                            password: "TTCL@2026"
+                          }),
+                          credentials: "include" // important for Laravel session to persist
+                        }
+                      );
+
+                      const data = await response.json();
+
+                      if (data?.redirect) {
+                        window.open(data.redirect, "_blank");
+                      } else {
+                        console.error(data?.error || "Login failed");
+                      }
+                    }}
+                  >
+                    View Claim
+                  </Button>
+                </div>
+              )}
+
+              {/* Existing form fields */}
+              {searchType !== "employer" && (
+                <div className="modal-form-row">
+                  <div className="modal-form-group" style={{ flex: 1 }}>
+                    <label style={{ fontSize: "0.875rem" }}>First Name:</label>
+                    <input
+                      name="firstName"
+                      value={formData.firstName}
+                      onChange={handleChange}
+                      placeholder="Enter first name"
+                      style={{
+                        height: "32px",
+                        fontSize: "0.875rem",
+                        padding: "4px 8px",
+                        border: formErrors.firstName
+                          ? "1px solid red"
+                          : "1px solid #ccc"
+                      }}
+                    />
+                    {formErrors.firstName && (
+                      <span style={{ color: "red", fontSize: "0.75rem" }}>
+                        {formErrors.firstName}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="modal-form-group" style={{ flex: 1 }}>
+                    <label style={{ fontSize: "0.875rem" }}>
+                      Middle Name (Optional):
+                    </label>
+                    <input
+                      name="middleName"
+                      value={formData.middleName}
+                      onChange={handleChange}
+                      placeholder="Enter middle name"
+                      style={{
+                        height: "32px",
+                        fontSize: "0.875rem",
+                        padding: "4px 8px",
+                        border: "1px solid #ccc"
+                      }}
+                    />
+                  </div>
+
+                  <div className="modal-form-group" style={{ flex: 1 }}>
+                    <label style={{ fontSize: "0.875rem" }}>
+                      Last Name
+                      {formData.requester === "Employer" ? " (Optional)" : ""}:
+                    </label>
+                    <input
+                      name="lastName"
+                      value={formData.lastName}
+                      onChange={handleChange}
+                      placeholder="Enter last name"
+                      style={{
+                        height: "32px",
+                        fontSize: "0.875rem",
+                        padding: "4px 8px",
+                        border:
+                          formErrors.lastName &&
+                          formData.requester !== "Employer"
+                            ? "1px solid red"
+                            : "1px solid #ccc"
+                      }}
+                    />
+                    {formErrors.lastName &&
+                      formData.requester !== "Employer" && (
+                        <span style={{ color: "red", fontSize: "0.75rem" }}>
+                          {formErrors.lastName}
+                        </span>
+                      )}
+                  </div>
+                </div>
+              )}
+
+              {/* Phone & NIDA */}
               <div className="modal-form-row">
-                <div className="modal-form-group" style={{ flex: 1 }}>
-                  <label style={{ fontSize: "0.875rem" }}>First Name:</label>
+                <div className="modal-form-group">
+                  <label style={{ fontSize: "0.875rem" }}>Phone Number:</label>
                   <input
-                    name="firstName"
-                    value={formData.firstName}
+                    type="tel"
+                    name="phoneNumber"
+                    value={formData.phoneNumber}
                     onChange={handleChange}
-                    placeholder="Enter first name"
+                    placeholder="Enter phone number"
                     style={{
                       height: "32px",
                       fontSize: "0.875rem",
                       padding: "4px 8px",
-                      border: formErrors.firstName
+                      border: formErrors.phoneNumber
                         ? "1px solid red"
                         : "1px solid #ccc"
                     }}
                   />
-                  {formErrors.firstName && (
+                  {formErrors.phoneNumber && (
                     <span style={{ color: "red", fontSize: "0.75rem" }}>
-                      {formErrors.firstName}
+                      {formErrors.phoneNumber}
+                    </span>
+                  )}
+                </div>
+
+                <div className="modal-form-group">
+                  <label style={{ fontSize: "0.875rem" }}>
+                    {formData.requester === "Employer"
+                      ? "TIN:"
+                      : "National Identification Number:"}
+                  </label>
+                  <input
+                    name="nidaNumber"
+                    value={formData.nidaNumber}
+                    onChange={handleChange}
+                    placeholder={
+                      formData.requester === "Employer"
+                        ? "Enter TIN number"
+                        : "Enter NIN number"
+                    }
+                    style={{
+                      height: "32px",
+                      fontSize: "0.875rem",
+                      padding: "4px 8px",
+                      border: formErrors.nidaNumber
+                        ? "1px solid red"
+                        : "1px solid #ccc"
+                    }}
+                  />
+                  {formErrors.nidaNumber && (
+                    <span style={{ color: "red", fontSize: "0.75rem" }}>
+                      {formErrors.nidaNumber}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Requester & Institution */}
+              <div className="modal-form-row">
+                <div className="modal-form-group">
+                  <label style={{ fontSize: "0.875rem" }}>Requester:</label>
+                  <select
+                    name="requester"
+                    value={formData.requester}
+                    onChange={handleChange}
+                    style={{
+                      height: "32px",
+                      fontSize: "0.875rem",
+                      padding: "4px 8px",
+                      width: "100%",
+                      border: formErrors.requester
+                        ? "1px solid red"
+                        : "1px solid #ccc"
+                    }}
+                  >
+                    <option value="">Select..</option>
+                    <option value="Employee">Employee</option>
+                    <option value="Employer">Employer</option>
+                    <option value="Pensioners">Pensioners</option>
+                    <option value="Stakeholders">Stakeholders</option>
+                    <option value="Representative">Representative</option>
+                  </select>
+                  {formErrors.requester && (
+                    <span style={{ color: "red", fontSize: "0.75rem" }}>
+                      {formErrors.requester}
+                    </span>
+                  )}
+                </div>
+
+                <div className="modal-form-group">
+                  <label style={{ fontSize: "0.875rem" }}>Institution:</label>
+                  <input
+                    name="institution"
+                    value={formData.institution}
+                    onChange={handleChange}
+                    placeholder="Enter Institution"
+                    style={{
+                      height: "32px",
+                      fontSize: "0.875rem",
+                      padding: "4px 8px",
+                      border: formErrors.institution
+                        ? "1px solid red"
+                        : "1px solid #ccc"
+                    }}
+                  />
+                  {formErrors.institution && (
+                    <span style={{ color: "red", fontSize: "0.75rem" }}>
+                      {formErrors.institution}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* New fields for Representative if selected */}
+              {formData.requester === "Representative" && (
+                <>
+                  <Typography
+                    variant="h6"
+                    sx={{ mt: 3, mb: 1, fontWeight: "bold" }}
+                  >
+                    Representative Details
+                  </Typography>
+                  <div className="modal-form-row">
+                    <div className="modal-form-group">
+                      <label style={{ fontSize: "0.875rem" }}>
+                        Representative Name:
+                      </label>
+                      <input
+                        name="requesterName"
+                        value={formData.requesterName}
+                        onChange={handleChange}
+                        placeholder="Enter representative's name"
+                        style={{
+                          height: "32px",
+                          fontSize: "0.875rem",
+                          padding: "4px 8px",
+                          border: formErrors.requesterName
+                            ? "1px solid red"
+                            : "1px solid #ccc"
+                        }}
+                      />
+                      {formErrors.requesterName && (
+                        <span style={{ color: "red", fontSize: "0.75rem" }}>
+                          {formErrors.requesterName}
+                        </span>
+                      )}
+                    </div>
+                    <div className="modal-form-group">
+                      <label style={{ fontSize: "0.875rem" }}>
+                        Representative Phone Number:
+                      </label>
+                      <input
+                        type="tel"
+                        name="requesterPhoneNumber"
+                        value={formData.requesterPhoneNumber}
+                        onChange={handleChange}
+                        placeholder="Enter representative's phone number"
+                        style={{
+                          height: "32px",
+                          fontSize: "0.875rem",
+                          padding: "4px 8px",
+                          border: formErrors.requesterPhoneNumber
+                            ? "1px solid red"
+                            : "1px solid #ccc"
+                        }}
+                      />
+                      {formErrors.requesterPhoneNumber && (
+                        <span style={{ color: "red", fontSize: "0.75rem" }}>
+                          {formErrors.requesterPhoneNumber}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="modal-form-row">
+                    <div className="modal-form-group">
+                      <label style={{ fontSize: "0.875rem" }}>
+                        Representative Email (Optional):
+                      </label>
+                      <input
+                        type="email"
+                        name="requesterEmail"
+                        value={formData.requesterEmail}
+                        onChange={handleChange}
+                        placeholder="Enter representative's email"
+                        style={{
+                          height: "32px",
+                          fontSize: "0.875rem",
+                          padding: "4px 8px",
+                          border: "1px solid #ccc"
+                        }}
+                      />
+                    </div>
+                    <div className="modal-form-group">
+                      <label style={{ fontSize: "0.875rem" }}>
+                        Representative Address (Optional):
+                      </label>
+                      <input
+                        name="requesterAddress"
+                        value={formData.requesterAddress}
+                        onChange={handleChange}
+                        placeholder="Enter representative's address"
+                        style={{
+                          height: "32px",
+                          fontSize: "0.875rem",
+                          padding: "4px 8px",
+                          border: "1px solid #ccc"
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="modal-form-row">
+                    <div className="modal-form-group">
+                      <label style={{ fontSize: "0.875rem" }}>
+                        Relationship to Employee/Employee:
+                      </label>
+                      <input
+                        name="relationshipToEmployee"
+                        value={formData.relationshipToEmployee}
+                        onChange={handleChange}
+                        placeholder="e.g., Parent, Spouse, Child"
+                        style={{
+                          height: "32px",
+                          fontSize: "0.875rem",
+                          padding: "4px 8px",
+                          border: formErrors.relationshipToEmployee
+                            ? "1px solid red"
+                            : "1px solid #ccc"
+                        }}
+                      />
+                      {formErrors.relationshipToEmployee && (
+                        <span style={{ color: "red", fontSize: "0.75rem" }}>
+                          {formErrors.relationshipToEmployee}
+                        </span>
+                      )}
+                    </div>
+                    <div className="modal-form-group"></div>{" "}
+                    {/* Empty for alignment */}
+                  </div>
+                </>
+              )}
+
+              {/* Region & District */}
+              <div className="modal-form-row">
+                <div className="modal-form-group">
+                  <label style={{ fontSize: "0.875rem" }}>Region:</label>
+                  <input
+                    name="region"
+                    value={formData.region}
+                    onChange={handleChange}
+                    placeholder="Enter region"
+                    style={{
+                      height: "32px",
+                      fontSize: "0.875rem",
+                      padding: "4px 8px",
+                      border: formErrors.region
+                        ? "1px solid red"
+                        : "1px solid #ccc"
+                    }}
+                  />
+                  {formErrors.region && (
+                    <span style={{ color: "red", fontSize: "0.75rem" }}>
+                      {formErrors.region}
+                    </span>
+                  )}
+                </div>
+
+                <div className="modal-form-group">
+                  <label style={{ fontSize: "0.875rem" }}>District:</label>
+                  <input
+                    name="district"
+                    value={formData.district}
+                    onChange={handleChange}
+                    placeholder="Enter district"
+                    style={{
+                      height: "32px",
+                      fontSize: "0.875rem",
+                      padding: "4px 8px",
+                      border: formErrors.district
+                        ? "1px solid red"
+                        : "1px solid #ccc"
+                    }}
+                  />
+                  {formErrors.district && (
+                    <span style={{ color: "red", fontSize: "0.75rem" }}>
+                      {formErrors.district}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Category & Channel */}
+              <div className="modal-form-row">
+                <div className="modal-form-group" style={{ flex: 1 }}>
+                  <label style={{ fontSize: "0.875rem" }}>Category:</label>
+                  <select
+                    name="category"
+                    value={formData.category}
+                    onChange={handleChange}
+                    style={{
+                      height: "32px",
+                      fontSize: "0.875rem",
+                      padding: "4px 8px",
+                      width: "100%",
+                      border: formErrors.category
+                        ? "1px solid red"
+                        : "1px solid #ccc"
+                    }}
+                  >
+                    <option value="">Select Category</option>
+                    <option value="Inquiry">Inquiry</option>
+                    <option value="Complaint">Complaint</option>
+                    <option value="Suggestion">Suggestion</option>
+                    <option value="Compliment">Compliment</option>
+                  </select>
+                  {formErrors.category && (
+                    <span style={{ color: "red", fontSize: "0.75rem" }}>
+                      {formErrors.category}
                     </span>
                   )}
                 </div>
 
                 <div className="modal-form-group" style={{ flex: 1 }}>
-                  <label style={{ fontSize: "0.875rem" }}>
-                    Middle Name (Optional):
-                  </label>
-                  <input
-                    name="middleName"
-                    value={formData.middleName}
+                  <label style={{ fontSize: "0.875rem" }}>Channel:</label>
+                  <select
+                    name="channel"
+                    value={formData.channel}
                     onChange={handleChange}
-                    placeholder="Enter middle name"
                     style={{
                       height: "32px",
                       fontSize: "0.875rem",
                       padding: "4px 8px",
-                      border: "1px solid #ccc"
+                      width: "100%",
+                      border: formErrors.channel
+                        ? "1px solid red"
+                        : "1px solid #ccc"
                     }}
-                  />
+                  >
+                    <option value="">Select Channel</option>
+                    <option value="Call">Call</option>
+                    <option value="Email">Email</option>
+                  </select>
+                  {formErrors.channel && (
+                    <span style={{ color: "red", fontSize: "0.75rem" }}>
+                      {formErrors.channel}
+                    </span>
+                  )}
                 </div>
+              </div>
 
+              {/* Inquiry Type */}
+              {formData.category === "Inquiry" && (
                 <div className="modal-form-group" style={{ flex: 1 }}>
-                  <label style={{ fontSize: "0.875rem" }}>
-                    Last Name
-                    {formData.requester === "Employer" ? " (Optional)" : ""}:
-                  </label>
-                  <input
-                    name="lastName"
-                    value={formData.lastName}
+                  <label style={{ fontSize: "0.875rem" }}>Inquiry Type:</label>
+                  <select
+                    name="inquiry_type"
+                    value={formData.inquiry_type || ""}
                     onChange={handleChange}
-                    placeholder="Enter last name"
                     style={{
                       height: "32px",
                       fontSize: "0.875rem",
                       padding: "4px 8px",
-                      border:
-                        formErrors.lastName &&
-                        formData.requester !== "Employer"
-                          ? "1px solid red"
-                          : "1px solid #ccc"
+                      width: "100%",
+                      border: formErrors.inquiry_type
+                        ? "1px solid red"
+                        : "1px solid #ccc"
+                    }}
+                  >
+                    <option value="">Select Inquiry Type</option>
+                    <option value="Claims">Claims</option>
+                    <option value="Compliance">Compliance</option>
+                  </select>
+                  {formErrors.inquiry_type && (
+                    <span style={{ color: "red", fontSize: "0.75rem" }}>
+                      {formErrors.inquiry_type}
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Subject, Sub-section, Section */}
+              <div className="modal-form-row">
+                <div className="modal-form-group" style={{ flex: 1 }}>
+                  <label style={{ fontSize: "0.875rem" }}>Subject:</label>
+                  <select
+                    name="functionId"
+                    value={formData.functionId}
+                    onChange={handleChange}
+                    style={{
+                      height: "32px",
+                      fontSize: "0.875rem",
+                      padding: "4px 8px",
+                      width: "100%",
+                      border: formErrors.functionId
+                        ? "1px solid red"
+                        : "1px solid #ccc"
+                    }}
+                  >
+                    <option value="">Select Subject</option>
+                    {functionData.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </select>
+                  {formErrors.functionId && (
+                    <span style={{ color: "red", fontSize: "0.75rem" }}>
+                      {formErrors.functionId}
+                    </span>
+                  )}
+                </div>
+
+                <div className="modal-form-group">
+                  <label style={{ fontSize: "0.875rem" }}>Sub-section:</label>
+                  <input
+                    value={selectedFunction}
+                    readOnly
+                    style={{
+                      height: "32px",
+                      fontSize: "0.875rem",
+                      padding: "4px 8px",
+                      backgroundColor: "#f5f5f5"
                     }}
                   />
-                  {formErrors.lastName &&
-                    formData.requester !== "Employer" && (
-                      <span style={{ color: "red", fontSize: "0.75rem" }}>
-                        {formErrors.lastName}
-                      </span>
-                    )}
-                </div>
-              </div>
-            )}
-
-            {/* Phone & NIDA */}
-            <div className="modal-form-row">
-              <div className="modal-form-group">
-                <label style={{ fontSize: "0.875rem" }}>Phone Number:</label>
-                <input
-                  type="tel"
-                  name="phoneNumber"
-                  value={formData.phoneNumber}
-                  onChange={handleChange}
-                  placeholder="Enter phone number"
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    border: formErrors.phoneNumber
-                      ? "1px solid red"
-                      : "1px solid #ccc"
-                  }}
-                />
-                {formErrors.phoneNumber && (
-                  <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.phoneNumber}
-                  </span>
-                )}
-              </div>
-
-              <div className="modal-form-group">
-                <label style={{ fontSize: "0.875rem" }}>
-                  {formData.requester === "Employer"
-                    ? "TIN:"
-                    : "National Identification Number:"}
-                </label>
-                <input
-                  name="nidaNumber"
-                  value={formData.nidaNumber}
-                  onChange={handleChange}
-                  placeholder={
-                    formData.requester === "Employer"
-                      ? "Enter TIN number"
-                      : "Enter NIN number"
-                  }
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    border: formErrors.nidaNumber
-                      ? "1px solid red"
-                      : "1px solid #ccc"
-                  }}
-                />
-                {formErrors.nidaNumber && (
-                  <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.nidaNumber}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Requester & Institution */}
-            <div className="modal-form-row">
-              <div className="modal-form-group">
-                <label style={{ fontSize: "0.875rem" }}>Requester:</label>
-                <select
-                  name="requester"
-                  value={formData.requester}
-                  onChange={handleChange}
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    width: "100%",
-                    border: formErrors.requester
-                      ? "1px solid red"
-                      : "1px solid #ccc"
-                  }}
-                >
-                  <option value="">Select..</option>
-                  <option value="Employee">Employee</option>
-                  <option value="Employer">Employer</option>
-                  <option value="Pensioners">Pensioners</option>
-                  <option value="Stakeholders">Stakeholders</option>
-                  <option value="Representative">Representative</option>
-                </select>
-                {formErrors.requester && (
-                  <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.requester}
-                  </span>
-                )}
-              </div>
-
-              <div className="modal-form-group">
-                <label style={{ fontSize: "0.875rem" }}>Institution:</label>
-                <input
-                  name="institution"
-                  value={formData.institution}
-                  onChange={handleChange}
-                  placeholder="Enter Institution"
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    border: formErrors.institution
-                      ? "1px solid red"
-                      : "1px solid #ccc"
-                  }}
-                />
-                {formErrors.institution && (
-                  <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.institution}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* New fields for Representative if selected */}
-            {formData.requester === "Representative" && (
-              <>
-                <Typography
-                  variant="h6"
-                  sx={{ mt: 3, mb: 1, fontWeight: "bold" }}
-                >
-                  Representative Details
-                </Typography>
-                <div className="modal-form-row">
-                  <div className="modal-form-group">
-                    <label style={{ fontSize: "0.875rem" }}>
-                      Representative Name:
-                    </label>
-                    <input
-                      name="requesterName"
-                      value={formData.requesterName}
-                      onChange={handleChange}
-                      placeholder="Enter representative's name"
-                      style={{
-                        height: "32px",
-                        fontSize: "0.875rem",
-                        padding: "4px 8px",
-                        border: formErrors.requesterName
-                          ? "1px solid red"
-                          : "1px solid #ccc"
-                      }}
-                    />
-                    {formErrors.requesterName && (
-                      <span style={{ color: "red", fontSize: "0.75rem" }}>
-                        {formErrors.requesterName}
-                      </span>
-                    )}
-                  </div>
-                  <div className="modal-form-group">
-                    <label style={{ fontSize: "0.875rem" }}>
-                      Representative Phone Number:
-                    </label>
-                    <input
-                      type="tel"
-                      name="requesterPhoneNumber"
-                      value={formData.requesterPhoneNumber}
-                      onChange={handleChange}
-                      placeholder="Enter representative's phone number"
-                      style={{
-                        height: "32px",
-                        fontSize: "0.875rem",
-                        padding: "4px 8px",
-                        border: formErrors.requesterPhoneNumber
-                          ? "1px solid red"
-                          : "1px solid #ccc"
-                      }}
-                    />
-                    {formErrors.requesterPhoneNumber && (
-                      <span style={{ color: "red", fontSize: "0.75rem" }}>
-                        {formErrors.requesterPhoneNumber}
-                      </span>
-                    )}
-                  </div>
                 </div>
 
-                <div className="modal-form-row">
-                  <div className="modal-form-group">
-                    <label style={{ fontSize: "0.875rem" }}>
-                      Representative Email (Optional):
-                    </label>
-                    <input
-                      type="email"
-                      name="requesterEmail"
-                      value={formData.requesterEmail}
-                      onChange={handleChange}
-                      placeholder="Enter representative's email"
-                      style={{
-                        height: "32px",
-                        fontSize: "0.875rem",
-                        padding: "4px 8px",
-                        border: "1px solid #ccc"
-                      }}
-                    />
-                  </div>
-                  <div className="modal-form-group">
-                    <label style={{ fontSize: "0.875rem" }}>
-                      Representative Address (Optional):
-                    </label>
-                    <input
-                      name="requesterAddress"
-                      value={formData.requesterAddress}
-                      onChange={handleChange}
-                      placeholder="Enter representative's address"
-                      style={{
-                        height: "32px",
-                        fontSize: "0.875rem",
-                        padding: "4px 8px",
-                        border: "1px solid #ccc"
-                      }}
-                    />
-                  </div>
+                <div className="modal-form-group">
+                  <label style={{ fontSize: "0.875rem" }}>Section:</label>
+                  <input
+                    value={selectedSection || "Unit"}
+                    readOnly
+                    style={{
+                      height: "32px",
+                      fontSize: "0.875rem",
+                      padding: "4px 8px",
+                      backgroundColor: "#f5f5f5"
+                    }}
+                  />
                 </div>
+              </div>
 
-                <div className="modal-form-row">
-                  <div className="modal-form-group">
-                    <label style={{ fontSize: "0.875rem" }}>
-                      Relationship to Employee/Employee:
-                    </label>
-                    <input
-                      name="relationshipToEmployee"
-                      value={formData.relationshipToEmployee}
-                      onChange={handleChange}
-                      placeholder="e.g., Parent, Spouse, Child"
-                      style={{
-                        height: "32px",
-                        fontSize: "0.875rem",
-                        padding: "4px 8px",
-                        border: formErrors.relationshipToEmployee
-                          ? "1px solid red"
-                          : "1px solid #ccc"
-                      }}
-                    />
-                    {formErrors.relationshipToEmployee && (
-                      <span style={{ color: "red", fontSize: "0.75rem" }}>
-                        {formErrors.relationshipToEmployee}
-                      </span>
-                    )}
-                  </div>
-                  <div className="modal-form-group"></div>{" "}
-                  {/* Empty for alignment */}
-                </div>
-              </>
-            )}
-
-            {/* Region & District */}
-            <div className="modal-form-row">
+              {/* Description */}
               <div className="modal-form-group">
-                <label style={{ fontSize: "0.875rem" }}>Region:</label>
-                <input
-                  name="region"
-                  value={formData.region}
+                <label style={{ fontSize: "0.875rem" }}>Description:</label>
+                <textarea
+                  rows="2"
+                  name="description"
+                  value={formData.description}
                   onChange={handleChange}
-                  placeholder="Enter region"
+                  placeholder="Detailed descriptions.."
                   style={{
-                    height: "32px",
                     fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    border: formErrors.region
+                    padding: "8px",
+                    resize: "vertical",
+                    border: formErrors.description
                       ? "1px solid red"
                       : "1px solid #ccc"
                   }}
                 />
-                {formErrors.region && (
+                {formErrors.description && (
                   <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.region}
+                    {formErrors.description}
                   </span>
                 )}
               </div>
 
-              <div className="modal-form-group">
-                <label style={{ fontSize: "0.875rem" }}>District:</label>
-                <input
-                  name="district"
-                  value={formData.district}
-                  onChange={handleChange}
-                  placeholder="Enter district"
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    border: formErrors.district
-                      ? "1px solid red"
-                      : "1px solid #ccc"
-                  }}
-                />
-                {formErrors.district && (
-                  <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.district}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Category & Channel */}
-            <div className="modal-form-row">
-              <div className="modal-form-group" style={{ flex: 1 }}>
-                <label style={{ fontSize: "0.875rem" }}>Category:</label>
-                <select
-                  name="category"
-                  value={formData.category}
-                  onChange={handleChange}
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    width: "100%",
-                    border: formErrors.category
-                      ? "1px solid red"
-                      : "1px solid #ccc"
-                  }}
-                >
-                  <option value="">Select Category</option>
-                  <option value="Inquiry">Inquiry</option>
-                  <option value="Complaint">Complaint</option>
-                  <option value="Suggestion">Suggestion</option>
-                  <option value="Compliment">Compliment</option>
-                </select>
-                {formErrors.category && (
-                  <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.category}
-                  </span>
-                )}
-              </div>
-
-              <div className="modal-form-group" style={{ flex: 1 }}>
-                <label style={{ fontSize: "0.875rem" }}>Channel:</label>
-                <select
-                  name="channel"
-                  value={formData.channel}
-                  onChange={handleChange}
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    width: "100%",
-                    border: formErrors.channel
-                      ? "1px solid red"
-                      : "1px solid #ccc"
-                  }}
-                >
-                  <option value="">Select Channel</option>
-                  <option value="Call">Call</option>
-                  <option value="Email">Email</option>
-                </select>
-                {formErrors.channel && (
-                  <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.channel}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Inquiry Type */}
-            {formData.category === "Inquiry" && (
-              <div className="modal-form-group" style={{ flex: 1 }}>
-                <label style={{ fontSize: "0.875rem" }}>Inquiry Type:</label>
-                <select
-                  name="inquiry_type"
-                  value={formData.inquiry_type || ""}
-                  onChange={handleChange}
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    width: "100%",
-                    border: formErrors.inquiry_type
-                      ? "1px solid red"
-                      : "1px solid #ccc"
-                  }}
-                >
-                  <option value="">Select Inquiry Type</option>
-                  <option value="Claims">Claims</option>
-                  <option value="Compliance">Compliance</option>
-                </select>
-                {formErrors.inquiry_type && (
-                  <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.inquiry_type}
-                  </span>
-                )}
-              </div>
-            )}
-
-            {/* Subject, Sub-section, Section */}
-            <div className="modal-form-row">
-              <div className="modal-form-group" style={{ flex: 1 }}>
-                <label style={{ fontSize: "0.875rem" }}>Subject:</label>
-                <select
-                  name="functionId"
-                  value={formData.functionId}
-                  onChange={handleChange}
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    width: "100%",
-                    border: formErrors.functionId
-                      ? "1px solid red"
-                      : "1px solid #ccc"
-                  }}
-                >
-                  <option value="">Select Subject</option>
-                  {functionData.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-                {formErrors.functionId && (
-                  <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.functionId}
-                  </span>
-                )}
-              </div>
-
-              <div className="modal-form-group">
-                <label style={{ fontSize: "0.875rem" }}>Sub-section:</label>
-                <input
-                  value={selectedFunction}
-                  readOnly
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    backgroundColor: "#f5f5f5"
-                  }}
-                />
-              </div>
-
-              <div className="modal-form-group">
-                <label style={{ fontSize: "0.875rem" }}>Section:</label>
-                <input
-                  value={selectedSection || "Unit"}
-                  readOnly
-                  style={{
-                    height: "32px",
-                    fontSize: "0.875rem",
-                    padding: "4px 8px",
-                    backgroundColor: "#f5f5f5"
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Description */}
-            <div className="modal-form-group">
-              <label style={{ fontSize: "0.875rem" }}>Description:</label>
-              <textarea
-                rows="2"
-                name="description"
-                value={formData.description}
-                onChange={handleChange}
-                placeholder="Detailed descriptions.."
+              {/* Submit */}
+              <div
                 style={{
-                  fontSize: "0.875rem",
-                  padding: "8px",
-                  resize: "vertical",
-                  border: formErrors.description
-                    ? "1px solid red"
-                    : "1px solid #ccc"
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: "10px",
+                  marginTop: "1.5rem"
                 }}
-              />
-              {formErrors.description && (
-                <span style={{ color: "red", fontSize: "0.75rem" }}>
-                  {formErrors.description}
-                </span>
-              )}
+              >
+                <button
+                  className="cancel-btn"
+                  onClick={() => setShowModal(false)}
+                >
+                  Cancel
+                </button>
+                <button className="submit-btn" onClick={(e) => handleSubmit(e)}>
+                  Submit to Backoffice
+                </button>
+                <button
+                  className="close-btn"
+                  style={{ background: "gray", color: "white" }}
+                  onClick={(e) => handleSubmit(e, "closed")}
+                >
+                  Close Ticket
+                </button>
+              </div>
             </div>
-
-            {/* Submit */}
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: "10px",
-                marginTop: "1.5rem"
-              }}
-            >
-              <button
-                className="cancel-btn"
-                onClick={() => setShowModal(false)}
-              >
-                Cancel
-              </button>
-              <button
-                className="submit-btn"
-                onClick={(e) => handleSubmit(e)}
-              >
-                Submit to Backoffice
-              </button>
-              <button
-                className="close-btn"
-                style={{ background: "gray", color: "white" }}
-                onClick={(e) => handleSubmit(e, "closed")}
-              >
-                Close Ticket
-              </button>
-            </div>
-          </div>
-        </Box>
+          </Box>
           <Box
             sx={{
               flex: 1,
@@ -3498,7 +3555,9 @@ const AgentCRM = () => {
                   {selectedInstitution.allocated_staff_username}
                 </div>
               </div>
-            )}{formData.phoneNumber && (
+            )}
+            {/* Ticket history for entered phone number */}
+            {formData.phoneNumber && (
               <div
                 style={{
                   marginTop: 8,
@@ -3508,7 +3567,13 @@ const AgentCRM = () => {
                   minHeight: 60
                 }}
               >
-                <h4 style={{ color: "#1976d2", margin: '16px 0 8px 0', paddingLeft: 16 }}>
+                <h4
+                  style={{
+                    color: "#1976d2",
+                    margin: "16px 0 8px 0",
+                    paddingLeft: 16
+                  }}
+                >
                   Ticket History for {formData.phoneNumber}
                 </h4>
                 {creationTicketsLoading ? (
@@ -3524,37 +3589,52 @@ const AgentCRM = () => {
                         mb: 2,
                         p: 2,
                         borderRadius: 2,
-                        bgcolor: creationActiveTicketId === ticket.id ? "#e3f2fd" : "#fff",
+                        bgcolor:
+                          creationActiveTicketId === ticket.id
+                            ? "#e3f2fd"
+                            : "#fff",
                         cursor: "pointer",
-                        border: creationActiveTicketId === ticket.id ? "2px solid #1976d2" : "1px solid #e0e0e0",
+                        border:
+                          creationActiveTicketId === ticket.id
+                            ? "2px solid #1976d2"
+                            : "1px solid #e0e0e0",
                         boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
                         display: "flex",
                         flexDirection: "column",
                         gap: 1,
-                        transition: 'box-shadow 0.2s, border-color 0.2s',
-                        '&:hover': {
-                          boxShadow: '0 4px 8px rgba(25,118,210,0.1)',
-                          borderColor: '#1976d2'
+                        transition: "box-shadow 0.2s, border-color 0.2s",
+                        "&:hover": {
+                          boxShadow: "0 4px 8px rgba(25,118,210,0.1)",
+                          borderColor: "#1976d2"
                         }
                       }}
                     >
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#1976d2' }}>
+                      <Box
+                        sx={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          alignItems: "center"
+                        }}
+                      >
+                        <Typography
+                          variant="subtitle1"
+                          sx={{ fontWeight: 600, color: "#1976d2" }}
+                        >
                           {ticket.ticket_id}
                         </Typography>
                         <Typography
                           sx={{
                             px: 1.5,
                             py: 0.5,
-                            borderRadius: '12px',
-                            color: 'white',
+                            borderRadius: "12px",
+                            color: "white",
                             background:
-                              ticket.status === 'Closed'
-                                ? '#757575'
-                                : ticket.status === 'Open'
-                                ? '#2e7d32'
-                                : '#1976d2',
-                            fontSize: '0.75rem',
+                              ticket.status === "Closed"
+                                ? "#757575"
+                                : ticket.status === "Open"
+                                ? "#2e7d32"
+                                : "#1976d2",
+                            fontSize: "0.75rem",
                             fontWeight: 500
                           }}
                         >
@@ -3562,21 +3642,28 @@ const AgentCRM = () => {
                         </Typography>
                       </Box>
                       <Box sx={{ mt: 1 }}>
-                        <Typography variant="body2" sx={{ color: '#666', mb: 0.5 }}>
-                          Created: {new Date(ticket.created_at).toLocaleDateString()}
+                        <Typography
+                          variant="body2"
+                          sx={{ color: "#666", mb: 0.5 }}
+                        >
+                          Created:{" "}
+                          {new Date(ticket.created_at).toLocaleDateString()}
                         </Typography>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 500, color: '#333', mb: 1 }}>
+                        <Typography
+                          variant="subtitle2"
+                          sx={{ fontWeight: 500, color: "#333", mb: 1 }}
+                        >
                           Subject: {ticket.subject}
                         </Typography>
                         <Typography
                           variant="body2"
                           sx={{
-                            color: '#666',
-                            display: '-webkit-box',
+                            color: "#666",
+                            display: "-webkit-box",
                             WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
+                            WebkitBoxOrient: "vertical",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis"
                           }}
                         >
                           Description: {ticket.description}
@@ -3585,14 +3672,19 @@ const AgentCRM = () => {
                     </Box>
                   ))
                 ) : (
-                  <div style={{ color: '#888', fontSize: '0.95em', textAlign: 'center', padding: 16 }}>
+                  <div
+                    style={{
+                      color: "#888",
+                      fontSize: "0.95em",
+                      textAlign: "center",
+                      padding: 16
+                    }}
+                  >
                     No previous tickets found for this number.
                   </div>
                 )}
               </div>
             )}
-            {/* Ticket history for entered phone number */}
-            
           </Box>
         </Box>
       </Modal>
@@ -3787,7 +3879,6 @@ const AgentCRM = () => {
           </Button>
         </Box>
       </Modal> */}
-
     </div>
   );
 };
