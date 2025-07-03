@@ -41,13 +41,14 @@ export default function CRMSidebar({ isSidebarOpen }) {
       try {
         const token = localStorage.getItem("authToken");
         const config = { headers: { Authorization: `Bearer ${token}` } };
-        const [openRes, assignedRes, inProgressRes, carriedForwardRes, closedRes, overdueRes] = await Promise.all([
+        const [openRes, assignedRes, inProgressRes, carriedForwardRes, closedRes, overdueRes, totalRes] = await Promise.all([
           axios.get(`${baseURL}/ticket/count/open/${userId}`, config),
           axios.get(`${baseURL}/ticket/count/assigned/${userId}`, config),
           axios.get(`${baseURL}/ticket/count/inprogress/${userId}`, config),
           axios.get(`${baseURL}/ticket/count/carried-forward/${userId}`, config),
           axios.get(`${baseURL}/ticket/count/closed/${userId}`, config),
           axios.get(`${baseURL}/ticket/count/overdue/${userId}`, config),
+          axios.get(`${baseURL}/ticket/all-count/${userId}`, config),
         ]);
         setOpenCount(openRes.data.count || 0);
         setAssignedCount(assignedRes.data.count || 0);
@@ -55,14 +56,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
         setCarriedForwardCount(carriedForwardRes.data.count || 0);
         setClosedCount(closedRes.data.count || 0);
         setOverdueCount(overdueRes.data.count || 0);
-        setTotalCount(
-          (openRes.data.count || 0) +
-          (assignedRes.data.count || 0) +
-          (inProgressRes.data.count || 0) +
-          (carriedForwardRes.data.count || 0) +
-          (closedRes.data.count || 0) +
-          (overdueRes.data.count || 0)
-        );
+        setTotalCount(totalRes.data.count || 0);
       } catch (err) {
         console.error('Error fetching ticket counts:', err);
         let errorMsg = 'Failed to fetch ticket counts';
