@@ -342,17 +342,21 @@ export default function TicketDetailsModal({
     selectedTicket &&
     selectedTicket.status !== "Closed" &&
     selectedTicket.assigned_to_id &&
+    userRole !== "coordinator"&&
     selectedTicket.assigned_to_id.toString() === userId;
 
   // Coordinator-specific conditions
   const showCoordinatorActions = 
     userRole === "coordinator" && 
     selectedTicket && 
+    selectedTicket.assigned_to_id.toString() === userId &&
     selectedTicket.status !== "Closed";
 
   const handleAttend = () => {
-    setIsAttendDialogOpen(true);
-  };
+    // setIsAttendDialogOpen(true);
+
+    setIsCoordinatorCloseDialogOpen(true);
+    };
 
   const handleAttendSubmit = async () => {
     try {
@@ -742,6 +746,12 @@ export default function TicketDetailsModal({
                     {selectedTicket.district || "N/A"}
                   </Typography>
                 </div>
+                <div style={{ flex: "1 1 45%" }}>
+                  <Typography>
+                    <strong>Rated:</strong>{" "}
+                    {selectedTicket.complaint_type || "N/A"}
+                  </Typography>
+                </div>
 
                 <div style={{ flex: "1 1 45%" }}>
                   <Typography>
@@ -862,7 +872,7 @@ export default function TicketDetailsModal({
                       color="success"
                       onClick={handleCoordinatorClose}
                     >
-                      Close Ticket
+                      Close ticket
                     </Button>
                   </Box>
                 )}

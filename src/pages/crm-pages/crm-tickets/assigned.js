@@ -253,7 +253,7 @@ export default function Crm() {
                   : "blue",
             }}
           >
-            {ticket.status || "N/A"}
+              {ticket.status || "Escalated" || "N/A" }
           </span>
         </td>
       )}

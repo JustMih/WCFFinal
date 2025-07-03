@@ -269,7 +269,7 @@ export default function Crm() {
          <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
         <td>{fullName}</td>
         <td>{ticket.phone_number || "N/A"}</td>
-        <td>{ticket.status || "N/A"}</td>
+        <td>{ticket.status || "Escalated"}</td>
         <td>
         <Tooltip title="Ticket Details">
   <button

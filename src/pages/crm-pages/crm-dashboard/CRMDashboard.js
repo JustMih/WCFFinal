@@ -20,6 +20,7 @@ export default function CRMDashboard() {
        {role === "compliance-focal-person" && <HeadsDashboard />}
        {role === "head-of-unit" && <HeadsDashboard />}
        {role === "director-general" && <HeadsDashboard />}
+       {role === "manager" && <HeadsDashboard />}
      </>
    );
 }
