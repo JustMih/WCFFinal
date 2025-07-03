@@ -400,8 +400,7 @@ const AgentCRM = () => {
       totalComplaints: tickets.length,
       pendingRating: tickets.filter((t) => !t.complaintType).length,
       ratedMajor: tickets.filter((t) => t.complaintType === "Major").length,
-      ratedMinor: tickets.filter((t) => t.complaintType === "Minor").length,
-      inProgress: tickets.filter((t) => t.status === "In Progress").length // Add inProgress count
+      ratedMinor: tickets.filter((t) => t.complaintType === "Minor").length
     });
   };
 
@@ -3498,7 +3497,9 @@ const AgentCRM = () => {
                   {selectedInstitution.allocated_staff_username}
                 </div>
               </div>
-            )}{formData.phoneNumber && (
+            )}
+            {/* Ticket history for entered phone number */}
+            {formData.phoneNumber && (
               <div
                 style={{
                   marginTop: 8,
@@ -3591,8 +3592,6 @@ const AgentCRM = () => {
                 )}
               </div>
             )}
-            {/* Ticket history for entered phone number */}
-            
           </Box>
         </Box>
       </Modal>

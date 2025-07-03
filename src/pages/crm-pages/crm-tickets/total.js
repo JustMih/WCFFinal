@@ -102,7 +102,7 @@ export default function Crm() {
       if (!response.ok) {
         if (response.status === 404) {
           setAgentTickets([]);
-          setAgentTicketsError("No ticket found");
+          setAgentTicketsError("No tickets found for this agent.");
           return;
         }
         throw new Error(`HTTP error! Status: ${response.status}`);
@@ -115,7 +115,7 @@ export default function Crm() {
         setAgentTicketsError(null);
       } else {
         setAgentTickets([]);
-        setAgentTicketsError("No ticket found");
+        setAgentTicketsError("No tickets found for this agent.");
       }
     } catch (error) {
       setAgentTicketsError(error.message);
@@ -167,27 +167,19 @@ export default function Crm() {
   };
 
   const openModal = async (ticket) => {
-    setIsModalOpen(true);
+    setSelectedTicket(ticket);
+    setComments(ticket.comments || "");
     try {
       const token = localStorage.getItem("authToken");
-      // Fetch full ticket details (with associations)
-      const res = await fetch(`${baseURL}/ticket/${ticket.id}`, {
+      const res = await fetch(`${baseURL}/ticket/${ticket.id}/assignments`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
-      setSelectedTicket(data.ticket || ticket); // Use full ticket if available
-      setComments((data.ticket && data.ticket.comments) || ticket.comments || "");
-
-      // Fetch assignment history as before
-      const res2 = await fetch(`${baseURL}/ticket/${ticket.id}/assignments`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data2 = await res2.json();
-      setAssignmentHistory(data2);
+      setAssignmentHistory(data);
+      setIsModalOpen(true);
     } catch (e) {
       setAssignmentHistory([]);
-      setSelectedTicket(ticket); // fallback
-      setComments(ticket.comments || "");
+      setIsModalOpen(true);
     }
   };
 
@@ -449,7 +441,7 @@ export default function Crm() {
                   colSpan={activeColumns.length + 1}
                   style={{ textAlign: "center", color: "red" }}
                 >
-                  {agentTicketsError || "No ticket found"}
+                  {agentTicketsError || "No tickets found for this agent."}
                 </td>
               </tr>
             )}

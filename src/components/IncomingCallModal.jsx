@@ -4,17 +4,7 @@ import { MdCallEnd, MdCall } from "react-icons/md";
 
 export default function IncomingCallModal({ open, caller, onAccept, onReject, onHangup, phoneStatus, callDurationFormatted }) {
   return (
-    <Dialog open={open} maxWidth="xs" fullWidth
-      PaperProps={{
-        sx: {
-          position: 'absolute',
-          top: '50%',
-          right: 40,
-          transform: 'translateY(-50%)',
-          m: 0,
-        }
-      }}
-    >
+    <Dialog open={open} maxWidth="xs" fullWidth>
       <DialogTitle>
         {phoneStatus === "Ringing" ? "📞 Incoming Call" : "📞 Call In Progress"}
       </DialogTitle>

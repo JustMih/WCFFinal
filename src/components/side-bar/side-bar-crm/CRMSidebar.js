@@ -6,19 +6,42 @@ import { MdOutlineSupportAgent, MdEmail } from "react-icons/md";
 import { FaChevronUp, FaChevronDown } from "react-icons/fa";
 import { baseURL } from "../../../config";
 import "./crmSidebar.css";
-import axios from "axios";
 
 export default function CRMSidebar({ isSidebarOpen }) {
   const [isAgentsOpen, setIsAgentsOpen] = useState(false);
   const [openSection, setOpenSection] = useState(null);
-  const [openCount, setOpenCount] = useState(0);
-  const [assignedCount, setAssignedCount] = useState(0);
-  const [inProgressCount, setInProgressCount] = useState(0);
-  const [carriedForwardCount, setCarriedForwardCount] = useState(0);
-  const [closedCount, setClosedCount] = useState(0);
-  const [overdueCount, setOverdueCount] = useState(0);
-  const [totalCount, setTotalCount] = useState(0);
-  const [fetchError, setFetchError] = useState("");
+  const [ticketStats, setTicketStats] = useState({
+    total: 0,
+    open: 0,
+    inProgress: 0,
+    assigned: 0,
+    closed: 0,
+    overdue: 0,
+    carriedForward: 0,
+    newTickets: {
+      Complaints: 0,
+      "New Tickets": 0,
+      "Escalated Tickets": 0
+    },
+    convertedTickets: {
+      Inquiries: 0,
+      Complaints: 0,
+      Suggestions: 0,
+      Complements: 0
+    },
+    channeledTickets: {
+      Directorate: 0,
+      Units: 0
+    },
+    ticketStatus: {
+      Open: 0,
+      "On Progress": 0,
+      Closed: 0,
+      Minor: 0,
+      Major: 0
+    }
+  });
+  const [fetchError, setFetchError] = useState(null);
 
   const role = localStorage.getItem("role");
 
@@ -32,59 +55,71 @@ export default function CRMSidebar({ isSidebarOpen }) {
     return "Dashboard";
   };
 
-  const userId = localStorage.getItem("userId");
-
-  useEffect(() => {
-    if (!userId) return;
-    setFetchError("");
-    const fetchCounts = async () => {
-      try {
-        const token = localStorage.getItem("authToken");
-        const config = { headers: { Authorization: `Bearer ${token}` } };
-        const [openRes, assignedRes, inProgressRes, carriedForwardRes, closedRes, overdueRes] = await Promise.all([
-          axios.get(`${baseURL}/ticket/count/open/${userId}`, config),
-          axios.get(`${baseURL}/ticket/count/assigned/${userId}`, config),
-          axios.get(`${baseURL}/ticket/count/inprogress/${userId}`, config),
-          axios.get(`${baseURL}/ticket/count/carried-forward/${userId}`, config),
-          axios.get(`${baseURL}/ticket/count/closed/${userId}`, config),
-          axios.get(`${baseURL}/ticket/count/overdue/${userId}`, config),
-        ]);
-        setOpenCount(openRes.data.count || 0);
-        setAssignedCount(assignedRes.data.count || 0);
-        setInProgressCount(inProgressRes.data.count || 0);
-        setCarriedForwardCount(carriedForwardRes.data.count || 0);
-        setClosedCount(closedRes.data.count || 0);
-        setOverdueCount(overdueRes.data.count || 0);
-        setTotalCount(
-          (openRes.data.count || 0) +
-          (assignedRes.data.count || 0) +
-          (inProgressRes.data.count || 0) +
-          (carriedForwardRes.data.count || 0) +
-          (closedRes.data.count || 0) +
-          (overdueRes.data.count || 0)
-        );
-      } catch (err) {
-        console.error('Error fetching ticket counts:', err);
-        let errorMsg = 'Failed to fetch ticket counts';
-        if (err.response) {
-          errorMsg += ` (Status: ${err.response.status})`;
-          if (err.response.data && err.response.data.message) {
-            errorMsg += `: ${err.response.data.message}`;
-          }
-        } else if (err.request) {
-          errorMsg += ' (No response from server)';
-        } else if (err.message) {
-          errorMsg += ` (${err.message})`;
+  // Helper to fetch in-progress assignments count
+  const fetchInProgressAssignmentsCount = async (userId, token) => {
+    try {
+      const url = `${baseURL}/ticket/assignments/in-progress?userId=${userId}`;
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
         }
-        setFetchError(errorMsg);
+      });
+      if (!response.ok) return 0;
+      const data = await response.json();
+      return data.count || 0;
+    } catch {
+      return 0;
+    }
+  };
+
+  const fetchTicketCounts = async () => {
+    const userId = localStorage.getItem("userId");
+    const token = localStorage.getItem("authToken");
+    if (!userId || !token) {
+      setFetchError("Missing userId or token");
+      return;
+    }
+    try {
+      // Use different endpoints based on role
+      let url;
+      if (role === "coordinator") {
+        url = `${baseURL}/coordinator/dashboard-counts/${userId}`;
+      } else if (['focal-person', 'claim-focal-person', 'compliance-focal-person'].includes(role)) {
+        // url = `${baseURL}/focal-person/dashboard-counts`;
+        url = `${baseURL}/ticket/dashboard-counts/${userId}`;
+      } else {
+        url = `${baseURL}/ticket/dashboard-counts/${userId}`;
       }
-    };
-    fetchCounts();
-  }, [userId]);
+      
+      const response = await fetch(url, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
+        }
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        setFetchError(`Fetch failed: ${response.status} - ${errorText}`);
+        return;
+      }
+      const data = await response.json();
+      let stats = data.ticketStats ? { ...data.ticketStats } : {};
+      // Fetch in-progress assignments count and add to stats
+      const inProgressAssignments = await fetchInProgressAssignmentsCount(userId, token);
+      stats.inProgress = inProgressAssignments;
+      setTicketStats(stats);
+      setFetchError(null);
+    } catch (error) {
+      setFetchError(error.message);
+    }
+  };
 
   const toggleAgentsDropdown = () => {
     if (!isAgentsOpen) {
-      // fetchTicketCounts();
+      fetchTicketCounts();
     }
     setIsAgentsOpen((prev) => !prev);
   };
@@ -92,6 +127,10 @@ export default function CRMSidebar({ isSidebarOpen }) {
   const toggleSection = (section) => {
     setOpenSection(openSection === section ? null : section);
   };
+
+  useEffect(() => {
+    fetchTicketCounts();
+  }, []);
 
   return (
     <aside className={`crm-sidebar ${isSidebarOpen ? "open" : "closed"}`}>
@@ -171,21 +210,24 @@ export default function CRMSidebar({ isSidebarOpen }) {
                       onClick={() => toggleSection("agentTickets")}
                     >
                       <span className="section-title">Ticket Overview</span>
-                      <span className="section-count">{totalCount}</span>
+                      <span className="section-count">
+                        {ticketStats.total || 0}
+                      </span>
                     </div>
                     {openSection === "agentTickets" && (
                       <div className="section-items">
                         {[
+                          
                           {
                             label: "Assigned Tickets",
                             to: "/ticket/assigned",
-                            value: assignedCount,
+                            value: ticketStats.assigned,
                             icon: "📋"
                           },
                           {
                             label: "In Progress",
                             to: "/ticket/in-progress",
-                            value: inProgressCount,
+                            value: ticketStats.inProgress,
                             icon: "⏳"
                           },
                           // {
@@ -203,19 +245,19 @@ export default function CRMSidebar({ isSidebarOpen }) {
                           {
                             label: "Closed Tickets",
                             to: "/ticket/closed",
-                            value: closedCount,
+                            value: ticketStats.closed,
                             icon: "🔒"
                           },
                           {
                             label: "Overdue",
                             to: "/ticket/overdue",
-                            value: overdueCount,
+                            value: ticketStats.overdue,
                             icon: "⚠️"
                           },
                           {
                             label: "Total Tickets",
                             to: "/ticket/all",
-                            value: totalCount,
+                            value: ticketStats.total,
                             icon: "📊"
                           }
                         ].map((item, idx) => (
@@ -309,9 +351,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                     >
                       <span className="section-title">New Tickets</span>
                       <span className="section-count">
-                        {/* {(ticketStats.ticketStatus?.["On Progress"] || 0) + (ticketStats.ticketStatus?.Closed || 0)} */}
-                        {/* {(ticketStats.newTickets?.["New Tickets"] || 0) + (ticketStats.newTickets?.["Escalated Tickets"] || 0)} */}
-                        {/* {(ticketStats.newTickets?.["New Tickets"] || 0) + (ticketStats.newTickets?.["Escalated Tickets"] || 0)} */}
+                        {ticketStats.newTickets?.Total || 0}
                       </span>
                     </div>
                     {openSection === "newTickets" && (
@@ -320,13 +360,15 @@ export default function CRMSidebar({ isSidebarOpen }) {
                           {
                             label: "New Tickets",
                             to: `/coordinator/new`,
-                            value: 0,
+                            value: ticketStats.newTickets?.["New Tickets"] || 0,
                             icon: "🆕"
                           },
                           {
                             label: "Escalated",
                             to: `/coordinator/escalated`,
-                            value: 0,
+                            value:
+                              ticketStats.newTickets?.["Escalated Tickets"] ||
+                              0,
                             icon: "⚠️"
                           }
                         ].map((item, idx) => (
@@ -360,9 +402,9 @@ export default function CRMSidebar({ isSidebarOpen }) {
                     >
                       <span className="section-title">Tickets Category</span>
                       <span className="section-count">
-                        {/* {Object.values(
+                        {Object.values(
                           ticketStats.convertedTickets || {}
-                        ).reduce((a, b) => a + b, 0)} */}
+                        ).reduce((a, b) => a + b, 0)}
                       </span>
                     </div>
                     {openSection === "convertedTickets" && (
@@ -371,19 +413,22 @@ export default function CRMSidebar({ isSidebarOpen }) {
                           {
                             label: "Complaints",
                             to: "/coordinator/complaints",
-                            value: 0,
+                            value:
+                              ticketStats.convertedTickets?.Complaints || 0,
                             icon: "📋"
                           },
                           {
                             label: "Suggestions",
                             to: "/coordinator/suggestions",
-                            value: 0,
+                            value:
+                              ticketStats.convertedTickets?.Suggestions || 0,
                             icon: "💡"
                           },
                           {
                             label: "Compliments",
                             to: "/coordinator/complements",
-                            value: 0,
+                            value:
+                              ticketStats.convertedTickets?.Compliments || 0,
                             icon: "⭐"
                           }
                         ].map((item, idx) => (
@@ -417,9 +462,9 @@ export default function CRMSidebar({ isSidebarOpen }) {
                     >
                       <span className="section-title">Channeled Tickets</span>
                       <span className="section-count">
-                        {/* {Object.values(
+                        {Object.values(
                           ticketStats.channeledTickets || {}
-                        ).reduce((a, b) => a + b, 0)} */}
+                        ).reduce((a, b) => a + b, 0)}
                       </span>
                     </div>
                     {openSection === "channeledTickets" && (
@@ -428,13 +473,14 @@ export default function CRMSidebar({ isSidebarOpen }) {
                           {
                             label: "Directorate",
                             to: "/coordinator/directorate",
-                            value: 0,
+                            value:
+                              ticketStats.channeledTickets?.Directorate || 0,
                             icon: "🏢"
                           },
                           {
                             label: "Units",
                             to: "/coordinator/units",
-                            value: 0,
+                            value: ticketStats.channeledTickets?.Units || 0,
                             icon: "👥"
                           }
                         ].map((item, idx) => (
@@ -469,7 +515,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                       <span className="section-title">Ticket Status</span>
                       <span className="section-count">
                         {/* {(ticketStats.ticketStatus?.["On Progress"] || 0) + (ticketStats.ticketStatus?.Closed || 0)} */}
-                        {/* {(ticketStats.ticketStatus?.["On Progress"] || 0) + (ticketStats.ticketStatus?.Closed || 0)} */}
+                        {ticketStats.ticketStatus?.Closed || 0}
                       </span>
                     </div>
                     {openSection === "ticketStatus" && (
@@ -485,7 +531,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                           {
                             label: "Closed",
                             to: `/coordinator/closed`,
-                            value: 0,
+                            value: ticketStats.ticketStatus?.Closed || 0,
                             icon: "🔒"
                           }
                         ].map((item, idx) => (
@@ -510,13 +556,13 @@ export default function CRMSidebar({ isSidebarOpen }) {
                     )}
                   </div>
 
-                  {/* {fetchError && (
+                  {fetchError && (
                     <div className="section error-message">
                       <span style={{ color: "red", padding: "0 1rem" }}>
                         {fetchError}
                       </span>
                     </div>
-                  )} */}
+                  )}
                 </div>
               )}
             </li>
