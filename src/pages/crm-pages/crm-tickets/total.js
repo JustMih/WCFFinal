@@ -478,7 +478,8 @@ export default function Crm() {
         open={isModalOpen}
         onClose={closeModal}
         selectedTicket={selectedTicket}
-        assignmentHistory={assignmentHistory}
+        assignmentHistory={assignmentHistory.assignments || []}
+        representative={assignmentHistory.representative || null}
       />
 
       {/* Column Selector */}
@@ -508,7 +509,7 @@ export default function Crm() {
       <Dialog open={isHistoryModalOpen} onClose={() => setIsHistoryModalOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>Ticket History</DialogTitle>
         <DialogContent>
-          <AssignmentFlowChat assignmentHistory={assignmentHistory} selectedTicket={selectedTicket} />
+          <AssignmentFlowChat assignmentHistory={assignmentHistory.assignments || []} selectedTicket={selectedTicket} />
         </DialogContent>
       </Dialog>
     </div>

@@ -182,17 +182,27 @@ export default function Crm() {
   };
 
   const openModal = async (ticket) => {
-    setSelectedTicket(ticket);
-    setIsModalOpen(true);
     try {
       const token = localStorage.getItem("authToken");
-      const res = await fetch(`${baseURL}/ticket/${ticket.id}/assignments`, {
+      // Fetch the full ticket details (with RequesterDetail)
+      const res = await fetch(`${baseURL}/ticket/${ticket.id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
-      setAssignmentHistory(data);
+      // Some APIs return { ticket: {...} }, some just {...}
+      const fullTicket = data.ticket || data;
+      setSelectedTicket(fullTicket);
+      console.log("Setting selectedTicket to:", fullTicket);
+      setIsModalOpen(true); // Only open after setting selectedTicket
+      // Fetch assignment history as before
+      const res2 = await fetch(`${baseURL}/ticket/${ticket.id}/assignments`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data2 = await res2.json();
+      setAssignmentHistory(data2);
     } catch (e) {
       setAssignmentHistory([]);
+      setIsModalOpen(true);
     }
   };
 
