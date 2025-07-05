@@ -4,6 +4,7 @@
   box-shadow: 0 2px 8px rgba(0,0,0,0.06);
   padding: 24px;
   margin-bottom: 32px;
+  width: 100%;
 }
 .queue-monitoring-section h4 {
   margin-bottom: 18px;

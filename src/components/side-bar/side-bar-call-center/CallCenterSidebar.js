@@ -347,7 +347,7 @@ export default function CallCenterSidebar({
                 </div>
               </NavLink>
 
-              <NavLink
+              {/* <NavLink
                 to="/agents-logs"
                 className={({ isActive }) =>
                   isActive ? "menu-item active-link" : "menu-item"
@@ -359,7 +359,7 @@ export default function CallCenterSidebar({
                     <span className="menu-text">Agents Logs</span>
                   )}
                 </div>
-              </NavLink>
+              </NavLink> */}
 
               <NavLink
                 to="/supervisor-chat"

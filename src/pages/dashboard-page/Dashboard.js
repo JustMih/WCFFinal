@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Route, Routes } from "react-router-dom";
+import { Route, Routes, useNavigate, useLocation } from "react-router-dom";
 import Navbar from "../../components/nav-bar/Navbar";
 import CallCenterSidebar from "../../components/side-bar/side-bar-call-center/CallCenterSidebar";
 import CRMSidebar from "../../components/side-bar/side-bar-crm/CRMSidebar";
@@ -47,6 +47,8 @@ export default function Dashboard() {
   const [isDarkMode, setDarkMode] = useState(false);
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [activeSystem, setActiveSystem] = useState("");
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const role = localStorage.getItem("role");
 
@@ -62,7 +64,9 @@ export default function Dashboard() {
         role === "supervisor"
       ) {
         setActiveSystem("call-center");
-      } else if (role === "attendee" || role === "coordinator" ||
+      } else if (
+        role === "attendee" ||
+        role === "coordinator" ||
         role === "head-of-unit" ||
         role === "manager" ||
         role === "supervisor" ||
@@ -73,7 +77,6 @@ export default function Dashboard() {
         role === "focal-person" ||
         role === "claim-focal-person" ||
         role === "compliance-focal-person"
-      
       ) {
         setActiveSystem("crm");
       }
@@ -186,7 +189,7 @@ export default function Dashboard() {
                 <Route path="/livestream" element={<Livestream />} />
                 <Route path="/recorded-audio" element={<RecordedAudio />} />
                 <Route path="/dtmf-stats" element={<DTMFStats />} />
-                <Route path="/ivr-cards" element={<IvrCardsPage/>} />
+                <Route path="/ivr-cards" element={<IvrCardsPage />} />
                 <Route
                   path="/social-message"
                   element={<PrivateRoute element={<Message />} />}
@@ -202,7 +205,9 @@ export default function Dashboard() {
                 />
                 <Route
                   path="/notifications"
-                  element={<PrivateRoute element={<CRMNotificationTickets />} />}
+                  element={
+                    <PrivateRoute element={<CRMNotificationTickets />} />
+                  }
                 />
                 <Route
                   path="/ticket/opened"

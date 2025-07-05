@@ -53,6 +53,7 @@ import WaitingCallsTable from "../../../../components/agent-dashboard/WaitingCal
 import AgentPerformanceScore from "../../../../components/agent-dashboard/AgentPerformanceScore";
 import TicketCreateModal from "../../../../components/ticket/TicketCreateModal";
 import VoiceNotesReport from "../../cal-center-ivr/VoiceNotesReport";
+import CallQueueCard from "../../../../components/supervisor-dashboard/CallQueueCard";
 
 export default function AgentsDashboard() {
   const [customerType, setCustomerType] = useState("");
@@ -855,7 +856,7 @@ export default function AgentsDashboard() {
   
     try {
       // Step 1: Fetch the list of online users (agents and supervisors)
-      const response = await fetch(`${baseURL}/online-users`, {
+      const response = await fetch(`${baseURL}/agents-online`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",
@@ -1277,10 +1278,11 @@ export default function AgentsDashboard() {
           </Tooltip>
         </div>
         <div className="dashboard-single-agent">
-         <SingleAgentDashboardCard />
+          <SingleAgentDashboardCard />
         </div>
         <div className="dashboard-single-agent-row_two">
-          <WaitingCallsTable />
+          {/* Queue Monitoring Section */}
+          <CallQueueCard />
         </div>
         <div className="dashboard-single-agent-row_three">
           <QueueStatusTable />
@@ -1381,21 +1383,35 @@ export default function AgentsDashboard() {
             <span>
               {phoneStatus === "In Call" ? "Call in Progress" : "Phone"}
             </span>
-            <button onClick={togglePhonePopup} className="modern-close-btn" aria-label="Close">×</button>
+            <button
+              onClick={togglePhonePopup}
+              className="modern-close-btn"
+              aria-label="Close"
+            >
+              ×
+            </button>
           </div>
           <div className="modern-phone-body">
             {phoneStatus === "In Call" && (
               <>
                 <div className="modern-phone-status">
                   <span className="modern-status-badge">In Call</span>
-                  <span className="modern-call-duration">{formatDuration(callDuration)}</span>
+                  <span className="modern-call-duration">
+                    {formatDuration(callDuration)}
+                  </span>
                 </div>
                 <Autocomplete
-                  options={onlineUsers.map(u => u.username)}
+                  options={onlineUsers.map((u) => u.username)}
                   value={transferTarget}
                   onChange={(_, v) => setTransferTarget(v || "")}
                   renderInput={(params) => (
-                    <TextField {...params} label="Transfer To (Extension)" variant="outlined" margin="normal" fullWidth />
+                    <TextField
+                      {...params}
+                      label="Transfer To (Extension)"
+                      variant="outlined"
+                      margin="normal"
+                      fullWidth
+                    />
                   )}
                   fullWidth
                   disableClearable={false}
@@ -1428,21 +1444,39 @@ export default function AgentsDashboard() {
                 />
                 {showKeypad && (
                   <div className="modern-keypad" style={{ marginBottom: 10 }}>
-                    {["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"].map(
-                      (digit) => (
-                        <button
-                          key={digit}
-                          className="modern-keypad-btn"
-                          onClick={() => setPhoneNumber((prev) => prev + digit)}
-                        >
-                          {digit}
-                        </button>
-                      )
-                    )}
+                    {[
+                      "1",
+                      "2",
+                      "3",
+                      "4",
+                      "5",
+                      "6",
+                      "7",
+                      "8",
+                      "9",
+                      "*",
+                      "0",
+                      "#",
+                    ].map((digit) => (
+                      <button
+                        key={digit}
+                        className="modern-keypad-btn"
+                        onClick={() => setPhoneNumber((prev) => prev + digit)}
+                      >
+                        {digit}
+                      </button>
+                    ))}
                     <button
                       className="modern-keypad-btn"
-                      onClick={() => setPhoneNumber((prev) => prev.slice(0, -1))}
-                      style={{ gridColumn: 'span 3', background: '#ffeaea', color: '#e53935', fontSize: '1.3rem' }}
+                      onClick={() =>
+                        setPhoneNumber((prev) => prev.slice(0, -1))
+                      }
+                      style={{
+                        gridColumn: "span 3",
+                        background: "#ffeaea",
+                        color: "#e53935",
+                        fontSize: "1.3rem",
+                      }}
                       aria-label="Backspace"
                     >
                       ⌫
@@ -1471,7 +1505,10 @@ export default function AgentsDashboard() {
               </Tooltip>
               <Tooltip title="Keypad">
                 <IconButton onClick={() => setShowKeypad((prev) => !prev)}>
-                  <IoKeypadOutline fontSize={20} style={iconStyle(showKeypad ? "#1976d2" : "#939488")} />
+                  <IoKeypadOutline
+                    fontSize={20}
+                    style={iconStyle(showKeypad ? "#1976d2" : "#939488")}
+                  />
                 </IconButton>
               </Tooltip>
               <Tooltip title="End Call">
