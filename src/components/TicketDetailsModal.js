@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Modal, Box, Typography, Divider, IconButton, Button, Dialog, DialogTitle, DialogContent, Avatar, Paper, TextField, Tooltip } from "@mui/material";
+import { Modal, Box, Typography, Divider, IconButton, Button, Dialog, DialogTitle, DialogContent, Avatar, Paper, TextField, Tooltip, Select, MenuItem } from "@mui/material";
 import ChatIcon from '@mui/icons-material/Chat';
 import { baseURL } from "../config";
 
@@ -331,6 +331,12 @@ export default function TicketDetailsModal({
   const [reverseReason, setReverseReason] = useState("");
   const [isReversing, setIsReversing] = useState(false);
 
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [selectedAttendee, setSelectedAttendee] = useState(null);
+  const [assignReason, setAssignReason] = useState("");
+  const [assignLoading, setAssignLoading] = useState(false);
+  const [attendees, setAttendees] = useState([]);
+
   const showAttendButton =
     // (userRole === "agent" || userRole === "attendee") &&
     selectedTicket &&
@@ -456,6 +462,89 @@ export default function TicketDetailsModal({
     } finally {
       setIsReversing(false);
       setReverseReason("");
+    }
+  };
+
+  // Fetch attendees when modal opens
+  useEffect(() => {
+    if (isAssignModalOpen) {
+      const fetchAttendees = async () => {
+        try {
+          const token = localStorage.getItem("authToken");
+          const res = await fetch(`${baseURL}/ticket/admin/attendee`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const data = await res.json();
+          if (Array.isArray(data.attendees)) {
+            setAttendees(data.attendees);
+          } else if (Array.isArray(data.data)) {
+            setAttendees(data.data);
+          } else {
+            setAttendees([]);
+          }
+        } catch (e) {
+          setAttendees([]);
+        }
+      };
+      fetchAttendees();
+    }
+  }, [isAssignModalOpen]);
+
+  const handleAssignTicket = async () => {
+    if (!selectedAttendee || !selectedAttendee.username) {
+      setSnackbar && setSnackbar({ open: true, message: 'Please select an attendee', severity: 'warning' });
+      return;
+    }
+    if (!selectedTicket || !selectedTicket.id) {
+      setSnackbar && setSnackbar({ open: true, message: 'No ticket selected or ticket ID missing', severity: 'error' });
+      console.error('Assign error: selectedTicket or selectedTicket.id missing', selectedTicket);
+      return;
+    }
+    const assignedToUsername = selectedAttendee.username;
+    const assignedById = localStorage.getItem("userId");
+    const reason = assignReason;
+    if (!assignedToUsername || !assignedById) {
+      setSnackbar && setSnackbar({ open: true, message: 'Missing required fields for assignment', severity: 'error' });
+      console.error('Assign error: missing assignedToUsername or assignedById', { assignedToUsername, assignedById });
+      return;
+    }
+    setAssignLoading(true);
+    try {
+      console.log('Assigning ticket:', selectedTicket);
+      console.log('Assigning to username:', assignedToUsername, 'by user:', assignedById, 'reason:', reason);
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(`${baseURL}/ticket/${selectedTicket.id}/assign`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          assignedToUsername,
+          assignedById,
+          reason
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSnackbar && setSnackbar({ open: true, message: `Failed to assign ticket: ${res.status} ${data.message || ''}`, severity: 'error' });
+        console.error('Assign fetch error:', res.status, data);
+        return;
+      }
+      setSnackbar && setSnackbar({
+        open: true,
+        message: data.message || "Ticket assigned successfully",
+        severity: "success"
+      });
+      setAssignReason("");
+      setSelectedAttendee(null);
+      setIsAssignModalOpen(false);
+      refreshTickets && refreshTickets();
+    } catch (e) {
+      setSnackbar && setSnackbar({ open: true, message: `Assign error: ${e.message}`, severity: "error" });
+      console.error('Assign exception:', e);
+    } finally {
+      setAssignLoading(false);
     }
   };
 
@@ -794,7 +883,7 @@ export default function TicketDetailsModal({
                       variant="contained"
                       color="info"
                       sx={{ mr: 1 }}
-                      onClick={() => {/* handle assign logic here */}}
+                      onClick={() => setIsAssignModalOpen(true)}
                     >
                       Assign
                     </Button>
@@ -973,6 +1062,71 @@ export default function TicketDetailsModal({
           </Box>
         </DialogContent>
       </Dialog>
+
+      {/* Assign Ticket Modal */}
+      <Modal
+        open={isAssignModalOpen}
+        onClose={() => setIsAssignModalOpen(false)}
+        aria-labelledby="assign-ticket-modal-title"
+      >
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: 400,
+            bgcolor: "background.paper",
+            boxShadow: 24,
+            borderRadius: 2,
+            p: 4,
+            display: "flex",
+            flexDirection: "column",
+            gap: 3
+          }}
+        >
+          <Typography id="assign-ticket-modal-title" variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+            Assign Ticket
+          </Typography>
+          <Select
+            value={selectedAttendee ? selectedAttendee.id : ""}
+            onChange={e => {
+              const attendee = attendees.find(a => a.id === e.target.value);
+              setSelectedAttendee(attendee);
+            }}
+            displayEmpty
+            fullWidth
+            sx={{ mb: 2 }}
+          >
+            <MenuItem value="" disabled>Select attendee</MenuItem>
+            {attendees.map(a => (
+              <MenuItem key={a.id} value={a.id}>{a.name} ({a.username})</MenuItem>
+            ))}
+          </Select>
+          <TextField
+            label="Assignment Reason (optional)"
+            value={assignReason}
+            onChange={e => setAssignReason(e.target.value)}
+            fullWidth
+            multiline
+            minRows={2}
+            sx={{ mb: 2 }}
+          />
+          <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
+            <Button onClick={() => setIsAssignModalOpen(false)} disabled={assignLoading}>
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleAssignTicket}
+              disabled={assignLoading}
+            >
+              {assignLoading ? "Assigning..." : "Confirm Assignment"}
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
     </>
   );
 } 

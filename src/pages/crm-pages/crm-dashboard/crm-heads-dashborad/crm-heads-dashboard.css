@@ -1,0 +1,467 @@
+/* Main dashboard container */
+.coordinator-dashboard-container {
+    padding: 20px;
+    /* background-color: #ffffff; */
+    border-radius: 8px;
+    min-height: 80vh;
+    /* box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); */
+    width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  @media screen and (max-width: 768px) {
+    .coordinator-dashboard-container {
+      padding: 15px;
+    }
+  }
+  
+  
+  /* Dashboard title */
+  .title {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 20px;
+    color: #1976d2;
+    overflow-x: auto;
+  }
+  
+  /* Ticket Stats Section */
+  .ticket-stats-section {
+    margin-bottom: 30px;
+  }
+  
+  .stats-summary {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  
+  .stat-box {
+    flex: 1;
+    min-width: 150px;
+    background-color: #e8f5e9; /* Light green background like in the new image */
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease;
+    text-align: center; /* Center the content */
+    padding: 16px; /* Match padding from the new image */
+  }
+  
+  .stat-box:hover {
+    transform: translateY(-3px);
+  }
+  
+  .stat-box h3 {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 8px;
+    text-transform: uppercase; /* Match the style in the new image */
+  }
+  
+  .stat-box p {
+    font-size: 24px;
+    font-weight: bold;
+    color: #333;
+  }
+  
+  /* Filters Section */
+  .filters-section {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  
+  .search-input,
+  .filter-select {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    flex: 1;
+    min-width: 200px;
+  }
+  
+  .search-input:focus,
+  .filter-select:focus {
+    outline: none;
+    border-color: #1976d2;
+    box-shadow: 0 0 5px rgba(25, 118, 210, 0.3);
+  }
+  
+  /* Ticket List Section */
+  .ticket-list-section {
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    padding: 20px;
+  }
+  
+  .ticket-list-section h2 {
+    font-size: 18px;
+    font-weight: 500;
+    margin-bottom: 16px;
+    color: #333;
+  }
+  
+  /* View Details Button (Icon Button) */
+  .ticket-list-section button[title="View Details"] {
+    background: none;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    color: #1976d2;
+    transition: color 0.2s ease;
+  }
+  
+  .ticket-list-section button[title="View Details"]:hover {
+    color: #1565c0;
+  }
+  
+  /* Minor, Major, and Convert Buttons */
+  .ticket-list-section .MuiButton-root {
+    padding: 6px 12px;
+    border-radius: 4px;
+    text-transform: none;
+    font-size: 14px;
+    font-weight: 500;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.2s ease, transform 0.1s ease;
+  }
+  
+  /* Minor Button */
+  .ticket-list-section .MuiButton-root:nth-child(2) {
+    background-color: #ffb300; /* Orange for Minor */
+    color: #fff;
+  }
+  
+  .ticket-list-section .MuiButton-root:nth-child(2):hover {
+    background-color: #e0a800;
+    transform: translateY(-1px);
+  }
+  
+  /* Major Button */
+  .ticket-list-section .MuiButton-root:nth-child(3) {
+    background-color: #d32f2f; /* Red for Major */
+    color: #fff;
+  }
+  
+  .ticket-list-section .MuiButton-root:nth-child(3):hover {
+    background-color: #b71c1c;
+    transform: translateY(-1px);
+  }
+  
+  /* Convert Dropdown and Button */
+  .ticket-list-section .convert-select {
+    padding: 6px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px;
+    background-color: #fff;
+    cursor: pointer;
+    transition: border-color 0.2s ease;
+  }
+  
+  .ticket-list-section .convert-select:focus {
+    outline: none;
+    border-color: #1976d2;
+    box-shadow: 0 0 5px rgba(25, 118, 210, 0.3);
+  }
+  
+  /* Convert Button */
+  .ticket-list-section .MuiButton-root:nth-child(5) {
+    background-color: #1976d2; /* Blue for Convert */
+    color: #fff;
+  }
+  
+  .ticket-list-section .MuiButton-root:nth-child(5):hover {
+    background-color: #1565c0;
+    transform: translateY(-1px);
+  }
+  
+  /* Modal Styling */
+  .MuiBox-root {
+    background-color: #fff;
+    border-radius: 8px;
+    /* box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); */
+  }
+  
+  .MuiBox-root .MuiTypography-h5 {
+    font-size: 20px;
+    font-weight: bold;
+    color: #1976d2;
+  }
+  
+  .MuiBox-root .MuiTypography-body1 {
+    font-size: 14px;
+    color: #333;
+  }
+  
+  .MuiBox-root .MuiButton-root {
+    padding: 8px 16px;
+    border-radius: 4px;
+    text-transform: none;
+    background-color: #1976d2;
+    color: #fff;
+  }
+  
+  .MuiBox-root .MuiButton-root:hover {
+    background-color: #1565c0;
+  }
+  
+  /* Snackbar */
+  .MuiSnackbar-root {
+    top: 80px; /* Account for header height */
+  }
+  
+  .MuiAlert-root {
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Responsive Adjustments */
+  @media (max-width: 600px) {
+    .stats-summary {
+      flex-direction: column;
+    }
+  
+    .filters-section {
+      flex-direction: column;
+    }
+  
+    .search-input,
+    .filter-select,
+    .convert-select {
+      min-width: 100%;
+    }
+  
+    .ticket-list-section .MuiTable-root {
+      display: block;
+      overflow-x: auto;
+    }
+  
+    .ticket-list-section .MuiTableCell-root:last-child {
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+  }
+  
+  
+  
+  .complaints-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    font-family: sans-serif;
+  }
+  
+  .complaints-table th,
+  .complaints-table td {
+    /* border: 1px solid #e0e0e0; */
+    padding: 12px;
+    text-align: left;
+    vertical-align: middle;
+  }
+  
+  .complaints-table th {
+    background-color: #1976d2;
+    color: white;
+    font-weight: bold;
+  }
+  
+  .action-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+  
+  /* General Container Styling */
+  .table-container {
+    width: 100%;
+    margin: 0px auto;
+    font-family: var(--font-family);
+  }
+  
+  .table-title {
+    text-align: left;
+    color: var(--text-color);
+    margin-bottom: 10px;
+  }
+  
+  /* Button styles */
+  .btn {
+    border: none;
+    padding: 6px 12px;
+    font-size: 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  
+  .btn.view {
+    background-color: transparent;
+    border: 1px solid #ccc;
+    padding: 4px 4px;
+    font-size: 16px;
+  }
+  
+  .btn.minor {
+    background-color: #fb8c00;
+    color: white;
+  }
+  
+  .btn.major {
+    background-color: #e53935;
+    color: white;
+  }
+  
+  .btn.convert {
+    background-color: #1976d2;
+    color: white;
+  }
+  
+  .btn.select {
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    background-color: white;
+    font-size: 14px;
+  }
+  
+  
+  .coordinator-list-section {
+    margin: 20px;
+    padding: 15px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  
+  
+  
+  /* Grid of dashboard card */
+  
+  .card-coordinator{
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+  
+  
+  .coordinator-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: auto;
+    min-width: 900px; /* minimum width to avoid squeezing */
+  }
+  
+  .coordinator-table th,
+  .coordinator-table td {
+    padding: 8px 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 200px;
+  }
+  
+  /* Let long text wrap in specific columns (e.g., description) */
+  /* .coordinator-table td.description-cell {
+    white-space: normal;
+    word-wrap: break-word;
+  } */
+  
+  /* Responsive font and layout tweaks */
+  /* @media screen and (max-width: 768px) {
+    .coordinator-table {
+      font-size: 12px;
+    }
+  } */
+  
+  .coordinator-table-container {
+    width: 100%;
+    margin: 0px auto;
+    font-family: var(--font-family);
+  }
+  
+  .action-btn {
+    padding: 6px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+  }
+  
+  .view-btn {
+    background-color: #e3f2fd;
+    color: #1976d2;
+  }
+  
+  .view-btn:hover {
+    background-color: #bbdefb;
+  }
+  
+  .assign-btn {
+    background-color: #e8f5e9;
+    color: #2e7d32;
+  }
+  
+  .assign-btn:hover {
+    background-color: #c8e6c9;
+  }
+  
+  .reassign-btn {
+    background-color: #fff3e0;
+    color: #f57c00;
+  }
+  
+  .reassign-btn:hover {
+    background-color: #ffe0b2;
+  }
+  
+  .handle-btn {
+    background-color: #e1f5fe;
+    color: #0288d1;
+  }
+  
+  .handle-btn:hover {
+    background-color: #b3e5fc;
+  }
+  
+  /* --- Improved Card and Container Styles (from agent dashboard) --- */
+  .crm-card {
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 20px;
+    padding-top: 16px;
+    padding: 24px 16px;
+    width: 455px;
+    height: 140px;
+    box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.18);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    transition: transform 0.3s cubic-bezier(.4,2,.3,1), box-shadow 0.3s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    margin-bottom: 8px;
+  }
+  
+  .crm-dashboard {
+    display: flex;
+    justify-content: center;
+    padding: 0px;
+  }
+  
+  .crm-cards-container {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  
+  /* You may want to update your Card component to use .crm-card if not already */
+  
+    

@@ -348,8 +348,8 @@ export default function Navbar({
       // Close the dropdown
       setNotifDropdownOpen(false);
     } catch (err) {
-      console.error("Error in handleNotificationClick:", err);
-      alert("Error processing notification.");
+      console.error("Error in handleNotificationClick:", err, notif);
+      alert("Error processing notification: " + (err?.message || err));
     }
   };
 

@@ -34,7 +34,7 @@ import TicketDetailsModal from "../../../../components/TicketDetailsModal";
 import { baseURL } from "../../../../config";
 
 // Styles
-import "./crm-focal-person-dashboard.css";
+import "./crm-heads-dashboard.css";
 
 function AssignmentFlowChat({ assignmentHistory }) {
   return (
@@ -183,19 +183,10 @@ export default function FocalPersonDashboard() {
       const response = await fetch(`${baseURL}/ticket/assigned/${userId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      console.log('Fetch response:', response);
-      let data;
-      try {
-        data = await response.json();
-      } catch (e) {
-        const text = await response.text();
-        console.error('Failed to parse JSON. Raw response:', text);
-        throw e;
-      }
       if (!response.ok) {
-        console.error('Fetch failed:', response.status, data);
-        throw new Error(data.message || `HTTP error! Status: ${response.status}`);
+        throw new Error("Failed to fetch tickets");
       }
+      const data = await response.json();
       setTickets(data.tickets || []);
       if (!data.tickets?.length) {
         setSnackbar({

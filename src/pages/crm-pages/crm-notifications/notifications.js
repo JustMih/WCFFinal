@@ -12,7 +12,7 @@ import {
   Snackbar,
   Tooltip,
   Typography,
-  TextField,
+  TextField
 } from "@mui/material";
 import ColumnSelector from "../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../config";
@@ -41,29 +41,45 @@ export default function Crm() {
     "subject",
     "category",
     "assigned_to_role",
-    "createdAt",
+    "createdAt"
   ]);
   const [loading, setLoading] = useState(true);
+  const [notifiedCount, setNotifiedCount] = useState(0);
 
   // Fetch notifications for the selected ticket
   const { data: notificationHistory, isLoading: isLoadingHistory } = useQuery({
-    queryKey: ['ticketNotifications', selectedTicket?.id],
+    queryKey: [
+      "ticketNotifications",
+      selectedTicket?.ticket?.id ||
+        selectedTicket?.ticket_id ||
+        selectedTicket?.id
+    ],
     queryFn: async () => {
-      if (!selectedTicket?.id) return { notifications: [] };
+      const ticketId =
+        selectedTicket?.ticket?.id ||
+        selectedTicket?.ticket_id ||
+        selectedTicket?.id;
+      if (!ticketId) return { notifications: [] };
       const token = localStorage.getItem("authToken");
       const response = await fetch(
-        `${baseURL}/notifications/ticket/${selectedTicket.id}`,
+        `${baseURL}/notifications/ticket/${ticketId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      if (!response.ok) throw new Error('Failed to fetch notifications');
+      if (!response.ok) throw new Error("Failed to fetch notifications");
       const data = await response.json();
       // Defensive: ensure notifications is an array and sort
       const notifications = Array.isArray(data.notifications)
-        ? data.notifications.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        ? data.notifications.sort(
+            (a, b) => new Date(b.created_at) - new Date(a.created_at)
+          )
         : [];
       return { notifications };
     },
-    enabled: !!selectedTicket?.id,
+    enabled: !!(
+      selectedTicket?.ticket?.id ||
+      selectedTicket?.ticket_id ||
+      selectedTicket?.id
+    )
   });
 
   useEffect(() => {
@@ -71,6 +87,29 @@ export default function Crm() {
     if (userId) {
       setUserId(userId);
       console.log("user id is:", userId);
+      // Fetch notified tickets count
+      const token = localStorage.getItem("authToken");
+      if (token) {
+        fetch(`${baseURL}/notifications/notified-tickets-count/${userId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+          .then((res) => {
+            const contentType = res.headers.get("content-type");
+            if (
+              !res.ok ||
+              !contentType ||
+              !contentType.includes("application/json")
+            ) {
+              throw new Error("Invalid response");
+            }
+            return res.json();
+          })
+          .then((data) => setNotifiedCount(data.notifiedTicketCount || 0))
+          .catch((err) => {
+            setNotifiedCount(0); // fallback
+            // Optionally log or show error
+          });
+      }
     } else {
       setAgentTicketsError("User not authenticated. Please log in.");
       setLoading(false);
@@ -95,8 +134,8 @@ export default function Crm() {
         method: "GET",
         headers: {
           Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+          "Content-Type": "application/json"
+        }
       });
 
       if (!response.ok) {
@@ -109,12 +148,23 @@ export default function Crm() {
       }
 
       const data = await response.json();
-      console.log("Fetched tickets:", data);
+      console.log("Fetched tickets (full API response):", data);
+      if (data.notifications && Array.isArray(data.notifications)) {
+        data.notifications.forEach((notif, idx) => {
+          console.log(`Notification #${idx + 1}:`, notif);
+          if (notif.ticket) {
+            console.log(`Ticket for notification #${idx + 1}:`, notif.ticket);
+          }
+        });
+      }
       if (data && Array.isArray(data.tickets)) {
         setAgentTickets(data.tickets);
         setAgentTicketsError(null);
       } else if (data && Array.isArray(data.Tickets)) {
         setAgentTickets(data.Tickets);
+        setAgentTicketsError(null);
+      } else if (data && Array.isArray(data.notifications)) {
+        setAgentTickets(data.notifications);
         setAgentTicketsError(null);
       } else {
         setAgentTickets([]);
@@ -136,20 +186,23 @@ export default function Crm() {
 
     try {
       const token = localStorage.getItem("authToken");
-      const response = await fetch(`${baseURL}/ticket/update/${selectedTicket.id}`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ comments }),
-      });
+      const response = await fetch(
+        `${baseURL}/ticket/update/${selectedTicket.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ comments })
+        }
+      );
 
       if (response.ok) {
         setModal({
           isOpen: true,
           type: "success",
-          message: "Comments updated successfully.",
+          message: "Comments updated successfully."
         });
         fetchAgentTickets();
       } else {
@@ -157,14 +210,14 @@ export default function Crm() {
         setModal({
           isOpen: true,
           type: "error",
-          message: data.message || "Failed to update comments.",
+          message: data.message || "Failed to update comments."
         });
       }
     } catch (error) {
       setModal({
         isOpen: true,
         type: "error",
-        message: `Network error: ${error.message}`,
+        message: `Network error: ${error.message}`
       });
     }
   };
@@ -201,34 +254,93 @@ export default function Crm() {
       return <div className="no-notifications">No notifications found</div>;
     }
 
+    // Use MUI Box and Typography for consistent style
     return (
-      <div className="notification-list">
-        {notificationHistory.notifications.map((notification, index) => (
-          <div key={index} className="notification-item">
-            <div className="notification-header">
-              <span className="notification-time">
-                {new Date(notification.created_at).toLocaleString("en-GB", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </span>
-              <span className={`notification-status ${notification.status}`}>
-                {notification.status}
-              </span>
-            </div>
-            <div className="notification-message">{notification.message}</div>
-            {notification.comment && (
-              <div className="notification-comment">{notification.comment}</div>
-            )}
-            {/* Sender name after nitifyy/comment */}
-            <div className="notification-sender" style={{ fontStyle: 'italic', color: '#888', marginTop: 4 }}>
-              {notification.sender?.name && `— ${notification.sender.name}`}
-            </div>
-          </div>
-        ))}
+      <div className="notification-list" style={{ padding: 0 }}>
+        {notificationHistory.notifications.map((notification, index) => {
+          const dateStr = notification.created_at
+            ? new Date(notification.created_at).toLocaleDateString("en-US")
+            : "—";
+          return (
+            <Box
+              key={index}
+              sx={{
+                mb: 2,
+                p: 2,
+                borderRadius: 2,
+                bgcolor: '#fff',
+                border: '2px solid #1976d2',
+                boxShadow: '0 2px 4px rgba(25,118,210,0.08)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 1,
+                maxWidth: 420,
+                minWidth: 260,
+                margin: '0 auto',
+                '&:hover': {
+                  boxShadow: '0 4px 8px rgba(25,118,210,0.13)',
+                  borderColor: '#1565c0'
+                }
+              }}
+            >
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#1976d2' }}>
+                  {notification.ticket?.ticket_id || 'N/A'}
+                </Typography>
+                <Typography
+                  sx={{
+                    px: 1.5,
+                    py: 0.5,
+                    borderRadius: '12px',
+                    color: 'white',
+                    background: notification.status === 'Closed' ? '#757575' : '#1976d2',
+                    fontSize: '0.85rem',
+                    fontWeight: 500,
+                    minWidth: 70,
+                    textAlign: 'center'
+                  }}
+                >
+                  {notification.status.charAt(0).toUpperCase() + notification.status.slice(1)}
+                </Typography>
+              </Box>
+              <Box sx={{ mt: 1, background: '#f3f7fa', borderRadius: 2, p: 1.5 }}>
+                <Typography variant="body2" sx={{ color: '#666', mb: 0.5 }}>
+                  <strong>Created:</strong> {dateStr}
+                </Typography>
+                <Typography variant="subtitle2" sx={{ fontWeight: 500, color: '#333', mb: 1 }}>
+                  <strong>Subject:</strong> {notification.ticket?.subject || 'N/A'}
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: '#666',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    mb: 1
+                  }}
+                >
+                  <strong>Description:</strong> {notification.ticket?.description || 'N/A'}
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: '#666',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  <strong>Message:</strong> {notification.comment || 'N/A'}
+                </Typography>
+              </Box>
+            </Box>
+          );
+        })}
       </div>
     );
   };
@@ -241,7 +353,9 @@ export default function Crm() {
       ticket.last_name || ""
     }`.toLowerCase();
     return (
-      (phone.includes(searchValue) || nida.includes(searchValue) || fullName.includes(searchValue)) &&
+      (phone.includes(searchValue) ||
+        nida.includes(searchValue) ||
+        fullName.includes(searchValue)) &&
       (!filterStatus || ticket.status === filterStatus)
     );
   });
@@ -262,7 +376,7 @@ export default function Crm() {
       {activeColumns.includes("category") && <th>Category</th>}
       {activeColumns.includes("assigned_to_role") && <th>Assigned Role</th>}
       {activeColumns.includes("createdAt") && <th>Created At</th>}
-      <th style={{ textAlign: 'center' }}>Actions</th>
+      <th style={{ textAlign: "center" }}>Actions</th>
     </tr>
   );
 
@@ -272,46 +386,52 @@ export default function Crm() {
         <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
       )}
       {activeColumns.includes("fullName") && (
-        <td>{
-          ticket.first_name
-            ? `${ticket.first_name || ""} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim()
-            : ticket.institution || "N/A"
-        }</td>
+        <td>
+          {ticket.ticket?.first_name
+            ? `${ticket.ticket?.first_name || ""} ${
+                ticket.ticket?.middle_name || ""
+              } ${ticket.ticket?.last_name || ""}`.trim()
+            : ticket.ticket?.institution || "N/A"}
+        </td>
       )}
       {activeColumns.includes("phone_number") && (
-        <td>{ticket.phone_number || "N/A"}</td>
+        <td>{ticket.ticket?.phone_number || "N/A"}</td>
       )}
       {activeColumns.includes("status") && (
         <td>
           <span
             style={{
               color:
-                ticket.status === "Open"
+                ticket.ticket?.status === "Open"
                   ? "green"
-                  : ticket.status === "Closed"
+                  : ticket.ticket?.status === "Closed"
                   ? "gray"
-                  : "blue",
+                  : "blue"
             }}
           >
-            {ticket.status || "N/A"}
+            {ticket.ticket?.status || "N/A"}
           </span>
         </td>
       )}
-      {activeColumns.includes("subject") && <td>{ticket.subject || "N/A"}</td>}
-      {activeColumns.includes("category") && <td>{ticket.category || "N/A"}</td>}
+      {activeColumns.includes("subject") && (
+        <td>{ticket.ticket?.subject || "N/A"}</td>
+      )}
+      {activeColumns.includes("category") && (
+        <td>{ticket.ticket?.category || "N/A"}</td>
+      )}
       {activeColumns.includes("assigned_to_role") && (
-        <td>{ticket.assigned_to_role || "N/A"}</td>
+        <td>{ticket.ticket?.assigned_to_role || "N/A"}</td>
       )}
       {activeColumns.includes("createdAt") && (
         <td>
-          {ticket.created_at
-            ? new Date(ticket.created_at).toLocaleString("en-GB", {
+          {ticket.ticket?.created_at
+            ? new Date(ticket.ticket?.created_at).toLocaleString("en-GB", {
                 day: "2-digit",
                 month: "short",
                 year: "numeric",
                 hour: "2-digit",
                 minute: "2-digit",
-                hour12: true,
+                hour12: true
               })
             : "N/A"}
         </td>
@@ -320,18 +440,10 @@ export default function Crm() {
         <div className="action-buttons">
           <Tooltip title="View Notifications">
             <button
-              className="notification-btn"
-              onClick={() => handleNotificationClick(ticket)}
-            >
-              <FaBell />
-            </button>
-          </Tooltip>
-          <Tooltip title="Ticket Details">
-            <button
               className="view-ticket-details-btn"
               onClick={() => openModal(ticket)}
             >
-              <FaEye />
+              <FaBell />
             </button>
           </Tooltip>
         </div>
@@ -349,21 +461,35 @@ export default function Crm() {
 
   return (
     <div className="coordinator-dashboard-container">
+      <div style={{ marginBottom: 16, textAlign: "right" }}>
+        <span
+          style={{
+            background: "red",
+            color: "white",
+            borderRadius: "12px",
+            padding: "4px 12px",
+            fontWeight: "bold",
+            fontSize: "1rem"
+          }}
+        >
+          Total Notified Tickets: {notifiedCount}
+        </span>
+      </div>
       <div style={{ overflowX: "auto", width: "100%" }}>
         <div
           style={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            marginBottom: "16px",
+            marginBottom: "16px"
           }}
         >
-          <h2>Opened Tickets List </h2>
-       <Tooltip title="Columns Settings and Export" arrow>
+          <h2>Notification Tickets List </h2>
+          <Tooltip title="Columns Settings and Export" arrow>
             <IconButton onClick={() => setIsColumnModalOpen(true)}>
               <FiSettings size={20} />
             </IconButton>
-          </Tooltip>   
+          </Tooltip>
         </div>
 
         <div className="controls">
@@ -456,7 +582,6 @@ export default function Crm() {
         </div>
       </div>
 
-
       {/* Details Modal */}
       <Modal
         open={isModalOpen}
@@ -511,23 +636,51 @@ export default function Crm() {
                 >
                   {[
                     // If no first_name, show Institution only; else show First Name and Last Name
-                    ...(!selectedTicket.first_name
-                      ? [["Institution", selectedTicket.institution || "N/A"]]
+                    ...(!selectedTicket.ticket?.first_name
+                      ? [
+                          [
+                            "Institution",
+                            selectedTicket.ticket?.institution || "N/A"
+                          ]
+                        ]
                       : [
-                          ["Full Name", selectedTicket.first_name  +' '+ selectedTicket.last_name||  "N/A"],
+                          [
+                            "Full Name",
+                            `${selectedTicket.ticket?.first_name || ""} ${
+                              selectedTicket.ticket?.last_name || ""
+                            }`.trim() || "N/A"
+                          ]
                         ]),
-                    ["Ticket Number", selectedTicket.ticket_id || "N/A"],
-                    ["Phone", selectedTicket.phone_number || "N/A"],
-                    ["Requester", selectedTicket.requester || "N/A"],
-                    ["Region", selectedTicket.region || "N/A"],
-                    ["Channel", selectedTicket.channel || "N/A"],
-                    ["Section", selectedTicket.responsible_unit_name || "Unit"],
-                    ["Sub-section", selectedTicket.sub_section || "N/A"],
-                    ["Subject", selectedTicket.subject || "N/A"],
-                    ["Created By", selectedTicket?.creator?.name || "N/A"],
+                    [
+                      "Ticket Number",
+                      selectedTicket.ticket?.ticket_id || "N/A"
+                    ],
+                    ["Phone", selectedTicket.ticket?.phone_number || "N/A"],
+                    ["Requester", selectedTicket.ticket?.requester || "N/A"],
+                    ["Region", selectedTicket.ticket?.region || "N/A"],
+                    ["Channel", selectedTicket.ticket?.channel || "N/A"],
+                    [
+                      "Section",
+                      selectedTicket.ticket?.responsible_unit_name || "Unit"
+                    ],
+                    [
+                      "Sub-section",
+                      selectedTicket.ticket?.sub_section || "N/A"
+                    ],
+                    ["Subject", selectedTicket.ticket?.subject || "N/A"],
+                    [
+                      "Created By",
+                      selectedTicket.ticket?.creator?.name || "N/A"
+                    ],
                     // Always show Assigned To and Assigned Role
-                    ["Assigned To", selectedTicket?.assignee?.name || "N/A"],
-                    ["Assigned Role", selectedTicket.assigned_to_role || "N/A"]
+                    [
+                      "Assigned To",
+                      selectedTicket.ticket?.assignee?.name || "N/A"
+                    ],
+                    [
+                      "Assigned Role",
+                      selectedTicket.ticket?.assigned_to_role || "N/A"
+                    ]
                   ].map(([label, value], index) => (
                     <div
                       key={`left-${index}`}
@@ -586,52 +739,61 @@ export default function Crm() {
                       <span
                         style={{
                           color:
-                            selectedTicket.status === "Open"
+                            selectedTicket.ticket?.status === "Open"
                               ? "green"
-                              : selectedTicket.status === "Closed"
+                              : selectedTicket.ticket?.status === "Closed"
                               ? "gray"
                               : "blue"
                         }}
                       >
-                        {selectedTicket.status || "N/A"}
+                        {selectedTicket.ticket?.status || "N/A"}
                       </span>
                     ],
-                    ["NIDA", selectedTicket.nida_number || "N/A"],
-                    ["Institution", selectedTicket.institution || "N/A"],
-                    ["District", selectedTicket.district || "N/A"],
-                    ["Category", selectedTicket.category || "N/A"],
+                    ["NIDA", selectedTicket.ticket?.nida_number || "N/A"],
+                    [
+                      "Institution",
+                      selectedTicket.ticket?.institution || "N/A"
+                    ],
+                    ["District", selectedTicket.ticket?.district || "N/A"],
+                    ["Category", selectedTicket.ticket?.category || "N/A"],
                     [
                       "Rated",
                       <span
                         style={{
                           color:
-                            selectedTicket.complaint_type === "Major"
+                            selectedTicket.ticket?.complaint_type === "Major"
                               ? "red"
-                              : selectedTicket.complaint_type === "Minor"
+                              : selectedTicket.ticket?.complaint_type ===
+                                "Minor"
                               ? "orange"
                               : "inherit"
                         }}
                       >
-                        {selectedTicket.complaint_type || "Unrated"}
+                        {selectedTicket.ticket?.complaint_type || "Unrated"}
                       </span>
                     ],
                     // Always show Assigned To and Assigned Role in right column as well
-                    ["Assigned To", selectedTicket?.assignee?.name || "N/A"],
-                    ["Assigned Role", selectedTicket.assigned_to_role || "N/A"],
+                    [
+                      "Assigned To",
+                      selectedTicket.ticket?.assignee?.name || "N/A"
+                    ],
+                    [
+                      "Assigned Role",
+                      selectedTicket.ticket?.assigned_to_role || "N/A"
+                    ],
                     [
                       "Created At",
-                      selectedTicket.created_at
-                        ? new Date(selectedTicket.created_at).toLocaleString(
-                            "en-US",
-                            {
-                              month: "numeric",
-                              day: "numeric",
-                              year: "numeric",
-                              hour: "numeric",
-                              minute: "2-digit",
-                              hour12: true
-                            }
-                          )
+                      selectedTicket.ticket?.created_at
+                        ? new Date(
+                            selectedTicket.ticket?.created_at
+                          ).toLocaleString("en-US", {
+                            month: "numeric",
+                            day: "numeric",
+                            year: "numeric",
+                            hour: "numeric",
+                            minute: "2-digit",
+                            hour12: true
+                          })
                         : "N/A"
                     ]
                   ].map(([label, value], index) => (
@@ -700,7 +862,7 @@ export default function Crm() {
                       lineHeight: "1.5"
                     }}
                   >
-                    {selectedTicket.description || "N/A"}
+                    {selectedTicket.ticket?.description || "N/A"}
                   </span>
                 </div>
 
@@ -726,7 +888,11 @@ export default function Crm() {
               overflowY: "auto"
             }}
           >
-            <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: "#1976d2" }}>
+            <Typography
+              variant="h6"
+              gutterBottom
+              sx={{ fontWeight: 600, color: "#1976d2" }}
+            >
               Notification History
             </Typography>
             <Divider sx={{ mb: 2 }} />
@@ -753,7 +919,7 @@ export default function Crm() {
             bgcolor: "background.paper",
             boxShadow: 24,
             borderRadius: 2,
-            p: 3,
+            p: 3
           }}
         >
           <Typography
@@ -764,7 +930,11 @@ export default function Crm() {
             Notification History
           </Typography>
           {selectedTicket && (
-            <Typography variant="subtitle2" color="textSecondary" sx={{ mb: 2 }}>
+            <Typography
+              variant="subtitle2"
+              color="textSecondary"
+              sx={{ mb: 2 }}
+            >
               Ticket #{selectedTicket.ticket_id || "N/A"}
             </Typography>
           )}
