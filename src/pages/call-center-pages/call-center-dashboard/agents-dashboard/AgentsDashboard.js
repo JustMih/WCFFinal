@@ -1284,9 +1284,9 @@ export default function AgentsDashboard() {
           {/* Queue Monitoring Section */}
           <CallQueueCard />
         </div>
-        <div className="dashboard-single-agent-row_three">
+        {/* <div className="dashboard-single-agent-row_three">
           <QueueStatusTable />
-        </div>
+        </div> */}
         <div className="dashboard-single-agent-row_four">
           <AgentPerformanceScore />
         </div>

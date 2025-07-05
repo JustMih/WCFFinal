@@ -384,7 +384,7 @@ export default function CallCenterSidebar({
               </NavLink>
 
               {/* Social Notifications Toggle */}
-              <ListItemButton
+              {/* <ListItemButton
                 onClick={toggleSocialMenu}
                 className={openSocial ? "active-link" : "menu-item"}
                 sx={{ padding: 0 }}
@@ -395,7 +395,7 @@ export default function CallCenterSidebar({
                     <span className="menu-text">Social Notifications</span>
                   )}
                 </div>
-              </ListItemButton>
+              </ListItemButton> */}
 
               {/* Dropdown */}
               <Collapse in={openSocial} timeout="auto" unmountOnExit>
