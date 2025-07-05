@@ -127,6 +127,19 @@ const TicketDetailsModal = ({ open, onClose, ticket }) => {
           <Box sx={{ mt: 2 }}>
             <Typography><strong>Description:</strong> {ticket.description || "N/A"}</Typography>
           </Box>
+          {/* Representative Details Section */}
+          {ticket.requester === "Representative" && ticket.RequesterDetail && (
+            <Box sx={{ mt: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 2 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
+                Representative Details
+              </Typography>
+              <Typography><strong>Name:</strong> {ticket.RequesterDetail.name || 'N/A'}</Typography>
+              <Typography><strong>Phone:</strong> {ticket.RequesterDetail.phoneNumber || 'N/A'}</Typography>
+              <Typography><strong>Email:</strong> {ticket.RequesterDetail.email || 'N/A'}</Typography>
+              <Typography><strong>Address:</strong> {ticket.RequesterDetail.address || 'N/A'}</Typography>
+              <Typography><strong>Relationship to Employee:</strong> {ticket.RequesterDetail.relationshipToEmployee || 'N/A'}</Typography>
+            </Box>
+          )}
         </Box>
 
         <Box sx={{ mt: 3, textAlign: "right" }}>

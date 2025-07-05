@@ -299,6 +299,29 @@ function AssignmentFlowChat({ assignmentHistory = [], selectedTicket }) {
   );
 }
 
+function getFullCreatorName(selectedTicket, assignmentHistory = [], usersList = []) {
+  // 1. Try assignmentHistory[0].creator_name
+  if (assignmentHistory && assignmentHistory[0] && assignmentHistory[0].creator_name) {
+    return assignmentHistory[0].creator_name;
+  }
+  // 2. Try to find in usersList by id or user_id
+  if (selectedTicket.created_by && Array.isArray(usersList) && usersList.length > 0) {
+    const creatorUser = usersList.find(
+      u => u.id === selectedTicket.created_by || u.user_id === selectedTicket.created_by
+    );
+    if (creatorUser) {
+      return creatorUser.name || `${creatorUser.first_name || ''} ${creatorUser.last_name || ''}`.trim();
+    }
+  }
+  // 3. Fallbacks
+  return (
+    (selectedTicket.creator && selectedTicket.creator.name) ||
+    `${selectedTicket.first_name || ""} ${selectedTicket.last_name || ""}`.trim() ||
+    selectedTicket.created_by ||
+    "N/A"
+  );
+}
+
 export default function TicketDetailsModal({
   open,
   onClose,
@@ -342,17 +365,21 @@ export default function TicketDetailsModal({
     selectedTicket &&
     selectedTicket.status !== "Closed" &&
     selectedTicket.assigned_to_id &&
+    userRole !== "coordinator"&&
     selectedTicket.assigned_to_id.toString() === userId;
 
   // Coordinator-specific conditions
   const showCoordinatorActions = 
     userRole === "coordinator" && 
     selectedTicket && 
+    selectedTicket.assigned_to_id.toString() === userId &&
     selectedTicket.status !== "Closed";
 
   const handleAttend = () => {
-    setIsAttendDialogOpen(true);
-  };
+    // setIsAttendDialogOpen(true);
+
+    setIsCoordinatorCloseDialogOpen(true);
+    };
 
   const handleAttendSubmit = async () => {
     try {
@@ -548,6 +575,10 @@ export default function TicketDetailsModal({
     }
   };
 
+  useEffect(() => {
+    console.log("MODAL selectedTicket", selectedTicket);
+  }, [selectedTicket]);
+
   return (
     <>
       <Modal
@@ -633,10 +664,7 @@ export default function TicketDetailsModal({
                     <>
                       <Typography>
                         <strong>Created By:</strong>{" "}
-                        {selectedTicket.created_by ||
-                          (selectedTicket.creator && selectedTicket.creator.name) ||
-                          `${selectedTicket.first_name || ""} ${selectedTicket.last_name || ""}`.trim() ||
-                          "N/A"}
+                        {getFullCreatorName(selectedTicket, assignmentHistory, attendees)}
                       </Typography>
                       {selectedTicket.description && (
                         <Typography sx={{ mt: 1 }}>
@@ -742,6 +770,12 @@ export default function TicketDetailsModal({
                     {selectedTicket.district || "N/A"}
                   </Typography>
                 </div>
+                <div style={{ flex: "1 1 45%" }}>
+                  <Typography>
+                    <strong>Rated:</strong>{" "}
+                    {selectedTicket.complaint_type || "N/A"}
+                  </Typography>
+                </div>
 
                 <div style={{ flex: "1 1 45%" }}>
                   <Typography>
@@ -777,6 +811,7 @@ export default function TicketDetailsModal({
                     {selectedTicket.description || "N/A"}
                   </Typography>
                 </div>
+
               </div>
 
               {/* Action Buttons */}
@@ -862,7 +897,7 @@ export default function TicketDetailsModal({
                       color="success"
                       onClick={handleCoordinatorClose}
                     >
-                      Close Ticket
+                      Close ticket
                     </Button>
                   </Box>
                 )}

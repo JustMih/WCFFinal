@@ -26,6 +26,7 @@ import {
 import { styled } from "@mui/material/styles";
 import ColumnSelector from "../../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../../config";
+import { getDomainCredentials } from "../../../../utils/credentials";
 import "./crm-agent-dashboard.css";
 import TicketActions from "../../../../components/ticket/TicketActions";
 import TicketFilters from "../../../../components/ticket/TicketFilters";
@@ -361,41 +362,47 @@ const AgentCRM = () => {
       const data = await response.json();
       const stats = data.ticketStats;
 
-      setAgentData({
-        agentActivity: {
-          // "Open Tickets": stats.open || 0,
-          "In Progress": stats.inProgress || 0,
-          "Closed Tickets": stats.closed || 0,
-          Overdue: stats.overdue || 0,
-          Total: stats.total || 0
-        },
-        ticketQueue: {
-          "New Tickets": stats.newTickets || 0,
-          Assigned: stats.assigned || 0,
-          "In/Hour": stats.inHour || 0,
-          "Resolved/Hour": stats.resolvedHour || 0,
-          Total: stats.total || 0
-        },
-        ticketWait: {
-          "Longest Wait": stats.longestWait || "00:00",
-          "Avg Wait": stats.avgWait || "00:00",
-          "Max Wait": stats.maxWait || "00:00",
-          Pending: stats.pending || 0,
-          Total: stats.total || 0
-        },
-        unresolvedTickets: {
-          "Last Hour": stats.lastHour || 0,
-          "Avg Delay": stats.avgDelay || "00:00",
-          "Max Delay": stats.maxDelay || "00:00",
-          "SLA Breaches": stats.slaBreaches || 0,
-          Total: stats.overdue || 0
-        }
-      });
+      // Use the backend value directly, just like focal person dashboard
+      updateAgentDataFromStats(stats);
     } catch (err) {
       setError(err.message || "Failed to load dashboard data.");
     } finally {
       setLoading(false);
     }
+  };
+
+  // After fetching dashboard counts from the backend, update agentData like this:
+  const updateAgentDataFromStats = (ticketStats) => {
+    setAgentData({
+      agentActivity: {
+        "Open Tickets": ticketStats.open || 0,
+        "In Progress": ticketStats.inProgress || 0,
+        "Closed Tickets": ticketStats.closed || 0,
+        Overdue: ticketStats.overdue || 0,
+        Total: ticketStats.total || 0
+      },
+      ticketQueue: {
+        "New Tickets": ticketStats.newTickets || 0,
+        Assigned: ticketStats.assigned || 0,
+        "In/Hour": ticketStats.inHour || 0,
+        "Resolved/Hour": ticketStats.resolvedHour || 0,
+        Total: ticketStats.total || 0
+      },
+      ticketWait: {
+        "Longest Wait": ticketStats.longestWait || "00:00",
+        "Avg Wait": ticketStats.avgWait || "00:00",
+        "Max Wait": ticketStats.maxWait || "00:00",
+        Pending: ticketStats.pending || 0,
+        Total: ticketStats.total || 0
+      },
+      unresolvedTickets: {
+        "Last Hour": ticketStats.lastHour || 0,
+        "Avg Delay": ticketStats.avgDelay || "00:00",
+        "Max Delay": ticketStats.maxDelay || "00:00",
+        "SLA Breaches": ticketStats.slaBreaches || 0,
+        Total: ticketStats.total || 0
+      }
+    });
   };
 
   const updateTicketStats = (tickets) => {
@@ -763,7 +770,9 @@ const AgentCRM = () => {
         </td>
       )}
       {activeColumns.includes("phone_number") && <td>{ticket.phone_number}</td>}
-      {activeColumns.includes("status") && <td>{ticket.status}</td>}
+      {activeColumns.includes("status") && (
+        <td>{ticket.status || "Escalated"}</td>
+      )}
       {activeColumns.includes("subject") && (
         <td>{ticket.functionData?.name}</td>
       )}
@@ -1858,7 +1867,7 @@ const AgentCRM = () => {
               <Typography variant="subtitle1">
                 Ticket ID: {ticket.ticket_id}
               </Typography>
-              <Typography>Status: {ticket.status}</Typography>
+              <Typography>Status: {ticket.status || "Escalated"}</Typography>
               <Typography>
                 Created: {new Date(ticket.created_at).toLocaleDateString()}
               </Typography>
@@ -2240,7 +2249,7 @@ const AgentCRM = () => {
                               : "blue"
                         }}
                       >
-                        {selectedTicket.status || "N/A"}
+                        {selectedTicket.status || "Escalated" || "N/A"}
                       </span>
                     ],
                     ["NIDA", selectedTicket.nida_number || "N/A"],
@@ -2899,39 +2908,91 @@ const AgentCRM = () => {
                     </Typography>
                   </div>
                   <Button
-                    variant="contained"
-                    color="primary"
-                    disabled={!selectedSuggestion?.claimId}
-                    onClick={async () => {
-                      console.log("Clicked claim:", selectedSuggestion.claimId);
+  variant="contained"
+  color="primary"
+  disabled={!selectedSuggestion?.claimId}
+  onClick={async () => {
+    console.log("Clicked claim:", selectedSuggestion.claimId);
 
-                      const response = await fetch(
-                        "http://127.0.0.1:8000/magic-login",
-                        {
-                          method: "POST",
-                          headers: {
-                            "Content-Type": "application/json",
-                            Accept: "application/json"
-                          }, // important for Laravel session to persist
-                          body: JSON.stringify({
-                            username: "rehema.said",
-                            password: "TTCL@2026"
-                          }),
-                          credentials: "include" // important for Laravel session to persist
-                        }
-                      );
+    const credentials = {
+      username: "rehema.said", // Laravel expects 'username'
+      password: "TTCL@2026"
+    };
 
-                      const data = await response.json();
+    const getCookie = (name) => {
+      const match = document.cookie.match(
+        new RegExp("(^| )" + name + "=([^;]+)")
+      );
+      return match ? decodeURIComponent(match[2]) : null;
+    };
 
-                      if (data?.redirect) {
-                        window.open(data.redirect, "_blank");
-                      } else {
-                        console.error(data?.error || "Login failed");
-                      }
-                    }}
-                  >
-                    View Claim
-                  </Button>
+    try {
+      // Step 1: Get CSRF cookie
+      const csrfResponse = await fetch("http://localhost:8000/sanctum/csrf-cookie", {
+        credentials: "include"
+      });
+
+      if (!csrfResponse.ok) {
+        throw new Error("Failed to fetch CSRF cookie");
+      }
+
+      // Step 2: Read the XSRF-TOKEN cookie
+      const csrfToken = getCookie("XSRF-TOKEN");
+
+      if (!csrfToken) {
+        setSnackbar({
+          open: true,
+          message: "CSRF token missing. Login cannot proceed.",
+          severity: "error"
+        });
+        return;
+      }
+
+      // Step 3: Send login request
+      const loginResponse = await fetch("http://localhost:8000/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "X-XSRF-TOKEN": csrfToken
+        },
+        credentials: "include",
+        body: JSON.stringify(credentials)
+      });
+
+      if (loginResponse.ok || loginResponse.redirected) {
+        // Step 4: Open the dashboard in a new tab
+        const dashboardUrl = "http://localhost:8000/dashboard";
+        window.open(dashboardUrl, "_blank");
+      } else {
+        const errorText = await loginResponse.text();
+        let errorMsg = "Login failed.";
+        try {
+          const json = JSON.parse(errorText);
+          errorMsg = json.message || json.error || errorMsg;
+        } catch {
+          errorMsg = errorText;
+        }
+
+        setSnackbar({
+          open: true,
+          message: errorMsg,
+          severity: "error"
+        });
+      }
+    } catch (error) {
+      setSnackbar({
+        open: true,
+        message: error.message || "Unexpected error during login",
+        severity: "error"
+      });
+    }
+  }}
+>
+  View Claim
+</Button>
+
+
                 </div>
               )}
 

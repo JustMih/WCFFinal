@@ -359,7 +359,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                   {isSidebarOpen && (
                     <span className="menu-text" style={{ position: 'relative', display: 'inline-block' }}>
                       Notifications
-                      {notifiedCount > 0 && (
+                      {/* {notifiedCount > 0 && (
                         <span style={{
                           background: 'red',
                           color: 'white',
@@ -373,7 +373,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                           textAlign: 'center',
                           fontWeight: 'bold',
                         }}>{notifiedCount}</span>
-                      )}
+                      )} */}
                     </span>
                   )}
                 </div>

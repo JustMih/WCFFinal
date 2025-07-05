@@ -175,7 +175,7 @@ export default function CRMCoordinatorTickets() {
                   : "blue",
             }}
           >
-            {ticket.status || "N/A"}
+            {ticket.status || "Escalated" || "N/A"}
           </span>
         </td>
       )}

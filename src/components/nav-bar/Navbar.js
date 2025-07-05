@@ -20,6 +20,7 @@ import DialogActions from '@mui/material/DialogActions';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { clearDomainCredentials } from "../../utils/credentials";
 
 export default function Navbar({
   toggleTheme,
@@ -370,6 +371,7 @@ export default function Navbar({
         localStorage.removeItem("tokenExpiration");
         localStorage.removeItem("agentStatus");
         localStorage.removeItem("activeSystem");
+        clearDomainCredentials(); // Clear domain credentials
         window.location.href = "/";
         return;
       }
@@ -391,9 +393,20 @@ export default function Navbar({
       localStorage.removeItem("tokenExpiration");
       localStorage.removeItem("activeSystem");
       localStorage.removeItem("agentStatus");
+      clearDomainCredentials(); // Clear domain credentials
       window.location.href = "/";
     } catch (error) {
       console.error("Error logging out:", error);
+      // Even if logout fails, clear local data
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("username");
+      localStorage.removeItem("role");
+      localStorage.removeItem("userId");
+      localStorage.removeItem("tokenExpiration");
+      localStorage.removeItem("activeSystem");
+      localStorage.removeItem("agentStatus");
+      clearDomainCredentials(); // Clear domain credentials
+      window.location.href = "/";
     }
   };
 
