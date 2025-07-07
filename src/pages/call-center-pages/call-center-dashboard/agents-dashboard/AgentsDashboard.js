@@ -51,7 +51,7 @@ import SingleAgentDashboardCard from "../../../../components/agent-dashboard/Sin
 import QueueStatusTable from "../../../../components/agent-dashboard/QueueStatusTable";
 import WaitingCallsTable from "../../../../components/agent-dashboard/WaitingCallsTable";
 import AgentPerformanceScore from "../../../../components/agent-dashboard/AgentPerformanceScore";
-import TicketCreateModal from "../../../../components/ticket/TicketCreateModal";
+import AdvancedTicketCreateModal from "../../../../components/ticket/AdvancedTicketCreateModal";
 import VoiceNotesReport from "../../cal-center-ivr/VoiceNotesReport";
 import CallQueueCard from "../../../../components/supervisor-dashboard/CallQueueCard";
 
@@ -659,6 +659,7 @@ export default function AgentsDashboard() {
         // Show ticket modal after answering
         setTicketPhoneNumber(callerId || "");
         setShowTicketModal(true);
+        // setShowPhonePopup(false); // Keep call modal open after accept
 
         incomingCall.stateChange.addListener((state) => {
           if (state === SessionState.Established) {
@@ -1720,33 +1721,20 @@ export default function AgentsDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Create Ticket Modal */}
-      <Dialog
-        open={showCreateTicketModal}
-        onClose={() => setShowCreateTicketModal(false)}
+      {/* Create Ticket Button (example, place where appropriate) */}
+      <Button
+        variant="contained"
+        color="primary"
+        onClick={() => {
+          setTicketPhoneNumber(phoneNumber || ""); // or use the relevant phone number
+          setShowTicketModal(true);
+        }}
       >
-        <DialogTitle>No Tickets Found</DialogTitle>
-        <DialogContent>
-          <div>
-            No tickets found for this number. Would you like to create a new
-            ticket?
-          </div>
-          <Button
-            onClick={() => {
-              setShowCreateTicketModal(false);
-              // Open your ticket creation form/modal here, pre-fill phone number
-            }}
-          >
-            Create Ticket
-          </Button>
-          <Button onClick={() => setShowCreateTicketModal(false)}>
-            Cancel
-          </Button>
-        </DialogContent>
-      </Dialog>
+        Create Ticket
+      </Button>
 
       {/* Ticket Create Modal (after answering call) */}
-      <TicketCreateModal
+      <AdvancedTicketCreateModal
         open={showTicketModal}
         onClose={() => setShowTicketModal(false)}
         initialPhoneNumber={ticketPhoneNumber}

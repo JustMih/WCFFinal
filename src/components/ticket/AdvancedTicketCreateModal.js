@@ -271,6 +271,38 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
     }
   };
 
+  const fetchSuggestions = async (query) => {
+    if (!query || query.length < 2) {
+      setSearchSuggestions([]);
+      setIsSearching(false);
+      return;
+    }
+    setIsSearching(true);
+    try {
+      const response = await fetch(
+        "https://demomspapi.wcf.go.tz/api/v1/search/details",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json"
+          },
+          body: JSON.stringify({
+            type: searchType,
+            name: query,
+            employer_registration_number: ""
+          })
+        }
+      );
+      const data = await response.json();
+      setSearchSuggestions(data.results || []);
+    } catch (error) {
+      setSearchSuggestions([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
   const handleInputChange = (event, newValue, reason) => {
     setInputValue(newValue);
     if (searchTimeoutRef.current) {
@@ -280,9 +312,8 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
       setSearchSuggestions([]);
       return;
     }
-    // You may want to debounce this in production
     searchTimeoutRef.current = setTimeout(() => {
-      // debouncedSearch(newValue); // You can implement debouncedSearch if needed
+      fetchSuggestions(newValue);
     }, 150);
   };
 
@@ -619,15 +650,12 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                           <span style={{ color: "#666" }}>
                             {option.numberPrefix}
                           </span>{" "}
-                          {highlightMatch(option.cleanName, inputValue)}
+                          {highlightMatch(option.cleanName || option.name || option.displayName || '', inputValue)}
                           {option.employerName && (
                             <>
                               {" — ("}
                               <span style={{ color: "#666" }}>
-                                {highlightMatch(
-                                  option.employerName,
-                                  inputValue
-                                )}
+                                {highlightMatch(option.employerName || '', inputValue)}
                               </span>
                               {")"}
                             </>
@@ -1479,4 +1507,5 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
   );
 }
 
-export default AdvancedTicketCreateModal; 
+export default AdvancedTicketCreateModal;
+
