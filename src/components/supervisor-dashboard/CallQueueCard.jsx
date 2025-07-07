@@ -111,7 +111,7 @@ const CallQueueCard = () => {
             <FaExclamationTriangle />
           </div>
           <div className="queue-stat-info">
-            <span className="queue-stat-value">{queueData.priorityCalls}</span>
+            <span className="queue-stat-value">1</span>
             <span className="queue-stat-label">Priority Calls</span>
           </div>
         </div>
@@ -125,7 +125,7 @@ const CallQueueCard = () => {
               <th>Status</th>
               <th>Duration</th>
               <th>Call Type</th>
-              <th>Action</th>
+              {/* <th>Action</th> */}
             </tr>
           </thead>
           <tbody>
@@ -150,7 +150,7 @@ const CallQueueCard = () => {
                   </td>
                   <td>
                     <span
-                      className={`priority-badge ${call.priority.toLowerCase()}`}
+                      // className={`priority-badge ${call.priority.toLowerCase()}`}
                     >
                       {call.estimated_wait_time}
                     </span>
