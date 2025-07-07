@@ -4,6 +4,7 @@ import wcf_image from "../../asserts/images/wcf_image.jpg";
 import wcf_logo from "../../asserts/images/logo.png";
 import { TextField, Button } from "@mui/material";
 import { baseURL } from "../../config";
+import { storeDomainCredentials, storeCredentialsObject, validateCredentials } from "../../utils/credentials";
 import "./login.css";
 
 export default function Login() {
@@ -36,7 +37,7 @@ export default function Login() {
         const token = data.token;
         const tokenExpiration = new Date().getTime() + 3600 * 1000; // 1 hour
 
-        // Core user session
+        // Core user session (localStorage for persistence)
         localStorage.setItem("authToken", token);
         localStorage.setItem("username", data.user.name);
         localStorage.setItem("role", data.user.role);
@@ -44,7 +45,7 @@ export default function Login() {
         localStorage.setItem("userId", data.user.id);
         localStorage.setItem("agentStatus", "ready");
 
-        // SIP Extension support
+        // SIP Extension support (localStorage for persistence)
         const extension = data.user.extension || "";
         localStorage.setItem("extension", extension);
 
@@ -53,6 +54,17 @@ export default function Login() {
           localStorage.setItem("sipPassword", "sip12345");
         } else {
           localStorage.setItem("sipPassword", "");
+        }
+
+        // Store domain credentials securely in sessionStorage
+        if (data.credentials && validateCredentials(data.credentials)) {
+          // Use the new secure method for storing credentials object
+          storeCredentialsObject(data.credentials);
+          console.log("Domain credentials stored securely in sessionStorage");
+        } else if (data.credentials) {
+          // Fallback for legacy format
+          storeDomainCredentials(data.credentials.username, data.credentials.password);
+          console.log("Domain credentials stored securely in sessionStorage (legacy method)");
         }
 
         // Redirect to dashboard

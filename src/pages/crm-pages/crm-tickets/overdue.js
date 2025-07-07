@@ -52,32 +52,32 @@ export default function Crm() {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   const [isFlowModalOpen, setIsFlowModalOpen] = useState(false);
+  const [assignments, setAssignments] = useState([]);
+  const [assignmentsError, setAssignmentsError] = useState(null);
 
   useEffect(() => {
     const userId = localStorage.getItem("userId");
     if (userId) {
       setUserId(userId);
-      console.log("user id is:", userId);
     } else {
-      setAgentTicketsError("User not authenticated. Please log in.");
+      setAssignmentsError("User not authenticated. Please log in.");
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     if (userId) {
-      fetchAgentTickets();
+      fetchInProgressAssignments();
     }
   }, [userId]);
 
-  const fetchAgentTickets = async () => {
+  const fetchInProgressAssignments = async () => {
     try {
       const token = localStorage.getItem("authToken");
       if (!token) {
         throw new Error("Authentication error. Please log in again.");
       }
-
-      const url = `${baseURL}/ticket/overdue/${userId}`;
+     const url = `${baseURL}/ticket/overdue/${userId}`;
       const response = await fetch(url, {
         method: "GET",
         headers: {
@@ -85,27 +85,24 @@ export default function Crm() {
           "Content-Type": "application/json",
         },
       });
-
       if (!response.ok) {
         if (response.status === 404) {
-          setAgentTickets([]);
-          setAgentTicketsError("No tickets found for this agent.");
+          setAssignments([]);
+          setAssignmentsError("No assignments found for this agent.");
           return;
         }
         throw new Error(`HTTP error! Status: ${response.status}`);
       }
-
       const data = await response.json();
-      console.log("Fetched tickets:", data);
-      if (data && Array.isArray(data.tickets)) {
-        setAgentTickets(data.tickets);
-        setAgentTicketsError(null);
+      if (data && Array.isArray(data.assignments)) {
+        setAssignments(data.assignments);
+        setAssignmentsError(null);
       } else {
-        setAgentTickets([]);
-        setAgentTicketsError("No tickets found for this agent.");
+        setAssignments([]);
+        setAssignmentsError("No assignments found for this agent.");
       }
     } catch (error) {
-      setAgentTicketsError(error.message);
+      setAssignmentsError(error.message);
     } finally {
       setLoading(false);
     }
@@ -135,7 +132,7 @@ export default function Crm() {
           type: "success",
           message: "Comments updated successfully.",
         });
-        fetchAgentTickets();
+        fetchInProgressAssignments();
       } else {
         const data = await response.json();
         setModal({
@@ -153,10 +150,60 @@ export default function Crm() {
     }
   };
 
-  const openModal = (ticket) => {
-    setSelectedTicket(ticket);
-    setComments(ticket.comments || "");
+  const openModal = async (assignment) => {
+    if (!assignment?.ticket?.id) {
+      console.error("Invalid assignment or ticket ID for modal");
+      return;
+    }
+
+    const ticketId = assignment.ticket.id;
+    
+    // Set initial data so modal opens immediately
+    setSelectedTicket(assignment.ticket);
     setIsModalOpen(true);
+    setAssignmentHistory([]);
+
+    try {
+      const token = localStorage.getItem("authToken");
+      if (!token) {
+        // Handle no token case
+        return;
+      }
+      
+      // Fetch full ticket details and assignment history
+      const [ticketResponse, historyResponse] = await Promise.all([
+        fetch(`${baseURL}/ticket/${ticketId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        fetch(`${baseURL}/ticket/${ticketId}/assignments`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+      ]);
+
+      // Process ticket details
+      if (ticketResponse.ok) {
+        const ticketData = await ticketResponse.json();
+        // Assuming the response for a single ticket is { success: true, ticket: {...} }
+        if (ticketData.success && ticketData.ticket) {
+          setSelectedTicket(ticketData.ticket);
+        } else {
+          console.warn("Ticket details response not successful or missing ticket data.", ticketData);
+        }
+      } else {
+        console.error(`Failed to fetch ticket details: ${ticketResponse.status}`);
+      }
+      
+      // Process assignment history
+      if (historyResponse.ok) {
+        const historyData = await historyResponse.json();
+        setAssignmentHistory(historyData);
+      } else {
+        console.error(`Failed to fetch assignment history: ${historyResponse.status}`);
+      }
+
+    } catch (error) {
+      console.error("Error fetching data for modal:", error);
+    }
   };
 
   const closeModal = () => {
@@ -181,102 +228,61 @@ export default function Crm() {
     }
   };
 
-  const filteredTickets = agentTickets.filter((ticket) => {
+  const filteredAssignments = assignments.filter((assignment) => {
     const searchValue = search.toLowerCase();
+    const ticket = assignment.ticket || {};
     const phone = (ticket.phone_number || "").toLowerCase();
     const nida = (ticket.nida_number || "").toLowerCase();
     return (
-      (phone.includes(searchValue) || nida.includes(searchValue)) &&
-      (!filterStatus || ticket.status === filterStatus)
+      (phone.includes(searchValue) || nida.includes(searchValue))
     );
   });
 
-  const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
-  const paginatedTickets = filteredTickets.slice(
+  const totalPages = Math.ceil(filteredAssignments.length / itemsPerPage);
+  const paginatedAssignments = filteredAssignments.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
   );
 
   const renderTableHeader = () => (
     <tr>
-      {activeColumns.includes("id") && <th>#</th>}
-      {activeColumns.includes("fullName") && <th>Full Name</th>}
-      {activeColumns.includes("phone_number") && <th>Phone</th>}
-      {activeColumns.includes("status") && <th>Status</th>}
-      {activeColumns.includes("subject") && <th>Subject</th>}
-      {activeColumns.includes("category") && <th>Category</th>}
-      {activeColumns.includes("assigned_to_role") && <th>Assigned Role</th>}
-      {activeColumns.includes("createdAt") && <th>Created At</th>}
+      <th>#</th>
+      <th>Full Name</th>
+      <th>Phone</th>
+      <th>Status</th>
       <th>Actions</th>
     </tr>
   );
 
-  const renderTableRow = (ticket, index) => (
-    <tr key={ticket.id || index}>
-      {activeColumns.includes("id") && (
-        <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
-      )}
-      {activeColumns.includes("fullName") && (
-        <td>
-        {ticket.first_name && ticket.first_name.trim() !== ""
-          ? `${ticket.first_name} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim()
-          : (typeof ticket.institution === "string"
-              ? ticket.institution
-              : ticket.institution && typeof ticket.institution === "object" && typeof ticket.institution.name === "string"
-                ? ticket.institution.name
-                : "N/A")}
-      </td>
-      )}
-      {activeColumns.includes("phone_number") && (
+  const renderTableRow = (assignment, index) => {
+    const ticket = assignment.ticket || {};
+    let fullName = "N/A";
+    if (ticket.first_name && ticket.first_name.trim() !== "") {
+      fullName = `${ticket.first_name} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim();
+    } else if (typeof ticket.institution === "string") {
+      fullName = ticket.institution;
+    } else if (ticket.institution && typeof ticket.institution === "object" && typeof ticket.institution.name === "string") {
+      fullName = ticket.institution.name;
+    }
+    return (
+      <tr key={assignment.id || index}>
+         <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
+        <td>{fullName}</td>
         <td>{ticket.phone_number || "N/A"}</td>
-      )}
-      {activeColumns.includes("status") && (
+        <td>{ticket.status || "Escalated"}</td>
         <td>
-          <span
-            style={{
-              color:
-                ticket.status === "Open"
-                  ? "green"
-                  : ticket.status === "Closed"
-                  ? "gray"
-                  : "blue",
-            }}
-          >
-            {ticket.status || "N/A"}
-          </span>
-        </td>
-      )}
-      {activeColumns.includes("subject") && <td>{ticket.subject || "N/A"}</td>}
-      {activeColumns.includes("category") && <td>{ticket.category || "N/A"}</td>}
-      {activeColumns.includes("assigned_to_role") && (
-        <td>{ticket.assigned_to_role || "N/A"}</td>
-      )}
-      {activeColumns.includes("createdAt") && (
-        <td>
-          {ticket.created_at
-            ? new Date(ticket.created_at).toLocaleString("en-GB", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: true,
-              })
-            : "N/A"}
-        </td>
-      )}
-      <td>
         <Tooltip title="Ticket Details">
-          <button
-            className="view-ticket-details-btn"
-            onClick={() => openModal(ticket)}
-          >
-            <FaEye />
-          </button>
-        </Tooltip>
-      </td>
-    </tr>
-  );
+  <button
+    className="view-ticket-details-btn"
+    onClick={() => openModal(assignment)}
+  >
+    <FaEye />
+  </button>
+</Tooltip>
+        </td>
+      </tr>
+    );
+  };
 
   const renderAssignmentStepper = (assignmentHistory, selectedTicket) => {
     const steps = [
@@ -374,14 +380,13 @@ export default function Crm() {
             marginBottom: "16px",
           }}
         >
-          <h2>Overdue Tickets List</h2>
+          <h2>Overdue Tickets</h2>
           <Tooltip title="Columns Settings and Export" arrow>
             <IconButton onClick={() => setIsColumnModalOpen(true)}>
               <FiSettings size={20} />
             </IconButton>
           </Tooltip>
         </div>
-
         <div className="controls">
           <div>
             <label style={{ marginRight: "8px" }}>
@@ -393,7 +398,7 @@ export default function Crm() {
               onChange={(e) => {
                 const value = e.target.value;
                 setItemsPerPage(
-                  value === "All" ? filteredTickets.length : parseInt(value)
+                  value === "All" ? filteredAssignments.length : parseInt(value)
                 );
                 setCurrentPage(1);
               }}
@@ -414,39 +419,25 @@ export default function Crm() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
-            <select
-              className="filter-select"
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-            >
-              <option value="">All</option>
-              <option value="Open">Open</option>
-              <option value="Closed">Closed</option>
-            </select>
-            {/* <button className="add-ticket-button">
-              <FaPlus /> Add Ticket
-            </button> */}
           </div>
         </div>
-
         <table className="user-table">
           <thead>{renderTableHeader()}</thead>
           <tbody>
-            {paginatedTickets.length > 0 ? (
-              paginatedTickets.map((ticket, i) => renderTableRow(ticket, i))
+            {paginatedAssignments.length > 0 ? (
+              paginatedAssignments.map((assignment, i) => renderTableRow(assignment, i))
             ) : (
               <tr>
                 <td
-                  colSpan={activeColumns.length + 1}
+                  colSpan={5}
                   style={{ textAlign: "center", color: "red" }}
                 >
-                  {agentTicketsError || "No tickets found for this agent."}
+                  {assignmentsError || "No overdue ticket found."}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
-
         <div style={{ marginTop: "16px", textAlign: "center" }}>
           <Button
             variant="outlined"
@@ -471,7 +462,6 @@ export default function Crm() {
           </Button>
         </div>
       </div>
-
       {/* Details Modal */}
       <TicketDetailsModal
         open={isModalOpen}
@@ -480,15 +470,13 @@ export default function Crm() {
         assignmentHistory={assignmentHistory}
         renderAssignmentStepper={renderAssignmentStepper}
       />
-
       {/* Column Selector */}
       <ColumnSelector
         open={isColumnModalOpen}
         onClose={() => setIsColumnModalOpen(false)}
-        data={agentTickets}
+        data={assignments}
         onColumnsChange={setActiveColumns}
       />
-
       {/* Snackbar for notifications */}
       <Snackbar
         open={modal.isOpen}
@@ -503,71 +491,6 @@ export default function Crm() {
           {modal.message}
         </Alert>
       </Snackbar>
-
-      {/* Ticket History Modal */}
-      <Dialog open={isHistoryModalOpen} onClose={() => setIsHistoryModalOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Ticket History</DialogTitle>
-        <DialogContent>
-          <AssignmentFlowChat assignmentHistory={assignmentHistory} selectedTicket={selectedTicket} />
-        </DialogContent>
-      </Dialog>
     </div>
-  );
-}
-
-function AssignmentFlowChat({ assignmentHistory, selectedTicket }) {
-  const creatorStep = selectedTicket
-    ? {
-        assigned_to_name: selectedTicket.created_by ||
-          (selectedTicket.creator && selectedTicket.creator.name) ||
-          `${selectedTicket.first_name || ''} ${selectedTicket.last_name || ''}`.trim() ||
-          'N/A',
-        assigned_to_role: 'Creator',
-        reason: 'Created the ticket',
-        created_at: selectedTicket.created_at,
-      }
-    : null;
-  const steps = creatorStep ? [creatorStep, ...assignmentHistory] : assignmentHistory;
-  return (
-    <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-      <Box sx={{ maxWidth: 400, ml: 'auto', mr: 0 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, justifyContent: 'space-between' }}>
-          <Typography variant="h6" sx={{ color: "#3f51b5" }}>
-            Ticket History
-          </Typography>
-        </Box>
-        <Divider sx={{ mb: 2 }} />
-        {steps.map((a, idx) => {
-          let message;
-          if (idx === 0) {
-            message = 'Created the ticket';
-          } else {
-            const prevUser = steps[idx - 1]?.assigned_to_name || 'Previous User';
-            message = `Message from ${prevUser}: ${a.reason || 'No message'}`;
-          }
-          return (
-            <Box key={idx} sx={{ display: "flex", mb: 2, alignItems: "flex-start" }}>
-              <Avatar sx={{ bgcolor: idx === 0 ? "#43a047" : "#1976d2", mr: 2 }}>
-                {a.assigned_to_name ? a.assigned_to_name[0] : "?"}
-              </Avatar>
-              <Paper elevation={2} sx={{ p: 2, bgcolor: idx === 0 ? "#e8f5e9" : "#f5f5f5", flex: 1 }}>
-                <Typography sx={{ fontWeight: "bold" }}>
-                  {a.assigned_to_name || "Unknown"}{" "}
-                  <span style={{ color: "#888", fontWeight: "normal" }}>
-                    ({a.assigned_to_role || "N/A"})
-                  </span>
-                </Typography>
-                <Typography variant="body2" sx={{ color: idx === 0 ? "#43a047" : "#1976d2" }}>
-                  {message}
-                </Typography>
-                <Typography variant="caption" sx={{ color: "#888" }}>
-                  {a.created_at ? new Date(a.created_at).toLocaleString() : ""}
-                </Typography>
-              </Paper>
-            </Box>
-          );
-        })}
-      </Box>
-    </Box>
   );
 }

@@ -248,9 +248,9 @@ export default function CRMSidebar({ isSidebarOpen }) {
                       onClick={() => toggleSection("agentTickets")}
                     >
                       <span className="section-title">Ticket Overview</span>
-                      <span className="section-count">
+                      {/* <span className="section-count">
                         {ticketStats.total || 0}
-                      </span>
+                      </span> */}
                     </div>
                     {openSection === "agentTickets" && (
                       <div className="section-items">
@@ -259,13 +259,13 @@ export default function CRMSidebar({ isSidebarOpen }) {
                           {
                             label: "Assigned Tickets",
                             to: "/ticket/assigned",
-                            value: ticketStats.assigned,
+                            // value: ticketStats.assigned,
                             icon: "📋"
                           },
                           {
                             label: "In Progress",
                             to: "/ticket/in-progress",
-                            value: ticketStats.inProgress,
+                            // value: ticketStats.inProgress,
                             icon: "⏳"
                           },
                           // {
@@ -283,19 +283,19 @@ export default function CRMSidebar({ isSidebarOpen }) {
                           {
                             label: "Closed Tickets",
                             to: "/ticket/closed",
-                            value: ticketStats.closed,
+                            // value: ticketStats.closed,
                             icon: "🔒"
                           },
                           {
                             label: "Overdue",
                             to: "/ticket/overdue",
-                            value: ticketStats.overdue,
+                            // value: ticketStats.overdue,
                             icon: "⚠️"
                           },
                           {
                             label: "Total Tickets",
                             to: "/ticket/all",
-                            value: ticketStats.total,
+                            // value: ticketStats.total,
                             icon: "📊"
                           }
                         ].map((item, idx) => (
@@ -359,7 +359,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                   {isSidebarOpen && (
                     <span className="menu-text" style={{ position: 'relative', display: 'inline-block' }}>
                       Notifications
-                      {notifiedCount > 0 && (
+                      {/* {notifiedCount > 0 && (
                         <span style={{
                           background: 'red',
                           color: 'white',
@@ -373,7 +373,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                           textAlign: 'center',
                           fontWeight: 'bold',
                         }}>{notifiedCount}</span>
-                      )}
+                      )} */}
                     </span>
                   )}
                 </div>

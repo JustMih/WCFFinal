@@ -33,6 +33,7 @@ export default function LiveCallsCard({
     } catch (error) {
       console.error(`Error listening to call ${callId}:`, error);
     }
+    
   };
 
   const handleIntervene = async (callId) => {
