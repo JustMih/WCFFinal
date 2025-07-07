@@ -59,7 +59,7 @@ const CallQueueCard = () => {
 
   useEffect(() => {
     fetchQueueData();
-    const interval = setInterval(fetchQueueData, 1000);
+    const interval = setInterval(fetchQueueData, 5000);
     return () => clearInterval(interval);
   }, []);
 

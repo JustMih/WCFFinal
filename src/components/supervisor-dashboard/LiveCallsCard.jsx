@@ -33,7 +33,7 @@ export default function LiveCallsCard({
     } catch (error) {
       console.error(`Error listening to call ${callId}:`, error);
     }
-    
+
   };
 
   const handleIntervene = async (callId) => {
@@ -128,7 +128,7 @@ export default function LiveCallsCard({
     fetchLiveCalls();
 
     // Set up interval for auto-refresh
-    const intervalId = setInterval(fetchLiveCalls, 1000); // 10 seconds
+    const intervalId = setInterval(fetchLiveCalls, 5000); // 10 seconds
 
     // Clean up interval on unmount
     return () => clearInterval(intervalId);
