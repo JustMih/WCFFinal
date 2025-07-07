@@ -37,6 +37,7 @@ const CallQueueCard = () => {
       setQueueData(data);
 
       const callingCalls = data.filter((call) => call.status === "calling");
+      console.log("Calling Calls:", callingCalls);
       setCalling(callingCalls);
 
     } catch (err) {
@@ -58,7 +59,7 @@ const CallQueueCard = () => {
 
   useEffect(() => {
     fetchQueueData();
-    const interval = setInterval(fetchQueueData, 10000);
+    const interval = setInterval(fetchQueueData, 1000);
     return () => clearInterval(interval);
   }, []);
 
