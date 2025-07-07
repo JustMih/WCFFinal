@@ -143,7 +143,7 @@
   background: #fff;
   border-radius: 18px;
   box-shadow: 0 8px 32px rgba(60, 59, 59, 0.18);
-  padding: 0;
+  padding: 32px 28px 28px 28px;
   width: 370px;
   z-index: 1200;
   animation: fadeInUp 0.3s cubic-bezier(.4,0,.2,1);
@@ -172,12 +172,12 @@
 
 /* Custom Keypad button styling */
 .modern-keypad-btn {
-  width: 60px;
-  height: 60px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
   background: #f5f7fa;
   border: 2px solid #e0e0e0;
-  font-size: 1.6rem;
+  font-size: 1.2rem;
   font-weight: 700;
   color: #333;
   display: flex;
@@ -192,4 +192,35 @@
   background: #e3f2fd;
   color: #1976d2;
   box-shadow: 0 4px 12px rgba(25,118,210,0.10);
+}
+
+.modern-keypad {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  justify-items: center;
+  margin: 18px 0 10px 0;
+}
+
+.modern-close-btn {
+  background: #f3f3f3;
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  color: #e53935;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 6px rgba(60,59,59,0.06);
+  margin-left: auto;
+}
+
+.modern-close-btn:hover {
+  background: #ffeaea;
+  color: #b71c1c;
+  box-shadow: 0 4px 12px rgba(229,57,53,0.10);
 }
