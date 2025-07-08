@@ -18,7 +18,7 @@ export default function RecordedSounds() {
     const fetchVoiceNotes = async () => {
       try {
         setLoading(true);
-        const response = await axios.get(`${baseURL}/voice-notes`, {
+        const response = await axios.get(`http://10.52.0.19:5070/api/voice-notes`, {
           withCredentials: true,
           headers: {
             Accept: "application/json",
@@ -48,7 +48,7 @@ export default function RecordedSounds() {
   }, []);
 
   const handlePlayVoice = async (noteId) => {
-    const audioUrl = `${baseURL}/voice-notes/${noteId}/audio`;
+    const audioUrl = `http://10.52.0.19:5070/api/voice-notes/${noteId}/audio`;
 
     if (currentAudio) {
       currentAudio.pause();

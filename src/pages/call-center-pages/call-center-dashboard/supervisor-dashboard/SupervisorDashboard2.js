@@ -250,7 +250,7 @@ export default function SupervisorDashboard2() {
   // Add queue data fetching
   const fetchQueueData = async () => {
     try {
-      const response = await fetch('http://10.52.0.19:5075/api/queue-call-stats');
+      const response = await fetch(`${baseURL}/queue-call-stats`);
       if (!response.ok) throw new Error('Failed to fetch queue data');
       const data = await response.json();
       setQueueData(data);

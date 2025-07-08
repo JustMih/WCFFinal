@@ -23,13 +23,16 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <div className="app">
         <Routes>
-          <Route path="/" element={<Login />} />
-        </Routes>
-       <Routes>
           <Route path="/crm-tickets" element={<CrmTicketsAssigned />} />
-        </Routes> 
-       
-      {role ? <Dashboard /> : ""}
+        </Routes>
+
+        {role ? (
+          <Dashboard />
+        ) : (
+          <Routes>
+            <Route path="/" element={<Login />} />
+          </Routes>
+        )}
       </div>
     </QueryClientProvider>
   );
