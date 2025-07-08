@@ -15,12 +15,31 @@ ChartJS.register(ArcElement, Tooltip, Legend);
 
 export default function AdminAndSuperAdminDashboard() {
   const authToken = localStorage.getItem("authToken");
+  const [onlineUsers, setOnlineUsers] = useState([]);
   const [userCounts, setUserCounts] = useState({
     agents: 0,
     supervisors: 0,
     admins: 0,
     otherUsers: 0,
   });
+
+  const getOnlineUser = async () => {
+    try {
+      const response = await fetch(`${baseURL}/users/online-users`, {
+        method: "GET",
+        headers: {
+          "content-type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+      });
+      const data = await response.json();
+      console.log("Online Users:", data.onlineUser);
+      setOnlineUsers(data.onlineUser || []); // Ensure we set an empty array if no users are online
+    } catch (error) {
+      console.error("Error fetching online users:", error);
+      setOnlineUsers([]); // Reset to empty array on error
+    }
+  }
 
   // State for recent user activities
   const [recentActivities, setRecentActivities] = useState([
@@ -97,6 +116,7 @@ export default function AdminAndSuperAdminDashboard() {
 
   // Fetch user counts for each role
   useEffect(() => {
+    getOnlineUser();
     const fetchCounts = async () => {
       const roles = [
         { key: "agents", endpoint: "agent" },
@@ -196,10 +216,7 @@ export default function AdminAndSuperAdminDashboard() {
     <div className="admin-container">
       <h3 className="admin-title">Dashboard</h3>
       <div className="admin-summary">
-        <div
-          className="admin-card"
-          onClick={() => navigate("/users")}
-        >
+        <div className="admin-card" onClick={() => navigate("/users")}>
           <div className="admin-card-icon">
             <div className="admin-data">
               <MdOutlineSupportAgent />
@@ -208,10 +225,7 @@ export default function AdminAndSuperAdminDashboard() {
             <h4>Agents</h4>
           </div>
         </div>
-        <div
-          className="admin-card"
-          onClick={() => navigate("/users")}
-        >
+        <div className="admin-card" onClick={() => navigate("/users")}>
           <div className="admin-card-icon">
             <div className="admin-data">
               <MdOutlineSupportAgent />
@@ -220,10 +234,7 @@ export default function AdminAndSuperAdminDashboard() {
             <h4>Supervisors</h4>
           </div>
         </div>
-        <div
-          className="admin-card"
-          onClick={() => navigate("/users")}
-        >
+        <div className="admin-card" onClick={() => navigate("/users")}>
           <div className="admin-card-icon">
             <div className="admin-data">
               <MdOutlineSupportAgent />
@@ -232,10 +243,7 @@ export default function AdminAndSuperAdminDashboard() {
             <h4>Admins</h4>
           </div>
         </div>
-        <div
-          className="admin-card"
-          onClick={() => navigate("/users")}
-        >
+        <div className="admin-card" onClick={() => navigate("/users")}>
           <div className="admin-card-icon">
             <div className="admin-data">
               <MdOutlineSupportAgent />
@@ -246,98 +254,199 @@ export default function AdminAndSuperAdminDashboard() {
         </div>
       </div>
       {/* Side-by-side: Radial chart and Recent User Activities table in cards */}
-      <div style={{ display: 'flex', justifyContent: 'center', gap: '22px', margin: '20px 0' }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          gap: "22px",
+          margin: "20px 0",
+        }}
+      >
         {/* User Summary Card */}
-        <div style={{
-          maxWidth: 400,
-          flex: 1,
-          background: '#f9f9f9',
-          border: '1px solid #e0e0e0',
-          borderRadius: 8,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-          padding: 0,
-          display: 'flex',
-          flexDirection: 'column',
-        }}>
-          <div style={{
-            background: '#f1f3f6',
-            borderTopLeftRadius: 8,
-            borderTopRightRadius: 8,
-            padding: '10px 10px',
-            borderBottom: '1px solid #e0e0e0',
-            fontWeight: 600,
-            fontSize: 16,
-            color: '#333',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}>
+        <div
+          style={{
+            maxWidth: 400,
+            flex: 1,
+            background: "#f9f9f9",
+            border: "1px solid #e0e0e0",
+            borderRadius: 8,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+            padding: 0,
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <div
+            style={{
+              background: "#f1f3f6",
+              borderTopLeftRadius: 8,
+              borderTopRightRadius: 8,
+              padding: "10px 10px",
+              borderBottom: "1px solid #e0e0e0",
+              fontWeight: 600,
+              fontSize: 16,
+              color: "#333",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+            }}
+          >
             <span>User Summary</span>
-            <span style={{ fontWeight: 700, fontSize: 15, color: '#1976d2', background: '#e3f0fa', borderRadius: 8, padding: '2px 12px', marginLeft: 12 }}>
+            <span
+              style={{
+                fontWeight: 700,
+                fontSize: 15,
+                color: "#1976d2",
+                background: "#e3f0fa",
+                borderRadius: 8,
+                padding: "2px 12px",
+                marginLeft: 12,
+              }}
+            >
               Total: {totalUsers}
             </span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-            <Doughnut data={userPieData} options={{ responsive: true, plugins: { legend: { position: 'right' } } }} />
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: 24,
+            }}
+          >
+            <Doughnut
+              data={userPieData}
+              options={{
+                responsive: true,
+                plugins: { legend: { position: "right" } },
+              }}
+            />
           </div>
         </div>
         {/* Recent User Activities Card */}
-        <div style={{
-          flex: 1,
-          maxWidth: 540,
-          background: '#f9f9f9',
-          border: '1px solid #e0e0e0',
-          borderRadius: 8,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-          padding: 0,
-          display: 'flex',
-          flexDirection: 'column',
-        }}>
-          <div style={{
-            background: '#f1f3f6',
-            borderTopLeftRadius: 8,
-            borderTopRightRadius: 8,
-            padding: '10px 20px',
-            borderBottom: '1px solid #e0e0e0',
-            fontWeight: 600,
-            fontSize: 16,
-            color: '#333',
-          }}>
+        <div
+          style={{
+            flex: 1,
+            maxWidth: 540,
+            background: "#f9f9f9",
+            border: "1px solid #e0e0e0",
+            borderRadius: 8,
+            boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+            padding: 0,
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          <div
+            style={{
+              background: "#f1f3f6",
+              borderTopLeftRadius: 8,
+              borderTopRightRadius: 8,
+              padding: "10px 20px",
+              borderBottom: "1px solid #e0e0e0",
+              fontWeight: 600,
+              fontSize: 16,
+              color: "#333",
+            }}
+          >
             Recent User Activities
           </div>
           <div style={{ padding: 24 }}>
-            <table style={{
-              width: '100%',
-              borderCollapse: 'separate',
-              borderSpacing: 0,
-              background: '#fcfcfd',
-              borderRadius: 12,
-              boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
-              overflow: 'hidden',
-            }}>
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "separate",
+                borderSpacing: 0,
+                background: "#fcfcfd",
+                borderRadius: 12,
+                boxShadow: "0 2px 12px rgba(0,0,0,0.04)",
+                overflow: "hidden",
+              }}
+            >
               <thead>
-                <tr style={{ background: '#e9eef5' }}>
-                  <th style={{ padding: '14px 12px', border: 'none', textAlign: 'left', color: '#222', fontWeight: 700, fontSize: 15, letterSpacing: 0.2 }}>User</th>
-                  <th style={{ padding: '14px 12px', border: 'none', textAlign: 'left', color: '#222', fontWeight: 700, fontSize: 15, letterSpacing: 0.2 }}>Status</th>
-                  <th style={{ padding: '14px 12px', border: 'none', textAlign: 'left', color: '#222', fontWeight: 700, fontSize: 15, letterSpacing: 0.2 }}>Date</th>
+                <tr style={{ background: "#e9eef5" }}>
+                  <th
+                    style={{
+                      padding: "14px 12px",
+                      border: "none",
+                      textAlign: "left",
+                      color: "#222",
+                      fontWeight: 700,
+                      fontSize: 15,
+                      letterSpacing: 0.2,
+                    }}
+                  >
+                    User
+                  </th>
+                  <th
+                    style={{
+                      padding: "14px 12px",
+                      border: "none",
+                      textAlign: "left",
+                      color: "#222",
+                      fontWeight: 700,
+                      fontSize: 15,
+                      letterSpacing: 0.2,
+                    }}
+                  >
+                    Status
+                  </th>
+                  <th
+                    style={{
+                      padding: "14px 12px",
+                      border: "none",
+                      textAlign: "left",
+                      color: "#222",
+                      fontWeight: 700,
+                      fontSize: 15,
+                      letterSpacing: 0.2,
+                    }}
+                  >
+                    Role
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {displayedActivities.map((activity, idx) => (
-                  <tr key={idx}
-                    style={{
-                      background: idx % 2 === 0 ? '#f9fafb' : '#fff',
-                      transition: 'background 0.2s',
-                      cursor: 'pointer',
-                    }}
-                    onMouseOver={e => e.currentTarget.style.background = '#f0f4f8'}
-                    onMouseOut={e => e.currentTarget.style.background = idx % 2 === 0 ? '#f9fafb' : '#fff'}
-                  >
-                    <td style={{ padding: '12px 12px', border: 'none', borderRadius: idx === 0 ? '12px 0 0 0' : undefined }}>{activity.user}</td>
-                    <td style={{ padding: '12px 12px', border: 'none' }}>{activity.status}</td>
-                    <td style={{ padding: '12px 12px', border: 'none', borderRadius: idx === 0 ? '0 12px 0 0' : undefined }}>{activity.date}</td>
-                  </tr>
-                ))}
+                {Array.isArray(onlineUsers) &&
+                  onlineUsers.map((activity, idx) => (
+                    <tr
+                      key={idx}
+                      style={{
+                        background: idx % 2 === 0 ? "#f9fafb" : "#fff",
+                        transition: "background 0.2s",
+                        cursor: "pointer",
+                      }}
+                      onMouseOver={(e) =>
+                        (e.currentTarget.style.background = "#f0f4f8")
+                      }
+                      onMouseOut={(e) =>
+                        (e.currentTarget.style.background =
+                          idx % 2 === 0 ? "#f9fafb" : "#fff")
+                      }
+                    >
+                      <td
+                        style={{
+                          padding: "12px 12px",
+                          border: "none",
+                          borderRadius: idx === 0 ? "12px 0 0 0" : undefined,
+                        }}
+                      >
+                        {activity.name}
+                      </td>
+                      <td style={{ padding: "12px 12px", border: "none" }}>
+                        {activity.status}
+                      </td>
+                      <td
+                        style={{
+                          padding: "12px 12px",
+                          border: "none",
+                          borderRadius: idx === 0 ? "0 12px 0 0" : undefined,
+                        }}
+                      >
+                        {activity.role}
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>
