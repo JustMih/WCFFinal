@@ -223,12 +223,12 @@ export default function CRMCoordinatorTickets() {
     const userId = localStorage.getItem("userId");
     const token = localStorage.getItem("authToken");
     const category = convertCategory[ticketId];
-    const responsible_unit_id = forwardUnit[ticketId];
+    const responsible_unit_name = forwardUnit[ticketId];
 
     // Get the current ticket to check its rating
     const currentTicket = tickets.find(t => t.id === ticketId);
 
-    if (!category && !responsible_unit_id) {
+    if (!category && !responsible_unit_name) {
       setSnackbar({ open: true, message: "Select either category or unit to forward", severity: "warning" });
       return;
     }
@@ -238,7 +238,7 @@ export default function CRMCoordinatorTickets() {
       complaintType: currentTicket?.complaint_type || undefined
     };
     if (category) payload.category = category;
-    if (responsible_unit_id) payload.responsible_unit_id = responsible_unit_id;
+    if (responsible_unit_name) payload.responsible_unit_name = responsible_unit_name;
 
     try {
       const response = await fetch(`${baseURL}/coordinator/${ticketId}/convert-or-forward-ticket`, {

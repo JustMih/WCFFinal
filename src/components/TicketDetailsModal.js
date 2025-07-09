@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Modal, Box, Typography, Divider, IconButton, Button, Dialog, DialogTitle, DialogContent, Avatar, Paper, TextField, Tooltip, Select, MenuItem } from "@mui/material";
+import { Modal, Box, Typography, Divider, IconButton, Button, Dialog, DialogTitle, DialogContent, Avatar, Paper, TextField, Tooltip, Select, MenuItem, Chip } from "@mui/material";
 import ChatIcon from '@mui/icons-material/Chat';
+import { Download, AttachFile } from '@mui/icons-material';
 import { baseURL } from "../config";
 
 const getCreatorName = (selectedTicket) =>
@@ -129,7 +130,7 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
     currentAssigneeIdx = 0;
   } else {
     const idx = steps.findIndex(
-      a => a.assigned_to_id === selectedTicket.assigned_to_id
+      a => a.assigned_to_id && selectedTicket.assigned_to_id && a.assigned_to_id === selectedTicket.assigned_to_id
     );
     currentAssigneeIdx = idx !== -1 ? idx : steps.length - 1;
   }
@@ -206,10 +207,12 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
               </Typography>
               {/* Attachment/Evidence link if present, else show 'No attachment' */}
               {a.attachment_path ? (
-                <Typography variant="body2" color="primary">
-                  <a href={`${baseURL}/${a.attachment_path}`} target="_blank" rel="noopener noreferrer">
-                    View Attachment
-                  </a>
+                <Typography
+                  variant="body2"
+                  sx={{ color: '#28a745', fontStyle: 'italic', cursor: 'pointer', textDecoration: 'underline' }}
+                  onClick={() => handleDownloadAttachment(a.attachment_path)}
+                >
+                  Download attachment
                 </Typography>
               ) : a.evidence_url ? (
                 <Typography variant="body2" color="primary">
@@ -218,7 +221,7 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
                   </a>
                 </Typography>
               ) : (
-                <Typography variant="body2" color="text.secondary">
+                <Typography variant="body2" sx={{ color: 'gray', fontStyle: 'italic' }}>
                   No attachment
                 </Typography>
               )}
@@ -322,6 +325,21 @@ function getFullCreatorName(selectedTicket, assignmentHistory = [], usersList = 
   );
 }
 
+const getFileNameFromPath = (filePath) => {
+  if (!filePath) return '';
+  return filePath.split('/').pop() || filePath.split('\\').pop() || filePath;
+};
+
+const handleDownloadAttachment = (attachmentPath) => {
+  if (!attachmentPath) return;
+  
+  const filename = getFileNameFromPath(attachmentPath);
+  const downloadUrl = `${baseURL}/ticket/attachment/${filename}`;
+  
+  // Open in new tab
+  window.open(downloadUrl, '_blank');
+};
+
 export default function TicketDetailsModal({
   open,
   onClose,
@@ -365,14 +383,15 @@ export default function TicketDetailsModal({
     selectedTicket &&
     selectedTicket.status !== "Closed" &&
     selectedTicket.assigned_to_id &&
-    userRole !== "coordinator"&&
-    selectedTicket.assigned_to_id.toString() === userId;
+    userRole !== "coordinator" &&
+    String(selectedTicket.assigned_to_id) === String(userId);
 
   // Coordinator-specific conditions
   const showCoordinatorActions = 
     userRole === "coordinator" && 
     selectedTicket && 
-    selectedTicket.assigned_to_id.toString() === userId &&
+    selectedTicket.assigned_to_id &&
+    String(selectedTicket.assigned_to_id) === String(userId) &&
     selectedTicket.status !== "Closed";
 
   const handleAttend = () => {
@@ -713,6 +732,40 @@ export default function TicketDetailsModal({
                               <strong>Resolution Details:</strong> {selectedTicket.resolution_details}
                             </Typography>
                           )}
+                          {selectedTicket.status === "Closed" && selectedTicket.resolution_type && (
+                            <Typography sx={{ mt: 1 }}>
+                              <strong>Resolution Type:</strong>{" "}
+                              <Chip 
+                                label={selectedTicket.resolution_type} 
+                                size="small" 
+                                color="primary" 
+                                sx={{ ml: 1 }}
+                              />
+                            </Typography>
+                          )}
+                          {selectedTicket.status === "Closed" && (
+                            <Box sx={{ mt: 2, p: 2, bgcolor: '#fff', borderRadius: 1, border: '1px solid #ced4da' }}>
+                              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1, display: 'flex', alignItems: 'center' }}>
+                                <AttachFile sx={{ mr: 1, fontSize: 16 }} />
+                                Resolution Attachment
+                              </Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                {selectedTicket.attachment_path ? (
+                                  <Typography
+                                    variant="body2"
+                                    sx={{ flex: 1, color: '#28a745', fontStyle: 'italic', cursor: 'pointer', textDecoration: 'underline' }}
+                                    onClick={() => handleDownloadAttachment(selectedTicket.attachment_path)}
+                                  >
+                                    Download attachment
+                                  </Typography>
+                                ) : (
+                                  <Typography variant="body2" sx={{ color: '#28a745', fontStyle: 'italic' }}>
+                                    No attachment
+                                  </Typography>
+                                )}
+                              </Box>
+                            </Box>
+                          )}
                         </>
                       );
                     })()
@@ -813,6 +866,32 @@ export default function TicketDetailsModal({
                 </div>
 
               </div>
+
+              {/* Representative Details Section */}
+              {selectedTicket.requester === "Representative" && selectedTicket.representative_name && (
+                <Box sx={{ mt: 3, mb: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 2, border: '1px solid #e0e0e0' }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2, color: '#1976d2' }}>
+                    Representative Details
+                  </Typography>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                    <div>
+                      <Typography variant="body2"><strong>Name:</strong> {selectedTicket.representative_name || 'N/A'}</Typography>
+                    </div>
+                    <div>
+                      <Typography variant="body2"><strong>Phone:</strong> {selectedTicket.representative_phone || 'N/A'}</Typography>
+                    </div>
+                    <div>
+                      <Typography variant="body2"><strong>Email:</strong> {selectedTicket.representative_email || 'N/A'}</Typography>
+                    </div>
+                    <div>
+                      <Typography variant="body2"><strong>Address:</strong> {selectedTicket.representative_address || 'N/A'}</Typography>
+                    </div>
+                    <div>
+                      <Typography variant="body2"><strong>Relationship to Employee:</strong> {selectedTicket.representative_relationship || 'N/A'}</Typography>
+                    </div>
+                  </Box>
+                </Box>
+              )}
 
               {/* Action Buttons */}
               <Box sx={{ mt: 2, textAlign: "right" }}>
@@ -1002,7 +1081,7 @@ export default function TicketDetailsModal({
                 <option value="Resolved">Resolved</option>
                 <option value="Not Applicable">Not Applicable</option>
                 <option value="Duplicate">Duplicate</option>
-                <option value="Referred">Referred</option>
+                {/* <option value="Referred">Referred</option> */}
               </select>
             </Box>
 
