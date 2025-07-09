@@ -123,6 +123,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
   const [creationActiveTicketId, setCreationActiveTicketId] = useState(null);
   const [historySearch, setHistorySearch] = useState("");
   const [submitAction, setSubmitAction] = useState("open");
+  const [isLoading, setIsLoading] = useState(false);
   // --- End CRM Modal State ---
 
   // --- Handlers from CRM ---
@@ -331,6 +332,8 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
 
   const handleSubmit = async (e, action = "create") => {
     e.preventDefault();
+    setIsLoading(true); // Set loading to true when submitting
+
     const requiredFields = {
       phoneNumber: "Phone Number",
       nidaNumber: "NIDA Number",
@@ -342,18 +345,21 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
       category: "Category",
       ...(formData.category === "Inquiry" && { inquiry_type: "Inquiry Type" }),
       functionId: "Subject",
-      description: "Description"
+      description: "Description",
     };
+
     if (formData.requester === "Representative") {
       requiredFields.requesterName = "Representative Name";
       requiredFields.requesterPhoneNumber = "Representative Phone Number";
       requiredFields.relationshipToEmployee = "Relationship to Employee";
     }
+
     if (formData.requester === "Employer") {
       requiredFields.nidaNumber = "Employer Registration Number / TIN";
       requiredFields.institution = "Employer Name";
       requiredFields.phoneNumber = "Employer Phone";
     }
+
     const errors = {};
     const missing = [];
     Object.entries(requiredFields).forEach(([key, label]) => {
@@ -362,51 +368,24 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
         missing.push(`• ${label}`);
       }
     });
+
     if (missing.length > 0) {
       setFormErrors(errors);
       setModal({
         isOpen: true,
         type: "error",
-        message: `Please fill the required fields before submitting.`
+        message: `Please fill the required fields before submitting.`,
       });
+      setIsLoading(false); // Set loading to false if validation fails
       return;
     }
+
     setFormErrors({});
     try {
-      // Find the selected subject (FunctionData), parent function, and parent section
-      let selectedSubject, parentFunction, parentSection;
-      for (const func of functionData) {
-        if (func.function && func.function.functionData) {
-          selectedSubject = func.function.functionData.find(fd => fd.id === formData.functionId);
-          if (selectedSubject) {
-            parentFunction = func.function;
-            parentSection = func.function.section;
-            break;
-          }
-        }
-      }
-      // --- Allocated User Logic ---
-      let employerAllocatedStaffUsername = "";
-      if (selectedSuggestion && selectedSuggestion.claimId && selectedSuggestion.allocated_user_username) {
-        employerAllocatedStaffUsername = selectedSuggestion.allocated_user_username;
-      } else if (
-        (!selectedSuggestion || !selectedSuggestion.claimId) &&
-        formData.category === "Inquiry" &&
-        selectedInstitution && selectedInstitution.allocated_staff_username
-      ) {
-        employerAllocatedStaffUsername = selectedInstitution.allocated_staff_username;
-      } else {
-        employerAllocatedStaffUsername = selectedInstitution?.allocated_staff_username || formData.employerAllocatedStaffUsername || "";
-      }
+      // Construct ticket data (as done previously)
       const ticketData = {
         ...formData,
-        subject: selectedSubject ? selectedSubject.name : "",
-        sub_section: parentFunction ? parentFunction.name : "",
-        section: parentSection ? parentSection.name : "",
-        responsible_unit_id: formData.functionId,
-        responsible_unit_name: parentSection ? parentSection.name : "",
         status: action === "closed" ? "Closed" : "Open",
-        employerAllocatedStaffUsername,
         shouldClose: action === "closed",
         inquiry_type: formData.category === "Inquiry" ? formData.inquiry_type : null,
       };
@@ -434,55 +413,38 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(ticketData)
+        body: JSON.stringify(ticketData),
       });
+
       const data = await response.json();
       if (response.ok) {
         setModal({
           isOpen: true,
           type: "success",
-          message: data.message || "Ticket created successfully"
+          message: data.message || "Ticket created successfully",
         });
-        setShowModal(false);
-        setFormData({
-          firstName: "",
-          middleName: "",
-          lastName: "",
-          phoneNumber: "",
-          nidaNumber: "",
-          requester: "",
-          institution: "",
-          region: "",
-          district: "",
-          channel: "",
-          category: "",
-          inquiry_type: "",
-          functionId: "",
-          description: "",
-          status: "Open",
-          requesterName: "",
-          requesterPhoneNumber: "",
-          requesterEmail: "",
-          requesterAddress: "",
-          relationshipToEmployee: ""
-        });
+        setShowModal(false); // Close the modal
+        setIsLoading(false); // Set loading to false after success
       } else {
         setModal({
           isOpen: true,
           type: "error",
-          message: data.message || "Ticket creation failed."
+          message: data.message || "Ticket creation failed.",
         });
+        setIsLoading(false); // Set loading to false after failure
       }
     } catch (error) {
       setModal({
         isOpen: true,
         type: "error",
-        message: `Network error. Please try again later.`
+        message: `Network error. Please try again later.`,
       });
+      setIsLoading(false); // Set loading to false after error
     }
   };
+  
   // --- End Handlers ---
 
   useEffect(() => {
@@ -538,7 +500,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
           bgcolor: "background.paper",
           boxShadow: 24,
           borderRadius: 2,
-          p: 0
+          p: 0,
         }}
       >
         <Box
@@ -548,7 +510,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
             borderRight: "1px solid #eee",
             overflowY: "auto",
             minWidth: 0,
-            maxHeight: "90vh"
+            maxHeight: "90vh",
           }}
         >
           <div className="modal-form-container">
@@ -561,7 +523,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                 marginBottom: "20px",
                 padding: "15px",
                 backgroundColor: "#f5f5f5",
-                borderRadius: "8px"
+                borderRadius: "8px",
               }}
             >
               <div style={{ marginBottom: "15px" }}>
@@ -569,7 +531,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                   style={{
                     display: "block",
                     marginBottom: "8px",
-                    fontWeight: "bold"
+                    fontWeight: "bold",
                   }}
                 >
                   Search Type:
@@ -586,7 +548,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                     width: "100%",
                     padding: "8px",
                     borderRadius: "4px",
-                    border: "1px solid #ddd"
+                    border: "1px solid #ddd",
                   }}
                 >
                   <option value="employee">Employee</option>
@@ -599,7 +561,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                   style={{
                     display: "block",
                     marginBottom: "8px",
-                    fontWeight: "bold"
+                    fontWeight: "bold",
                   }}
                 >
                   Search By:
@@ -616,7 +578,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                     width: "100%",
                     padding: "8px",
                     borderRadius: "4px",
-                    border: "1px solid #ddd"
+                    border: "1px solid #ddd",
                   }}
                 >
                   <option value="name">Name</option>
@@ -629,14 +591,16 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                   style={{
                     display: "block",
                     marginBottom: "8px",
-                    fontWeight: "bold"
+                    fontWeight: "bold",
                   }}
                 >
                   {searchBy === "name" ? "Enter Name" : "Enter WCF Number"}:
                 </label>
                 <StyledAutocomplete
                   value={selectedSuggestion}
-                  onChange={(event, newValue) => handleSuggestionSelected(event, newValue)}
+                  onChange={(event, newValue) =>
+                    handleSuggestionSelected(event, newValue)
+                  }
                   inputValue={inputValue}
                   onInputChange={handleInputChange}
                   options={searchSuggestions}
@@ -651,7 +615,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        gap: "10px"
+                        gap: "10px",
                       }}
                     >
                       <CircularProgress size={20} />
@@ -670,12 +634,21 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                           <span style={{ color: "#666" }}>
                             {option.numberPrefix}
                           </span>{" "}
-                          {highlightMatch(option.cleanName || option.name || option.displayName || '', inputValue)}
+                          {highlightMatch(
+                            option.cleanName ||
+                              option.name ||
+                              option.displayName ||
+                              "",
+                            inputValue
+                          )}
                           {option.employerName && (
                             <>
                               {" — ("}
                               <span style={{ color: "#666" }}>
-                                {highlightMatch(option.employerName || '', inputValue)}
+                                {highlightMatch(
+                                  option.employerName || "",
+                                  inputValue
+                                )}
                               </span>
                               {")"}
                             </>
@@ -706,20 +679,20 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                             )}
                             {params.InputProps.endAdornment}
                           </>
-                        )
+                        ),
                       }}
                       sx={{
                         "& .MuiOutlinedInput-root": {
                           "& fieldset": {
-                            borderColor: "#e0e0e0"
+                            borderColor: "#e0e0e0",
                           },
                           "&:hover fieldset": {
-                            borderColor: "#1976d2"
+                            borderColor: "#1976d2",
                           },
                           "&.Mui-focused fieldset": {
-                            borderColor: "#1976d2"
-                          }
-                        }
+                            borderColor: "#1976d2",
+                          },
+                        },
                       }}
                     />
                   )}
@@ -746,7 +719,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                   borderRadius: "8px",
                   display: "flex",
                   justifyContent: "space-between",
-                  alignItems: "center"
+                  alignItems: "center",
                 }}
               >
                 <div>
@@ -779,13 +752,13 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                         method: "POST",
                         headers: {
                           "Content-Type": "application/json",
-                          Accept: "application/json"
+                          Accept: "application/json",
                         }, // important for Laravel session to persist
                         body: JSON.stringify({
                           username: "rehema.said",
-                          password: "TTCL@2026"
+                          password: "TTCL@2026",
                         }),
-                        credentials: "include" // important for Laravel session to persist
+                        credentials: "include", // important for Laravel session to persist
                       }
                     );
 
@@ -819,7 +792,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                       padding: "4px 8px",
                       border: formErrors.firstName
                         ? "1px solid red"
-                        : "1px solid #ccc"
+                        : "1px solid #ccc",
                     }}
                   />
                   {formErrors.firstName && (
@@ -842,7 +815,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                       height: "32px",
                       fontSize: "0.875rem",
                       padding: "4px 8px",
-                      border: "1px solid #ccc"
+                      border: "1px solid #ccc",
                     }}
                   />
                 </div>
@@ -862,18 +835,16 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                       fontSize: "0.875rem",
                       padding: "4px 8px",
                       border:
-                        formErrors.lastName &&
-                        formData.requester !== "Employer"
+                        formErrors.lastName && formData.requester !== "Employer"
                           ? "1px solid red"
-                          : "1px solid #ccc"
+                          : "1px solid #ccc",
                     }}
                   />
-                  {formErrors.lastName &&
-                    formData.requester !== "Employer" && (
-                      <span style={{ color: "red", fontSize: "0.75rem" }}>
-                        {formErrors.lastName}
-                      </span>
-                    )}
+                  {formErrors.lastName && formData.requester !== "Employer" && (
+                    <span style={{ color: "red", fontSize: "0.75rem" }}>
+                      {formErrors.lastName}
+                    </span>
+                  )}
                 </div>
               </div>
             )}
@@ -894,7 +865,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                     padding: "4px 8px",
                     border: formErrors.phoneNumber
                       ? "1px solid red"
-                      : "1px solid #ccc"
+                      : "1px solid #ccc",
                   }}
                 />
                 {formErrors.phoneNumber && (
@@ -925,7 +896,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                     padding: "4px 8px",
                     border: formErrors.nidaNumber
                       ? "1px solid red"
-                      : "1px solid #ccc"
+                      : "1px solid #ccc",
                   }}
                 />
                 {formErrors.nidaNumber && (
@@ -951,7 +922,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                     width: "100%",
                     border: formErrors.requester
                       ? "1px solid red"
-                      : "1px solid #ccc"
+                      : "1px solid #ccc",
                   }}
                 >
                   <option value="">Select..</option>
@@ -981,7 +952,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                     padding: "4px 8px",
                     border: formErrors.institution
                       ? "1px solid red"
-                      : "1px solid #ccc"
+                      : "1px solid #ccc",
                   }}
                 />
                 {formErrors.institution && (
@@ -1017,7 +988,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                         padding: "4px 8px",
                         border: formErrors.requesterName
                           ? "1px solid red"
-                          : "1px solid #ccc"
+                          : "1px solid #ccc",
                       }}
                     />
                     {formErrors.requesterName && (
@@ -1042,7 +1013,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                         padding: "4px 8px",
                         border: formErrors.requesterPhoneNumber
                           ? "1px solid red"
-                          : "1px solid #ccc"
+                          : "1px solid #ccc",
                       }}
                     />
                     {formErrors.requesterPhoneNumber && (
@@ -1068,7 +1039,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                         height: "32px",
                         fontSize: "0.875rem",
                         padding: "4px 8px",
-                        border: "1px solid #ccc"
+                        border: "1px solid #ccc",
                       }}
                     />
                   </div>
@@ -1085,7 +1056,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                         height: "32px",
                         fontSize: "0.875rem",
                         padding: "4px 8px",
-                        border: "1px solid #ccc"
+                        border: "1px solid #ccc",
                       }}
                     />
                   </div>
@@ -1107,7 +1078,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                         padding: "4px 8px",
                         border: formErrors.relationshipToEmployee
                           ? "1px solid red"
-                          : "1px solid #ccc"
+                          : "1px solid #ccc",
                       }}
                     />
                     {formErrors.relationshipToEmployee && (
@@ -1137,7 +1108,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                     padding: "4px 8px",
                     border: formErrors.region
                       ? "1px solid red"
-                      : "1px solid #ccc"
+                      : "1px solid #ccc",
                   }}
                 />
                 {formErrors.region && (
@@ -1160,7 +1131,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                     padding: "4px 8px",
                     border: formErrors.district
                       ? "1px solid red"
-                      : "1px solid #ccc"
+                      : "1px solid #ccc",
                   }}
                 />
                 {formErrors.district && (
@@ -1186,7 +1157,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                     width: "100%",
                     border: formErrors.category
                       ? "1px solid red"
-                      : "1px solid #ccc"
+                      : "1px solid #ccc",
                   }}
                 >
                   <option value="">Select Category</option>
@@ -1215,7 +1186,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                     width: "100%",
                     border: formErrors.channel
                       ? "1px solid red"
-                      : "1px solid #ccc"
+                      : "1px solid #ccc",
                   }}
                 >
                   <option value="">Select Channel</option>
@@ -1245,7 +1216,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                     width: "100%",
                     border: formErrors.inquiry_type
                       ? "1px solid red"
-                      : "1px solid #ccc"
+                      : "1px solid #ccc",
                   }}
                 >
                   <option value="">Select Inquiry Type</option>
@@ -1275,7 +1246,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                     width: "100%",
                     border: formErrors.functionId
                       ? "1px solid red"
-                      : "1px solid #ccc"
+                      : "1px solid #ccc",
                   }}
                 >
                   <option value="">Select Subject</option>
@@ -1301,7 +1272,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                     height: "32px",
                     fontSize: "0.875rem",
                     padding: "4px 8px",
-                    backgroundColor: "#f5f5f5"
+                    backgroundColor: "#f5f5f5",
                   }}
                 />
               </div>
@@ -1315,7 +1286,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                     height: "32px",
                     fontSize: "0.875rem",
                     padding: "4px 8px",
-                    backgroundColor: "#f5f5f5"
+                    backgroundColor: "#f5f5f5",
                   }}
                 />
               </div>
@@ -1336,7 +1307,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                   resize: "vertical",
                   border: formErrors.description
                     ? "1px solid red"
-                    : "1px solid #ccc"
+                    : "1px solid #ccc",
                 }}
               />
               {formErrors.description && (
@@ -1352,7 +1323,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                 display: "flex",
                 justifyContent: "flex-end",
                 gap: "10px",
-                marginTop: "1.5rem"
+                marginTop: "1.5rem",
               }}
             >
               <button
@@ -1361,12 +1332,20 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
               >
                 Cancel
               </button>
-              <button
-                className="submit-btn"
+
+              <Button
+                variant="contained"
+                color="primary"
                 onClick={(e) => handleSubmit(e)}
+                disabled={isLoading} // Disable button while loading
               >
-                Submit to Backoffice
-              </button>
+                {isLoading ? (
+                  <CircularProgress size={24} color="inherit" />
+                ) : (
+                  "Submit to Backoffice"
+                )}
+              </Button>
+
               <button
                 className="close-btn"
                 style={{ background: "gray", color: "white" }}
@@ -1384,7 +1363,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
             overflowY: "auto",
             minWidth: 350,
             maxWidth: 420,
-            maxHeight: "90vh"
+            maxHeight: "90vh",
           }}
         >
           {/* Employer/Institution Details */}
@@ -1396,7 +1375,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                 borderRadius: "8px",
                 padding: "16px",
                 minWidth: 0,
-                marginBottom: 16
+                marginBottom: 16,
               }}
             >
               <h4 style={{ color: "#1976d2", marginBottom: 12 }}>
@@ -1435,10 +1414,16 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                 background: "#f8f9fa",
                 borderRadius: 8,
                 padding: 0,
-                minHeight: 60
+                minHeight: 60,
               }}
             >
-              <h4 style={{ color: "#1976d2", margin: '16px 0 8px 0', paddingLeft: 16 }}>
+              <h4
+                style={{
+                  color: "#1976d2",
+                  margin: "16px 0 8px 0",
+                  paddingLeft: 16,
+                }}
+              >
                 Ticket History for {formData.phoneNumber}
               </h4>
               {creationTicketsLoading ? (
@@ -1454,59 +1439,81 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                       mb: 2,
                       p: 2,
                       borderRadius: 2,
-                      bgcolor: creationActiveTicketId === ticket.id ? "#e3f2fd" : "#fff",
+                      bgcolor:
+                        creationActiveTicketId === ticket.id
+                          ? "#e3f2fd"
+                          : "#fff",
                       cursor: "pointer",
-                      border: creationActiveTicketId === ticket.id ? "2px solid #1976d2" : "1px solid #e0e0e0",
+                      border:
+                        creationActiveTicketId === ticket.id
+                          ? "2px solid #1976d2"
+                          : "1px solid #e0e0e0",
                       boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
                       display: "flex",
                       flexDirection: "column",
                       gap: 1,
-                      transition: 'box-shadow 0.2s, border-color 0.2s',
-                      '&:hover': {
-                        boxShadow: '0 4px 8px rgba(25,118,210,0.1)',
-                        borderColor: '#1976d2'
-                      }
+                      transition: "box-shadow 0.2s, border-color 0.2s",
+                      "&:hover": {
+                        boxShadow: "0 4px 8px rgba(25,118,210,0.1)",
+                        borderColor: "#1976d2",
+                      },
                     }}
                   >
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#1976d2' }}>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                      }}
+                    >
+                      <Typography
+                        variant="subtitle1"
+                        sx={{ fontWeight: 600, color: "#1976d2" }}
+                      >
                         {ticket.ticket_id}
                       </Typography>
                       <Typography
                         sx={{
                           px: 1.5,
                           py: 0.5,
-                          borderRadius: '12px',
-                          color: 'white',
+                          borderRadius: "12px",
+                          color: "white",
                           background:
-                            ticket.status === 'Closed'
-                              ? '#757575'
-                              : ticket.status === 'Open'
-                              ? '#2e7d32'
-                              : '#1976d2',
-                          fontSize: '0.75rem',
-                          fontWeight: 500
+                            ticket.status === "Closed"
+                              ? "#757575"
+                              : ticket.status === "Open"
+                              ? "#2e7d32"
+                              : "#1976d2",
+                          fontSize: "0.75rem",
+                          fontWeight: 500,
                         }}
                       >
                         {ticket.status}
                       </Typography>
                     </Box>
                     <Box sx={{ mt: 1 }}>
-                      <Typography variant="body2" sx={{ color: '#666', mb: 0.5 }}>
-                        Created: {new Date(ticket.created_at).toLocaleDateString()}
+                      <Typography
+                        variant="body2"
+                        sx={{ color: "#666", mb: 0.5 }}
+                      >
+                        Created:{" "}
+                        {new Date(ticket.created_at).toLocaleDateString()}
                       </Typography>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 500, color: '#333', mb: 1 }}>
+                      <Typography
+                        variant="subtitle2"
+                        sx={{ fontWeight: 500, color: "#333", mb: 1 }}
+                      >
                         Subject: {ticket.subject}
                       </Typography>
                       <Typography
                         variant="body2"
                         sx={{
-                          color: '#666',
-                          display: '-webkit-box',
+                          color: "#666",
+                          display: "-webkit-box",
                           WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis'
+                          WebkitBoxOrient: "vertical",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
                         }}
                       >
                         Description: {ticket.description}
@@ -1515,7 +1522,14 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                   </Box>
                 ))
               ) : (
-                <div style={{ color: '#888', fontSize: '0.95em', textAlign: 'center', padding: 16 }}>
+                <div
+                  style={{
+                    color: "#888",
+                    fontSize: "0.95em",
+                    textAlign: "center",
+                    padding: 16,
+                  }}
+                >
                   No previous tickets found for this number.
                 </div>
               )}

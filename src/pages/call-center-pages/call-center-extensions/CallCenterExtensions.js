@@ -68,6 +68,7 @@ const CallCenterExtensions = () => {
       const filtered = Array.isArray(data)
         ? data.filter((user) => user.extension)
         : [];
+        console.log("extension", filtered);
       setUsersWithExtensions(filtered);
     } catch (error) {
       console.error("Error:", error);
@@ -290,7 +291,7 @@ const CallCenterExtensions = () => {
           className="call-center-extension-search-input"
         />
 
-        <button
+        {/* <button
           className="call-center-extension-add-extension-button"
           onClick={() => {
             setShowModal(true);
@@ -298,7 +299,7 @@ const CallCenterExtensions = () => {
           }}
         >
           <FaPlus /> Add Extension
-        </button>
+        </button> */}
       </div>
 
       {/* Extension Table */}
@@ -309,7 +310,9 @@ const CallCenterExtensions = () => {
               <TableCell>Extension Number</TableCell>
               <TableCell>Agent Name</TableCell>
               <TableCell>Email</TableCell>
-              <TableCell>Actions</TableCell>
+              <TableCell>Role</TableCell>
+              <TableCell>Status</TableCell>
+              {/* <TableCell>Actions</TableCell> */}
             </TableRow>
           </TableHead>
           <TableBody>
@@ -322,7 +325,9 @@ const CallCenterExtensions = () => {
                   <TableCell>{user.extension}</TableCell>
                   <TableCell>{user.name}</TableCell>
                   <TableCell>{user.email}</TableCell>
-                  <TableCell className="call-center-extension-action-buttons">
+                  <TableCell>{user.role}</TableCell>
+                  <TableCell>{user.status}</TableCell>
+                  {/* <TableCell className="call-center-extension-action-buttons">
                     <Tooltip title="Edit Extension">
                       <button
                         className="call-center-extension-edit-button"
@@ -360,7 +365,7 @@ const CallCenterExtensions = () => {
                         <MdDeleteForever color="white" />
                       </button>
                     </Tooltip>
-                  </TableCell>
+                  </TableCell> */}
                 </TableRow>
               ))}
           </TableBody>
