@@ -25,7 +25,7 @@ export default function AdminAndSuperAdminDashboard() {
 
   const getInActiveUsers = async () => {
     try {
-      const response = await fetch(`${baseURL}/users/in-active-user`, {
+      const response = await fetch(`${baseURL}/users/online-users`, {
         method: "GET",
         headers: {
           "content-type": "application/json",
