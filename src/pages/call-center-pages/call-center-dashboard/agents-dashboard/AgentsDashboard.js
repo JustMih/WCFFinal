@@ -857,7 +857,7 @@ export default function AgentsDashboard() {
   
     try {
       // Step 1: Fetch the list of online users (agents and supervisors)
-      const response = await fetch(`${baseURL}/agents-online`, {
+      const response = await fetch(`${baseURL}/users/online-users`, {
         method: "GET",
         headers: {
           "Content-Type": "application/json",

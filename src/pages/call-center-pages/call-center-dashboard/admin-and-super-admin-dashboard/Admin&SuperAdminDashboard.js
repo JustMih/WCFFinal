@@ -23,9 +23,9 @@ export default function AdminAndSuperAdminDashboard() {
     otherUsers: 0,
   });
 
-  const getOnlineUser = async () => {
+  const getInActiveUsers = async () => {
     try {
-      const response = await fetch(`${baseURL}/users/online-users`, {
+      const response = await fetch(`${baseURL}/users/in-active-user`, {
         method: "GET",
         headers: {
           "content-type": "application/json",
@@ -33,8 +33,8 @@ export default function AdminAndSuperAdminDashboard() {
         },
       });
       const data = await response.json();
-      console.log("Online Users:", data.onlineUser);
-      setOnlineUsers(data.onlineUser || []); // Ensure we set an empty array if no users are online
+      console.log("Online Users:", data);
+      setOnlineUsers(data || []); // Ensure we set an empty array if no users are online
     } catch (error) {
       console.error("Error fetching online users:", error);
       setOnlineUsers([]); // Reset to empty array on error
@@ -116,7 +116,7 @@ export default function AdminAndSuperAdminDashboard() {
 
   // Fetch user counts for each role
   useEffect(() => {
-    getOnlineUser();
+    getInActiveUsers();
     const fetchCounts = async () => {
       const roles = [
         { key: "agents", endpoint: "agent" },

@@ -162,6 +162,7 @@ const AgentCRM = () => {
     severity: "info"
   });
 
+  const [isLoading, setIsLoading] = useState(false);
   // State for card dashboard
   const [agentData, setAgentData] = useState({
     agentActivity: {
@@ -497,6 +498,7 @@ const AgentCRM = () => {
   // Handle form submission
   const handleSubmit = async (e, action = "create") => {
     e.preventDefault();
+    setIsLoading(true);
 
     const requiredFields = {
       phoneNumber: "Phone Number",
@@ -676,6 +678,7 @@ const AgentCRM = () => {
         type: "error",
         message: `Network error. Please try again later.`
       });
+      setIsLoading(false);
     }
   };
 
@@ -1808,7 +1811,7 @@ const AgentCRM = () => {
           display: "flex",
           gap: "10px",
           marginBottom: "1rem",
-          alignItems: "center"
+          alignItems: "center",
         }}
       >
         <input
@@ -1851,7 +1854,7 @@ const AgentCRM = () => {
             bgcolor: "background.paper",
             boxShadow: 24,
             borderRadius: 2,
-            p: 3
+            p: 3,
           }}
         >
           <Typography variant="h6" component="h2" gutterBottom>
@@ -1895,8 +1898,13 @@ const AgentCRM = () => {
                 setExistingTicketsModal(false);
                 setNewTicketConfirmationModal(true);
               }}
+              disabled={isLoading}
             >
-              Create New Ticket
+              {isLoading ? (
+                <CircularProgress size={24} color="inherit" />
+              ) : (
+                "Create Ticket"
+              )}
             </Button>
             <Button
               variant="outlined"
@@ -1923,7 +1931,7 @@ const AgentCRM = () => {
             bgcolor: "background.paper",
             boxShadow: 24,
             borderRadius: 2,
-            p: 3
+            p: 3,
           }}
         >
           <Typography variant="h6" component="h2" gutterBottom>
@@ -1996,7 +2004,7 @@ const AgentCRM = () => {
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              marginBottom: "16px"
+              marginBottom: "16px",
             }}
           >
             <h2>All Customer Tickets</h2>
@@ -2078,7 +2086,7 @@ const AgentCRM = () => {
               alignItems: "center",
               justifyContent: "center",
               gap: "16px",
-              margin: "16px 0"
+              margin: "16px 0",
             }}
           >
             <Button
@@ -2119,7 +2127,7 @@ const AgentCRM = () => {
             bgcolor: "background.paper",
             boxShadow: 24,
             borderRadius: 2,
-            p: 0
+            p: 0,
           }}
         >
           {/* Left: Ticket Details */}
@@ -2130,7 +2138,7 @@ const AgentCRM = () => {
               borderRight: "1px solid #eee",
               overflowY: "auto",
               minWidth: 0,
-              maxHeight: "90vh"
+              maxHeight: "90vh",
             }}
           >
             {selectedTicket && (
@@ -2147,7 +2155,7 @@ const AgentCRM = () => {
                     display: "grid",
                     gridTemplateColumns: "repeat(2, 1fr)",
                     gap: "16px",
-                    width: "100%"
+                    width: "100%",
                   }}
                 >
                   {[
@@ -2159,8 +2167,8 @@ const AgentCRM = () => {
                             "Full Name",
                             selectedTicket.first_name +
                               " " +
-                              selectedTicket.last_name || "N/A"
-                          ]
+                              selectedTicket.last_name || "N/A",
+                          ],
                           // ["Last Name", selectedTicket.last_name || "N/A"]
                         ]),
                     ["Ticket Number", selectedTicket.ticket_id || "N/A"],
@@ -2179,11 +2187,11 @@ const AgentCRM = () => {
                               ? ` (${selectedTicket.role})`
                               : ""
                           }`
-                        : "N/A"
+                        : "N/A",
                     ],
                     // Always show Assigned To and Assigned Role
                     ["Assigned To", selectedTicket?.assignee?.name || "N/A"],
-                    ["Assigned Role", selectedTicket.assigned_to_role || "N/A"]
+                    ["Assigned Role", selectedTicket.assigned_to_role || "N/A"],
                   ].map(([label, value], index) => (
                     <div
                       key={`left-${index}`}
@@ -2199,7 +2207,7 @@ const AgentCRM = () => {
                           label === "Sub-section" ||
                           label === "Subject"
                             ? "2px solid #e0e0e0"
-                            : "none"
+                            : "none",
                       }}
                     >
                       <strong
@@ -2211,7 +2219,7 @@ const AgentCRM = () => {
                             label === "Subject"
                               ? "#1976d2"
                               : "#555",
-                          fontSize: "0.9rem"
+                          fontSize: "0.9rem",
                         }}
                       >
                         {label}:
@@ -2227,7 +2235,7 @@ const AgentCRM = () => {
                             label === "Sub-section" ||
                             label === "Subject"
                               ? "#1976d2"
-                              : "inherit"
+                              : "inherit",
                         }}
                       >
                         {value}
@@ -2246,11 +2254,11 @@ const AgentCRM = () => {
                               ? "green"
                               : selectedTicket.status === "Closed"
                               ? "gray"
-                              : "blue"
+                              : "blue",
                         }}
                       >
                         {selectedTicket.status || "Escalated" || "N/A"}
-                      </span>
+                      </span>,
                     ],
                     ["NIDA", selectedTicket.nida_number || "N/A"],
                     ["Institution", selectedTicket.institution || "N/A"],
@@ -2265,11 +2273,11 @@ const AgentCRM = () => {
                               ? "red"
                               : selectedTicket.complaint_type === "Minor"
                               ? "orange"
-                              : "inherit"
+                              : "inherit",
                         }}
                       >
                         {selectedTicket.complaint_type || "Unrated"}
-                      </span>
+                      </span>,
                     ],
                     // ["Assigned To", selectedTicket?.assignee?.name || "N/A"],
                     // ["Assigned Role", selectedTicket.assigned_to_role || "N/A"],
@@ -2284,11 +2292,11 @@ const AgentCRM = () => {
                               year: "numeric",
                               hour: "numeric",
                               minute: "2-digit",
-                              hour12: true
+                              hour12: true,
                             }
                           )
-                        : "N/A"
-                    ]
+                        : "N/A",
+                    ],
                   ].map(([label, value], index) => (
                     <div
                       key={`right-${index}`}
@@ -2298,14 +2306,14 @@ const AgentCRM = () => {
                         borderRadius: "8px",
                         display: "flex",
                         alignItems: "center",
-                        boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
                       }}
                     >
                       <strong
                         style={{
                           minWidth: "120px",
                           color: "#555",
-                          fontSize: "0.9rem"
+                          fontSize: "0.9rem",
                         }}
                       >
                         {label}:
@@ -2315,7 +2323,7 @@ const AgentCRM = () => {
                           flex: 1,
                           overflow: "hidden",
                           textOverflow: "ellipsis",
-                          fontSize: "0.9rem"
+                          fontSize: "0.9rem",
                         }}
                       >
                         {value}
@@ -2334,14 +2342,14 @@ const AgentCRM = () => {
                     display: "flex",
                     alignItems: "flex-start",
                     boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                    marginTop: "16px"
+                    marginTop: "16px",
                   }}
                 >
                   <strong
                     style={{
                       minWidth: "120px",
                       color: "#555",
-                      fontSize: "0.9rem"
+                      fontSize: "0.9rem",
                     }}
                   >
                     Description:
@@ -2352,7 +2360,7 @@ const AgentCRM = () => {
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       fontSize: "0.9rem",
-                      lineHeight: "1.5"
+                      lineHeight: "1.5",
                     }}
                   >
                     {selectedTicket.description || "N/A"}
@@ -2387,7 +2395,7 @@ const AgentCRM = () => {
               overflowY: "auto",
               minWidth: 350,
               maxWidth: 420,
-              maxHeight: "90vh"
+              maxHeight: "90vh",
             }}
           >
             {/* Add search input for ticket history */}
@@ -2402,7 +2410,7 @@ const AgentCRM = () => {
                   padding: "8px",
                   borderRadius: "4px",
                   border: "1px solid #ccc",
-                  fontSize: "0.95em"
+                  fontSize: "0.95em",
                 }}
               />
             </div>
@@ -2456,15 +2464,15 @@ const AgentCRM = () => {
                       gap: 1,
                       "&:hover": {
                         boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
-                        borderColor: "#1976d2"
-                      }
+                        borderColor: "#1976d2",
+                      },
                     }}
                   >
                     <Box
                       sx={{
                         display: "flex",
                         justifyContent: "space-between",
-                        alignItems: "center"
+                        alignItems: "center",
                       }}
                     >
                       <Typography
@@ -2486,7 +2494,7 @@ const AgentCRM = () => {
                               ? "#2e7d32"
                               : "#1976d2",
                           fontSize: "0.75rem",
-                          fontWeight: 500
+                          fontWeight: 500,
                         }}
                       >
                         {ticket.status}
@@ -2514,7 +2522,7 @@ const AgentCRM = () => {
                           WebkitLineClamp: 2,
                           WebkitBoxOrient: "vertical",
                           overflow: "hidden",
-                          textOverflow: "ellipsis"
+                          textOverflow: "ellipsis",
                         }}
                       >
                         Description: {ticket.description}
@@ -2539,8 +2547,8 @@ const AgentCRM = () => {
                   fontWeight: 500,
                   boxShadow: "0 2px 4px rgba(25,118,210,0.2)",
                   "&:hover": {
-                    boxShadow: "0 4px 8px rgba(25,118,210,0.3)"
-                  }
+                    boxShadow: "0 4px 8px rgba(25,118,210,0.3)",
+                  },
                 }}
                 onClick={() => {
                   let prev = selectedTicket;
@@ -2568,12 +2576,12 @@ const AgentCRM = () => {
                       requesterPhoneNumber: prev.requesterPhoneNumber || "",
                       requesterEmail: prev.requesterEmail || "",
                       requesterAddress: prev.requesterAddress || "",
-                      relationshipToEmployee: prev.relationshipToEmployee || ""
+                      relationshipToEmployee: prev.relationshipToEmployee || "",
                     });
                   } else {
                     setFormData((prev) => ({
                       ...prev,
-                      phoneNumber: phoneSearch
+                      phoneNumber: phoneSearch,
                     }));
                   }
                   setShowModal(true);
@@ -2597,7 +2605,7 @@ const AgentCRM = () => {
             minWidth: 350,
             maxWidth: 400,
             mx: "auto",
-            mt: "15vh"
+            mt: "15vh",
           }}
         >
           <Typography variant="h6" gutterBottom>
@@ -2620,15 +2628,15 @@ const AgentCRM = () => {
                   method: "POST",
                   headers: {
                     "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`
+                    Authorization: `Bearer ${token}`,
                   },
                   body: JSON.stringify({
                     ticket_id: selectedTicket.id,
                     category: selectedTicket.category, // or another user ID
                     message: notifyMessage,
                     channel: selectedTicket.channel,
-                    subject: selectedTicket.functionData?.name
-                  })
+                    subject: selectedTicket.functionData?.name,
+                  }),
                 });
                 const data = await res.json();
                 setShowNotifyModal(false);
@@ -2636,13 +2644,13 @@ const AgentCRM = () => {
                   setSnackbar({
                     open: true,
                     message: "Notification sent and saved!",
-                    severity: "success"
+                    severity: "success",
                   });
                 } else {
                   setSnackbar({
                     open: true,
                     message: data.message || "Failed to save notification.",
-                    severity: "error"
+                    severity: "error",
                   });
                 }
               } catch (error) {
@@ -2650,7 +2658,7 @@ const AgentCRM = () => {
                 setSnackbar({
                   open: true,
                   message: "Network error: " + error.message,
-                  severity: "error"
+                  severity: "error",
                 });
               }
             }}
@@ -2674,7 +2682,7 @@ const AgentCRM = () => {
             bgcolor: "background.paper",
             boxShadow: 24,
             borderRadius: 2,
-            p: 0
+            p: 0,
           }}
         >
           <Box
@@ -2684,7 +2692,7 @@ const AgentCRM = () => {
               borderRight: "1px solid #eee",
               overflowY: "auto",
               minWidth: 0,
-              maxHeight: "90vh"
+              maxHeight: "90vh",
             }}
           >
             <div className="modal-form-container">
@@ -2697,7 +2705,7 @@ const AgentCRM = () => {
                   marginBottom: "20px",
                   padding: "15px",
                   backgroundColor: "#f5f5f5",
-                  borderRadius: "8px"
+                  borderRadius: "8px",
                 }}
               >
                 <div style={{ marginBottom: "15px" }}>
@@ -2705,7 +2713,7 @@ const AgentCRM = () => {
                     style={{
                       display: "block",
                       marginBottom: "8px",
-                      fontWeight: "bold"
+                      fontWeight: "bold",
                     }}
                   >
                     Search Type:
@@ -2722,7 +2730,7 @@ const AgentCRM = () => {
                       width: "100%",
                       padding: "8px",
                       borderRadius: "4px",
-                      border: "1px solid #ddd"
+                      border: "1px solid #ddd",
                     }}
                   >
                     <option value="employee">Employee</option>
@@ -2735,7 +2743,7 @@ const AgentCRM = () => {
                     style={{
                       display: "block",
                       marginBottom: "8px",
-                      fontWeight: "bold"
+                      fontWeight: "bold",
                     }}
                   >
                     Search By:
@@ -2752,7 +2760,7 @@ const AgentCRM = () => {
                       width: "100%",
                       padding: "8px",
                       borderRadius: "4px",
-                      border: "1px solid #ddd"
+                      border: "1px solid #ddd",
                     }}
                   >
                     <option value="name">Name</option>
@@ -2765,7 +2773,7 @@ const AgentCRM = () => {
                     style={{
                       display: "block",
                       marginBottom: "8px",
-                      fontWeight: "bold"
+                      fontWeight: "bold",
                     }}
                   >
                     {searchBy === "name" ? "Enter Name" : "Enter WCF Number"}:
@@ -2789,7 +2797,7 @@ const AgentCRM = () => {
                           display: "flex",
                           alignItems: "center",
                           justifyContent: "center",
-                          gap: "10px"
+                          gap: "10px",
                         }}
                       >
                         <CircularProgress size={20} />
@@ -2847,20 +2855,20 @@ const AgentCRM = () => {
                               )}
                               {params.InputProps.endAdornment}
                             </>
-                          )
+                          ),
                         }}
                         sx={{
                           "& .MuiOutlinedInput-root": {
                             "& fieldset": {
-                              borderColor: "#e0e0e0"
+                              borderColor: "#e0e0e0",
                             },
                             "&:hover fieldset": {
-                              borderColor: "#1976d2"
+                              borderColor: "#1976d2",
                             },
                             "&.Mui-focused fieldset": {
-                              borderColor: "#1976d2"
-                            }
-                          }
+                              borderColor: "#1976d2",
+                            },
+                          },
                         }}
                       />
                     )}
@@ -2887,7 +2895,7 @@ const AgentCRM = () => {
                     borderRadius: "8px",
                     display: "flex",
                     justifyContent: "space-between",
-                    alignItems: "center"
+                    alignItems: "center",
                   }}
                 >
                   <div>
@@ -2908,91 +2916,98 @@ const AgentCRM = () => {
                     </Typography>
                   </div>
                   <Button
-  variant="contained"
-  color="primary"
-  disabled={!selectedSuggestion?.claimId}
-  onClick={async () => {
-    console.log("Clicked claim:", selectedSuggestion.claimId);
+                    variant="contained"
+                    color="primary"
+                    disabled={!selectedSuggestion?.claimId}
+                    onClick={async () => {
+                      console.log("Clicked claim:", selectedSuggestion.claimId);
 
-    const credentials = {
-      username: "rehema.said", // Laravel expects 'username'
-      password: "TTCL@2026"
-    };
+                      const credentials = {
+                        username: "rehema.said", // Laravel expects 'username'
+                        password: "TTCL@2026",
+                      };
 
-    const getCookie = (name) => {
-      const match = document.cookie.match(
-        new RegExp("(^| )" + name + "=([^;]+)")
-      );
-      return match ? decodeURIComponent(match[2]) : null;
-    };
+                      const getCookie = (name) => {
+                        const match = document.cookie.match(
+                          new RegExp("(^| )" + name + "=([^;]+)")
+                        );
+                        return match ? decodeURIComponent(match[2]) : null;
+                      };
 
-    try {
-      // Step 1: Get CSRF cookie
-      const csrfResponse = await fetch("http://localhost:8000/sanctum/csrf-cookie", {
-        credentials: "include"
-      });
+                      try {
+                        // Step 1: Get CSRF cookie
+                        const csrfResponse = await fetch(
+                          "http://localhost:8000/sanctum/csrf-cookie",
+                          {
+                            credentials: "include",
+                          }
+                        );
 
-      if (!csrfResponse.ok) {
-        throw new Error("Failed to fetch CSRF cookie");
-      }
+                        if (!csrfResponse.ok) {
+                          throw new Error("Failed to fetch CSRF cookie");
+                        }
 
-      // Step 2: Read the XSRF-TOKEN cookie
-      const csrfToken = getCookie("XSRF-TOKEN");
+                        // Step 2: Read the XSRF-TOKEN cookie
+                        const csrfToken = getCookie("XSRF-TOKEN");
 
-      if (!csrfToken) {
-        setSnackbar({
-          open: true,
-          message: "CSRF token missing. Login cannot proceed.",
-          severity: "error"
-        });
-        return;
-      }
+                        if (!csrfToken) {
+                          setSnackbar({
+                            open: true,
+                            message:
+                              "CSRF token missing. Login cannot proceed.",
+                            severity: "error",
+                          });
+                          return;
+                        }
 
-      // Step 3: Send login request
-      const loginResponse = await fetch("http://localhost:8000/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          "X-XSRF-TOKEN": csrfToken
-        },
-        credentials: "include",
-        body: JSON.stringify(credentials)
-      });
+                        // Step 3: Send login request
+                        const loginResponse = await fetch(
+                          "http://localhost:8000/login",
+                          {
+                            method: "POST",
+                            headers: {
+                              "Content-Type": "application/json",
+                              Accept: "application/json",
+                              "X-XSRF-TOKEN": csrfToken,
+                            },
+                            credentials: "include",
+                            body: JSON.stringify(credentials),
+                          }
+                        );
 
-      if (loginResponse.ok || loginResponse.redirected) {
-        // Step 4: Open the dashboard in a new tab
-        const dashboardUrl = "http://localhost:8000/dashboard";
-        window.open(dashboardUrl, "_blank");
-      } else {
-        const errorText = await loginResponse.text();
-        let errorMsg = "Login failed.";
-        try {
-          const json = JSON.parse(errorText);
-          errorMsg = json.message || json.error || errorMsg;
-        } catch {
-          errorMsg = errorText;
-        }
+                        if (loginResponse.ok || loginResponse.redirected) {
+                          // Step 4: Open the dashboard in a new tab
+                          const dashboardUrl =
+                            "http://localhost:8000/dashboard";
+                          window.open(dashboardUrl, "_blank");
+                        } else {
+                          const errorText = await loginResponse.text();
+                          let errorMsg = "Login failed.";
+                          try {
+                            const json = JSON.parse(errorText);
+                            errorMsg = json.message || json.error || errorMsg;
+                          } catch {
+                            errorMsg = errorText;
+                          }
 
-        setSnackbar({
-          open: true,
-          message: errorMsg,
-          severity: "error"
-        });
-      }
-    } catch (error) {
-      setSnackbar({
-        open: true,
-        message: error.message || "Unexpected error during login",
-        severity: "error"
-      });
-    }
-  }}
->
-  View Claim
-</Button>
-
-
+                          setSnackbar({
+                            open: true,
+                            message: errorMsg,
+                            severity: "error",
+                          });
+                        }
+                      } catch (error) {
+                        setSnackbar({
+                          open: true,
+                          message:
+                            error.message || "Unexpected error during login",
+                          severity: "error",
+                        });
+                      }
+                    }}
+                  >
+                    View Claim
+                  </Button>
                 </div>
               )}
 
@@ -3012,7 +3027,7 @@ const AgentCRM = () => {
                         padding: "4px 8px",
                         border: formErrors.firstName
                           ? "1px solid red"
-                          : "1px solid #ccc"
+                          : "1px solid #ccc",
                       }}
                     />
                     {formErrors.firstName && (
@@ -3035,7 +3050,7 @@ const AgentCRM = () => {
                         height: "32px",
                         fontSize: "0.875rem",
                         padding: "4px 8px",
-                        border: "1px solid #ccc"
+                        border: "1px solid #ccc",
                       }}
                     />
                   </div>
@@ -3058,7 +3073,7 @@ const AgentCRM = () => {
                           formErrors.lastName &&
                           formData.requester !== "Employer"
                             ? "1px solid red"
-                            : "1px solid #ccc"
+                            : "1px solid #ccc",
                       }}
                     />
                     {formErrors.lastName &&
@@ -3087,7 +3102,7 @@ const AgentCRM = () => {
                       padding: "4px 8px",
                       border: formErrors.phoneNumber
                         ? "1px solid red"
-                        : "1px solid #ccc"
+                        : "1px solid #ccc",
                     }}
                   />
                   {formErrors.phoneNumber && (
@@ -3118,7 +3133,7 @@ const AgentCRM = () => {
                       padding: "4px 8px",
                       border: formErrors.nidaNumber
                         ? "1px solid red"
-                        : "1px solid #ccc"
+                        : "1px solid #ccc",
                     }}
                   />
                   {formErrors.nidaNumber && (
@@ -3144,7 +3159,7 @@ const AgentCRM = () => {
                       width: "100%",
                       border: formErrors.requester
                         ? "1px solid red"
-                        : "1px solid #ccc"
+                        : "1px solid #ccc",
                     }}
                   >
                     <option value="">Select..</option>
@@ -3174,7 +3189,7 @@ const AgentCRM = () => {
                       padding: "4px 8px",
                       border: formErrors.institution
                         ? "1px solid red"
-                        : "1px solid #ccc"
+                        : "1px solid #ccc",
                     }}
                   />
                   {formErrors.institution && (
@@ -3210,7 +3225,7 @@ const AgentCRM = () => {
                           padding: "4px 8px",
                           border: formErrors.requesterName
                             ? "1px solid red"
-                            : "1px solid #ccc"
+                            : "1px solid #ccc",
                         }}
                       />
                       {formErrors.requesterName && (
@@ -3235,7 +3250,7 @@ const AgentCRM = () => {
                           padding: "4px 8px",
                           border: formErrors.requesterPhoneNumber
                             ? "1px solid red"
-                            : "1px solid #ccc"
+                            : "1px solid #ccc",
                         }}
                       />
                       {formErrors.requesterPhoneNumber && (
@@ -3261,7 +3276,7 @@ const AgentCRM = () => {
                           height: "32px",
                           fontSize: "0.875rem",
                           padding: "4px 8px",
-                          border: "1px solid #ccc"
+                          border: "1px solid #ccc",
                         }}
                       />
                     </div>
@@ -3278,7 +3293,7 @@ const AgentCRM = () => {
                           height: "32px",
                           fontSize: "0.875rem",
                           padding: "4px 8px",
-                          border: "1px solid #ccc"
+                          border: "1px solid #ccc",
                         }}
                       />
                     </div>
@@ -3300,7 +3315,7 @@ const AgentCRM = () => {
                           padding: "4px 8px",
                           border: formErrors.relationshipToEmployee
                             ? "1px solid red"
-                            : "1px solid #ccc"
+                            : "1px solid #ccc",
                         }}
                       />
                       {formErrors.relationshipToEmployee && (
@@ -3330,7 +3345,7 @@ const AgentCRM = () => {
                       padding: "4px 8px",
                       border: formErrors.region
                         ? "1px solid red"
-                        : "1px solid #ccc"
+                        : "1px solid #ccc",
                     }}
                   />
                   {formErrors.region && (
@@ -3353,7 +3368,7 @@ const AgentCRM = () => {
                       padding: "4px 8px",
                       border: formErrors.district
                         ? "1px solid red"
-                        : "1px solid #ccc"
+                        : "1px solid #ccc",
                     }}
                   />
                   {formErrors.district && (
@@ -3379,7 +3394,7 @@ const AgentCRM = () => {
                       width: "100%",
                       border: formErrors.category
                         ? "1px solid red"
-                        : "1px solid #ccc"
+                        : "1px solid #ccc",
                     }}
                   >
                     <option value="">Select Category</option>
@@ -3408,7 +3423,7 @@ const AgentCRM = () => {
                       width: "100%",
                       border: formErrors.channel
                         ? "1px solid red"
-                        : "1px solid #ccc"
+                        : "1px solid #ccc",
                     }}
                   >
                     <option value="">Select Channel</option>
@@ -3438,7 +3453,7 @@ const AgentCRM = () => {
                       width: "100%",
                       border: formErrors.inquiry_type
                         ? "1px solid red"
-                        : "1px solid #ccc"
+                        : "1px solid #ccc",
                     }}
                   >
                     <option value="">Select Inquiry Type</option>
@@ -3468,7 +3483,7 @@ const AgentCRM = () => {
                       width: "100%",
                       border: formErrors.functionId
                         ? "1px solid red"
-                        : "1px solid #ccc"
+                        : "1px solid #ccc",
                     }}
                   >
                     <option value="">Select Subject</option>
@@ -3494,7 +3509,7 @@ const AgentCRM = () => {
                       height: "32px",
                       fontSize: "0.875rem",
                       padding: "4px 8px",
-                      backgroundColor: "#f5f5f5"
+                      backgroundColor: "#f5f5f5",
                     }}
                   />
                 </div>
@@ -3508,7 +3523,7 @@ const AgentCRM = () => {
                       height: "32px",
                       fontSize: "0.875rem",
                       padding: "4px 8px",
-                      backgroundColor: "#f5f5f5"
+                      backgroundColor: "#f5f5f5",
                     }}
                   />
                 </div>
@@ -3529,7 +3544,7 @@ const AgentCRM = () => {
                     resize: "vertical",
                     border: formErrors.description
                       ? "1px solid red"
-                      : "1px solid #ccc"
+                      : "1px solid #ccc",
                   }}
                 />
                 {formErrors.description && (
@@ -3545,7 +3560,7 @@ const AgentCRM = () => {
                   display: "flex",
                   justifyContent: "flex-end",
                   gap: "10px",
-                  marginTop: "1.5rem"
+                  marginTop: "1.5rem",
                 }}
               >
                 <button
@@ -3574,7 +3589,7 @@ const AgentCRM = () => {
               overflowY: "auto",
               minWidth: 350,
               maxWidth: 420,
-              maxHeight: "90vh"
+              maxHeight: "90vh",
             }}
           >
             {/* Employer/Institution Details */}
@@ -3586,7 +3601,7 @@ const AgentCRM = () => {
                   borderRadius: "8px",
                   padding: "16px",
                   minWidth: 0,
-                  marginBottom: 16
+                  marginBottom: 16,
                 }}
               >
                 <h4 style={{ color: "#1976d2", marginBottom: 12 }}>
@@ -3625,14 +3640,14 @@ const AgentCRM = () => {
                   background: "#f8f9fa",
                   borderRadius: 8,
                   padding: 0,
-                  minHeight: 60
+                  minHeight: 60,
                 }}
               >
                 <h4
                   style={{
                     color: "#1976d2",
                     margin: "16px 0 8px 0",
-                    paddingLeft: 16
+                    paddingLeft: 16,
                   }}
                 >
                   Ticket History for {formData.phoneNumber}
@@ -3666,15 +3681,15 @@ const AgentCRM = () => {
                         transition: "box-shadow 0.2s, border-color 0.2s",
                         "&:hover": {
                           boxShadow: "0 4px 8px rgba(25,118,210,0.1)",
-                          borderColor: "#1976d2"
-                        }
+                          borderColor: "#1976d2",
+                        },
                       }}
                     >
                       <Box
                         sx={{
                           display: "flex",
                           justifyContent: "space-between",
-                          alignItems: "center"
+                          alignItems: "center",
                         }}
                       >
                         <Typography
@@ -3696,7 +3711,7 @@ const AgentCRM = () => {
                                 ? "#2e7d32"
                                 : "#1976d2",
                             fontSize: "0.75rem",
-                            fontWeight: 500
+                            fontWeight: 500,
                           }}
                         >
                           {ticket.status}
@@ -3724,7 +3739,7 @@ const AgentCRM = () => {
                             WebkitLineClamp: 2,
                             WebkitBoxOrient: "vertical",
                             overflow: "hidden",
-                            textOverflow: "ellipsis"
+                            textOverflow: "ellipsis",
                           }}
                         >
                           Description: {ticket.description}
@@ -3738,7 +3753,7 @@ const AgentCRM = () => {
                       color: "#888",
                       fontSize: "0.95em",
                       textAlign: "center",
-                      padding: 16
+                      padding: 16,
                     }}
                   >
                     No previous tickets found for this number.
@@ -3790,7 +3805,7 @@ const AgentCRM = () => {
             margin: "10px 0",
             padding: "10px",
             background: "#e3f2fd",
-            borderRadius: "6px"
+            borderRadius: "6px",
           }}
         >
           <div>
