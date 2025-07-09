@@ -71,6 +71,19 @@ export default function AssignmentStepper({ assignmentHistory, selectedTicket })
             <Typography variant="body2" color="text.secondary">
               {a.action} - {a.created_at ? new Date(a.created_at).toLocaleString() : ''}
             </Typography>
+            {a.attachment_path ? (
+              <Typography
+                variant="body2"
+                sx={{ color: '#28a745', fontStyle: 'italic', cursor: 'pointer', textDecoration: 'underline' }}
+                onClick={() => handleDownloadAttachment(a.attachment_path)}
+              >
+                Download attachment
+              </Typography>
+            ) : (
+              <Typography variant="body2" sx={{ color: '#28a745', fontStyle: 'italic' }}>
+                No attachment
+              </Typography>
+            )}
           </Box>
         </Box>
       ))}
