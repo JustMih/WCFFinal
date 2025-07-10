@@ -122,8 +122,9 @@ export default function FocalPersonDashboard() {
 
   // Dashboard Stats
   const [newTickets, setNewTickets] = useState({
-    "New Tickets": 0,
+    // "New Tickets": 0,
     "Assigned": 0,
+    "In Progress": 0,
     "Escalated": 0
   });
   const [totalTickets, setTotalTickets] = useState({
@@ -132,7 +133,6 @@ export default function FocalPersonDashboard() {
   });
   const [ticketCategories, setTicketCategories] = useState({
     "Open": 0,
-    "In Progress": 0,
     "Carried Forward": 0
   });
   const [ticketStatus, setTicketStatus] = useState({
@@ -225,17 +225,17 @@ export default function FocalPersonDashboard() {
       const stats = response.data.ticketStats;
       // Map unified fields to cards
         setNewTickets({
-        "New Tickets": stats.newTickets || 0,
+        // "New Tickets": stats.newTickets || 0,
         "Assigned": stats.assigned || 0,
-        "Escalated": stats.escalated || 0
+        "In Progress": stats.inProgress || 0,
         });
         setTotalTickets({
+          "Escalated": stats.escalated || 0,
+        "Closed": stats.closed || 0,
         "Total": stats.total || 0,
-        "Closed": stats.closed || 0
         });
         setTicketCategories({
         "Open": stats.open || 0,
-        "In Progress": stats.inProgress || 0,
         "Carried Forward": stats.carriedForward || 0
         });
         setTicketStatus({
@@ -244,9 +244,9 @@ export default function FocalPersonDashboard() {
         "SLA Breaches": stats.slaBreaches || 0
       });
     } catch (error) {
-      setNewTickets({ "New Tickets": 0, "Assigned": 0, "Escalated": 0 });
+      setNewTickets({ "New Tickets": 0, "Assigned": 0,  "In Progress": 0,"Escalated": 0 });
       setTotalTickets({ "Total": 0, "Closed": 0 });
-      setTicketCategories({ "Open": 0, "In Progress": 0, "Carried Forward": 0 });
+      setTicketCategories({"Escalated": 0, "Closed": 0,"Total": 0 });
       setTicketStatus({ "Overdue": 0, "Pending": 0, "SLA Breaches": 0 });
       setSnackbar({
         open: true,
@@ -541,7 +541,7 @@ export default function FocalPersonDashboard() {
             icon={<MdOutlineSupportAgent fontSize={35} />}
           />
         </div>
-        <div className="crm-cards-container">
+        {/* <div className="crm-cards-container">
           <Card
             title="Ticket Categories"
             data={ticketCategories}
@@ -554,7 +554,7 @@ export default function FocalPersonDashboard() {
             color="#ffc4dd"
             icon={<MdImportExport fontSize={35} />}
           />
-        </div>
+        </div> */}
       </div>
 
       <TicketFilters

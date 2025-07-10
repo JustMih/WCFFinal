@@ -165,18 +165,21 @@ const AgentCRM = () => {
   // State for card dashboard
   const [agentData, setAgentData] = useState({
     agentActivity: {
-      "Open Tickets": 0,
-      "In Progress": 0,
-      "Closed Tickets": 0,
-      Overdue: 0,
-      Total: 0
+      // "Open Tickets": 0,
+      // "Closed Tickets": 0,
+      "Total Opened by Me": 0, // <-- Added here
+      "Closed by Me": 0,
+      Escalated: 0,
+      // Total: 0
     },
     ticketQueue: {
-      "New Tickets": 0,
+      // "New Tickets": 0,
       Assigned: 0,
-      "In/Hour": 0,
+      "In Progress": 0, // <-- Move here
+      Escalated: 0,
+      // "In/Hour": 0,
       "Resolved/Hour": 0,
-      Total: 0
+      // Total: 0
     },
     ticketWait: {
       "Longest Wait": "00:00",
@@ -375,18 +378,20 @@ const AgentCRM = () => {
   const updateAgentDataFromStats = (ticketStats) => {
     setAgentData({
       agentActivity: {
-        "Open Tickets": ticketStats.open || 0,
-        "In Progress": ticketStats.inProgress || 0,
-        "Closed Tickets": ticketStats.closed || 0,
-        Overdue: ticketStats.overdue || 0,
-        Total: ticketStats.total || 0
+        // "Open Tickets": ticketStats.open || 0,
+        // "Closed Tickets": ticketStats.closed || 0,
+        "Total Opened by Me": ticketStats.totalCreatedByMe || 0, // <-- Added here
+        "Closed by Me": ticketStats.closedByAgent || 0,
+        // Total: ticketStats.total || 0
       },
       ticketQueue: {
-        "New Tickets": ticketStats.newTickets || 0,
+        // "New Tickets": ticketStats.newTickets || 0,
         Assigned: ticketStats.assigned || 0,
-        "In/Hour": ticketStats.inHour || 0,
-        "Resolved/Hour": ticketStats.resolvedHour || 0,
-        Total: ticketStats.total || 0
+        "In Progress": ticketStats.inProgress || 0, // <-- Move here
+        Escalated: ticketStats.Escalated || 0,
+        // "In/Hour": ticketStats.inHour || 0,
+        // "Resolved/Hour": ticketStats.resolvedHour || 0,
+        // Total: ticketStats.total || 0
       },
       ticketWait: {
         "Longest Wait": ticketStats.longestWait || "00:00",
@@ -1962,25 +1967,25 @@ const AgentCRM = () => {
       {/* Card Dashboard Section */}
       <div className="crm-dashboard">
         <div className="crm-cards-container">
-          <Card
-            title="Team Activity"
-            data={agentData.agentActivity}
-            color={role === "agent" ? "#BCE8BE" : "#ffe599"}
-            icon={<FaUsersLine fontSize={32} />}
-          />
-          <Card
+        <Card
             title="Agent Performance"
             data={agentData.ticketQueue}
             color={role === "agent" ? "#D6E4C7" : "#97c5f0"}
             icon={<GrLineChart fontSize={32} />}
           />
-        </div>
-        <div className="crm-cards-container">
           <Card
-            title="Overdue Metrics"
+            title="Escalated Metrics"
             data={agentData.ticketWait}
             color={role === "agent" ? "#C2E2E5" : "#b6d7a8"}
             icon={<MdDisabledVisible fontSize={32} />}
+          />
+        </div>
+        <div className="crm-cards-container">
+          <Card
+            title="Team Activity"
+            data={agentData.agentActivity}
+            color={role === "agent" ? "#BCE8BE" : "#ffe599"}
+            icon={<FaUsersLine fontSize={32} />}
           />
           <Card
             title="Resolution Metrics"
@@ -2395,14 +2400,16 @@ const AgentCRM = () => {
                   </Box>
                 )}
                 <Box sx={{ mt: 3, textAlign: "right" }}>
-                  <Button
-                    variant="contained"
-                    color="secondary"
-                    sx={{ mr: 2 }}
-                    onClick={() => setShowNotifyModal(true)}
-                  >
-                    Notify User
-                  </Button>
+                  {selectedTicket.status !== "Closed" && (
+                    <Button
+                      variant="contained"
+                      color="secondary"
+                      sx={{ mr: 2 }}
+                      onClick={() => setShowNotifyModal(true)}
+                    >
+                      Notify User
+                    </Button>
+                  )}
                   <Button
                     variant="contained"
                     color="primary"

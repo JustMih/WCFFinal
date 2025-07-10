@@ -45,24 +45,26 @@ export default function Crm() {
   ]);
   const [loading, setLoading] = useState(true);
   const [notifiedCount, setNotifiedCount] = useState(0);
+  const [showType, setShowType] = useState('manual'); // 'manual' or 'system'
 
-  // Fetch notifications for the selected ticket
+  // Fetch notifications for the selected ticket and user
   const { data: notificationHistory, isLoading: isLoadingHistory } = useQuery({
     queryKey: [
       "ticketNotifications",
       selectedTicket?.ticket?.id ||
         selectedTicket?.ticket_id ||
-        selectedTicket?.id
+        selectedTicket?.id,
+      userId
     ],
     queryFn: async () => {
       const ticketId =
         selectedTicket?.ticket?.id ||
         selectedTicket?.ticket_id ||
         selectedTicket?.id;
-      if (!ticketId) return { notifications: [] };
+      if (!ticketId || !userId) return { notifications: [] };
       const token = localStorage.getItem("authToken");
       const response = await fetch(
-        `${baseURL}/notifications/ticket/${ticketId}`,
+        `${baseURL}/notifications/ticket/${ticketId}/user/${userId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (!response.ok) throw new Error("Failed to fetch notifications");
@@ -76,9 +78,9 @@ export default function Crm() {
       return { notifications };
     },
     enabled: !!(
-      selectedTicket?.ticket?.id ||
-      selectedTicket?.ticket_id ||
-      selectedTicket?.id
+      (selectedTicket?.ticket?.id ||
+        selectedTicket?.ticket_id ||
+        selectedTicket?.id) && userId
     )
   });
 
@@ -305,7 +307,17 @@ export default function Crm() {
               </Box>
               <Box sx={{ mt: 1, background: '#f3f7fa', borderRadius: 2, p: 1.5 }}>
                 <Typography variant="body2" sx={{ color: '#666', mb: 0.5 }}>
-                  <strong>Created:</strong> {dateStr}
+                  <strong>Created:</strong>{' '}
+                  {notification.created_at
+                    ? new Date(notification.created_at).toLocaleString("en-GB", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: true
+                      })
+                    : "N/A"}
                 </Typography>
                 <Typography variant="subtitle2" sx={{ fontWeight: 500, color: '#333', mb: 1 }}>
                   <strong>Subject:</strong> {notification.ticket?.subject || 'N/A'}
@@ -345,13 +357,31 @@ export default function Crm() {
     );
   };
 
-  const filteredTickets = agentTickets.filter((ticket) => {
+  // Group notifications by ticket ID and keep only the latest manual notification per ticket (with comment)
+  const uniqueTickets = [];
+  const seenTicketIds = new Set();
+  agentTickets.forEach((notif) => {
+    const ticketId = notif.ticket?.id || notif.ticket_id || notif.id;
+    if (notif.comment && notif.comment.trim() !== '' && !seenTicketIds.has(ticketId)) {
+      uniqueTickets.push(notif);
+      seenTicketIds.add(ticketId);
+    }
+  });
+
+  const manualNotifications = uniqueTickets.filter(
+    notif => notif.comment && notif.comment.trim() !== ''
+  );
+
+  const systemNotifications = uniqueTickets.filter(
+    notif => notif.comment || notif.comment.trim() === ''
+  );
+
+  // Use filtered list based on toggle
+  const filteredTickets = (showType === 'manual' ? manualNotifications : systemNotifications).filter((ticket) => {
     const searchValue = search.toLowerCase();
     const phone = (ticket.phone_number || "").toLowerCase();
     const nida = (ticket.nida_number || "").toLowerCase();
-    const fullName = `${ticket.first_name || ""} ${ticket.middle_name || ""} ${
-      ticket.last_name || ""
-    }`.toLowerCase();
+    const fullName = `${ticket.first_name || ""} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.toLowerCase();
     return (
       (phone.includes(searchValue) ||
         nida.includes(searchValue) ||
@@ -474,6 +504,41 @@ export default function Crm() {
         >
           Total Notified Tickets: {notifiedCount}
         </span>
+      </div>
+      {/* Toggle Tabs for Manual/System Notifications */}
+      <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
+        <button
+          onClick={() => setShowType('manual')}
+          style={{
+            padding: '8px 18px',
+            borderRadius: 8,
+            border: showType === 'manual' ? '2px solid #1976d2' : '1px solid #ccc',
+            background: showType === 'manual' ? '#e3f0fd' : '#fff',
+            color: showType === 'manual' ? '#1976d2' : '#333',
+            fontWeight: showType === 'manual' ? 700 : 400,
+            cursor: 'pointer',
+            outline: 'none',
+            boxShadow: showType === 'manual' ? '0 2px 8px rgba(25,118,210,0.08)' : 'none'
+          }}
+        >
+          Manual Notifications
+        </button>
+        <button
+          onClick={() => setShowType('system')}
+          style={{
+            padding: '8px 18px',
+            borderRadius: 8,
+            border: showType === 'system' ? '2px solid #1976d2' : '1px solid #ccc',
+            background: showType === 'system' ? '#e3f0fd' : '#fff',
+            color: showType === 'system' ? '#1976d2' : '#333',
+            fontWeight: showType === 'system' ? 700 : 400,
+            cursor: 'pointer',
+            outline: 'none',
+            boxShadow: showType === 'system' ? '0 2px 8px rgba(25,118,210,0.08)' : 'none'
+          }}
+        >
+          System/Email Notifications
+        </button>
       </div>
       <div style={{ overflowX: "auto", width: "100%" }}>
         <div

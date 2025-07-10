@@ -199,12 +199,7 @@ a {
   margin-bottom: 4px;
 }
 
-/* Active link style: light background + left border */
-.active-link {
-  background-color: #e0f2ff;
-  /* border-left: 4px solid #1976d2; */
-  font-weight: normal; /* Ensure no bold text */
-}
+
 
 /* Flex layout for metric row (text and number side-by-side) */
 .metric-row {

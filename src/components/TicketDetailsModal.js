@@ -982,7 +982,8 @@ export default function TicketDetailsModal({
                 )}
 
                 {/* Reverse and Assign buttons for roles other than agent, coordinator, attendee */}
-                {!["agent", "coordinator", "attendee"].includes(localStorage.getItem("role")) && (
+                {!["agent", "coordinator", "attendee"].includes(localStorage.getItem("role")) && 
+                 selectedTicket?.assigned_to_id === localStorage.getItem("userId") && (
                   <>
                     <Button
                       variant="contained"

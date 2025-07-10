@@ -168,10 +168,10 @@
 .metric-row {
   display: flex;
   align-items: center;
-  padding: 2px 4px;
+  padding: 1px 4px; /* Reduced vertical padding */
   border-radius: 4px;
   transition: background-color 0.2s;
-  margin-bottom: 2px;
+  margin-bottom: 1px; /* Reduced margin */
 }
 
 .metric-row:hover {
