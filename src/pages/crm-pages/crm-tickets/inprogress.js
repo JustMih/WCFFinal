@@ -424,23 +424,10 @@ export default function Crm() {
   }
 
   return (
-    <div className="coordinator-dashboard-container">
+    <div className="user-table-container">
+      <h3 className="title">In Progress Tickets List</h3>
       <div style={{ overflowX: "auto", width: "100%" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "16px",
-          }}
-        >
-          <h2>In-progress Assignments</h2>
-          <Tooltip title="Columns Settings and Export" arrow>
-            <IconButton onClick={() => setIsColumnModalOpen(true)}>
-              <FiSettings size={20} />
-            </IconButton>
-          </Tooltip>
-        </div>
+
         <TableControls
           itemsPerPage={itemsPerPage}
           onItemsPerPageChange={(e) => {
@@ -457,8 +444,9 @@ export default function Crm() {
           activeColumns={activeColumns}
           onColumnsChange={setActiveColumns}
           tableData={filteredAssignments}
-          tableTitle="In Progress Assignments"
+          tableTitle="In Progress Tickets"
         />
+
         <table className="user-table">
           <thead>{renderTableHeader()}</thead>
           <tbody>

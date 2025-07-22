@@ -391,23 +391,9 @@ export default function CRMFocalPersonTickets() {
   }
 
   return (
-    <div className="coordinator-dashboard-container">
+    <div className="user-table-container">
+      <h3 className="title">Focal Person Tickets List</h3>
       <div style={{ overflowX: "auto", width: "100%" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "16px",
-          }}
-        >
-          <h2>Focal Person Tickets - {status}</h2>
-          <Tooltip title="Columns Settings and Export" arrow>
-            <IconButton onClick={() => setIsColumnModalOpen(true)}>
-              <FiSettings size={20} />
-            </IconButton>
-          </Tooltip>
-        </div>
 
         <TableControls
           itemsPerPage={itemsPerPage}

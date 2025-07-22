@@ -500,72 +500,9 @@ export default function Crm() {
   }
 
   return (
-    <div className="coordinator-dashboard-container">
-      <div style={{ marginBottom: 16, textAlign: "right" }}>
-        <span
-          style={{
-            background: "red",
-            color: "white",
-            borderRadius: "12px",
-            padding: "4px 12px",
-            fontWeight: "bold",
-            fontSize: "1rem"
-          }}
-        >
-          Total Notified Tickets: {notifiedCount}
-        </span>
-      </div>
-      {/* Toggle Tabs for Manual/System Notifications */}
-      {/* <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
-        <button
-          onClick={() => setShowType('manual')}
-          style={{
-            padding: '8px 18px',
-            borderRadius: 8,
-            border: showType === 'manual' ? '2px solid #1976d2' : '1px solid #ccc',
-            background: showType === 'manual' ? '#e3f0fd' : '#fff',
-            color: showType === 'manual' ? '#1976d2' : '#333',
-            fontWeight: showType === 'manual' ? 700 : 400,
-            cursor: 'pointer',
-            outline: 'none',
-            boxShadow: showType === 'manual' ? '0 2px 8px rgba(25,118,210,0.08)' : 'none'
-          }}
-        >
-          Manual Notifications
-        </button>
-        <button
-          onClick={() => setShowType('system')}
-          style={{
-            padding: '8px 18px',
-            borderRadius: 8,
-            border: showType === 'system' ? '2px solid #1976d2' : '1px solid #ccc',
-            background: showType === 'system' ? '#e3f0fd' : '#fff',
-            color: showType === 'system' ? '#1976d2' : '#333',
-            fontWeight: showType === 'system' ? 700 : 400,
-            cursor: 'pointer',
-            outline: 'none',
-            boxShadow: showType === 'system' ? '0 2px 8px rgba(25,118,210,0.08)' : 'none'
-          }}
-        >
-          System/Email Notifications
-        </button>
-      </div> */}
+    <div className="user-table-container">
+      <h3 className="title">Notifications List</h3>
       <div style={{ overflowX: "auto", width: "100%" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "16px"
-          }}
-        >
-          <h2>Notification Tickets List </h2>
-          <Tooltip title="Columns Settings and Export" arrow>
-            <IconButton onClick={() => setIsColumnModalOpen(true)}>
-              <FiSettings size={20} />
-            </IconButton>
-          </Tooltip>
-        </div>
 
         <TableControls
           itemsPerPage={itemsPerPage}
@@ -586,7 +523,7 @@ export default function Crm() {
           tableTitle="Notifications"
         />
 
-        <table className="ticket-table">
+        <table className="user-table">
           <thead>{renderTableHeader()}</thead>
           <tbody>
             {paginatedTickets.length > 0 ? (

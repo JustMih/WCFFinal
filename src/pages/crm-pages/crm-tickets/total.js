@@ -367,24 +367,9 @@ export default function Crm() {
   }
 
   return (
-    <div className="coordinator-dashboard-container">
-      <TicketFilters onFilterChange={handleFilterChange} initialFilters={filters} />
+    <div className="user-table-container">
+      <h3 className="title">Total Tickets List</h3>
       <div style={{ overflowX: "auto", width: "100%" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "16px",
-          }}
-        >
-          <h2>Tickets List</h2>
-          <Tooltip title="Columns Settings and Export" arrow>
-            <IconButton onClick={() => setIsColumnModalOpen(true)}>
-              <FiSettings size={20} />
-            </IconButton>
-          </Tooltip>
-        </div>
 
         <TableControls
           itemsPerPage={itemsPerPage}
@@ -402,7 +387,7 @@ export default function Crm() {
           activeColumns={activeColumns}
           onColumnsChange={setActiveColumns}
           tableData={filteredTickets}
-          tableTitle="All Tickets"
+          tableTitle="Total Tickets"
         />
 
         <table className="user-table">

@@ -584,36 +584,50 @@ export default function FocalPersonDashboard() {
       />
 
       {/* Table Section */}
-      <div style={{ overflowX: "auto", width: "100%" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "16px"
-          }}
-        >
-          <h2>Inquiry Tickets</h2>
+      <div className="user-table-container">
+        <div style={{ 
+          display: "flex", 
+          justifyContent: "space-between", 
+          alignItems: "center",
+          marginBottom: "1rem"
+        }}>
+          <h3 className="title">Focal Person Tickets List</h3>
+          
+          <div style={{ 
+            display: "flex", 
+            alignItems: "center", 
+            gap: "10px"
+          }}>
+            <TicketFilters
+              onFilterChange={handleFilterChange}
+              initialFilters={filters}
+              compact={true}
+            />
+          </div>
         </div>
+        
+        <div style={{ overflowX: "auto", width: "100%" }}>
 
-        <TableControls
-          itemsPerPage={itemsPerPage}
-          onItemsPerPageChange={(e) => {
-            const value = e.target.value;
-            setItemsPerPage(
-              value === "All" ? filteredTickets.length : parseInt(value)
-            );
-            setCurrentPage(1);
-          }}
-          search={search}
-          onSearchChange={(e) => setSearch(e.target.value)}
-          filterStatus={filterStatus}
-          onFilterStatusChange={(e) => setFilterStatus(e.target.value)}
-          activeColumns={activeColumns}
-          onColumnsChange={setActiveColumns}
-        />
+          <TableControls
+            itemsPerPage={itemsPerPage}
+            onItemsPerPageChange={(e) => {
+              const value = e.target.value;
+              setItemsPerPage(
+                value === "All" ? filteredTickets.length : parseInt(value)
+              );
+              setCurrentPage(1);
+            }}
+            search={search}
+            onSearchChange={(e) => setSearch(e.target.value)}
+            filterStatus={filterStatus}
+            onFilterStatusChange={(e) => setFilterStatus(e.target.value)}
+            activeColumns={activeColumns}
+            onColumnsChange={setActiveColumns}
+            tableData={filteredTickets}
+            tableTitle="Focal Person Tickets"
+          />
 
-        <table className="user-table">
+          <table className="user-table">
           <thead>
             <tr>
               {activeColumns.includes("ticket_id") && <th>Ticket ID</th>}
@@ -734,6 +748,7 @@ export default function FocalPersonDashboard() {
           onPageChange={setCurrentPage}
         />
       </div>
+    </div>
 
       {/* Ticket Details Modal */}
       <TicketDetailsModal

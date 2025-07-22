@@ -774,39 +774,52 @@ export default function CoordinatorDashboard() {
         onFilterChange={handleFilterChange}
         initialFilters={filters}
       />
-      {/* Table */}
-      <div style={{ overflowX: "auto", width: "100%" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "16px"
-          }}
-        >
-          <h2>All Coordinator Tickets</h2>
-        </div>
-        {/* Filters */}
-        <TableControls
-          itemsPerPage={itemsPerPage}
-          onItemsPerPageChange={(e) => {
-            const value = e.target.value;
-            setItemsPerPage(
-              value === "All" ? filteredTickets.length : parseInt(value)
-            );
-            setCurrentPage(1);
-          }}
-          search={search}
-          onSearchChange={(e) => setSearch(e.target.value)}
-          filterStatus={filterStatus}
-          onFilterStatusChange={(e) => setFilterStatus(e.target.value)}
-          activeColumns={activeColumns}
-          onColumnsChange={setActiveColumns}
-          tableData={filteredTickets}
-          tableTitle="Coordinator Tickets"
-        />
 
-        <table className="user-table">
+      {/* Table */}
+      <div className="user-table-container">
+        <div style={{ 
+          display: "flex", 
+          justifyContent: "space-between", 
+          alignItems: "center",
+          marginBottom: "1rem"
+        }}>
+          <h3 className="title">Coordinator Tickets List</h3>
+          
+          <div style={{ 
+            display: "flex", 
+            alignItems: "center", 
+            gap: "10px"
+          }}>
+            <TicketFilters
+              onFilterChange={handleFilterChange}
+              initialFilters={filters}
+              compact={true}
+            />
+          </div>
+        </div>
+        
+        <div style={{ overflowX: "auto", width: "100%" }}>
+
+          <TableControls
+            itemsPerPage={itemsPerPage}
+            onItemsPerPageChange={(e) => {
+              const value = e.target.value;
+              setItemsPerPage(
+                value === "All" ? filteredTickets.length : parseInt(value)
+              );
+              setCurrentPage(1);
+            }}
+            search={search}
+            onSearchChange={(e) => setSearch(e.target.value)}
+            filterStatus={filterStatus}
+            onFilterStatusChange={(e) => setFilterStatus(e.target.value)}
+            activeColumns={activeColumns}
+            onColumnsChange={setActiveColumns}
+            tableData={filteredTickets}
+            tableTitle="Coordinator Tickets"
+          />
+
+          <table className="user-table">
           <thead>
             <tr>
               {activeColumns.includes("id") && <th>#</th>}
@@ -877,6 +890,7 @@ export default function CoordinatorDashboard() {
           onPageChange={setCurrentPage}
         />
       </div>
+    </div>
       
       {/* Ticket Details Modal */}
       <TicketDetailsModal

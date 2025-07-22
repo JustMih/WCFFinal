@@ -529,7 +529,7 @@ const TableControls = ({
                 size="small"
                 sx={{ fontSize: "12px" }}
               >
-                Export PDF
+              PDF
               </Button>
               <Button
                 variant="outlined"
@@ -538,7 +538,7 @@ const TableControls = ({
                 size="small"
                 sx={{ fontSize: "12px" }}
               >
-                Export CSV
+             CSV
               </Button>
               <Button
                 variant="contained"

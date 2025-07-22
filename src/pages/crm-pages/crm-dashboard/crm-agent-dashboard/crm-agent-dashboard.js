@@ -1824,20 +1824,20 @@ const AgentCRM = () => {
   }
 
   return (
-    <div className="main--content">
-      <h3 className="title">Contact Center Dashboard</h3>
-
-      {/* <div
+    <div className="coordinator-dashboard-container">
+      <div
         style={{
           display: "flex",
-          justifyContent: "flex-end",
+          justifyContent: "space-between",
+          alignItems: "center",
           marginBottom: "1rem"
         }}
       >
-        <button className="add-user-button" onClick={() => setShowModal(true)}>
-          <FaPlus /> New Ticket
-        </button>
-      </div> */}
+        <h1 className="dashboard-title">
+          Contact Center Dashboard
+        </h1>
+      </div>
+
       {/* Full-width Phone/NIDA Search Section */}
       <div
         style={{
@@ -2018,12 +2018,6 @@ const AgentCRM = () => {
         </div>
       </div>
 
-      {/* Add TicketFilters component */}
-      <TicketFilters
-        onFilterChange={handleFilterChange}
-        initialFilters={filters}
-      />
-
       {/* Ticket Table Section */}
       <div className="user-table-container">
         <div style={{ display: "flex", gap: "20px", width: "100%" }}>
@@ -2039,6 +2033,18 @@ const AgentCRM = () => {
                 }}
               >
                 <h2>All Customer Tickets</h2>
+                
+                <div style={{ 
+                  display: "flex", 
+                  alignItems: "center", 
+                  gap: "10px"
+                }}>
+                  <TicketFilters 
+                    onFilterChange={handleFilterChange} 
+                    initialFilters={filters}
+                    compact={true}
+                  />
+                </div>
               </div>
 
              
