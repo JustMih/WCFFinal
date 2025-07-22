@@ -409,6 +409,8 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
         employerAllocatedStaffUsername,
         shouldClose: action === "closed",
         inquiry_type: formData.category === "Inquiry" ? formData.inquiry_type : null,
+        // Add claim number for routing decision
+        claimId: selectedSuggestion?.claimId || null,
       };
       if (formData.requester === "Employer") {
         ticketData.employerRegistrationNumber = formData.nidaNumber;

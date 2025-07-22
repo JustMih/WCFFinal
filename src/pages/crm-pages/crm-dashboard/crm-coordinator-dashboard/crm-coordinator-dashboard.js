@@ -35,6 +35,7 @@ import {
 import ColumnSelector from "../../../../components/colums-select/ColumnSelector";
 import TicketFilters from "../../../../components/ticket/TicketFilters";
 import CoordinatorActionModal from "../../../../components/coordinator/CoordinatorActionModal";
+import Pagination from '../../../../components/Pagination';
 
 // Config
 import { baseURL } from "../../../../config";
@@ -203,8 +204,8 @@ export default function CoordinatorDashboard() {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await response.json();
-      if (Array.isArray(data.complaints)) {
-        setTickets(data.complaints);
+      if (Array.isArray(data.tickets)) {
+        setTickets(data.tickets);
       } else {
         setTickets([]);
         setSnackbar({
@@ -480,6 +481,10 @@ export default function CoordinatorDashboard() {
   });
 
   const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage + 1;
+  const endIndex = Math.min(currentPage * itemsPerPage, filteredTickets.length);
+  const totalItems = filteredTickets.length;
+  
   const paginatedTickets = filteredTickets.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -900,29 +905,14 @@ export default function CoordinatorDashboard() {
             )}
           </tbody>
         </table>
-        <div style={{ marginTop: "16px", textAlign: "center" }}>
-          <Button
-            variant="outlined"
-            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-            sx={{ marginRight: 1 }}
-          >
-            Previous
-          </Button>
-          <span>
-            Page {currentPage} of {totalPages}
-          </span>
-          <Button
-            variant="outlined"
-            onClick={() =>
-              setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-            }
-            disabled={currentPage === totalPages}
-            sx={{ marginLeft: 1 }}
-          >
-            Next
-          </Button>
-        </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          startIndex={startIndex}
+          endIndex={endIndex}
+          onPageChange={setCurrentPage}
+        />
       </div>
 {/* Ticket Details Modal */}
 <TicketDetailsModal

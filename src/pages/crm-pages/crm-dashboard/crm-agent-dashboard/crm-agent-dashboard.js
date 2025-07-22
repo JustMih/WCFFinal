@@ -31,6 +31,7 @@ import "./crm-agent-dashboard.css";
 import TicketActions from "../../../../components/ticket/TicketActions";
 import TicketFilters from "../../../../components/ticket/TicketFilters";
 import TicketDetailsModal from "../../../../components/ticket/TicketDetailsModal";
+import Pagination from "../../../../components/Pagination";
 import axios from "axios";
 
 // Add styled components for better typeahead styling
@@ -606,7 +607,9 @@ const AgentCRM = () => {
         responsible_unit_name: parentSection ? parentSection.name : "",
         status: action === "closed" ? "Closed" : "Open",
         employerAllocatedStaffUsername,
-        shouldClose: action === "closed"
+        shouldClose: action === "closed",
+        // Add claim number for routing decision
+        claimId: selectedSuggestion?.claimId || null,
       };
 
       // Add employer-specific fields if requester is Employer
@@ -750,6 +753,9 @@ const AgentCRM = () => {
 
   const filteredTickets = getFilteredTickets();
   const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage + 1;
+  const endIndex = Math.min(currentPage * itemsPerPage, filteredTickets.length);
+  const totalItems = filteredTickets.length;
   const paginatedTickets = filteredTickets.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -2084,39 +2090,14 @@ const AgentCRM = () => {
             </tbody>
           </table>
 
-          {/* Pagination */}
-          <div
-            className="pagination"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "16px",
-              margin: "16px 0"
-            }}
-          >
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-              disabled={currentPage === 1}
-            >
-              Previous
-            </Button>
-            <span style={{ fontWeight: 500, fontSize: "1rem" }}>
-              Page {currentPage} of {totalPages}
-            </span>
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() =>
-                setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-              }
-              disabled={currentPage === totalPages}
-            >
-              Next
-            </Button>
-          </div>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            startIndex={startIndex}
+            endIndex={endIndex}
+            onPageChange={setCurrentPage}
+          />
         </div>
       </div>
 

@@ -506,7 +506,7 @@ export default function Crm() {
         </span>
       </div>
       {/* Toggle Tabs for Manual/System Notifications */}
-      <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
+      {/* <div style={{ marginBottom: 16, display: 'flex', gap: 8 }}>
         <button
           onClick={() => setShowType('manual')}
           style={{
@@ -539,7 +539,7 @@ export default function Crm() {
         >
           System/Email Notifications
         </button>
-      </div>
+      </div> */}
       <div style={{ overflowX: "auto", width: "100%" }}>
         <div
           style={{

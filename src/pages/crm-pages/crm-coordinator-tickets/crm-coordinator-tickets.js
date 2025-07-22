@@ -19,6 +19,7 @@ import { baseURL } from "../../../config";
 import "../crm-tickets/ticket.css";
 import TicketActions from "../../../components/coordinator/TicketActions";
 import TicketDetailsModal from '../../../components/TicketDetailsModal';
+import Pagination from '../../../components/Pagination';
 
 export default function CRMCoordinatorTickets() {
   const { status } = useParams();
@@ -125,6 +126,10 @@ export default function CRMCoordinatorTickets() {
   });
 
   const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage + 1;
+  const endIndex = Math.min(currentPage * itemsPerPage, filteredTickets.length);
+  const totalItems = filteredTickets.length;
+  
   const paginatedTickets = filteredTickets.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -280,6 +285,54 @@ export default function CRMCoordinatorTickets() {
     });
   };
 
+  // Add handleRating and handleForward functions
+  const handleRating = async (ticketId, rating) => {
+    const token = localStorage.getItem("authToken");
+    const userId = localStorage.getItem("userId");
+    try {
+      const response = await fetch(`${baseURL}/coordinator/${ticketId}/rate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ userId, rating })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setSnackbar({ open: true, message: "Ticket rated successfully", severity: "success" });
+        fetchTickets();
+      } else {
+        setSnackbar({ open: true, message: data.message || "Failed to rate ticket", severity: "error" });
+      }
+    } catch (error) {
+      setSnackbar({ open: true, message: error.message, severity: "error" });
+    }
+  };
+
+  const handleForward = async (ticketId, forwardData) => {
+    const token = localStorage.getItem("authToken");
+    try {
+      const response = await fetch(`${baseURL}/coordinator/${ticketId}/forward`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(forwardData)
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setSnackbar({ open: true, message: "Ticket forwarded successfully", severity: "success" });
+        fetchTickets();
+      } else {
+        setSnackbar({ open: true, message: data.message || "Failed to forward ticket", severity: "error" });
+      }
+    } catch (error) {
+      setSnackbar({ open: true, message: error.message, severity: "error" });
+    }
+  };
+
   if (loading) {
     return (
       <div className="p-6">
@@ -369,29 +422,14 @@ export default function CRMCoordinatorTickets() {
           </tbody>
         </table>
 
-        <div style={{ marginTop: "16px", textAlign: "center" }}>
-          <Button
-            variant="outlined"
-            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-            sx={{ marginRight: 1 }}
-          >
-            Previous
-          </Button>
-          <span>
-            Page {currentPage} of {totalPages}
-          </span>
-          <Button
-            variant="outlined"
-            onClick={() =>
-              setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-            }
-            disabled={currentPage === totalPages}
-            sx={{ marginLeft: 1 }}
-          >
-            Next
-          </Button>
-        </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          startIndex={startIndex}
+          endIndex={endIndex}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       <TicketDetailsModal
@@ -408,6 +446,8 @@ export default function CRMCoordinatorTickets() {
         forwardUnit={forwardUnit}
         refreshTickets={fetchTickets}
         setSnackbar={setSnackbar}
+        handleRating={handleRating}
+        handleForward={handleForward}
       />
 
       <ColumnSelector

@@ -273,7 +273,28 @@ function AssignmentFlowChat({ assignmentHistory = [], selectedTicket }) {
               message = `Message from ${prevUser}: No message`;
             }
           } else {
-            message = `Message from ${prevUser}: ${a.reason || 'No message'}`;
+            // Build message with workflow details
+            let baseMessage = `Message from ${prevUser}: ${a.reason || 'No message'}`;
+            
+            // Add workflow-specific details
+            if (a.workflow_step) {
+              baseMessage += `\n\nWorkflow Step: ${a.workflow_step}`;
+            }
+            
+            if (a.coordinator_notes) {
+              baseMessage += `\n\nCoordinator Notes: ${a.coordinator_notes}`;
+            }
+            
+            if (a.dg_notes) {
+              baseMessage += `\n\nDG Notes: ${a.dg_notes}`;
+            }
+            
+            // Show current resolution details from the ticket
+            if (selectedTicket.resolution_details) {
+              baseMessage += `\n\nResolution Details: ${selectedTicket.resolution_details}`;
+            }
+            
+            message = baseMessage;
           }
         }
         return (
@@ -378,6 +399,15 @@ export default function TicketDetailsModal({
   const [assignLoading, setAssignLoading] = useState(false);
   const [attendees, setAttendees] = useState([]);
 
+  // Major complaint workflow states
+  const [isMajorComplaintClosureDialogOpen, setIsMajorComplaintClosureDialogOpen] = useState(false);
+  const [isForwardToDGDialogOpen, setIsForwardToDGDialogOpen] = useState(false);
+  const [isDGApprovalDialogOpen, setIsDGApprovalDialogOpen] = useState(false);
+  const [coordinatorNotes, setCoordinatorNotes] = useState("");
+  const [editedResolution, setEditedResolution] = useState("");
+  const [dgNotes, setDgNotes] = useState("");
+  const [dgApproved, setDgApproved] = useState(true);
+
   const showAttendButton =
     // (userRole === "agent" || userRole === "attendee") &&
     selectedTicket &&
@@ -394,11 +424,76 @@ export default function TicketDetailsModal({
     String(selectedTicket.assigned_to_id) === String(userId) &&
     selectedTicket.status !== "Closed";
 
-  const handleAttend = () => {
-    // setIsAttendDialogOpen(true);
+  const handleAttend = async () => {
+    try {
+      const response = await fetch(`${baseURL}/workflow/${selectedTicket.id}/attend-and-recommend`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // Add Authorization header if your backend requires it
+          ...(localStorage.getItem("authToken") ? { 'Authorization': `Bearer ${localStorage.getItem("authToken")}` } : {})
+        },
+        body: JSON.stringify({
+          recommendation: resolutionDetails,
+          evidence_url: attachment ? `${baseURL}/ticket/attachment/${attachment.name}` : null // if you have file upload, otherwise omit
+        })
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        alert(error.message || 'Failed to submit recommendation');
+        return;
+      }
+      alert('Recommendation submitted! The Head of Unit will review it next.');
+      // Optionally close modal, refresh ticket list, etc.
+      if (onClose) onClose();
+      refreshTickets();
+    } catch (err) {
+      alert('Network error: ' + err.message);
+    }
+  };
 
-    setIsCoordinatorCloseDialogOpen(true);
-    };
+  // Forward to Director General handler
+  const handleForwardToDG = () => {
+    // Initialize edited resolution with current resolution details
+    setEditedResolution(selectedTicket?.resolution_details || "");
+    setIsForwardToDGDialogOpen(true);
+  };
+
+  // Director General approval handler
+  const handleDGApproval = async () => {
+    try {
+      const token = localStorage.getItem("authToken");
+      const response = await fetch(
+        `${baseURL}/ticket/${selectedTicket.id}/approve-major-complaint`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            userId,
+            approved: dgApproved,
+            dg_notes: dgNotes
+          })
+        }
+      );
+
+      if (response.ok) {
+        setIsDGApprovalDialogOpen(false);
+        onClose();
+        refreshTickets();
+        const action = dgApproved ? 'approved' : 'reversed';
+        setSnackbar({open: true, message: `Major complaint ${action} by Director General`, severity: 'success'});
+      } else {
+        const data = await response.json();
+        setSnackbar({open: true, message: data.message || 'Failed to process DG approval', severity: 'error'});
+      }
+    } catch (error) {
+      console.error("Error in DG approval:", error);
+      setSnackbar({open: true, message: 'Error processing DG approval', severity: 'error'});
+    }
+  };
 
   const handleAttendSubmit = async () => {
     try {
@@ -597,6 +692,45 @@ export default function TicketDetailsModal({
   useEffect(() => {
     console.log("MODAL selectedTicket", selectedTicket);
   }, [selectedTicket]);
+
+  const handleForwardToDGSubmit = async () => {
+    if (!coordinatorNotes.trim()) {
+      alert("Please add coordinator notes before forwarding to Director General");
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("authToken");
+      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${selectedTicket.id}/forward-to-dg`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          userId,
+          coordinator_notes: coordinatorNotes,
+          resolution_details: editedResolution // Include the edited resolution
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert("Major complaint forwarded to Director General successfully!");
+        setIsForwardToDGDialogOpen(false);
+        setCoordinatorNotes("");
+        setEditedResolution("");
+        onClose();
+        refreshTickets();
+      } else {
+        const errorData = await response.json();
+        alert(`Error: ${errorData.message || 'Failed to forward to Director General'}`);
+      }
+    } catch (error) {
+      console.error("Error forwarding to Director General:", error);
+      alert("Failed to forward to Director General. Please try again.");
+    }
+  };
 
   return (
     <>
@@ -896,7 +1030,7 @@ export default function TicketDetailsModal({
               {/* Action Buttons */}
               <Box sx={{ mt: 2, textAlign: "right" }}>
                 {showAttendButton && (
-                  <Button variant="contained" color="primary" onClick={handleAttend} sx={{ mr: 1 }}>
+                  <Button variant="contained" color="primary" onClick={() => setIsAttendDialogOpen(true)} sx={{ mr: 1 }}>
                     Attend
                   </Button>
                 )}
@@ -904,79 +1038,132 @@ export default function TicketDetailsModal({
                 {/* Coordinator Actions */}
                 {showCoordinatorActions && (
                   <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2, justifyContent: "flex-end" }}>
-                    <Button
-                      size="small"
-                      variant="contained"
-                      color="primary"
-                      onClick={() => handleRating(selectedTicket.id, "Minor")}
-                    >
-                      Minor
-                    </Button>
-                    <Button
-                      size="small"
-                      variant="contained"
-                      color="primary"
-                      onClick={() => handleRating(selectedTicket.id, "Major")}
-                    >
-                      Major
-                    </Button>
-
-                    {selectedTicket.category === "Complaint" && (
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                        <select
-                          style={{
-                            padding: "4px 8px",
-                            fontSize: "0.8rem",
-                            height: "32px",
-                            borderRadius: "4px"
-                          }}
-                          value={convertCategory[selectedTicket.id] || ""}
-                          onChange={(e) => handleCategoryChange(selectedTicket.id, e.target.value)}
-                        >
-                          <option value="">Convert To</option>
-                          <option value="Inquiry">Inquiry</option>
-                        </select>
+                    {/* Show rating buttons only if not a major complaint that's been returned */}
+                    {!(selectedTicket.category === "Complaint" && 
+                       selectedTicket.complaint_type === "Major" && 
+                       selectedTicket.status === "Returned") && (
+                      <>
                         <Button
                           size="small"
                           variant="contained"
-                          onClick={() => handleConvertOrForward(selectedTicket.id)}
+                          color="primary"
+                          onClick={() => handleRating(selectedTicket.id, "Minor")}
                         >
-                          Convert
+                          Minor
                         </Button>
-                      </Box>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          color="primary"
+                          onClick={() => handleRating(selectedTicket.id, "Major")}
+                        >
+                          Major
+                        </Button>
+                      </>
                     )}
 
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                      <select
-                        style={{
-                          padding: "4px 8px",
-                          fontSize: "0.8rem",
-                          height: "32px",
-                          borderRadius: "4px"
-                        }}
-                        value={forwardUnit[selectedTicket.id] || selectedTicket.section || selectedTicket.responsible_unit_name || ""}
-                        onChange={(e) => handleUnitChange(selectedTicket.id, e.target.value)}
-                      >
-                        <option value="">Forward To</option>
-                        {units.map((unit) => (
-                          <option key={unit.name} value={unit.name}>{unit.name}</option>
-                        ))}
-                      </select>
-                      <Button
-                        size="small"
-                        variant="contained"
-                        onClick={() => handleConvertOrForward(selectedTicket.id)}
-                      >
-                        Forward
-                      </Button>
-                    </Box>
+                    {/* Show Forward to DG button only for Major complaints that have been reversed from head of unit */}
+                    {selectedTicket.category === "Complaint" && 
+                     selectedTicket.complaint_type === "Major" && 
+                     selectedTicket.status === "Returned" && (
+                      <>
+                        <Button
+                          variant="contained"
+                          color="warning"
+                          onClick={handleForwardToDG}
+                        >
+                          Forward to Director General
+                        </Button>
+                        <Button
+                          variant="contained"
+                          color="success"
+                          onClick={handleCoordinatorClose}
+                        >
+                          Close
+                        </Button>
+                      </>
+                    )}
 
+                    {/* Show regular assign/forward options for non-Major complaints or Major complaints that haven't been returned */}
+                    {!(selectedTicket.category === "Complaint" && 
+                       selectedTicket.complaint_type === "Major" && 
+                       selectedTicket.status === "Returned") && (
+                      <>
+                        {selectedTicket.category === "Complaint" && (
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            <select
+                              style={{
+                                padding: "4px 8px",
+                                fontSize: "0.8rem",
+                                height: "32px",
+                                borderRadius: "4px"
+                              }}
+                              value={convertCategory[selectedTicket.id] || ""}
+                              onChange={(e) => handleCategoryChange(selectedTicket.id, e.target.value)}
+                            >
+                              <option value="">Convert To</option>
+                              <option value="Inquiry">Inquiry</option>
+                            </select>
+                            <Button
+                              size="small"
+                              variant="contained"
+                              onClick={() => handleConvertOrForward(selectedTicket.id)}
+                            >
+                              Convert
+                            </Button>
+                          </Box>
+                        )}
+
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          <select
+                            style={{
+                              padding: "4px 8px",
+                              fontSize: "0.8rem",
+                              height: "32px",
+                              borderRadius: "4px"
+                            }}
+                            value={forwardUnit[selectedTicket.id] || selectedTicket.section || selectedTicket.responsible_unit_name || ""}
+                            onChange={(e) => handleUnitChange(selectedTicket.id, e.target.value)}
+                          >
+                            <option value="">Forward To</option>
+                            {units.map((unit) => (
+                              <option key={unit.name} value={unit.name}>{unit.name}</option>
+                            ))}
+                          </select>
+                          <Button
+                            size="small"
+                            variant="contained"
+                            onClick={() => handleConvertOrForward(selectedTicket.id)}
+                          >
+                            Forward
+                          </Button>
+                        </Box>
+
+                        {/* Close ticket button - only show if not a major complaint that's been returned */}
+                        <Button
+                          variant="contained"
+                          color="success"
+                          onClick={handleCoordinatorClose}
+                        >
+                          Close ticket
+                        </Button>
+                      </>
+                    )}
+                  </Box>
+                )}
+
+                {/* Director General Actions for Major Complaints */}
+                {userRole === "director-general" && 
+                 selectedTicket.category === "Complaint" && 
+                 selectedTicket.complaint_type === "Major" && 
+                 selectedTicket.status === "Assigned" && (
+                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2, justifyContent: "flex-end" }}>
                     <Button
                       variant="contained"
                       color="success"
-                      onClick={handleCoordinatorClose}
+                      onClick={() => setIsDGApprovalDialogOpen(true)}
                     >
-                      Close ticket
+                      Review & Approve
                     </Button>
                   </Box>
                 )}
@@ -1042,7 +1229,7 @@ export default function TicketDetailsModal({
             <Button
               variant="contained"
               color="primary"
-              onClick={handleAttendSubmit}
+              onClick={handleAttend}
               disabled={!resolutionDetails.trim()}
             >
               Submit
@@ -1242,6 +1429,211 @@ export default function TicketDetailsModal({
           </Box>
         </Box>
       </Modal>
+
+      {/* Major Complaint Closure Dialog */}
+      <Dialog open={isMajorComplaintClosureDialogOpen} onClose={() => setIsMajorComplaintClosureDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Resolve Major Complaint</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Resolution Type:
+              </Typography>
+              <select
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  fontSize: "0.9rem",
+                  borderRadius: "4px",
+                  border: "1px solid #ccc"
+                }}
+                value={resolutionType}
+                onChange={(e) => setResolutionType(e.target.value)}
+              >
+                <option value="">Select Resolution Type</option>
+                <option value="Resolved">Resolved</option>
+                <option value="Not Applicable">Not Applicable</option>
+                <option value="Duplicate">Duplicate</option>
+                {/* <option value="Referred">Referred</option> */}
+              </select>
+            </Box>
+
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Resolution Details:
+              </Typography>
+              <TextField
+                multiline
+                rows={4}
+                value={resolutionDetails}
+                onChange={(e) => setResolutionDetails(e.target.value)}
+                fullWidth
+                placeholder="Enter resolution details..."
+              />
+            </Box>
+
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Attachment (Optional):
+              </Typography>
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+                onChange={(e) => setAttachment(e.target.files[0])}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  fontSize: "0.9rem",
+                  borderRadius: "4px",
+                  border: "1px solid #ccc"
+                }}
+              />
+              {attachment && (
+                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
+                  File selected: {attachment.name}
+                </Typography>
+              )}
+            </Box>
+
+            <Box sx={{ mt: 2, textAlign: "right" }}>
+              <Button
+                variant="contained"
+                color="success"
+                onClick={handleAttend}
+                disabled={!resolutionType || !resolutionDetails.trim()}
+              >
+                Resolve Major Complaint
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={() => setIsMajorComplaintClosureDialogOpen(false)}
+                sx={{ ml: 1 }}
+              >
+                Cancel
+              </Button>
+            </Box>
+          </Box>
+        </DialogContent>
+      </Dialog>
+
+      {/* Forward to DG Dialog */}
+      <Dialog open={isForwardToDGDialogOpen} onClose={() => setIsForwardToDGDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Forward Major Complaint to Director General</DialogTitle>
+        <DialogContent>
+          {/* Display the original description from agent/attendee */}
+          <Box sx={{ mt: 2, mb: 2 }}>
+            <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+              Original Description from Agent/Attendee:
+            </Typography>
+            <TextField
+              multiline
+              rows={4}
+              value={selectedTicket?.description || ""}
+              fullWidth
+              disabled
+              sx={{ 
+                backgroundColor: '#f5f5f5',
+                '& .MuiInputBase-input.Mui-disabled': {
+                  WebkitTextFillColor: '#000',
+                  color: '#000'
+                }
+              }}
+            />
+          </Box>
+
+          {/* Editable resolution details */}
+          <Box sx={{ mb: 2 }}>
+            <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+              Resolution Details (Editable):
+            </Typography>
+            <TextField
+              multiline
+              rows={4}
+              value={editedResolution}
+              onChange={e => setEditedResolution(e.target.value)}
+              fullWidth
+              placeholder="Edit the resolution details from attendee..."
+              sx={{ mt: 1 }}
+            />
+          </Box>
+
+          <TextField
+            label="Coordinator Notes (required)"
+            multiline
+            rows={3}
+            value={coordinatorNotes}
+            onChange={e => setCoordinatorNotes(e.target.value)}
+            fullWidth
+            sx={{ mt: 2 }}
+            placeholder="Add your notes about this major complaint..."
+          />
+
+          <Box sx={{ mt: 2, textAlign: "right" }}>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleForwardToDGSubmit}
+              disabled={!coordinatorNotes.trim()}
+            >
+              Forward to Director General
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => setIsForwardToDGDialogOpen(false)}
+              sx={{ ml: 1 }}
+            >
+              Cancel
+            </Button>
+          </Box>
+        </DialogContent>
+      </Dialog>
+
+      {/* DG Approval Dialog */}
+      <Dialog open={isDGApprovalDialogOpen} onClose={() => setIsDGApprovalDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Director General Approval</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+            DG Notes (optional):
+          </Typography>
+          <TextField
+            multiline
+            rows={3}
+            value={dgNotes}
+            onChange={e => setDgNotes(e.target.value)}
+            fullWidth
+            sx={{ mt: 2 }}
+          />
+          <Typography variant="body2" sx={{ mt: 2, fontWeight: "bold" }}>
+            DG Approval:
+          </Typography>
+          <Select
+            value={dgApproved ? "Approved" : "Reversed"}
+            onChange={e => setDgApproved(e.target.value === "Approved")}
+            fullWidth
+            sx={{ mb: 2 }}
+          >
+            <MenuItem value="Approved">Approved</MenuItem>
+            <MenuItem value="Reversed">Reversed</MenuItem>
+          </Select>
+          <Box sx={{ mt: 2, textAlign: "right" }}>
+            <Button
+              variant="contained"
+              color="success"
+              onClick={handleDGApproval}
+              disabled={dgApproved === null}
+            >
+              {dgApproved ? "Approve" : "Reject"}
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => setIsDGApprovalDialogOpen(false)}
+              sx={{ ml: 1 }}
+            >
+              Cancel
+            </Button>
+          </Box>
+        </DialogContent>
+      </Dialog>
     </>
   );
 } 
