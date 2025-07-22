@@ -2041,26 +2041,25 @@ const AgentCRM = () => {
                 <h2>All Customer Tickets</h2>
               </div>
 
-              <div className="controls">
-                <TableControls
-                  itemsPerPage={itemsPerPage}
-                  onItemsPerPageChange={(e) => {
-                    const value = e.target.value;
-                    setItemsPerPage(
-                      value === "All" ? filteredTickets.length : parseInt(value)
-                    );
-                    setCurrentPage(1);
-                  }}
-                  search={search}
-                  onSearchChange={(e) => setSearch(e.target.value)}
-                  filterStatus={filterStatus}
-                  onFilterStatusChange={(e) => setFilterStatus(e.target.value)}
-                  activeColumns={activeColumns}
-                  onColumnsChange={setActiveColumns}
-                  tableData={filteredTickets}
-                  tableTitle="Customer Tickets"
-                />
-              </div>
+             
+        <TableControls
+          itemsPerPage={itemsPerPage}
+          onItemsPerPageChange={(e) => {
+            const value = e.target.value;
+            setItemsPerPage(
+              value === "All" ? filteredTickets.length : parseInt(value)
+            );
+            setCurrentPage(1);
+          }}
+          search={search}
+          onSearchChange={(e) => setSearch(e.target.value)}
+          filterStatus={filterStatus}
+          onFilterStatusChange={(e) => setFilterStatus(e.target.value)}
+          activeColumns={activeColumns}
+          onColumnsChange={setActiveColumns}
+          tableData={filteredTickets}
+          tableTitle="Customer Tickets"
+        />
 
               <table className="user-table">
                 <thead>{renderTableHeader()}</thead>
