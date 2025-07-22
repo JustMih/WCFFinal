@@ -16,7 +16,7 @@ import {
   Avatar,
   Paper,
 } from "@mui/material";
-import ColumnSelector from "../../../components/colums-select/ColumnSelector";
+// import ColumnSelector from "../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../config";
 import "./ticket.css";
 import ChatIcon from '@mui/icons-material/Chat';
@@ -25,6 +25,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import TicketDetailsModal from '../../../components/TicketDetailsModal';
 import Pagination from '../../../components/Pagination';
+import TableControls from "../../../components/TableControls";
 
 export default function Crm() {
   const [agentTickets, setAgentTickets] = useState([]);
@@ -40,14 +41,11 @@ export default function Crm() {
   const [comments, setComments] = useState("");
   const [modal, setModal] = useState({ isOpen: false, type: "", message: "" });
   const [activeColumns, setActiveColumns] = useState([
-    "id",
+    "ticket_id",
     "fullName",
     "phone_number",
-    "status",
-    "subject",
-    "category",
-    "assigned_to_role",
-    "createdAt",
+    "region",
+    "status"
   ]);
   const [loading, setLoading] = useState(true);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
@@ -215,9 +213,10 @@ export default function Crm() {
 
   const renderTableHeader = () => (
     <tr>
-      {activeColumns.includes("id") && <th>#</th>}
+      {activeColumns.includes("ticket_id") && <th>Ticket ID</th>}
       {activeColumns.includes("fullName") && <th>Full Name</th>}
       {activeColumns.includes("phone_number") && <th>Phone</th>}
+      {activeColumns.includes("region") && <th>Region</th>}
       {activeColumns.includes("status") && <th>Status</th>}
       {activeColumns.includes("subject") && <th>Subject</th>}
       {activeColumns.includes("category") && <th>Category</th>}
@@ -229,8 +228,8 @@ export default function Crm() {
 
   const renderTableRow = (ticket, index) => (
     <tr key={ticket.id || index}>
-      {activeColumns.includes("id") && (
-        <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
+      {activeColumns.includes("ticket_id") && (
+        <td>{ticket.ticket_id || ticket.id}</td>
       )}
       {activeColumns.includes("fullName") && (
      <td>
@@ -245,6 +244,9 @@ export default function Crm() {
       )}
       {activeColumns.includes("phone_number") && (
         <td>{ticket.phone_number || "N/A"}</td>
+      )}
+      {activeColumns.includes("region") && (
+        <td>{ticket.region || "N/A"}</td>
       )}
       {activeColumns.includes("status") && (
         <td>
@@ -321,52 +323,24 @@ export default function Crm() {
           </Tooltip>
         </div>
 
-        <div className="controls">
-          <div>
-            <label style={{ marginRight: "8px" }}>
-              <strong>Show:</strong>
-            </label>
-            <select
-              className="filter-select"
-              value={itemsPerPage}
-              onChange={(e) => {
-                const value = e.target.value;
-                setItemsPerPage(
-                  value === "All" ? filteredTickets.length : parseInt(value)
-                );
-                setCurrentPage(1);
-              }}
-            >
-              {[5, 10, 25, 50, 100].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-              <option value="All">All</option>
-            </select>
-          </div>
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-            <input
-              className="search-input"
-              type="text"
-              placeholder="Search by phone or NIDA..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <select
-              className="filter-select"
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-            >
-              <option value="">All</option>
-              <option value="Open">Open</option>
-              <option value="Closed">Closed</option>
-            </select>
-            {/* <button className="add-ticket-button">
-              <FaPlus /> Add Ticket
-            </button> */}
-          </div>
-        </div>
+        <TableControls
+          itemsPerPage={itemsPerPage}
+          onItemsPerPageChange={(e) => {
+            const value = e.target.value;
+            setItemsPerPage(
+              value === "All" ? filteredTickets.length : parseInt(value)
+            );
+            setCurrentPage(1);
+          }}
+          search={search}
+          onSearchChange={(e) => setSearch(e.target.value)}
+          filterStatus={filterStatus}
+          onFilterStatusChange={(e) => setFilterStatus(e.target.value)}
+          activeColumns={activeColumns}
+          onColumnsChange={setActiveColumns}
+          tableData={filteredTickets}
+          tableTitle="Assigned Tickets"
+        />
 
         <table className="user-table">
           <thead>{renderTableHeader()}</thead>
@@ -405,12 +379,7 @@ export default function Crm() {
       />
 
       {/* Column Selector */}
-      <ColumnSelector
-        open={isColumnModalOpen}
-        onClose={() => setIsColumnModalOpen(false)}
-        data={agentTickets}
-        onColumnsChange={setActiveColumns}
-      />
+      {/* Removed ColumnSelectorDropdown */}
 
       {/* Snackbar for notifications */}
       <Snackbar

@@ -24,7 +24,6 @@ import {
   CircularProgress
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
-import ColumnSelector from "../../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../../config";
 import { getDomainCredentials } from "../../../../utils/credentials";
 import "./crm-agent-dashboard.css";
@@ -32,6 +31,7 @@ import TicketActions from "../../../../components/ticket/TicketActions";
 import TicketFilters from "../../../../components/ticket/TicketFilters";
 import TicketDetailsModal from "../../../../components/ticket/TicketDetailsModal";
 import Pagination from "../../../../components/Pagination";
+import TableControls from "../../../../components/TableControls";
 import axios from "axios";
 
 // Add styled components for better typeahead styling
@@ -146,14 +146,11 @@ const AgentCRM = () => {
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [columnModalOpen, setColumnModalOpen] = useState(false);
   const [activeColumns, setActiveColumns] = useState([
-    "id",
+    "ticket_id",
     "fullName",
     "phone_number",
-    "status",
-    "subject",
-    "category",
-    "assigned_to_role",
-    "created_at"
+    "region",
+    "status"
   ]);
 
   // State for snackbar
@@ -264,6 +261,9 @@ const AgentCRM = () => {
 
   // Add new state for ticket history search
   const [historySearch, setHistorySearch] = useState("");
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [comments, setComments] = useState("");
 
   // Handler to search institutions
   const handleInstitutionSearch = async (query) => {
@@ -707,20 +707,35 @@ const AgentCRM = () => {
   const openDetailsModal = (ticket) => {
     setSelectedTicket(ticket);
     setShowDetailsModal(true);
+    
+    // Fetch ticket comments and attachments
     fetchTicketComments(ticket.id);
     fetchTicketAttachments(ticket.id);
+    
+    // Also trigger phone search to populate ticket history
+    const searchValue = ticket.phone_number || ticket.nida_number;
+    if (searchValue) {
+      handlePhoneSearch(searchValue, ticket);
+    }
   };
 
   const getFilteredTickets = () => {
     return customerTickets.filter((ticket) => {
-      // Search by phone or NIDA (from table controls)
+      // Search by name, phone, NIDA, or institution (from table controls)
       const s = search.trim().toLowerCase();
+      const fullName = `${ticket.first_name || ""} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim().toLowerCase();
+      const institutionName = (ticket.institution && typeof ticket.institution === 'object' ? ticket.institution.name : ticket.institution || "").toLowerCase();
+      
       const matchesSearch =
         !s ||
         ticket.phone_number?.toLowerCase().includes(s) ||
         ticket.nida_number?.toLowerCase().includes(s) ||
-        ticket.firstName?.toLowerCase().includes(s) ||
-        ticket.lastName?.toLowerCase().includes(s);
+        fullName.includes(s) ||
+        institutionName.includes(s) ||
+        ticket.first_name?.toLowerCase().includes(s) ||
+        ticket.last_name?.toLowerCase().includes(s) ||
+        ticket.middle_name?.toLowerCase().includes(s);
+      
       // Status (from table controls)
       const matchesStatus = !filterStatus || ticket.status === filterStatus;
       // Priority (from TicketFilters)
@@ -763,9 +778,10 @@ const AgentCRM = () => {
 
   const renderTableHeader = () => (
     <tr>
-      {activeColumns.includes("id") && <th>#</th>}
+      {activeColumns.includes("ticket_id") && <th>Ticket ID</th>}
       {activeColumns.includes("fullName") && <th>Full Name</th>}
       {activeColumns.includes("phone_number") && <th>Phone</th>}
+      {activeColumns.includes("region") && <th>Region</th>}
       {activeColumns.includes("status") && <th>Status</th>}
       {activeColumns.includes("subject") && <th>Subject</th>}
       {activeColumns.includes("category") && <th>Category</th>}
@@ -777,8 +793,8 @@ const AgentCRM = () => {
 
   const renderTableRow = (ticket, index) => (
     <tr key={ticket.id}>
-      {activeColumns.includes("id") && (
-        <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
+      {activeColumns.includes("ticket_id") && (
+        <td>{ticket.ticket_id || ticket.id}</td>
       )}
       {activeColumns.includes("fullName") && (
         <td>
@@ -790,6 +806,7 @@ const AgentCRM = () => {
         </td>
       )}
       {activeColumns.includes("phone_number") && <td>{ticket.phone_number}</td>}
+      {activeColumns.includes("region") && <td>{ticket.region || "N/A"}</td>}
       {activeColumns.includes("status") && (
         <td>{ticket.status || "Escalated"}</td>
       )}
@@ -815,8 +832,7 @@ const AgentCRM = () => {
       <td>
         <button
           className="view-ticket-details-btn"
-          title="View"
-          onClick={() => handleDetailsClick(ticket)}
+          onClick={() => openDetailsModal(ticket)}
         >
           <FaEye />
         </button>
@@ -2010,94 +2026,71 @@ const AgentCRM = () => {
 
       {/* Ticket Table Section */}
       <div className="user-table-container">
-        <div className="ticket-table-container">
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "16px"
-            }}
-          >
-            <h2>All Customer Tickets</h2>
-            <Tooltip title="Columns Settings and Export" arrow>
-              <IconButton onClick={() => setColumnModalOpen(true)}>
-                <FiSettings size={20} />
-              </IconButton>
-            </Tooltip>
-          </div>
-
-          <div className="controls">
-            <div>
-              <label style={{ marginRight: "8px" }}>
-                <strong>Show:</strong>
-              </label>
-              <select
-                className="filter-select"
-                value={itemsPerPage}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setItemsPerPage(
-                    value === "All" ? filteredTickets.length : parseInt(value)
-                  );
-                  setCurrentPage(1);
+        <div style={{ display: "flex", gap: "20px", width: "100%" }}>
+          {/* Left: Ticket Table */}
+          <div style={{ flex: 2, minWidth: 0 }}>
+            <div className="ticket-table-container">
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "16px"
                 }}
               >
-                {[5, 10, 25, 50, 100].map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-                <option value="All">All</option>
-              </select>
-            </div>
-            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-              <input
-                className="crm-search-input"
-                type="text"
-                placeholder="Search by phone or NIDA..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                <h2>All Customer Tickets</h2>
+              </div>
+
+              <div className="controls">
+                <TableControls
+                  itemsPerPage={itemsPerPage}
+                  onItemsPerPageChange={(e) => {
+                    const value = e.target.value;
+                    setItemsPerPage(
+                      value === "All" ? filteredTickets.length : parseInt(value)
+                    );
+                    setCurrentPage(1);
+                  }}
+                  search={search}
+                  onSearchChange={(e) => setSearch(e.target.value)}
+                  filterStatus={filterStatus}
+                  onFilterStatusChange={(e) => setFilterStatus(e.target.value)}
+                  activeColumns={activeColumns}
+                  onColumnsChange={setActiveColumns}
+                  tableData={filteredTickets}
+                  tableTitle="Customer Tickets"
+                />
+              </div>
+
+              <table className="user-table">
+                <thead>{renderTableHeader()}</thead>
+                <tbody>
+                  {paginatedTickets.length > 0 ? (
+                    paginatedTickets.map((ticket, i) => renderTableRow(ticket, i))
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan={activeColumns.length + 1}
+                        style={{ textAlign: "center", color: "red" }}
+                      >
+                        No ticket found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                startIndex={startIndex}
+                endIndex={endIndex}
+                onPageChange={setCurrentPage}
               />
-              <select
-                className="filter-select"
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-              >
-                <option value="">All</option>
-                <option value="Open">Open</option>
-                <option value="Assigned">Assigned</option>
-                <option value="Closed">Closed</option>
-              </select>
             </div>
           </div>
 
-          <table className="user-table">
-            <thead>{renderTableHeader()}</thead>
-            <tbody>
-              {paginatedTickets.length > 0 ? (
-                paginatedTickets.map((ticket, i) => renderTableRow(ticket, i))
-              ) : (
-                <tr>
-                  <td
-                    colSpan={activeColumns.length + 1}
-                    style={{ textAlign: "center", color: "red" }}
-                  >
-                    No ticket found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            totalItems={totalItems}
-            startIndex={startIndex}
-            endIndex={endIndex}
-            onPageChange={setCurrentPage}
-          />
         </div>
       </div>
 
@@ -3670,13 +3663,13 @@ const AgentCRM = () => {
         </Box>
       </Modal>
 
-      {/* Column Selector Modal */}
-      <ColumnSelector
+      {/* Column Selector Modal - Replaced with dropdown */}
+      {/* <ColumnSelector
         open={columnModalOpen}
         onClose={() => setColumnModalOpen(false)}
         data={getFilteredTickets()}
         onColumnsChange={setActiveColumns}
-      />
+      /> */}
 
       {/* Snackbar */}
       <Snackbar

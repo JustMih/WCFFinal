@@ -12,14 +12,20 @@ import {
   Typography,
   Divider,
   Snackbar,
-  Alert
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  Avatar,
+  Paper
 } from "@mui/material";
-import ColumnSelector from "../../../components/colums-select/ColumnSelector";
+// import ColumnSelector from "../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../config";
 import "../crm-tickets/ticket.css";
 import TicketActions from "../../../components/coordinator/TicketActions";
 import TicketDetailsModal from '../../../components/TicketDetailsModal';
 import Pagination from '../../../components/Pagination';
+import TableControls from "../../../components/TableControls";
 
 export default function CRMCoordinatorTickets() {
   const { status } = useParams();
@@ -31,6 +37,7 @@ export default function CRMCoordinatorTickets() {
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   const DEFAULT_COLUMNS = [
@@ -115,6 +122,22 @@ export default function CRMCoordinatorTickets() {
     setAssignmentHistory([]);
   };
 
+  const openHistoryModal = async (ticket) => {
+    setSelectedTicket(ticket);
+    setIsHistoryModalOpen(true);
+    // Fetch assignment history for the ticket
+    try {
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(`${baseURL}/ticket/${ticket.id}/assignments`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setAssignmentHistory(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setAssignmentHistory([]);
+    }
+  };
+
   const filteredTickets = tickets.filter((ticket) => {
     const searchValue = search.toLowerCase();
     const phone = (ticket.phone_number || "").toLowerCase();
@@ -137,9 +160,10 @@ export default function CRMCoordinatorTickets() {
 
   const renderTableHeader = () => (
     <tr>
-      {activeColumns.includes("id") && <th>#</th>}
+      {activeColumns.includes("ticket_id") && <th>Ticket ID</th>}
       {activeColumns.includes("fullName") && <th>Full Name</th>}
       {activeColumns.includes("phone_number") && <th>Phone</th>}
+      {activeColumns.includes("region") && <th>Region</th>}
       {activeColumns.includes("status") && <th>Status</th>}
       {activeColumns.includes("subject") && <th>Subject</th>}
       {activeColumns.includes("category") && <th>Category</th>}
@@ -151,8 +175,8 @@ export default function CRMCoordinatorTickets() {
 
   const renderTableRow = (ticket, index) => (
     <tr key={ticket.id || index}>
-      {activeColumns.includes("id") && (
-        <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
+      {activeColumns.includes("ticket_id") && (
+        <td>{ticket.ticket_id || ticket.id}</td>
       )}
       {activeColumns.includes("fullName") && (
         <td>
@@ -167,6 +191,9 @@ export default function CRMCoordinatorTickets() {
       )}
       {activeColumns.includes("phone_number") && (
         <td>{ticket.phone_number || "N/A"}</td>
+      )}
+      {activeColumns.includes("region") && (
+        <td>{ticket.region || "N/A"}</td>
       )}
       {activeColumns.includes("status") && (
         <td>
@@ -210,6 +237,15 @@ export default function CRMCoordinatorTickets() {
             onClick={() => openModal(ticket)}
           >
             <FaEye />
+          </button>
+        </Tooltip>
+        <Tooltip title="Ticket History">
+          <button
+            className="view-ticket-history-btn"
+            onClick={() => openHistoryModal(ticket)}
+            style={{ marginLeft: "8px" }}
+          >
+            📋
           </button>
         </Tooltip>
       </td>
@@ -360,49 +396,24 @@ export default function CRMCoordinatorTickets() {
           </Tooltip>
         </div>
 
-        <div className="controls">
-          <div>
-            <label style={{ marginRight: "8px" }}>
-              <strong>Show:</strong>
-            </label>
-            <select
-              className="filter-select"
-              value={itemsPerPage}
-              onChange={(e) => {
-                const value = e.target.value;
-                setItemsPerPage(
-                  value === "All" ? filteredTickets.length : parseInt(value)
-                );
-                setCurrentPage(1);
-              }}
-            >
-              {[5, 10, 25, 50, 100].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-              <option value="All">All</option>
-            </select>
-          </div>
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-            <input
-              className="search-input"
-              type="text"
-              placeholder="Search by phone or NIDA..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <select
-              className="filter-select"
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-            >
-              <option value="">All</option>
-              <option value="Open">Open</option>
-              <option value="Closed">Closed</option>
-            </select>
-          </div>
-        </div>
+        <TableControls
+          itemsPerPage={itemsPerPage}
+          onItemsPerPageChange={(e) => {
+            const value = e.target.value;
+            setItemsPerPage(
+              value === "All" ? filteredTickets.length : parseInt(value)
+            );
+            setCurrentPage(1);
+          }}
+          search={search}
+          onSearchChange={(e) => setSearch(e.target.value)}
+          filterStatus={filterStatus}
+          onFilterStatusChange={(e) => setFilterStatus(e.target.value)}
+          activeColumns={activeColumns}
+          onColumnsChange={setActiveColumns}
+          tableData={filteredTickets}
+          tableTitle="Coordinator Tickets"
+        />
 
         <table className="user-table">
           <thead>{renderTableHeader()}</thead>
@@ -450,13 +461,6 @@ export default function CRMCoordinatorTickets() {
         handleForward={handleForward}
       />
 
-      <ColumnSelector
-        open={isColumnModalOpen}
-        onClose={() => setIsColumnModalOpen(false)}
-        data={tickets}
-        onColumnsChange={handleColumnsChange}
-      />
-
       <Snackbar
         open={snackbar.open}
         autoHideDuration={4000}
@@ -465,6 +469,71 @@ export default function CRMCoordinatorTickets() {
       >
         <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
+
+      {/* Assignment Flow Chat */}
+      <Dialog open={isHistoryModalOpen} onClose={() => setIsHistoryModalOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Ticket History</DialogTitle>
+        <DialogContent>
+          <AssignmentFlowChat assignmentHistory={assignmentHistory} selectedTicket={selectedTicket} />
+        </DialogContent>
+      </Dialog>
     </div>
+  );
+}
+
+function AssignmentFlowChat({ assignmentHistory, selectedTicket }) {
+  const creatorStep = selectedTicket
+    ? {
+        assigned_to_name: selectedTicket.created_by ||
+          (selectedTicket.creator && selectedTicket.creator.name) ||
+          `${selectedTicket.first_name || ''} ${selectedTicket.last_name || ''}`.trim() ||
+          'N/A',
+        assigned_to_role: 'Creator',
+        reason: 'Created the ticket',
+        created_at: selectedTicket.created_at,
+      }
+    : null;
+  const steps = creatorStep ? [creatorStep, ...assignmentHistory] : assignmentHistory;
+  return (
+    <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <Box sx={{ maxWidth: 400, ml: 'auto', mr: 0 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, justifyContent: 'space-between' }}>
+          <Typography variant="h6" sx={{ color: "#3f51b5" }}>
+            Ticket History
+          </Typography>
+        </Box>
+        <Divider sx={{ mb: 2 }} />
+        {steps.map((a, idx) => {
+          let message;
+          if (idx === 0) {
+            message = 'Created the ticket';
+          } else {
+            const prevUser = steps[idx - 1]?.assigned_to_name || 'Previous User';
+            message = `Message from ${prevUser}: ${a.reason || 'No message'}`;
+          }
+          return (
+            <Box key={idx} sx={{ display: "flex", mb: 2, alignItems: "flex-start" }}>
+              <Avatar sx={{ bgcolor: idx === 0 ? "#43a047" : "#1976d2", mr: 2 }}>
+                {a.assigned_to_name ? a.assigned_to_name[0] : "?"}
+              </Avatar>
+              <Paper elevation={2} sx={{ p: 2, bgcolor: idx === 0 ? "#e8f5e9" : "#f5f5f5", flex: 1 }}>
+                <Typography sx={{ fontWeight: "bold" }}>
+                  {a.assigned_to_name || "Unknown"}{" "}
+                  <span style={{ color: "#888", fontWeight: "normal" }}>
+                    ({a.assigned_to_role || "N/A"})
+                  </span>
+                </Typography>
+                <Typography variant="body2" sx={{ color: idx === 0 ? "#43a047" : "#1976d2" }}>
+                  {message}
+                </Typography>
+                <Typography variant="caption" sx={{ color: "#888" }}>
+                  {a.created_at ? new Date(a.created_at).toLocaleString() : ""}
+                </Typography>
+              </Paper>
+            </Box>
+          );
+        })}
+      </Box>
+    </Box>
   );
 } 

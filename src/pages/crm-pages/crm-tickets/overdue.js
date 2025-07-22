@@ -16,7 +16,6 @@ import {
   Avatar,
   Paper,
 } from "@mui/material";
-import ColumnSelector from "../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../config";
 import "./ticket.css";
 import ChatIcon from '@mui/icons-material/Chat';
@@ -25,6 +24,7 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import TicketDetailsModal from '../../../components/TicketDetailsModal';
 import Pagination from '../../../components/Pagination';
+import TableControls from "../../../components/TableControls";
 
 export default function Crm() {
   const [agentTickets, setAgentTickets] = useState([]);
@@ -40,14 +40,11 @@ export default function Crm() {
   const [comments, setComments] = useState("");
   const [modal, setModal] = useState({ isOpen: false, type: "", message: "" });
   const [activeColumns, setActiveColumns] = useState([
-    "id",
+    "ticket_id",
     "fullName",
     "phone_number",
-    "status",
-    "subject",
-    "category",
-    "assigned_to_role",
-    "createdAt",
+    "region",
+    "status"
   ]);
   const [loading, setLoading] = useState(true);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
@@ -251,10 +248,15 @@ export default function Crm() {
 
   const renderTableHeader = () => (
     <tr>
-      <th>#</th>
-      <th>Full Name</th>
-      <th>Phone</th>
-      <th>Status</th>
+      {activeColumns.includes("ticket_id") && <th>Ticket ID</th>}
+      {activeColumns.includes("fullName") && <th>Full Name</th>}
+      {activeColumns.includes("phone_number") && <th>Phone</th>}
+      {activeColumns.includes("region") && <th>Region</th>}
+      {activeColumns.includes("status") && <th>Status</th>}
+      {activeColumns.includes("subject") && <th>Subject</th>}
+      {activeColumns.includes("category") && <th>Category</th>}
+      {activeColumns.includes("assigned_to_role") && <th>Assigned Role</th>}
+      {activeColumns.includes("createdAt") && <th>Created At</th>}
       <th>Actions</th>
     </tr>
   );
@@ -271,19 +273,66 @@ export default function Crm() {
     }
     return (
       <tr key={assignment.id || index}>
-         <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
-        <td>{fullName}</td>
-        <td>{ticket.phone_number || "N/A"}</td>
-        <td>{ticket.status || "Escalated"}</td>
+        {activeColumns.includes("ticket_id") && (
+          <td>{ticket.ticket_id || ticket.id}</td>
+        )}
+        {activeColumns.includes("fullName") && (
+          <td>{fullName}</td>
+        )}
+        {activeColumns.includes("phone_number") && (
+          <td>{ticket.phone_number || "N/A"}</td>
+        )}
+        {activeColumns.includes("region") && (
+          <td>{ticket.region || "N/A"}</td>
+        )}
+        {activeColumns.includes("status") && (
+          <td>
+            <span
+              style={{
+                color:
+                  ticket.status === "Open"
+                    ? "green"
+                    : ticket.status === "Closed"
+                    ? "gray"
+                    : "blue",
+              }}
+            >
+              {ticket.status || "Escalated" || "N/A"}
+            </span>
+          </td>
+        )}
+        {activeColumns.includes("subject") && (
+          <td>{ticket.subject || "N/A"}</td>
+        )}
+        {activeColumns.includes("category") && (
+          <td>{ticket.category || "N/A"}</td>
+        )}
+        {activeColumns.includes("assigned_to_role") && (
+          <td>{ticket.assigned_to_role || "N/A"}</td>
+        )}
+        {activeColumns.includes("createdAt") && (
+          <td>
+            {ticket.created_at
+              ? new Date(ticket.created_at).toLocaleString("en-GB", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: true,
+                })
+              : "N/A"}
+          </td>
+        )}
         <td>
-        <Tooltip title="Ticket Details">
-  <button
-    className="view-ticket-details-btn"
-    onClick={() => openModal(assignment)}
-  >
-    <FaEye />
-  </button>
-</Tooltip>
+          <Tooltip title="Ticket Details">
+            <button
+              className="view-ticket-details-btn"
+              onClick={() => openModal(assignment)}
+            >
+              <FaEye />
+            </button>
+          </Tooltip>
         </td>
       </tr>
     );
@@ -392,40 +441,24 @@ export default function Crm() {
             </IconButton>
           </Tooltip>
         </div>
-        <div className="controls">
-          <div>
-            <label style={{ marginRight: "8px" }}>
-              <strong>Show:</strong>
-            </label>
-            <select
-              className="filter-select"
-              value={itemsPerPage}
-              onChange={(e) => {
-                const value = e.target.value;
-                setItemsPerPage(
-                  value === "All" ? filteredAssignments.length : parseInt(value)
-                );
-                setCurrentPage(1);
-              }}
-            >
-              {[5, 10, 25, 50, 100].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-              <option value="All">All</option>
-            </select>
-          </div>
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-            <input
-              className="search-input"
-              type="text"
-              placeholder="Search by phone or NIDA..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        </div>
+        <TableControls
+          itemsPerPage={itemsPerPage}
+          onItemsPerPageChange={(e) => {
+            const value = e.target.value;
+            setItemsPerPage(
+              value === "All" ? filteredAssignments.length : parseInt(value)
+            );
+            setCurrentPage(1);
+          }}
+          search={search}
+          onSearchChange={(e) => setSearch(e.target.value)}
+          filterStatus={filterStatus}
+          onFilterStatusChange={(e) => setFilterStatus(e.target.value)}
+          activeColumns={activeColumns}
+          onColumnsChange={setActiveColumns}
+          tableData={filteredAssignments}
+          tableTitle="Overdue Tickets"
+        />
         <table className="user-table">
           <thead>{renderTableHeader()}</thead>
           <tbody>
@@ -461,12 +494,6 @@ export default function Crm() {
         renderAssignmentStepper={renderAssignmentStepper}
       />
       {/* Column Selector */}
-      <ColumnSelector
-        open={isColumnModalOpen}
-        onClose={() => setIsColumnModalOpen(false)}
-        data={assignments}
-        onColumnsChange={setActiveColumns}
-      />
       {/* Snackbar for notifications */}
       <Snackbar
         open={modal.isOpen}

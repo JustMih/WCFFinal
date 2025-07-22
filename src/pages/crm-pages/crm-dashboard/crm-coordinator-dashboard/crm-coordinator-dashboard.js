@@ -1,41 +1,36 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
-import TicketActions from "../../../../components/coordinator/TicketActions";
-import TicketDetailsModal from "../../../../components/TicketDetailsModal";
+import Autocomplete from "@mui/material/Autocomplete";
+import { FormControl, InputLabel, Select } from '@mui/material';
+import { Avatar, Paper } from "@mui/material";
 
 // React Icons
-import { FaEye, FaRegCheckCircle } from "react-icons/fa";
+import { FaEye } from "react-icons/fa";
 import { FiSettings } from "react-icons/fi";
-import { HiOutlineUserAdd } from "react-icons/hi";
-import {
-  MdSwapHoriz,
-  MdOutlineSupportAgent,
-  MdAutoAwesomeMotion,
-  MdDisabledVisible,
-  MdImportExport
-} from "react-icons/md";
-import { TbArrowsExchange } from "react-icons/tb";
-import { CiImport } from "react-icons/ci";
+import { MdOutlineSupportAgent, MdImportExport, MdSwapHoriz } from "react-icons/md";
 
 // MUI Components
 import {
   Alert,
   Box,
-  Button,  
+  Button,
   Divider,
   Grid,
   IconButton,
   Modal,
   Snackbar,
   Tooltip,
-  Typography
+  Typography,
+  TextField,
+  MenuItem
 } from "@mui/material";
 
 // Custom Components
-import ColumnSelector from "../../../../components/colums-select/ColumnSelector";
+// import ColumnSelector from "../../../../components/colums-select/ColumnSelector";
 import TicketFilters from "../../../../components/ticket/TicketFilters";
-import CoordinatorActionModal from "../../../../components/coordinator/CoordinatorActionModal";
-import Pagination from '../../../../components/Pagination';
+import TicketDetailsModal from "../../../../components/TicketDetailsModal";
+import Pagination from "../../../../components/Pagination";
+import TableControls from "../../../../components/TableControls";
 
 // Config
 import { baseURL } from "../../../../config";
@@ -449,14 +444,19 @@ export default function CoordinatorDashboard() {
     const s = search.trim().toLowerCase();
     const fullName = `${t.firstName || t.first_name || ""} ${
       t.middleName || t.middle_name || ""
-    } ${t.lastName || t.last_name || ""}`.toLowerCase();
+    } ${t.lastName || t.last_name || ""}`.trim().toLowerCase();
+    const institutionName = (t.institution && typeof t.institution === 'object' ? t.institution.name : t.institution || "").toLowerCase();
 
     // Basic search and status filter
     let matches =
       (!s ||
         t.phone_number?.toLowerCase().includes(s) ||
         t.nida_number?.toLowerCase().includes(s) ||
-        fullName.includes(s)) &&
+        fullName.includes(s) ||
+        institutionName.includes(s) ||
+        (t.firstName || t.first_name || "").toLowerCase().includes(s) ||
+        (t.lastName || t.last_name || "").toLowerCase().includes(s) ||
+        (t.middleName || t.middle_name || "").toLowerCase().includes(s)) &&
       (!filterStatus || t.status === filterStatus);
 
     // Apply advanced filters
@@ -492,9 +492,10 @@ export default function CoordinatorDashboard() {
 
   const renderTableHeader = () => (
     <tr>
-      {activeColumns.includes("id") && <th>#</th>}
+      {activeColumns.includes("ticket_id") && <th>Ticket ID</th>}
       {activeColumns.includes("fullName") && <th>Full Name</th>}
       {activeColumns.includes("phone_number") && <th>Phone</th>}
+      {activeColumns.includes("region") && <th>Region</th>}
       {activeColumns.includes("status") && <th>Status</th>}
       {activeColumns.includes("subject") && <th>Subject</th>}
       {activeColumns.includes("category") && <th>Category</th>}
@@ -506,8 +507,8 @@ export default function CoordinatorDashboard() {
 
   const renderTableRow = (ticket, index) => (
     <tr key={ticket.id}>
-      {activeColumns.includes("id") && (
-        <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
+      {activeColumns.includes("ticket_id") && (
+        <td>{ticket.ticket_id || ticket.id}</td>
       )}
       {activeColumns.includes("fullName") && (
         <td>
@@ -518,6 +519,9 @@ export default function CoordinatorDashboard() {
       )}
       {activeColumns.includes("phone_number") && (
         <td>{ticket.phone_number || "N/A"}</td>
+      )}
+      {activeColumns.includes("region") && (
+        <td>{ticket.region || "N/A"}</td>
       )}
       {activeColumns.includes("status") && <td>{ticket.status || "N/A"}</td>}
       {activeColumns.includes("subject") && <td>{ticket.subject || "N/A"}</td>}
@@ -548,14 +552,6 @@ export default function CoordinatorDashboard() {
           onClick={() => openDetailsModal(ticket)}
         >
           <FaEye />
-        </button>
-        <button
-          className="advanced-ticket-btn"
-          title="Advanced"
-          style={{ marginLeft: 8 }}
-          onClick={() => handleAdvanced(ticket)}
-        >
-          <FiSettings />
         </button>
       </td>
     </tr>
@@ -784,64 +780,31 @@ export default function CoordinatorDashboard() {
           style={{
             display: "flex",
             justifyContent: "space-between",
-            alignItems: "center"
+            alignItems: "center",
+            marginBottom: "16px"
           }}
         >
-          <h2>All Corrdinator Tickets</h2>
-          <Tooltip title="Columns Settings and Export" arrow>
-            <IconButton onClick={() => setIsColumnModalOpen(true)}>
-              <FiSettings size={20} />
-            </IconButton>
-          </Tooltip>
+          <h2>All Coordinator Tickets</h2>
         </div>
         {/* Filters */}
-        <div
-          className="controls"
-          // style={{ display: "flex", justifyContent: "space-between", alignItems: "center"
-          //  }}
-        >
-          <div>
-            <label style={{ marginRight: "8px" }}>
-              <strong>Show:</strong>
-            </label>
-            <select
-              className="filter-select"
-              value={itemsPerPage}
-              onChange={(e) => {
-                const value = e.target.value;
-                setItemsPerPage(
-                  value === "All" ? tickets.length : parseInt(value)
-                );
-                setCurrentPage(1);
-              }}
-            >
-              {[5, 10, 25, 50, 100].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-              <option value="All">All</option>
-            </select>
-          </div>
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-            <input
-              className="search-input"
-              type="text"
-              placeholder="Search by phone or NIDA"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <select
-              className="filter-select"
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-            >
-              <option value="">All</option>
-              <option value="Open">Open</option>
-              <option value="Closed">Closed</option>
-            </select>
-          </div>
-        </div>
+        <TableControls
+          itemsPerPage={itemsPerPage}
+          onItemsPerPageChange={(e) => {
+            const value = e.target.value;
+            setItemsPerPage(
+              value === "All" ? filteredTickets.length : parseInt(value)
+            );
+            setCurrentPage(1);
+          }}
+          search={search}
+          onSearchChange={(e) => setSearch(e.target.value)}
+          filterStatus={filterStatus}
+          onFilterStatusChange={(e) => setFilterStatus(e.target.value)}
+          activeColumns={activeColumns}
+          onColumnsChange={setActiveColumns}
+          tableData={filteredTickets}
+          tableTitle="Coordinator Tickets"
+        />
 
         <table className="user-table">
           <thead>
@@ -914,23 +877,24 @@ export default function CoordinatorDashboard() {
           onPageChange={setCurrentPage}
         />
       </div>
-{/* Ticket Details Modal */}
-<TicketDetailsModal
-  open={isDetailsModalOpen}
-  onClose={() => setIsDetailsModalOpen(false)}
-  selectedTicket={detailsModalTicket}
-  assignmentHistory={detailsModalAssignmentHistory}
-  handleRating={handleRating}
-  handleConvertOrForward={handleConvertOrForward}
-  handleCategoryChange={handleCategoryChange}
-  handleUnitChange={handleUnitChange}
-  categories={categories}
-  units={units}
-  convertCategory={convertCategory}
-  forwardUnit={forwardUnit}
-  refreshTickets={fetchTickets}
-  setSnackbar={setSnackbar}
-/>
+      
+      {/* Ticket Details Modal */}
+      <TicketDetailsModal
+        open={isDetailsModalOpen}
+        onClose={() => setIsDetailsModalOpen(false)}
+        selectedTicket={detailsModalTicket}
+        assignmentHistory={detailsModalAssignmentHistory}
+        handleRating={handleRating}
+        handleConvertOrForward={handleConvertOrForward}
+        handleCategoryChange={handleCategoryChange}
+        handleUnitChange={handleUnitChange}
+        categories={categories}
+        units={units}
+        convertCategory={convertCategory}
+        forwardUnit={forwardUnit}
+        refreshTickets={fetchTickets}
+        setSnackbar={setSnackbar}
+      />
 
       {/* Close Ticket Modal */}
       <Modal open={isCloseModalOpen} onClose={() => setIsCloseModalOpen(false)}>
@@ -998,14 +962,6 @@ export default function CoordinatorDashboard() {
         </Box>
       </Modal>
 
-      {/* Column Selector */}
-      <ColumnSelector
-        open={isColumnModalOpen}
-        onClose={() => setIsColumnModalOpen(false)}
-        data={tickets}
-        onColumnsChange={setActiveColumns}
-      />
-
       {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
@@ -1016,7 +972,9 @@ export default function CoordinatorDashboard() {
         <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
       </Snackbar>
 
-      <CoordinatorActionModal
+      {/* CoordinatorActionModal */}
+      {/* This modal is no longer needed as TicketDetailsModal handles actions */}
+      {/* <CoordinatorActionModal
         open={isActionModalOpen}
         onClose={() => setIsActionModalOpen(false)}
         ticket={modalTicket}
@@ -1028,7 +986,7 @@ export default function CoordinatorDashboard() {
         handleUnitChange={handleUnitChange}
         handleConvertOrForward={handleConvertOrForward}
         handleRating={handleRating}
-      />
+      /> */}
     </div>
   );
 }
