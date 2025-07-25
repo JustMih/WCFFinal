@@ -118,9 +118,10 @@
   align-items: center;
   padding: 2px 6px;
   background-color: rgba(0, 0, 0, 0.03);
-  margin-bottom: 2px;
+  border-radius: 10px;
   cursor: pointer;
   user-select: none;
+  margin:5px;
 }
 
 .section-header:hover {
@@ -168,7 +169,7 @@
 .metric-row {
   display: flex;
   align-items: center;
-  padding: 1px 4px; /* Reduced vertical padding */
+  padding: 4px 6px; /* Reduced vertical padding */
   border-radius: 4px;
   transition: background-color 0.2s;
   margin-bottom: 1px; /* Reduced margin */
@@ -179,8 +180,12 @@
 }
 
 .crm-metric-icon {
-  margin-right: 4px;
-  font-size: 0.9rem;
+  margin-right: 2px;
+  margin-right: 2px;
+  font-size: 0.75rem; /* Increased from 0.5rem to 0.75rem */
+  text-align: center;
+  height: 1.75em; /* Increased from 0.6em to 0.9em */
+  width: 1.75em; /* Increased from 0.6em to 0.9em */
 }
 
 /* .metric-icon {

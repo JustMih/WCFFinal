@@ -219,7 +219,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                     : ""
                 }`}
                 onClick={toggleAgentsDropdown}
-                style={{ cursor: "pointer", padding: "12px 20px" }}
+                style={{ cursor: "pointer", padding: "11px 11px", textDecoration: "none" }}
               >
                 <MdOutlineSupportAgent className="menu-icon" />
                 {isSidebarOpen && (
@@ -289,7 +289,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                             style={{ padding: "12px 20px" }}
                           >
                             <div className="metric-row">
-                              <span className="metric-icon">{item.icon}</span>
+                              <span className="crm-metric-icon">{item.icon}</span>
                               <span className="metric-label">{item.label}</span>
                               <span className="metric-value">{item.value}</span>
                             </div>
@@ -376,7 +376,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                     : ""
                 }`}
                 onClick={toggleAgentsDropdown}
-                style={{ cursor: "pointer", padding: "12px 20px" }}
+                style={{ cursor: "pointer", padding: "11px 11px", textDecoration: "none" }}
               >
                 <MdOutlineSupportAgent className="menu-icon" />
                 {isSidebarOpen && (
@@ -395,6 +395,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                         openSection === "agentTickets" ? "" : "collapsed"
                       }`}
                       onClick={() => toggleSection("agentTickets")}
+                      style={{ cursor: "pointer", padding: "11px 11px", textDecoration: "none" }}
                     >
                       <span className="section-title">Ticket Overview</span>
                       {/* <span className="section-count">
@@ -438,13 +439,13 @@ export default function CRMSidebar({ isSidebarOpen }) {
                           {
                             label: "Closed Tickets",
                             to: "/ticket/closed",
-                            // value: ticketStats.closed,
+                            value: ticketStats.closed || 0,
                             icon: "🔒"
                           },
                           {
                             label: "Total Tickets",
                             to: "/ticket/all",
-                            // value: ticketStats.total,
+                            value: ticketStats.total || 0,
                             icon: "📊"
                           }
                         ].map((item, idx) => (
@@ -459,7 +460,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                             style={{ padding: "12px 20px" }}
                           >
                             <div className="metric-row">
-                              <span className="metric-icon">{item.icon}</span>
+                              <span className="crm-metric-icon">{item.icon}</span>
                               <span className="metric-label">{item.label}</span>
                               <span className="metric-value">{item.value}</span>
                             </div>
@@ -587,7 +588,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                             style={{ padding: "12px 20px" }}
                           >
                             <div className="metric-row">
-                              <span className="metric-icon">{item.icon}</span>
+                              <span className="crm-metric-icon">{item.icon}</span>
                               <span className="metric-label">{item.label}</span>
                               <span className="metric-value">{item.value}</span>
                             </div>
@@ -647,7 +648,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                             style={{ padding: "12px 20px" }}
                           >
                             <div className="metric-row">
-                              <span className="metric-icon">{item.icon}</span>
+                              <span className="crm-metric-icon">{item.icon}</span>
                               <span className="metric-label">{item.label}</span>
                               <span className="metric-value">{item.value}</span>
                             </div>
@@ -699,7 +700,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                             style={{ padding: "12px 20px" }}
                           >
                             <div className="metric-row">
-                              <span className="metric-icon">{item.icon}</span>
+                              <span className="crm-metric-icon">{item.icon}</span>
                               <span className="metric-label">{item.label}</span>
                               <span className="metric-value">{item.value}</span>
                             </div>
@@ -750,7 +751,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                             style={{ padding: "12px 20px" }}
                           >
                             <div className="metric-row">
-                              <span className="metric-icon">{item.icon}</span>
+                              <span className="crm-metric-icon">{item.icon}</span>
                               <span className="metric-label">{item.label}</span>
                               <span className="metric-value">{item.value}</span>
                             </div>
