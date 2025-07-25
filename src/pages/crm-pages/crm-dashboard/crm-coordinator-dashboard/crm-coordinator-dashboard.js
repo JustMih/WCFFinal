@@ -61,12 +61,17 @@ export default function CoordinatorDashboard() {
   const [tickets, setTickets] = useState([]);
   const [userId, setUserId] = useState("");
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [convertCategory, setConvertCategory] = useState({});
   const [forwardUnit, setForwardUnit] = useState({});
-  const [activeColumns, setActiveColumns] = useState([]); // Updated by ColumnSelector
+  const [activeColumns, setActiveColumns] = useState([
+    "ticket_id",
+    "fullName",
+    "phone_number",
+    "region",
+    "status"
+  ]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [functionData, setFunctionData] = useState([]);
@@ -103,14 +108,11 @@ export default function CoordinatorDashboard() {
   useEffect(() => {
     if (activeColumns.length === 0) {
       setActiveColumns([
-        "id",
+        "ticket_id",
         "fullName",
         "phone_number",
-        "status",
-        "subject",
-        "category",
-        "assigned_to_role",
-        "createdAt"
+        "region",
+        "status"
       ]);
     }
   }, [activeColumns]);
@@ -457,7 +459,7 @@ export default function CoordinatorDashboard() {
         (t.firstName || t.first_name || "").toLowerCase().includes(s) ||
         (t.lastName || t.last_name || "").toLowerCase().includes(s) ||
         (t.middleName || t.middle_name || "").toLowerCase().includes(s)) &&
-      (!filterStatus || t.status === filterStatus);
+      (!filters.status || t.status === filters.status);
 
     // Apply advanced filters
     if (filters.category && filters.category !== "") {
@@ -736,7 +738,7 @@ export default function CoordinatorDashboard() {
   };
 
   return (
-    <div className="coordinator-dashboard-container">
+    <div className="user-table-container">
       <h2 className="title">Coordinator Dashboard</h2>
 
       {/* Cards */}
@@ -770,10 +772,6 @@ export default function CoordinatorDashboard() {
           />
         </div>
       </div>
-      <TicketFilters
-        onFilterChange={handleFilterChange}
-        initialFilters={filters}
-      />
 
       {/* Table */}
       <div className="user-table-container">
@@ -811,8 +809,8 @@ export default function CoordinatorDashboard() {
             }}
             search={search}
             onSearchChange={(e) => setSearch(e.target.value)}
-            filterStatus={filterStatus}
-            onFilterStatusChange={(e) => setFilterStatus(e.target.value)}
+            filterStatus={filters.status}
+            onFilterStatusChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
             activeColumns={activeColumns}
             onColumnsChange={setActiveColumns}
             tableData={filteredTickets}
@@ -822,10 +820,15 @@ export default function CoordinatorDashboard() {
           <table className="user-table">
           <thead>
             <tr>
-              {activeColumns.includes("id") && <th>#</th>}
+              {activeColumns.includes("ticket_id") && <th>Ticket ID</th>}
               {activeColumns.includes("fullName") && <th>Full Name</th>}
               {activeColumns.includes("phone_number") && <th>Phone</th>}
+              {activeColumns.includes("region") && <th>Region</th>}
               {activeColumns.includes("status") && <th>Status</th>}
+              {activeColumns.includes("subject") && <th>Subject</th>}
+              {activeColumns.includes("category") && <th>Category</th>}
+              {activeColumns.includes("assigned_to_role") && <th>Assigned Role</th>}
+              {activeColumns.includes("createdAt") && <th>Created At</th>}
               <th>Actions</th>
             </tr>
           </thead>
@@ -833,8 +836,8 @@ export default function CoordinatorDashboard() {
             {paginatedTickets.length > 0 ? (
               paginatedTickets.map((ticket, i) => (
                 <tr key={ticket.id}>
-                  {activeColumns.includes("id") && (
-                    <td>{(currentPage - 1) * itemsPerPage + i + 1}</td>
+                  {activeColumns.includes("ticket_id") && (
+                    <td>{ticket.ticket_id || ticket.id}</td>
                   )}
                   {activeColumns.includes("fullName") && (
                     <td>
@@ -846,10 +849,35 @@ export default function CoordinatorDashboard() {
                   {activeColumns.includes("phone_number") && (
                     <td>{ticket.phone_number || "N/A"}</td>
                   )}
+                  {activeColumns.includes("region") && (
+                    <td>{ticket.region || "N/A"}</td>
+                  )}
                   {activeColumns.includes("status") && (
                     <td>{ticket.status || "N/A"}</td>
                   )}
-
+                  {activeColumns.includes("subject") && (
+                    <td>{ticket.subject || "N/A"}</td>
+                  )}
+                  {activeColumns.includes("category") && (
+                    <td>{ticket.category || "N/A"}</td>
+                  )}
+                  {activeColumns.includes("assigned_to_role") && (
+                    <td>{ticket.assigned_to_role || "N/A"}</td>
+                  )}
+                  {activeColumns.includes("createdAt") && (
+                    <td>
+                      {ticket.createdAt
+                        ? new Date(ticket.createdAt).toLocaleString("en-GB", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            hour12: true
+                          })
+                        : "N/A"}
+                    </td>
+                  )}
                   <td>
                     <button
                       className="view-ticket-details-btn"

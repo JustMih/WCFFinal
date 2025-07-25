@@ -91,7 +91,6 @@ export default function FocalPersonDashboard() {
   const [tickets, setTickets] = useState([]);
   const [userId, setUserId] = useState("");
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [activeColumns, setActiveColumns] = useState([
@@ -99,7 +98,11 @@ export default function FocalPersonDashboard() {
     "fullName",
     "phone_number",
     "region",
-    "status"
+    "status",
+    "subject",
+    "category",
+    "assigned_to_role",
+    "createdAt"
   ]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
@@ -153,9 +156,10 @@ export default function FocalPersonDashboard() {
   useEffect(() => {
     if (activeColumns.length === 0) {
       setActiveColumns([
-        "id",
+        "ticket_id",
         "fullName",
         "phone_number",
+        "region",
         "status",
         "subject",
         "category",
@@ -402,7 +406,7 @@ export default function FocalPersonDashboard() {
         ticket.phone_number?.toLowerCase().includes(searchValue) ||
         ticket.nida_number?.toLowerCase().includes(searchValue) ||
         fullName.includes(searchValue)) &&
-      (!filterStatus || ticket.status === filterStatus);
+      (!filters.status || ticket.status === filters.status);
 
     // Apply advanced filters
     if (filters.category) {
@@ -578,11 +582,6 @@ export default function FocalPersonDashboard() {
         </div>
       </div>
 
-      <TicketFilters
-        onFilterChange={handleFilterChange}
-        initialFilters={filters}
-      />
-
       {/* Table Section */}
       <div className="user-table-container">
         <div style={{ 
@@ -619,8 +618,8 @@ export default function FocalPersonDashboard() {
             }}
             search={search}
             onSearchChange={(e) => setSearch(e.target.value)}
-            filterStatus={filterStatus}
-            onFilterStatusChange={(e) => setFilterStatus(e.target.value)}
+            filterStatus={filters.status}
+            onFilterStatusChange={(e) => setFilters({ ...filters, status: e.target.value })}
             activeColumns={activeColumns}
             onColumnsChange={setActiveColumns}
             tableData={filteredTickets}

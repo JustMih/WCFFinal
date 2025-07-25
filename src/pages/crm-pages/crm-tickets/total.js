@@ -33,7 +33,6 @@ export default function Crm() {
   const [agentTicketsError, setAgentTicketsError] = useState(null);
   const [userId, setUserId] = useState("");
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
@@ -52,6 +51,7 @@ export default function Crm() {
   const [filters, setFilters] = useState({
     search: '',
     nidaSearch: '',
+    status: '',
     priority: '',
     category: '',
     startDate: null,
@@ -210,7 +210,7 @@ export default function Crm() {
       (ticket.last_name || "").toLowerCase().includes(searchValue) ||
       (ticket.middle_name || "").toLowerCase().includes(searchValue);
     
-    const matchesStatus = !filterStatus || ticket.status === filterStatus;
+    const matchesStatus = !filters.status || ticket.status === filters.status;
     const matchesPriority = !filters.priority || ticket.priority === filters.priority;
     const matchesCategory = !filters.category || ticket.category === filters.category;
     let matchesDate = true;
@@ -368,7 +368,27 @@ export default function Crm() {
 
   return (
     <div className="user-table-container">
-      <h3 className="title">Total Tickets List</h3>
+      <div style={{ 
+        display: "flex", 
+        justifyContent: "space-between", 
+        alignItems: "center",
+        marginBottom: "0.5rem"
+      }}>
+        <h3 className="title">Total Tickets List</h3>
+        
+        <div style={{ 
+          display: "flex", 
+          alignItems: "center", 
+          gap: "6px"
+        }}>
+          <TicketFilters
+            onFilterChange={handleFilterChange}
+            initialFilters={filters}
+            compact={true}
+          />
+        </div>
+      </div>
+      
       <div style={{ overflowX: "auto", width: "100%" }}>
 
         <TableControls
@@ -382,8 +402,8 @@ export default function Crm() {
           }}
           search={search}
           onSearchChange={(e) => setSearch(e.target.value)}
-          filterStatus={filterStatus}
-          onFilterStatusChange={(e) => setFilterStatus(e.target.value)}
+          filterStatus={filters.status}
+          onFilterStatusChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
           activeColumns={activeColumns}
           onColumnsChange={setActiveColumns}
           tableData={filteredTickets}

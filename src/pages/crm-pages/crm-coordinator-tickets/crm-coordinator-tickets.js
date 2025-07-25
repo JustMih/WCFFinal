@@ -26,13 +26,13 @@ import TicketActions from "../../../components/coordinator/TicketActions";
 import TicketDetailsModal from '../../../components/TicketDetailsModal';
 import Pagination from '../../../components/Pagination';
 import TableControls from "../../../components/TableControls";
+import TicketFilters from '../../../components/ticket/TicketFilters';
 
 export default function CRMCoordinatorTickets() {
   const { status } = useParams();
   const [tickets, setTickets] = useState([]);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
@@ -41,14 +41,11 @@ export default function CRMCoordinatorTickets() {
   const [selectedTicket, setSelectedTicket] = useState(null);
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   const DEFAULT_COLUMNS = [
-    "id",
+    "ticket_id",
     "fullName",
     "phone_number",
-    "status",
-    "subject",
-    "category",
-    "assigned_to_role",
-    "createdAt"
+    "region",
+    "status"
   ];
   const [activeColumns, setActiveColumns] = useState(DEFAULT_COLUMNS);
   const [loading, setLoading] = useState(true);
@@ -57,6 +54,15 @@ export default function CRMCoordinatorTickets() {
   const [units, setUnits] = useState([]);
   const categories = ["Complaint", "Congrats", "Suggestion"];
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "info" });
+  const [filters, setFilters] = useState({
+    search: '',
+    nidaSearch: '',
+    status: '',
+    priority: '',
+    category: '',
+    startDate: null,
+    endDate: null,
+  });
 
   useEffect(() => {
     fetchTickets();
@@ -122,6 +128,12 @@ export default function CRMCoordinatorTickets() {
     setAssignmentHistory([]);
   };
 
+  const handleFilterChange = (newFilters) => {
+    const { status, ...rest } = newFilters;
+    setFilters(rest);
+    setCurrentPage(1);
+  };
+
   const openHistoryModal = async (ticket) => {
     setSelectedTicket(ticket);
     setIsHistoryModalOpen(true);
@@ -142,10 +154,33 @@ export default function CRMCoordinatorTickets() {
     const searchValue = search.toLowerCase();
     const phone = (ticket.phone_number || "").toLowerCase();
     const nida = (ticket.nida_number || "").toLowerCase();
-    return (
-      (phone.includes(searchValue) || nida.includes(searchValue)) &&
-      (!filterStatus || ticket.status === filterStatus)
-    );
+    const fullName = `${ticket.first_name || ""} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim().toLowerCase();
+    const institutionName = (ticket.institution && typeof ticket.institution === 'object' ? ticket.institution.name : ticket.institution || "").toLowerCase();
+    
+    const matchesSearch = !searchValue || 
+      phone.includes(searchValue) || 
+      nida.includes(searchValue) ||
+      fullName.includes(searchValue) ||
+      institutionName.includes(searchValue) ||
+      (ticket.first_name || "").toLowerCase().includes(searchValue) ||
+      (ticket.last_name || "").toLowerCase().includes(searchValue) ||
+      (ticket.middle_name || "").toLowerCase().includes(searchValue);
+    
+    const matchesStatus = !filters.status || ticket.status === filters.status;
+    const matchesPriority = !filters.priority || ticket.priority === filters.priority;
+    const matchesCategory = !filters.category || ticket.category === filters.category;
+    let matchesDate = true;
+    if (filters.startDate) {
+      const ticketDate = new Date(ticket.created_at);
+      if (ticketDate < filters.startDate) matchesDate = false;
+    }
+    if (filters.endDate) {
+      const ticketDate = new Date(ticket.created_at);
+      const endDate = new Date(filters.endDate);
+      endDate.setHours(23, 59, 59, 999);
+      if (ticketDate > endDate) matchesDate = false;
+    }
+    return matchesSearch && matchesStatus && matchesPriority && matchesCategory && matchesDate;
   });
 
   const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
@@ -237,15 +272,6 @@ export default function CRMCoordinatorTickets() {
             onClick={() => openModal(ticket)}
           >
             <FaEye />
-          </button>
-        </Tooltip>
-        <Tooltip title="Ticket History">
-          <button
-            className="view-ticket-history-btn"
-            onClick={() => openHistoryModal(ticket)}
-            style={{ marginLeft: "8px" }}
-          >
-            📋
           </button>
         </Tooltip>
       </td>
@@ -378,7 +404,7 @@ export default function CRMCoordinatorTickets() {
   }
 
   return (
-    <div className="coordinator-dashboard-container">
+    <div className="user-table-container">
       <div style={{ overflowX: "auto", width: "100%" }}>
         <div
           style={{
@@ -389,11 +415,18 @@ export default function CRMCoordinatorTickets() {
           }}
         >
           <h2>Coordinator Tickets - {status}</h2>
-          <Tooltip title="Columns Settings and Export" arrow>
-            <IconButton onClick={() => setIsColumnModalOpen(true)}>
-              <FiSettings size={20} />
-            </IconButton>
-          </Tooltip>
+          
+          <div style={{ 
+            display: "flex", 
+            alignItems: "center", 
+            gap: "6px"
+          }}>
+            <TicketFilters
+              onFilterChange={handleFilterChange}
+              initialFilters={filters}
+              compact={true}
+            />
+          </div>
         </div>
 
         <TableControls
@@ -407,8 +440,8 @@ export default function CRMCoordinatorTickets() {
           }}
           search={search}
           onSearchChange={(e) => setSearch(e.target.value)}
-          filterStatus={filterStatus}
-          onFilterStatusChange={(e) => setFilterStatus(e.target.value)}
+          filterStatus={filters.status}
+          onFilterStatusChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
           activeColumns={activeColumns}
           onColumnsChange={setActiveColumns}
           tableData={filteredTickets}

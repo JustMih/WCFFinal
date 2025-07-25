@@ -141,7 +141,6 @@ const AgentCRM = () => {
 
   // State for filters and pagination
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [columnModalOpen, setColumnModalOpen] = useState(false);
@@ -207,6 +206,7 @@ const AgentCRM = () => {
   const [filters, setFilters] = useState({
     search: "",
     nidaSearch: "",
+    status: "",
     priority: "",
     category: "",
     startDate: null,
@@ -736,8 +736,8 @@ const AgentCRM = () => {
         ticket.last_name?.toLowerCase().includes(s) ||
         ticket.middle_name?.toLowerCase().includes(s);
       
-      // Status (from table controls)
-      const matchesStatus = !filterStatus || ticket.status === filterStatus;
+      // Status (from TicketFilters)
+      const matchesStatus = !filters.status || ticket.status === filters.status;
       // Priority (from TicketFilters)
       const matchesPriority =
         !filters.priority || ticket.priority === filters.priority;
@@ -1102,8 +1102,7 @@ const AgentCRM = () => {
 
   // Add function to handle filter changes
   const handleFilterChange = (newFilters) => {
-    const { status, ...rest } = newFilters;
-    setFilters(rest);
+    setFilters(newFilters);
     setCurrentPage(1);
   };
 
@@ -1824,19 +1823,10 @@ const AgentCRM = () => {
   }
 
   return (
-    <div className="coordinator-dashboard-container">
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: "1rem"
-        }}
-      >
-        <h1 className="dashboard-title">
+    <div className="user-table-container">
+       <h3 className="title">
           Contact Center Dashboard
-        </h1>
-      </div>
+        </h3>
 
       {/* Full-width Phone/NIDA Search Section */}
       <div
@@ -2059,8 +2049,12 @@ const AgentCRM = () => {
           }}
           search={search}
           onSearchChange={(e) => setSearch(e.target.value)}
-          filterStatus={filterStatus}
-          onFilterStatusChange={(e) => setFilterStatus(e.target.value)}
+          filterStatus={filters.status || ""}
+          onFilterStatusChange={(e) => {
+            const newFilters = { ...filters, status: e.target.value };
+            setFilters(newFilters);
+            setCurrentPage(1);
+          }}
           activeColumns={activeColumns}
           onColumnsChange={setActiveColumns}
           tableData={filteredTickets}

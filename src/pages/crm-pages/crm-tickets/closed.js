@@ -26,6 +26,7 @@ import DialogContent from '@mui/material/DialogContent';
 import TicketDetailsModal from '../../../components/TicketDetailsModal';
 import Pagination from '../../../components/Pagination';
 import TableControls from "../../../components/TableControls";
+import TicketFilters from '../../../components/ticket/TicketFilters';
 
 const renderAssignmentStepper = (assignmentHistory, selectedTicket) => {
   if (!selectedTicket) return null;
@@ -108,7 +109,6 @@ export default function Crm() {
   const [agentTicketsError, setAgentTicketsError] = useState(null);
   const [userId, setUserId] = useState("");
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
@@ -124,6 +124,15 @@ export default function Crm() {
     "status"
   ]);
   const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState({
+    search: '',
+    nidaSearch: '',
+    status: '',
+    priority: '',
+    category: '',
+    startDate: null,
+    endDate: null,
+  });
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [assignmentHistory, setAssignmentHistory] = useState([]);
 
@@ -252,6 +261,11 @@ export default function Crm() {
     setAssignmentHistory([]);
   };
 
+  const handleFilterChange = (newFilters) => {
+    setFilters(newFilters);
+    setCurrentPage(1);
+  };
+
   const openHistoryModal = async (ticket) => {
     setSelectedTicket(ticket);
     setIsHistoryModalOpen(true);
@@ -271,10 +285,19 @@ export default function Crm() {
     const searchValue = search.toLowerCase();
     const phone = (ticket.phone_number || "").toLowerCase();
     const nida = (ticket.nida_number || "").toLowerCase();
-    return (
-      (phone.includes(searchValue) || nida.includes(searchValue)) &&
-      (!filterStatus || ticket.status === filterStatus)
-    );
+    const fullName = (ticket.first_name || "") + " " + (ticket.middle_name || "") + " " + (ticket.last_name || "");
+
+    const matchesSearch = !searchValue ||
+      ticket.phone_number?.toLowerCase().includes(searchValue) ||
+      ticket.nida_number?.toLowerCase().includes(searchValue) ||
+      fullName.includes(searchValue) ||
+      (ticket.first_name || "").toLowerCase().includes(searchValue) ||
+      (ticket.last_name || "").toLowerCase().includes(searchValue) ||
+      (ticket.middle_name || "").toLowerCase().includes(searchValue);
+    
+    const matchesStatus = !filters.status || ticket.status === filters.status;
+
+    return matchesSearch && matchesStatus;
   });
 
   const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
@@ -382,7 +405,27 @@ export default function Crm() {
 
   return (
     <div className="user-table-container">
-      <h3 className="title">Closed Tickets List</h3>
+      <div style={{ 
+        display: "flex", 
+        justifyContent: "space-between", 
+        alignItems: "center",
+        marginBottom: "1rem"
+      }}>
+        <h3 className="title">Closed Tickets List</h3>
+        
+        <div style={{ 
+          display: "flex", 
+          alignItems: "center", 
+          gap: "10px"
+        }}>
+          <TicketFilters
+            onFilterChange={handleFilterChange}
+            initialFilters={filters}
+            compact={true}
+          />
+        </div>
+      </div>
+      
       <div style={{ overflowX: "auto", width: "100%" }}>
 
         <TableControls
@@ -396,8 +439,8 @@ export default function Crm() {
           }}
           search={search}
           onSearchChange={(e) => setSearch(e.target.value)}
-          filterStatus={filterStatus}
-          onFilterStatusChange={(e) => setFilterStatus(e.target.value)}
+          filterStatus={filters.status}
+          onFilterStatusChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
           activeColumns={activeColumns}
           onColumnsChange={setActiveColumns}
           tableData={filteredTickets}

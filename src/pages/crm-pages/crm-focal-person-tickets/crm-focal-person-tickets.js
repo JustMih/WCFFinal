@@ -22,13 +22,13 @@ import TicketReassignModal from '../../../components/ticket/TicketReassignModal'
 import TicketDetailsModal from '../../../components/TicketDetailsModal';
 import Pagination from "../../../components/Pagination";
 import TableControls from "../../../components/TableControls";
+import TicketFilters from '../../../components/ticket/TicketFilters';
 
 export default function CRMFocalPersonTickets() {
   const { status } = useParams();
   const [tickets, setTickets] = useState([]);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
@@ -39,7 +39,11 @@ export default function CRMFocalPersonTickets() {
     "fullName",
     "phone_number",
     "region",
-    "status"
+    "status",
+    "subject",
+    "category",
+    "assigned_to_role",
+    "createdAt"
   ];
   const [activeColumns, setActiveColumns] = useState(DEFAULT_COLUMNS);
   const [loading, setLoading] = useState(true);
@@ -52,6 +56,15 @@ export default function CRMFocalPersonTickets() {
   const [ticketToReassign, setTicketToReassign] = useState(null);
   const token = localStorage.getItem("authToken");
   const [assignmentHistory, setAssignmentHistory] = useState([]);
+  const [filters, setFilters] = useState({
+    search: '',
+    nidaSearch: '',
+    status: '',
+    priority: '',
+    category: '',
+    startDate: null,
+    endDate: null,
+  });
 
   useEffect(() => {
     fetchTickets();
@@ -117,17 +130,50 @@ export default function CRMFocalPersonTickets() {
     setAssignmentHistory([]);
   };
 
+  const handleFilterChange = (newFilters) => {
+    const { status, ...rest } = newFilters;
+    setFilters(rest);
+    setCurrentPage(1);
+  };
+
   const filteredTickets = tickets.filter((ticket) => {
     const searchValue = search.toLowerCase();
     const phone = (ticket.phone_number || "").toLowerCase();
     const nida = (ticket.nida_number || "").toLowerCase();
-    return (
-      (phone.includes(searchValue) || nida.includes(searchValue)) &&
-      (!filterStatus || ticket.status === filterStatus)
-    );
+    const fullName = `${ticket.first_name || ""} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.toLowerCase();
+    const institutionName = (ticket.institution && typeof ticket.institution === 'object' ? ticket.institution.name : ticket.institution || "").toLowerCase();
+    
+    const matchesSearch = !searchValue || 
+      phone.includes(searchValue) || 
+      nida.includes(searchValue) ||
+      fullName.includes(searchValue) ||
+      institutionName.includes(searchValue) ||
+      (ticket.first_name || "").toLowerCase().includes(searchValue) ||
+      (ticket.last_name || "").toLowerCase().includes(searchValue) ||
+      (ticket.middle_name || "").toLowerCase().includes(searchValue);
+    
+    const matchesStatus = !filters.status || ticket.status === filters.status;
+    const matchesPriority = !filters.priority || ticket.priority === filters.priority;
+    const matchesCategory = !filters.category || ticket.category === filters.category;
+    let matchesDate = true;
+    if (filters.startDate) {
+      const ticketDate = new Date(ticket.created_at);
+      if (ticketDate < filters.startDate) matchesDate = false;
+    }
+    if (filters.endDate) {
+      const ticketDate = new Date(ticket.created_at);
+      const endDate = new Date(filters.endDate);
+      endDate.setHours(23, 59, 59, 999);
+      if (ticketDate > endDate) matchesDate = false;
+    }
+    return matchesSearch && matchesStatus && matchesPriority && matchesCategory && matchesDate;
   });
 
   const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage + 1;
+  const endIndex = Math.min(currentPage * itemsPerPage, filteredTickets.length);
+  const totalItems = filteredTickets.length;
+  
   const paginatedTickets = filteredTickets.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -392,7 +438,26 @@ export default function CRMFocalPersonTickets() {
 
   return (
     <div className="user-table-container">
-      <h3 className="title">Focal Person Tickets List</h3>
+      <div style={{ 
+        display: "flex", 
+        justifyContent: "space-between", 
+        alignItems: "center",
+        marginBottom: "1rem"
+      }}>
+        <h3 className="title">Focal Person Tickets List</h3>
+        
+        <div style={{ 
+          display: "flex", 
+          alignItems: "center", 
+          gap: "10px"
+        }}>
+          <TicketFilters
+            onFilterChange={handleFilterChange}
+            initialFilters={filters}
+            compact={true}
+          />
+        </div>
+      </div>
       <div style={{ overflowX: "auto", width: "100%" }}>
 
         <TableControls
@@ -406,8 +471,8 @@ export default function CRMFocalPersonTickets() {
           }}
           search={search}
           onSearchChange={(e) => setSearch(e.target.value)}
-          filterStatus={filterStatus}
-          onFilterStatusChange={(e) => setFilterStatus(e.target.value)}
+          filterStatus={filters.status}
+          onFilterStatusChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
           activeColumns={activeColumns}
           onColumnsChange={setActiveColumns}
           tableData={filteredTickets}
@@ -432,29 +497,14 @@ export default function CRMFocalPersonTickets() {
           </tbody>
         </table>
 
-        <div style={{ marginTop: "16px", textAlign: "center" }}>
-          <Button
-            variant="outlined"
-            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-            sx={{ marginRight: 1 }}
-          >
-            Previous
-          </Button>
-          <span>
-            Page {currentPage} of {totalPages}
-          </span>
-          <Button
-            variant="outlined"
-            onClick={() =>
-              setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-            }
-            disabled={currentPage === totalPages}
-            sx={{ marginLeft: 1 }}
-          >
-            Next
-          </Button>
-        </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          startIndex={startIndex}
+          endIndex={endIndex}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {/* Details Modal */}
