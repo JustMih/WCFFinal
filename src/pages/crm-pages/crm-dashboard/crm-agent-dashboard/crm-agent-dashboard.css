@@ -405,7 +405,7 @@ a {
 /* Ensure all input elements have consistent styling */
 .controls input,
 .controls select {
-  height: 36px !important;
+  height: 30px !important;
   padding: 8px 12px !important;
   box-sizing: border-box !important;
   margin: 0 !important;

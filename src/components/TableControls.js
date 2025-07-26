@@ -358,7 +358,7 @@ const TableControls = ({
             onClick={() => setIsColumnModalOpen(true)}
             style={{
               padding: "6px",
-              height: "36px",
+              height: "32px",
               width: "36px",
               border: "1px solid #ccc",
               borderRadius: "4px",
@@ -368,7 +368,7 @@ const TableControls = ({
             <FiSettings size={20} />
           </IconButton>
         </Tooltip>
-        <label style={{ marginRight: "8px", whiteSpace: "nowrap" }}>
+        <label style={{ marginRight: "2px", whiteSpace: "nowrap" }}>
           <strong>Show:</strong>
         </label>
         <select
@@ -380,7 +380,7 @@ const TableControls = ({
             borderRadius: "4px",
             border: "1px solid #ccc",
             backgroundColor: "white",
-            minWidth: "80px",
+            minWidth: "60px",
             height: "36px",
             fontSize: "14px",
             boxSizing: "border-box",

@@ -739,7 +739,7 @@ export default function CoordinatorDashboard() {
 
   return (
     <div className="user-table-container">
-      <h2 className="title">Coordinator Dashboard</h2>
+      <h2 className="title">Reviewer Dashboard</h2>
 
       {/* Cards */}
       <div className="crm-cards">
@@ -781,7 +781,7 @@ export default function CoordinatorDashboard() {
           alignItems: "center",
           marginBottom: "1rem"
         }}>
-          <h3 className="title">Coordinator Tickets List</h3>
+          <h3 className="title">Reviewer Tickets List</h3>
           
           <div style={{ 
             display: "flex", 
@@ -814,7 +814,7 @@ export default function CoordinatorDashboard() {
             activeColumns={activeColumns}
             onColumnsChange={setActiveColumns}
             tableData={filteredTickets}
-            tableTitle="Coordinator Tickets"
+            tableTitle="Reviewer Tickets"
           />
 
           <table className="user-table">

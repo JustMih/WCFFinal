@@ -38,7 +38,7 @@ function AssignmentFlowChat({ assignmentHistory = [], selectedTicket }) {
   // Always add all assignments as steps, even if assignee is same as creator
   const steps = creatorStep ? [creatorStep, ...assignmentHistory] : assignmentHistory;
   return (
-    <Box sx={{ maxWidth: 500, ml: 'auto', mr: 0 }}>
+    <Box sx={{ maxWidth: 500 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, justifyContent: 'space-between' }}>
         {/* <Typography sx={{ color: "#3f51b5", wordBreak: 'break-word', whiteSpace: 'pre-line' }}>
           Ticket History
@@ -73,7 +73,7 @@ function AssignmentFlowChat({ assignmentHistory = [], selectedTicket }) {
             }
             
             if (a.coordinator_notes) {
-              baseMessage += `\n\nCoordinator Notes: ${a.coordinator_notes}`;
+              baseMessage += `\n\nReviewer Notes: ${a.coordinator_notes}`;
             }
             
             if (a.dg_notes) {

@@ -414,7 +414,7 @@ export default function CRMCoordinatorTickets() {
             marginBottom: "16px",
           }}
         >
-          <h2>Coordinator Tickets - {status}</h2>
+          <h2>Reviewer Tickets - {status}</h2>
           
           <div style={{ 
             display: "flex", 
@@ -445,7 +445,7 @@ export default function CRMCoordinatorTickets() {
           activeColumns={activeColumns}
           onColumnsChange={setActiveColumns}
           tableData={filteredTickets}
-          tableTitle="Coordinator Tickets"
+          tableTitle="Reviewer Tickets"
         />
 
         <table className="user-table">

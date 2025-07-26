@@ -384,7 +384,7 @@ export default function TicketDetailsModal({
   const [resolutionDetails, setResolutionDetails] = useState("");
   const [attachment, setAttachment] = useState(null);
   
-  // Coordinator-specific states
+  // Reviewer-specific states
   const [resolutionType, setResolutionType] = useState("");
   const [isCoordinatorCloseDialogOpen, setIsCoordinatorCloseDialogOpen] = useState(false);
 
@@ -416,7 +416,7 @@ export default function TicketDetailsModal({
     userRole !== "coordinator" &&
     String(selectedTicket.assigned_to_id) === String(userId);
 
-  // Coordinator-specific conditions
+  // Reviewer-specific conditions
   const showCoordinatorActions = 
     userRole === "coordinator" && 
     selectedTicket && 
@@ -1035,7 +1035,7 @@ export default function TicketDetailsModal({
                   </Button>
                 )}
                 
-                {/* Coordinator Actions */}
+                {/* Reviewer Actions */}
                 {showCoordinatorActions && (
                   <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2, justifyContent: "flex-end" }}>
                     {/* Show rating buttons only if not a major complaint that's been returned */}
@@ -1245,7 +1245,7 @@ export default function TicketDetailsModal({
         </DialogContent>
       </Dialog>
 
-      {/* Coordinator Close Dialog */}
+      {/* Reviewer Close Dialog */}
       <Dialog open={isCoordinatorCloseDialogOpen} onClose={() => setIsCoordinatorCloseDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Close Ticket</DialogTitle>
         <DialogContent>
@@ -1558,7 +1558,7 @@ export default function TicketDetailsModal({
           </Box>
 
           <TextField
-            label="Coordinator Notes (required)"
+            label="Reviewer Notes (required)"
             multiline
             rows={3}
             value={coordinatorNotes}

@@ -266,10 +266,10 @@ export default function Crm() {
           details: `${ticket.created_by} - ${ticket.created_at ? new Date(ticket.created_at).toLocaleString() : "N/A"}`
         },
         {
-          title: "Coordinator Review",
+          title: "Reviewer Review",
           details: ticket.assigned_to_role === "Coordinator"
-            ? `${ticket.assigned_to_role} - ${ticket.assigned_at ? new Date(ticket.assigned_at).toLocaleString() : "N/A"}`
-            : "Pending Coordinator Review"
+            ? "Currently under reviewer review"
+            : "Pending Reviewer Review"
         },
         {
           title: "Attendee Review",
@@ -288,7 +288,7 @@ export default function Crm() {
 
       // Determine current step index
       let currentStepIndex = 0;
-      if (ticket.assigned_to_role === "Coordinator") currentStepIndex = 1;
+      if (ticket.assigned_to_role === "Reviewer") currentStepIndex = 1;
       // Add more logic for further steps if needed
 
         return (

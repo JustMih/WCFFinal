@@ -52,7 +52,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
     if (role === "claim-focal-person") return "Claim Focal Person Dashboard";
     if (role === "compliance-focal-person") return "Compliance Focal Person Dashboard";
     if (role === "head-of-unit") return "Head of Unit Dashboard";
-    if (role === "coordinator") return "Coordinator Dashboard";
+    if (role === "coordinator") return "Reviewer Dashboard";
     if (role === "agent" || role === "attendee") return "Agent Dashboard";
     return "Dashboard";
   };
