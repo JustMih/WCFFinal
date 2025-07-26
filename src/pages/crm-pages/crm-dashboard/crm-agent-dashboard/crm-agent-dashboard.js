@@ -80,27 +80,13 @@ const SuggestionItem = styled("div")({
 const AgentCRM = () => {
   // State for form data
   const [formData, setFormData] = useState({
-    firstName: "",
-    middleName: "", // Add middle name
-    lastName: "",
-    phoneNumber: "",
-    nidaNumber: "",
-    requester: "",
-    institution: "",
-    region: "",
-    district: "",
-    channel: "",
-    category: "",
-    inquiry_type: "", // <-- Add this line
-    functionId: "",
+    subject: "",
     description: "",
-    status: "Open",
-    // New fields for representative
-    requesterName: "",
-    requesterPhoneNumber: "",
-    requesterEmail: "",
-    requesterAddress: "",
-    relationshipToEmployee: ""
+    category: "",
+    priority: "",
+    employerName: "", // Add employer name field
+    employerSearch: "", // Add employer search field
+    // Removed inquiry_type - tickets will go directly to focal person
   });
 
   // State for form errors
@@ -240,6 +226,13 @@ const AgentCRM = () => {
   const searchTimeoutRef = useRef(null);
   const [inputValue, setInputValue] = useState("");
   const [open, setOpen] = useState(false);
+
+  // Add state for employer search autocomplete
+  const [employerSearchSuggestions, setEmployerSearchSuggestions] = useState([]);
+  const [isEmployerSearching, setIsEmployerSearching] = useState(false);
+  const [employerSearchOpen, setEmployerSearchOpen] = useState(false);
+  const [employerSearchInputValue, setEmployerSearchInputValue] = useState("");
+  const employerSearchTimeoutRef = useRef(null);
 
   // Add state for employer details
   const [employerDetails, setEmployerDetails] = useState(null);
@@ -513,7 +506,6 @@ const AgentCRM = () => {
       district: "District",
       channel: "Channel",
       category: "Category",
-      ...(formData.category === "Inquiry" && { inquiry_type: "Inquiry Type" }),
       functionId: "Subject",
       description: "Description"
     };
@@ -572,30 +564,37 @@ const AgentCRM = () => {
       }
 
       // --- Allocated User Logic ---
+      // Routing Rules:
+      // 1. If searched details has a claim number → Send to checklist user shown in details
+      // 2. If no claim number and it's an inquiry → Send to focal person of the selected section/unit
+      // 3. Otherwise → Fallback to institution's allocated staff
       let employerAllocatedStaffUsername = "";
       if (
         selectedSuggestion &&
         selectedSuggestion.claimId &&
         selectedSuggestion.allocated_user_username
       ) {
-        // If employee has claim number, use allocated user from claim
+        // If employee has claim number, use allocated user from claim (checklist user)
         employerAllocatedStaffUsername =
           selectedSuggestion.allocated_user_username;
+        console.log("Routing: Has claim number, sending to checklist user:", employerAllocatedStaffUsername);
       } else if (
         (!selectedSuggestion || !selectedSuggestion.claimId) &&
         formData.category === "Inquiry" &&
         selectedInstitution &&
         selectedInstitution.allocated_staff_username
       ) {
-        // If no claim and Inquiry, use allocated user from institution
+        // If no claim number and it's an inquiry, send to focal person of the section/unit
         employerAllocatedStaffUsername =
           selectedInstitution.allocated_staff_username;
+        console.log("Routing: No claim + Inquiry, sending to focal person:", employerAllocatedStaffUsername);
       } else {
         // Fallback to previous logic if any
         employerAllocatedStaffUsername =
           selectedInstitution?.allocated_staff_username ||
           formData.employerAllocatedStaffUsername ||
           "";
+        console.log("Routing: Fallback, using:", employerAllocatedStaffUsername);
       }
 
       const ticketData = {
@@ -610,6 +609,16 @@ const AgentCRM = () => {
         shouldClose: action === "closed",
         // Add claim number for routing decision
         claimId: selectedSuggestion?.claimId || null,
+        // Add routing information for backend
+        hasClaim: Boolean(selectedSuggestion?.claimId),
+        isInquiry: formData.category === "Inquiry",
+        // Add allocated user details for routing
+        allocated_user_id: selectedSuggestion?.allocated_user_id || null,
+        allocated_user_name: selectedSuggestion?.allocated_user || null,
+        allocated_user_username: selectedSuggestion?.allocated_user_username || null,
+        // Add employer information from search
+        employer: formData.employer || selectedSuggestion?.employer || "",
+        employerName: formData.employerName || "",
       };
 
       // Add employer-specific fields if requester is Employer
@@ -656,21 +665,13 @@ const AgentCRM = () => {
         });
         setShowModal(false);
         setFormData({
-          firstName: "",
-          middleName: "", // Reset middle name
-          lastName: "",
-          phoneNumber: "",
-          nidaNumber: "",
-          requester: "",
-          institution: "",
-          region: "",
-          district: "",
-          channel: "",
-          category: "",
-          inquiry_type: "", // Reset inquiry_type
-          functionId: "",
+          subject: "",
           description: "",
-          status: "Open",
+          category: "",
+          priority: "",
+          employer: "", // Reset employer field
+          employerName: "", // Reset employer name field
+          employerSearch: "", // Reset employer search field
           // Reset representative fields
           requesterName: "",
           requesterPhoneNumber: "",
@@ -678,6 +679,11 @@ const AgentCRM = () => {
           requesterAddress: "",
           relationshipToEmployee: ""
         });
+        
+        // Reset employer search autocomplete state
+        setEmployerSearchInputValue("");
+        setEmployerSearchSuggestions([]);
+        setEmployerSearchOpen(false);
         fetchCustomerTickets();
       } else {
         setModal({
@@ -1176,22 +1182,11 @@ const AgentCRM = () => {
       if (foundTickets && foundTickets.length > 0) {
         const prev = foundTickets[0]; // most recent ticket
         setFormData({
-          firstName: prev.first_name || "",
-          middleName: prev.middle_name || "", // Add middle name
-          lastName: prev.last_name || "",
-          phoneNumber: prev.phone_number || phoneSearch,
-          nidaNumber: prev.nida_number || "",
-          requester: prev.requester || "",
-          institution: prev.institution || "",
-          region: prev.region || "",
-          district: prev.district || "",
-          channel: prev.channel || "",
+          subject: prev.subject || "",
+          description: prev.description || "",
           category: prev.category || "",
-          inquiry_type: prev.inquiry_type || "", // Add inquiry_type
-          functionId: prev.function_id || "",
-          description: "",
-          status: "Open",
-          // New fields for representative
+          priority: prev.priority || "",
+          // Reset representative fields
           requesterName: prev.requesterName || "",
           requesterPhoneNumber: prev.requesterPhoneNumber || "",
           requesterEmail: prev.requesterEmail || "",
@@ -1275,22 +1270,10 @@ const AgentCRM = () => {
       // Fill form data
       setFormData((prev) => ({
         ...prev,
-        firstName: firstName || "",
-        middleName: rest.length > 2 ? rest.slice(1, -1).join(" ") : "", // Extract middle name
-        lastName: lastName || "",
-        memberNo: memberInfo.memberno?.toString() || "",
-        requester: searchType === "employee" ? "Employee" : "Employer",
-        institution: employerName || prev.institution,
-        phoneNumber: prev.phoneNumber,
-        nidaNumber: prev.nidaNumber,
-        region: prev.region,
-        district: prev.district,
-        channel: prev.channel,
-        category: prev.category,
-        inquiry_type: prev.inquiry_type || "", // Add inquiry_type
-        functionId: prev.functionId,
-        description: prev.description,
-        status: prev.status,
+        subject: prev.subject || "",
+        description: prev.description || "",
+        category: prev.category || "",
+        priority: prev.priority || "",
         // New fields for representative
         requesterName: prev.requesterName || "",
         requesterPhoneNumber: prev.requesterPhoneNumber || "",
@@ -1317,6 +1300,9 @@ const AgentCRM = () => {
   // Update the debouncedSearch function to handle phone numbers
   const debouncedSearch = useCallback(
     async (searchText) => {
+      console.log("debouncedSearch called with:", searchText);
+      console.log("searchType:", searchType, "searchBy:", searchBy);
+      
       if (!searchText || searchText.length < 1) {
         setSearchSuggestions([]);
         return;
@@ -1324,6 +1310,15 @@ const AgentCRM = () => {
 
       setIsSearching(true);
       try {
+        const payload = {
+          type: searchType,
+          name: searchText,
+          employer_registration_number:
+            searchBy === "wcf_number" ? searchText : ""
+        };
+        
+        console.log("API payload:", payload);
+        
         const response = await fetch(
           "https://demomspapi.wcf.go.tz/api/v1/search/details",
           {
@@ -1333,18 +1328,15 @@ const AgentCRM = () => {
               Accept: "application/json"
             },
             mode: "cors",
-            body: JSON.stringify({
-              type: searchType,
-              name: searchText,
-              employer_registration_number:
-                searchBy === "wcf_number" ? searchText : ""
-            })
+            body: JSON.stringify(payload)
           }
         );
 
         const data = await response.json();
+        console.log("API response:", data);
 
         if (response.ok && data.results?.length) {
+          console.log("Found results:", data.results.length);
           const suggestions = data.results.map((result) => {
             const originalName = result.name || "";
             // Parse the original name into components
@@ -1395,13 +1387,16 @@ const AgentCRM = () => {
               memberNo: result.memberno,
               type: result.type,
               status: result.status,
+              employer: result.employer || "", // Add employer field from API response
               rawData: result
             };
           });
 
+          console.log("Processed suggestions:", suggestions);
           setSearchSuggestions(suggestions);
           setOpen(true);
         } else {
+          console.log("No results found or API error");
           setSearchSuggestions([]);
         }
       } catch (error) {
@@ -1428,12 +1423,19 @@ const AgentCRM = () => {
     const rawData = suggestion.rawData || suggestion;
     console.log("Raw Data:", rawData);
 
-    // Extract institution name from display name (text between brackets)
-    const institutionMatch =
-      suggestion.displayName?.match(/—\s*\((.*?)\)/) ||
-      suggestion.originalName?.match(/—\s*\((.*?)\)/) ||
-      suggestion.name?.match(/—\s*\((.*?)\)/);
-    const institutionName = institutionMatch ? institutionMatch[1].trim() : "";
+    // Use employer field from API response if available, otherwise extract from display name
+    let institutionName = "";
+    if (searchType === "employee" && suggestion.employer) {
+      // Use employer field from API response
+      institutionName = suggestion.employer;
+    } else {
+      // Fallback: Extract institution name from display name (text between brackets)
+      const institutionMatch =
+        suggestion.displayName?.match(/—\s*\((.*?)\)/) ||
+        suggestion.originalName?.match(/—\s*\((.*?)\)/) ||
+        suggestion.name?.match(/—\s*\((.*?)\)/);
+      institutionName = institutionMatch ? institutionMatch[1].trim() : "";
+    }
 
     // Set the selected suggestion with claim information
     const selectedWithClaim = {
@@ -1448,6 +1450,11 @@ const AgentCRM = () => {
 
     setSelectedSuggestion(selectedWithClaim);
 
+    // Log employer information
+    if (suggestion.employer) {
+      console.log("Employer from API response:", suggestion.employer);
+    }
+
     // Set the input value to the full name
     setInputValue(suggestion.cleanName || suggestion.name || "");
     setSearchQuery(suggestion.cleanName || suggestion.name || "");
@@ -1459,19 +1466,23 @@ const AgentCRM = () => {
     if (searchType === "employee") {
       updatedFormData = {
         ...updatedFormData,
-        firstName: rawData.firstname || "",
-        middleName: rawData.middlename || "",
-        lastName: rawData.lastname || "",
+        subject: rawData.subject || "",
+        description: rawData.description || "",
+        category: rawData.category || "",
+        priority: rawData.priority || "",
         nidaNumber: rawData.nin || "",
         phoneNumber: rawData.phoneNumber || "",
-        institution: institutionName // Set the extracted institution name
+        institution: institutionName, // Use employer field from API response
+        employer: suggestion.employer || "", // Add employer field to form data
+        employerName: suggestion.employer || "" // Populate employer name field
       };
     } else if (searchType === "employer") {
       updatedFormData = {
         ...updatedFormData,
-        firstName: "", // Clear employee-specific fields
-        middleName: "",
-        lastName: "",
+        subject: "", // Clear employee-specific fields
+        description: "",
+        category: "",
+        priority: "",
         nidaNumber: rawData.tin || "", // Use TIN for employer's NIDA/identifier
         phoneNumber: rawData.phone || "",
         institution: rawData.name || "" // Employer's name goes to institution
@@ -1486,7 +1497,6 @@ const AgentCRM = () => {
       district: updatedFormData.district || formData.district,
       channel: updatedFormData.channel || formData.channel,
       category: updatedFormData.category || formData.category,
-      inquiry_type: updatedFormData.inquiry_type || formData.inquiry_type || "",
       functionId: updatedFormData.functionId || formData.functionId,
       description: updatedFormData.description || formData.description,
       status: updatedFormData.status || formData.status,
@@ -1559,6 +1569,7 @@ const AgentCRM = () => {
 
   // Update handleInputChange for more immediate response
   const handleInputChange = (event, newValue, reason) => {
+    console.log("handleInputChange called:", { newValue, reason });
     setInputValue(newValue);
 
     if (searchTimeoutRef.current) {
@@ -1572,11 +1583,13 @@ const AgentCRM = () => {
 
     // Reduced timeout for more immediate response
     searchTimeoutRef.current = setTimeout(() => {
+      console.log("Calling debouncedSearch with:", newValue);
       debouncedSearch(newValue);
     }, 150); // Reduced from 300ms to 150ms for faster response
   };
 
   // Update the Autocomplete component
+  /*
   <StyledAutocomplete
     value={selectedSuggestion}
     onChange={(event, newValue) => handleSuggestionSelected(event, newValue)}
@@ -1670,6 +1683,7 @@ const AgentCRM = () => {
     handleHomeEndKeys
     style={{ width: "100%" }}
   />;
+  */
 
   // Highlight matching text in suggestions
   function escapeRegExp(string) {
@@ -1805,6 +1819,161 @@ const AgentCRM = () => {
       setCreationActiveTicketId(null);
     }
   }, [creationFoundTickets]);
+
+  // Add debounced employer search function for autocomplete
+  const debouncedEmployerSearch = useCallback(
+    async (searchText) => {
+      if (!searchText || searchText.length < 1) {
+        setEmployerSearchSuggestions([]);
+        return;
+      }
+
+      setIsEmployerSearching(true);
+      try {
+        const response = await fetch(
+          "https://demomspapi.wcf.go.tz/api/v1/search/details",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json"
+            },
+            mode: "cors",
+            body: JSON.stringify({
+              type: "employer",
+              name: searchText,
+              employer_registration_number: ""
+            })
+          }
+        );
+
+        const data = await response.json();
+
+        if (response.ok && data.results?.length) {
+          const suggestions = data.results.map((result) => ({
+            id: result.id || result.tin,
+            name: result.name || "",
+            tin: result.tin || "",
+            phone: result.phone || "",
+            email: result.email || "",
+            status: result.employer_status || "",
+            displayName: result.name || "",
+            rawData: result
+          }));
+
+          setEmployerSearchSuggestions(suggestions);
+          setEmployerSearchOpen(true);
+        } else {
+          setEmployerSearchSuggestions([]);
+        }
+      } catch (error) {
+        console.error("Employer search suggestion error:", error);
+        setEmployerSearchSuggestions([]);
+      } finally {
+        setIsEmployerSearching(false);
+      }
+    },
+    []
+  );
+
+  // Add function to handle employer search
+  const handleEmployerSearch = async (searchQuery) => {
+    if (!searchQuery || searchQuery.trim() === "") {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        "https://demomspapi.wcf.go.tz/api/v1/search/details",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json"
+          },
+          body: JSON.stringify({
+            type: "employer",
+            name: searchQuery.trim(),
+            employer_registration_number: ""
+          })
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok && data.results?.length > 0) {
+        // Use the first result as the selected employer
+        const selectedEmployer = data.results[0];
+        setFormData(prev => ({
+          ...prev,
+          employerName: selectedEmployer.name || "",
+          institution: selectedEmployer.name || ""
+        }));
+        
+        setSnackbar({
+          open: true,
+          message: `Employer found: ${selectedEmployer.name}`,
+          severity: "success"
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: "No employer found with that name",
+          severity: "warning"
+        });
+      }
+    } catch (error) {
+      console.error("Error searching for employer:", error);
+      setSnackbar({
+        open: true,
+        message: "Error searching for employer",
+        severity: "error"
+      });
+    }
+  };
+
+  // Add handler for employer search input changes
+  const handleEmployerSearchInputChange = (event, newValue, reason) => {
+    setEmployerSearchInputValue(newValue);
+
+    if (employerSearchTimeoutRef.current) {
+      clearTimeout(employerSearchTimeoutRef.current);
+    }
+
+    if (reason === "reset" || reason === "clear") {
+      setEmployerSearchSuggestions([]);
+      return;
+    }
+
+    // Debounced search for employer suggestions
+    employerSearchTimeoutRef.current = setTimeout(() => {
+      debouncedEmployerSearch(newValue);
+    }, 150);
+  };
+
+  // Add handler for employer suggestion selection
+  const handleEmployerSuggestionSelected = (event, suggestion) => {
+    if (!suggestion) {
+      setEmployerSearchInputValue("");
+      return;
+    }
+
+    setEmployerSearchInputValue(suggestion.name || "");
+    setEmployerSearchOpen(false);
+
+    // Update form data with selected employer
+    setFormData(prev => ({
+      ...prev,
+      employerName: suggestion.name || "",
+      institution: suggestion.name || ""
+    }));
+
+    setSnackbar({
+      open: true,
+      message: `Employer selected: ${suggestion.name}`,
+      severity: "success"
+    });
+  };
 
   if (loading) {
     return (
@@ -2563,22 +2732,11 @@ const AgentCRM = () => {
                     prev = foundTickets[0];
                   if (prev) {
                     setFormData({
-                      firstName: prev.first_name || "",
-                      middleName: prev.middle_name || "", // Add middle name
-                      lastName: prev.last_name || "",
-                      phoneNumber: prev.phone_number || phoneSearch,
-                      nidaNumber: prev.nida_number || "",
-                      requester: prev.requester || "",
-                      institution: prev.institution || "",
-                      region: prev.region || "",
-                      district: prev.district || "",
-                      channel: prev.channel || "",
+                      subject: prev.subject || "",
+                      description: prev.description || "",
                       category: prev.category || "",
-                      inquiry_type: prev.inquiry_type || "", // Add inquiry_type
-                      functionId: prev.function_id || "",
-                      description: "",
-                      status: "Open",
-                      // New fields for representative
+                      priority: prev.priority || "",
+                      // Reset representative fields
                       requesterName: prev.requesterName || "",
                       requesterPhoneNumber: prev.requesterPhoneNumber || "",
                       requesterEmail: prev.requesterEmail || "",
@@ -2890,7 +3048,134 @@ const AgentCRM = () => {
                     style={{ width: "100%" }}
                   />
                 </div>
+
+                {/* Search for Employer Field - Only show when search type is employee */}
+                {searchType === "employee" && (
+                  <div style={{ marginBottom: "15px" }}>
+                    <label
+                      style={{
+                        display: "block",
+                        marginBottom: "8px",
+                        fontWeight: "bold"
+                      }}
+                    >
+                      Search for Employer Name:
+                    </label>
+                    <StyledAutocomplete
+                      value={null}
+                      onChange={(event, newValue) => handleEmployerSuggestionSelected(event, newValue)}
+                      inputValue={employerSearchInputValue}
+                      onInputChange={handleEmployerSearchInputChange}
+                      options={employerSearchSuggestions}
+                      getOptionLabel={(option) => option.displayName || ""}
+                      open={employerSearchOpen}
+                      onOpen={() => setEmployerSearchOpen(true)}
+                      onClose={() => setEmployerSearchOpen(false)}
+                      loading={isEmployerSearching}
+                      loadingText={
+                        <div
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            gap: "10px"
+                          }}
+                        >
+                          <CircularProgress size={20} />
+                          <span>Searching...</span>
+                        </div>
+                      }
+                      noOptionsText={
+                        employerSearchInputValue.length < 1
+                          ? "Start typing to search"
+                          : "No matching employers found"
+                      }
+                      renderOption={(props, option) => (
+                        <li {...props}>
+                          <SuggestionItem>
+                            <div className="suggestion-name">
+                              {highlightMatch(option.name, employerSearchInputValue)}
+                            </div>
+                            <div className="suggestion-details">
+                              TIN: {option.tin}
+                              {option.phone && ` • Phone: ${option.phone}`}
+                              {option.status && ` • Status: ${option.status}`}
+                            </div>
+                          </SuggestionItem>
+                        </li>
+                      )}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          placeholder="Search for employer/institution..."
+                          InputProps={{
+                            ...params.InputProps,
+                            endAdornment: (
+                              <>
+                                {isEmployerSearching && (
+                                  <CircularProgress color="inherit" size={20} />
+                                )}
+                                {params.InputProps.endAdornment}
+                              </>
+                            )
+                          }}
+                          sx={{
+                            "& .MuiOutlinedInput-root": {
+                              "& fieldset": {
+                                borderColor: "#e0e0e0"
+                              },
+                              "&:hover fieldset": {
+                                borderColor: "#1976d2"
+                              },
+                              "&.Mui-focused fieldset": {
+                                borderColor: "#1976d2"
+                              }
+                            }
+                          }}
+                        />
+                      )}
+                      filterOptions={(x) => x}
+                      freeSolo={false}
+                      autoComplete
+                      includeInputInList
+                      blurOnSelect
+                      clearOnBlur={false}
+                      selectOnFocus
+                      handleHomeEndKeys
+                      style={{ width: "100%" }}
+                    />
+                  </div>
+                )}
               </div>
+
+              {/* Search for Employer Field - Only show when search type is employee */}
+              {searchType === "employee" && (
+                <div style={{ marginBottom: "15px" }}>
+                  <label
+                    style={{
+                      display: "block",
+                      marginBottom: "8px",
+                      fontWeight: "bold"
+                    }}
+                  >
+                    Employer Name:
+                  </label>
+                  <input
+                    type="text"
+                    name="employerName"
+                    value={formData.employerName || ""}
+                    onChange={handleChange}
+                    placeholder="Enter employer name"
+                    style={{
+                      width: "100%",
+                      padding: "8px",
+                      borderRadius: "4px",
+                      border: "1px solid #ddd",
+                      fontSize: "0.875rem"
+                    }}
+                  />
+                </div>
+              )}
 
               {/* Update the claim status section */}
               {searchType === "employee" && selectedSuggestion && (
@@ -3282,7 +3567,7 @@ const AgentCRM = () => {
                   <label style={{ fontSize: "0.875rem" }}>Category:</label>
                   <select
                     name="category"
-                    value={formData.category}
+                    value={formData.category || ""}
                     onChange={handleChange}
                     style={{
                       height: "32px",
@@ -3334,36 +3619,6 @@ const AgentCRM = () => {
                   )}
                 </div>
               </div>
-
-              {/* Inquiry Type */}
-              {formData.category === "Inquiry" && (
-                <div className="modal-form-group" style={{ flex: 1 }}>
-                  <label style={{ fontSize: "0.875rem" }}>Inquiry Type:</label>
-                  <select
-                    name="inquiry_type"
-                    value={formData.inquiry_type || ""}
-                    onChange={handleChange}
-                    style={{
-                      height: "32px",
-                      fontSize: "0.875rem",
-                      padding: "4px 8px",
-                      width: "100%",
-                      border: formErrors.inquiry_type
-                        ? "1px solid red"
-                        : "1px solid #ccc"
-                    }}
-                  >
-                    <option value="">Select Inquiry Type</option>
-                    <option value="Claims">Claims</option>
-                    <option value="Compliance">Compliance</option>
-                  </select>
-                  {formErrors.inquiry_type && (
-                    <span style={{ color: "red", fontSize: "0.75rem" }}>
-                      {formErrors.inquiry_type}
-                    </span>
-                  )}
-                </div>
-              )}
 
               {/* Subject, Sub-section, Section */}
               <div className="modal-form-row">
@@ -3852,6 +4107,7 @@ const AgentCRM = () => {
           </Button>
         </Box>
       </Modal> */}
+
     </div>
   );
 };
