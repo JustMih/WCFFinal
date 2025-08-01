@@ -19,6 +19,12 @@ import {
   DialogContent,
   Autocomplete,
   CircularProgress,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import IconButton from "@mui/material/IconButton";
@@ -66,13 +72,12 @@ export default function AgentsDashboard() {
   const [claimed, setClaimed] = useState("");
   const [searchLoading, setSearchLoading] = useState(false);
 
-  
   useEffect(() => {
     const fetchEmployers = async () => {
       if (!customerType || inputValue.length < 3) {
         setOptions([]);
         return;
-      }  
+      }
 
       setLoading(true);
       try {
@@ -196,6 +201,7 @@ export default function AgentsDashboard() {
     attendingMeeting: 0, // default value
     emergency: 0, // default value
   });
+  const [onlineAgents, setOnlineAgents] = useState([]);
   const wasAnsweredRef = useRef(false);
 
   const [statusTimer, setStatusTimer] = useState(0); // Timer for the current status
@@ -487,18 +493,18 @@ export default function AgentsDashboard() {
 
     // Format the caller number: replace +255 with 0
     let formattedCaller = caller;
-    if (caller.startsWith('+255')) {
-      formattedCaller = '0' + caller.substring(4); // Remove +255 and add 0
+    if (caller.startsWith("+255")) {
+      formattedCaller = "0" + caller.substring(4); // Remove +255 and add 0
       console.log(`📞 Formatted caller: ${caller} → ${formattedCaller}`);
     }
-  
+
     const time = new Date();
     const agentId = localStorage.getItem("extension");
 
     // Update UI immediately
     const newCall = { caller: formattedCaller, time };
     setMissedCalls((prev) => [...prev, newCall]);
-  
+
     setSnackbarMessage(`📞 Missed Call from ${formattedCaller}`);
     setSnackbarSeverity("warning");
     setSnackbarOpen(true);
@@ -527,37 +533,44 @@ export default function AgentsDashboard() {
         console.error("❌ Failed to post missed call:", err);
       });
   };
-  
+
   const fetchMissedCallsFromBackend = async () => {
     try {
       console.log("🔍 Fetching missed calls for agent:", extension);
-      const response = await fetch(`${baseURL}/missed-calls?agentId=${extension}&status=pending`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-        },
-      });
-  
+      const response = await fetch(
+        `${baseURL}/missed-calls?agentId=${extension}&status=pending`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          },
+        }
+      );
+
       if (!response.ok) throw new Error("Failed to fetch missed calls");
-  
+
       const data = await response.json();
       console.log("📥 Received missed calls from backend:", data);
       console.log("📊 Total pending missed calls:", data.length);
-  
-      const formatted = data.map(call => ({
+
+      const formatted = data.map((call) => ({
         ...call,
         time: new Date(call.time),
       }));
-  
+
       setMissedCalls(formatted);
       localStorage.setItem("missedCalls", JSON.stringify(formatted));
-      console.log("✅ Updated missedCalls state with", formatted.length, "calls");
+      console.log(
+        "✅ Updated missedCalls state with",
+        formatted.length,
+        "calls"
+      );
     } catch (error) {
       console.error("❌ Error fetching missed calls:", error);
     }
   };
-  
+
   const handleAttendedTransferDial = () => {
     if (!userAgent || !transferTarget) return;
 
@@ -720,7 +733,7 @@ export default function AgentsDashboard() {
       console.error("❌ SIP User Agent not initialized.");
       return;
     }
-  
+
     if (!number) {
       console.error("❌ No number provided for redial.");
       return;
@@ -728,21 +741,21 @@ export default function AgentsDashboard() {
 
     // Format the number: replace +255 with 0
     let formattedNumber = number;
-    if (number.startsWith('+255')) {
-      formattedNumber = '0' + number.substring(4); // Remove +255 and add 0
+    if (number.startsWith("+255")) {
+      formattedNumber = "0" + number.substring(4); // Remove +255 and add 0
       console.log(`📞 Formatted number: ${number} → ${formattedNumber}`);
     }
-  
+
     const target = `sip:${formattedNumber}@192.168.1.170`;
     const targetURI = UserAgent.makeURI(target);
-  
+
     if (!targetURI) {
       console.error("❌ Invalid SIP URI:", target);
       return;
     }
-  
+
     console.log("📞 Redialing SIP URI:", targetURI.toString());
-  
+
     const inviter = new Inviter(userAgent, targetURI, {
       sessionDescriptionHandlerOptions: {
         constraints: { audio: true, video: false },
@@ -751,24 +764,31 @@ export default function AgentsDashboard() {
         },
       },
     });
-  
+
     setSession(inviter);
-  
-    inviter.invite()
+
+    inviter
+      .invite()
       .then(() => {
         setPhoneStatus("Dialing");
-  
+
         inviter.stateChange.addListener((state) => {
           console.log("🔄 Redial call state:", state);
           if (state === SessionState.Established) {
             attachMediaStream(inviter);
             setPhoneStatus("In Call");
             startTimer();
-  
+
             // ✅ Mark the missed call as called back
             if (missedCallId) {
-              console.log("➡️ Sending PUT to mark call as called_back for ID:", missedCallId);
-              console.log("➡️ PUT URL:", `${baseURL}/missed-calls/${missedCallId}/status`);
+              console.log(
+                "➡️ Sending PUT to mark call as called_back for ID:",
+                missedCallId
+              );
+              console.log(
+                "➡️ PUT URL:",
+                `${baseURL}/missed-calls/${missedCallId}/status`
+              );
               fetch(`${baseURL}/missed-calls/${missedCallId}/status`, {
                 method: "PUT",
                 headers: {
@@ -793,7 +813,7 @@ export default function AgentsDashboard() {
                 );
             }
           }
-  
+
           if (state === SessionState.Terminated) {
             setPhoneStatus("Idle");
             setSession(null);
@@ -807,7 +827,7 @@ export default function AgentsDashboard() {
         setPhoneStatus("Call Failed");
       });
   };
-  
+
   const handleDial = () => {
     if (!userAgent || !phoneNumber) return;
 
@@ -854,7 +874,7 @@ export default function AgentsDashboard() {
 
   const handleBlindTransfer = async () => {
     if (!session || !transferTarget) return;
-  
+
     try {
       // Step 1: Fetch the list of online users (agents and supervisors)
       const response = await fetch(`${baseURL}/users/online-users`, {
@@ -864,32 +884,38 @@ export default function AgentsDashboard() {
           Authorization: `Bearer ${localStorage.getItem("authToken")}`,
         },
       });
-  
+
       if (!response.ok) {
         throw new Error("Failed to fetch online users");
       }
-  
+
       const onlineUsers = await response.json();
-  
+
       // Step 2: Check if the transfer target is an online agent or supervisor
       const isValidTransferTarget = onlineUsers.some(
-        (user) => user.username === transferTarget && (user.role === "agent" || user.role === "supervisor")
+        (user) =>
+          user.username === transferTarget &&
+          (user.role === "agent" || user.role === "supervisor")
       );
-  
+
       if (!isValidTransferTarget) {
-        setSnackbarMessage("❌ No online agent or supervisor available for transfer.");
+        setSnackbarMessage(
+          "❌ No online agent or supervisor available for transfer."
+        );
         setSnackbarSeverity("error");
         setSnackbarOpen(true);
         return;
       }
-  
+
       // Step 3: Proceed with the transfer if the target is valid
-      const targetURI = UserAgent.makeURI(`sip:${transferTarget}@192.168.1.170`);
+      const targetURI = UserAgent.makeURI(
+        `sip:${transferTarget}@192.168.1.170`
+      );
       if (!targetURI) {
         console.error("Invalid transfer target URI");
         return;
       }
-  
+
       await session.refer(targetURI);
       console.log(`🔁 Call transferred to ${transferTarget}`);
       setSnackbarMessage(`🔁 Call transferred to ${transferTarget}`);
@@ -903,7 +929,6 @@ export default function AgentsDashboard() {
       setSnackbarOpen(true);
     }
   };
-  
 
   const attachMediaStream = (sipSession) => {
     const remoteStream = new MediaStream();
@@ -1002,10 +1027,33 @@ export default function AgentsDashboard() {
         });
         const data = await response.json();
         const count = data.agentCount;
+        // console.log("Active agents count:", count);
 
-        // Ensure there are at least 3 agents available for non-"ready" status
-        if (count < 3) {
-          showAlert("⚠️ Not enough agents available. Minimum 3 required.");
+        const totalResponse = await fetch(`${baseURL}/users/agents`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          },
+        });
+
+        const totalData = await totalResponse.json();
+        console.log("Total agents data:", totalData);
+        setOnlineAgents(totalData.agents || []);
+        const totalCount = totalData.total;
+        // console.log("Total agents count:", totalCount);
+
+        // // Ensure there are at least 3 agents available for non-"ready" status
+        // if (count < 3) {
+        //   showAlert("⚠️ Not enough agents available. Minimum 3 required.");
+        //   return;
+        // }
+
+        // find percentage if online agents are less than 50%
+        const fiftyPercentage = totalCount * 0.5;
+        // console.log("fifty percentage is", fiftyPercentage);
+        if (count < fiftyPercentage) {
+          showAlert("⚠️ Not enough agents available. Minimum 50% required.");
           return;
         }
       } catch (error) {
@@ -1080,7 +1128,22 @@ export default function AgentsDashboard() {
     }
   };
 
+  const getOnlineAgents = async () => {
+    const totalResponse = await fetch(`${baseURL}/users/agents-online`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+      },
+    });
+
+    const totalData = await totalResponse.json();
+    console.log("Total agents data:", totalData);
+    setOnlineAgents(totalData.agents || []);
+  };
+
   useEffect(() => {
+    getOnlineAgents();
     // Fetch function data for ticket modal (same as CRM)
     const fetchFunctionData = async () => {
       try {
@@ -1119,7 +1182,9 @@ export default function AgentsDashboard() {
       });
       if (!response.ok) throw new Error("Failed to fetch online users");
       const users = await response.json();
-      setOnlineUsers(users.filter(u => u.role === "agent" || u.role === "supervisor"));
+      setOnlineUsers(
+        users.filter((u) => u.role === "agent" || u.role === "supervisor")
+      );
     } catch (err) {
       setOnlineUsers([]);
     }
@@ -1133,18 +1198,24 @@ export default function AgentsDashboard() {
     const fetchVoiceNotes = async () => {
       try {
         const agentId = localStorage.getItem("userId");
-        const response = await fetch(`${baseURL}/voice-notes?agentId=${agentId}`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-          },
-        });
+        const response = await fetch(
+          `${baseURL}/voice-notes?agentId=${agentId}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+            },
+          }
+        );
         if (!response.ok) throw new Error("Failed to fetch voice notes");
         const data = await response.json();
         const notes = data.voiceNotes || [];
-        const storedPlayed = JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
-        const unplayedCount = notes.filter(note => !storedPlayed[note.id]).length;
+        const storedPlayed =
+          JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
+        const unplayedCount = notes.filter(
+          (note) => !storedPlayed[note.id]
+        ).length;
         setVoiceNotes(notes);
         setUnplayedVoiceNotes(unplayedCount);
       } catch (error) {
@@ -1280,6 +1351,30 @@ export default function AgentsDashboard() {
         </div>
         <div className="dashboard-single-agent">
           <SingleAgentDashboardCard />
+        </div>
+        <div className="dashboard-single-agent-row_two">
+          {/* create table for online agent */}
+          <TableContainer>
+            <h3>Online Agents</h3>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Agent Name</TableCell>
+                  <TableCell>Extension</TableCell>
+                  <TableCell>Status</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {onlineAgents.map((user) => (
+                  <TableRow key={user.id}>
+                    <TableCell>{user.name}</TableCell>
+                    <TableCell>{user.extension}</TableCell>
+                    <TableCell>{user.status}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
         </div>
         <div className="dashboard-single-agent-row_two">
           {/* Queue Monitoring Section */}
