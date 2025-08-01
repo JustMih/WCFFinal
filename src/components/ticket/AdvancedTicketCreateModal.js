@@ -264,9 +264,21 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
             setSelectedInstitution(data.results[0]);
           } else {
             setSelectedInstitution(null);
+            setModal({
+              isOpen: true,
+              type: "error",
+              message: "Institution not found. Please check the name and try again."
+            });
           }
         })
-        .catch(() => setSelectedInstitution(null));
+        .catch(() => {
+          setSelectedInstitution(null);
+          setModal({
+            isOpen: true,
+            type: "error",
+            message: "Institution not found. Please check the name and try again."
+          });
+        });
     } else {
       setSelectedInstitution(null);
     }
@@ -375,8 +387,27 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
         ...formData,
         status: action === "closed" ? "Closed" : "Open",
         shouldClose: action === "closed",
+        inquiry_type: formData.category === "Inquiry" ? formData.inquiry_type : null,
       };
-
+      if (formData.requester === "Employer") {
+        ticketData.employerRegistrationNumber = formData.nidaNumber;
+        ticketData.employerName = formData.institution;
+        ticketData.employerTin = formData.nidaNumber;
+        ticketData.employerPhone = formData.phoneNumber;
+        ticketData.employerEmail = formData.employerEmail || "";
+        ticketData.employerStatus = formData.employerStatus || "";
+        ticketData.employerAllocatedStaffId = formData.employerAllocatedStaffId || "";
+        ticketData.employerAllocatedStaffName = formData.employerAllocatedStaffName || "";
+        ticketData.employerAllocatedStaffUsername = formData.employerAllocatedStaffUsername || "";
+      }
+      // Map representative fields to backend field names if requester is Representative
+      if (formData.requester === "Representative") {
+        ticketData.representative_name = formData.requesterName;
+        ticketData.representative_phone = formData.requesterPhoneNumber;
+        ticketData.representative_email = formData.requesterEmail;
+        ticketData.representative_address = formData.requesterAddress;
+        ticketData.representative_relationship = formData.relationshipToEmployee;
+      }
       const token = localStorage.getItem("authToken");
       const response = await fetch(`${baseURL}/ticket/create-ticket`, {
         method: "POST",

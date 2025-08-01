@@ -4,8 +4,12 @@ import {
   Button,
   Divider,
   Modal,
-  Typography
+  Typography,
+  Chip,
+  Link
 } from '@mui/material';
+import { Download, AttachFile } from '@mui/icons-material';
+import { baseURL } from "../../config";
 
 const TicketDetailsModal = ({ open, onClose, ticket }) => {
   if (!ticket) return null;
@@ -37,6 +41,26 @@ const TicketDetailsModal = ({ open, onClose, ticket }) => {
       minute: "2-digit",
       hour12: true
     });
+  };
+
+  const getFileNameFromPath = (filePath) => {
+    if (!filePath) return '';
+    return filePath.split('/').pop() || filePath.split('\\').pop() || filePath;
+  };
+
+  const handleDownloadAttachment = (attachmentPath) => {
+    if (!attachmentPath) return;
+    
+    const filename = getFileNameFromPath(attachmentPath);
+    const downloadUrl = `${baseURL}/attachment/${filename}`;
+    
+    // Create a temporary link and trigger download
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const ticketDetails = [
@@ -127,6 +151,107 @@ const TicketDetailsModal = ({ open, onClose, ticket }) => {
           <Box sx={{ mt: 2 }}>
             <Typography><strong>Description:</strong> {ticket.description || "N/A"}</Typography>
           </Box>
+
+          {/* Resolution Details Section (for closed tickets) */}
+          {ticket.status === "Closed" && (
+            <Box sx={{ mt: 3, p: 2, bgcolor: '#f8f9fa', borderRadius: 2, border: '1px solid #dee2e6' }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2, color: '#28a745' }}>
+                Resolution Details
+              </Typography>
+              <Box sx={{ mb: 2 }}>
+                <Typography><strong>Resolution Type:</strong> 
+                  <Chip 
+                    label={ticket.resolution_type || "Resolved"} 
+                    size="small" 
+                    color="primary" 
+                    sx={{ ml: 1 }}
+                  />
+                </Typography>
+              </Box>
+              <Box sx={{ mb: 2 }}>
+                <Typography><strong>Resolution Details:</strong></Typography>
+                <Typography sx={{ mt: 1, pl: 2, fontStyle: 'italic' }}>
+                  {ticket.resolution_details || "No resolution details provided"}
+                </Typography>
+              </Box>
+              <Box sx={{ mb: 2 }}>
+                <Typography><strong>Date of Resolution:</strong> {formatDate(ticket.date_of_resolution)}</Typography>
+              </Box>
+              
+              {/* Attachment Section */}
+              {ticket.attachment_path && (
+                <Box sx={{ mt: 2, p: 2, bgcolor: '#fff', borderRadius: 1, border: '1px solid #ced4da' }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1, display: 'flex', alignItems: 'center' }}>
+                    <AttachFile sx={{ mr: 1, fontSize: 20 }} />
+                    Resolution Attachment
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Typography variant="body2" sx={{ flex: 1 }}>
+                      {getFileNameFromPath(ticket.attachment_path)}
+                    </Typography>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<Download />}
+                      onClick={() => handleDownloadAttachment(ticket.attachment_path)}
+                      sx={{ minWidth: 'auto' }}
+                    >
+                      Download
+                    </Button>
+                  </Box>
+                </Box>
+              )}
+            </Box>
+          )}
+
+          {/* Assignment History Attachments */}
+          {ticket.assignments && ticket.assignments.length > 0 && (
+            <Box sx={{ mt: 3, p: 2, bgcolor: '#f0f8ff', borderRadius: 2, border: '1px solid #b3d9ff' }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2, color: '#0066cc' }}>
+                Assignment History Attachments
+              </Typography>
+              {ticket.assignments
+                .filter(assignment => assignment.attachment_path)
+                .map((assignment, index) => (
+                  <Box key={index} sx={{ mb: 2, p: 2, bgcolor: '#fff', borderRadius: 1, border: '1px solid #b3d9ff' }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+                        <AttachFile sx={{ mr: 1, fontSize: 16 }} />
+                        {assignment.action} - {assignment.assigned_to_name}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: '#666' }}>
+                        {formatDate(assignment.created_at)}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Typography variant="body2" sx={{ flex: 1 }}>
+                        {getFileNameFromPath(assignment.attachment_path)}
+                      </Typography>
+                      <Button
+                        variant="outlined"
+                        size="small"
+                        startIcon={<Download />}
+                        onClick={() => handleDownloadAttachment(assignment.attachment_path)}
+                        sx={{ minWidth: 'auto' }}
+                      >
+                        Download
+                      </Button>
+                    </Box>
+                    {assignment.reason && (
+                      <Typography variant="body2" sx={{ mt: 1, pl: 2, fontStyle: 'italic', color: '#666' }}>
+                        Note: {assignment.reason}
+                      </Typography>
+                    )}
+                  </Box>
+                ))}
+              {ticket.assignments.filter(assignment => assignment.attachment_path).length === 0 && (
+                <Typography variant="body2" sx={{ fontStyle: 'italic', color: '#666' }}>
+                  No attachments found in assignment history
+                </Typography>
+              )}
+            </Box>
+          )}
+
           {/* Representative Details Section */}
           {ticket.requester === "Representative" && ticket.RequesterDetail && (
             <Box sx={{ mt: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 2 }}>

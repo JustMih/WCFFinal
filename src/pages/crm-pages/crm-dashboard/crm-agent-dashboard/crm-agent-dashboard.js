@@ -622,6 +622,15 @@ const AgentCRM = () => {
           formData.employerAllocatedStaffUsername || ""; // Add allocatedStaffUsername to formData in frontend if available
       }
 
+      // Map representative fields to backend field names if requester is Representative
+      if (formData.requester === "Representative") {
+        ticketData.representative_name = formData.requesterName;
+        ticketData.representative_phone = formData.requesterPhoneNumber;
+        ticketData.representative_email = formData.requesterEmail;
+        ticketData.representative_address = formData.requesterAddress;
+        ticketData.representative_relationship = formData.relationshipToEmployee;
+      }
+
       const response = await fetch(`${baseURL}/ticket/create-ticket`, {
         method: "POST",
         headers: {
@@ -1792,7 +1801,7 @@ const AgentCRM = () => {
 
   return (
     <div className="main--content">
-      <h3 className="title">CRM Dashboard</h3>
+      <h3 className="title">Contact Center Dashboard</h3>
 
       {/* <div
         style={{
@@ -2367,6 +2376,32 @@ const AgentCRM = () => {
                   </span>
                 </div>
 
+
+                {/* Representative Details Section */}
+                {selectedTicket.requester === "Representative" && selectedTicket.representative_name && (
+                  <Box sx={{ mt: 3, mb: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 2, border: '1px solid #e0e0e0' }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2, color: '#1976d2' }}>
+                      Representative Details
+                    </Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                      <div>
+                        <Typography variant="body2"><strong>Name:</strong> {selectedTicket.representative_name || 'N/A'}</Typography>
+                      </div>
+                      <div>
+                        <Typography variant="body2"><strong>Phone:</strong> {selectedTicket.representative_phone || 'N/A'}</Typography>
+                      </div>
+                      <div>
+                        <Typography variant="body2"><strong>Email:</strong> {selectedTicket.representative_email || 'N/A'}</Typography>
+                      </div>
+                      <div>
+                        <Typography variant="body2"><strong>Address:</strong> {selectedTicket.representative_address || 'N/A'}</Typography>
+                      </div>
+                      <div>
+                        <Typography variant="body2"><strong>Relationship to Employee:</strong> {selectedTicket.representative_relationship || 'N/A'}</Typography>
+                      </div>
+                    </Box>
+                  </Box>
+                )}
                 <Box sx={{ mt: 3, textAlign: "right" }}>
                   <Button
                     variant="contained"
@@ -3201,132 +3236,114 @@ const AgentCRM = () => {
               </div>
 
               {/* New fields for Representative if selected */}
-              {formData.requester === "Representative" && (
+              {(formData.requester === "Representative" || formData.requester === "Stakeholders") && (
                 <>
-                  <Typography
-                    variant="h6"
-                    sx={{ mt: 3, mb: 1, fontWeight: "bold" }}
-                  >
-                    Representative Details
-                  </Typography>
-                  <div className="modal-form-row">
-                    <div className="modal-form-group">
-                      <label style={{ fontSize: "0.875rem" }}>
-                        Representative Name:
-                      </label>
-                      <input
-                        name="requesterName"
-                        value={formData.requesterName}
-                        onChange={handleChange}
-                        placeholder="Enter representative's name"
-                        style={{
-                          height: "32px",
-                          fontSize: "0.875rem",
-                          padding: "4px 8px",
-                          border: formErrors.requesterName
-                            ? "1px solid red"
-                            : "1px solid #ccc",
-                        }}
-                      />
-                      {formErrors.requesterName && (
-                        <span style={{ color: "red", fontSize: "0.75rem" }}>
-                          {formErrors.requesterName}
-                        </span>
-                      )}
-                    </div>
-                    <div className="modal-form-group">
-                      <label style={{ fontSize: "0.875rem" }}>
-                        Representative Phone Number:
-                      </label>
-                      <input
-                        type="tel"
-                        name="requesterPhoneNumber"
-                        value={formData.requesterPhoneNumber}
-                        onChange={handleChange}
-                        placeholder="Enter representative's phone number"
-                        style={{
-                          height: "32px",
-                          fontSize: "0.875rem",
-                          padding: "4px 8px",
-                          border: formErrors.requesterPhoneNumber
-                            ? "1px solid red"
-                            : "1px solid #ccc",
-                        }}
-                      />
-                      {formErrors.requesterPhoneNumber && (
-                        <span style={{ color: "red", fontSize: "0.75rem" }}>
-                          {formErrors.requesterPhoneNumber}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="modal-form-row">
-                    <div className="modal-form-group">
-                      <label style={{ fontSize: "0.875rem" }}>
-                        Representative Email (Optional):
-                      </label>
-                      <input
-                        type="email"
-                        name="requesterEmail"
-                        value={formData.requesterEmail}
-                        onChange={handleChange}
-                        placeholder="Enter representative's email"
-                        style={{
-                          height: "32px",
-                          fontSize: "0.875rem",
-                          padding: "4px 8px",
-                          border: "1px solid #ccc",
-                        }}
-                      />
-                    </div>
-                    <div className="modal-form-group">
-                      <label style={{ fontSize: "0.875rem" }}>
-                        Representative Address (Optional):
-                      </label>
-                      <input
-                        name="requesterAddress"
-                        value={formData.requesterAddress}
-                        onChange={handleChange}
-                        placeholder="Enter representative's address"
-                        style={{
-                          height: "32px",
-                          fontSize: "0.875rem",
-                          padding: "4px 8px",
-                          border: "1px solid #ccc",
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="modal-form-row">
-                    <div className="modal-form-group">
-                      <label style={{ fontSize: "0.875rem" }}>
-                        Relationship to Employee/Employee:
-                      </label>
-                      <input
-                        name="relationshipToEmployee"
-                        value={formData.relationshipToEmployee}
-                        onChange={handleChange}
-                        placeholder="e.g., Parent, Spouse, Child"
-                        style={{
-                          height: "32px",
-                          fontSize: "0.875rem",
-                          padding: "4px 8px",
-                          border: formErrors.relationshipToEmployee
-                            ? "1px solid red"
-                            : "1px solid #ccc",
-                        }}
-                      />
-                      {formErrors.relationshipToEmployee && (
-                        <span style={{ color: "red", fontSize: "0.75rem" }}>
-                          {formErrors.relationshipToEmployee}
-                        </span>
-                      )}
-                    </div>
-                    <div className="modal-form-group"></div>{" "}
-                    {/* Empty for alignment */}
-                  </div>
+                  <Box sx={{ mt: 3, mb: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 2, boxShadow: 0, border: '1px solid #e0e0e0' }}>
+                    <Typography
+                      variant="h6"
+                      sx={{ mb: 2, fontWeight: 'bold', color: '#1976d2', letterSpacing: 0.5 }}
+                    >
+                      Representative Details
+                    </Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                      <div>
+                        <label style={{ fontSize: '0.875rem' }}>Representative Name:</label>
+                        <input
+                          name="requesterName"
+                          value={formData.requesterName}
+                          onChange={handleChange}
+                          placeholder="Enter representative's name"
+                          style={{
+                            width: '100%',
+                            height: '32px',
+                            fontSize: '0.875rem',
+                            padding: '4px 8px',
+                            border: formErrors.requesterName ? '1px solid red' : '1px solid #ccc',
+                            borderRadius: 4
+                          }}
+                        />
+                        {formErrors.requesterName && (
+                          <span style={{ color: 'red', fontSize: '0.75rem' }}>{formErrors.requesterName}</span>
+                        )}
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.875rem' }}>Representative Phone Number:</label>
+                        <input
+                          type="tel"
+                          name="requesterPhoneNumber"
+                          value={formData.requesterPhoneNumber}
+                          onChange={handleChange}
+                          placeholder="Enter representative's phone number"
+                          style={{
+                            width: '100%',
+                            height: '32px',
+                            fontSize: '0.875rem',
+                            padding: '4px 8px',
+                            border: formErrors.requesterPhoneNumber ? '1px solid red' : '1px solid #ccc',
+                            borderRadius: 4
+                          }}
+                        />
+                        {formErrors.requesterPhoneNumber && (
+                          <span style={{ color: 'red', fontSize: '0.75rem' }}>{formErrors.requesterPhoneNumber}</span>
+                        )}
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.875rem' }}>Representative Email (Optional):</label>
+                        <input
+                          type="email"
+                          name="requesterEmail"
+                          value={formData.requesterEmail}
+                          onChange={handleChange}
+                          placeholder="Enter representative's email"
+                          style={{
+                            width: '100%',
+                            height: '32px',
+                            fontSize: '0.875rem',
+                            padding: '4px 8px',
+                            border: '1px solid #ccc',
+                            borderRadius: 4
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.875rem' }}>Representative Address (Optional):</label>
+                        <input
+                          name="requesterAddress"
+                          value={formData.requesterAddress}
+                          onChange={handleChange}
+                          placeholder="Enter representative's address"
+                          style={{
+                            width: '100%',
+                            height: '32px',
+                            fontSize: '0.875rem',
+                            padding: '4px 8px',
+                            border: '1px solid #ccc',
+                            borderRadius: 4
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '0.875rem' }}>Relationship to Employee/Employee:</label>
+                        <input
+                          name="relationshipToEmployee"
+                          value={formData.relationshipToEmployee}
+                          onChange={handleChange}
+                          placeholder="e.g., Parent, Spouse, Child"
+                          style={{
+                            width: '100%',
+                            height: '32px',
+                            fontSize: '0.875rem',
+                            padding: '4px 8px',
+                            border: formErrors.relationshipToEmployee ? '1px solid red' : '1px solid #ccc',
+                            borderRadius: 4
+                          }}
+                        />
+                        {formErrors.relationshipToEmployee && (
+                          <span style={{ color: 'red', fontSize: '0.75rem' }}>{formErrors.relationshipToEmployee}</span>
+                        )}
+                      </div>
+                    </Box>
+                  </Box>
                 </>
               )}
 

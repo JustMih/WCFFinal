@@ -25,3 +25,8 @@ yarn-error.log*
 # removed on server.js so that to run the project locally proxy  "proxy": "http://10.52.0.19:8088",
 server.js
 src/config.js
+
+
+.env
+localhost+1-key.pem
+localhost+1.pem
