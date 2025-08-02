@@ -4,7 +4,6 @@ import {
   FaHeadphones,
   FaUserShield,
   FaComments,
-  FaPlay,
 } from "react-icons/fa";
 import "./LiveCallsCard.css";
 import { amiURL, baseURL } from "../../config";
@@ -19,13 +18,12 @@ export default function LiveCallsCard({
 }) {
   const [liveCalls, setLiveCalls] = useState([]);
   const [filteredLiveCalls, setFilteredLiveCalls] = useState([]);
-  const [active, setActive] = useState([]); // State for "active" status calls
+  const [active, setActive] = useState([]);
 
-  // Define the functions to handle actions
   const handleListen = async (callId) => {
     console.log(`Listening to call ${callId}`);
     try {
-      const response = await fetch(`${amiURL}/api/calls/${callId}/listen`, {
+      const response = await fetch(`${baseURL}/livestream/live-calls/${callId}/listen`, {
         method: "POST",
       });
       const data = await response.json();
@@ -33,13 +31,12 @@ export default function LiveCallsCard({
     } catch (error) {
       console.error(`Error listening to call ${callId}:`, error);
     }
-
   };
 
   const handleIntervene = async (callId) => {
     console.log(`Intervening in call ${callId}`);
     try {
-      const response = await fetch(`${amiURL}/api/calls/${callId}/intervene`, {
+      const response = await fetch(`${baseURL}/livestream/live-calls/${callId}/intervene`, {
         method: "POST",
       });
       const data = await response.json();
@@ -52,7 +49,7 @@ export default function LiveCallsCard({
   const handleWhisper = async (callId) => {
     console.log(`Whispering to call ${callId}`);
     try {
-      const response = await fetch(`${amiURL}/api/calls/${callId}/whisper`, {
+      const response = await fetch(`${baseURL}/livestream/live-calls/${callId}/whisper`, {
         method: "POST",
       });
       const data = await response.json();
@@ -62,79 +59,41 @@ export default function LiveCallsCard({
     }
   };
 
-  const handlePlayRecording = async (call) => {
-    console.log(`Playing recording for call ${call.id}`);
-    try {
-      const response = await fetch(`${amiURL}/api/calls/${call.id}/recording`);
-      const data = await response.json();
-      console.log("Recording URL:", data.recordingUrl);
-      // You can add functionality to play the recording using the URL
-    } catch (error) {
-      console.error(`Error playing recording for call ${call.id}:`, error);
-    }
-  };
-
-  // Calculate duration from call_answered time
   const calculateDuration = (callAnsweredTime) => {
-    const callAnsweredDate = new Date(callAnsweredTime); // Convert to Date object
-    const currentDate = new Date(); // Current time
-
-    const durationInMillis = currentDate - callAnsweredDate; // Calculate the difference in milliseconds
-
-    // Calculate hours, minutes, seconds
+    const callAnsweredDate = new Date(callAnsweredTime);
+    const currentDate = new Date();
+    const durationInMillis = currentDate - callAnsweredDate;
     const seconds = Math.floor((durationInMillis / 1000) % 60);
     const minutes = Math.floor((durationInMillis / (1000 * 60)) % 60);
     const hours = Math.floor((durationInMillis / (1000 * 60 * 60)) % 24);
-
-    // Return the duration as HH:mm:ss
     return `${hours.toString().padStart(2, "0")}:${minutes
       .toString()
       .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   };
 
-  // Determine if the call is inbound or outbound based on caller number
   const getCallType = (caller) => {
-    if (caller.startsWith("1")) {
-      return "outbound";
-    } else if (caller.startsWith("+") || caller.startsWith("0")) {
-      return "inbound";
-    }
+    if (caller.startsWith("1")) return "outbound";
+    else if (caller.startsWith("+") || caller.startsWith("0")) return "inbound";
     return "unknown";
   };
 
-  // Fetch live calls data from the API
   useEffect(() => {
     const fetchLiveCalls = async () => {
       try {
         const response = await fetch(`${baseURL}/livestream/live-calls`);
         const data = await response.json();
-        console.log(data);
-
-        // Set live calls data
         setLiveCalls(data);
-
-        // Separate calls based on status (calling or active)
-        const activeCalls = data.filter((call) => call.status === "active");
-
-        console.log("Active Calls:", activeCalls);
-
-        // Update calling and active state
-        setActive(activeCalls);
+        setActive(data.filter((call) => call.status === "active"));
       } catch (error) {
         console.error("Error fetching live calls data:", error);
       }
     };
 
     fetchLiveCalls();
-
-    // Set up interval for auto-refresh
-    const intervalId = setInterval(fetchLiveCalls, 5000); // 10 seconds
-
-    // Clean up interval on unmount
+    const intervalId = setInterval(fetchLiveCalls, 5000);
     return () => clearInterval(intervalId);
   }, []);
 
-  // Filter live calls based on search term
   useEffect(() => {
     const safeSearchTerm =
       typeof searchTerm === "string" ? searchTerm.toLowerCase() : "";
@@ -148,28 +107,15 @@ export default function LiveCallsCard({
     setFilteredLiveCalls(filtered);
   }, [liveCalls, searchTerm]);
 
-  // Ensure filtered data is used in pagination
   const data = filteredLiveCalls.length > 0 ? filteredLiveCalls : liveCalls;
 
-  // Define the getDurationColorClass function
   const getDurationColorClass = (duration) => {
-    if (!duration) return ""; // If duration is undefined or null, return empty string or handle accordingly
-
-    // Ensure that the duration is a string before calling split
-    const durationStr = String(duration);
-
-    // Check if duration is in the correct format (e.g., "mm:ss")
-    const [minutes, seconds] = durationStr.split(":").map(Number);
-
+    if (!duration) return "";
+    const [minutes, seconds] = String(duration).split(":").map(Number);
     const totalMinutes = minutes + seconds / 60;
-
-    if (totalMinutes < 2) {
-      return "duration-green";
-    } else if (totalMinutes < 5) {
-      return "duration-yellow";
-    } else {
-      return "duration-red";
-    }
+    if (totalMinutes < 2) return "duration-green";
+    else if (totalMinutes < 5) return "duration-yellow";
+    else return "duration-red";
   };
 
   return (
@@ -254,15 +200,6 @@ export default function LiveCallsCard({
                       >
                         <FaComments />
                       </button>
-                      {call.status === "COMPLETED" && (
-                        <button
-                          className="action-button play"
-                          onClick={() => handlePlayRecording(call)}
-                          title="Play Recording"
-                        >
-                          <FaPlay />
-                        </button>
-                      )}
                     </div>
                   </td>
                 </tr>
@@ -277,7 +214,7 @@ export default function LiveCallsCard({
           </tbody>
         </table>
       </div>
-      {/* Pagination */}
+
       {totalPages > 1 && (
         <div className="pagination">
           <button
