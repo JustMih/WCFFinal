@@ -10,6 +10,61 @@ const getCreatorName = (selectedTicket) =>
   `${selectedTicket.first_name || ""} ${selectedTicket.last_name || ""}`.trim() ||
   "N/A";
 
+// Utility function to format time difference in human-readable format
+const formatTimeDifference = (dateString) => {
+  if (!dateString) return '';
+  
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffInMs = now - date;
+  
+  const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+  const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+  const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+  
+  if (diffInMinutes < 1) {
+    return 'Just now';
+  } else if (diffInMinutes < 60) {
+    return `${diffInMinutes}min`;
+  } else if (diffInHours < 24) {
+    return `${diffInHours}h`;
+  } else if (diffInDays < 7) {
+    return `${diffInDays}d`;
+  } else {
+    const diffInWeeks = Math.floor(diffInDays / 7);
+    if (diffInWeeks < 4) {
+      return `${diffInWeeks}w`;
+    } else {
+      const diffInMonths = Math.floor(diffInDays / 30);
+      return `${diffInMonths}mon`;
+    }
+  }
+};
+
+// Utility function to get aging color based on time difference
+const getAgingColor = (dateString) => {
+  if (!dateString) return '#6c757d';
+  
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffInMs = now - date;
+  const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+  const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+  const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+  
+  if (diffInMinutes < 5) {
+    return '#28a745'; // Green for very recent
+  } else if (diffInMinutes < 60) {
+    return '#17a2b8'; // Blue for recent
+  } else if (diffInHours < 24) {
+    return '#ffc107'; // Yellow for hours
+  } else if (diffInDays < 7) {
+    return '#fd7e14'; // Orange for days
+  } else {
+    return '#dc3545'; // Red for older
+  }
+};
+
 const renderWorkflowStep = (stepNumber, title, details, status) => (
   <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
     <Box
@@ -145,16 +200,38 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
 
         // Set color: green for completed, blue for current, gray for pending, green for closed last step
         let color;
-        if (isClosed) {
-          color = "green";
-        } else if (isCurrentWithCoordinator) {
-          color = "#1976d2"; // Blue for current coordinator step
-        } else if (idx < currentAssigneeIdx) {
-          color = "green";
+        
+        // Check if next step is escalated
+        const nextStep = steps[idx + 1];
+        const isNextEscalated = nextStep && (nextStep.action === "Escalated" || nextStep.assigned_to_role === "Escalated");
+        
+        // Priority order: Closed > Escalated > Previous to Escalated > Assigned > Current > Completed > Pending
+        if (selectedTicket.status === "Closed" || selectedTicket.status === "Resolved") {
+          color = "green"; // Green for all steps when ticket is closed
+        } else if (a.action === "Escalated" || a.assigned_to_role === "Escalated") {
+          // Check if this escalated step was followed by an assignment
+          const nextStep = steps[idx + 1];
+          if (nextStep && nextStep.action === "Assigned") {
+            color = "green"; // Green if escalated but then assigned to next user
+          } else if (nextStep && (nextStep.action === "Escalated" || nextStep.assigned_to_role === "Escalated")) {
+            color = "red"; // Red if escalated again to another user
+          } else {
+            color = "gray"; // Gray for escalated (pending/not handled)
+          }
+        } else if (isNextEscalated) {
+          color = "red"; // Red for previous step when next is escalated
+        } else if (a.action === "Assigned" && nextStep && nextStep.action !== "Escalated") {
+          color = "green"; // Green for assigned step that was forwarded to another user
+        } else if (a.action === "Assigned") {
+          color = "gray"; // Gray for assigned but still open
+        } else if (a.action === "Currently with" || a.assigned_to_role === "Coordinator") {
+          color = "gray"; // Gray for currently with and coordinator
         } else if (idx === currentAssigneeIdx) {
-          color = "#1976d2";
+          color = "#1976d2"; // Blue for current active step
+        } else if (idx < currentAssigneeIdx) {
+          color = "green"; // Green for completed steps
         } else {
-          color = "gray";
+          color = "gray"; // Gray for pending or last step when open
         }
 
         // Set action label
@@ -172,7 +249,7 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
         }
 
         return (
-          <Box key={idx} sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+          <Box key={idx} sx={{ display: "flex", alignItems: "flex-start", gap: 2, mb: 2 }}>
             <Box
               sx={{
                 width: 30,
@@ -183,17 +260,149 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
                 alignItems: "center",
                 justifyContent: "center",
                 color: "white",
-                fontWeight: "bold"
+                fontWeight: "bold",
+                mt: 0.5
               }}
             >
               {idx + 1}
             </Box>
-            <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-                {a.assigned_to_name} ({a.assigned_to_role})
-              </Typography>
+            <Box sx={{ flex: 1 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
+                  {a.assigned_to_name} ({a.assigned_to_role})
+                </Typography>
+                {/* Show aging for all assignments except creator, calculating active time for each */}
+                {a.created_at && a.assigned_to_role !== "Creator" && (
+                  (() => {
+                    // Calculate the end time for this assignment
+                    let endTime;
+                    if (selectedTicket.status === "Closed" && selectedTicket.date_of_resolution) {
+                      // If ticket is closed, use the resolution date as end time
+                      endTime = new Date(selectedTicket.date_of_resolution);
+                    } else if (idx === steps.length - 1) {
+                      // Last assignment - use current time
+                      endTime = new Date();
+                    } else {
+                      // Find the next assignment time
+                      const nextAssignment = steps[idx + 1];
+                      if (nextAssignment && nextAssignment.created_at) {
+                        endTime = new Date(nextAssignment.created_at);
+                      } else {
+                        endTime = new Date();
+                      }
+                    }
+                    
+                    // Calculate the duration this person was actively assigned
+                    const startTime = new Date(a.created_at);
+                    const durationMs = endTime - startTime;
+                    const durationMinutes = Math.floor(durationMs / (1000 * 60));
+                    const durationHours = Math.floor(durationMs / (1000 * 60 * 60));
+                    const durationDays = Math.floor(durationMs / (1000 * 60 * 60 * 24));
+                    
+                    // Format the duration
+                    let durationText;
+                    if (durationMinutes < 1) {
+                      durationText = 'Just now';
+                    } else if (durationMinutes < 60) {
+                      durationText = `${durationMinutes}min`;
+                    } else if (durationHours < 24) {
+                      durationText = `${durationHours}h`;
+                    } else if (durationDays < 7) {
+                      durationText = `${durationDays}d`;
+                    } else {
+                      const durationWeeks = Math.floor(durationDays / 7);
+                      if (durationWeeks < 4) {
+                        durationText = `${durationWeeks}w`;
+                      } else {
+                        const durationMonths = Math.floor(durationDays / 30);
+                        durationText = `${durationMonths}mon`;
+                      }
+                    }
+                    
+                    // Get color based on duration
+                    let durationColor;
+                    if (durationMinutes < 5) {
+                      durationColor = '#28a745'; // Green for very recent
+                    } else if (durationMinutes < 60) {
+                      durationColor = '#17a2b8'; // Blue for recent
+                    } else if (durationHours < 24) {
+                      durationColor = '#ffc107'; // Yellow for hours
+                    } else if (durationDays < 7) {
+                      durationColor = '#fd7e14'; // Orange for days
+                    } else {
+                      durationColor = '#dc3545'; // Red for older
+                    }
+                    
+                    return (
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 0.5,
+                        backgroundColor: '#ffffff',
+                        borderRadius: '16px',
+                        px: 1.5,
+                        py: 0.5,
+                        border: `2px solid ${durationColor}`,
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                        transition: 'all 0.2s ease-in-out',
+                        '&:hover': {
+                          transform: 'translateY(-1px)',
+                          boxShadow: '0 4px 8px rgba(0,0,0,0.15)'
+                        }
+                      }}>
+                        <Box sx={{ 
+                          width: 8, 
+                          height: 8, 
+                          borderRadius: '50%', 
+                          backgroundColor: durationColor,
+                          animation: 'pulse 2s infinite',
+                          '@keyframes pulse': {
+                            '0%': {
+                              boxShadow: `0 0 0 0 ${durationColor}40`
+                            },
+                            '70%': {
+                              boxShadow: `0 0 0 6px ${durationColor}00`
+                            },
+                            '100%': {
+                              boxShadow: `0 0 0 0 ${durationColor}00`
+                            }
+                          }
+                        }} />
+                        <Typography 
+                          variant="caption" 
+                          sx={{ 
+                            color: durationColor,
+                            fontWeight: '700',
+                            fontSize: '0.75rem',
+                            fontFamily: 'monospace',
+                            letterSpacing: '0.5px'
+                          }}
+                        >
+                          {durationText}
+                        </Typography>
+                      </Box>
+                    );
+                  })()
+                )}
+              </Box>
               <Typography variant="body2" color="text.secondary">
-                {actionLabel} - {a.created_at ? new Date(a.created_at).toLocaleString() : ''}
+                {actionLabel} - {a.created_at ? new Date(a.created_at).toLocaleString("en-US", {
+                  month: "numeric",
+                  day: "numeric",
+                  year: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                  second: "2-digit",
+                  hour12: true
+                }) : (selectedTicket.updated_at ? new Date(selectedTicket.updated_at).toLocaleString("en-US", {
+                  month: "numeric",
+                  day: "numeric",
+                  year: "numeric",
+                  hour: "numeric",
+                  minute: "2-digit",
+                  second: "2-digit",
+                  hour12: true
+                }) : "Date not available")}
                 {isClosed && (
                   <span style={{ color: "green", marginLeft: 8 }}>
                     (Closed by: {closedBy})
@@ -246,6 +455,23 @@ function AssignmentFlowChat({ assignmentHistory = [], selectedTicket }) {
     : null;
   // Always add all assignments as steps, even if assignee is same as creator
   const steps = creatorStep ? [creatorStep, ...assignmentHistory] : assignmentHistory;
+  
+  // Helper function to get aging status color
+  const getAgingStatusColor = (status) => {
+    switch (status) {
+      case 'On Time':
+        return '#4caf50'; // Green
+      case 'Warning':
+        return '#ff9800'; // Orange
+      case 'Overdue':
+        return '#f44336'; // Red
+      case 'Critical':
+        return '#d32f2f'; // Dark Red
+      default:
+        return '#757575'; // Gray
+    }
+  };
+
   return (
     <Box sx={{ maxWidth: 400, ml: 'auto', mr: 0 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, justifyContent: 'space-between' }}>
@@ -282,7 +508,7 @@ function AssignmentFlowChat({ assignmentHistory = [], selectedTicket }) {
             }
             
             if (a.coordinator_notes) {
-              baseMessage += `\n\nCoordinator Notes: ${a.coordinator_notes}`;
+              baseMessage += `\n\nReviewer Notes: ${a.coordinator_notes}`;
             }
             
             if (a.dg_notes) {
@@ -297,23 +523,57 @@ function AssignmentFlowChat({ assignmentHistory = [], selectedTicket }) {
             message = baseMessage;
           }
         }
+        
+        // Display aging information for non-creator steps
+        const showAging = idx > 0 && a.aging_formatted;
+        
         return (
           <Box key={idx} sx={{ display: "flex", mb: 2, alignItems: "flex-start" }}>
             <Avatar sx={{ bgcolor: idx === 0 ? "#43a047" : "#1976d2", mr: 2 }}>
               {a.assigned_to_name ? a.assigned_to_name[0] : "?"}
             </Avatar>
             <Paper elevation={2} sx={{ p: 2, bgcolor: idx === 0 ? "#e8f5e9" : "#f5f5f5", flex: 1 }}>
-              <Typography sx={{ fontWeight: "bold" }}>
-                {a.assigned_to_name || a.assigned_to_id || 'Unknown'} {" "}
-                <span style={{ color: "#888", fontWeight: "normal" }}>
-                  ({a.assigned_to_role || "N/A"})
-                </span>
-              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                <Typography sx={{ fontWeight: "bold" }}>
+                  {a.assigned_to_name || a.assigned_to_id || 'Unknown'} {" "}
+                  <span style={{ color: "#888", fontWeight: "normal" }}>
+                    ({a.assigned_to_role || "N/A"})
+                  </span>
+                </Typography>
+                {showAging && (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', ml: 1 }}>
+                    <Typography 
+                      variant="caption" 
+                      sx={{ 
+                        color: getAgingStatusColor(a.aging_status),
+                        fontWeight: 'bold',
+                        fontSize: '0.7rem'
+                      }}
+                    >
+                      {a.aging_status}
+                    </Typography>
+                    <Typography 
+                      variant="caption" 
+                      sx={{ 
+                        color: '#666',
+                        fontSize: '0.7rem'
+                      }}
+                    >
+                      {a.aging_formatted}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
               <Typography variant="body2" sx={{ color: idx === 0 ? "#43a047" : "#1976d2", wordBreak: 'break-word', whiteSpace: 'pre-line', overflowWrap: 'break-word' }}>
                 {message}
               </Typography>
               <Typography variant="caption" sx={{ color: "#888" }}>
                 {a.created_at ? new Date(a.created_at).toLocaleString() : ""}
+                {a.created_at && (
+                  <span style={{ color: "#666", marginLeft: 8 }}>
+                    ({formatTimeDifference(a.created_at)} ago)
+                  </span>
+                )}
               </Typography>
             </Paper>
           </Box>
@@ -366,8 +626,6 @@ export default function TicketDetailsModal({
   onClose,
   selectedTicket,
   assignmentHistory,
-  handleRating,
-  handleConvertOrForward,
   handleCategoryChange,
   handleUnitChange,
   categories = [],
@@ -376,6 +634,8 @@ export default function TicketDetailsModal({
   forwardUnit = {},
   refreshTickets = () => {},
   setSnackbar = () => {},
+  setConvertCategory = () => {},
+  setForwardUnit = () => {},
 }) {
   const [isFlowModalOpen, setIsFlowModalOpen] = useState(false);
   const userRole = localStorage.getItem("role");
@@ -387,6 +647,7 @@ export default function TicketDetailsModal({
   // Reviewer-specific states
   const [resolutionType, setResolutionType] = useState("");
   const [isCoordinatorCloseDialogOpen, setIsCoordinatorCloseDialogOpen] = useState(false);
+  const [selectedRating, setSelectedRating] = useState("");
 
   // Reverse modal state
   const [isReverseModalOpen, setIsReverseModalOpen] = useState(false);
@@ -407,6 +668,13 @@ export default function TicketDetailsModal({
   const [editedResolution, setEditedResolution] = useState("");
   const [dgNotes, setDgNotes] = useState("");
   const [dgApproved, setDgApproved] = useState(true);
+
+  // Initialize selectedRating when modal opens
+  useEffect(() => {
+    if (selectedTicket) {
+      setSelectedRating(selectedTicket.complaint_type || "");
+    }
+  }, [selectedTicket]);
 
   const showAttendButton =
     // (userRole === "agent" || userRole === "attendee") &&
@@ -552,27 +820,32 @@ export default function TicketDetailsModal({
         formData.append("attachment", attachment);
       }
 
-      const response = await fetch(
-        `${baseURL}/coordinator/${selectedTicket.id}/close`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`
-          },
-          body: formData
-        }
-      );
+      // Use different endpoints based on user role
+      const endpoint = userRole === "coordinator" 
+        ? `${baseURL}/coordinator/${selectedTicket.id}/close`
+        : `${baseURL}/ticket/${selectedTicket.id}/close`;
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        body: formData
+      });
 
       if (response.ok) {
         setIsCoordinatorCloseDialogOpen(false);
         onClose();
         refreshTickets();
-        setSnackbar({open: true, message: 'Ticket closed successfully', severity: 'success'});
+        const roleText = userRole === "coordinator" ? "Coordinator" : 
+                        userRole === "claim-focal-person" ? "Claim Focal Person" : "Focal Person";
+        setSnackbar({open: true, message: `Ticket closed successfully by ${roleText}`, severity: 'success'});
       } else {
         throw new Error("Failed to close ticket");
       }
     } catch (error) {
       console.error("Error closing ticket:", error);
+      setSnackbar({open: true, message: 'Error closing ticket', severity: 'error'});
     }
   };
 
@@ -729,6 +1002,102 @@ export default function TicketDetailsModal({
     } catch (error) {
       console.error("Error forwarding to Director General:", error);
       alert("Failed to forward to Director General. Please try again.");
+    }
+  };
+
+  const handleRating = async (ticketId, rating) => {
+    const token = localStorage.getItem("authToken");
+    const userId = localStorage.getItem("userId");
+    try {
+      const response = await fetch(`${baseURL}/coordinator/${ticketId}/rate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ complaintType: rating, userId })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setSnackbar({ open: true, message: `Rated as ${rating}`, severity: "success" });
+        // Don't refresh tickets here - only refresh after forwarding
+      } else {
+        setSnackbar({ open: true, message: data.message || "Failed to rate ticket", severity: "error" });
+      }
+    } catch (error) {
+      setSnackbar({ open: true, message: error.message, severity: "error" });
+    }
+  };
+
+  const handleConvertOrForward = async (ticketId) => {
+    const userId = localStorage.getItem("userId");
+    const token = localStorage.getItem("authToken");
+    const category = convertCategory[ticketId];
+    const unitName = forwardUnit[ticketId];
+
+    // Get the current ticket to check its section and rating
+    const currentTicket = selectedTicket;
+
+    // Validate that at least one option is selected
+    // If unitName is empty but ticket has a section, use the ticket's section
+    const effectiveUnitName = unitName || currentTicket?.section || currentTicket?.responsible_unit_name;
+    
+    if (!category && !effectiveUnitName) {
+      setSnackbar({
+        open: true,
+        message: "Please select either a category to convert to, or a unit to forward to, or both",
+        severity: "warning"
+      });
+      return;
+    }
+
+    // Check if trying to forward without rating
+    if (effectiveUnitName && !currentTicket?.complaint_type) {
+      setSnackbar({
+        open: true,
+        message: "Ticket must be rated (Minor or Major) before it can be forwarded",
+        severity: "warning"
+      });
+      return;
+    }
+
+    try {
+      // Prepare the payload to match backend expectations
+      const payload = { 
+        userId,
+        responsible_unit_name: effectiveUnitName || undefined,
+        category: category || undefined,
+        complaintType: currentTicket?.complaint_type || undefined
+      };
+
+      const response = await fetch(`${baseURL}/coordinator/${ticketId}/convert-or-forward-ticket`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setSnackbar({ open: true, message: data.message || "Ticket updated successfully", severity: "success" });
+        refreshTickets();
+        // Clear both states after successful update
+        setConvertCategory((prev) => {
+          const newState = { ...prev };
+          delete newState[ticketId];
+          return newState;
+        });
+        setForwardUnit((prev) => {
+          const newState = { ...prev };
+          delete newState[ticketId];
+          return newState;
+        });
+      } else {
+        setSnackbar({ open: true, message: data.message || "Failed to update ticket", severity: "error" });
+      }
+    } catch (error) {
+      setSnackbar({ open: true, message: error.message, severity: "error" });
     }
   };
 
@@ -1030,7 +1399,7 @@ export default function TicketDetailsModal({
               {/* Action Buttons */}
               <Box sx={{ mt: 2, textAlign: "right" }}>
                 {showAttendButton && (
-                  <Button variant="contained" color="primary" onClick={() => setIsAttendDialogOpen(true)} sx={{ mr: 1 }}>
+                  <Button variant="contained" color="primary" onClick={() => setIsCoordinatorCloseDialogOpen(true)} sx={{ mr: 1 }}>
                     Attend
                   </Button>
                 )}
@@ -1038,27 +1407,36 @@ export default function TicketDetailsModal({
                 {/* Reviewer Actions */}
                 {showCoordinatorActions && (
                   <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2, justifyContent: "flex-end" }}>
-                    {/* Show rating buttons only if not a major complaint that's been returned */}
+                    {/* Show rating selection only if not a major complaint that's been returned */}
                     {!(selectedTicket.category === "Complaint" && 
                        selectedTicket.complaint_type === "Major" && 
                        selectedTicket.status === "Returned") && (
                       <>
-                        <Button
-                          size="small"
-                          variant="contained"
-                          color="primary"
-                          onClick={() => handleRating(selectedTicket.id, "Minor")}
-                        >
-                          Minor
-                        </Button>
-                        <Button
-                          size="small"
-                          variant="contained"
-                          color="primary"
-                          onClick={() => handleRating(selectedTicket.id, "Major")}
-                        >
-                          Major
-                        </Button>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                          <Typography variant="body2" sx={{ fontWeight: "bold", fontSize: "0.8rem" }}>
+                            Complaint Category:
+                          </Typography>
+                          <select
+                            style={{
+                              padding: "4px 8px",
+                              fontSize: "0.8rem",
+                              height: "32px",
+                              borderRadius: "4px",
+                              border: "1px solid #ccc"
+                            }}
+                            value={selectedRating}
+                            onChange={(e) => {
+                              setSelectedRating(e.target.value);
+                              if (e.target.value) {
+                                handleRating(selectedTicket.id, e.target.value);
+                              }
+                            }}
+                          >
+                            <option value="">Select Category</option>
+                            <option value="Minor">Minor</option>
+                            <option value="Major">Major</option>
+                          </select>
+                        </Box>
                       </>
                     )}
 
@@ -1247,7 +1625,7 @@ export default function TicketDetailsModal({
 
       {/* Reviewer Close Dialog */}
       <Dialog open={isCoordinatorCloseDialogOpen} onClose={() => setIsCoordinatorCloseDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Close Ticket</DialogTitle>
+        <DialogTitle>Close Ticket - Resolution Details</DialogTitle>
         <DialogContent>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
             <Box>

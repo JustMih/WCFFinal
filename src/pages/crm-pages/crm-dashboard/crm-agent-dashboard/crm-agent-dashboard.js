@@ -32,6 +32,7 @@ import TicketFilters from "../../../../components/ticket/TicketFilters";
 import TicketDetailsModal from "../../../../components/ticket/TicketDetailsModal";
 import Pagination from "../../../../components/Pagination";
 import TableControls from "../../../../components/TableControls";
+import EnhancedSearchForm from "../../../../components/search/EnhancedSearchForm";
 import axios from "axios";
 
 // Add styled components for better typeahead styling
@@ -80,6 +81,32 @@ const SuggestionItem = styled("div")({
 const AgentCRM = () => {
   // State for form data
   const [formData, setFormData] = useState({
+    firstName: "",
+    middleName: "",
+    lastName: "",
+    phoneNumber: "",
+    nidaNumber: "",
+    requester: "",
+    institution: "",
+    employerName: "",
+    region: "",
+    district: "",
+    category: "",
+    channel: "",
+    subject: "",
+    subSection: "",
+    section: "",
+    description: "",
+    representativeName: "",
+    representativePhone: "",
+    representativeEmail: "",
+    representativeNida: "",
+    // Allocated user fields from search response
+    allocated_user_username: "",
+    allocated_user_name: "",
+    allocated_user_id: "",
+    // Claim information
+    claimNumber: "",
     subject: "",
     description: "",
     category: "",
@@ -257,6 +284,17 @@ const AgentCRM = () => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [comments, setComments] = useState("");
+
+  // Add new state variables for enhanced search functionality
+  const [selectedEmployer, setSelectedEmployer] = useState(null);
+  const [employerSearchQuery, setEmployerSearchQuery] = useState("");
+  const [employerSearchResults, setEmployerSearchResults] = useState([]);
+  const [employeeSearchQuery, setEmployeeSearchQuery] = useState("");
+  const [employeeSearchResults, setEmployeeSearchResults] = useState([]);
+  const [isEmployeeSearching, setIsEmployeeSearching] = useState(false);
+  const [searchStep, setSearchStep] = useState("employer"); // "employer" or "employee"
+  const [formSearchType, setFormSearchType] = useState(""); // "employer" or "employee" - for form layout
+  const [searchCompleted, setSearchCompleted] = useState(false); // Track if search is completed
 
   // Handler to search institutions
   const handleInstitutionSearch = async (query) => {
@@ -569,32 +607,15 @@ const AgentCRM = () => {
       // 2. If no claim number and it's an inquiry → Send to focal person of the selected section/unit
       // 3. Otherwise → Fallback to institution's allocated staff
       let employerAllocatedStaffUsername = "";
-      if (
-        selectedSuggestion &&
-        selectedSuggestion.claimId &&
-        selectedSuggestion.allocated_user_username
-      ) {
-        // If employee has claim number, use allocated user from claim (checklist user)
-        employerAllocatedStaffUsername =
-          selectedSuggestion.allocated_user_username;
-        console.log("Routing: Has claim number, sending to checklist user:", employerAllocatedStaffUsername);
-      } else if (
-        (!selectedSuggestion || !selectedSuggestion.claimId) &&
-        formData.category === "Inquiry" &&
-        selectedInstitution &&
-        selectedInstitution.allocated_staff_username
-      ) {
-        // If no claim number and it's an inquiry, send to focal person of the section/unit
-        employerAllocatedStaffUsername =
-          selectedInstitution.allocated_staff_username;
-        console.log("Routing: No claim + Inquiry, sending to focal person:", employerAllocatedStaffUsername);
+
+      if (selectedSuggestion && selectedSuggestion.allocated_user_username) {
+        // Use allocated user from employee search response
+        employerAllocatedStaffUsername = selectedSuggestion.allocated_user_username;
+        console.log("Routing: Using allocated user from employee search:", employerAllocatedStaffUsername);
       } else {
-        // Fallback to previous logic if any
-        employerAllocatedStaffUsername =
-          selectedInstitution?.allocated_staff_username ||
-          formData.employerAllocatedStaffUsername ||
-          "";
-        console.log("Routing: Fallback, using:", employerAllocatedStaffUsername);
+        // No allocated user found, will be assigned by backend logic
+        employerAllocatedStaffUsername = "";
+        console.log("Routing: No allocated user found, will be assigned by backend");
       }
 
       const ticketData = {
@@ -629,12 +650,7 @@ const AgentCRM = () => {
         ticketData.employerPhone = formData.phoneNumber;
         ticketData.employerEmail = formData.employerEmail || ""; // Add employerEmail to formData in frontend if available
         ticketData.employerStatus = formData.employerStatus || ""; // Add employerStatus to formData in frontend if available
-        ticketData.employerAllocatedStaffId =
-          formData.employerAllocatedStaffId || ""; // Add allocatedStaffId to formData in frontend if available
-        ticketData.employerAllocatedStaffName =
-          formData.employerAllocatedStaffName || ""; // Add allocatedStaffName to formData in frontend if available
-        ticketData.employerAllocatedStaffUsername =
-          formData.employerAllocatedStaffUsername || ""; // Add allocatedStaffUsername to formData in frontend if available
+        // Removed employer allocated user fields - only using employee search allocated user
       }
 
       // Map representative fields to backend field names if requester is Representative
@@ -1879,9 +1895,11 @@ const AgentCRM = () => {
   // Add function to handle employer search
   const handleEmployerSearch = async (searchQuery) => {
     if (!searchQuery || searchQuery.trim() === "") {
+      setEmployerSearchResults([]);
       return;
     }
 
+    setIsEmployerSearching(true);
     try {
       const response = await fetch(
         "https://demomspapi.wcf.go.tz/api/v1/search/details",
@@ -1902,33 +1920,20 @@ const AgentCRM = () => {
       const data = await response.json();
 
       if (response.ok && data.results?.length > 0) {
-        // Use the first result as the selected employer
-        const selectedEmployer = data.results[0];
-        setFormData(prev => ({
-          ...prev,
-          employerName: selectedEmployer.name || "",
-          institution: selectedEmployer.name || ""
-        }));
-        
-        setSnackbar({
-          open: true,
-          message: `Employer found: ${selectedEmployer.name}`,
-          severity: "success"
-        });
+        setEmployerSearchResults(data.results);
       } else {
-        setSnackbar({
-          open: true,
-          message: "No employer found with that name",
-          severity: "warning"
-        });
+        setEmployerSearchResults([]);
       }
     } catch (error) {
-      console.error("Error searching for employer:", error);
+      console.error("Error searching for employers:", error);
       setSnackbar({
         open: true,
-        message: "Error searching for employer",
+        message: "Error searching for employers",
         severity: "error"
       });
+      setEmployerSearchResults([]);
+    } finally {
+      setIsEmployerSearching(false);
     }
   };
 
@@ -1973,6 +1978,186 @@ const AgentCRM = () => {
       message: `Employer selected: ${suggestion.name}`,
       severity: "success"
     });
+  };
+
+  // Enhanced search functions for two-step search process
+  const handleEmployerSelection = (employer) => {
+    setSelectedEmployer(employer);
+    setEmployerSearchQuery(employer.name || "");
+    setEmployerSearchResults([]);
+    
+    // Update form data with selected employer
+    setFormData(prev => ({
+      ...prev,
+      employerName: employer.name || "",
+      institution: employer.name || "",
+      nidaNumber: employer.tin || "",
+      phoneNumber: employer.phone || ""
+    }));
+
+    // If this is an employer search (not employee search), mark as completed
+    if (formSearchType === "employer" || searchStep === "employer") {
+      setFormSearchType("employer");
+      setSearchCompleted(true);
+      setSearchStep("employer");
+    } else {
+      // If this is part of employee search, move to employee search step
+      setSearchStep("employee");
+    }
+
+    setSnackbar({
+      open: true,
+      message: (formSearchType === "employer" || searchStep === "employer")
+        ? `Employer selected: ${employer.name}. Employer details filled.`
+        : `Employer selected: ${employer.name}. Now search for employees.`,
+      severity: "success"
+    });
+  };
+
+  const handleEmployeeSearch = async (searchQuery) => {
+    if (!searchQuery || searchQuery.trim() === "" || !selectedEmployer) {
+      setEmployeeSearchResults([]);
+      return;
+    }
+
+    setIsEmployeeSearching(true);
+    try {
+      const response = await fetch(
+        "https://demomspapi.wcf.go.tz/api/v1/search/details",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json"
+          },
+          body: JSON.stringify({
+            type: "employee",
+            employer: selectedEmployer.name || "",
+            name: searchQuery.trim(),
+            employer_registration_number: ""
+          })
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok && data.results?.length > 0) {
+        setEmployeeSearchResults(data.results);
+      } else {
+        setEmployeeSearchResults([]);
+      }
+    } catch (error) {
+      console.error("Error searching for employees:", error);
+      setSnackbar({
+        open: true,
+        message: "Error searching for employees",
+        severity: "error"
+      });
+      setEmployeeSearchResults([]);
+    } finally {
+      setIsEmployeeSearching(false);
+    }
+  };
+
+  const handleEmployeeSelection = (employee) => {
+    // Extract employee information from the API response
+    const employeeData = employee.employee || employee;
+    
+    // Parse the name to extract first, middle, and last names
+    const fullName = employeeData.name || "";
+    const nameWithoutEmployer = fullName.split("—")[0].trim();
+    const nameParts = nameWithoutEmployer.split(" ");
+    
+    const firstName = nameParts[0] || "";
+    const middleName = nameParts.length > 2 ? nameParts.slice(1, -1).join(" ") : "";
+    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : "";
+
+    // Update form data with employee information including allocated user and claim
+    setFormData(prev => ({
+      ...prev,
+      firstName: firstName,
+      middleName: middleName,
+      lastName: lastName,
+      phoneNumber: employeeData.employee_phone || "",
+      nidaNumber: employeeData.nin || "",
+      institution: selectedEmployer.name || "",
+      employerName: selectedEmployer.name || "",
+      // Store allocated user information from search response
+      allocated_user_username: employeeData.allocated_user_username || "",
+      allocated_user_name: employeeData.allocated_user || "",
+      allocated_user_id: employeeData.allocated_user_id || "",
+      // Store claim information
+      claimNumber: employeeData.claim_number || ""
+    }));
+
+    // Set selected suggestion for claim button display
+    setSelectedSuggestion(employeeData);
+
+    setEmployeeSearchQuery(nameWithoutEmployer);
+    setEmployeeSearchResults([]);
+    setSearchStep("employer"); // Reset to employer search for next search
+    setSearchCompleted(true); // Mark search as completed for employee search
+
+    setSnackbar({
+      open: true,
+      message: `Employee selected: ${nameWithoutEmployer}. Employee details filled.`,
+      severity: "success"
+    });
+  };
+
+  const resetSearch = () => {
+    setSelectedEmployer(null);
+    setEmployerSearchQuery("");
+    setEmployerSearchResults([]);
+    setEmployeeSearchQuery("");
+    setEmployeeSearchResults([]);
+    setSearchStep("employer");
+    setFormSearchType(""); // Reset search type
+    setSearchCompleted(false); // Reset search completed status
+    
+    // Clear institution details panel
+    setSelectedInstitution(null);
+    
+    // Clear all form fields
+    setFormData({
+      firstName: "",
+      middleName: "",
+      lastName: "",
+      phoneNumber: "",
+      nidaNumber: "",
+      requester: "",
+      institution: "",
+      employerName: "",
+      region: "",
+      district: "",
+      category: "",
+      channel: "",
+      subject: "",
+      subSection: "",
+      section: "",
+      description: "",
+      representativeName: "",
+      representativePhone: "",
+      representativeEmail: "",
+      representativeNida: "",
+      // Clear allocated user fields
+      allocated_user_username: "",
+      allocated_user_name: "",
+      allocated_user_id: "",
+      // Clear claim information
+      claimNumber: ""
+    });
+    
+    // Clear form errors
+    setFormErrors({});
+    
+    // Clear selected suggestion
+    setSelectedSuggestion(null);
+  };
+
+  // Handler for search type changes from EnhancedSearchForm
+  const handleSearchTypeChange = (newSearchType) => {
+    setFormSearchType(newSearchType);
   };
 
   if (loading) {
@@ -2542,6 +2727,52 @@ const AgentCRM = () => {
                   </Box>
                 )}
                 <Box sx={{ mt: 3, textAlign: "right" }}>
+                  <Button
+                    variant="contained"
+                    color="success"
+                    sx={{ mr: 2 }}
+                    onClick={() => {
+                      // Populate form with current ticket data
+                      setFormData({
+                        firstName: selectedTicket.first_name || "",
+                        middleName: selectedTicket.middle_name || "",
+                        lastName: selectedTicket.last_name || "",
+                        phoneNumber: selectedTicket.phone_number || "",
+                        nidaNumber: selectedTicket.nida_number || "",
+                        requester: selectedTicket.requester || "",
+                        institution: selectedTicket.institution || "",
+                        employerName: selectedTicket.employer_name || "",
+                        region: selectedTicket.region || "",
+                        district: selectedTicket.district || "",
+                        category: selectedTicket.category || "",
+                        channel: selectedTicket.channel || "",
+                        subject: selectedTicket.subject || "",
+                        subSection: selectedTicket.sub_section || "",
+                        section: selectedTicket.section || "",
+                        description: selectedTicket.description || "",
+                        representativeName: selectedTicket.representative_name || "",
+                        representativePhone: selectedTicket.representative_phone || "",
+                        representativeEmail: selectedTicket.representative_email || "",
+                        representativeNida: selectedTicket.representative_nida || ""
+                      });
+                      
+                      // Set search type based on requester
+                      if (selectedTicket.requester === "Employer") {
+                        setFormSearchType("employer");
+                      } else if (selectedTicket.requester === "Employee") {
+                        setFormSearchType("employee");
+                      }
+                      
+                      // Mark search as completed to show form fields
+                      setSearchCompleted(true);
+                      
+                      // Close details modal and open ticket creation modal
+                      setShowDetailsModal(false);
+                      setShowModal(true);
+                    }}
+                  >
+                    New Ticket
+                  </Button>
                   {selectedTicket.status !== "Closed" && (
                     <Button
                       variant="contained"
@@ -2731,19 +2962,41 @@ const AgentCRM = () => {
                   if (!prev && foundTickets && foundTickets.length > 0)
                     prev = foundTickets[0];
                   if (prev) {
+                    // Populate form with all ticket data
                     setFormData({
-                      subject: prev.subject || "",
-                      description: prev.description || "",
+                      firstName: prev.first_name || "",
+                      middleName: prev.middle_name || "",
+                      lastName: prev.last_name || "",
+                      phoneNumber: prev.phone_number || "",
+                      nidaNumber: prev.nida_number || "",
+                      requester: prev.requester || "",
+                      institution: prev.institution || "",
+                      employerName: prev.employer_name || "",
+                      region: prev.region || "",
+                      district: prev.district || "",
                       category: prev.category || "",
-                      priority: prev.priority || "",
-                      // Reset representative fields
-                      requesterName: prev.requesterName || "",
-                      requesterPhoneNumber: prev.requesterPhoneNumber || "",
-                      requesterEmail: prev.requesterEmail || "",
-                      requesterAddress: prev.requesterAddress || "",
-                      relationshipToEmployee: prev.relationshipToEmployee || ""
+                      channel: prev.channel || "",
+                      subject: prev.subject || "",
+                      subSection: prev.sub_section || "",
+                      section: prev.section || "",
+                      description: prev.description || "",
+                      representativeName: prev.representative_name || "",
+                      representativePhone: prev.representative_phone || "",
+                      representativeEmail: prev.representative_email || "",
+                      representativeNida: prev.representative_nida || ""
                     });
+                    
+                    // Set search type based on requester
+                    if (prev.requester === "Employer") {
+                      setFormSearchType("employer");
+                    } else if (prev.requester === "Employee") {
+                      setFormSearchType("employee");
+                    }
+                    
+                    // Mark search as completed to show form fields
+                    setSearchCompleted(true);
                   } else {
+                    // If no ticket data, just set phone number from search
                     setFormData((prev) => ({
                       ...prev,
                       phoneNumber: phoneSearch
@@ -2863,325 +3116,26 @@ const AgentCRM = () => {
             <div className="modal-form-container">
               <h2 className="modal-title">New Ticket</h2>
 
-              {/* Search Section */}
-              <div
-                className="search-section"
-                style={{
-                  marginBottom: "20px",
-                  padding: "15px",
-                  backgroundColor: "#f5f5f5",
-                  borderRadius: "8px"
-                }}
-              >
-                <div style={{ marginBottom: "15px" }}>
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "8px",
-                      fontWeight: "bold"
-                    }}
-                  >
-                    Search Type:
-                  </label>
-                  <select
-                    value={searchType}
-                    onChange={(e) => {
-                      setSearchType(e.target.value);
-                      setSearchSuggestions([]);
-                      setSelectedSuggestion(null);
-                      setSearchQuery("");
-                    }}
-                    style={{
-                      width: "100%",
-                      padding: "8px",
-                      borderRadius: "4px",
-                      border: "1px solid #ddd"
-                    }}
-                  >
-                    <option value="employee">Employee</option>
-                    <option value="employer">Employer</option>
-                  </select>
-                </div>
+              {/* Search Section - Replaced with EnhancedSearchForm */}
+              {/* The old search form has been replaced with the enhanced two-step search functionality */}
 
-                <div style={{ marginBottom: "15px" }}>
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "8px",
-                      fontWeight: "bold"
-                    }}
-                  >
-                    Search By:
-                  </label>
-                  <select
-                    value={searchBy}
-                    onChange={(e) => {
-                      setSearchBy(e.target.value);
-                      setSearchSuggestions([]);
-                      setSelectedSuggestion(null);
-                      setSearchQuery("");
-                    }}
-                    style={{
-                      width: "100%",
-                      padding: "8px",
-                      borderRadius: "4px",
-                      border: "1px solid #ddd"
-                    }}
-                  >
-                    <option value="name">Name</option>
-                    <option value="wcf_number">WCF Number</option>
-                  </select>
-                </div>
-
-                <div style={{ marginBottom: "15px" }}>
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "8px",
-                      fontWeight: "bold"
-                    }}
-                  >
-                    {searchBy === "name" ? "Enter Name" : "Enter WCF Number"}:
-                  </label>
-                  <StyledAutocomplete
-                    value={selectedSuggestion}
-                    onChange={(event, newValue) =>
-                      handleSuggestionSelected(event, newValue)
-                    }
-                    inputValue={inputValue}
-                    onInputChange={handleInputChange}
-                    options={searchSuggestions}
-                    getOptionLabel={(option) => option.displayName || ""}
-                    open={open}
-                    onOpen={() => setOpen(true)}
-                    onClose={() => setOpen(false)}
-                    loading={isSearching}
-                    loadingText={
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: "10px"
-                        }}
-                      >
-                        <CircularProgress size={20} />
-                        <span>Searching...</span>
-                      </div>
-                    }
-                    noOptionsText={
-                      inputValue.length < 1
-                        ? "Start typing to search"
-                        : "No matching records found"
-                    }
-                    renderOption={(props, option) => (
-                      <li {...props}>
-                        <SuggestionItem>
-                          <div className="suggestion-name">
-                            <span style={{ color: "#666" }}>
-                              {option.numberPrefix}
-                            </span>{" "}
-                            {highlightMatch(option.cleanName, inputValue)}
-                            {option.employerName && (
-                              <>
-                                {" — ("}
-                                <span style={{ color: "#666" }}>
-                                  {highlightMatch(
-                                    option.employerName,
-                                    inputValue
-                                  )}
-                                </span>
-                                {")"}
-                              </>
-                            )}
-                          </div>
-                          <div className="suggestion-details">
-                            Member No: {option.memberNo}
-                            {option.type && ` • Type: ${option.type}`}
-                            {option.status && ` • Status: ${option.status}`}
-                          </div>
-                        </SuggestionItem>
-                      </li>
-                    )}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        placeholder={
-                          searchBy === "name"
-                            ? "Start typing name..."
-                            : "Enter WCF number..."
-                        }
-                        InputProps={{
-                          ...params.InputProps,
-                          endAdornment: (
-                            <>
-                              {isSearching && (
-                                <CircularProgress color="inherit" size={20} />
-                              )}
-                              {params.InputProps.endAdornment}
-                            </>
-                          )
-                        }}
-                        sx={{
-                          "& .MuiOutlinedInput-root": {
-                            "& fieldset": {
-                              borderColor: "#e0e0e0"
-                            },
-                            "&:hover fieldset": {
-                              borderColor: "#1976d2"
-                            },
-                            "&.Mui-focused fieldset": {
-                              borderColor: "#1976d2"
-                            }
-                          }
-                        }}
-                      />
-                    )}
-                    filterOptions={(x) => x}
-                    freeSolo={false}
-                    autoComplete
-                    includeInputInList
-                    blurOnSelect
-                    clearOnBlur={false}
-                    selectOnFocus
-                    handleHomeEndKeys
-                    style={{ width: "100%" }}
-                  />
-                </div>
-
-                {/* Search for Employer Field - Only show when search type is employee */}
-                {searchType === "employee" && (
-                  <div style={{ marginBottom: "15px" }}>
-                    <label
-                      style={{
-                        display: "block",
-                        marginBottom: "8px",
-                        fontWeight: "bold"
-                      }}
-                    >
-                      Search for Employer Name:
-                    </label>
-                    <StyledAutocomplete
-                      value={null}
-                      onChange={(event, newValue) => handleEmployerSuggestionSelected(event, newValue)}
-                      inputValue={employerSearchInputValue}
-                      onInputChange={handleEmployerSearchInputChange}
-                      options={employerSearchSuggestions}
-                      getOptionLabel={(option) => option.displayName || ""}
-                      open={employerSearchOpen}
-                      onOpen={() => setEmployerSearchOpen(true)}
-                      onClose={() => setEmployerSearchOpen(false)}
-                      loading={isEmployerSearching}
-                      loadingText={
-                        <div
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            gap: "10px"
-                          }}
-                        >
-                          <CircularProgress size={20} />
-                          <span>Searching...</span>
-                        </div>
-                      }
-                      noOptionsText={
-                        employerSearchInputValue.length < 1
-                          ? "Start typing to search"
-                          : "No matching employers found"
-                      }
-                      renderOption={(props, option) => (
-                        <li {...props}>
-                          <SuggestionItem>
-                            <div className="suggestion-name">
-                              {highlightMatch(option.name, employerSearchInputValue)}
-                            </div>
-                            <div className="suggestion-details">
-                              TIN: {option.tin}
-                              {option.phone && ` • Phone: ${option.phone}`}
-                              {option.status && ` • Status: ${option.status}`}
-                            </div>
-                          </SuggestionItem>
-                        </li>
-                      )}
-                      renderInput={(params) => (
-                        <TextField
-                          {...params}
-                          placeholder="Search for employer/institution..."
-                          InputProps={{
-                            ...params.InputProps,
-                            endAdornment: (
-                              <>
-                                {isEmployerSearching && (
-                                  <CircularProgress color="inherit" size={20} />
-                                )}
-                                {params.InputProps.endAdornment}
-                              </>
-                            )
-                          }}
-                          sx={{
-                            "& .MuiOutlinedInput-root": {
-                              "& fieldset": {
-                                borderColor: "#e0e0e0"
-                              },
-                              "&:hover fieldset": {
-                                borderColor: "#1976d2"
-                              },
-                              "&.Mui-focused fieldset": {
-                                borderColor: "#1976d2"
-                              }
-                            }
-                          }}
-                        />
-                      )}
-                      filterOptions={(x) => x}
-                      freeSolo={false}
-                      autoComplete
-                      includeInputInList
-                      blurOnSelect
-                      clearOnBlur={false}
-                      selectOnFocus
-                      handleHomeEndKeys
-                      style={{ width: "100%" }}
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Search for Employer Field - Only show when search type is employee */}
-              {searchType === "employee" && (
-                <div style={{ marginBottom: "15px" }}>
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "8px",
-                      fontWeight: "bold"
-                    }}
-                  >
-                    Employer Name:
-                  </label>
-                  <input
-                    type="text"
-                    name="employerName"
-                    value={formData.employerName || ""}
-                    onChange={handleChange}
-                    placeholder="Enter employer name"
-                    style={{
-                      width: "100%",
-                      padding: "8px",
-                      borderRadius: "4px",
-                      border: "1px solid #ddd",
-                      fontSize: "0.875rem"
-                    }}
-                  />
-                </div>
-              )}
+              {/* Enhanced Two-Step Search Form */}
+              <EnhancedSearchForm
+                onEmployerSelect={handleEmployerSelection}
+                onEmployeeSelect={handleEmployeeSelection}
+                onReset={resetSearch}
+                selectedEmployer={selectedEmployer}
+                searchStep={searchStep}
+                setSearchStep={setSearchStep}
+                onSearchTypeChange={handleSearchTypeChange}
+              />
 
               {/* Update the claim status section */}
-              {searchType === "employee" && selectedSuggestion && (
+              {formSearchType === "employee" && selectedSuggestion && (
                 <div
                   style={{
                     marginTop: "10px",
+                    marginBottom: "12px",
                     padding: "10px",
                     backgroundColor: "#f5f5f5",
                     borderRadius: "8px",
@@ -3195,11 +3149,11 @@ const AgentCRM = () => {
                       variant="subtitle2"
                       style={{ fontWeight: "bold" }}
                     >
-                      {selectedSuggestion.claimId ? (
+                      {selectedSuggestion.claim_number ? (
                         <>
                           Claim Number:{" "}
                           <span style={{ color: "#1976d2" }}>
-                            {selectedSuggestion.claimId}
+                            {selectedSuggestion.claim_number}
                           </span>
                         </>
                       ) : (
@@ -3208,11 +3162,34 @@ const AgentCRM = () => {
                     </Typography>
                   </div>
                   
+                  {/* Claim Button */}
+                  {selectedSuggestion.claim_number && (
+                    <button
+                      style={{
+                        padding: "8px 16px",
+                        backgroundColor: "#1976d2",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        fontWeight: "bold"
+                      }}
+                      onClick={() => {
+                        // Handle claim button click - you can add your claim logic here
+                        window.open(`/claims/${selectedSuggestion.claim_number}`, '_blank');
+                        // Or navigate to claim details page
+                        // window.location.href = `/claims/${selectedSuggestion.claim_number}`;
+                      }}
+                    >
+                      View Claim
+                    </button>
+                  )}
                 </div>
               )}
 
               {/* Existing form fields */}
-              {searchType !== "employer" && (
+              {formSearchType !== "employer" && (
                 <div className="modal-form-row">
                   <div className="modal-form-group" style={{ flex: 1 }}>
                     <label style={{ fontSize: "0.875rem" }}>First Name:</label>
@@ -3239,7 +3216,7 @@ const AgentCRM = () => {
 
                   <div className="modal-form-group" style={{ flex: 1 }}>
                     <label style={{ fontSize: "0.875rem" }}>
-                      Middle Name (Optional):
+                      Middle Name <span style={{ fontSize: "0.75rem", color: "#666" }}>(Optional)</span>:
                     </label>
                     <input
                       name="middleName"
@@ -3258,7 +3235,7 @@ const AgentCRM = () => {
                   <div className="modal-form-group" style={{ flex: 1 }}>
                     <label style={{ fontSize: "0.875rem" }}>
                       Last Name
-                      {formData.requester === "Employer" ? " (Optional)" : ""}:
+                      {formData.requester === "Employer" ? <span style={{ fontSize: "0.75rem", color: "#666" }}> (Optional)</span> : ""}:
                     </label>
                     <input
                       name="lastName"
@@ -3285,6 +3262,53 @@ const AgentCRM = () => {
                   </div>
                 </div>
               )}
+
+              {/* Institution field - Show first for employer search, normal position for employee search */}
+              <div className="modal-form-row">
+                <div className="modal-form-group" style={{ flex: 1 }}>
+                  <label style={{ fontSize: "0.875rem" }}>
+                    {formSearchType === "employer" ? "Institution Name:" : "Institution:"}
+                  </label>
+                  <input
+                    name="institution"
+                    value={formData.institution}
+                    onChange={handleChange}
+                    placeholder={formSearchType === "employer" ? "Enter institution name" : "Enter Institution"}
+                    style={{
+                      height: "32px",
+                      fontSize: "0.875rem",
+                      padding: "4px 8px",
+                      border: formErrors.institution
+                        ? "1px solid red"
+                        : "1px solid #ccc"
+                    }}
+                  />
+                  {formErrors.institution && (
+                    <span style={{ color: "red", fontSize: "0.75rem" }}>
+                      {formErrors.institution}
+                    </span>
+                  )}
+                </div>
+
+                {/* Show employer name field only for employee search */}
+                {formSearchType === "employee" && (
+                  <div className="modal-form-group" style={{ flex: 1 }}>
+                    <label style={{ fontSize: "0.875rem" }}>Employer Name:</label>
+                    <input
+                      name="employerName"
+                      value={formData.employerName}
+                      onChange={handleChange}
+                      placeholder="Enter employer name"
+                      style={{
+                        height: "32px",
+                        fontSize: "0.875rem",
+                        padding: "4px 8px",
+                        border: "1px solid #ccc"
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
 
               {/* Phone & NIDA */}
               <div className="modal-form-row">
@@ -3453,7 +3477,7 @@ const AgentCRM = () => {
                         )}
                       </div>
                       <div>
-                        <label style={{ fontSize: '0.875rem' }}>Representative Email (Optional):</label>
+                        <label style={{ fontSize: '0.875rem' }}>Representative Email <span style={{ fontSize: "0.75rem", color: "#666" }}>(Optional)</span>:</label>
                         <input
                           type="email"
                           name="requesterEmail"
@@ -3471,7 +3495,7 @@ const AgentCRM = () => {
                         />
                       </div>
                       <div>
-                        <label style={{ fontSize: '0.875rem' }}>Representative Address (Optional):</label>
+                        <label style={{ fontSize: '0.875rem' }}>Representative Address <span style={{ fontSize: "0.75rem", color: "#666" }}>(Optional)</span>:</label>
                         <input
                           name="requesterAddress"
                           value={formData.requesterAddress}
@@ -3782,6 +3806,7 @@ const AgentCRM = () => {
                   <strong>Allocated Username:</strong>{" "}
                   {selectedInstitution.allocated_staff_username}
                 </div>
+                {/* All details shown for reference - only name used for submission, allocated user from employee search used for assignment */}
               </div>
             )}
             {/* Ticket history for entered phone number */}
@@ -3949,32 +3974,7 @@ const AgentCRM = () => {
           </div>
         </div>
       )}
-
-      {/* In the modal JSX, just below the Institution input field */}
-      {formData.requester === "Employee" && employerDetails && (
-        <div
-          style={{
-            margin: "10px 0",
-            padding: "10px",
-            background: "#e3f2fd",
-            borderRadius: "6px"
-          }}
-        >
-          <div>
-            <strong>Allocated User Name:</strong>{" "}
-            {employerDetails.allocated_staff_name
-              ? employerDetails.allocated_staff_name
-              : JSON.stringify(employerDetails)}
-          </div>
-          <div>
-            <strong>Allocated Username:</strong>{" "}
-            {employerDetails.allocated_staff_username
-              ? employerDetails.allocated_staff_username
-              : JSON.stringify(employerDetails)}
-          </div>
-        </div>
-      )}
-
+      
       {/* In the modal JSX, above the Institution input field */}
       {/* <Autocomplete
         value={selectedInstitution}

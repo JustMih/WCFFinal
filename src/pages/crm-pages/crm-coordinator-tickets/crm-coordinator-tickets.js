@@ -347,54 +347,6 @@ export default function CRMCoordinatorTickets() {
     });
   };
 
-  // Add handleRating and handleForward functions
-  const handleRating = async (ticketId, rating) => {
-    const token = localStorage.getItem("authToken");
-    const userId = localStorage.getItem("userId");
-    try {
-      const response = await fetch(`${baseURL}/coordinator/${ticketId}/rate`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify({ userId, rating })
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setSnackbar({ open: true, message: "Ticket rated successfully", severity: "success" });
-        fetchTickets();
-      } else {
-        setSnackbar({ open: true, message: data.message || "Failed to rate ticket", severity: "error" });
-      }
-    } catch (error) {
-      setSnackbar({ open: true, message: error.message, severity: "error" });
-    }
-  };
-
-  const handleForward = async (ticketId, forwardData) => {
-    const token = localStorage.getItem("authToken");
-    try {
-      const response = await fetch(`${baseURL}/coordinator/${ticketId}/forward`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
-        },
-        body: JSON.stringify(forwardData)
-      });
-      const data = await response.json();
-      if (response.ok) {
-        setSnackbar({ open: true, message: "Ticket forwarded successfully", severity: "success" });
-        fetchTickets();
-      } else {
-        setSnackbar({ open: true, message: data.message || "Failed to forward ticket", severity: "error" });
-      }
-    } catch (error) {
-      setSnackbar({ open: true, message: error.message, severity: "error" });
-    }
-  };
-
   if (loading) {
     return (
       <div className="p-6">
@@ -481,7 +433,6 @@ export default function CRMCoordinatorTickets() {
         onClose={() => { setIsModalOpen(false); setSelectedTicket(null); setAssignmentHistory([]); }}
         selectedTicket={selectedTicket}
         assignmentHistory={assignmentHistory}
-        handleConvertOrForward={handleConvertOrForward}
         handleCategoryChange={(ticketId, value) => setConvertCategory((prev) => ({ ...prev, [ticketId]: value }))}
         handleUnitChange={(ticketId, value) => setForwardUnit((prev) => ({ ...prev, [ticketId]: value }))}
         categories={categories}
@@ -490,8 +441,8 @@ export default function CRMCoordinatorTickets() {
         forwardUnit={forwardUnit}
         refreshTickets={fetchTickets}
         setSnackbar={setSnackbar}
-        handleRating={handleRating}
-        handleForward={handleForward}
+        setConvertCategory={setConvertCategory}
+        setForwardUnit={setForwardUnit}
       />
 
       <Snackbar

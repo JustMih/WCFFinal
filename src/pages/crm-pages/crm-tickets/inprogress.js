@@ -380,6 +380,7 @@ export default function Crm() {
         assigned_to_id: selectedTicket.assigned_to_id
       });
     }
+    
     let currentAssigneeIdx = 0;
     if (
       selectedTicket.status === "Open" &&
@@ -387,45 +388,97 @@ export default function Crm() {
     ) {
       currentAssigneeIdx = 0;
     } else {
+      // Find the current step based on assigned_to_id or the last step
       const idx = steps.findIndex(
         a => a.assigned_to_id === selectedTicket.assigned_to_id
       );
-      currentAssigneeIdx = idx !== -1 ? idx : steps.length - 1;
+      if (idx !== -1) {
+        currentAssigneeIdx = idx;
+      } else {
+        // If no exact match, find the last non-escalated step or the last step
+        const lastNonEscalatedIdx = steps.findLastIndex(
+          a => a.action !== "Escalated" && a.assigned_to_role !== "Escalated"
+        );
+        currentAssigneeIdx = lastNonEscalatedIdx !== -1 ? lastNonEscalatedIdx : steps.length - 1;
+      }
     }
+    
     return (
       <Box>
-        {steps.map((a, idx) => (
-          <Box key={idx} sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
-            <Box
-              sx={{
-                width: 30,
-                height: 30,
-                borderRadius: "50%",
-                bgcolor:
-                  idx < currentAssigneeIdx
-                    ? "green"
-                    : idx === currentAssigneeIdx
-                    ? "#1976d2"
-                    : "gray",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "white",
-                fontWeight: "bold"
-              }}
-            >
-              {idx + 1}
+        {steps.map((a, idx) => {
+          // Determine color based on action and status
+          let color;
+          
+          // Check if next step is escalated
+          const nextStep = steps[idx + 1];
+          const isNextEscalated = nextStep && (nextStep.action === "Escalated" || nextStep.assigned_to_role === "Escalated");
+          
+          // Check if current step is escalated
+          const isCurrentEscalated = a.action === "Escalated" || a.assigned_to_role === "Escalated";
+          
+          // Check if this step was assigned and then forwarded to someone else (not escalated)
+          const wasAssignedAndForwarded = a.action === "Assigned" && nextStep && nextStep.action !== "Escalated";
+          
+          // Check if ticket is closed
+          const isTicketClosed = selectedTicket.status === "Closed" || selectedTicket.status === "Resolved";
+          
+          // Priority order: Closed > Escalated > Previous to Escalated > Assigned > Current > Completed > Pending
+          if (selectedTicket.status === "Closed" || selectedTicket.status === "Resolved") {
+            color = "green"; // Green for all steps when ticket is closed
+          } else if (isCurrentEscalated) {
+            // Check if this escalated step was followed by an assignment
+            const nextStep = steps[idx + 1];
+            if (nextStep && nextStep.action === "Assigned") {
+              color = "green"; // Green if escalated but then assigned to next user
+            } else if (nextStep && (nextStep.action === "Escalated" || nextStep.assigned_to_role === "Escalated")) {
+              color = "red"; // Red if escalated again to another user
+            } else {
+              color = "gray"; // Gray for escalated (pending/not handled)
+            }
+          } else if (isNextEscalated) {
+            color = "red"; // Red for previous step when next is escalated
+          } else if (wasAssignedAndForwarded) {
+            color = "green"; // Green for assigned step that was forwarded to another user
+          } else if (a.action === "Assigned") {
+            color = "gray"; // Gray for assigned but still open
+          } else if (a.action === "Currently with" || a.assigned_to_role === "Coordinator") {
+            color = "gray"; // Gray for currently with and coordinator
+          } else if (idx === currentAssigneeIdx && selectedTicket.status !== "Closed") {
+            color = "gray"; // Gray for current active step
+          } else if (idx < currentAssigneeIdx || selectedTicket.status === "Closed") {
+            color = "green"; // Green for completed steps or when ticket is closed
+          } else {
+            color = "gray"; // Gray for pending or last step when open
+          }
+          
+          return (
+            <Box key={idx} sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+              <Box
+                sx={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: "50%",
+                  bgcolor: color,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "white",
+                  fontWeight: "bold"
+                }}
+              >
+                {idx + 1}
+              </Box>
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
+                  {a.assigned_to_name} ({a.assigned_to_role})
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {a.action} - {a.created_at ? new Date(a.created_at).toLocaleString() : ''}
+                </Typography>
+              </Box>
             </Box>
-            <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-                {a.assigned_to_name} ({a.assigned_to_role})
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {a.action} - {a.created_at ? new Date(a.created_at).toLocaleString() : ''}
-              </Typography>
-            </Box>
-          </Box>
-        ))}
+          );
+        })}
       </Box>
     );
   };

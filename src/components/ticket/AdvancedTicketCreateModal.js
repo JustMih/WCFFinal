@@ -26,6 +26,37 @@ const getCreatorName = (selectedTicket) =>
   `${selectedTicket.first_name || ""} ${selectedTicket.last_name || ""}`.trim() ||
   "N/A";
 
+// Utility function to format time difference in human-readable format
+const formatTimeDifference = (dateString) => {
+  if (!dateString) return '';
+  
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffInMs = now - date;
+  
+  const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+  const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+  const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+  
+  if (diffInMinutes < 1) {
+    return 'Just now';
+  } else if (diffInMinutes < 60) {
+    return `${diffInMinutes}min`;
+  } else if (diffInHours < 24) {
+    return `${diffInHours}h`;
+  } else if (diffInDays < 7) {
+    return `${diffInDays}d`;
+  } else {
+    const diffInWeeks = Math.floor(diffInDays / 7);
+    if (diffInWeeks < 4) {
+      return `${diffInWeeks}w`;
+    } else {
+      const diffInMonths = Math.floor(diffInDays / 30);
+      return `${diffInMonths}m`;
+    }
+  }
+};
+
 function AssignmentFlowChat({ assignmentHistory = [], selectedTicket }) {
   const creatorStep = selectedTicket
     ? {
@@ -37,6 +68,23 @@ function AssignmentFlowChat({ assignmentHistory = [], selectedTicket }) {
     : null;
   // Always add all assignments as steps, even if assignee is same as creator
   const steps = creatorStep ? [creatorStep, ...assignmentHistory] : assignmentHistory;
+  
+  // Helper function to get aging status color
+  const getAgingStatusColor = (status) => {
+    switch (status) {
+      case 'On Time':
+        return '#4caf50'; // Green
+      case 'Warning':
+        return '#ff9800'; // Orange
+      case 'Overdue':
+        return '#f44336'; // Red
+      case 'Critical':
+        return '#d32f2f'; // Dark Red
+      default:
+        return '#757575'; // Gray
+    }
+  };
+
   return (
     <Box sx={{ maxWidth: 500 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, justifyContent: 'space-between' }}>
@@ -88,23 +136,57 @@ function AssignmentFlowChat({ assignmentHistory = [], selectedTicket }) {
             message = baseMessage;
           }
         }
+        
+        // Display aging information for non-creator steps
+        const showAging = idx > 0 && a.aging_formatted;
+        
         return (
           <Box key={idx} sx={{ display: "flex", mb: 2, alignItems: "flex-start" }}>
             <Avatar sx={{ bgcolor: idx === 0 ? "#43a047" : "#1976d2", mr: 2 }}>
               {a.assigned_to_name ? a.assigned_to_name[0] : "?"}
             </Avatar>
             <Paper elevation={2} sx={{ p: 2, bgcolor: idx === 0 ? "#e8f5e9" : "#f5f5f5", flex: 1 }}>
-              <Typography sx={{ fontWeight: "bold" }}>
-                {a.assigned_to_name || a.assigned_to_id || 'Unknown'} {" "}
-                <span style={{ color: "#888", fontWeight: "normal" }}>
-                  ({a.assigned_to_role || "N/A"})
-                </span>
-              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                <Typography sx={{ fontWeight: "bold" }}>
+                  {a.assigned_to_name || a.assigned_to_id || 'Unknown'} {" "}
+                  <span style={{ color: "#888", fontWeight: "normal" }}>
+                    ({a.assigned_to_role || "N/A"})
+                  </span>
+                </Typography>
+                {showAging && (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', ml: 1 }}>
+                    <Typography 
+                      variant="caption" 
+                      sx={{ 
+                        color: getAgingStatusColor(a.aging_status),
+                        fontWeight: 'bold',
+                        fontSize: '0.7rem'
+                      }}
+                    >
+                      {a.aging_status}
+                    </Typography>
+                    <Typography 
+                      variant="caption" 
+                      sx={{ 
+                        color: '#666',
+                        fontSize: '0.7rem'
+                      }}
+                    >
+                      {a.aging_formatted}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
               <Typography variant="body2" sx={{ color: idx === 0 ? "#43a047" : "#1976d2", wordBreak: 'break-word', whiteSpace: 'pre-line', overflowWrap: 'break-word' }}>
                 {message}
               </Typography>
               <Typography variant="caption" sx={{ color: "#888" }}>
                 {a.created_at ? new Date(a.created_at).toLocaleString() : ""}
+                {a.created_at && (
+                  <span style={{ color: "#666", marginLeft: 8 }}>
+                    ({formatTimeDifference(a.created_at)} ago)
+                  </span>
+                )}
               </Typography>
             </Paper>
           </Box>
