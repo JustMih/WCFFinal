@@ -137,15 +137,16 @@ const EnhancedSearchForm = ({
   };
 
   return (
-    <div
-      className="search-section"
-      style={{
-        marginBottom: "20px",
-        padding: "15px",
-        backgroundColor: "#f5f5f5",
-        borderRadius: "8px"
-      }}
-    >
+    <div style={{ 
+      width: "100%", 
+      maxWidth: "100%", 
+      boxSizing: "border-box",
+      overflow: "hidden",
+      marginBottom: "20px",
+      padding: "15px",
+      backgroundColor: "#f5f5f5",
+      borderRadius: "8px"
+    }}>
       {/* Step 0: Search Type Selection */}
       {!searchType && (
         <div style={{ marginBottom: "15px" }}>
@@ -258,7 +259,9 @@ const EnhancedSearchForm = ({
                 padding: "8px 12px",
                 borderRadius: "4px",
                 border: "1px solid #ddd",
-                fontSize: "14px"
+                fontSize: "14px",
+                boxSizing: "border-box",
+                maxWidth: "100%"
               }}
             />
             {isEmployerSearching && (
@@ -374,7 +377,9 @@ const EnhancedSearchForm = ({
                 padding: "8px 12px",
                 borderRadius: "4px",
                 border: "1px solid #ddd",
-                fontSize: "14px"
+                fontSize: "14px",
+                boxSizing: "border-box",
+                maxWidth: "100%"
               }}
             />
             {isEmployeeSearching && (

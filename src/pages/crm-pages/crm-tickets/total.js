@@ -444,7 +444,6 @@ export default function Crm() {
         onClose={closeModal}
         selectedTicket={selectedTicket}
         assignmentHistory={assignmentHistory.assignments || []}
-        representative={assignmentHistory.representative || null}
       />
 
       {/* Column Selector */}

@@ -21,7 +21,12 @@ import {
   Tooltip,
   Typography,
   Autocomplete,
-  CircularProgress
+  CircularProgress,
+  Avatar,
+  Paper,
+  Dialog,
+  DialogTitle,
+  DialogContent
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
 import { baseURL } from "../../../../config";
@@ -34,6 +39,7 @@ import Pagination from "../../../../components/Pagination";
 import TableControls from "../../../../components/TableControls";
 import EnhancedSearchForm from "../../../../components/search/EnhancedSearchForm";
 import axios from "axios";
+import ChatIcon from '@mui/icons-material/Chat';
 
 // Add styled components for better typeahead styling
 const StyledAutocomplete = styled(Autocomplete)(({ theme }) => ({
@@ -295,6 +301,12 @@ const AgentCRM = () => {
   const [searchStep, setSearchStep] = useState("employer"); // "employer" or "employee"
   const [formSearchType, setFormSearchType] = useState(""); // "employer" or "employee" - for form layout
   const [searchCompleted, setSearchCompleted] = useState(false); // Track if search is completed
+
+  // --- Justification History State ---
+  const [isJustificationModalOpen, setIsJustificationModalOpen] = useState(false);
+  const [selectedTicketForJustification, setSelectedTicketForJustification] = useState(null);
+  const [assignmentHistory, setAssignmentHistory] = useState([]);
+  // --- End Justification History State ---
 
   // Handler to search institutions
   const handleInstitutionSearch = async (query) => {
@@ -855,6 +867,7 @@ const AgentCRM = () => {
         <button
           className="view-ticket-details-btn"
           onClick={() => openDetailsModal(ticket)}
+          title="View Details"
         >
           <FaEye />
         </button>
@@ -2160,6 +2173,232 @@ const AgentCRM = () => {
     setFormSearchType(newSearchType);
   };
 
+  // --- Justification History Functions ---
+  const handleOpenJustificationHistory = async (ticket) => {
+    console.log("Opening justification history for ticket:", ticket);
+    try {
+      const token = localStorage.getItem("authToken");
+      console.log("Token:", token ? "Present" : "Missing");
+      console.log("API URL:", `${baseURL}/ticket/${ticket.id}/assignments`);
+      
+      const response = await fetch(`${baseURL}/ticket/${ticket.id}/assignments`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      console.log("Response status:", response.status);
+      
+      if (response.ok) {
+        const history = await response.json();
+        console.log("Assignment history:", history);
+        console.log("History length:", history.length);
+        console.log("History structure:", JSON.stringify(history, null, 2));
+        
+        setAssignmentHistory(history);
+        setSelectedTicketForJustification(ticket);
+        setIsJustificationModalOpen(true);
+        console.log("Modal should be open now");
+      } else {
+        console.error("Failed to fetch assignment history");
+        const errorText = await response.text();
+        console.error("Error response:", errorText);
+        // Even if API fails, still open modal with empty history
+        setAssignmentHistory([]);
+        setSelectedTicketForJustification(ticket);
+        setIsJustificationModalOpen(true);
+      }
+    } catch (error) {
+      console.error("Error fetching assignment history:", error);
+      // Even if there's an error, still open modal with empty history
+      setAssignmentHistory([]);
+      setSelectedTicketForJustification(ticket);
+      setIsJustificationModalOpen(true);
+    }
+  };
+
+  const handleCloseJustificationModal = () => {
+    setIsJustificationModalOpen(false);
+    setSelectedTicketForJustification(null);
+    setAssignmentHistory([]);
+  };
+  // --- End Justification History Functions ---
+
+  // Add helper functions for justification history
+  const getCreatorName = (selectedTicket) =>
+    selectedTicket.created_by ||
+    (selectedTicket.creator && selectedTicket.creator.name) ||
+    `${selectedTicket.first_name || ""} ${selectedTicket.last_name || ""}`.trim() ||
+    "N/A";
+
+  // Utility function to format time difference in human-readable format
+  const formatTimeDifference = (dateString) => {
+    if (!dateString) return '';
+    
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMs = now - date;
+    
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+    
+    if (diffInMinutes < 1) {
+      return 'Just now';
+    } else if (diffInMinutes < 60) {
+      return `${diffInMinutes}min`;
+    } else if (diffInHours < 24) {
+      return `${diffInHours}h`;
+    } else if (diffInDays < 7) {
+      return `${diffInDays}d`;
+    } else {
+      const diffInWeeks = Math.floor(diffInDays / 7);
+      if (diffInWeeks < 4) {
+        return `${diffInWeeks}w`;
+      } else {
+        const diffInMonths = Math.floor(diffInDays / 30);
+        return `${diffInMonths}m`;
+      }
+    }
+  };
+
+  function AssignmentFlowChat({ assignmentHistory = [], selectedTicket }) {
+    const creatorStep = selectedTicket
+      ? {
+          assigned_to_name: getCreatorName(selectedTicket),
+          assigned_to_role: 'Creator',
+          reason: selectedTicket.description,
+          created_at: selectedTicket.created_at,
+        }
+      : null;
+    // Always add all assignments as steps, even if assignee is same as creator
+    const steps = creatorStep ? [creatorStep, ...assignmentHistory] : assignmentHistory;
+    
+    // Helper function to get aging status color
+    const getAgingStatusColor = (status) => {
+      switch (status) {
+        case 'On Time':
+          return '#4caf50'; // Green
+        case 'Warning':
+          return '#ff9800'; // Orange
+        case 'Overdue':
+          return '#f44336'; // Red
+        case 'Critical':
+          return '#d32f2f'; // Dark Red
+        default:
+          return '#757575'; // Gray
+      }
+    };
+
+    return (
+      <Box sx={{ maxWidth: 500 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, justifyContent: 'space-between' }}>
+          {/* <Typography sx={{ color: "#3f51b5", wordBreak: 'break-word', whiteSpace: 'pre-line' }}>
+            Ticket History
+          </Typography> */}
+        </Box>
+        <Divider sx={{ mb: 2 }} />
+        {steps.map((a, idx) => {
+          let message;
+          if (idx === 0) {
+            message = selectedTicket.description
+              ? `Created the ticket\nDescription: ${selectedTicket.description}`
+              : 'Created the ticket';
+          } else {
+            const prevUser = steps[idx - 1]?.assigned_to_name || 'Previous User';
+            if (selectedTicket.status === "Closed" && idx === steps.length - 1) {
+              if (a.reason && selectedTicket.resolution_details) {
+                message = `Message from ${prevUser}: ${a.reason}\nResolution: ${selectedTicket.resolution_details}`;
+              } else if (a.reason) {
+                message = `Message from ${prevUser}: ${a.reason}`;
+              } else if (selectedTicket.resolution_details) {
+                message = `Resolution: ${selectedTicket.resolution_details}`;
+              } else {
+                message = `Message from ${prevUser}: No message`;
+              }
+            } else {
+              // Build message with workflow details
+              let baseMessage = `Message from ${prevUser}: ${a.reason || 'No message'}`;
+              
+              // Add workflow-specific details
+              if (a.workflow_step) {
+                baseMessage += `\n\nWorkflow Step: ${a.workflow_step}`;
+              }
+              
+              if (a.coordinator_notes) {
+                baseMessage += `\n\nReviewer Notes: ${a.coordinator_notes}`;
+              }
+              
+              if (a.dg_notes) {
+                baseMessage += `\n\nDG Notes: ${a.dg_notes}`;
+              }
+              
+              // Show current resolution details from the ticket
+              if (selectedTicket.resolution_details) {
+                baseMessage += `\n\nResolution Details: ${selectedTicket.resolution_details}`;
+              }
+              
+              message = baseMessage;
+            }
+          }
+          
+          // Display aging information for non-creator steps
+          const showAging = idx > 0 && a.aging_formatted;
+          
+          return (
+            <Box key={idx} sx={{ display: "flex", mb: 2, alignItems: "flex-start" }}>
+              <Avatar sx={{ bgcolor: idx === 0 ? "#43a047" : "#1976d2", mr: 2 }}>
+                {a.assigned_to_name ? a.assigned_to_name[0] : "?"}
+              </Avatar>
+              <Paper elevation={2} sx={{ p: 2, bgcolor: idx === 0 ? "#e8f5e9" : "#f5f5f5", flex: 1 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                  <Typography sx={{ fontWeight: "bold" }}>
+                    {a.assigned_to_name || a.assigned_to_id || 'Unknown'} {" "}
+                    <span style={{ color: "#888", fontWeight: "normal" }}>
+                      ({a.assigned_to_role || "N/A"})
+                    </span>
+                  </Typography>
+                  {showAging && (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', ml: 1 }}>
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          color: getAgingStatusColor(a.aging_status),
+                          fontWeight: 'bold',
+                          fontSize: '0.7rem'
+                        }}
+                      >
+                        {a.aging_status}
+                      </Typography>
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          color: '#666',
+                          fontSize: '0.7rem'
+                        }}
+                      >
+                        {a.aging_formatted}
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+                <Typography variant="body2" sx={{ color: idx === 0 ? "#43a047" : "#1976d2", wordBreak: 'break-word', whiteSpace: 'pre-line', overflowWrap: 'break-word' }}>
+                  {message}
+                </Typography>
+                <Typography variant="caption" sx={{ color: "#888" }}>
+                  {a.created_at ? new Date(a.created_at).toLocaleString() : ""}
+                  {a.created_at && (
+                    <span style={{ color: "#666", marginLeft: 8 }}>
+                      ({formatTimeDifference(a.created_at)} ago)
+                    </span>
+                  )}
+                </Typography>
+              </Paper>
+            </Box>
+          );
+        })}
+      </Box>
+    );
+  }
+
   if (loading) {
     return (
       <div className="p-6">
@@ -2244,10 +2483,47 @@ const AgentCRM = () => {
               key={ticket.id}
               sx={{ mb: 2, p: 2, border: "1px solid #eee", borderRadius: 1 }}
             >
-              <Typography variant="subtitle1">
-                Ticket ID: {ticket.ticket_id}
-              </Typography>
-              <Typography>Status: {ticket.status || "Escalated"}</Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="subtitle1">
+                  Ticket ID: {ticket.ticket_id}
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography
+                    sx={{
+                      px: 1.5,
+                      py: 0.5,
+                      borderRadius: '12px',
+                      color: 'white',
+                      background:
+                        ticket.status === 'Closed'
+                          ? '#757575'
+                          : ticket.status === 'Open'
+                          ? '#2e7d32'
+                          : '#1976d2',
+                      fontSize: '0.75rem',
+                      fontWeight: 500
+                    }}
+                  >
+                    {ticket.status || "Escalated"}
+                  </Typography>
+                  <IconButton
+                    size="small"d
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenJustificationHistory(ticket);
+                    }}
+                    sx={{
+                      color: '#1976d2',
+                      '&:hover': {
+                        backgroundColor: 'rgba(25, 118, 210, 0.1)'
+                      }
+                    }}
+                    title="View Recomendation History"
+                  >
+                    <ChatIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              </Box>
               <Typography>
                 Created: {new Date(ticket.created_at).toLocaleDateString()}
               </Typography>
@@ -2888,24 +3164,42 @@ const AgentCRM = () => {
                       >
                         {ticket.ticket_id}
                       </Typography>
-                      <Typography
-                        sx={{
-                          px: 1.5,
-                          py: 0.5,
-                          borderRadius: "12px",
-                          color: "white",
-                          background:
-                            ticket.status === "Closed"
-                              ? "#757575"
-                              : ticket.status === "Open"
-                              ? "#2e7d32"
-                              : "#1976d2",
-                          fontSize: "0.75rem",
-                          fontWeight: 500
-                        }}
-                      >
-                        {ticket.status}
-                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography
+                          sx={{
+                            px: 1.5,
+                            py: 0.5,
+                            borderRadius: "12px",
+                            color: "white",
+                            background:
+                              ticket.status === "Closed"
+                                ? "#757575"
+                                : ticket.status === "Open"
+                                ? "#2e7d32"
+                                : "#1976d2",
+                            fontSize: "0.75rem",
+                            fontWeight: 500
+                          }}
+                        >
+                          {ticket.status}
+                        </Typography>
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenJustificationHistory(ticket);
+                          }}
+                          sx={{
+                            color: '#1976d2',
+                            '&:hover': {
+                              backgroundColor: 'rgba(25, 118, 210, 0.1)'
+                            }
+                          }}
+                          title="View Recomendation History"
+                        >
+                          <ChatIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
                     </Box>
                     <Box sx={{ mt: 1 }}>
                       <Typography
@@ -3875,24 +4169,42 @@ const AgentCRM = () => {
                         >
                           {ticket.ticket_id}
                         </Typography>
-                        <Typography
-                          sx={{
-                            px: 1.5,
-                            py: 0.5,
-                            borderRadius: "12px",
-                            color: "white",
-                            background:
-                              ticket.status === "Closed"
-                                ? "#757575"
-                                : ticket.status === "Open"
-                                ? "#2e7d32"
-                                : "#1976d2",
-                            fontSize: "0.75rem",
-                            fontWeight: 500
-                          }}
-                        >
-                          {ticket.status}
-                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography
+                            sx={{
+                              px: 1.5,
+                              py: 0.5,
+                              borderRadius: "12px",
+                              color: "white",
+                              background:
+                                ticket.status === "Closed"
+                                  ? "#757575"
+                                  : ticket.status === "Open"
+                                  ? "#2e7d32"
+                                  : "#1976d2",
+                              fontSize: "0.75rem",
+                              fontWeight: 500
+                            }}
+                          >
+                            {ticket.status}
+                          </Typography>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenJustificationHistory(ticket);
+                            }}
+                            sx={{
+                              color: '#1976d2',
+                              '&:hover': {
+                                backgroundColor: 'rgba(25, 118, 210, 0.1)'
+                              }
+                            }}
+                            title="View Recomendation History"
+                          >
+                            <ChatIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
                       </Box>
                       <Box sx={{ mt: 1 }}>
                         <Typography
@@ -4107,6 +4419,48 @@ const AgentCRM = () => {
           </Button>
         </Box>
       </Modal> */}
+
+      {/* Justification History Modal */}
+      <Modal
+        open={isJustificationModalOpen}
+        onClose={handleCloseJustificationModal}
+      >
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: { xs: "90%", sm: 600 },
+            maxHeight: "80vh",
+            overflowY: "auto",
+            bgcolor: "background.paper",
+            boxShadow: 24,
+            borderRadius: 2,
+            p: 3
+          }}
+        >
+          <Typography variant="h6" component="h2" gutterBottom>
+            Justification History
+          </Typography>
+          <Divider sx={{ mb: 2 }} />
+          <AssignmentFlowChat
+            assignmentHistory={assignmentHistory}
+            selectedTicket={selectedTicketForJustification}
+          />
+          <Box
+            sx={{ mt: 2, display: "flex", justifyContent: "flex-end", gap: 1 }}
+          >
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleCloseJustificationModal}
+            >
+              Close
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
 
     </div>
   );

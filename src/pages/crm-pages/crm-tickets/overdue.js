@@ -392,40 +392,105 @@ export default function Crm() {
       );
       currentAssigneeIdx = idx !== -1 ? idx : steps.length - 1;
     }
+
+    // Helper function to calculate time with person
+    const calculateTimeWithPerson = (currentStep, nextStep, selectedTicket, stepIndex, totalSteps) => {
+      if (!currentStep.created_at) return "";
+      
+      const startTime = new Date(currentStep.created_at);
+      let endTime;
+      
+      // Determine the end time based on what happened next
+      if (currentStep.isConsolidated && currentStep.action === "Closed") {
+        // For consolidated closed steps, show time from assignment to closure
+        endTime = new Date(currentStep.closed_at);
+      } else if (selectedTicket.status === "Closed" && selectedTicket.date_of_resolution) {
+        // If ticket is closed, use the resolution date
+        endTime = new Date(selectedTicket.date_of_resolution);
+      } else if (nextStep && nextStep.created_at) {
+        // If there's a next step, use that time (ticket was passed to next person)
+        endTime = new Date(nextStep.created_at);
+      } else if (stepIndex === totalSteps - 1) {
+        // If this is the last step and ticket is still open, use current time
+        endTime = new Date();
+      } else {
+        // Fallback to current time
+        endTime = new Date();
+      }
+      
+      const durationMs = endTime - startTime;
+      const diffDays = Math.ceil(durationMs / (1000 * 60 * 60 * 24));
+      const diffHours = Math.ceil(durationMs / (1000 * 60 * 60));
+      const diffMinutes = Math.ceil(durationMs / (1000 * 60));
+      
+      // Format the duration text
+      if (currentStep.isConsolidated && currentStep.action === "Closed") {
+        // For consolidated closed steps, show closure time
+        if (diffMinutes < 1) {
+          return "(Closed instantly)";
+        } else if (diffMinutes < 60) {
+          return `(Closed with ${diffMinutes}min since assigned)`;
+        } else if (diffHours < 24) {
+          return `(Closed with ${diffHours}h since assigned)`;
+        } else if (diffDays < 7) {
+          return `(Closed with ${diffDays}d since assigned)`;
+        } else {
+          const weeksToClose = Math.floor(diffDays / 7);
+          if (weeksToClose < 4) {
+            return `(Closed with ${weeksToClose}w since assigned)`;
+          } else {
+            const monthsToClose = Math.floor(diffDays / 30);
+            return `(Closed with ${monthsToClose}mon since assigned)`;
+          }
+        }
+      } else {
+        // For regular steps, show time held
+        if (diffDays > 1) return `(${diffDays}d)`;
+        if (diffHours > 1) return `(${diffHours}h)`;
+        if (diffMinutes > 1) return `(${diffMinutes}min)`;
+        return "(Just now)";
+      }
+    };
+
     return (
       <Box>
-        {steps.map((a, idx) => (
-          <Box key={idx} sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
-            <Box
-              sx={{
-                width: 30,
-                height: 30,
-                borderRadius: "50%",
-                bgcolor:
-                  idx < currentAssigneeIdx
-                    ? "green"
-                    : idx === currentAssigneeIdx
-                    ? "#1976d2"
-                    : "gray",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "white",
-                fontWeight: "bold"
-              }}
-            >
-              {idx + 1}
+        {steps.map((a, idx) => {
+          const nextStep = steps[idx + 1];
+          const timeWithPerson = calculateTimeWithPerson(a, nextStep, selectedTicket, idx, steps.length);
+          
+          return (
+            <Box key={idx} sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+              <Box
+                sx={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: "50%",
+                  bgcolor:
+                    idx < currentAssigneeIdx
+                      ? "green"
+                      : idx === currentAssigneeIdx
+                      ? "#1976d2"
+                      : "gray",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "white",
+                  fontWeight: "bold"
+                }}
+              >
+                {idx + 1}
+              </Box>
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
+                  {a.assigned_to_name} ({a.assigned_to_role})
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {a.action} - {a.created_at ? new Date(a.created_at).toLocaleString() : ''} {timeWithPerson}
+                </Typography>
+              </Box>
             </Box>
-            <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-                {a.assigned_to_name} ({a.assigned_to_role})
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {a.action} - {a.created_at ? new Date(a.created_at).toLocaleString() : ''}
-              </Typography>
-            </Box>
-          </Box>
-        ))}
+          );
+        })}
       </Box>
     );
   };
@@ -514,7 +579,6 @@ export default function Crm() {
         onClose={closeModal}
         selectedTicket={selectedTicket}
         assignmentHistory={assignmentHistory}
-        renderAssignmentStepper={renderAssignmentStepper}
       />
       {/* Column Selector */}
       {/* Snackbar for notifications */}

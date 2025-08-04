@@ -150,8 +150,33 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
       assigned_to_id: "coordinator"
     });
   } else if (Array.isArray(assignmentHistory) && assignmentHistory.length > 0) {
+    // Process assignment history to consolidate steps
+    const processedHistory = [];
+    
+    for (let i = 0; i < assignmentHistory.length; i++) {
+      const current = assignmentHistory[i];
+      const next = assignmentHistory[i + 1];
+      
+      // Check if current step is "Assigned" and next step is "Closed" by the same person
+      if (current.action === "Assigned" && 
+          next && 
+          next.action === "Closed" && 
+          current.assigned_to_id === next.assigned_to_id) {
+        // Consolidate into one step showing closure time
+        processedHistory.push({
+          ...current,
+          action: "Closed",
+          closed_at: next.created_at,
+          isConsolidated: true
+        });
+        i++; // Skip the next step since we consolidated it
+      } else {
+        processedHistory.push(current);
+      }
+    }
+    
     // Use assignmentHistory as-is, do not override assigned_to_role unless missing
-    steps.push(...assignmentHistory.map(a => ({
+    steps.push(...processedHistory.map(a => ({
       ...a,
       assigned_to_role: a.assigned_to_role ? a.assigned_to_role : "Unknown"
     })));
@@ -205,10 +230,19 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
         const nextStep = steps[idx + 1];
         const isNextEscalated = nextStep && (nextStep.action === "Escalated" || nextStep.assigned_to_role === "Escalated");
         
+        // Check if current step is escalated
+        const isCurrentEscalated = a.action === "Escalated" || a.assigned_to_role === "Escalated";
+        
+        // Check if this step was assigned and then forwarded to someone else (not escalated)
+        const wasAssignedAndForwarded = a.action === "Assigned" && nextStep && nextStep.action !== "Escalated";
+        
+        // Check if ticket is closed
+        const isTicketClosed = selectedTicket.status === "Closed" || selectedTicket.status === "Resolved";
+        
         // Priority order: Closed > Escalated > Previous to Escalated > Assigned > Current > Completed > Pending
-        if (selectedTicket.status === "Closed" || selectedTicket.status === "Resolved") {
-          color = "green"; // Green for all steps when ticket is closed
-        } else if (a.action === "Escalated" || a.assigned_to_role === "Escalated") {
+        if (selectedTicket.status === "Closed" || selectedTicket.status === "Resolved" || a.isConsolidated) {
+          color = "green"; // Green for all steps when ticket is closed or consolidated closed steps
+        } else if (isCurrentEscalated) {
           // Check if this escalated step was followed by an assignment
           const nextStep = steps[idx + 1];
           if (nextStep && nextStep.action === "Assigned") {
@@ -220,16 +254,16 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
           }
         } else if (isNextEscalated) {
           color = "red"; // Red for previous step when next is escalated
-        } else if (a.action === "Assigned" && nextStep && nextStep.action !== "Escalated") {
+        } else if (wasAssignedAndForwarded) {
           color = "green"; // Green for assigned step that was forwarded to another user
         } else if (a.action === "Assigned") {
           color = "gray"; // Gray for assigned but still open
         } else if (a.action === "Currently with" || a.assigned_to_role === "Coordinator") {
           color = "gray"; // Gray for currently with and coordinator
-        } else if (idx === currentAssigneeIdx) {
-          color = "#1976d2"; // Blue for current active step
-        } else if (idx < currentAssigneeIdx) {
-          color = "green"; // Green for completed steps
+        } else if (idx === currentAssigneeIdx && selectedTicket.status !== "Closed") {
+          color = "gray"; // Gray for current active step
+        } else if (idx < currentAssigneeIdx || selectedTicket.status === "Closed") {
+          color = "green"; // Green for completed steps or when ticket is closed
         } else {
           color = "gray"; // Gray for pending or last step when open
         }
@@ -272,11 +306,14 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
                   {a.assigned_to_name} ({a.assigned_to_role})
                 </Typography>
                 {/* Show aging for all assignments except creator, calculating active time for each */}
-                {a.created_at && a.assigned_to_role !== "Creator" && (
+                {a.created_at && (
                   (() => {
                     // Calculate the end time for this assignment
                     let endTime;
-                    if (selectedTicket.status === "Closed" && selectedTicket.date_of_resolution) {
+                    if (a.isConsolidated && a.action === "Closed") {
+                      // For consolidated closed steps, use the closure time
+                      endTime = new Date(a.closed_at);
+                    } else if (selectedTicket.status === "Closed" && selectedTicket.date_of_resolution) {
                       // If ticket is closed, use the resolution date as end time
                       endTime = new Date(selectedTicket.date_of_resolution);
                     } else if (idx === steps.length - 1) {
@@ -301,27 +338,70 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
                     
                     // Format the duration
                     let durationText;
-                    if (durationMinutes < 1) {
-                      durationText = 'Just now';
-                    } else if (durationMinutes < 60) {
-                      durationText = `${durationMinutes}min`;
-                    } else if (durationHours < 24) {
-                      durationText = `${durationHours}h`;
-                    } else if (durationDays < 7) {
-                      durationText = `${durationDays}d`;
-                    } else {
-                      const durationWeeks = Math.floor(durationDays / 7);
-                      if (durationWeeks < 4) {
-                        durationText = `${durationWeeks}w`;
+                    if (a.isConsolidated && a.action === "Closed") {
+                      // For consolidated closed steps, show closure time
+                      if (durationMinutes < 1) {
+                        durationText = 'Closed instantly';
+                      } else if (durationMinutes < 60) {
+                        durationText = `Closed with ${durationMinutes}min since assigned`;
+                      } else if (durationHours < 24) {
+                        durationText = `Closed with ${durationHours}h since assigned`;
+                      } else if (durationDays < 7) {
+                        durationText = `Closed with ${durationDays}d since assigned`;
                       } else {
-                        const durationMonths = Math.floor(durationDays / 30);
-                        durationText = `${durationMonths}mon`;
+                        const weeksToClose = Math.floor(durationDays / 7);
+                        if (weeksToClose < 4) {
+                          durationText = `Closed with ${weeksToClose}w since assigned`;
+                        } else {
+                          const monthsToClose = Math.floor(durationDays / 30);
+                          durationText = `Closed with ${monthsToClose}mon since assigned`;
+                        }
+                      }
+                    } else if (a.action === "Closed") {
+                      // For closed tickets, show how long it took from assignment to closure
+                      if (durationMinutes < 1) {
+                        durationText = 'Closed instantly';
+                      } else if (durationMinutes < 60) {
+                        durationText = `Closed with ${durationMinutes}min since assigned`;
+                      } else if (durationHours < 24) {
+                        durationText = `Closed with ${durationHours}h since assigned`;
+                      } else if (durationDays < 7) {
+                        durationText = `Closed with ${durationDays}d since assigned`;
+                      } else {
+                        const weeksToClose = Math.floor(durationDays / 7);
+                        if (weeksToClose < 4) {
+                          durationText = `Closed with ${weeksToClose}w since assigned`;
+                        } else {
+                          const monthsToClose = Math.floor(durationDays / 30);
+                          durationText = `Closed with ${monthsToClose}mon since assigned`;
+                        }
+                      }
+                    } else {
+                      // For all other statuses (Assigned, Forwarded, Escalated, etc.), show time with person
+                      if (durationMinutes < 1) {
+                        durationText = 'Just now';
+                      } else if (durationMinutes < 60) {
+                        durationText = `${durationMinutes}min`;
+                      } else if (durationHours < 24) {
+                        durationText = `${durationHours}h`;
+                      } else if (durationDays < 7) {
+                        durationText = `${durationDays}d`;
+                      } else {
+                        const durationWeeks = Math.floor(durationDays / 7);
+                        if (durationWeeks < 4) {
+                          durationText = `${durationWeeks}w`;
+                        } else {
+                          const durationMonths = Math.floor(durationDays / 30);
+                          durationText = `${durationMonths}mon`;
+                        }
                       }
                     }
                     
                     // Get color based on duration
                     let durationColor;
-                    if (durationMinutes < 5) {
+                    if (a.action === "Closed" || a.isConsolidated) {
+                      durationColor = '#28a745'; // Green for closed tickets
+                    } else if (durationMinutes < 5) {
                       durationColor = '#28a745'; // Green for very recent
                     } else if (durationMinutes < 60) {
                       durationColor = '#17a2b8'; // Blue for recent
