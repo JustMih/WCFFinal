@@ -127,9 +127,9 @@ export default function CoordinatorDashboard() {
   // Card data
   const ticketStats = {
     totalComplaints: tickets.length,
-    pendingRating: tickets.filter((t) => !t.complaintType).length,
-    ratedMajor: tickets.filter((t) => t.complaintType === "Major").length,
-    ratedMinor: tickets.filter((t) => t.complaintType === "Minor").length
+    pendingRating: tickets.filter((t) => !t.complaint_type && !t.complaintType).length,
+    ratedMajor: tickets.filter((t) => (t.complaint_type === "Major" || t.complaintType === "Major")).length,
+    ratedMinor: tickets.filter((t) => (t.complaint_type === "Minor" || t.complaintType === "Minor")).length
   };
   const [totalTickets, setTotalTickets] = useState({
     Directorate: 0,
@@ -322,10 +322,16 @@ export default function CoordinatorDashboard() {
     }
 
     // Check if trying to forward without rating
-    if (effectiveUnitName && !currentTicket?.complaint_type) {
+    if (effectiveUnitName && !currentTicket?.complaint_type && !currentTicket?.complaintType) {
+      console.log('Debug - Ticket rating check:', {
+        ticketId,
+        complaint_type: currentTicket?.complaint_type,
+        complaintType: currentTicket?.complaintType,
+        effectiveUnitName
+      });
       setSnackbar({
         open: true,
-        message: "Ticket must be rated (Minor or Major) before it can be forwarded",
+        message: "Please rate the ticket first: Select 'Minor' or 'Major' from the 'Complaint Category' dropdown, then try forwarding again.",
         severity: "warning"
       });
       return;
@@ -339,7 +345,7 @@ export default function CoordinatorDashboard() {
         userId,
         responsible_unit_name: effectiveUnitName || undefined,
         category: category || undefined,
-        complaintType: currentTicket?.complaint_type || undefined
+        complaintType: currentTicket?.complaint_type || currentTicket?.complaintType || undefined
       };
 
       console.log('Sending payload:', payload);
@@ -347,7 +353,7 @@ export default function CoordinatorDashboard() {
       const response = await fetch(
         `${baseURL}/coordinator/${ticketId}/convert-or-forward-ticket`,
         {
-          method: "PUT",
+          method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`
@@ -936,6 +942,8 @@ export default function CoordinatorDashboard() {
         forwardUnit={forwardUnit}
         refreshTickets={fetchTickets}
         setSnackbar={setSnackbar}
+        setConvertCategory={setConvertCategory}
+        setForwardUnit={setForwardUnit}
       />
 
       {/* Close Ticket Modal */}
