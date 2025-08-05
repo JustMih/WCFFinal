@@ -9,7 +9,7 @@ const Livestream = () => {
   const [calls, setCalls] = useState([]);
 
   useEffect(() => {
-    const socket = io("http://10.52.0.19:5070", { transports: ["websocket"] });
+    const socket = io("http://192.168.1.170:5070", { transports: ["websocket"] });
   
     socket.on("connect", () => {
       console.log("✅ Connected to socket:", socket.id);
@@ -118,7 +118,7 @@ const Livestream = () => {
               <td>
               {call.voicemail_path ? (
                 <audio controls preload="none" style={{ width: "100px" }}>
-                  <source src={`http://10.52.0.19:5070${call.voicemail_path}`} type="audio/wav" />
+                  <source src={`${baseURL}${call.voicemail_path}`} type="audio/wav" />
                   Your browser does not support the audio element.
                 </audio>
               ) : (

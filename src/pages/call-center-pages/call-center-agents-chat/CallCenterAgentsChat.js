@@ -10,7 +10,7 @@ import {
 } from "@mui/material";
 import "./CallCenterAgentsChat.css";
 
-const socket = io("http://10.52.0.19:5070");
+const socket = io("http://192.168.1.170:5070");
 
 const CallCenterAgentChat = () => {
   const [message, setMessage] = useState("");
