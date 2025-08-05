@@ -7,9 +7,195 @@ import {
   Typography,
   CircularProgress,
   Autocomplete,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  IconButton,
+  Avatar,
+  Paper,
+  Divider,
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
+import ChatIcon from '@mui/icons-material/Chat';
 import { baseURL } from "../../config";
+import EnhancedSearchForm from "../search/EnhancedSearchForm";
+
+// Import the AssignmentFlowChat component and helper function
+const getCreatorName = (selectedTicket) =>
+  selectedTicket.created_by ||
+  (selectedTicket.creator && selectedTicket.creator.name) ||
+  `${selectedTicket.first_name || ""} ${selectedTicket.last_name || ""}`.trim() ||
+  "N/A";
+
+// Utility function to format time difference in human-readable format
+const formatTimeDifference = (dateString) => {
+  if (!dateString) return '';
+  
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffInMs = now - date;
+  
+  const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+  const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+  const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+  
+  if (diffInMinutes < 1) {
+    return 'Just now';
+  } else if (diffInMinutes < 60) {
+    return `${diffInMinutes}min`;
+  } else if (diffInHours < 24) {
+    return `${diffInHours}h`;
+  } else if (diffInDays < 7) {
+    return `${diffInDays}d`;
+  } else {
+    const diffInWeeks = Math.floor(diffInDays / 7);
+    if (diffInWeeks < 4) {
+      return `${diffInWeeks}w`;
+    } else {
+      const diffInMonths = Math.floor(diffInDays / 30);
+      return `${diffInMonths}m`;
+    }
+  }
+};
+
+function AssignmentFlowChat({ assignmentHistory = [], selectedTicket }) {
+  const creatorStep = selectedTicket
+    ? {
+        assigned_to_name: getCreatorName(selectedTicket),
+        assigned_to_role: 'Creator',
+        reason: selectedTicket.description,
+        created_at: selectedTicket.created_at,
+      }
+    : null;
+  // Always add all assignments as steps, even if assignee is same as creator
+  const steps = creatorStep ? [creatorStep, ...assignmentHistory] : assignmentHistory;
+  
+  // Helper function to get aging status color
+  const getAgingStatusColor = (status) => {
+    switch (status) {
+      case 'On Time':
+        return '#4caf50'; // Green
+      case 'Warning':
+        return '#ff9800'; // Orange
+      case 'Overdue':
+        return '#f44336'; // Red
+      case 'Critical':
+        return '#d32f2f'; // Dark Red
+      default:
+        return '#757575'; // Gray
+    }
+  };
+
+  return (
+    <Box sx={{ maxWidth: 500 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, justifyContent: 'space-between' }}>
+        {/* <Typography sx={{ color: "#3f51b5", wordBreak: 'break-word', whiteSpace: 'pre-line' }}>
+          Ticket History
+        </Typography> */}
+      </Box>
+      <Divider sx={{ mb: 2 }} />
+      {steps.map((a, idx) => {
+        let message;
+        if (idx === 0) {
+          message = selectedTicket.description
+            ? `Created the ticket\nDescription: ${selectedTicket.description}`
+            : 'Created the ticket';
+        } else {
+          const prevUser = steps[idx - 1]?.assigned_to_name || 'Previous User';
+          if (selectedTicket.status === "Closed" && idx === steps.length - 1) {
+            if (a.reason && selectedTicket.resolution_details) {
+              message = `Message from ${prevUser}: ${a.reason}\nResolution: ${selectedTicket.resolution_details}`;
+            } else if (a.reason) {
+              message = `Message from ${prevUser}: ${a.reason}`;
+            } else if (selectedTicket.resolution_details) {
+              message = `Resolution: ${selectedTicket.resolution_details}`;
+            } else {
+              message = `Message from ${prevUser}: No message`;
+            }
+          } else {
+            // Build message with workflow details
+            let baseMessage = `Message from ${prevUser}: ${a.reason || 'No message'}`;
+            
+            // Add workflow-specific details
+            if (a.workflow_step) {
+              baseMessage += `\n\nWorkflow Step: ${a.workflow_step}`;
+            }
+            
+            if (a.coordinator_notes) {
+              baseMessage += `\n\nReviewer Notes: ${a.coordinator_notes}`;
+            }
+            
+            if (a.dg_notes) {
+              baseMessage += `\n\nDG Notes: ${a.dg_notes}`;
+            }
+            
+            // Show current resolution details from the ticket
+            if (selectedTicket.resolution_details) {
+              baseMessage += `\n\nResolution Details: ${selectedTicket.resolution_details}`;
+            }
+            
+            message = baseMessage;
+          }
+        }
+        
+        // Display aging information for non-creator steps
+        const showAging = idx > 0 && a.aging_formatted;
+        
+        return (
+          <Box key={idx} sx={{ display: "flex", mb: 2, alignItems: "flex-start" }}>
+            <Avatar sx={{ bgcolor: idx === 0 ? "#43a047" : "#1976d2", mr: 2 }}>
+              {a.assigned_to_name ? a.assigned_to_name[0] : "?"}
+            </Avatar>
+            <Paper elevation={2} sx={{ p: 2, bgcolor: idx === 0 ? "#e8f5e9" : "#f5f5f5", flex: 1 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                <Typography sx={{ fontWeight: "bold" }}>
+                  {a.assigned_to_name || a.assigned_to_id || 'Unknown'} {" "}
+                  <span style={{ color: "#888", fontWeight: "normal" }}>
+                    ({a.assigned_to_role || "N/A"})
+                  </span>
+                </Typography>
+                {showAging && (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', ml: 1 }}>
+                    <Typography 
+                      variant="caption" 
+                      sx={{ 
+                        color: getAgingStatusColor(a.aging_status),
+                        fontWeight: 'bold',
+                        fontSize: '0.7rem'
+                      }}
+                    >
+                      {a.aging_status}
+                    </Typography>
+                    <Typography 
+                      variant="caption" 
+                      sx={{ 
+                        color: '#666',
+                        fontSize: '0.7rem'
+                      }}
+                    >
+                      {a.aging_formatted}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+              <Typography variant="body2" sx={{ color: idx === 0 ? "#43a047" : "#1976d2", wordBreak: 'break-word', whiteSpace: 'pre-line', overflowWrap: 'break-word' }}>
+                {message}
+              </Typography>
+              <Typography variant="caption" sx={{ color: "#888" }}>
+                {a.created_at ? new Date(a.created_at).toLocaleString() : ""}
+                {a.created_at && (
+                  <span style={{ color: "#666", marginLeft: 8 }}>
+                    ({formatTimeDifference(a.created_at)} ago)
+                  </span>
+                )}
+              </Typography>
+            </Paper>
+          </Box>
+        );
+      })}
+    </Box>
+  );
+}
 
 // Styled components for Autocomplete and SuggestionItem
 const StyledAutocomplete = styled(Autocomplete)(({ theme }) => ({
@@ -85,7 +271,6 @@ const defaultFormData = {
   district: "",
   channel: "Call",
   category: "",
-  inquiry_type: "",
   functionId: "",
   description: "",
   status: "Open",
@@ -123,8 +308,217 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
   const [creationActiveTicketId, setCreationActiveTicketId] = useState(null);
   const [historySearch, setHistorySearch] = useState("");
   const [submitAction, setSubmitAction] = useState("open");
+<<<<<<< HEAD
   const [isLoading, setIsLoading] = useState(false);
+=======
+  
+  // --- Enhanced Search Form State ---
+  const [searchStep, setSearchStep] = useState(0);
+  const [selectedEmployer, setSelectedEmployer] = useState(null);
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [formSearchType, setFormSearchType] = useState("employee");
+  const [searchCompleted, setSearchCompleted] = useState(false);
+  // --- End Enhanced Search Form State ---
+  
+  // --- Justification History State ---
+  const [isJustificationModalOpen, setIsJustificationModalOpen] = useState(false);
+  const [selectedTicketForJustification, setSelectedTicketForJustification] = useState(null);
+  const [assignmentHistory, setAssignmentHistory] = useState([]);
+  // --- End Justification History State ---
+>>>>>>> fb72a8bb61e51433614e20853e06ce430882d244
   // --- End CRM Modal State ---
+
+  // --- Justification History Functions ---
+  const handleOpenJustificationHistory = async (ticket) => {
+    console.log("Opening justification history for ticket:", ticket);
+    try {
+      const token = localStorage.getItem("authToken");
+      console.log("Token:", token ? "Present" : "Missing");
+      console.log("API URL:", `${baseURL}/ticket/${ticket.id}/assignments`);
+      
+      const response = await fetch(`${baseURL}/ticket/${ticket.id}/assignments`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      console.log("Response status:", response.status);
+      
+      if (response.ok) {
+        const history = await response.json();
+        console.log("Assignment history:", history);
+        console.log("History length:", history.length);
+        console.log("History structure:", JSON.stringify(history, null, 2));
+        
+        setAssignmentHistory(history);
+        setSelectedTicketForJustification(ticket);
+        setIsJustificationModalOpen(true);
+        console.log("Modal should be open now");
+      } else {
+        console.error("Failed to fetch assignment history");
+        const errorText = await response.text();
+        console.error("Error response:", errorText);
+        // Even if API fails, still open modal with empty history
+        setAssignmentHistory([]);
+        setSelectedTicketForJustification(ticket);
+        setIsJustificationModalOpen(true);
+      }
+    } catch (error) {
+      console.error("Error fetching assignment history:", error);
+      // Even if there's an error, still open modal with empty history
+      setAssignmentHistory([]);
+      setSelectedTicketForJustification(ticket);
+      setIsJustificationModalOpen(true);
+    }
+  };
+
+  const handleCloseJustificationModal = () => {
+    setIsJustificationModalOpen(false);
+    setSelectedTicketForJustification(null);
+    setAssignmentHistory([]);
+  };
+  // --- End Justification History Functions ---
+
+  // --- Enhanced Search Form Handlers ---
+  const handleEmployerSelection = (employer) => {
+    setSelectedEmployer(employer);
+    setSelectedEmployee(null);
+    setFormSearchType("employer");
+    setSearchCompleted(true);
+    
+    // Update form data with employer information
+    setFormData(prev => ({
+      ...prev,
+      firstName: "",
+      middleName: "",
+      lastName: "",
+      nidaNumber: employer.tin || "",
+      phoneNumber: employer.phone || "",
+      institution: employer.name || "",
+      requester: "Employer",
+      employerName: employer.name || ""
+    }));
+    
+    // Fetch institution details
+    if (employer.name) {
+      fetch("https://demomspapi.wcf.go.tz/api/v1/search/details", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json"
+        },
+        body: JSON.stringify({
+          type: "employer",
+          name: employer.name,
+          employer_registration_number: ""
+        })
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && data.results && data.results.length > 0) {
+            setSelectedInstitution(data.results[0]);
+          }
+        })
+        .catch(() => {
+          setSelectedInstitution(null);
+        });
+    }
+
+    // Show success message
+    setModal({
+      isOpen: true,
+      type: "success",
+      message: `Employer selected: ${employer.name}. Employer details filled.`
+    });
+  };
+
+  const handleEmployeeSelection = (employee) => {
+    // Extract employee information from the API response
+    const employeeData = employee.employee || employee;
+    
+    // Parse the name to extract first, middle, and last names
+    const fullName = employeeData.name || "";
+    const nameWithoutEmployer = fullName.split("—")[0].trim();
+    const nameParts = nameWithoutEmployer.split(" ");
+    
+    const firstName = nameParts[0] || "";
+    const middleName = nameParts.length > 2 ? nameParts.slice(1, -1).join(" ") : "";
+    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : "";
+
+    setSelectedEmployee(employee);
+    // Don't clear selectedEmployer - preserve it for the institution name
+    setFormSearchType("employee");
+    setSearchCompleted(true);
+    
+    // Update form data with employee information while preserving employer info
+    setFormData(prev => ({
+      ...prev,
+      firstName: firstName,
+      middleName: middleName,
+      lastName: lastName,
+      nidaNumber: employeeData.nin || "",
+      // Preserve existing phone number if it's already filled (from call)
+      phoneNumber: prev.phoneNumber || employeeData.employee_phone || employeeData.phoneNumber || "",
+      // Preserve the institution name from the selected employer
+      institution: selectedEmployer ? selectedEmployer.name : (employeeData.institution || employeeData.employerName || ""),
+      requester: "Employee",
+      // Store allocated user information from search response
+      allocated_user_username: employeeData.allocated_user_username || "",
+      allocated_user_name: employeeData.allocated_user || "",
+      allocated_user_id: employeeData.allocated_user_id || "",
+      // Store claim information
+      claimNumber: employeeData.claim_number || ""
+    }));
+
+    // Set selected suggestion for claim button display
+    setSelectedSuggestion(employeeData);
+
+    // Show success message
+    setModal({
+      isOpen: true,
+      type: "success",
+      message: `Employee selected: ${nameWithoutEmployer}. Employee details filled.`
+    });
+  };
+
+  const resetSearch = () => {
+    setSelectedEmployer(null);
+    setSelectedEmployee(null);
+    setSearchStep(0);
+    setSearchCompleted(false);
+    setFormSearchType("employee");
+    
+    // Clear institution details panel
+    setSelectedInstitution(null);
+    
+    // Clear all form fields
+    setFormData(prev => ({
+      ...prev,
+      firstName: "",
+      middleName: "",
+      lastName: "",
+      nidaNumber: "",
+      phoneNumber: "",
+      institution: "",
+      requester: "",
+      employerName: "",
+      // Clear allocated user fields
+      allocated_user_username: "",
+      allocated_user_name: "",
+      allocated_user_id: "",
+      // Clear claim information
+      claimNumber: ""
+    }));
+    
+    // Clear form errors
+    setFormErrors({});
+    
+    // Clear selected suggestion
+    setSelectedSuggestion(null);
+  };
+
+  const handleSearchTypeChange = (newSearchType) => {
+    setFormSearchType(newSearchType);
+  };
+  // --- End Enhanced Search Form Handlers ---
 
   // --- Handlers from CRM ---
   const handleChange = (e) => {
@@ -228,7 +622,6 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
       district: updatedFormData.district || formData.district,
       channel: updatedFormData.channel || formData.channel,
       category: updatedFormData.category || formData.category,
-      inquiry_type: updatedFormData.inquiry_type || formData.inquiry_type || "",
       functionId: updatedFormData.functionId || formData.functionId,
       description: updatedFormData.description || formData.description,
       status: updatedFormData.status || formData.status,
@@ -343,7 +736,6 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
       district: "District",
       channel: "Channel",
       category: "Category",
-      ...(formData.category === "Inquiry" && { inquiry_type: "Inquiry Type" }),
       functionId: "Subject",
       description: "Description",
     };
@@ -382,12 +774,55 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
 
     setFormErrors({});
     try {
+<<<<<<< HEAD
       // Construct ticket data (as done previously)
+=======
+      // Find the selected subject (FunctionData), parent function, and parent section
+      let selectedSubject, parentFunction, parentSection;
+      for (const func of functionData) {
+        if (func.function && func.function.functionData) {
+          selectedSubject = func.function.functionData.find(fd => fd.id === formData.functionId);
+          if (selectedSubject) {
+            parentFunction = func.function;
+            parentSection = func.function.section;
+            break;
+          }
+        }
+      }
+      // --- Allocated User Logic ---
+      // Routing Rules:
+      // 1. If searched details has a claim number → Send to checklist user shown in details
+      // 2. If no claim number and it's an inquiry → Send to focal person of the selected section/unit
+      // 3. Otherwise → Fallback to institution's allocated staff
+      let employerAllocatedStaffUsername = "";
+
+      if (selectedSuggestion && selectedSuggestion.allocated_user_username) {
+        // Use allocated user from employee search response
+        employerAllocatedStaffUsername = selectedSuggestion.allocated_user_username;
+        console.log("Routing: Using allocated user from employee search:", employerAllocatedStaffUsername);
+      } else {
+        // No allocated user found, will be assigned by backend logic
+        employerAllocatedStaffUsername = "";
+        console.log("Routing: No allocated user found, will be assigned by backend");
+      }
+
+>>>>>>> fb72a8bb61e51433614e20853e06ce430882d244
       const ticketData = {
         ...formData,
         status: action === "closed" ? "Closed" : "Open",
         shouldClose: action === "closed",
-        inquiry_type: formData.category === "Inquiry" ? formData.inquiry_type : null,
+        // Add claim number for routing decision
+        claimId: selectedSuggestion?.claimId || null,
+        // Add routing information for backend
+        hasClaim: Boolean(selectedSuggestion?.claimId),
+        isInquiry: formData.category === "Inquiry",
+        // Add allocated user details for routing
+        allocated_user_id: selectedSuggestion?.allocated_user_id || null,
+        allocated_user_name: selectedSuggestion?.allocated_user || null,
+        allocated_user_username: selectedSuggestion?.allocated_user_username || null,
+        // Add employer information from search
+        employer: formData.employer || selectedSuggestion?.employer || "",
+        employerName: formData.employerName || "",
       };
       if (formData.requester === "Employer") {
         ticketData.employerRegistrationNumber = formData.nidaNumber;
@@ -396,9 +831,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
         ticketData.employerPhone = formData.phoneNumber;
         ticketData.employerEmail = formData.employerEmail || "";
         ticketData.employerStatus = formData.employerStatus || "";
-        ticketData.employerAllocatedStaffId = formData.employerAllocatedStaffId || "";
-        ticketData.employerAllocatedStaffName = formData.employerAllocatedStaffName || "";
-        ticketData.employerAllocatedStaffUsername = formData.employerAllocatedStaffUsername || "";
+        // Removed employer allocated user fields - only using employee search allocated user
       }
       // Map representative fields to backend field names if requester is Representative
       if (formData.requester === "Representative") {
@@ -423,10 +856,50 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
         setModal({
           isOpen: true,
           type: "success",
+<<<<<<< HEAD
           message: data.message || "Ticket created successfully",
         });
         setShowModal(false); // Close the modal
         setIsLoading(false); // Set loading to false after success
+=======
+          message: data.message || "Ticket created successfully"
+        });
+        setShowModal(false);
+        
+        // Reset form data completely
+        setFormData({
+          firstName: "",
+          middleName: "",
+          lastName: "",
+          phoneNumber: "",
+          nidaNumber: "",
+          requester: "",
+          institution: "",
+          region: "",
+          district: "",
+          channel: "",
+          category: "",
+          functionId: "",
+          description: "",
+          status: "Open",
+          requesterName: "",
+          requesterPhoneNumber: "",
+          requesterEmail: "",
+          requesterAddress: "",
+          relationshipToEmployee: "",
+          employerName: "",
+          allocated_user_username: "",
+          allocated_user_name: "",
+          allocated_user_id: "",
+          claimNumber: ""
+        });
+        
+        // Reset search state
+        resetSearch();
+        
+        // Close the modal
+        onClose();
+>>>>>>> fb72a8bb61e51433614e20853e06ce430882d244
       } else {
         setModal({
           isOpen: true,
@@ -436,6 +909,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
         setIsLoading(false); // Set loading to false after failure
       }
     } catch (error) {
+      console.error("Error creating ticket:", error);
       setModal({
         isOpen: true,
         type: "error",
@@ -446,6 +920,11 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
   };
   
   // --- End Handlers ---
+
+  // Add closeModal function
+  const closeModal = () => {
+    setModal({ isOpen: false, type: "", message: "" });
+  };
 
   useEffect(() => {
     setFormData((prev) => ({ ...prev, phoneNumber: initialPhoneNumber }));
@@ -488,6 +967,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
 
   // Add the full JSX structure from the CRM modal here
   return (
+<<<<<<< HEAD
     <Modal open={open} onClose={onClose}>
       <Box
         sx={{
@@ -511,11 +991,38 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
             overflowY: "auto",
             minWidth: 0,
             maxHeight: "90vh",
+=======
+    <>
+      <Modal open={open} onClose={onClose}>
+        <Box
+          sx={{
+            display: "flex",
+            flexDirection: "row",
+            width: 1050,
+            maxWidth: "98vw",
+            minHeight: 500,
+            maxHeight: "90vh",
+            bgcolor: "background.paper",
+            boxShadow: 24,
+            borderRadius: 2,
+            p: 0
+>>>>>>> fb72a8bb61e51433614e20853e06ce430882d244
           }}
         >
-          <div className="modal-form-container">
-            <h2 className="modal-title">New Ticket</h2>
+          <Box
+            sx={{
+              flex: 2,
+              p: 4,
+              borderRight: "1px solid #eee",
+              overflowY: "auto",
+              minWidth: 0,
+              maxHeight: "90vh"
+            }}
+          >
+            <div className="modal-form-container">
+              <h2 className="modal-title">New Ticket</h2>
 
+<<<<<<< HEAD
             {/* Search Section */}
             <div
               className="search-section"
@@ -555,10 +1062,24 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                   <option value="employer">Employer</option>
                 </select>
               </div>
+=======
+              {/* Enhanced Two-Step Search Form */}
+              <EnhancedSearchForm
+                onEmployerSelect={handleEmployerSelection}
+                onEmployeeSelect={handleEmployeeSelection}
+                onReset={resetSearch}
+                selectedEmployer={selectedEmployer}
+                searchStep={searchStep}
+                setSearchStep={setSearchStep}
+                onSearchTypeChange={handleSearchTypeChange}
+              />
+>>>>>>> fb72a8bb61e51433614e20853e06ce430882d244
 
-              <div style={{ marginBottom: "15px" }}>
-                <label
+              {/* Update the claim status section */}
+              {formSearchType === "employee" && selectedEmployee && (
+                <div
                   style={{
+<<<<<<< HEAD
                     display: "block",
                     marginBottom: "8px",
                     fontWeight: "bold",
@@ -736,16 +1257,138 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                       </>
                     ) : (
                       "No Active Claim"
-                    )}
-                  </Typography>
+=======
+                    marginTop: "10px",
+                    marginBottom: "12px",
+                    padding: "10px",
+                    backgroundColor: "#f5f5f5",
+                    borderRadius: "8px",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center"
+                  }}
+                >
+                  <div>
+                    <Typography
+                      variant="subtitle2"
+                      style={{ fontWeight: "bold" }}
+                    >
+                      {formData.claimNumber ? (
+                        <>
+                          Claim Number:{" "}
+                          <span style={{ color: "#1976d2" }}>
+                            {formData.claimNumber}
+                          </span>
+                        </>
+                      ) : (
+                        "No Active Claim"
+                      )}
+                    </Typography>
+                  </div>
+                  
+                  {/* Claim Button */}
+                  {formData.claimNumber && (
+                    <button
+                      style={{
+                        padding: "8px 16px",
+                        backgroundColor: "#1976d2",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        fontWeight: "bold"
+                      }}
+                      onClick={() => {
+                        // Handle claim button click - you can add your claim logic here
+                        window.open(`/claims/${formData.claimNumber}`, '_blank');
+                        // Or navigate to claim details page
+                        // window.location.href = `/claims/${formData.claimNumber}`;
+                      }}
+                    >
+                      View Claim
+                    </button>
+                  )}
                 </div>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  disabled={!selectedSuggestion?.claimId}
-                  onClick={async () => {
-                    console.log("Clicked claim:", selectedSuggestion.claimId);
+              )}
 
+              {/* Existing form fields */}
+              {formSearchType !== "employer" && (
+                <div className="modal-form-row">
+                  <div className="modal-form-group" style={{ flex: 1 }}>
+                    <label style={{ fontSize: "0.875rem" }}>First Name:</label>
+                    <input
+                      name="firstName"
+                      value={formData.firstName}
+                      onChange={handleChange}
+                      placeholder="Enter first name"
+                      style={{
+                        height: "32px",
+                        fontSize: "0.875rem",
+                        padding: "4px 8px",
+                        border: formErrors.firstName
+                          ? "1px solid red"
+                          : "1px solid #ccc"
+                      }}
+                    />
+                    {formErrors.firstName && (
+                      <span style={{ color: "red", fontSize: "0.75rem" }}>
+                        {formErrors.firstName}
+                      </span>
+>>>>>>> fb72a8bb61e51433614e20853e06ce430882d244
+                    )}
+                  </div>
+
+                  <div className="modal-form-group" style={{ flex: 1 }}>
+                    <label style={{ fontSize: "0.875rem" }}>
+                      Middle Name (Optional):
+                    </label>
+                    <input
+                      name="middleName"
+                      value={formData.middleName}
+                      onChange={handleChange}
+                      placeholder="Enter middle name"
+                      style={{
+                        height: "32px",
+                        fontSize: "0.875rem",
+                        padding: "4px 8px",
+                        border: "1px solid #ccc"
+                      }}
+                    />
+                  </div>
+
+                  <div className="modal-form-group" style={{ flex: 1 }}>
+                    <label style={{ fontSize: "0.875rem" }}>
+                      Last Name
+                      {formData.requester === "Employer" ? " (Optional)" : ""}:
+                    </label>
+                    <input
+                      name="lastName"
+                      value={formData.lastName}
+                      onChange={handleChange}
+                      placeholder="Enter last name"
+                      style={{
+                        height: "32px",
+                        fontSize: "0.875rem",
+                        padding: "4px 8px",
+                        border:
+                          formErrors.lastName &&
+                          formData.requester !== "Employer"
+                            ? "1px solid red"
+                            : "1px solid #ccc"
+                      }}
+                    />
+                    {formErrors.lastName &&
+                      formData.requester !== "Employer" && (
+                        <span style={{ color: "red", fontSize: "0.75rem" }}>
+                          {formErrors.lastName}
+                        </span>
+                      )}
+                  </div>
+                </div>
+              )}
+
+<<<<<<< HEAD
                     const response = await fetch(
                       "http://127.0.0.1:8000/magic-login",
                       {
@@ -778,43 +1421,343 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
 
             {/* Existing form fields */}
             {searchType !== "employer" && (
+=======
+              {/* Phone & NIDA */}
+>>>>>>> fb72a8bb61e51433614e20853e06ce430882d244
               <div className="modal-form-row">
-                <div className="modal-form-group" style={{ flex: 1 }}>
-                  <label style={{ fontSize: "0.875rem" }}>First Name:</label>
+                <div className="modal-form-group">
+                  <label style={{ fontSize: "0.875rem" }}>Phone Number:</label>
                   <input
-                    name="firstName"
-                    value={formData.firstName}
+                    type="tel"
+                    name="phoneNumber"
+                    value={formData.phoneNumber}
                     onChange={handleChange}
-                    placeholder="Enter first name"
+                    placeholder="Enter phone number"
                     style={{
                       height: "32px",
                       fontSize: "0.875rem",
                       padding: "4px 8px",
-                      border: formErrors.firstName
+                      border: formErrors.phoneNumber
                         ? "1px solid red"
                         : "1px solid #ccc",
                     }}
                   />
-                  {formErrors.firstName && (
+                  {formErrors.phoneNumber && (
                     <span style={{ color: "red", fontSize: "0.75rem" }}>
-                      {formErrors.firstName}
+                      {formErrors.phoneNumber}
+                    </span>
+                  )}
+                </div>
+
+                <div className="modal-form-group">
+                  <label style={{ fontSize: "0.875rem" }}>
+                    {formData.requester === "Employer"
+                      ? "TIN:"
+                      : "National Identification Number:"}
+                  </label>
+                  <input
+                    name="nidaNumber"
+                    value={formData.nidaNumber}
+                    onChange={handleChange}
+                    placeholder={
+                      formData.requester === "Employer"
+                        ? "Enter TIN number"
+                        : "Enter NIN number"
+                    }
+                    style={{
+                      height: "32px",
+                      fontSize: "0.875rem",
+                      padding: "4px 8px",
+                      border: formErrors.nidaNumber
+                        ? "1px solid red"
+                        : "1px solid #ccc"
+                    }}
+                  />
+                  {formErrors.nidaNumber && (
+                    <span style={{ color: "red", fontSize: "0.75rem" }}>
+                      {formErrors.nidaNumber}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Requester & Institution */}
+              <div className="modal-form-row">
+                <div className="modal-form-group">
+                  <label style={{ fontSize: "0.875rem" }}>Requester:</label>
+                  <select
+                    name="requester"
+                    value={formData.requester}
+                    onChange={handleChange}
+                    style={{
+                      height: "32px",
+                      fontSize: "0.875rem",
+                      padding: "4px 8px",
+                      width: "100%",
+                      border: formErrors.requester
+                        ? "1px solid red"
+                        : "1px solid #ccc"
+                    }}
+                  >
+                    <option value="">Select..</option>
+                    <option value="Employee">Employee</option>
+                    <option value="Employer">Employer</option>
+                    <option value="Pensioners">Pensioners</option>
+                    <option value="Stakeholders">Stakeholders</option>
+                    <option value="Representative">Representative</option>
+                  </select>
+                  {formErrors.requester && (
+                    <span style={{ color: "red", fontSize: "0.75rem" }}>
+                      {formErrors.requester}
+                    </span>
+                  )}
+                </div>
+
+                <div className="modal-form-group">
+                  <label style={{ fontSize: "0.875rem" }}>Institution:</label>
+                  <input
+                    name="institution"
+                    value={formData.institution}
+                    onChange={handleChange}
+                    placeholder="Enter Institution"
+                    style={{
+                      height: "32px",
+                      fontSize: "0.875rem",
+                      padding: "4px 8px",
+                      border: formErrors.institution
+                        ? "1px solid red"
+                        : "1px solid #ccc"
+                    }}
+                  />
+                  {formErrors.institution && (
+                    <span style={{ color: "red", fontSize: "0.75rem" }}>
+                      {formErrors.institution}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* New fields for Representative if selected */}
+              {formData.requester === "Representative" && (
+                <>
+                  <Typography
+                    variant="h6"
+                    sx={{ mt: 3, mb: 1, fontWeight: "bold" }}
+                  >
+                    Representative Details
+                  </Typography>
+                  <div className="modal-form-row">
+                    <div className="modal-form-group">
+                      <label style={{ fontSize: "0.875rem" }}>
+                        Representative Name:
+                      </label>
+                      <input
+                        name="requesterName"
+                        value={formData.requesterName}
+                        onChange={handleChange}
+                        placeholder="Enter representative's name"
+                        style={{
+                          height: "32px",
+                          fontSize: "0.875rem",
+                          padding: "4px 8px",
+                          border: formErrors.requesterName
+                            ? "1px solid red"
+                            : "1px solid #ccc"
+                        }}
+                      />
+                      {formErrors.requesterName && (
+                        <span style={{ color: "red", fontSize: "0.75rem" }}>
+                          {formErrors.requesterName}
+                        </span>
+                      )}
+                    </div>
+                    <div className="modal-form-group">
+                      <label style={{ fontSize: "0.875rem" }}>
+                        Representative Phone Number:
+                      </label>
+                      <input
+                        type="tel"
+                        name="requesterPhoneNumber"
+                        value={formData.requesterPhoneNumber}
+                        onChange={handleChange}
+                        placeholder="Enter representative's phone number"
+                        style={{
+                          height: "32px",
+                          fontSize: "0.875rem",
+                          padding: "4px 8px",
+                          border: formErrors.requesterPhoneNumber
+                            ? "1px solid red"
+                            : "1px solid #ccc"
+                        }}
+                      />
+                      {formErrors.requesterPhoneNumber && (
+                        <span style={{ color: "red", fontSize: "0.75rem" }}>
+                          {formErrors.requesterPhoneNumber}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="modal-form-row">
+                    <div className="modal-form-group">
+                      <label style={{ fontSize: "0.875rem" }}>
+                        Representative Email (Optional):
+                      </label>
+                      <input
+                        type="email"
+                        name="requesterEmail"
+                        value={formData.requesterEmail}
+                        onChange={handleChange}
+                        placeholder="Enter representative's email"
+                        style={{
+                          height: "32px",
+                          fontSize: "0.875rem",
+                          padding: "4px 8px",
+                          border: "1px solid #ccc"
+                        }}
+                      />
+                    </div>
+                    <div className="modal-form-group">
+                      <label style={{ fontSize: "0.875rem" }}>
+                        Representative Address (Optional):
+                      </label>
+                      <input
+                        name="requesterAddress"
+                        value={formData.requesterAddress}
+                        onChange={handleChange}
+                        placeholder="Enter representative's address"
+                        style={{
+                          height: "32px",
+                          fontSize: "0.875rem",
+                          padding: "4px 8px",
+                          border: "1px solid #ccc"
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="modal-form-row">
+                    <div className="modal-form-group">
+                      <label style={{ fontSize: "0.875rem" }}>
+                        Relationship to Employee/Employee:
+                      </label>
+                      <input
+                        name="relationshipToEmployee"
+                        value={formData.relationshipToEmployee}
+                        onChange={handleChange}
+                        placeholder="e.g., Parent, Spouse, Child"
+                        style={{
+                          height: "32px",
+                          fontSize: "0.875rem",
+                          padding: "4px 8px",
+                          border: formErrors.relationshipToEmployee
+                            ? "1px solid red"
+                            : "1px solid #ccc"
+                        }}
+                      />
+                      {formErrors.relationshipToEmployee && (
+                        <span style={{ color: "red", fontSize: "0.75rem" }}>
+                          {formErrors.relationshipToEmployee}
+                        </span>
+                      )}
+                    </div>
+                    <div className="modal-form-group"></div>{" "}
+                    {/* Empty for alignment */}
+                  </div>
+                </>
+              )}
+
+              {/* Region & District */}
+              <div className="modal-form-row">
+                <div className="modal-form-group">
+                  <label style={{ fontSize: "0.875rem" }}>Region:</label>
+                  <input
+                    name="region"
+                    value={formData.region}
+                    onChange={handleChange}
+                    placeholder="Enter region"
+                    style={{
+                      height: "32px",
+                      fontSize: "0.875rem",
+                      padding: "4px 8px",
+                      border: formErrors.region
+                        ? "1px solid red"
+                        : "1px solid #ccc"
+                    }}
+                  />
+                  {formErrors.region && (
+                    <span style={{ color: "red", fontSize: "0.75rem" }}>
+                      {formErrors.region}
+                    </span>
+                  )}
+                </div>
+
+                <div className="modal-form-group">
+                  <label style={{ fontSize: "0.875rem" }}>District:</label>
+                  <input
+                    name="district"
+                    value={formData.district}
+                    onChange={handleChange}
+                    placeholder="Enter district"
+                    style={{
+                      height: "32px",
+                      fontSize: "0.875rem",
+                      padding: "4px 8px",
+                      border: formErrors.district
+                        ? "1px solid red"
+                        : "1px solid #ccc"
+                    }}
+                  />
+                  {formErrors.district && (
+                    <span style={{ color: "red", fontSize: "0.75rem" }}>
+                      {formErrors.district}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Category & Channel */}
+              <div className="modal-form-row">
+                <div className="modal-form-group" style={{ flex: 1 }}>
+                  <label style={{ fontSize: "0.875rem" }}>Category:</label>
+                  <select
+                    name="category"
+                    value={formData.category}
+                    onChange={handleChange}
+                    style={{
+                      height: "32px",
+                      fontSize: "0.875rem",
+                      padding: "4px 8px",
+                      width: "100%",
+                      border: formErrors.category
+                        ? "1px solid red"
+                        : "1px solid #ccc"
+                    }}
+                  >
+                    <option value="">Select Category</option>
+                    <option value="Inquiry">Inquiry</option>
+                    <option value="Complaint">Complaint</option>
+                    <option value="Suggestion">Suggestion</option>
+                    <option value="Compliment">Compliment</option>
+                  </select>
+                  {formErrors.category && (
+                    <span style={{ color: "red", fontSize: "0.75rem" }}>
+                      {formErrors.category}
                     </span>
                   )}
                 </div>
 
                 <div className="modal-form-group" style={{ flex: 1 }}>
-                  <label style={{ fontSize: "0.875rem" }}>
-                    Middle Name (Optional):
-                  </label>
-                  <input
-                    name="middleName"
-                    value={formData.middleName}
+                  <label style={{ fontSize: "0.875rem" }}>Channel:</label>
+                  <select
+                    name="channel"
+                    value={formData.channel}
                     onChange={handleChange}
-                    placeholder="Enter middle name"
                     style={{
                       height: "32px",
                       fontSize: "0.875rem",
                       padding: "4px 8px",
+<<<<<<< HEAD
                       border: "1px solid #ccc",
                     }}
                   />
@@ -1531,13 +2474,374 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                   }}
                 >
                   No previous tickets found for this number.
+=======
+                      width: "100%",
+                      border: formErrors.channel
+                        ? "1px solid red"
+                        : "1px solid #ccc"
+                    }}
+                  >
+                    <option value="">Select Channel</option>
+                    <option value="Call">Call</option>
+                    <option value="Email">Email</option>
+                  </select>
+                  {formErrors.channel && (
+                    <span style={{ color: "red", fontSize: "0.75rem" }}>
+                      {formErrors.channel}
+                    </span>
+                  )}
+>>>>>>> fb72a8bb61e51433614e20853e06ce430882d244
                 </div>
-              )}
+              </div>
+
+              {/* Subject, Sub-section, Section */}
+              <div className="modal-form-row">
+                <div className="modal-form-group" style={{ flex: 1 }}>
+                  <label style={{ fontSize: "0.875rem" }}>Subject:</label>
+                  <select
+                    name="functionId"
+                    value={formData.functionId}
+                    onChange={handleChange}
+                    style={{
+                      height: "32px",
+                      fontSize: "0.875rem",
+                      padding: "4px 8px",
+                      width: "100%",
+                      border: formErrors.functionId
+                        ? "1px solid red"
+                        : "1px solid #ccc"
+                    }}
+                  >
+                    <option value="">Select Subject</option>
+                    {functionData.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </select>
+                  {formErrors.functionId && (
+                    <span style={{ color: "red", fontSize: "0.75rem" }}>
+                      {formErrors.functionId}
+                    </span>
+                  )}
+                </div>
+
+                <div className="modal-form-group">
+                  <label style={{ fontSize: "0.875rem" }}>Sub-section:</label>
+                  <input
+                    value={selectedFunction}
+                    readOnly
+                    style={{
+                      height: "32px",
+                      fontSize: "0.875rem",
+                      padding: "4px 8px",
+                      backgroundColor: "#f5f5f5"
+                    }}
+                  />
+                </div>
+
+                <div className="modal-form-group">
+                  <label style={{ fontSize: "0.875rem" }}>Section:</label>
+                  <input
+                    value={selectedSection || "Unit"}
+                    readOnly
+                    style={{
+                      height: "32px",
+                      fontSize: "0.875rem",
+                      padding: "4px 8px",
+                      backgroundColor: "#f5f5f5"
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* Description */}
+              <div className="modal-form-group">
+                <label style={{ fontSize: "0.875rem" }}>Description:</label>
+                <textarea
+                  rows="2"
+                  name="description"
+                  value={formData.description}
+                  onChange={handleChange}
+                  placeholder="Detailed descriptions.."
+                  style={{
+                    fontSize: "0.875rem",
+                    padding: "8px",
+                    resize: "vertical",
+                    border: formErrors.description
+                      ? "1px solid red"
+                      : "1px solid #ccc"
+                  }}
+                />
+                {formErrors.description && (
+                  <span style={{ color: "red", fontSize: "0.75rem" }}>
+                    {formErrors.description}
+                  </span>
+                )}
+              </div>
+
+              {/* Submit */}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: "10px",
+                  marginTop: "1.5rem"
+                }}
+              >
+                <button
+                  className="cancel-btn"
+                  onClick={() => setShowModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="submit-btn"
+                  onClick={(e) => handleSubmit(e)}
+                >
+                  Submit to Backoffice
+                </button>
+                <button
+                  className="close-btn"
+                  style={{ background: "gray", color: "white" }}
+                  onClick={(e) => handleSubmit(e, "closed")}
+                >
+                  Close Ticket
+                </button>
+              </div>
             </div>
-          )}
+          </Box>
+          <Box
+            sx={{
+              flex: 1,
+              p: 4,
+              overflowY: "auto",
+              minWidth: 350,
+              maxWidth: 420,
+              maxHeight: "90vh"
+            }}
+          >
+            {/* Employer/Institution Details */}
+            {selectedInstitution && (
+              <div
+                style={{
+                  flex: 1,
+                  background: "#e3f2fd",
+                  borderRadius: "8px",
+                  padding: "16px",
+                  minWidth: 0,
+                  marginBottom: 16
+                }}
+              >
+                <h4 style={{ color: "#1976d2", marginBottom: 12 }}>
+                  Institution Details
+                </h4>
+                <div>
+                  <strong>Name:</strong> {selectedInstitution.name}
+                </div>
+                <div>
+                  <strong>TIN:</strong> {selectedInstitution.tin}
+                </div>
+                <div>
+                  <strong>Phone:</strong> {selectedInstitution.phone}
+                </div>
+                <div>
+                  <strong>Email:</strong> {selectedInstitution.email}
+                </div>
+                <div>
+                  <strong>Status:</strong> {selectedInstitution.employer_status}
+                </div>
+                <div>
+                  <strong>Allocated User Name:</strong>{" "}
+                  {selectedInstitution.allocated_staff_name}
+                </div>
+                <div>
+                  <strong>Allocated Username:</strong>{" "}
+                  {selectedInstitution.allocated_staff_username}
+                </div>
+              </div>
+            )}
+            {/* Ticket history for entered phone number */}
+            {formData.phoneNumber && (
+              <div
+                style={{
+                  marginTop: 8,
+                  background: "#f8f9fa",
+                  borderRadius: 8,
+                  padding: 0,
+                  minHeight: 60
+                }}
+              >
+                <h4 style={{ color: "#1976d2", margin: '16px 0 8px 0', paddingLeft: 16 }}>
+                  Ticket History for {formData.phoneNumber}
+                </h4>
+                {creationTicketsLoading ? (
+                  <div style={{ textAlign: "center", padding: 12 }}>
+                    <CircularProgress size={22} />
+                  </div>
+                ) : creationFoundTickets.length > 0 ? (
+                  creationFoundTickets.map((ticket) => (
+                    <Box
+                      key={ticket.id}
+                      onClick={() => setCreationActiveTicketId(ticket.id)}
+                      sx={{
+                        mb: 2,
+                        p: 2,
+                        borderRadius: 2,
+                        bgcolor: creationActiveTicketId === ticket.id ? "#e3f2fd" : "#fff",
+                        cursor: "pointer",
+                        border: creationActiveTicketId === ticket.id ? "2px solid #1976d2" : "1px solid #e0e0e0",
+                        boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 1,
+                        transition: 'box-shadow 0.2s, border-color 0.2s',
+                        '&:hover': {
+                          boxShadow: '0 4px 8px rgba(25,118,210,0.1)',
+                          borderColor: '#1976d2'
+                        }
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#1976d2' }}>
+                          {ticket.ticket_id}
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography
+                            sx={{
+                              px: 1.5,
+                              py: 0.5,
+                              borderRadius: '12px',
+                              color: 'white',
+                              background:
+                                ticket.status === 'Closed'
+                                  ? '#757575'
+                                  : ticket.status === 'Open'
+                                  ? '#2e7d32'
+                                  : '#1976d2',
+                              fontSize: '0.75rem',
+                              fontWeight: 500
+                            }}
+                          >
+                            {ticket.status}
+                          </Typography>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenJustificationHistory(ticket);
+                            }}
+                            sx={{
+                              color: '#1976d2',
+                              '&:hover': {
+                                backgroundColor: 'rgba(25, 118, 210, 0.1)'
+                              }
+                            }}
+                            title="View Recomendation History"
+                          >
+                            <ChatIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      </Box>
+                      <Box sx={{ mt: 1 }}>
+                        <Typography variant="body2" sx={{ color: '#666', mb: 0.5 }}>
+                          Created: {new Date(ticket.created_at).toLocaleDateString()}
+                        </Typography>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 500, color: '#333', mb: 1 }}>
+                          Subject: {ticket.subject}
+                        </Typography>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            color: '#666',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}
+                        >
+                          Description: {ticket.description}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  ))
+                ) : (
+                  <div style={{ color: '#888', fontSize: '0.95em', textAlign: 'center', padding: 16 }}>
+                    No previous tickets found for this number.
+                  </div>
+                )}
+              </div>
+            )}
+          </Box>
         </Box>
-      </Box>
-    </Modal>
+      </Modal>
+
+      {/* Justification History Modal */}
+      <Dialog 
+        open={isJustificationModalOpen} 
+        onClose={handleCloseJustificationModal} 
+        maxWidth="sm" 
+        fullWidth
+      >
+        <DialogTitle>
+          Justification History - {selectedTicketForJustification?.ticket_id}
+        </DialogTitle>
+        <DialogContent>
+          {selectedTicketForJustification && (
+            <AssignmentFlowChat assignmentHistory={assignmentHistory} selectedTicket={selectedTicketForJustification} />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal for Success/Error Messages */}
+      {modal.isOpen && (
+        <div style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          zIndex: 1301,
+          width: "100%",
+          height: "100%",
+          background: "rgba(0, 0, 0, 0.4)",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center"
+        }}>
+          <div style={{
+            background: "#fff",
+            padding: "24px",
+            borderRadius: "8px",
+            width: "400px",
+            textAlign: "center",
+            borderLeft: modal.type === "success" ? "6px solid #4caf50" : "6px solid #f44336"
+          }}>
+            <h3 style={{ margin: "0 0 16px 0", color: modal.type === "success" ? "#4caf50" : "#f44336" }}>
+              {modal.type === "success" ? "Success" : "Error"}
+            </h3>
+            <p style={{ margin: "0 0 20px 0", fontSize: "14px", lineHeight: "1.5" }}>
+              {modal.message}
+            </p>
+            <button 
+              onClick={closeModal} 
+              style={{
+                marginTop: "20px",
+                background: "#007bff",
+                border: "none",
+                color: "white",
+                padding: "8px 16px",
+                borderRadius: "4px",
+                cursor: "pointer",
+                fontSize: "14px"
+              }}
+            >
+              Close
+            </button>
+            
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

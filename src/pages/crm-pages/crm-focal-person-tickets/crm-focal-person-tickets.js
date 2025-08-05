@@ -14,28 +14,31 @@ import {
   Snackbar,
   Alert
 } from "@mui/material";
-import ColumnSelector from "../../../components/colums-select/ColumnSelector";
+// import ColumnSelector from "../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../config";
 import "../crm-tickets/ticket.css";
-import TicketActions from "../../../components/coordinator/TicketActions";
+import TicketActions from "../../../components/ticket/TicketActions";
 import TicketReassignModal from '../../../components/ticket/TicketReassignModal';
 import TicketDetailsModal from '../../../components/TicketDetailsModal';
+import Pagination from "../../../components/Pagination";
+import TableControls from "../../../components/TableControls";
+import TicketFilters from '../../../components/ticket/TicketFilters';
 
 export default function CRMFocalPersonTickets() {
   const { status } = useParams();
   const [tickets, setTickets] = useState([]);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
   const DEFAULT_COLUMNS = [
-    "id",
+    "ticket_id",
     "fullName",
     "phone_number",
+    "region",
     "status",
     "subject",
     "category",
@@ -53,6 +56,15 @@ export default function CRMFocalPersonTickets() {
   const [ticketToReassign, setTicketToReassign] = useState(null);
   const token = localStorage.getItem("authToken");
   const [assignmentHistory, setAssignmentHistory] = useState([]);
+  const [filters, setFilters] = useState({
+    search: '',
+    nidaSearch: '',
+    status: '',
+    priority: '',
+    category: '',
+    startDate: null,
+    endDate: null,
+  });
 
   useEffect(() => {
     fetchTickets();
@@ -118,17 +130,50 @@ export default function CRMFocalPersonTickets() {
     setAssignmentHistory([]);
   };
 
+  const handleFilterChange = (newFilters) => {
+    const { status, ...rest } = newFilters;
+    setFilters(rest);
+    setCurrentPage(1);
+  };
+
   const filteredTickets = tickets.filter((ticket) => {
     const searchValue = search.toLowerCase();
     const phone = (ticket.phone_number || "").toLowerCase();
     const nida = (ticket.nida_number || "").toLowerCase();
-    return (
-      (phone.includes(searchValue) || nida.includes(searchValue)) &&
-      (!filterStatus || ticket.status === filterStatus)
-    );
+    const fullName = `${ticket.first_name || ""} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.toLowerCase();
+    const institutionName = (ticket.institution && typeof ticket.institution === 'object' ? ticket.institution.name : ticket.institution || "").toLowerCase();
+    
+    const matchesSearch = !searchValue || 
+      phone.includes(searchValue) || 
+      nida.includes(searchValue) ||
+      fullName.includes(searchValue) ||
+      institutionName.includes(searchValue) ||
+      (ticket.first_name || "").toLowerCase().includes(searchValue) ||
+      (ticket.last_name || "").toLowerCase().includes(searchValue) ||
+      (ticket.middle_name || "").toLowerCase().includes(searchValue);
+    
+    const matchesStatus = !filters.status || ticket.status === filters.status;
+    const matchesPriority = !filters.priority || ticket.priority === filters.priority;
+    const matchesCategory = !filters.category || ticket.category === filters.category;
+    let matchesDate = true;
+    if (filters.startDate) {
+      const ticketDate = new Date(ticket.created_at);
+      if (ticketDate < filters.startDate) matchesDate = false;
+    }
+    if (filters.endDate) {
+      const ticketDate = new Date(ticket.created_at);
+      const endDate = new Date(filters.endDate);
+      endDate.setHours(23, 59, 59, 999);
+      if (ticketDate > endDate) matchesDate = false;
+    }
+    return matchesSearch && matchesStatus && matchesPriority && matchesCategory && matchesDate;
   });
 
   const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage + 1;
+  const endIndex = Math.min(currentPage * itemsPerPage, filteredTickets.length);
+  const totalItems = filteredTickets.length;
+  
   const paginatedTickets = filteredTickets.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -136,9 +181,10 @@ export default function CRMFocalPersonTickets() {
 
   const renderTableHeader = () => (
     <tr>
-      {activeColumns.includes("id") && <th>#</th>}
+      {activeColumns.includes("ticket_id") && <th>Ticket ID</th>}
       {activeColumns.includes("fullName") && <th>Full Name</th>}
       {activeColumns.includes("phone_number") && <th>Phone</th>}
+      {activeColumns.includes("region") && <th>Region</th>}
       {activeColumns.includes("status") && <th>Status</th>}
       {activeColumns.includes("subject") && <th>Subject</th>}
       {activeColumns.includes("category") && <th>Category</th>}
@@ -150,8 +196,8 @@ export default function CRMFocalPersonTickets() {
 
   const renderTableRow = (ticket, index) => (
     <tr key={ticket.id || index}>
-      {activeColumns.includes("id") && (
-        <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
+      {activeColumns.includes("ticket_id") && (
+        <td>{ticket.ticket_id || ticket.id}</td>
       )}
       {activeColumns.includes("fullName") && (
          <td>
@@ -166,6 +212,9 @@ export default function CRMFocalPersonTickets() {
       )}
       {activeColumns.includes("phone_number") && (
         <td>{ticket.phone_number || "N/A"}</td>
+      )}
+      {activeColumns.includes("region") && (
+        <td>{ticket.region || "N/A"}</td>
       )}
       {activeColumns.includes("status") && (
         <td>
@@ -388,67 +437,47 @@ export default function CRMFocalPersonTickets() {
   }
 
   return (
-    <div className="coordinator-dashboard-container">
+    <div className="user-table-container">
+      <div style={{ 
+        display: "flex", 
+        justifyContent: "space-between", 
+        alignItems: "center",
+        marginBottom: "1rem"
+      }}>
+        <h3 className="title">Focal Person Tickets List</h3>
+        
+        <div style={{ 
+          display: "flex", 
+          alignItems: "center", 
+          gap: "10px"
+        }}>
+          <TicketFilters
+            onFilterChange={handleFilterChange}
+            initialFilters={filters}
+            compact={true}
+          />
+        </div>
+      </div>
       <div style={{ overflowX: "auto", width: "100%" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "16px",
-          }}
-        >
-          <h2>Focal Person Tickets - {status}</h2>
-          <Tooltip title="Columns Settings and Export" arrow>
-            <IconButton onClick={() => setIsColumnModalOpen(true)}>
-              <FiSettings size={20} />
-            </IconButton>
-          </Tooltip>
-        </div>
 
-        <div className="controls">
-          <div>
-            <label style={{ marginRight: "8px" }}>
-              <strong>Show:</strong>
-            </label>
-            <select
-              className="filter-select"
-              value={itemsPerPage}
-              onChange={(e) => {
-                const value = e.target.value;
-                setItemsPerPage(
-                  value === "All" ? filteredTickets.length : parseInt(value)
-                );
-                setCurrentPage(1);
-              }}
-            >
-              {[5, 10, 25, 50, 100].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-              <option value="All">All</option>
-            </select>
-          </div>
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-            <input
-              className="search-input"
-              type="text"
-              placeholder="Search by phone or NIDA..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <select
-              className="filter-select"
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-            >
-              <option value="">All</option>
-              <option value="Open">Open</option>
-              <option value="Closed">Closed</option>
-            </select>
-          </div>
-        </div>
+        <TableControls
+          itemsPerPage={itemsPerPage}
+          onItemsPerPageChange={(e) => {
+            const value = e.target.value;
+            setItemsPerPage(
+              value === "All" ? filteredTickets.length : parseInt(value)
+            );
+            setCurrentPage(1);
+          }}
+          search={search}
+          onSearchChange={(e) => setSearch(e.target.value)}
+          filterStatus={filters.status}
+          onFilterStatusChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+          activeColumns={activeColumns}
+          onColumnsChange={setActiveColumns}
+          tableData={filteredTickets}
+          tableTitle="Focal Person Tickets"
+        />
 
         <table className="user-table">
           <thead>{renderTableHeader()}</thead>
@@ -468,29 +497,14 @@ export default function CRMFocalPersonTickets() {
           </tbody>
         </table>
 
-        <div style={{ marginTop: "16px", textAlign: "center" }}>
-          <Button
-            variant="outlined"
-            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-            sx={{ marginRight: 1 }}
-          >
-            Previous
-          </Button>
-          <span>
-            Page {currentPage} of {totalPages}
-          </span>
-          <Button
-            variant="outlined"
-            onClick={() =>
-              setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-            }
-            disabled={currentPage === totalPages}
-            sx={{ marginLeft: 1 }}
-          >
-            Next
-          </Button>
-        </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          startIndex={startIndex}
+          endIndex={endIndex}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {/* Details Modal */}
@@ -500,13 +514,6 @@ export default function CRMFocalPersonTickets() {
         selectedTicket={selectedTicket}
         assignmentHistory={assignmentHistory}
         renderAssignmentStepper={renderAssignmentStepper}
-      />
-
-      <ColumnSelector
-        open={isColumnModalOpen}
-        onClose={() => setIsColumnModalOpen(false)}
-        data={tickets}
-        onColumnsChange={handleColumnsChange}
       />
 
       <Snackbar

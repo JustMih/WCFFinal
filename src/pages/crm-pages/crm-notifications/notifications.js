@@ -12,19 +12,28 @@ import {
   Snackbar,
   Tooltip,
   Typography,
-  TextField
+  TextField,
+  Avatar,
+  Paper,
 } from "@mui/material";
-import ColumnSelector from "../../../components/colums-select/ColumnSelector";
+// import ColumnSelector from "../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../config";
 import "./notifications.css";
+import ChatIcon from '@mui/icons-material/Chat';
+import Dialog from '@mui/material/Dialog';
+import DialogTitle from '@mui/material/DialogTitle';
+import DialogContent from '@mui/material/DialogContent';
+import TicketDetailsModal from '../../../components/TicketDetailsModal';
+import Pagination from '../../../components/Pagination';
 import { useQuery } from "@tanstack/react-query";
+import TableControls from "../../../components/TableControls";
+import TicketFilters from '../../../components/ticket/TicketFilters';
 
 export default function Crm() {
   const [agentTickets, setAgentTickets] = useState([]);
   const [agentTicketsError, setAgentTicketsError] = useState(null);
   const [userId, setUserId] = useState("");
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
@@ -34,35 +43,43 @@ export default function Crm() {
   const [comments, setComments] = useState("");
   const [modal, setModal] = useState({ isOpen: false, type: "", message: "" });
   const [activeColumns, setActiveColumns] = useState([
-    "id",
+    "ticket_id",
     "fullName",
     "phone_number",
-    "status",
-    "subject",
-    "category",
-    "assigned_to_role",
-    "createdAt"
+    "region",
+    "status"
   ]);
   const [loading, setLoading] = useState(true);
   const [notifiedCount, setNotifiedCount] = useState(0);
+  const [showType, setShowType] = useState('manual'); // 'manual' or 'system'
+  const [filters, setFilters] = useState({
+    search: '',
+    nidaSearch: '',
+    status: '',
+    priority: '',
+    category: '',
+    startDate: null,
+    endDate: null,
+  });
 
-  // Fetch notifications for the selected ticket
+  // Fetch notifications for the selected ticket and user
   const { data: notificationHistory, isLoading: isLoadingHistory } = useQuery({
     queryKey: [
       "ticketNotifications",
       selectedTicket?.ticket?.id ||
         selectedTicket?.ticket_id ||
-        selectedTicket?.id
+        selectedTicket?.id,
+      userId
     ],
     queryFn: async () => {
       const ticketId =
         selectedTicket?.ticket?.id ||
         selectedTicket?.ticket_id ||
         selectedTicket?.id;
-      if (!ticketId) return { notifications: [] };
+      if (!ticketId || !userId) return { notifications: [] };
       const token = localStorage.getItem("authToken");
       const response = await fetch(
-        `${baseURL}/notifications/ticket/${ticketId}`,
+        `${baseURL}/notifications/ticket/${ticketId}/user/${userId}`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (!response.ok) throw new Error("Failed to fetch notifications");
@@ -76,9 +93,9 @@ export default function Crm() {
       return { notifications };
     },
     enabled: !!(
-      selectedTicket?.ticket?.id ||
-      selectedTicket?.ticket_id ||
-      selectedTicket?.id
+      (selectedTicket?.ticket?.id ||
+        selectedTicket?.ticket_id ||
+        selectedTicket?.id) && userId
     )
   });
 
@@ -141,7 +158,7 @@ export default function Crm() {
       if (!response.ok) {
         if (response.status === 404) {
           setAgentTickets([]);
-          setAgentTicketsError("No tickets found for this agent.");
+          setAgentTicketsError("No tickets found.");
           return;
         }
         throw new Error(`HTTP error! Status: ${response.status}`);
@@ -235,6 +252,12 @@ export default function Crm() {
     setModal({ isOpen: false, type: "", message: "" });
   };
 
+  const handleFilterChange = (newFilters) => {
+    const { status, ...rest } = newFilters;
+    setFilters(rest);
+    setCurrentPage(1);
+  };
+
   const handleNotificationClick = (ticket) => {
     setSelectedTicket(ticket);
     setIsNotificationModalOpen(true);
@@ -305,7 +328,17 @@ export default function Crm() {
               </Box>
               <Box sx={{ mt: 1, background: '#f3f7fa', borderRadius: 2, p: 1.5 }}>
                 <Typography variant="body2" sx={{ color: '#666', mb: 0.5 }}>
-                  <strong>Created:</strong> {dateStr}
+                  <strong>Created:</strong>{' '}
+                  {notification.created_at
+                    ? new Date(notification.created_at).toLocaleString("en-GB", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: true
+                      })
+                    : "N/A"}
                 </Typography>
                 <Typography variant="subtitle2" sx={{ fontWeight: 500, color: '#333', mb: 1 }}>
                   <strong>Subject:</strong> {notification.ticket?.subject || 'N/A'}
@@ -345,22 +378,65 @@ export default function Crm() {
     );
   };
 
-  const filteredTickets = agentTickets.filter((ticket) => {
+  // Group notifications by ticket ID and keep only the latest manual notification per ticket (with comment)
+  const uniqueTickets = [];
+  const seenTicketIds = new Set();
+  agentTickets.forEach((notif) => {
+    const ticketId = notif.ticket?.id || notif.ticket_id || notif.id;
+    if (notif.comment && notif.comment.trim() !== '' && !seenTicketIds.has(ticketId)) {
+      uniqueTickets.push(notif);
+      seenTicketIds.add(ticketId);
+    }
+  });
+
+  const manualNotifications = uniqueTickets.filter(
+    notif => notif.comment && notif.comment.trim() !== ''
+  );
+
+  const systemNotifications = uniqueTickets.filter(
+    notif => notif.comment || notif.comment.trim() === ''
+  );
+
+  // Use filtered list based on toggle
+  const filteredTickets = (showType === 'manual' ? manualNotifications : systemNotifications).filter((ticket) => {
     const searchValue = search.toLowerCase();
-    const phone = (ticket.phone_number || "").toLowerCase();
-    const nida = (ticket.nida_number || "").toLowerCase();
-    const fullName = `${ticket.first_name || ""} ${ticket.middle_name || ""} ${
-      ticket.last_name || ""
-    }`.toLowerCase();
-    return (
-      (phone.includes(searchValue) ||
-        nida.includes(searchValue) ||
-        fullName.includes(searchValue)) &&
-      (!filterStatus || ticket.status === filterStatus)
-    );
+    const ticketData = ticket.ticket || ticket;
+    const phone = (ticketData.phone_number || "").toLowerCase();
+    const nida = (ticketData.nida_number || "").toLowerCase();
+    const fullName = `${ticketData.first_name || ""} ${ticketData.middle_name || ""} ${ticketData.last_name || ""}`.toLowerCase();
+    const institutionName = (ticketData.institution && typeof ticketData.institution === 'object' ? ticketData.institution.name : ticketData.institution || "").toLowerCase();
+    
+    const matchesSearch = !searchValue || 
+      phone.includes(searchValue) || 
+      nida.includes(searchValue) ||
+      fullName.includes(searchValue) ||
+      institutionName.includes(searchValue) ||
+      (ticketData.first_name || "").toLowerCase().includes(searchValue) ||
+      (ticketData.last_name || "").toLowerCase().includes(searchValue) ||
+      (ticketData.middle_name || "").toLowerCase().includes(searchValue);
+    
+    const matchesStatus = !filters.status || ticketData.status === filters.status;
+    const matchesPriority = !filters.priority || ticketData.priority === filters.priority;
+    const matchesCategory = !filters.category || ticketData.category === filters.category;
+    let matchesDate = true;
+    if (filters.startDate) {
+      const ticketDate = new Date(ticketData.created_at);
+      if (ticketDate < filters.startDate) matchesDate = false;
+    }
+    if (filters.endDate) {
+      const ticketDate = new Date(ticketData.created_at);
+      const endDate = new Date(filters.endDate);
+      endDate.setHours(23, 59, 59, 999);
+      if (ticketDate > endDate) matchesDate = false;
+    }
+    return matchesSearch && matchesStatus && matchesPriority && matchesCategory && matchesDate;
   });
 
   const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage + 1;
+  const endIndex = Math.min(currentPage * itemsPerPage, filteredTickets.length);
+  const totalItems = filteredTickets.length;
+  
   const paginatedTickets = filteredTickets.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -368,9 +444,10 @@ export default function Crm() {
 
   const renderTableHeader = () => (
     <tr>
-      {activeColumns.includes("id") && <th>#</th>}
+      {activeColumns.includes("ticket_id") && <th>Ticket ID</th>}
       {activeColumns.includes("fullName") && <th>Full Name</th>}
       {activeColumns.includes("phone_number") && <th>Phone</th>}
+      {activeColumns.includes("region") && <th>Region</th>}
       {activeColumns.includes("status") && <th>Status</th>}
       {activeColumns.includes("subject") && <th>Subject</th>}
       {activeColumns.includes("category") && <th>Category</th>}
@@ -382,8 +459,8 @@ export default function Crm() {
 
   const renderTableRow = (ticket, index) => (
     <tr key={ticket.id || index}>
-      {activeColumns.includes("id") && (
-        <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
+      {activeColumns.includes("ticket_id") && (
+        <td>{ticket.ticket?.ticket_id || ticket.ticket_id || ticket.id}</td>
       )}
       {activeColumns.includes("fullName") && (
         <td>
@@ -396,6 +473,9 @@ export default function Crm() {
       )}
       {activeColumns.includes("phone_number") && (
         <td>{ticket.ticket?.phone_number || "N/A"}</td>
+      )}
+      {activeColumns.includes("region") && (
+        <td>{ticket.ticket?.region || "N/A"}</td>
       )}
       {activeColumns.includes("status") && (
         <td>
@@ -460,86 +540,49 @@ export default function Crm() {
   }
 
   return (
-    <div className="coordinator-dashboard-container">
-      <div style={{ marginBottom: 16, textAlign: "right" }}>
-        <span
-          style={{
-            background: "red",
-            color: "white",
-            borderRadius: "12px",
-            padding: "4px 12px",
-            fontWeight: "bold",
-            fontSize: "1rem"
-          }}
-        >
-          Total Notified Tickets: {notifiedCount}
-        </span>
+    <div className="user-table-container">
+      <div style={{ 
+        display: "flex", 
+        justifyContent: "space-between", 
+        alignItems: "center",
+        marginBottom: "1rem"
+      }}>
+        <h3 className="title">Notifications List</h3>
+        
+        <div style={{ 
+          display: "flex", 
+          alignItems: "center", 
+          gap: "10px"
+        }}>
+          <TicketFilters
+            onFilterChange={handleFilterChange}
+            initialFilters={filters}
+            compact={true}
+          />
+        </div>
       </div>
       <div style={{ overflowX: "auto", width: "100%" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "16px"
+
+        <TableControls
+          itemsPerPage={itemsPerPage}
+          onItemsPerPageChange={(e) => {
+            const value = e.target.value;
+            setItemsPerPage(
+              value === "All" ? filteredTickets.length : parseInt(value)
+            );
+            setCurrentPage(1);
           }}
-        >
-          <h2>Notification Tickets List </h2>
-          <Tooltip title="Columns Settings and Export" arrow>
-            <IconButton onClick={() => setIsColumnModalOpen(true)}>
-              <FiSettings size={20} />
-            </IconButton>
-          </Tooltip>
-        </div>
+          search={search}
+          onSearchChange={(e) => setSearch(e.target.value)}
+          filterStatus={filters.status}
+          onFilterStatusChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+          activeColumns={activeColumns}
+          onColumnsChange={setActiveColumns}
+          tableData={filteredTickets}
+          tableTitle="Notifications"
+        />
 
-        <div className="controls">
-          <div>
-            <label style={{ marginRight: "8px" }}>
-              <strong>Show:</strong>
-            </label>
-            <select
-              className="filter-select"
-              value={itemsPerPage}
-              onChange={(e) => {
-                const value = e.target.value;
-                setItemsPerPage(
-                  value === "All" ? filteredTickets.length : parseInt(value)
-                );
-                setCurrentPage(1);
-              }}
-            >
-              {[5, 10, 25, 50, 100].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-              <option value="All">All</option>
-            </select>
-          </div>
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-            <input
-              className="search-input"
-              type="text"
-              placeholder="Search by phone or NIDA..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <select
-              className="filter-select"
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-            >
-              <option value="">All</option>
-              <option value="Open">Open</option>
-              <option value="Closed">Closed</option>
-            </select>
-            {/* <button className="add-ticket-button">
-              <FaPlus /> Add Ticket
-            </button> */}
-          </div>
-        </div>
-
-        <table className="ticket-table">
+        <table className="user-table">
           <thead>{renderTableHeader()}</thead>
           <tbody>
             {paginatedTickets.length > 0 ? (
@@ -557,29 +600,14 @@ export default function Crm() {
           </tbody>
         </table>
 
-        <div style={{ marginTop: "16px", textAlign: "center" }}>
-          <Button
-            variant="outlined"
-            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-            sx={{ marginRight: 1 }}
-          >
-            Previous
-          </Button>
-          <span>
-            Page {currentPage} of {totalPages}
-          </span>
-          <Button
-            variant="outlined"
-            onClick={() =>
-              setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-            }
-            disabled={currentPage === totalPages}
-            sx={{ marginLeft: 1 }}
-          >
-            Next
-          </Button>
-        </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          startIndex={startIndex}
+          endIndex={endIndex}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {/* Details Modal */}
@@ -949,12 +977,7 @@ export default function Crm() {
       </Modal>
 
       {/* Column Selector */}
-      <ColumnSelector
-        open={isColumnModalOpen}
-        onClose={() => setIsColumnModalOpen(false)}
-        data={agentTickets}
-        onColumnsChange={setActiveColumns}
-      />
+      {/* Removed ColumnSelectorDropdown */}
 
       {/* Snackbar for notifications */}
       <Snackbar
