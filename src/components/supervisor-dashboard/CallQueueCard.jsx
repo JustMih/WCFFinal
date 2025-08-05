@@ -86,7 +86,7 @@ const CallQueueCard = () => {
   return (
     <div className="queue-monitoring-section">
       <h4>Call Queue Monitoring</h4>
-      <div className="queue-stats">
+      {/* <div className="queue-stats">
         <div className="queue-stat-card">
           <div className="queue-stat-icon">
             <FaUsers />
@@ -116,7 +116,7 @@ const CallQueueCard = () => {
             <span className="queue-stat-label">Priority Calls</span>
           </div>
         </div>
-      </div>
+      </div> */}
       <div className="table-responsive">
         <table className="waiting-calls-table">
           <thead>

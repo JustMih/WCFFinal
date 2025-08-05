@@ -60,6 +60,7 @@ import AgentPerformanceScore from "../../../../components/agent-dashboard/AgentP
 import AdvancedTicketCreateModal from "../../../../components/ticket/AdvancedTicketCreateModal";
 import VoiceNotesReport from "../../cal-center-ivr/VoiceNotesReport";
 import CallQueueCard from "../../../../components/supervisor-dashboard/CallQueueCard";
+import OnlineAgentsTable from "../../../../components/agent-dashboard/OnlineAgentsTable";
 
 export default function AgentsDashboard() {
   const [customerType, setCustomerType] = useState("");
@@ -201,7 +202,7 @@ export default function AgentsDashboard() {
     attendingMeeting: 0, // default value
     emergency: 0, // default value
   });
-  const [onlineAgents, setOnlineAgents] = useState([]);
+  // const [onlineAgents, setOnlineAgents] = useState([]); // Removed - now in OnlineAgentsTable component
   const wasAnsweredRef = useRef(false);
 
   const [statusTimer, setStatusTimer] = useState(0); // Timer for the current status
@@ -1039,7 +1040,7 @@ export default function AgentsDashboard() {
 
         const totalData = await totalResponse.json();
         console.log("Total agents data:", totalData);
-        setOnlineAgents(totalData.agents || []);
+        // setOnlineAgents(totalData.agents || []); // Removed
         const totalCount = totalData.total;
         // console.log("Total agents count:", totalCount);
 
@@ -1128,22 +1129,9 @@ export default function AgentsDashboard() {
     }
   };
 
-  const getOnlineAgents = async () => {
-    const totalResponse = await fetch(`${baseURL}/users/agents-online`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-      },
-    });
-
-    const totalData = await totalResponse.json();
-    console.log("Total agents data:", totalData);
-    setOnlineAgents(totalData.agents || []);
-  };
+  // getOnlineAgents function removed - now handled in OnlineAgentsTable component
 
   useEffect(() => {
-    getOnlineAgents();
     // Fetch function data for ticket modal (same as CRM)
     const fetchFunctionData = async () => {
       try {
@@ -1353,28 +1341,8 @@ export default function AgentsDashboard() {
           <SingleAgentDashboardCard />
         </div>
         <div className="dashboard-single-agent-row_two">
-          {/* create table for online agent */}
-          <TableContainer>
-            <h3>Online Agents</h3>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Agent Name</TableCell>
-                  <TableCell>Extension</TableCell>
-                  <TableCell>Status</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {onlineAgents.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>{user.name}</TableCell>
-                    <TableCell>{user.extension}</TableCell>
-                    <TableCell>{user.status}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+          {/* Online Agents Table */}
+          <OnlineAgentsTable />
         </div>
         <div className="dashboard-single-agent-row_two">
           {/* Queue Monitoring Section */}
