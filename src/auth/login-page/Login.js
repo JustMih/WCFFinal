@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { ImSpinner9 } from "react-icons/im";
 import wcf_image from "../../asserts/images/wcf_image.jpg";
-import wcf_logo from "../../asserts/images/logo.png";
+import wcf_logo from "../../asserts/images/logo.PNG";
+import loginBg from "../../asserts/images/login-bg.png";
 import { TextField, Button } from "@mui/material";
 import { baseURL } from "../../config";
 import { storeDomainCredentials, storeCredentialsObject, validateCredentials } from "../../utils/credentials";
@@ -93,52 +94,83 @@ export default function Login() {
   }, [timeRemaining]);
 
   return (
-    <div className="login-container">
+    <div className="login-container" style={{ backgroundImage: `url(${loginBg})` }}>
       <div className="login-card">
-        <div className="login-image">
-          <img src={wcf_image} alt="login" className="wcf-image" />
+        {/* Left Content Section */}
+        <div className="login-image" style={{marginTop: '20px', marginLeft: '40px' }}>
+          <div className="content-overlay">
+            <div className="slogan">
+              <span className="slogan-our">Our</span> <span className="slogan-slogan">Slogan</span>
+            </div>
+            <p className="content-paragraph">
+            Rightful Compensation, On Time.
+            </p>
+            <div className="support-info">
+              <div className="support-item">
+                <span className="support-label">For Support contact IT SUPPORT</span>
+              </div>
+              <div className="support-item">
+                <span className="support-label">Email:</span>
+                <span className="support-value">support@wcf.go.tz</span>
+              </div>
+            </div>
+          </div>
         </div>
+
+        {/* Right Login Form Section */}
         <div className="login-form">
-          <form onSubmit={handleLogin}>
+          <div className="form-container">
             <div className="logo">
               <img src={wcf_logo} alt="logo" className="wcf-logo" />
             </div>
-            <TextField
-              label="Username" // Change from email to username
-              variant="outlined"
-              fullWidth
-              margin="normal"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              required
-            />
-            <TextField
-              label="Password"
-              type="password"
-              variant="outlined"
-              fullWidth
-              margin="normal"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
-            <Button type="submit" className="login-button">
-              {isLoading ? (
-                <>
-                  <ImSpinner9 style={{ marginRight: 5 }} />
-                  waiting...
-                </>
-              ) : (
-                "Login"
+    
+            {/* <h2 className="login-heading">LOGIN</h2> */}
+            
+            <form onSubmit={handleLogin}>
+              <div className="form-field">
+                <TextField
+                  label="Username"
+                  variant="outlined"
+                  fullWidth
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                />
+              </div>
+              
+              <div className="form-field">
+                <TextField
+                  label="Password"
+                  type="password"
+                  variant="outlined"
+                  fullWidth
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+              
+              <Button type="submit" className="login-button">
+                {isLoading ? (
+                  <>
+                    <ImSpinner9 style={{ marginRight: 5 }} />
+                    waiting...
+                  </>
+                ) : (
+                  "LOGIN"
+                )}
+              </Button>
+              
+              {error && <p className="error">{error}</p>}
+              {timeRemaining !== null && timeRemaining > 0 && (
+                <p className="lockout-timer">
+                  You can try again in {Math.ceil(timeRemaining / 1000)} seconds.
+                </p>
               )}
-            </Button>
-            {error && <p className="error">{error}</p>}
-            {timeRemaining !== null && timeRemaining > 0 && (
-              <p className="lockout-timer">
-                You can try again in {Math.ceil(timeRemaining / 1000)} seconds.
-              </p>
-            )}
-          </form>
+            </form>
+            
+          </div>
+         
         </div>
       </div>
     </div>
