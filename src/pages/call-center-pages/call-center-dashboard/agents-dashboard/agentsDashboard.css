@@ -91,6 +91,12 @@
   width: 100%;
 }
 
+/* Ensure equal width for agent and supervisor tables when side by side */
+.dashboard-single-agent-row_two > div {
+  flex: 1;
+  min-width: 0; /* Allow flex items to shrink below their content size */
+}
+
 .queue-monitoring {
   background: white;
   border-radius: 10px;

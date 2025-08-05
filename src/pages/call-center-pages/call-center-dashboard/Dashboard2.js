@@ -1,5 +1,5 @@
 import React from 'react'
-import AgentsDashboard from './agents-dashboard/AgentsDashboard';
+import AgentsDashboard from './agents-dashboard/AgentsDashboard2';
 import AdminAndSuperAdminDashboard from './admin-and-super-admin-dashboard/Admin&SuperAdminDashboard';
 import SupervisorDashboard from './supervisor-dashboard/SupervisorDashboard2';
 

@@ -1,0 +1,116 @@
+.online-supervisors-container {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.online-supervisors-container h3 {
+  margin: 0 0 20px 0;
+  color: #333;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.online-supervisors-container .MuiTableContainer-root {
+  box-shadow: none;
+}
+
+.online-supervisors-container .MuiTable-root {
+  min-width: 400px;
+}
+
+.online-supervisors-container .MuiTableHead-root .MuiTableRow-root {
+  background-color: #f5f5f5;
+}
+
+.online-supervisors-container .MuiTableHead-root .MuiTableCell-root {
+  font-weight: 600;
+  color: #333;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.online-supervisors-container .MuiTableBody-root .MuiTableRow-root:hover {
+  background-color: #f8f9fa;
+}
+
+.online-supervisors-container .MuiTableBody-root .MuiTableCell-root {
+  border-bottom: 1px solid #e0e0e0;
+  padding: 12px 16px;
+}
+
+.status-badge {
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.status-badge.online {
+  background-color: #e8f5e8;
+  color: #2e7d32;
+}
+
+.status-badge.offline {
+  background-color: #ffebee;
+  color: #c62828;
+}
+
+.status-badge.idle {
+  background-color: #fff3e0;
+  color: #ef6c00;
+}
+
+.status-badge.busy {
+  background-color: #fce4ec;
+  color: #c2185b;
+}
+
+.status-badge.breakfast {
+  background-color: #e3f2fd;
+  color: #1565c0;
+}
+
+.status-badge.lunch {
+  background-color: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.status-badge.emergency {
+  background-color: #ffebee;
+  color: #d32f2f;
+}
+
+.status-badge.attending-meeting {
+  background-color: #e8f5e8;
+  color: #388e3c;
+}
+
+.status-badge.short-call {
+  background-color: #fff8e1;
+  color: #f57c00;
+}
+
+.status-badge.follow-up {
+  background-color: #e0f2f1;
+  color: #00695c;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .online-supervisors-container {
+    padding: 15px;
+  }
+  
+  .online-supervisors-container .MuiTable-root {
+    min-width: 300px;
+  }
+  
+  .online-supervisors-container .MuiTableBody-root .MuiTableCell-root {
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+} 
