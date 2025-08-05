@@ -26,9 +26,11 @@ import {
 } from "@mui/material";
 
 // Custom Components
-import ColumnSelector from "../../../../components/colums-select/ColumnSelector";
+// import ColumnSelector from "../../../../components/colums-select/ColumnSelector";
 import TicketFilters from "../../../../components/ticket/TicketFilters";
 import TicketDetailsModal from "../../../../components/TicketDetailsModal";
+import Pagination from "../../../../components/Pagination";
+import TableControls from "../../../../components/TableControls";
 
 // Config
 import { baseURL } from "../../../../config";
@@ -89,10 +91,15 @@ export default function FocalPersonDashboard() {
   const [tickets, setTickets] = useState([]);
   const [userId, setUserId] = useState("");
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
-  const [activeColumns, setActiveColumns] = useState([]);
+  const [activeColumns, setActiveColumns] = useState([
+    "ticket_id",
+    "fullName",
+    "phone_number",
+    "region",
+    "status"
+  ]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
@@ -122,8 +129,9 @@ export default function FocalPersonDashboard() {
 
   // Dashboard Stats
   const [newTickets, setNewTickets] = useState({
-    "New Tickets": 0,
+    // "New Tickets": 0,
     "Assigned": 0,
+    "In Progress": 0,
     "Escalated": 0
   });
   const [totalTickets, setTotalTickets] = useState({
@@ -132,7 +140,6 @@ export default function FocalPersonDashboard() {
   });
   const [ticketCategories, setTicketCategories] = useState({
     "Open": 0,
-    "In Progress": 0,
     "Carried Forward": 0
   });
   const [ticketStatus, setTicketStatus] = useState({
@@ -145,14 +152,11 @@ export default function FocalPersonDashboard() {
   useEffect(() => {
     if (activeColumns.length === 0) {
       setActiveColumns([
-        "id",
+        "ticket_id",
         "fullName",
         "phone_number",
-        "status",
-        "subject",
-        "category",
-        "assigned_to_role",
-        "createdAt"
+        "region",
+        "status"
       ]);
     }
   }, [activeColumns]);
@@ -225,17 +229,17 @@ export default function FocalPersonDashboard() {
       const stats = response.data.ticketStats;
       // Map unified fields to cards
         setNewTickets({
-        "New Tickets": stats.newTickets || 0,
+        // "New Tickets": stats.newTickets || 0,
         "Assigned": stats.assigned || 0,
-        "Escalated": stats.escalated || 0
+        "In Progress": stats.inProgress || 0,
         });
         setTotalTickets({
+          "Escalated": stats.escalated || 0,
+        "Closed": stats.closed || 0,
         "Total": stats.total || 0,
-        "Closed": stats.closed || 0
         });
         setTicketCategories({
         "Open": stats.open || 0,
-        "In Progress": stats.inProgress || 0,
         "Carried Forward": stats.carriedForward || 0
         });
         setTicketStatus({
@@ -244,9 +248,9 @@ export default function FocalPersonDashboard() {
         "SLA Breaches": stats.slaBreaches || 0
       });
     } catch (error) {
-      setNewTickets({ "New Tickets": 0, "Assigned": 0, "Escalated": 0 });
+      setNewTickets({ "New Tickets": 0, "Assigned": 0,  "In Progress": 0,"Escalated": 0 });
       setTotalTickets({ "Total": 0, "Closed": 0 });
-      setTicketCategories({ "Open": 0, "In Progress": 0, "Carried Forward": 0 });
+      setTicketCategories({"Escalated": 0, "Closed": 0,"Total": 0 });
       setTicketStatus({ "Overdue": 0, "Pending": 0, "SLA Breaches": 0 });
       setSnackbar({
         open: true,
@@ -385,7 +389,7 @@ export default function FocalPersonDashboard() {
         ticket.phone_number?.toLowerCase().includes(searchValue) ||
         ticket.nida_number?.toLowerCase().includes(searchValue) ||
         fullName.includes(searchValue)) &&
-      (!filterStatus || ticket.status === filterStatus);
+      (!filters.status || ticket.status === filters.status);
 
     // Apply advanced filters
     if (filters.category) {
@@ -406,6 +410,10 @@ export default function FocalPersonDashboard() {
   console.log("Filtered tickets:", filteredTickets);
 
   const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage + 1;
+  const endIndex = Math.min(currentPage * itemsPerPage, filteredTickets.length);
+  const totalItems = filteredTickets.length;
+  
   const paginatedTickets = filteredTickets.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -541,7 +549,7 @@ export default function FocalPersonDashboard() {
             icon={<MdOutlineSupportAgent fontSize={35} />}
           />
         </div>
-        <div className="crm-cards-container">
+        {/* <div className="crm-cards-container">
           <Card
             title="Ticket Categories"
             data={ticketCategories}
@@ -554,210 +562,175 @@ export default function FocalPersonDashboard() {
             color="#ffc4dd"
             icon={<MdImportExport fontSize={35} />}
           />
-        </div>
+        </div> */}
       </div>
 
-      <TicketFilters
-        onFilterChange={handleFilterChange}
-        initialFilters={filters}
-      />
-
       {/* Table Section */}
-      <div style={{ overflowX: "auto", width: "100%" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "16px"
-          }}
-        >
-          <h2>Inquiry Tickets</h2>
-          <Tooltip title="Columns Settings" arrow>
-            <IconButton onClick={() => setIsColumnModalOpen(true)}>
-              <FiSettings size={20} />
-            </IconButton>
-          </Tooltip>
-        </div>
-
-        <div className="controls">
-          <div>
-            <label style={{ marginRight: "8px" }}>
-              <strong>Show:</strong>
-            </label>
-            <select
-              className="filter-select"
-              value={itemsPerPage}
-              onChange={(e) => {
-                setItemsPerPage(parseInt(e.target.value));
-                setCurrentPage(1);
-              }}
-            >
-              {[5, 10, 25, 50, 100].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-            <input
-              className="search-input"
-              type="text"
-              placeholder="Search by phone or NIDA..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setCurrentPage(1);
-              }}
+      <div className="user-table-container">
+        <div style={{ 
+          display: "flex", 
+          justifyContent: "space-between", 
+          alignItems: "center",
+          marginBottom: "1rem"
+        }}>
+          <h3 className="title">Head of Unit Tickets List</h3>
+          
+          <div style={{ 
+            display: "flex", 
+            alignItems: "center", 
+            gap: "10px"
+          }}>
+            <TicketFilters
+              onFilterChange={handleFilterChange}
+              initialFilters={filters}
+              compact={true}
             />
-            <select
-              className="filter-select"
-              value={filterStatus}
-              onChange={(e) => {
-                setFilterStatus(e.target.value);
-                setCurrentPage(1);
-              }}
-            >
-              <option value="">All Status</option>
-              <option value="Open">Open</option>
-              <option value="Closed">Closed</option>
-            </select>
           </div>
         </div>
+        
+        <div style={{ overflowX: "auto", width: "100%" }}>
 
-        <table className="user-table">
-          <thead>
-            <tr>
-              {activeColumns.includes("id") && <th>#</th>}
-              {activeColumns.includes("fullName") && <th>Full Name</th>}
-              {activeColumns.includes("phone_number") && <th>Phone</th>}
-              {activeColumns.includes("status") && <th>Status</th>}
-              {activeColumns.includes("subject") && <th>Subject</th>}
-              {activeColumns.includes("category") && <th>Category</th>}
-              {activeColumns.includes("assigned_to_role") && (
-                <th>Assigned Role</th>
-              )}
-              {activeColumns.includes("createdAt") && <th>Created At</th>}
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {paginatedTickets.length > 0 ? (
-              paginatedTickets.map((ticket, i) => (
-                <tr key={ticket.id}>
-                  {activeColumns.includes("id") && (
-                    <td>{(currentPage - 1) * itemsPerPage + i + 1}</td>
-                  )}
-                  {activeColumns.includes("fullName") && (
-                    <td>
-                      {ticket.first_name && ticket.first_name.trim() !== ""
-                        ? `${ticket.first_name} ${ticket.middle_name || ""} ${
-                            ticket.last_name || ""
-                          }`.trim()
-                        : typeof ticket.institution === "string"
-                        ? ticket.institution
-                        : ticket.institution &&
-                          typeof ticket.institution === "object" &&
-                          typeof ticket.institution.name === "string"
-                        ? ticket.institution.name
-                        : "N/A"}
-                    </td>
-                  )}
-                  {activeColumns.includes("phone_number") && (
-                    <td>{ticket.phone_number || "N/A"}</td>
-                  )}
-                  {activeColumns.includes("status") && (
-                    <td>
-                      <span
-                        style={{
-                          color:
-                            ticket.status === "Open"
-                              ? "green"
-                              : ticket.status === "Closed"
-                              ? "gray"
-                              : "blue"
-                        }}
-                      >
-                        {ticket.status || "N/A"}
-                      </span>
-                    </td>
-                  )}
-                  {activeColumns.includes("subject") && (
-                    <td>{ticket.subject || "N/A"}</td>
-                  )}
-                  {activeColumns.includes("category") && (
-                    <td>{ticket.category || "N/A"}</td>
-                  )}
-                  {activeColumns.includes("assigned_to_role") && (
-                    <td>{ticket.assigned_to_role || "N/A"}</td>
-                  )}
-                  {activeColumns.includes("createdAt") && (
-                    <td>
-                      {ticket.created_at
-                        ? new Date(ticket.created_at).toLocaleString("en-GB", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hour12: true
-                          })
-                        : "N/A"}
-                    </td>
-                  )}
-                  <td>
-                    {!["agent", "coordinator", "attendee"].includes(role) && (
-                    <Tooltip title="View Details">
-                      <button
-                        className="view-ticket-details-btn"
-                          onClick={() => {
-                            setSelectedTicket(ticket);
-                            setIsModalOpen(true);
-                          }}
-                      >
-                        <FaEye />
-                      </button>
-                    </Tooltip>
+          <TableControls
+            itemsPerPage={itemsPerPage}
+            onItemsPerPageChange={(e) => {
+              const value = e.target.value;
+              setItemsPerPage(
+                value === "All" ? filteredTickets.length : parseInt(value)
+              );
+              setCurrentPage(1);
+            }}
+            search={search}
+            onSearchChange={(e) => setSearch(e.target.value)}
+            filterStatus={filters.status}
+            onFilterStatusChange={(e) => setFilters({ ...filters, status: e.target.value })}
+            activeColumns={activeColumns}
+            onColumnsChange={setActiveColumns}
+            tableData={filteredTickets}
+            tableTitle="Head of Unit Tickets"
+          />
+
+          <table className="user-table">
+            <thead>
+              <tr>
+                {activeColumns.includes("ticket_id") && <th>Ticket ID</th>}
+                {activeColumns.includes("fullName") && <th>Full Name</th>}
+                {activeColumns.includes("phone_number") && <th>Phone</th>}
+                {activeColumns.includes("region") && <th>Region</th>}
+                {activeColumns.includes("status") && <th>Status</th>}
+                {activeColumns.includes("subject") && <th>Subject</th>}
+                {activeColumns.includes("category") && <th>Category</th>}
+                {activeColumns.includes("assigned_to_role") && (
+                  <th>Assigned Role</th>
+                )}
+                {activeColumns.includes("createdAt") && <th>Created At</th>}
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedTickets.length > 0 ? (
+                paginatedTickets.map((ticket, i) => (
+                  <tr key={ticket.id}>
+                    {activeColumns.includes("ticket_id") && (
+                      <td>{ticket.ticket_id || ticket.id}</td>
                     )}
+                    {activeColumns.includes("fullName") && (
+                      <td>
+                        {ticket.first_name && ticket.first_name.trim() !== ""
+                          ? `${ticket.first_name} ${ticket.middle_name || ""} ${
+                              ticket.last_name || ""
+                            }`.trim()
+                          : typeof ticket.institution === "string"
+                          ? ticket.institution
+                          : ticket.institution &&
+                            typeof ticket.institution === "object" &&
+                            typeof ticket.institution.name === "string"
+                          ? ticket.institution.name
+                          : "N/A"}
+                      </td>
+                    )}
+                    {activeColumns.includes("phone_number") && (
+                      <td>{ticket.phone_number || "N/A"}</td>
+                    )}
+                    {activeColumns.includes("region") && (
+                      <td>{ticket.region || "N/A"}</td>
+                    )}
+                    {activeColumns.includes("status") && (
+                      <td>
+                        <span
+                          style={{
+                            color:
+                              ticket.status === "Open"
+                                ? "green"
+                                : ticket.status === "Closed"
+                                ? "gray"
+                                : "blue"
+                          }}
+                        >
+                          {ticket.status || "N/A"}
+                        </span>
+                      </td>
+                    )}
+                    {activeColumns.includes("subject") && (
+                      <td>{ticket.subject || "N/A"}</td>
+                    )}
+                    {activeColumns.includes("category") && (
+                      <td>{ticket.category || "N/A"}</td>
+                    )}
+                    {activeColumns.includes("assigned_to_role") && (
+                      <td>{ticket.assigned_to_role || "N/A"}</td>
+                    )}
+                    {activeColumns.includes("createdAt") && (
+                      <td>
+                        {ticket.created_at
+                          ? new Date(ticket.created_at).toLocaleString("en-GB", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              hour12: true
+                            })
+                          : "N/A"}
+                      </td>
+                    )}
+                    <td>
+                      {!["agent", "coordinator", "attendee"].includes(role) && (
+                      <Tooltip title="View Details">
+                        <button
+                          className="view-ticket-details-btn"
+                            onClick={() => {
+                              setSelectedTicket(ticket);
+                              setIsModalOpen(true);
+                            }}
+                        >
+                          <FaEye />
+                        </button>
+                      </Tooltip>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td
+                    colSpan={activeColumns.length + 1}
+                    style={{ textAlign: "center", color: "red" }}
+                  >
+                    No tickets found.
                   </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td
-                  colSpan={activeColumns.length + 1}
-                  style={{ textAlign: "center", color: "red" }}
-                >
-                  No tickets found.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
 
-        <div style={{ marginTop: "16px", textAlign: "center" }}>
-          <Button
-            variant="outlined"
-            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-            sx={{ marginRight: 1 }}
-          >
-            Previous
-          </Button>
-          <span>
-            Page {currentPage} of {totalPages}
-          </span>
-          <Button
-            variant="outlined"
-            onClick={() =>
-              setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-            }
-            disabled={currentPage === totalPages}
-            sx={{ marginLeft: 1 }}
-          >
-            Next
-          </Button>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={totalItems}
+            startIndex={startIndex}
+            endIndex={endIndex}
+            onPageChange={setCurrentPage}
+          />
         </div>
       </div>
 
@@ -769,29 +742,6 @@ export default function FocalPersonDashboard() {
         assignmentHistory={assignmentHistory}
         setSnackbar={setSnackbar}
         refreshTickets={fetchTickets}
-      />
-
-      {/* Column Selector */}
-      <ColumnSelector
-        open={isColumnModalOpen}
-        onClose={() => setIsColumnModalOpen(false)}
-        data={tickets}
-        onColumnsChange={(selectedColumns) => {
-          if (selectedColumns.length === 0) {
-            setActiveColumns([
-              "id",
-              "fullName",
-              "phone_number",
-              "status",
-              "subject",
-              "category",
-              "assigned_to_role",
-              "createdAt"
-            ]);
-          } else {
-            setActiveColumns(selectedColumns);
-          }
-        }}
       />
 
       {/* Snackbar */}

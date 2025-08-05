@@ -16,7 +16,7 @@ import {
   Avatar,
   Paper,
 } from "@mui/material";
-import ColumnSelector from "../../../components/colums-select/ColumnSelector";
+// import ColumnSelector from "../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../config";
 import "./ticket.css";
 import ChatIcon from '@mui/icons-material/Chat';
@@ -24,13 +24,15 @@ import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import TicketDetailsModal from '../../../components/TicketDetailsModal';
+import Pagination from '../../../components/Pagination';
+import TableControls from "../../../components/TableControls";
+import TicketFilters from '../../../components/ticket/TicketFilters';
 
 export default function Crm() {
   const [agentTickets, setAgentTickets] = useState([]);
   const [agentTicketsError, setAgentTicketsError] = useState(null);
   const [userId, setUserId] = useState("");
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
@@ -39,16 +41,22 @@ export default function Crm() {
   const [comments, setComments] = useState("");
   const [modal, setModal] = useState({ isOpen: false, type: "", message: "" });
   const [activeColumns, setActiveColumns] = useState([
-    "id",
+    "ticket_id",
     "fullName",
     "phone_number",
-    "status",
-    "subject",
-    "category",
-    "assigned_to_role",
-    "createdAt",
+    "region",
+    "status"
   ]);
   const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState({
+    search: '',
+    nidaSearch: '',
+    status: '',
+    priority: '',
+    category: '',
+    startDate: null,
+    endDate: null,
+  });
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [assignmentHistory, setAssignmentHistory] = useState([]);
 
@@ -89,7 +97,7 @@ export default function Crm() {
       if (!response.ok) {
         if (response.status === 404) {
           setAgentTickets([]);
-          setAgentTicketsError("No tickets found for this agent.");
+          setAgentTicketsError("No ticket found");
           return;
         }
         throw new Error(`HTTP error! Status: ${response.status}`);
@@ -102,7 +110,7 @@ export default function Crm() {
         setAgentTicketsError(null);
       } else {
         setAgentTickets([]);
-        setAgentTicketsError("No tickets found for this agent.");
+        setAgentTicketsError("No ticket found");
       }
     } catch (error) {
       setAgentTicketsError(error.message);
@@ -175,6 +183,12 @@ export default function Crm() {
     setSelectedTicket(null);
     setComments("");
     setModal({ isOpen: false, type: "", message: "" });
+    setAssignmentHistory([]);
+  };
+
+  const handleFilterChange = (newFilters) => {
+    setFilters(newFilters);
+    setCurrentPage(1);
   };
 
   const openHistoryModal = async (ticket) => {
@@ -196,13 +210,26 @@ export default function Crm() {
     const searchValue = search.toLowerCase();
     const phone = (ticket.phone_number || "").toLowerCase();
     const nida = (ticket.nida_number || "").toLowerCase();
-    return (
-      (phone.includes(searchValue) || nida.includes(searchValue)) &&
-      (!filterStatus || ticket.status === filterStatus)
-    );
+    const fullName = (ticket.first_name || "") + " " + (ticket.middle_name || "") + " " + (ticket.last_name || "");
+
+    const matchesSearch = !searchValue ||
+      ticket.phone_number?.toLowerCase().includes(searchValue) ||
+      ticket.nida_number?.toLowerCase().includes(searchValue) ||
+      fullName.includes(searchValue) ||
+      (ticket.first_name || "").toLowerCase().includes(searchValue) ||
+      (ticket.last_name || "").toLowerCase().includes(searchValue) ||
+      (ticket.middle_name || "").toLowerCase().includes(searchValue);
+    
+    const matchesStatus = !filters.status || ticket.status === filters.status;
+
+    return matchesSearch && matchesStatus;
   });
 
   const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage + 1;
+  const endIndex = Math.min(currentPage * itemsPerPage, filteredTickets.length);
+  const totalItems = filteredTickets.length;
+  
   const paginatedTickets = filteredTickets.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -210,9 +237,10 @@ export default function Crm() {
 
   const renderTableHeader = () => (
     <tr>
-      {activeColumns.includes("id") && <th>#</th>}
+      {activeColumns.includes("ticket_id") && <th>Ticket ID</th>}
       {activeColumns.includes("fullName") && <th>Full Name</th>}
       {activeColumns.includes("phone_number") && <th>Phone</th>}
+      {activeColumns.includes("region") && <th>Region</th>}
       {activeColumns.includes("status") && <th>Status</th>}
       {activeColumns.includes("subject") && <th>Subject</th>}
       {activeColumns.includes("category") && <th>Category</th>}
@@ -224,8 +252,8 @@ export default function Crm() {
 
   const renderTableRow = (ticket, index) => (
     <tr key={ticket.id || index}>
-      {activeColumns.includes("id") && (
-        <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
+      {activeColumns.includes("ticket_id") && (
+        <td>{ticket.ticket_id || ticket.id}</td>
       )}
       {activeColumns.includes("fullName") && (
      <td>
@@ -240,6 +268,9 @@ export default function Crm() {
       )}
       {activeColumns.includes("phone_number") && (
         <td>{ticket.phone_number || "N/A"}</td>
+      )}
+      {activeColumns.includes("region") && (
+        <td>{ticket.region || "N/A"}</td>
       )}
       {activeColumns.includes("status") && (
         <td>
@@ -298,70 +329,48 @@ export default function Crm() {
   }
 
   return (
-    <div className="coordinator-dashboard-container">
+    <div className="user-table-container">
+      <div style={{ 
+        display: "flex", 
+        justifyContent: "space-between", 
+        alignItems: "center",
+        marginBottom: "1rem"
+      }}>
+        <h3 className="title">Assigned Tickets List</h3>
+        
+        <div style={{ 
+          display: "flex", 
+          alignItems: "center", 
+          gap: "10px"
+        }}>
+          <TicketFilters
+            onFilterChange={handleFilterChange}
+            initialFilters={filters}
+            compact={true}
+          />
+        </div>
+      </div>
+      
       <div style={{ overflowX: "auto", width: "100%" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "16px",
-          }}
-        >
-          <h2>Assigned Tickets List</h2>
-          <Tooltip title="Columns Settings and Export" arrow>
-            <IconButton onClick={() => setIsColumnModalOpen(true)}>
-              <FiSettings size={20} />
-            </IconButton>
-          </Tooltip>
-        </div>
 
-        <div className="controls">
-          <div>
-            <label style={{ marginRight: "8px" }}>
-              <strong>Show:</strong>
-            </label>
-            <select
-              className="filter-select"
-              value={itemsPerPage}
-              onChange={(e) => {
-                const value = e.target.value;
-                setItemsPerPage(
-                  value === "All" ? filteredTickets.length : parseInt(value)
-                );
-                setCurrentPage(1);
-              }}
-            >
-              {[5, 10, 25, 50, 100].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-              <option value="All">All</option>
-            </select>
-          </div>
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-            <input
-              className="search-input"
-              type="text"
-              placeholder="Search by phone or NIDA..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            <select
-              className="filter-select"
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-            >
-              <option value="">All</option>
-              <option value="Open">Open</option>
-              <option value="Closed">Closed</option>
-            </select>
-            {/* <button className="add-ticket-button">
-              <FaPlus /> Add Ticket
-            </button> */}
-          </div>
-        </div>
+        <TableControls
+          itemsPerPage={itemsPerPage}
+          onItemsPerPageChange={(e) => {
+            const value = e.target.value;
+            setItemsPerPage(
+              value === "All" ? filteredTickets.length : parseInt(value)
+            );
+            setCurrentPage(1);
+          }}
+          search={search}
+          onSearchChange={(e) => setSearch(e.target.value)}
+          filterStatus={filters.status}
+          onFilterStatusChange={(e) => setFilters({ ...filters, status: e.target.value })}
+          activeColumns={activeColumns}
+          onColumnsChange={setActiveColumns}
+          tableData={filteredTickets}
+          tableTitle="Assigned Tickets"
+        />
 
         <table className="user-table">
           <thead>{renderTableHeader()}</thead>
@@ -374,36 +383,21 @@ export default function Crm() {
                   colSpan={activeColumns.length + 1}
                   style={{ textAlign: "center", color: "red" }}
                 >
-                  {agentTicketsError || "No tickets found for this agent."}
+                  {agentTicketsError || "No ticket found"}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
 
-        <div style={{ marginTop: "16px", textAlign: "center" }}>
-          <Button
-            variant="outlined"
-            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-            sx={{ marginRight: 1 }}
-          >
-            Previous
-          </Button>
-          <span>
-            Page {currentPage} of {totalPages}
-          </span>
-          <Button
-            variant="outlined"
-            onClick={() =>
-              setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-            }
-            disabled={currentPage === totalPages}
-            sx={{ marginLeft: 1 }}
-          >
-            Next
-          </Button>
-        </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          startIndex={startIndex}
+          endIndex={endIndex}
+          onPageChange={setCurrentPage}
+        />
       </div>
 
       {/* Details Modal */}
@@ -415,12 +409,7 @@ export default function Crm() {
       />
 
       {/* Column Selector */}
-      <ColumnSelector
-        open={isColumnModalOpen}
-        onClose={() => setIsColumnModalOpen(false)}
-        data={agentTickets}
-        onColumnsChange={setActiveColumns}
-      />
+      {/* Removed ColumnSelectorDropdown */}
 
       {/* Snackbar for notifications */}
       <Snackbar

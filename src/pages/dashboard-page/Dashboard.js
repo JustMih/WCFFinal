@@ -232,7 +232,7 @@ export default function Dashboard() {
                   element={<PrivateRoute element={<CRMClosedTickets />} />}
                 />
                 <Route
-                  path="/ticket/overdue"
+                  path="/ticket/escalated"
                   element={<PrivateRoute element={<CRMOverdueTickets />} />}
                 />
                 <Route

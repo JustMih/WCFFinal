@@ -16,21 +16,22 @@ import {
   Avatar,
   Paper,
 } from "@mui/material";
-import ColumnSelector from "../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../config";
 import "./ticket.css";
 import ChatIcon from '@mui/icons-material/Chat';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
-import TicketDetailsModal from '../../../components/TicketDetailsModal'; 
+import TicketDetailsModal from '../../../components/TicketDetailsModal';
+import Pagination from '../../../components/Pagination';
+import TableControls from "../../../components/TableControls";
+import TicketFilters from '../../../components/ticket/TicketFilters';
 
 export default function Crm() {
   const [agentTickets, setAgentTickets] = useState([]);
   const [agentTicketsError, setAgentTicketsError] = useState(null);
   const [userId, setUserId] = useState("");
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
@@ -39,16 +40,22 @@ export default function Crm() {
   const [comments, setComments] = useState("");
   const [modal, setModal] = useState({ isOpen: false, type: "", message: "" });
   const [activeColumns, setActiveColumns] = useState([
-    "id",
+    "ticket_id",
     "fullName",
     "phone_number",
-    "status",
-    "subject",
-    "category",
-    "assigned_to_role",
-    "createdAt",
+    "region",
+    "status"
   ]);
   const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState({
+    search: '',
+    nidaSearch: '',
+    status: '',
+    priority: '',
+    category: '',
+    startDate: null,
+    endDate: null,
+  });
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   const [isFlowModalOpen, setIsFlowModalOpen] = useState(false);
@@ -88,7 +95,7 @@ export default function Crm() {
       if (!response.ok) {
         if (response.status === 404) {
           setAssignments([]);
-          setAssignmentsError("No assignments found for this agent.");
+          setAssignmentsError("No ticket found");
           return;
         }
         throw new Error(`HTTP error! Status: ${response.status}`);
@@ -99,7 +106,7 @@ export default function Crm() {
         setAssignmentsError(null);
       } else {
         setAssignments([]);
-        setAssignmentsError("No assignments found for this agent.");
+        setAssignmentsError("No ticket found");
       }
     } catch (error) {
       setAssignmentsError(error.message);
@@ -211,6 +218,12 @@ export default function Crm() {
     setSelectedTicket(null);
     setComments("");
     setModal({ isOpen: false, type: "", message: "" });
+    setAssignmentHistory([]);
+  };
+
+  const handleFilterChange = (newFilters) => {
+    setFilters(newFilters);
+    setCurrentPage(1);
   };
 
   const openHistoryModal = async (ticket) => {
@@ -239,6 +252,10 @@ export default function Crm() {
   });
 
   const totalPages = Math.ceil(filteredAssignments.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage + 1;
+  const endIndex = Math.min(currentPage * itemsPerPage, filteredAssignments.length);
+  const totalItems = filteredAssignments.length;
+  
   const paginatedAssignments = filteredAssignments.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -246,10 +263,15 @@ export default function Crm() {
 
   const renderTableHeader = () => (
     <tr>
-      <th>#</th>
-      <th>Full Name</th>
-      <th>Phone</th>
-      <th>Status</th>
+      {activeColumns.includes("ticket_id") && <th>Ticket ID</th>}
+      {activeColumns.includes("fullName") && <th>Full Name</th>}
+      {activeColumns.includes("phone_number") && <th>Phone</th>}
+      {activeColumns.includes("region") && <th>Region</th>}
+      {activeColumns.includes("status") && <th>Status</th>}
+      {activeColumns.includes("subject") && <th>Subject</th>}
+      {activeColumns.includes("category") && <th>Category</th>}
+      {activeColumns.includes("assigned_to_role") && <th>Assigned Role</th>}
+      {activeColumns.includes("createdAt") && <th>Created At</th>}
       <th>Actions</th>
     </tr>
   );
@@ -266,19 +288,66 @@ export default function Crm() {
     }
     return (
       <tr key={assignment.id || index}>
-         <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
-        <td>{fullName}</td>
-        <td>{ticket.phone_number || "N/A"}</td>
-        <td>{ticket.status || "Escalated"}</td>
+        {activeColumns.includes("ticket_id") && (
+          <td>{ticket.ticket_id || ticket.id}</td>
+        )}
+        {activeColumns.includes("fullName") && (
+          <td>{fullName}</td>
+        )}
+        {activeColumns.includes("phone_number") && (
+          <td>{ticket.phone_number || "N/A"}</td>
+        )}
+        {activeColumns.includes("region") && (
+          <td>{ticket.region || "N/A"}</td>
+        )}
+        {activeColumns.includes("status") && (
+          <td>
+            <span
+              style={{
+                color:
+                  ticket.status === "Open"
+                    ? "green"
+                    : ticket.status === "Closed"
+                    ? "gray"
+                    : "blue",
+              }}
+            >
+              {ticket.status || "Escalated" || "N/A"}
+            </span>
+          </td>
+        )}
+        {activeColumns.includes("subject") && (
+          <td>{ticket.subject || "N/A"}</td>
+        )}
+        {activeColumns.includes("category") && (
+          <td>{ticket.category || "N/A"}</td>
+        )}
+        {activeColumns.includes("assigned_to_role") && (
+          <td>{ticket.assigned_to_role || "N/A"}</td>
+        )}
+        {activeColumns.includes("createdAt") && (
+          <td>
+            {ticket.created_at
+              ? new Date(ticket.created_at).toLocaleString("en-GB", {
+                  day: "2-digit",
+                  month: "short",
+                  year: "numeric",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  hour12: true,
+                })
+              : "N/A"}
+          </td>
+        )}
         <td>
-        <Tooltip title="Ticket Details">
-  <button
-    className="view-ticket-details-btn"
-    onClick={() => openModal(assignment)}
-  >
-    <FaEye />
-  </button>
-</Tooltip>
+          <Tooltip title="Ticket Details">
+            <button
+              className="view-ticket-details-btn"
+              onClick={() => openModal(assignment)}
+            >
+              <FaEye />
+            </button>
+          </Tooltip>
         </td>
       </tr>
     );
@@ -323,40 +392,105 @@ export default function Crm() {
       );
       currentAssigneeIdx = idx !== -1 ? idx : steps.length - 1;
     }
+
+    // Helper function to calculate time with person
+    const calculateTimeWithPerson = (currentStep, nextStep, selectedTicket, stepIndex, totalSteps) => {
+      if (!currentStep.created_at) return "";
+      
+      const startTime = new Date(currentStep.created_at);
+      let endTime;
+      
+      // Determine the end time based on what happened next
+      if (currentStep.isConsolidated && currentStep.action === "Closed") {
+        // For consolidated closed steps, show time from assignment to closure
+        endTime = new Date(currentStep.closed_at);
+      } else if (selectedTicket.status === "Closed" && selectedTicket.date_of_resolution) {
+        // If ticket is closed, use the resolution date
+        endTime = new Date(selectedTicket.date_of_resolution);
+      } else if (nextStep && nextStep.created_at) {
+        // If there's a next step, use that time (ticket was passed to next person)
+        endTime = new Date(nextStep.created_at);
+      } else if (stepIndex === totalSteps - 1) {
+        // If this is the last step and ticket is still open, use current time
+        endTime = new Date();
+      } else {
+        // Fallback to current time
+        endTime = new Date();
+      }
+      
+      const durationMs = endTime - startTime;
+      const diffDays = Math.ceil(durationMs / (1000 * 60 * 60 * 24));
+      const diffHours = Math.ceil(durationMs / (1000 * 60 * 60));
+      const diffMinutes = Math.ceil(durationMs / (1000 * 60));
+      
+      // Format the duration text
+      if (currentStep.isConsolidated && currentStep.action === "Closed") {
+        // For consolidated closed steps, show closure time
+        if (diffMinutes < 1) {
+          return "(Closed instantly)";
+        } else if (diffMinutes < 60) {
+          return `(Closed with ${diffMinutes}min since assigned)`;
+        } else if (diffHours < 24) {
+          return `(Closed with ${diffHours}h since assigned)`;
+        } else if (diffDays < 7) {
+          return `(Closed with ${diffDays}d since assigned)`;
+        } else {
+          const weeksToClose = Math.floor(diffDays / 7);
+          if (weeksToClose < 4) {
+            return `(Closed with ${weeksToClose}w since assigned)`;
+          } else {
+            const monthsToClose = Math.floor(diffDays / 30);
+            return `(Closed with ${monthsToClose}mon since assigned)`;
+          }
+        }
+      } else {
+        // For regular steps, show time held
+        if (diffDays > 1) return `(${diffDays}d)`;
+        if (diffHours > 1) return `(${diffHours}h)`;
+        if (diffMinutes > 1) return `(${diffMinutes}min)`;
+        return "(Just now)";
+      }
+    };
+
     return (
       <Box>
-        {steps.map((a, idx) => (
-          <Box key={idx} sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
-            <Box
-              sx={{
-                width: 30,
-                height: 30,
-                borderRadius: "50%",
-                bgcolor:
-                  idx < currentAssigneeIdx
-                    ? "green"
-                    : idx === currentAssigneeIdx
-                    ? "#1976d2"
-                    : "gray",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "white",
-                fontWeight: "bold"
-              }}
-            >
-              {idx + 1}
+        {steps.map((a, idx) => {
+          const nextStep = steps[idx + 1];
+          const timeWithPerson = calculateTimeWithPerson(a, nextStep, selectedTicket, idx, steps.length);
+          
+          return (
+            <Box key={idx} sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
+              <Box
+                sx={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: "50%",
+                  bgcolor:
+                    idx < currentAssigneeIdx
+                      ? "green"
+                      : idx === currentAssigneeIdx
+                      ? "#1976d2"
+                      : "gray",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "white",
+                  fontWeight: "bold"
+                }}
+              >
+                {idx + 1}
+              </Box>
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
+                  {a.assigned_to_name} ({a.assigned_to_role})
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {a.action} - {a.created_at ? new Date(a.created_at).toLocaleString() : ''} {timeWithPerson}
+                </Typography>
+              </Box>
             </Box>
-            <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-                {a.assigned_to_name} ({a.assigned_to_role})
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {a.action} - {a.created_at ? new Date(a.created_at).toLocaleString() : ''}
-              </Typography>
-            </Box>
-          </Box>
-        ))}
+          );
+        })}
       </Box>
     );
   };
@@ -370,57 +504,49 @@ export default function Crm() {
   }
 
   return (
-    <div className="coordinator-dashboard-container">
+    <div className="user-table-container">
+      <div style={{ 
+        display: "flex", 
+        justifyContent: "space-between", 
+        alignItems: "center",
+        marginBottom: "1rem"
+      }}>
+        <h3 className="title">Overdue Tickets List</h3>
+        
+        <div style={{ 
+          display: "flex", 
+          alignItems: "center", 
+          gap: "10px"
+        }}>
+          <TicketFilters
+            onFilterChange={handleFilterChange}
+            initialFilters={filters}
+            compact={true}
+          />
+        </div>
+      </div>
+      
       <div style={{ overflowX: "auto", width: "100%" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "16px",
+
+        <TableControls
+          itemsPerPage={itemsPerPage}
+          onItemsPerPageChange={(e) => {
+            const value = e.target.value;
+            setItemsPerPage(
+              value === "All" ? filteredAssignments.length : parseInt(value)
+            );
+            setCurrentPage(1);
           }}
-        >
-          <h2>Overdue Tickets</h2>
-          <Tooltip title="Columns Settings and Export" arrow>
-            <IconButton onClick={() => setIsColumnModalOpen(true)}>
-              <FiSettings size={20} />
-            </IconButton>
-          </Tooltip>
-        </div>
-        <div className="controls">
-          <div>
-            <label style={{ marginRight: "8px" }}>
-              <strong>Show:</strong>
-            </label>
-            <select
-              className="filter-select"
-              value={itemsPerPage}
-              onChange={(e) => {
-                const value = e.target.value;
-                setItemsPerPage(
-                  value === "All" ? filteredAssignments.length : parseInt(value)
-                );
-                setCurrentPage(1);
-              }}
-            >
-              {[5, 10, 25, 50, 100].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-              <option value="All">All</option>
-            </select>
-          </div>
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-            <input
-              className="search-input"
-              type="text"
-              placeholder="Search by phone or NIDA..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-        </div>
+          search={search}
+          onSearchChange={(e) => setSearch(e.target.value)}
+          filterStatus={filters.status}
+          onFilterStatusChange={(e) => setFilters({ ...filters, status: e.target.value })}
+          activeColumns={activeColumns}
+          onColumnsChange={setActiveColumns}
+          tableData={filteredAssignments}
+          tableTitle="Overdue Tickets"
+        />
+
         <table className="user-table">
           <thead>{renderTableHeader()}</thead>
           <tbody>
@@ -438,29 +564,14 @@ export default function Crm() {
             )}
           </tbody>
         </table>
-        <div style={{ marginTop: "16px", textAlign: "center" }}>
-          <Button
-            variant="outlined"
-            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-            sx={{ marginRight: 1 }}
-          >
-            Previous
-          </Button>
-          <span>
-            Page {currentPage} of {totalPages}
-          </span>
-          <Button
-            variant="outlined"
-            onClick={() =>
-              setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-            }
-            disabled={currentPage === totalPages}
-            sx={{ marginLeft: 1 }}
-          >
-            Next
-          </Button>
-        </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          startIndex={startIndex}
+          endIndex={endIndex}
+          onPageChange={setCurrentPage}
+        />
       </div>
       {/* Details Modal */}
       <TicketDetailsModal
@@ -468,15 +579,8 @@ export default function Crm() {
         onClose={closeModal}
         selectedTicket={selectedTicket}
         assignmentHistory={assignmentHistory}
-        renderAssignmentStepper={renderAssignmentStepper}
       />
       {/* Column Selector */}
-      <ColumnSelector
-        open={isColumnModalOpen}
-        onClose={() => setIsColumnModalOpen(false)}
-        data={assignments}
-        onColumnsChange={setActiveColumns}
-      />
       {/* Snackbar for notifications */}
       <Snackbar
         open={modal.isOpen}

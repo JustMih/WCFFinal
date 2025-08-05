@@ -21,17 +21,25 @@ import {
   Tooltip,
   Typography,
   Autocomplete,
-  CircularProgress
+  CircularProgress,
+  Avatar,
+  Paper,
+  Dialog,
+  DialogTitle,
+  DialogContent
 } from "@mui/material";
 import { styled } from "@mui/material/styles";
-import ColumnSelector from "../../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../../config";
 import { getDomainCredentials } from "../../../../utils/credentials";
 import "./crm-agent-dashboard.css";
 import TicketActions from "../../../../components/ticket/TicketActions";
 import TicketFilters from "../../../../components/ticket/TicketFilters";
 import TicketDetailsModal from "../../../../components/ticket/TicketDetailsModal";
+import Pagination from "../../../../components/Pagination";
+import TableControls from "../../../../components/TableControls";
+import EnhancedSearchForm from "../../../../components/search/EnhancedSearchForm";
 import axios from "axios";
+import ChatIcon from '@mui/icons-material/Chat';
 
 // Add styled components for better typeahead styling
 const StyledAutocomplete = styled(Autocomplete)(({ theme }) => ({
@@ -80,26 +88,38 @@ const AgentCRM = () => {
   // State for form data
   const [formData, setFormData] = useState({
     firstName: "",
-    middleName: "", // Add middle name
+    middleName: "",
     lastName: "",
     phoneNumber: "",
     nidaNumber: "",
     requester: "",
     institution: "",
+    employerName: "",
     region: "",
     district: "",
-    channel: "",
     category: "",
-    inquiry_type: "", // <-- Add this line
-    functionId: "",
+    channel: "",
+    subject: "",
+    subSection: "",
+    section: "",
     description: "",
-    status: "Open",
-    // New fields for representative
-    requesterName: "",
-    requesterPhoneNumber: "",
-    requesterEmail: "",
-    requesterAddress: "",
-    relationshipToEmployee: ""
+    representativeName: "",
+    representativePhone: "",
+    representativeEmail: "",
+    representativeNida: "",
+    // Allocated user fields from search response
+    allocated_user_username: "",
+    allocated_user_name: "",
+    allocated_user_id: "",
+    // Claim information
+    claimNumber: "",
+    subject: "",
+    description: "",
+    category: "",
+    priority: "",
+    employerName: "", // Add employer name field
+    employerSearch: "", // Add employer search field
+    // Removed inquiry_type - tickets will go directly to focal person
   });
 
   // State for form errors
@@ -140,19 +160,15 @@ const AgentCRM = () => {
 
   // State for filters and pagination
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [columnModalOpen, setColumnModalOpen] = useState(false);
   const [activeColumns, setActiveColumns] = useState([
-    "id",
+    "ticket_id",
     "fullName",
     "phone_number",
-    "status",
-    "subject",
-    "category",
-    "assigned_to_role",
-    "created_at"
+    "region",
+    "status"
   ]);
 
   // State for snackbar
@@ -166,18 +182,21 @@ const AgentCRM = () => {
   // State for card dashboard
   const [agentData, setAgentData] = useState({
     agentActivity: {
-      "Open Tickets": 0,
-      "In Progress": 0,
-      "Closed Tickets": 0,
-      Overdue: 0,
-      Total: 0
+      // "Open Tickets": 0,
+      // "Closed Tickets": 0,
+      "Total Opened by Me": 0, // <-- Added here
+      "Closed by Me": 0,
+      Escalated: 0,
+      // Total: 0
     },
     ticketQueue: {
-      "New Tickets": 0,
+      // "New Tickets": 0,
       Assigned: 0,
-      "In/Hour": 0,
+      "In Progress": 0, // <-- Move here
+      Escalated: 0,
+      // "In/Hour": 0,
       "Resolved/Hour": 0,
-      Total: 0
+      // Total: 0
     },
     ticketWait: {
       "Longest Wait": "00:00",
@@ -207,6 +226,7 @@ const AgentCRM = () => {
   const [filters, setFilters] = useState({
     search: "",
     nidaSearch: "",
+    status: "",
     priority: "",
     category: "",
     startDate: null,
@@ -241,6 +261,13 @@ const AgentCRM = () => {
   const [inputValue, setInputValue] = useState("");
   const [open, setOpen] = useState(false);
 
+  // Add state for employer search autocomplete
+  const [employerSearchSuggestions, setEmployerSearchSuggestions] = useState([]);
+  const [isEmployerSearching, setIsEmployerSearching] = useState(false);
+  const [employerSearchOpen, setEmployerSearchOpen] = useState(false);
+  const [employerSearchInputValue, setEmployerSearchInputValue] = useState("");
+  const employerSearchTimeoutRef = useRef(null);
+
   // Add state for employer details
   const [employerDetails, setEmployerDetails] = useState(null);
 
@@ -261,6 +288,26 @@ const AgentCRM = () => {
 
   // Add new state for ticket history search
   const [historySearch, setHistorySearch] = useState("");
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [comments, setComments] = useState("");
+
+  // Add new state variables for enhanced search functionality
+  const [selectedEmployer, setSelectedEmployer] = useState(null);
+  const [employerSearchQuery, setEmployerSearchQuery] = useState("");
+  const [employerSearchResults, setEmployerSearchResults] = useState([]);
+  const [employeeSearchQuery, setEmployeeSearchQuery] = useState("");
+  const [employeeSearchResults, setEmployeeSearchResults] = useState([]);
+  const [isEmployeeSearching, setIsEmployeeSearching] = useState(false);
+  const [searchStep, setSearchStep] = useState("employer"); // "employer" or "employee"
+  const [formSearchType, setFormSearchType] = useState(""); // "employer" or "employee" - for form layout
+  const [searchCompleted, setSearchCompleted] = useState(false); // Track if search is completed
+
+  // --- Justification History State ---
+  const [isJustificationModalOpen, setIsJustificationModalOpen] = useState(false);
+  const [selectedTicketForJustification, setSelectedTicketForJustification] = useState(null);
+  const [assignmentHistory, setAssignmentHistory] = useState([]);
+  // --- End Justification History State ---
 
   // Handler to search institutions
   const handleInstitutionSearch = async (query) => {
@@ -376,18 +423,20 @@ const AgentCRM = () => {
   const updateAgentDataFromStats = (ticketStats) => {
     setAgentData({
       agentActivity: {
-        "Open Tickets": ticketStats.open || 0,
-        "In Progress": ticketStats.inProgress || 0,
-        "Closed Tickets": ticketStats.closed || 0,
-        Overdue: ticketStats.overdue || 0,
-        Total: ticketStats.total || 0
+        // "Open Tickets": ticketStats.open || 0,
+        // "Closed Tickets": ticketStats.closed || 0,
+        "Total Opened by Me": ticketStats.totalCreatedByMe || 0, // <-- Added here
+        "Closed by Me": ticketStats.closedByAgent || 0,
+        // Total: ticketStats.total || 0
       },
       ticketQueue: {
-        "New Tickets": ticketStats.newTickets || 0,
+        // "New Tickets": ticketStats.newTickets || 0,
         Assigned: ticketStats.assigned || 0,
-        "In/Hour": ticketStats.inHour || 0,
-        "Resolved/Hour": ticketStats.resolvedHour || 0,
-        Total: ticketStats.total || 0
+        "In Progress": ticketStats.inProgress || 0, // <-- Move here
+        Escalated: ticketStats.Escalated || 0,
+        // "In/Hour": ticketStats.inHour || 0,
+        // "Resolved/Hour": ticketStats.resolvedHour || 0,
+        // Total: ticketStats.total || 0
       },
       ticketWait: {
         "Longest Wait": ticketStats.longestWait || "00:00",
@@ -509,7 +558,6 @@ const AgentCRM = () => {
       district: "District",
       channel: "Channel",
       category: "Category",
-      ...(formData.category === "Inquiry" && { inquiry_type: "Inquiry Type" }),
       functionId: "Subject",
       description: "Description"
     };
@@ -568,30 +616,20 @@ const AgentCRM = () => {
       }
 
       // --- Allocated User Logic ---
+      // Routing Rules:
+      // 1. If searched details has a claim number → Send to checklist user shown in details
+      // 2. If no claim number and it's an inquiry → Send to focal person of the selected section/unit
+      // 3. Otherwise → Fallback to institution's allocated staff
       let employerAllocatedStaffUsername = "";
-      if (
-        selectedSuggestion &&
-        selectedSuggestion.claimId &&
-        selectedSuggestion.allocated_user_username
-      ) {
-        // If employee has claim number, use allocated user from claim
-        employerAllocatedStaffUsername =
-          selectedSuggestion.allocated_user_username;
-      } else if (
-        (!selectedSuggestion || !selectedSuggestion.claimId) &&
-        formData.category === "Inquiry" &&
-        selectedInstitution &&
-        selectedInstitution.allocated_staff_username
-      ) {
-        // If no claim and Inquiry, use allocated user from institution
-        employerAllocatedStaffUsername =
-          selectedInstitution.allocated_staff_username;
+
+      if (selectedSuggestion && selectedSuggestion.allocated_user_username) {
+        // Use allocated user from employee search response
+        employerAllocatedStaffUsername = selectedSuggestion.allocated_user_username;
+        console.log("Routing: Using allocated user from employee search:", employerAllocatedStaffUsername);
       } else {
-        // Fallback to previous logic if any
-        employerAllocatedStaffUsername =
-          selectedInstitution?.allocated_staff_username ||
-          formData.employerAllocatedStaffUsername ||
-          "";
+        // No allocated user found, will be assigned by backend logic
+        employerAllocatedStaffUsername = "";
+        console.log("Routing: No allocated user found, will be assigned by backend");
       }
 
       const ticketData = {
@@ -603,7 +641,19 @@ const AgentCRM = () => {
         responsible_unit_name: parentSection ? parentSection.name : "",
         status: action === "closed" ? "Closed" : "Open",
         employerAllocatedStaffUsername,
-        shouldClose: action === "closed"
+        shouldClose: action === "closed",
+        // Add claim number for routing decision
+        claimId: selectedSuggestion?.claimId || null,
+        // Add routing information for backend
+        hasClaim: Boolean(selectedSuggestion?.claimId),
+        isInquiry: formData.category === "Inquiry",
+        // Add allocated user details for routing
+        allocated_user_id: selectedSuggestion?.allocated_user_id || null,
+        allocated_user_name: selectedSuggestion?.allocated_user || null,
+        allocated_user_username: selectedSuggestion?.allocated_user_username || null,
+        // Add employer information from search
+        employer: formData.employer || selectedSuggestion?.employer || "",
+        employerName: formData.employerName || "",
       };
 
       // Add employer-specific fields if requester is Employer
@@ -614,12 +664,7 @@ const AgentCRM = () => {
         ticketData.employerPhone = formData.phoneNumber;
         ticketData.employerEmail = formData.employerEmail || ""; // Add employerEmail to formData in frontend if available
         ticketData.employerStatus = formData.employerStatus || ""; // Add employerStatus to formData in frontend if available
-        ticketData.employerAllocatedStaffId =
-          formData.employerAllocatedStaffId || ""; // Add allocatedStaffId to formData in frontend if available
-        ticketData.employerAllocatedStaffName =
-          formData.employerAllocatedStaffName || ""; // Add allocatedStaffName to formData in frontend if available
-        ticketData.employerAllocatedStaffUsername =
-          formData.employerAllocatedStaffUsername || ""; // Add allocatedStaffUsername to formData in frontend if available
+        // Removed employer allocated user fields - only using employee search allocated user
       }
 
       // Map representative fields to backend field names if requester is Representative
@@ -650,21 +695,13 @@ const AgentCRM = () => {
         });
         setShowModal(false);
         setFormData({
-          firstName: "",
-          middleName: "", // Reset middle name
-          lastName: "",
-          phoneNumber: "",
-          nidaNumber: "",
-          requester: "",
-          institution: "",
-          region: "",
-          district: "",
-          channel: "",
-          category: "",
-          inquiry_type: "", // Reset inquiry_type
-          functionId: "",
+          subject: "",
           description: "",
-          status: "Open",
+          category: "",
+          priority: "",
+          employer: "", // Reset employer field
+          employerName: "", // Reset employer name field
+          employerSearch: "", // Reset employer search field
           // Reset representative fields
           requesterName: "",
           requesterPhoneNumber: "",
@@ -672,6 +709,11 @@ const AgentCRM = () => {
           requesterAddress: "",
           relationshipToEmployee: ""
         });
+        
+        // Reset employer search autocomplete state
+        setEmployerSearchInputValue("");
+        setEmployerSearchSuggestions([]);
+        setEmployerSearchOpen(false);
         fetchCustomerTickets();
       } else {
         setModal({
@@ -702,22 +744,37 @@ const AgentCRM = () => {
   const openDetailsModal = (ticket) => {
     setSelectedTicket(ticket);
     setShowDetailsModal(true);
+    
+    // Fetch ticket comments and attachments
     fetchTicketComments(ticket.id);
     fetchTicketAttachments(ticket.id);
+    
+    // Also trigger phone search to populate ticket history
+    const searchValue = ticket.phone_number || ticket.nida_number;
+    if (searchValue) {
+      handlePhoneSearch(searchValue, ticket);
+    }
   };
 
   const getFilteredTickets = () => {
     return customerTickets.filter((ticket) => {
-      // Search by phone or NIDA (from table controls)
+      // Search by name, phone, NIDA, or institution (from table controls)
       const s = search.trim().toLowerCase();
+      const fullName = `${ticket.first_name || ""} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim().toLowerCase();
+      const institutionName = (ticket.institution && typeof ticket.institution === 'object' ? ticket.institution.name : ticket.institution || "").toLowerCase();
+      
       const matchesSearch =
         !s ||
         ticket.phone_number?.toLowerCase().includes(s) ||
         ticket.nida_number?.toLowerCase().includes(s) ||
-        ticket.firstName?.toLowerCase().includes(s) ||
-        ticket.lastName?.toLowerCase().includes(s);
-      // Status (from table controls)
-      const matchesStatus = !filterStatus || ticket.status === filterStatus;
+        fullName.includes(s) ||
+        institutionName.includes(s) ||
+        ticket.first_name?.toLowerCase().includes(s) ||
+        ticket.last_name?.toLowerCase().includes(s) ||
+        ticket.middle_name?.toLowerCase().includes(s);
+      
+      // Status (from TicketFilters)
+      const matchesStatus = !filters.status || ticket.status === filters.status;
       // Priority (from TicketFilters)
       const matchesPriority =
         !filters.priority || ticket.priority === filters.priority;
@@ -748,6 +805,9 @@ const AgentCRM = () => {
 
   const filteredTickets = getFilteredTickets();
   const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage + 1;
+  const endIndex = Math.min(currentPage * itemsPerPage, filteredTickets.length);
+  const totalItems = filteredTickets.length;
   const paginatedTickets = filteredTickets.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -755,9 +815,10 @@ const AgentCRM = () => {
 
   const renderTableHeader = () => (
     <tr>
-      {activeColumns.includes("id") && <th>#</th>}
+      {activeColumns.includes("ticket_id") && <th>Ticket ID</th>}
       {activeColumns.includes("fullName") && <th>Full Name</th>}
       {activeColumns.includes("phone_number") && <th>Phone</th>}
+      {activeColumns.includes("region") && <th>Region</th>}
       {activeColumns.includes("status") && <th>Status</th>}
       {activeColumns.includes("subject") && <th>Subject</th>}
       {activeColumns.includes("category") && <th>Category</th>}
@@ -769,8 +830,8 @@ const AgentCRM = () => {
 
   const renderTableRow = (ticket, index) => (
     <tr key={ticket.id}>
-      {activeColumns.includes("id") && (
-        <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
+      {activeColumns.includes("ticket_id") && (
+        <td>{ticket.ticket_id || ticket.id}</td>
       )}
       {activeColumns.includes("fullName") && (
         <td>
@@ -782,6 +843,7 @@ const AgentCRM = () => {
         </td>
       )}
       {activeColumns.includes("phone_number") && <td>{ticket.phone_number}</td>}
+      {activeColumns.includes("region") && <td>{ticket.region || "N/A"}</td>}
       {activeColumns.includes("status") && (
         <td>{ticket.status || "Escalated"}</td>
       )}
@@ -807,8 +869,8 @@ const AgentCRM = () => {
       <td>
         <button
           className="view-ticket-details-btn"
-          title="View"
-          onClick={() => handleDetailsClick(ticket)}
+          onClick={() => openDetailsModal(ticket)}
+          title="View Details"
         >
           <FaEye />
         </button>
@@ -1078,8 +1140,7 @@ const AgentCRM = () => {
 
   // Add function to handle filter changes
   const handleFilterChange = (newFilters) => {
-    const { status, ...rest } = newFilters;
-    setFilters(rest);
+    setFilters(newFilters);
     setCurrentPage(1);
   };
 
@@ -1153,22 +1214,11 @@ const AgentCRM = () => {
       if (foundTickets && foundTickets.length > 0) {
         const prev = foundTickets[0]; // most recent ticket
         setFormData({
-          firstName: prev.first_name || "",
-          middleName: prev.middle_name || "", // Add middle name
-          lastName: prev.last_name || "",
-          phoneNumber: prev.phone_number || phoneSearch,
-          nidaNumber: prev.nida_number || "",
-          requester: prev.requester || "",
-          institution: prev.institution || "",
-          region: prev.region || "",
-          district: prev.district || "",
-          channel: prev.channel || "",
+          subject: prev.subject || "",
+          description: prev.description || "",
           category: prev.category || "",
-          inquiry_type: prev.inquiry_type || "", // Add inquiry_type
-          functionId: prev.function_id || "",
-          description: "",
-          status: "Open",
-          // New fields for representative
+          priority: prev.priority || "",
+          // Reset representative fields
           requesterName: prev.requesterName || "",
           requesterPhoneNumber: prev.requesterPhoneNumber || "",
           requesterEmail: prev.requesterEmail || "",
@@ -1252,22 +1302,10 @@ const AgentCRM = () => {
       // Fill form data
       setFormData((prev) => ({
         ...prev,
-        firstName: firstName || "",
-        middleName: rest.length > 2 ? rest.slice(1, -1).join(" ") : "", // Extract middle name
-        lastName: lastName || "",
-        memberNo: memberInfo.memberno?.toString() || "",
-        requester: searchType === "employee" ? "Employee" : "Employer",
-        institution: employerName || prev.institution,
-        phoneNumber: prev.phoneNumber,
-        nidaNumber: prev.nidaNumber,
-        region: prev.region,
-        district: prev.district,
-        channel: prev.channel,
-        category: prev.category,
-        inquiry_type: prev.inquiry_type || "", // Add inquiry_type
-        functionId: prev.functionId,
-        description: prev.description,
-        status: prev.status,
+        subject: prev.subject || "",
+        description: prev.description || "",
+        category: prev.category || "",
+        priority: prev.priority || "",
         // New fields for representative
         requesterName: prev.requesterName || "",
         requesterPhoneNumber: prev.requesterPhoneNumber || "",
@@ -1294,6 +1332,9 @@ const AgentCRM = () => {
   // Update the debouncedSearch function to handle phone numbers
   const debouncedSearch = useCallback(
     async (searchText) => {
+      console.log("debouncedSearch called with:", searchText);
+      console.log("searchType:", searchType, "searchBy:", searchBy);
+      
       if (!searchText || searchText.length < 1) {
         setSearchSuggestions([]);
         return;
@@ -1301,6 +1342,15 @@ const AgentCRM = () => {
 
       setIsSearching(true);
       try {
+        const payload = {
+          type: searchType,
+          name: searchText,
+          employer_registration_number:
+            searchBy === "wcf_number" ? searchText : ""
+        };
+        
+        console.log("API payload:", payload);
+        
         const response = await fetch(
           "https://demomspapi.wcf.go.tz/api/v1/search/details",
           {
@@ -1310,18 +1360,15 @@ const AgentCRM = () => {
               Accept: "application/json"
             },
             mode: "cors",
-            body: JSON.stringify({
-              type: searchType,
-              name: searchText,
-              employer_registration_number:
-                searchBy === "wcf_number" ? searchText : ""
-            })
+            body: JSON.stringify(payload)
           }
         );
 
         const data = await response.json();
+        console.log("API response:", data);
 
         if (response.ok && data.results?.length) {
+          console.log("Found results:", data.results.length);
           const suggestions = data.results.map((result) => {
             const originalName = result.name || "";
             // Parse the original name into components
@@ -1372,13 +1419,16 @@ const AgentCRM = () => {
               memberNo: result.memberno,
               type: result.type,
               status: result.status,
+              employer: result.employer || "", // Add employer field from API response
               rawData: result
             };
           });
 
+          console.log("Processed suggestions:", suggestions);
           setSearchSuggestions(suggestions);
           setOpen(true);
         } else {
+          console.log("No results found or API error");
           setSearchSuggestions([]);
         }
       } catch (error) {
@@ -1405,12 +1455,19 @@ const AgentCRM = () => {
     const rawData = suggestion.rawData || suggestion;
     console.log("Raw Data:", rawData);
 
-    // Extract institution name from display name (text between brackets)
-    const institutionMatch =
-      suggestion.displayName?.match(/—\s*\((.*?)\)/) ||
-      suggestion.originalName?.match(/—\s*\((.*?)\)/) ||
-      suggestion.name?.match(/—\s*\((.*?)\)/);
-    const institutionName = institutionMatch ? institutionMatch[1].trim() : "";
+    // Use employer field from API response if available, otherwise extract from display name
+    let institutionName = "";
+    if (searchType === "employee" && suggestion.employer) {
+      // Use employer field from API response
+      institutionName = suggestion.employer;
+    } else {
+      // Fallback: Extract institution name from display name (text between brackets)
+      const institutionMatch =
+        suggestion.displayName?.match(/—\s*\((.*?)\)/) ||
+        suggestion.originalName?.match(/—\s*\((.*?)\)/) ||
+        suggestion.name?.match(/—\s*\((.*?)\)/);
+      institutionName = institutionMatch ? institutionMatch[1].trim() : "";
+    }
 
     // Set the selected suggestion with claim information
     const selectedWithClaim = {
@@ -1425,6 +1482,11 @@ const AgentCRM = () => {
 
     setSelectedSuggestion(selectedWithClaim);
 
+    // Log employer information
+    if (suggestion.employer) {
+      console.log("Employer from API response:", suggestion.employer);
+    }
+
     // Set the input value to the full name
     setInputValue(suggestion.cleanName || suggestion.name || "");
     setSearchQuery(suggestion.cleanName || suggestion.name || "");
@@ -1436,19 +1498,23 @@ const AgentCRM = () => {
     if (searchType === "employee") {
       updatedFormData = {
         ...updatedFormData,
-        firstName: rawData.firstname || "",
-        middleName: rawData.middlename || "",
-        lastName: rawData.lastname || "",
+        subject: rawData.subject || "",
+        description: rawData.description || "",
+        category: rawData.category || "",
+        priority: rawData.priority || "",
         nidaNumber: rawData.nin || "",
         phoneNumber: rawData.phoneNumber || "",
-        institution: institutionName // Set the extracted institution name
+        institution: institutionName, // Use employer field from API response
+        employer: suggestion.employer || "", // Add employer field to form data
+        employerName: suggestion.employer || "" // Populate employer name field
       };
     } else if (searchType === "employer") {
       updatedFormData = {
         ...updatedFormData,
-        firstName: "", // Clear employee-specific fields
-        middleName: "",
-        lastName: "",
+        subject: "", // Clear employee-specific fields
+        description: "",
+        category: "",
+        priority: "",
         nidaNumber: rawData.tin || "", // Use TIN for employer's NIDA/identifier
         phoneNumber: rawData.phone || "",
         institution: rawData.name || "" // Employer's name goes to institution
@@ -1463,7 +1529,6 @@ const AgentCRM = () => {
       district: updatedFormData.district || formData.district,
       channel: updatedFormData.channel || formData.channel,
       category: updatedFormData.category || formData.category,
-      inquiry_type: updatedFormData.inquiry_type || formData.inquiry_type || "",
       functionId: updatedFormData.functionId || formData.functionId,
       description: updatedFormData.description || formData.description,
       status: updatedFormData.status || formData.status,
@@ -1536,6 +1601,7 @@ const AgentCRM = () => {
 
   // Update handleInputChange for more immediate response
   const handleInputChange = (event, newValue, reason) => {
+    console.log("handleInputChange called:", { newValue, reason });
     setInputValue(newValue);
 
     if (searchTimeoutRef.current) {
@@ -1549,11 +1615,13 @@ const AgentCRM = () => {
 
     // Reduced timeout for more immediate response
     searchTimeoutRef.current = setTimeout(() => {
+      console.log("Calling debouncedSearch with:", newValue);
       debouncedSearch(newValue);
     }, 150); // Reduced from 300ms to 150ms for faster response
   };
 
   // Update the Autocomplete component
+  /*
   <StyledAutocomplete
     value={selectedSuggestion}
     onChange={(event, newValue) => handleSuggestionSelected(event, newValue)}
@@ -1647,6 +1715,7 @@ const AgentCRM = () => {
     handleHomeEndKeys
     style={{ width: "100%" }}
   />;
+  */
 
   // Highlight matching text in suggestions
   function escapeRegExp(string) {
@@ -1783,6 +1852,556 @@ const AgentCRM = () => {
     }
   }, [creationFoundTickets]);
 
+  // Add debounced employer search function for autocomplete
+  const debouncedEmployerSearch = useCallback(
+    async (searchText) => {
+      if (!searchText || searchText.length < 1) {
+        setEmployerSearchSuggestions([]);
+        return;
+      }
+
+      setIsEmployerSearching(true);
+      try {
+        const response = await fetch(
+          "https://demomspapi.wcf.go.tz/api/v1/search/details",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json"
+            },
+            mode: "cors",
+            body: JSON.stringify({
+              type: "employer",
+              name: searchText,
+              employer_registration_number: ""
+            })
+          }
+        );
+
+        const data = await response.json();
+
+        if (response.ok && data.results?.length) {
+          const suggestions = data.results.map((result) => ({
+            id: result.id || result.tin,
+            name: result.name || "",
+            tin: result.tin || "",
+            phone: result.phone || "",
+            email: result.email || "",
+            status: result.employer_status || "",
+            displayName: result.name || "",
+            rawData: result
+          }));
+
+          setEmployerSearchSuggestions(suggestions);
+          setEmployerSearchOpen(true);
+        } else {
+          setEmployerSearchSuggestions([]);
+        }
+      } catch (error) {
+        console.error("Employer search suggestion error:", error);
+        setEmployerSearchSuggestions([]);
+      } finally {
+        setIsEmployerSearching(false);
+      }
+    },
+    []
+  );
+
+  // Add function to handle employer search
+  const handleEmployerSearch = async (searchQuery) => {
+    if (!searchQuery || searchQuery.trim() === "") {
+      setEmployerSearchResults([]);
+      return;
+    }
+
+    setIsEmployerSearching(true);
+    try {
+      const response = await fetch(
+        "https://demomspapi.wcf.go.tz/api/v1/search/details",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json"
+          },
+          body: JSON.stringify({
+            type: "employer",
+            name: searchQuery.trim(),
+            employer_registration_number: ""
+          })
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok && data.results?.length > 0) {
+        setEmployerSearchResults(data.results);
+      } else {
+        setEmployerSearchResults([]);
+      }
+    } catch (error) {
+      console.error("Error searching for employers:", error);
+      setSnackbar({
+        open: true,
+        message: "Error searching for employers",
+        severity: "error"
+      });
+      setEmployerSearchResults([]);
+    } finally {
+      setIsEmployerSearching(false);
+    }
+  };
+
+  // Add handler for employer search input changes
+  const handleEmployerSearchInputChange = (event, newValue, reason) => {
+    setEmployerSearchInputValue(newValue);
+
+    if (employerSearchTimeoutRef.current) {
+      clearTimeout(employerSearchTimeoutRef.current);
+    }
+
+    if (reason === "reset" || reason === "clear") {
+      setEmployerSearchSuggestions([]);
+      return;
+    }
+
+    // Debounced search for employer suggestions
+    employerSearchTimeoutRef.current = setTimeout(() => {
+      debouncedEmployerSearch(newValue);
+    }, 150);
+  };
+
+  // Add handler for employer suggestion selection
+  const handleEmployerSuggestionSelected = (event, suggestion) => {
+    if (!suggestion) {
+      setEmployerSearchInputValue("");
+      return;
+    }
+
+    setEmployerSearchInputValue(suggestion.name || "");
+    setEmployerSearchOpen(false);
+
+    // Update form data with selected employer
+    setFormData(prev => ({
+      ...prev,
+      employerName: suggestion.name || "",
+      institution: suggestion.name || ""
+    }));
+
+    setSnackbar({
+      open: true,
+      message: `Employer selected: ${suggestion.name}`,
+      severity: "success"
+    });
+  };
+
+  // Enhanced search functions for two-step search process
+  const handleEmployerSelection = (employer) => {
+    setSelectedEmployer(employer);
+    setEmployerSearchQuery(employer.name || "");
+    setEmployerSearchResults([]);
+    
+    // Update form data with selected employer
+    setFormData(prev => ({
+      ...prev,
+      employerName: employer.name || "",
+      institution: employer.name || "",
+      nidaNumber: employer.tin || "",
+      phoneNumber: employer.phone || ""
+    }));
+
+    // If this is an employer search (not employee search), mark as completed
+    if (formSearchType === "employer" || searchStep === "employer") {
+      setFormSearchType("employer");
+      setSearchCompleted(true);
+      setSearchStep("employer");
+    } else {
+      // If this is part of employee search, move to employee search step
+      setSearchStep("employee");
+    }
+
+    setSnackbar({
+      open: true,
+      message: (formSearchType === "employer" || searchStep === "employer")
+        ? `Employer selected: ${employer.name}. Employer details filled.`
+        : `Employer selected: ${employer.name}. Now search for employees.`,
+      severity: "success"
+    });
+  };
+
+  const handleEmployeeSearch = async (searchQuery) => {
+    if (!searchQuery || searchQuery.trim() === "" || !selectedEmployer) {
+      setEmployeeSearchResults([]);
+      return;
+    }
+
+    setIsEmployeeSearching(true);
+    try {
+      const response = await fetch(
+        "https://demomspapi.wcf.go.tz/api/v1/search/details",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json"
+          },
+          body: JSON.stringify({
+            type: "employee",
+            employer: selectedEmployer.name || "",
+            name: searchQuery.trim(),
+            employer_registration_number: ""
+          })
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok && data.results?.length > 0) {
+        setEmployeeSearchResults(data.results);
+      } else {
+        setEmployeeSearchResults([]);
+      }
+    } catch (error) {
+      console.error("Error searching for employees:", error);
+      setSnackbar({
+        open: true,
+        message: "Error searching for employees",
+        severity: "error"
+      });
+      setEmployeeSearchResults([]);
+    } finally {
+      setIsEmployeeSearching(false);
+    }
+  };
+
+  const handleEmployeeSelection = (employee) => {
+    // Extract employee information from the API response
+    const employeeData = employee.employee || employee;
+    
+    // Parse the name to extract first, middle, and last names
+    const fullName = employeeData.name || "";
+    const nameWithoutEmployer = fullName.split("—")[0].trim();
+    const nameParts = nameWithoutEmployer.split(" ");
+    
+    const firstName = nameParts[0] || "";
+    const middleName = nameParts.length > 2 ? nameParts.slice(1, -1).join(" ") : "";
+    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : "";
+
+    // Update form data with employee information including allocated user and claim
+    setFormData(prev => ({
+      ...prev,
+      firstName: firstName,
+      middleName: middleName,
+      lastName: lastName,
+      phoneNumber: employeeData.employee_phone || "",
+      nidaNumber: employeeData.nin || "",
+      institution: selectedEmployer.name || "",
+      employerName: selectedEmployer.name || "",
+      // Store allocated user information from search response
+      allocated_user_username: employeeData.allocated_user_username || "",
+      allocated_user_name: employeeData.allocated_user || "",
+      allocated_user_id: employeeData.allocated_user_id || "",
+      // Store claim information
+      claimNumber: employeeData.claim_number || ""
+    }));
+
+    // Set selected suggestion for claim button display
+    setSelectedSuggestion(employeeData);
+
+    setEmployeeSearchQuery(nameWithoutEmployer);
+    setEmployeeSearchResults([]);
+    setSearchStep("employer"); // Reset to employer search for next search
+    setSearchCompleted(true); // Mark search as completed for employee search
+
+    setSnackbar({
+      open: true,
+      message: `Employee selected: ${nameWithoutEmployer}. Employee details filled.`,
+      severity: "success"
+    });
+  };
+
+  const resetSearch = () => {
+    setSelectedEmployer(null);
+    setEmployerSearchQuery("");
+    setEmployerSearchResults([]);
+    setEmployeeSearchQuery("");
+    setEmployeeSearchResults([]);
+    setSearchStep("employer");
+    setFormSearchType(""); // Reset search type
+    setSearchCompleted(false); // Reset search completed status
+    
+    // Clear institution details panel
+    setSelectedInstitution(null);
+    
+    // Clear all form fields
+    setFormData({
+      firstName: "",
+      middleName: "",
+      lastName: "",
+      phoneNumber: "",
+      nidaNumber: "",
+      requester: "",
+      institution: "",
+      employerName: "",
+      region: "",
+      district: "",
+      category: "",
+      channel: "",
+      subject: "",
+      subSection: "",
+      section: "",
+      description: "",
+      representativeName: "",
+      representativePhone: "",
+      representativeEmail: "",
+      representativeNida: "",
+      // Clear allocated user fields
+      allocated_user_username: "",
+      allocated_user_name: "",
+      allocated_user_id: "",
+      // Clear claim information
+      claimNumber: ""
+    });
+    
+    // Clear form errors
+    setFormErrors({});
+    
+    // Clear selected suggestion
+    setSelectedSuggestion(null);
+  };
+
+  // Handler for search type changes from EnhancedSearchForm
+  const handleSearchTypeChange = (newSearchType) => {
+    setFormSearchType(newSearchType);
+  };
+
+  // --- Justification History Functions ---
+  const handleOpenJustificationHistory = async (ticket) => {
+    console.log("Opening justification history for ticket:", ticket);
+    try {
+      const token = localStorage.getItem("authToken");
+      console.log("Token:", token ? "Present" : "Missing");
+      console.log("API URL:", `${baseURL}/ticket/${ticket.id}/assignments`);
+      
+      const response = await fetch(`${baseURL}/ticket/${ticket.id}/assignments`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      console.log("Response status:", response.status);
+      
+      if (response.ok) {
+        const history = await response.json();
+        console.log("Assignment history:", history);
+        console.log("History length:", history.length);
+        console.log("History structure:", JSON.stringify(history, null, 2));
+        
+        setAssignmentHistory(history);
+        setSelectedTicketForJustification(ticket);
+        setIsJustificationModalOpen(true);
+        console.log("Modal should be open now");
+      } else {
+        console.error("Failed to fetch assignment history");
+        const errorText = await response.text();
+        console.error("Error response:", errorText);
+        // Even if API fails, still open modal with empty history
+        setAssignmentHistory([]);
+        setSelectedTicketForJustification(ticket);
+        setIsJustificationModalOpen(true);
+      }
+    } catch (error) {
+      console.error("Error fetching assignment history:", error);
+      // Even if there's an error, still open modal with empty history
+      setAssignmentHistory([]);
+      setSelectedTicketForJustification(ticket);
+      setIsJustificationModalOpen(true);
+    }
+  };
+
+  const handleCloseJustificationModal = () => {
+    setIsJustificationModalOpen(false);
+    setSelectedTicketForJustification(null);
+    setAssignmentHistory([]);
+  };
+  // --- End Justification History Functions ---
+
+  // Add helper functions for justification history
+  const getCreatorName = (selectedTicket) =>
+    selectedTicket.created_by ||
+    (selectedTicket.creator && selectedTicket.creator.name) ||
+    `${selectedTicket.first_name || ""} ${selectedTicket.last_name || ""}`.trim() ||
+    "N/A";
+
+  // Utility function to format time difference in human-readable format
+  const formatTimeDifference = (dateString) => {
+    if (!dateString) return '';
+    
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMs = now - date;
+    
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+    
+    if (diffInMinutes < 1) {
+      return 'Just now';
+    } else if (diffInMinutes < 60) {
+      return `${diffInMinutes}min`;
+    } else if (diffInHours < 24) {
+      return `${diffInHours}h`;
+    } else if (diffInDays < 7) {
+      return `${diffInDays}d`;
+    } else {
+      const diffInWeeks = Math.floor(diffInDays / 7);
+      if (diffInWeeks < 4) {
+        return `${diffInWeeks}w`;
+      } else {
+        const diffInMonths = Math.floor(diffInDays / 30);
+        return `${diffInMonths}m`;
+      }
+    }
+  };
+
+  function AssignmentFlowChat({ assignmentHistory = [], selectedTicket }) {
+    const creatorStep = selectedTicket
+      ? {
+          assigned_to_name: getCreatorName(selectedTicket),
+          assigned_to_role: 'Creator',
+          reason: selectedTicket.description,
+          created_at: selectedTicket.created_at,
+        }
+      : null;
+    // Always add all assignments as steps, even if assignee is same as creator
+    const steps = creatorStep ? [creatorStep, ...assignmentHistory] : assignmentHistory;
+    
+    // Helper function to get aging status color
+    const getAgingStatusColor = (status) => {
+      switch (status) {
+        case 'On Time':
+          return '#4caf50'; // Green
+        case 'Warning':
+          return '#ff9800'; // Orange
+        case 'Overdue':
+          return '#f44336'; // Red
+        case 'Critical':
+          return '#d32f2f'; // Dark Red
+        default:
+          return '#757575'; // Gray
+      }
+    };
+
+    return (
+      <Box sx={{ maxWidth: 500 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, justifyContent: 'space-between' }}>
+          {/* <Typography sx={{ color: "#3f51b5", wordBreak: 'break-word', whiteSpace: 'pre-line' }}>
+            Ticket History
+          </Typography> */}
+        </Box>
+        <Divider sx={{ mb: 2 }} />
+        {steps.map((a, idx) => {
+          let message;
+          if (idx === 0) {
+            message = selectedTicket.description
+              ? `Created the ticket\nDescription: ${selectedTicket.description}`
+              : 'Created the ticket';
+          } else {
+            const prevUser = steps[idx - 1]?.assigned_to_name || 'Previous User';
+            if (selectedTicket.status === "Closed" && idx === steps.length - 1) {
+              if (a.reason && selectedTicket.resolution_details) {
+                message = `Message from ${prevUser}: ${a.reason}\nResolution: ${selectedTicket.resolution_details}`;
+              } else if (a.reason) {
+                message = `Message from ${prevUser}: ${a.reason}`;
+              } else if (selectedTicket.resolution_details) {
+                message = `Resolution: ${selectedTicket.resolution_details}`;
+              } else {
+                message = `Message from ${prevUser}: No message`;
+              }
+            } else {
+              // Build message with workflow details
+              let baseMessage = `Message from ${prevUser}: ${a.reason || 'No message'}`;
+              
+              // Add workflow-specific details
+              if (a.workflow_step) {
+                baseMessage += `\n\nWorkflow Step: ${a.workflow_step}`;
+              }
+              
+              if (a.coordinator_notes) {
+                baseMessage += `\n\nReviewer Notes: ${a.coordinator_notes}`;
+              }
+              
+              if (a.dg_notes) {
+                baseMessage += `\n\nDG Notes: ${a.dg_notes}`;
+              }
+              
+              // Show current resolution details from the ticket
+              if (selectedTicket.resolution_details) {
+                baseMessage += `\n\nResolution Details: ${selectedTicket.resolution_details}`;
+              }
+              
+              message = baseMessage;
+            }
+          }
+          
+          // Display aging information for non-creator steps
+          const showAging = idx > 0 && a.aging_formatted;
+          
+          return (
+            <Box key={idx} sx={{ display: "flex", mb: 2, alignItems: "flex-start" }}>
+              <Avatar sx={{ bgcolor: idx === 0 ? "#43a047" : "#1976d2", mr: 2 }}>
+                {a.assigned_to_name ? a.assigned_to_name[0] : "?"}
+              </Avatar>
+              <Paper elevation={2} sx={{ p: 2, bgcolor: idx === 0 ? "#e8f5e9" : "#f5f5f5", flex: 1 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                  <Typography sx={{ fontWeight: "bold" }}>
+                    {a.assigned_to_name || a.assigned_to_id || 'Unknown'} {" "}
+                    <span style={{ color: "#888", fontWeight: "normal" }}>
+                      ({a.assigned_to_role || "N/A"})
+                    </span>
+                  </Typography>
+                  {showAging && (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', ml: 1 }}>
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          color: getAgingStatusColor(a.aging_status),
+                          fontWeight: 'bold',
+                          fontSize: '0.7rem'
+                        }}
+                      >
+                        {a.aging_status}
+                      </Typography>
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          color: '#666',
+                          fontSize: '0.7rem'
+                        }}
+                      >
+                        {a.aging_formatted}
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+                <Typography variant="body2" sx={{ color: idx === 0 ? "#43a047" : "#1976d2", wordBreak: 'break-word', whiteSpace: 'pre-line', overflowWrap: 'break-word' }}>
+                  {message}
+                </Typography>
+                <Typography variant="caption" sx={{ color: "#888" }}>
+                  {a.created_at ? new Date(a.created_at).toLocaleString() : ""}
+                  {a.created_at && (
+                    <span style={{ color: "#666", marginLeft: 8 }}>
+                      ({formatTimeDifference(a.created_at)} ago)
+                    </span>
+                  )}
+                </Typography>
+              </Paper>
+            </Box>
+          );
+        })}
+      </Box>
+    );
+  }
+
   if (loading) {
     return (
       <div className="p-6">
@@ -1800,20 +2419,11 @@ const AgentCRM = () => {
   }
 
   return (
-    <div className="main--content">
-      <h3 className="title">Contact Center Dashboard</h3>
+    <div className="user-table-container">
+       <h3 className="title">
+          Contact Center Dashboard
+        </h3>
 
-      {/* <div
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          marginBottom: "1rem"
-        }}
-      >
-        <button className="add-user-button" onClick={() => setShowModal(true)}>
-          <FaPlus /> New Ticket
-        </button>
-      </div> */}
       {/* Full-width Phone/NIDA Search Section */}
       <div
         style={{
@@ -1876,10 +2486,47 @@ const AgentCRM = () => {
               key={ticket.id}
               sx={{ mb: 2, p: 2, border: "1px solid #eee", borderRadius: 1 }}
             >
-              <Typography variant="subtitle1">
-                Ticket ID: {ticket.ticket_id}
-              </Typography>
-              <Typography>Status: {ticket.status || "Escalated"}</Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="subtitle1">
+                  Ticket ID: {ticket.ticket_id}
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography
+                    sx={{
+                      px: 1.5,
+                      py: 0.5,
+                      borderRadius: '12px',
+                      color: 'white',
+                      background:
+                        ticket.status === 'Closed'
+                          ? '#757575'
+                          : ticket.status === 'Open'
+                          ? '#2e7d32'
+                          : '#1976d2',
+                      fontSize: '0.75rem',
+                      fontWeight: 500
+                    }}
+                  >
+                    {ticket.status || "Escalated"}
+                  </Typography>
+                  <IconButton
+                    size="small"d
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenJustificationHistory(ticket);
+                    }}
+                    sx={{
+                      color: '#1976d2',
+                      '&:hover': {
+                        backgroundColor: 'rgba(25, 118, 210, 0.1)'
+                      }
+                    }}
+                    title="View Recomendation History"
+                  >
+                    <ChatIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              </Box>
               <Typography>
                 Created: {new Date(ticket.created_at).toLocaleDateString()}
               </Typography>
@@ -1970,25 +2617,25 @@ const AgentCRM = () => {
       {/* Card Dashboard Section */}
       <div className="crm-dashboard">
         <div className="crm-cards-container">
-          <Card
-            title="Team Activity"
-            data={agentData.agentActivity}
-            color={role === "agent" ? "#BCE8BE" : "#ffe599"}
-            icon={<FaUsersLine fontSize={32} />}
-          />
-          <Card
+        <Card
             title="Agent Performance"
             data={agentData.ticketQueue}
             color={role === "agent" ? "#D6E4C7" : "#97c5f0"}
             icon={<GrLineChart fontSize={32} />}
           />
-        </div>
-        <div className="crm-cards-container">
           <Card
-            title="Overdue Metrics"
+            title="Escalated Metrics"
             data={agentData.ticketWait}
             color={role === "agent" ? "#C2E2E5" : "#b6d7a8"}
             icon={<MdDisabledVisible fontSize={32} />}
+          />
+        </div>
+        <div className="crm-cards-container">
+          <Card
+            title="Team Activity"
+            data={agentData.agentActivity}
+            color={role === "agent" ? "#BCE8BE" : "#ffe599"}
+            icon={<FaUsersLine fontSize={32} />}
           />
           <Card
             title="Resolution Metrics"
@@ -1999,14 +2646,9 @@ const AgentCRM = () => {
         </div>
       </div>
 
-      {/* Add TicketFilters component */}
-      <TicketFilters
-        onFilterChange={handleFilterChange}
-        initialFilters={filters}
-      />
-
       {/* Ticket Table Section */}
       <div className="user-table-container">
+<<<<<<< HEAD
         <div className="ticket-table-container">
           <div
             style={{
@@ -2038,37 +2680,89 @@ const AgentCRM = () => {
                     value === "All" ? filteredTickets.length : parseInt(value)
                   );
                   setCurrentPage(1);
+=======
+        <div style={{ display: "flex", gap: "20px", width: "100%" }}>
+          {/* Left: Ticket Table */}
+          <div style={{ flex: 2, minWidth: 0 }}>
+            <div className="ticket-table-container">
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "16px"
+>>>>>>> fb72a8bb61e51433614e20853e06ce430882d244
                 }}
               >
-                {[5, 10, 25, 50, 100].map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-                <option value="All">All</option>
-              </select>
-            </div>
-            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-              <input
-                className="crm-search-input"
-                type="text"
-                placeholder="Search by phone or NIDA..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                <h2>All Customer Tickets</h2>
+                
+                <div style={{ 
+                  display: "flex", 
+                  alignItems: "center", 
+                  gap: "10px"
+                }}>
+                  <TicketFilters 
+                    onFilterChange={handleFilterChange} 
+                    initialFilters={filters}
+                    compact={true}
+                  />
+                </div>
+              </div>
+
+             
+        <TableControls
+          itemsPerPage={itemsPerPage}
+          onItemsPerPageChange={(e) => {
+            const value = e.target.value;
+            setItemsPerPage(
+              value === "All" ? filteredTickets.length : parseInt(value)
+            );
+            setCurrentPage(1);
+          }}
+          search={search}
+          onSearchChange={(e) => setSearch(e.target.value)}
+          filterStatus={filters.status || ""}
+          onFilterStatusChange={(e) => {
+            const newFilters = { ...filters, status: e.target.value };
+            setFilters(newFilters);
+            setCurrentPage(1);
+          }}
+          activeColumns={activeColumns}
+          onColumnsChange={setActiveColumns}
+          tableData={filteredTickets}
+          tableTitle="Customer Tickets"
+        />
+
+              <table className="user-table">
+                <thead>{renderTableHeader()}</thead>
+                <tbody>
+                  {paginatedTickets.length > 0 ? (
+                    paginatedTickets.map((ticket, i) => renderTableRow(ticket, i))
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan={activeColumns.length + 1}
+                        style={{ textAlign: "center", color: "red" }}
+                      >
+                        No ticket found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                startIndex={startIndex}
+                endIndex={endIndex}
+                onPageChange={setCurrentPage}
               />
-              <select
-                className="filter-select"
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-              >
-                <option value="">All</option>
-                <option value="Open">Open</option>
-                <option value="Assigned">Assigned</option>
-                <option value="Closed">Closed</option>
-              </select>
             </div>
           </div>
 
+<<<<<<< HEAD
           <table className="user-table">
             <thead>{renderTableHeader()}</thead>
             <tbody>
@@ -2120,6 +2814,8 @@ const AgentCRM = () => {
               Next
             </Button>
           </div>
+=======
+>>>>>>> fb72a8bb61e51433614e20853e06ce430882d244
         </div>
       </div>
 
@@ -2405,12 +3101,60 @@ const AgentCRM = () => {
                 <Box sx={{ mt: 3, textAlign: "right" }}>
                   <Button
                     variant="contained"
-                    color="secondary"
+                    color="success"
                     sx={{ mr: 2 }}
-                    onClick={() => setShowNotifyModal(true)}
+                    onClick={() => {
+                      // Populate form with current ticket data
+                      setFormData({
+                        firstName: selectedTicket.first_name || "",
+                        middleName: selectedTicket.middle_name || "",
+                        lastName: selectedTicket.last_name || "",
+                        phoneNumber: selectedTicket.phone_number || "",
+                        nidaNumber: selectedTicket.nida_number || "",
+                        requester: selectedTicket.requester || "",
+                        institution: selectedTicket.institution || "",
+                        employerName: selectedTicket.employer_name || "",
+                        region: selectedTicket.region || "",
+                        district: selectedTicket.district || "",
+                        category: selectedTicket.category || "",
+                        channel: selectedTicket.channel || "",
+                        subject: selectedTicket.subject || "",
+                        subSection: selectedTicket.sub_section || "",
+                        section: selectedTicket.section || "",
+                        description: selectedTicket.description || "",
+                        representativeName: selectedTicket.representative_name || "",
+                        representativePhone: selectedTicket.representative_phone || "",
+                        representativeEmail: selectedTicket.representative_email || "",
+                        representativeNida: selectedTicket.representative_nida || ""
+                      });
+                      
+                      // Set search type based on requester
+                      if (selectedTicket.requester === "Employer") {
+                        setFormSearchType("employer");
+                      } else if (selectedTicket.requester === "Employee") {
+                        setFormSearchType("employee");
+                      }
+                      
+                      // Mark search as completed to show form fields
+                      setSearchCompleted(true);
+                      
+                      // Close details modal and open ticket creation modal
+                      setShowDetailsModal(false);
+                      setShowModal(true);
+                    }}
                   >
-                    Notify User
+                    New Ticket
                   </Button>
+                  {selectedTicket.status !== "Closed" && (
+                    <Button
+                      variant="contained"
+                      color="secondary"
+                      sx={{ mr: 2 }}
+                      onClick={() => setShowNotifyModal(true)}
+                    >
+                      Notify User
+                    </Button>
+                  )}
                   <Button
                     variant="contained"
                     color="primary"
@@ -2516,6 +3260,7 @@ const AgentCRM = () => {
                       >
                         {ticket.ticket_id}
                       </Typography>
+<<<<<<< HEAD
                       <Typography
                         sx={{
                           px: 1.5,
@@ -2534,6 +3279,44 @@ const AgentCRM = () => {
                       >
                         {ticket.status}
                       </Typography>
+=======
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography
+                          sx={{
+                            px: 1.5,
+                            py: 0.5,
+                            borderRadius: "12px",
+                            color: "white",
+                            background:
+                              ticket.status === "Closed"
+                                ? "#757575"
+                                : ticket.status === "Open"
+                                ? "#2e7d32"
+                                : "#1976d2",
+                            fontSize: "0.75rem",
+                            fontWeight: 500
+                          }}
+                        >
+                          {ticket.status}
+                        </Typography>
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenJustificationHistory(ticket);
+                          }}
+                          sx={{
+                            color: '#1976d2',
+                            '&:hover': {
+                              backgroundColor: 'rgba(25, 118, 210, 0.1)'
+                            }
+                          }}
+                          title="View Recomendation History"
+                        >
+                          <ChatIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+>>>>>>> fb72a8bb61e51433614e20853e06ce430882d244
                     </Box>
                     <Box sx={{ mt: 1 }}>
                       <Typography
@@ -2590,18 +3373,20 @@ const AgentCRM = () => {
                   if (!prev && foundTickets && foundTickets.length > 0)
                     prev = foundTickets[0];
                   if (prev) {
+                    // Populate form with all ticket data
                     setFormData({
                       firstName: prev.first_name || "",
-                      middleName: prev.middle_name || "", // Add middle name
+                      middleName: prev.middle_name || "",
                       lastName: prev.last_name || "",
-                      phoneNumber: prev.phone_number || phoneSearch,
+                      phoneNumber: prev.phone_number || "",
                       nidaNumber: prev.nida_number || "",
                       requester: prev.requester || "",
                       institution: prev.institution || "",
+                      employerName: prev.employer_name || "",
                       region: prev.region || "",
                       district: prev.district || "",
-                      channel: prev.channel || "",
                       category: prev.category || "",
+<<<<<<< HEAD
                       inquiry_type: prev.inquiry_type || "", // Add inquiry_type
                       functionId: prev.function_id || "",
                       description: "",
@@ -2612,8 +3397,30 @@ const AgentCRM = () => {
                       requesterEmail: prev.requesterEmail || "",
                       requesterAddress: prev.requesterAddress || "",
                       relationshipToEmployee: prev.relationshipToEmployee || "",
+=======
+                      channel: prev.channel || "",
+                      subject: prev.subject || "",
+                      subSection: prev.sub_section || "",
+                      section: prev.section || "",
+                      description: prev.description || "",
+                      representativeName: prev.representative_name || "",
+                      representativePhone: prev.representative_phone || "",
+                      representativeEmail: prev.representative_email || "",
+                      representativeNida: prev.representative_nida || ""
+>>>>>>> fb72a8bb61e51433614e20853e06ce430882d244
                     });
+                    
+                    // Set search type based on requester
+                    if (prev.requester === "Employer") {
+                      setFormSearchType("employer");
+                    } else if (prev.requester === "Employee") {
+                      setFormSearchType("employee");
+                    }
+                    
+                    // Mark search as completed to show form fields
+                    setSearchCompleted(true);
                   } else {
+                    // If no ticket data, just set phone number from search
                     setFormData((prev) => ({
                       ...prev,
                       phoneNumber: phoneSearch,
@@ -2733,6 +3540,7 @@ const AgentCRM = () => {
             <div className="modal-form-container">
               <h2 className="modal-title">New Ticket</h2>
 
+<<<<<<< HEAD
               {/* Search Section */}
               <div
                 className="search-section"
@@ -2919,12 +3727,28 @@ const AgentCRM = () => {
                   />
                 </div>
               </div>
+=======
+              {/* Search Section - Replaced with EnhancedSearchForm */}
+              {/* The old search form has been replaced with the enhanced two-step search functionality */}
+
+              {/* Enhanced Two-Step Search Form */}
+              <EnhancedSearchForm
+                onEmployerSelect={handleEmployerSelection}
+                onEmployeeSelect={handleEmployeeSelection}
+                onReset={resetSearch}
+                selectedEmployer={selectedEmployer}
+                searchStep={searchStep}
+                setSearchStep={setSearchStep}
+                onSearchTypeChange={handleSearchTypeChange}
+              />
+>>>>>>> fb72a8bb61e51433614e20853e06ce430882d244
 
               {/* Update the claim status section */}
-              {searchType === "employee" && selectedSuggestion && (
+              {formSearchType === "employee" && selectedSuggestion && (
                 <div
                   style={{
                     marginTop: "10px",
+                    marginBottom: "12px",
                     padding: "10px",
                     backgroundColor: "#f5f5f5",
                     borderRadius: "8px",
@@ -2938,11 +3762,11 @@ const AgentCRM = () => {
                       variant="subtitle2"
                       style={{ fontWeight: "bold" }}
                     >
-                      {selectedSuggestion.claimId ? (
+                      {selectedSuggestion.claim_number ? (
                         <>
                           Claim Number:{" "}
                           <span style={{ color: "#1976d2" }}>
-                            {selectedSuggestion.claimId}
+                            {selectedSuggestion.claim_number}
                           </span>
                         </>
                       ) : (
@@ -2950,6 +3774,7 @@ const AgentCRM = () => {
                       )}
                     </Typography>
                   </div>
+<<<<<<< HEAD
                   <Button
                     variant="contained"
                     color="primary"
@@ -3043,11 +3868,37 @@ const AgentCRM = () => {
                   >
                     View Claim
                   </Button>
+=======
+                  
+                  {/* Claim Button */}
+                  {selectedSuggestion.claim_number && (
+                    <button
+                      style={{
+                        padding: "8px 16px",
+                        backgroundColor: "#1976d2",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "4px",
+                        cursor: "pointer",
+                        fontSize: "14px",
+                        fontWeight: "bold"
+                      }}
+                      onClick={() => {
+                        // Handle claim button click - you can add your claim logic here
+                        window.open(`/claims/${selectedSuggestion.claim_number}`, '_blank');
+                        // Or navigate to claim details page
+                        // window.location.href = `/claims/${selectedSuggestion.claim_number}`;
+                      }}
+                    >
+                      View Claim
+                    </button>
+                  )}
+>>>>>>> fb72a8bb61e51433614e20853e06ce430882d244
                 </div>
               )}
 
               {/* Existing form fields */}
-              {searchType !== "employer" && (
+              {formSearchType !== "employer" && (
                 <div className="modal-form-row">
                   <div className="modal-form-group" style={{ flex: 1 }}>
                     <label style={{ fontSize: "0.875rem" }}>First Name:</label>
@@ -3074,7 +3925,7 @@ const AgentCRM = () => {
 
                   <div className="modal-form-group" style={{ flex: 1 }}>
                     <label style={{ fontSize: "0.875rem" }}>
-                      Middle Name (Optional):
+                      Middle Name <span style={{ fontSize: "0.75rem", color: "#666" }}>(Optional)</span>:
                     </label>
                     <input
                       name="middleName"
@@ -3093,7 +3944,7 @@ const AgentCRM = () => {
                   <div className="modal-form-group" style={{ flex: 1 }}>
                     <label style={{ fontSize: "0.875rem" }}>
                       Last Name
-                      {formData.requester === "Employer" ? " (Optional)" : ""}:
+                      {formData.requester === "Employer" ? <span style={{ fontSize: "0.75rem", color: "#666" }}> (Optional)</span> : ""}:
                     </label>
                     <input
                       name="lastName"
@@ -3120,6 +3971,53 @@ const AgentCRM = () => {
                   </div>
                 </div>
               )}
+
+              {/* Institution field - Show first for employer search, normal position for employee search */}
+              <div className="modal-form-row">
+                <div className="modal-form-group" style={{ flex: 1 }}>
+                  <label style={{ fontSize: "0.875rem" }}>
+                    {formSearchType === "employer" ? "Institution Name:" : "Institution:"}
+                  </label>
+                  <input
+                    name="institution"
+                    value={formData.institution}
+                    onChange={handleChange}
+                    placeholder={formSearchType === "employer" ? "Enter institution name" : "Enter Institution"}
+                    style={{
+                      height: "32px",
+                      fontSize: "0.875rem",
+                      padding: "4px 8px",
+                      border: formErrors.institution
+                        ? "1px solid red"
+                        : "1px solid #ccc"
+                    }}
+                  />
+                  {formErrors.institution && (
+                    <span style={{ color: "red", fontSize: "0.75rem" }}>
+                      {formErrors.institution}
+                    </span>
+                  )}
+                </div>
+
+                {/* Show employer name field only for employee search */}
+                {formSearchType === "employee" && (
+                  <div className="modal-form-group" style={{ flex: 1 }}>
+                    <label style={{ fontSize: "0.875rem" }}>Employer Name:</label>
+                    <input
+                      name="employerName"
+                      value={formData.employerName}
+                      onChange={handleChange}
+                      placeholder="Enter employer name"
+                      style={{
+                        height: "32px",
+                        fontSize: "0.875rem",
+                        padding: "4px 8px",
+                        border: "1px solid #ccc"
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
 
               {/* Phone & NIDA */}
               <div className="modal-form-row">
@@ -3288,7 +4186,7 @@ const AgentCRM = () => {
                         )}
                       </div>
                       <div>
-                        <label style={{ fontSize: '0.875rem' }}>Representative Email (Optional):</label>
+                        <label style={{ fontSize: '0.875rem' }}>Representative Email <span style={{ fontSize: "0.75rem", color: "#666" }}>(Optional)</span>:</label>
                         <input
                           type="email"
                           name="requesterEmail"
@@ -3306,7 +4204,7 @@ const AgentCRM = () => {
                         />
                       </div>
                       <div>
-                        <label style={{ fontSize: '0.875rem' }}>Representative Address (Optional):</label>
+                        <label style={{ fontSize: '0.875rem' }}>Representative Address <span style={{ fontSize: "0.75rem", color: "#666" }}>(Optional)</span>:</label>
                         <input
                           name="requesterAddress"
                           value={formData.requesterAddress}
@@ -3402,7 +4300,7 @@ const AgentCRM = () => {
                   <label style={{ fontSize: "0.875rem" }}>Category:</label>
                   <select
                     name="category"
-                    value={formData.category}
+                    value={formData.category || ""}
                     onChange={handleChange}
                     style={{
                       height: "32px",
@@ -3455,6 +4353,7 @@ const AgentCRM = () => {
                 </div>
               </div>
 
+<<<<<<< HEAD
               {/* Inquiry Type */}
               {formData.category === "Inquiry" && (
                 <div className="modal-form-group" style={{ flex: 1 }}>
@@ -3485,6 +4384,8 @@ const AgentCRM = () => {
                 </div>
               )}
 
+=======
+>>>>>>> fb72a8bb61e51433614e20853e06ce430882d244
               {/* Subject, Sub-section, Section */}
               <div className="modal-form-row">
                 <div className="modal-form-group" style={{ flex: 1 }}>
@@ -3647,6 +4548,7 @@ const AgentCRM = () => {
                   <strong>Allocated Username:</strong>{" "}
                   {selectedInstitution.allocated_staff_username}
                 </div>
+                {/* All details shown for reference - only name used for submission, allocated user from employee search used for assignment */}
               </div>
             )}
             {/* Ticket history for entered phone number */}
@@ -3715,6 +4617,7 @@ const AgentCRM = () => {
                         >
                           {ticket.ticket_id}
                         </Typography>
+<<<<<<< HEAD
                         <Typography
                           sx={{
                             px: 1.5,
@@ -3733,6 +4636,44 @@ const AgentCRM = () => {
                         >
                           {ticket.status}
                         </Typography>
+=======
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography
+                            sx={{
+                              px: 1.5,
+                              py: 0.5,
+                              borderRadius: "12px",
+                              color: "white",
+                              background:
+                                ticket.status === "Closed"
+                                  ? "#757575"
+                                  : ticket.status === "Open"
+                                  ? "#2e7d32"
+                                  : "#1976d2",
+                              fontSize: "0.75rem",
+                              fontWeight: 500
+                            }}
+                          >
+                            {ticket.status}
+                          </Typography>
+                          <IconButton
+                            size="small"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenJustificationHistory(ticket);
+                            }}
+                            sx={{
+                              color: '#1976d2',
+                              '&:hover': {
+                                backgroundColor: 'rgba(25, 118, 210, 0.1)'
+                              }
+                            }}
+                            title="View Recomendation History"
+                          >
+                            <ChatIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+>>>>>>> fb72a8bb61e51433614e20853e06ce430882d244
                       </Box>
                       <Box sx={{ mt: 1 }}>
                         <Typography
@@ -3782,13 +4723,13 @@ const AgentCRM = () => {
         </Box>
       </Modal>
 
-      {/* Column Selector Modal */}
-      <ColumnSelector
+      {/* Column Selector Modal - Replaced with dropdown */}
+      {/* <ColumnSelector
         open={columnModalOpen}
         onClose={() => setColumnModalOpen(false)}
         data={getFilteredTickets()}
         onColumnsChange={setActiveColumns}
-      />
+      /> */}
 
       {/* Snackbar */}
       <Snackbar
@@ -3814,6 +4755,7 @@ const AgentCRM = () => {
           </div>
         </div>
       )}
+<<<<<<< HEAD
 
       {/* In the modal JSX, just below the Institution input field */}
       {formData.requester === "Employee" && employerDetails && (
@@ -3840,6 +4782,9 @@ const AgentCRM = () => {
         </div>
       )}
 
+=======
+      
+>>>>>>> fb72a8bb61e51433614e20853e06ce430882d244
       {/* In the modal JSX, above the Institution input field */}
       {/* <Autocomplete
         value={selectedInstitution}
@@ -3972,6 +4917,49 @@ const AgentCRM = () => {
           </Button>
         </Box>
       </Modal> */}
+
+      {/* Justification History Modal */}
+      <Modal
+        open={isJustificationModalOpen}
+        onClose={handleCloseJustificationModal}
+      >
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: { xs: "90%", sm: 600 },
+            maxHeight: "80vh",
+            overflowY: "auto",
+            bgcolor: "background.paper",
+            boxShadow: 24,
+            borderRadius: 2,
+            p: 3
+          }}
+        >
+          <Typography variant="h6" component="h2" gutterBottom>
+            Justification History
+          </Typography>
+          <Divider sx={{ mb: 2 }} />
+          <AssignmentFlowChat
+            assignmentHistory={assignmentHistory}
+            selectedTicket={selectedTicketForJustification}
+          />
+          <Box
+            sx={{ mt: 2, display: "flex", justifyContent: "flex-end", gap: 1 }}
+          >
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleCloseJustificationModal}
+            >
+              Close
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
+
     </div>
   );
 };

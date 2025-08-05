@@ -26,9 +26,11 @@ import {
 } from "@mui/material";
 
 // Custom Components
-import ColumnSelector from "../../../../components/colums-select/ColumnSelector";
+// import ColumnSelector from "../../../../components/colums-select/ColumnSelector";
 import TicketFilters from "../../../../components/ticket/TicketFilters";
 import TicketDetailsModal from "../../../../components/TicketDetailsModal";
+import Pagination from "../../../../components/Pagination";
+import TableControls from "../../../../components/TableControls";
 
 // Config
 import { baseURL } from "../../../../config";
@@ -89,10 +91,19 @@ export default function FocalPersonDashboard() {
   const [tickets, setTickets] = useState([]);
   const [userId, setUserId] = useState("");
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
-  const [activeColumns, setActiveColumns] = useState([]);
+  const [activeColumns, setActiveColumns] = useState([
+    "ticket_id",
+    "fullName",
+    "phone_number",
+    "region",
+    "status",
+    "subject",
+    "category",
+    "assigned_to_role",
+    "createdAt"
+  ]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
@@ -145,9 +156,10 @@ export default function FocalPersonDashboard() {
   useEffect(() => {
     if (activeColumns.length === 0) {
       setActiveColumns([
-        "id",
+        "ticket_id",
         "fullName",
         "phone_number",
+        "region",
         "status",
         "subject",
         "category",
@@ -394,7 +406,7 @@ export default function FocalPersonDashboard() {
         ticket.phone_number?.toLowerCase().includes(searchValue) ||
         ticket.nida_number?.toLowerCase().includes(searchValue) ||
         fullName.includes(searchValue)) &&
-      (!filterStatus || ticket.status === filterStatus);
+      (!filters.status || ticket.status === filters.status);
 
     // Apply advanced filters
     if (filters.category) {
@@ -415,6 +427,10 @@ export default function FocalPersonDashboard() {
   console.log("Filtered tickets:", filteredTickets);
 
   const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage + 1;
+  const endIndex = Math.min(currentPage * itemsPerPage, filteredTickets.length);
+  const totalItems = filteredTickets.length;
+  
   const paginatedTickets = filteredTickets.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -566,81 +582,57 @@ export default function FocalPersonDashboard() {
         </div>
       </div>
 
-      <TicketFilters
-        onFilterChange={handleFilterChange}
-        initialFilters={filters}
-      />
-
       {/* Table Section */}
-      <div style={{ overflowX: "auto", width: "100%" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "16px"
-          }}
-        >
-          <h2>Inquiry Tickets</h2>
-          <Tooltip title="Columns Settings" arrow>
-            <IconButton onClick={() => setIsColumnModalOpen(true)}>
-              <FiSettings size={20} />
-            </IconButton>
-          </Tooltip>
-        </div>
-
-        <div className="controls">
-          <div>
-            <label style={{ marginRight: "8px" }}>
-              <strong>Show:</strong>
-            </label>
-            <select
-              className="filter-select"
-              value={itemsPerPage}
-              onChange={(e) => {
-                setItemsPerPage(parseInt(e.target.value));
-                setCurrentPage(1);
-              }}
-            >
-              {[5, 10, 25, 50, 100].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-            <input
-              className="search-input"
-              type="text"
-              placeholder="Search by phone or NIDA..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setCurrentPage(1);
-              }}
+      <div className="user-table-container">
+        <div style={{ 
+          display: "flex", 
+          justifyContent: "space-between", 
+          alignItems: "center",
+          marginBottom: "1rem"
+        }}>
+          <h3 className="title">Focal Person Tickets List</h3>
+          
+          <div style={{ 
+            display: "flex", 
+            alignItems: "center", 
+            gap: "10px"
+          }}>
+            <TicketFilters
+              onFilterChange={handleFilterChange}
+              initialFilters={filters}
+              compact={true}
             />
-            <select
-              className="filter-select"
-              value={filterStatus}
-              onChange={(e) => {
-                setFilterStatus(e.target.value);
-                setCurrentPage(1);
-              }}
-            >
-              <option value="">All Status</option>
-              <option value="Open">Open</option>
-              <option value="Closed">Closed</option>
-            </select>
           </div>
         </div>
+        
+        <div style={{ overflowX: "auto", width: "100%" }}>
 
-        <table className="user-table">
+          <TableControls
+            itemsPerPage={itemsPerPage}
+            onItemsPerPageChange={(e) => {
+              const value = e.target.value;
+              setItemsPerPage(
+                value === "All" ? filteredTickets.length : parseInt(value)
+              );
+              setCurrentPage(1);
+            }}
+            search={search}
+            onSearchChange={(e) => setSearch(e.target.value)}
+            filterStatus={filters.status}
+            onFilterStatusChange={(e) => setFilters({ ...filters, status: e.target.value })}
+            activeColumns={activeColumns}
+            onColumnsChange={setActiveColumns}
+            tableData={filteredTickets}
+            tableTitle="Focal Person Tickets"
+          />
+
+          <table className="user-table">
           <thead>
             <tr>
-              {activeColumns.includes("id") && <th>#</th>}
+              {activeColumns.includes("ticket_id") && <th>Ticket ID</th>}
               {activeColumns.includes("fullName") && <th>Full Name</th>}
               {activeColumns.includes("phone_number") && <th>Phone</th>}
+              {activeColumns.includes("region") && <th>Region</th>}
               {activeColumns.includes("status") && <th>Status</th>}
               {activeColumns.includes("subject") && <th>Subject</th>}
               {activeColumns.includes("category") && <th>Category</th>}
@@ -655,8 +647,8 @@ export default function FocalPersonDashboard() {
             {paginatedTickets.length > 0 ? (
               paginatedTickets.map((ticket, i) => (
                 <tr key={ticket.id}>
-                  {activeColumns.includes("id") && (
-                    <td>{(currentPage - 1) * itemsPerPage + i + 1}</td>
+                  {activeColumns.includes("ticket_id") && (
+                    <td>{ticket.ticket_id || ticket.id}</td>
                   )}
                   {activeColumns.includes("fullName") && (
                     <td>
@@ -675,6 +667,9 @@ export default function FocalPersonDashboard() {
                   )}
                   {activeColumns.includes("phone_number") && (
                     <td>{ticket.phone_number || "N/A"}</td>
+                  )}
+                  {activeColumns.includes("region") && (
+                    <td>{ticket.region || "N/A"}</td>
                   )}
                   {activeColumns.includes("status") && (
                     <td>
@@ -716,19 +711,17 @@ export default function FocalPersonDashboard() {
                     </td>
                   )}
                   <td>
-                    {!["agent", "coordinator", "attendee"].includes(role) && (
                     <Tooltip title="View Details">
                       <button
                         className="view-ticket-details-btn"
-                          onClick={() => {
-                            setSelectedTicket(ticket);
-                            setIsModalOpen(true);
-                          }}
+                        onClick={() => {
+                          setSelectedTicket(ticket);
+                          setIsModalOpen(true);
+                        }}
                       >
                         <FaEye />
                       </button>
                     </Tooltip>
-                    )}
                   </td>
                 </tr>
               ))
@@ -745,30 +738,16 @@ export default function FocalPersonDashboard() {
           </tbody>
         </table>
 
-        <div style={{ marginTop: "16px", textAlign: "center" }}>
-          <Button
-            variant="outlined"
-            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-            sx={{ marginRight: 1 }}
-          >
-            Previous
-          </Button>
-          <span>
-            Page {currentPage} of {totalPages}
-          </span>
-          <Button
-            variant="outlined"
-            onClick={() =>
-              setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-            }
-            disabled={currentPage === totalPages}
-            sx={{ marginLeft: 1 }}
-          >
-            Next
-          </Button>
-        </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          startIndex={startIndex}
+          endIndex={endIndex}
+          onPageChange={setCurrentPage}
+        />
       </div>
+    </div>
 
       {/* Ticket Details Modal */}
       <TicketDetailsModal
@@ -781,10 +760,9 @@ export default function FocalPersonDashboard() {
       />
 
       {/* Column Selector */}
-      <ColumnSelector
-        open={isColumnModalOpen}
-        onClose={() => setIsColumnModalOpen(false)}
-        data={tickets}
+      {/* This block is now redundant as ColumnSelectorDropdown is moved */}
+      {/* <ColumnSelectorDropdown
+        selectedColumns={activeColumns}
         onColumnsChange={(selectedColumns) => {
           if (selectedColumns.length === 0) {
             setActiveColumns([
@@ -801,7 +779,8 @@ export default function FocalPersonDashboard() {
             setActiveColumns(selectedColumns);
           }
         }}
-      />
+        size="small"
+      /> */}
 
       {/* Snackbar */}
       <Snackbar

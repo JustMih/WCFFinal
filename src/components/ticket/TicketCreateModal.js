@@ -291,7 +291,12 @@ export default function TicketCreateModal({ open, onClose, initialPhoneNumber = 
       return;
     }
     // Prepare payload
-    const payload = { ...formData, status: submitAction === "closed" ? "Closed" : "Open" };
+    const payload = { 
+      ...formData, 
+      status: submitAction === "closed" ? "Closed" : "Open",
+      // Add claim number for routing decision
+      claimId: selectedSuggestion?.claimId || null,
+    };
     try {
       const token = localStorage.getItem("authToken");
       const response = await fetch(`${baseURL}/ticket/create-ticket`, {
