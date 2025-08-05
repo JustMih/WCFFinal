@@ -2648,39 +2648,6 @@ const AgentCRM = () => {
 
       {/* Ticket Table Section */}
       <div className="user-table-container">
-<<<<<<< HEAD
-        <div className="ticket-table-container">
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "16px",
-            }}
-          >
-            <h2>All Customer Tickets</h2>
-            <Tooltip title="Columns Settings and Export" arrow>
-              <IconButton onClick={() => setColumnModalOpen(true)}>
-                <FiSettings size={20} />
-              </IconButton>
-            </Tooltip>
-          </div>
-
-          <div className="controls">
-            <div>
-              <label style={{ marginRight: "8px" }}>
-                <strong>Show:</strong>
-              </label>
-              <select
-                className="filter-select"
-                value={itemsPerPage}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setItemsPerPage(
-                    value === "All" ? filteredTickets.length : parseInt(value)
-                  );
-                  setCurrentPage(1);
-=======
         <div style={{ display: "flex", gap: "20px", width: "100%" }}>
           {/* Left: Ticket Table */}
           <div style={{ flex: 2, minWidth: 0 }}>
@@ -2691,7 +2658,6 @@ const AgentCRM = () => {
                   justifyContent: "space-between",
                   alignItems: "center",
                   marginBottom: "16px"
->>>>>>> fb72a8bb61e51433614e20853e06ce430882d244
                 }}
               >
                 <h2>All Customer Tickets</h2>
@@ -2762,60 +2728,6 @@ const AgentCRM = () => {
             </div>
           </div>
 
-<<<<<<< HEAD
-          <table className="user-table">
-            <thead>{renderTableHeader()}</thead>
-            <tbody>
-              {paginatedTickets.length > 0 ? (
-                paginatedTickets.map((ticket, i) => renderTableRow(ticket, i))
-              ) : (
-                <tr>
-                  <td
-                    colSpan={activeColumns.length + 1}
-                    style={{ textAlign: "center", color: "red" }}
-                  >
-                    No ticket found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-
-          {/* Pagination */}
-          <div
-            className="pagination"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "16px",
-              margin: "16px 0",
-            }}
-          >
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-              disabled={currentPage === 1}
-            >
-              Previous
-            </Button>
-            <span style={{ fontWeight: 500, fontSize: "1rem" }}>
-              Page {currentPage} of {totalPages}
-            </span>
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() =>
-                setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-              }
-              disabled={currentPage === totalPages}
-            >
-              Next
-            </Button>
-          </div>
-=======
->>>>>>> fb72a8bb61e51433614e20853e06ce430882d244
         </div>
       </div>
 
@@ -3260,26 +3172,6 @@ const AgentCRM = () => {
                       >
                         {ticket.ticket_id}
                       </Typography>
-<<<<<<< HEAD
-                      <Typography
-                        sx={{
-                          px: 1.5,
-                          py: 0.5,
-                          borderRadius: "12px",
-                          color: "white",
-                          background:
-                            ticket.status === "Closed"
-                              ? "#757575"
-                              : ticket.status === "Open"
-                              ? "#2e7d32"
-                              : "#1976d2",
-                          fontSize: "0.75rem",
-                          fontWeight: 500,
-                        }}
-                      >
-                        {ticket.status}
-                      </Typography>
-=======
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Typography
                           sx={{
@@ -3316,7 +3208,6 @@ const AgentCRM = () => {
                           <ChatIcon fontSize="small" />
                         </IconButton>
                       </Box>
->>>>>>> fb72a8bb61e51433614e20853e06ce430882d244
                     </Box>
                     <Box sx={{ mt: 1 }}>
                       <Typography
@@ -3386,18 +3277,6 @@ const AgentCRM = () => {
                       region: prev.region || "",
                       district: prev.district || "",
                       category: prev.category || "",
-<<<<<<< HEAD
-                      inquiry_type: prev.inquiry_type || "", // Add inquiry_type
-                      functionId: prev.function_id || "",
-                      description: "",
-                      status: "Open",
-                      // New fields for representative
-                      requesterName: prev.requesterName || "",
-                      requesterPhoneNumber: prev.requesterPhoneNumber || "",
-                      requesterEmail: prev.requesterEmail || "",
-                      requesterAddress: prev.requesterAddress || "",
-                      relationshipToEmployee: prev.relationshipToEmployee || "",
-=======
                       channel: prev.channel || "",
                       subject: prev.subject || "",
                       subSection: prev.sub_section || "",
@@ -3407,7 +3286,6 @@ const AgentCRM = () => {
                       representativePhone: prev.representative_phone || "",
                       representativeEmail: prev.representative_email || "",
                       representativeNida: prev.representative_nida || ""
->>>>>>> fb72a8bb61e51433614e20853e06ce430882d244
                     });
                     
                     // Set search type based on requester
@@ -3540,194 +3418,6 @@ const AgentCRM = () => {
             <div className="modal-form-container">
               <h2 className="modal-title">New Ticket</h2>
 
-<<<<<<< HEAD
-              {/* Search Section */}
-              <div
-                className="search-section"
-                style={{
-                  marginBottom: "20px",
-                  padding: "15px",
-                  backgroundColor: "#f5f5f5",
-                  borderRadius: "8px",
-                }}
-              >
-                <div style={{ marginBottom: "15px" }}>
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "8px",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    Search Type:
-                  </label>
-                  <select
-                    value={searchType}
-                    onChange={(e) => {
-                      setSearchType(e.target.value);
-                      setSearchSuggestions([]);
-                      setSelectedSuggestion(null);
-                      setSearchQuery("");
-                    }}
-                    style={{
-                      width: "100%",
-                      padding: "8px",
-                      borderRadius: "4px",
-                      border: "1px solid #ddd",
-                    }}
-                  >
-                    <option value="employee">Employee</option>
-                    <option value="employer">Employer</option>
-                  </select>
-                </div>
-
-                <div style={{ marginBottom: "15px" }}>
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "8px",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    Search By:
-                  </label>
-                  <select
-                    value={searchBy}
-                    onChange={(e) => {
-                      setSearchBy(e.target.value);
-                      setSearchSuggestions([]);
-                      setSelectedSuggestion(null);
-                      setSearchQuery("");
-                    }}
-                    style={{
-                      width: "100%",
-                      padding: "8px",
-                      borderRadius: "4px",
-                      border: "1px solid #ddd",
-                    }}
-                  >
-                    <option value="name">Name</option>
-                    <option value="wcf_number">WCF Number</option>
-                  </select>
-                </div>
-
-                <div style={{ marginBottom: "15px" }}>
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "8px",
-                      fontWeight: "bold",
-                    }}
-                  >
-                    {searchBy === "name" ? "Enter Name" : "Enter WCF Number"}:
-                  </label>
-                  <StyledAutocomplete
-                    value={selectedSuggestion}
-                    onChange={(event, newValue) =>
-                      handleSuggestionSelected(event, newValue)
-                    }
-                    inputValue={inputValue}
-                    onInputChange={handleInputChange}
-                    options={searchSuggestions}
-                    getOptionLabel={(option) => option.displayName || ""}
-                    open={open}
-                    onOpen={() => setOpen(true)}
-                    onClose={() => setOpen(false)}
-                    loading={isSearching}
-                    loadingText={
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: "10px",
-                        }}
-                      >
-                        <CircularProgress size={20} />
-                        <span>Searching...</span>
-                      </div>
-                    }
-                    noOptionsText={
-                      inputValue.length < 1
-                        ? "Start typing to search"
-                        : "No matching records found"
-                    }
-                    renderOption={(props, option) => (
-                      <li {...props}>
-                        <SuggestionItem>
-                          <div className="suggestion-name">
-                            <span style={{ color: "#666" }}>
-                              {option.numberPrefix}
-                            </span>{" "}
-                            {highlightMatch(option.cleanName, inputValue)}
-                            {option.employerName && (
-                              <>
-                                {" — ("}
-                                <span style={{ color: "#666" }}>
-                                  {highlightMatch(
-                                    option.employerName,
-                                    inputValue
-                                  )}
-                                </span>
-                                {")"}
-                              </>
-                            )}
-                          </div>
-                          <div className="suggestion-details">
-                            Member No: {option.memberNo}
-                            {option.type && ` • Type: ${option.type}`}
-                            {option.status && ` • Status: ${option.status}`}
-                          </div>
-                        </SuggestionItem>
-                      </li>
-                    )}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        placeholder={
-                          searchBy === "name"
-                            ? "Start typing name..."
-                            : "Enter WCF number..."
-                        }
-                        InputProps={{
-                          ...params.InputProps,
-                          endAdornment: (
-                            <>
-                              {isSearching && (
-                                <CircularProgress color="inherit" size={20} />
-                              )}
-                              {params.InputProps.endAdornment}
-                            </>
-                          ),
-                        }}
-                        sx={{
-                          "& .MuiOutlinedInput-root": {
-                            "& fieldset": {
-                              borderColor: "#e0e0e0",
-                            },
-                            "&:hover fieldset": {
-                              borderColor: "#1976d2",
-                            },
-                            "&.Mui-focused fieldset": {
-                              borderColor: "#1976d2",
-                            },
-                          },
-                        }}
-                      />
-                    )}
-                    filterOptions={(x) => x}
-                    freeSolo={false}
-                    autoComplete
-                    includeInputInList
-                    blurOnSelect
-                    clearOnBlur={false}
-                    selectOnFocus
-                    handleHomeEndKeys
-                    style={{ width: "100%" }}
-                  />
-                </div>
-              </div>
-=======
               {/* Search Section - Replaced with EnhancedSearchForm */}
               {/* The old search form has been replaced with the enhanced two-step search functionality */}
 
@@ -3741,7 +3431,6 @@ const AgentCRM = () => {
                 setSearchStep={setSearchStep}
                 onSearchTypeChange={handleSearchTypeChange}
               />
->>>>>>> fb72a8bb61e51433614e20853e06ce430882d244
 
               {/* Update the claim status section */}
               {formSearchType === "employee" && selectedSuggestion && (
@@ -3774,101 +3463,6 @@ const AgentCRM = () => {
                       )}
                     </Typography>
                   </div>
-<<<<<<< HEAD
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    disabled={!selectedSuggestion?.claimId}
-                    onClick={async () => {
-                      console.log("Clicked claim:", selectedSuggestion.claimId);
-
-                      const credentials = {
-                        username: "rehema.said", // Laravel expects 'username'
-                        password: "TTCL@2026",
-                      };
-
-                      const getCookie = (name) => {
-                        const match = document.cookie.match(
-                          new RegExp("(^| )" + name + "=([^;]+)")
-                        );
-                        return match ? decodeURIComponent(match[2]) : null;
-                      };
-
-                      try {
-                        // Step 1: Get CSRF cookie
-                        const csrfResponse = await fetch(
-                          "http://localhost:8000/sanctum/csrf-cookie",
-                          {
-                            credentials: "include",
-                          }
-                        );
-
-                        if (!csrfResponse.ok) {
-                          throw new Error("Failed to fetch CSRF cookie");
-                        }
-
-                        // Step 2: Read the XSRF-TOKEN cookie
-                        const csrfToken = getCookie("XSRF-TOKEN");
-
-                        if (!csrfToken) {
-                          setSnackbar({
-                            open: true,
-                            message:
-                              "CSRF token missing. Login cannot proceed.",
-                            severity: "error",
-                          });
-                          return;
-                        }
-
-                        // Step 3: Send login request
-                        const loginResponse = await fetch(
-                          "http://localhost:8000/login",
-                          {
-                            method: "POST",
-                            headers: {
-                              "Content-Type": "application/json",
-                              Accept: "application/json",
-                              "X-XSRF-TOKEN": csrfToken,
-                            },
-                            credentials: "include",
-                            body: JSON.stringify(credentials),
-                          }
-                        );
-
-                        if (loginResponse.ok || loginResponse.redirected) {
-                          // Step 4: Open the dashboard in a new tab
-                          const dashboardUrl =
-                            "http://localhost:8000/dashboard";
-                          window.open(dashboardUrl, "_blank");
-                        } else {
-                          const errorText = await loginResponse.text();
-                          let errorMsg = "Login failed.";
-                          try {
-                            const json = JSON.parse(errorText);
-                            errorMsg = json.message || json.error || errorMsg;
-                          } catch {
-                            errorMsg = errorText;
-                          }
-
-                          setSnackbar({
-                            open: true,
-                            message: errorMsg,
-                            severity: "error",
-                          });
-                        }
-                      } catch (error) {
-                        setSnackbar({
-                          open: true,
-                          message:
-                            error.message || "Unexpected error during login",
-                          severity: "error",
-                        });
-                      }
-                    }}
-                  >
-                    View Claim
-                  </Button>
-=======
                   
                   {/* Claim Button */}
                   {selectedSuggestion.claim_number && (
@@ -3893,7 +3487,6 @@ const AgentCRM = () => {
                       View Claim
                     </button>
                   )}
->>>>>>> fb72a8bb61e51433614e20853e06ce430882d244
                 </div>
               )}
 
@@ -4353,39 +3946,6 @@ const AgentCRM = () => {
                 </div>
               </div>
 
-<<<<<<< HEAD
-              {/* Inquiry Type */}
-              {formData.category === "Inquiry" && (
-                <div className="modal-form-group" style={{ flex: 1 }}>
-                  <label style={{ fontSize: "0.875rem" }}>Inquiry Type:</label>
-                  <select
-                    name="inquiry_type"
-                    value={formData.inquiry_type || ""}
-                    onChange={handleChange}
-                    style={{
-                      height: "32px",
-                      fontSize: "0.875rem",
-                      padding: "4px 8px",
-                      width: "100%",
-                      border: formErrors.inquiry_type
-                        ? "1px solid red"
-                        : "1px solid #ccc",
-                    }}
-                  >
-                    <option value="">Select Inquiry Type</option>
-                    <option value="Claims">Claims</option>
-                    <option value="Compliance">Compliance</option>
-                  </select>
-                  {formErrors.inquiry_type && (
-                    <span style={{ color: "red", fontSize: "0.75rem" }}>
-                      {formErrors.inquiry_type}
-                    </span>
-                  )}
-                </div>
-              )}
-
-=======
->>>>>>> fb72a8bb61e51433614e20853e06ce430882d244
               {/* Subject, Sub-section, Section */}
               <div className="modal-form-row">
                 <div className="modal-form-group" style={{ flex: 1 }}>
@@ -4617,26 +4177,6 @@ const AgentCRM = () => {
                         >
                           {ticket.ticket_id}
                         </Typography>
-<<<<<<< HEAD
-                        <Typography
-                          sx={{
-                            px: 1.5,
-                            py: 0.5,
-                            borderRadius: "12px",
-                            color: "white",
-                            background:
-                              ticket.status === "Closed"
-                                ? "#757575"
-                                : ticket.status === "Open"
-                                ? "#2e7d32"
-                                : "#1976d2",
-                            fontSize: "0.75rem",
-                            fontWeight: 500,
-                          }}
-                        >
-                          {ticket.status}
-                        </Typography>
-=======
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <Typography
                             sx={{
@@ -4673,7 +4213,6 @@ const AgentCRM = () => {
                             <ChatIcon fontSize="small" />
                           </IconButton>
                         </Box>
->>>>>>> fb72a8bb61e51433614e20853e06ce430882d244
                       </Box>
                       <Box sx={{ mt: 1 }}>
                         <Typography
@@ -4755,36 +4294,7 @@ const AgentCRM = () => {
           </div>
         </div>
       )}
-<<<<<<< HEAD
-
-      {/* In the modal JSX, just below the Institution input field */}
-      {formData.requester === "Employee" && employerDetails && (
-        <div
-          style={{
-            margin: "10px 0",
-            padding: "10px",
-            background: "#e3f2fd",
-            borderRadius: "6px",
-          }}
-        >
-          <div>
-            <strong>Allocated User Name:</strong>{" "}
-            {employerDetails.allocated_staff_name
-              ? employerDetails.allocated_staff_name
-              : JSON.stringify(employerDetails)}
-          </div>
-          <div>
-            <strong>Allocated Username:</strong>{" "}
-            {employerDetails.allocated_staff_username
-              ? employerDetails.allocated_staff_username
-              : JSON.stringify(employerDetails)}
-          </div>
-        </div>
-      )}
-
-=======
       
->>>>>>> fb72a8bb61e51433614e20853e06ce430882d244
       {/* In the modal JSX, above the Institution input field */}
       {/* <Autocomplete
         value={selectedInstitution}

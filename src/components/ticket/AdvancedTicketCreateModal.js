@@ -308,6 +308,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
   const [creationActiveTicketId, setCreationActiveTicketId] = useState(null);
   const [historySearch, setHistorySearch] = useState("");
   const [submitAction, setSubmitAction] = useState("open");
+  const [isLoading, setIsLoading] = useState(false);
   
   // --- Enhanced Search Form State ---
   const [searchStep, setSearchStep] = useState(0);
