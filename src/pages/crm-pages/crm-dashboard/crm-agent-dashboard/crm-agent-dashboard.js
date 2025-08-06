@@ -120,6 +120,8 @@ const AgentCRM = () => {
     priority: "",
     employerName: "", // Add employer name field
     employerSearch: "", // Add employer search field
+    // Dependents from search response
+    dependents: [],
     // Removed inquiry_type - tickets will go directly to focal person
   });
 
@@ -230,6 +232,9 @@ const AgentCRM = () => {
     status: "",
     priority: "",
     category: "",
+    region: "",
+    district: "",
+    ticketId: "",
     startDate: null,
     endDate: null
   });
@@ -616,6 +621,10 @@ const AgentCRM = () => {
         }
       }
 
+      // Debug: Log formData before creating ticketData
+      console.log("🔍 FormData before creating ticketData:", formData);
+      console.log("🔍 Dependents in formData:", formData.dependents);
+
       // --- Allocated User Logic ---
       // Routing Rules:
       // 1. If searched details has a claim number → Send to checklist user shown in details
@@ -655,7 +664,13 @@ const AgentCRM = () => {
         // Add employer information from search
         employer: formData.employer || selectedSuggestion?.employer || "",
         employerName: formData.employerName || "",
+        // Add dependents field explicitly
+        dependents: formData.dependents || []
       };
+
+      // Debug: Log final ticketData being sent
+      console.log("🚀 Final ticketData being sent to backend:", ticketData);
+      console.log("🚀 Dependents in ticketData:", ticketData.dependents);
 
       // Add employer-specific fields if requester is Employer
       if (formData.requester === "Employer") {
@@ -686,7 +701,11 @@ const AgentCRM = () => {
         body: JSON.stringify(ticketData)
       });
 
+      console.log("🌐 API Response Status:", response.status);
+      console.log("🌐 API Response Headers:", response.headers);
+
       const data = await response.json();
+      console.log("🌐 API Response Data:", data);
 
       if (response.ok) {
         setModal({
@@ -708,7 +727,9 @@ const AgentCRM = () => {
           requesterPhoneNumber: "",
           requesterEmail: "",
           requesterAddress: "",
-          relationshipToEmployee: ""
+          relationshipToEmployee: "",
+          // Reset dependents
+          dependents: []
         });
         
         // Reset employer search autocomplete state
@@ -724,11 +745,16 @@ const AgentCRM = () => {
         });
       }
     } catch (error) {
-      console.error("Error creating ticket:", error);
+      console.error("❌ Error creating ticket:", error);
+      console.error("❌ Error details:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
       setModal({
         isOpen: true,
         type: "error",
-        message: `Network error. Please try again later.`
+        message: `Network error. Please try again later. Error: ${error.message}`
       });
       setIsLoading(false);
     }
@@ -782,6 +808,17 @@ const AgentCRM = () => {
       // Category (from TicketFilters)
       const matchesCategory =
         !filters.category || ticket.category === filters.category;
+      // Region (from TicketFilters)
+      const matchesRegion =
+        !filters.region || ticket.region === filters.region;
+      // District (from TicketFilters)
+      const matchesDistrict =
+        !filters.district || ticket.district === filters.district;
+      // Ticket ID (from TicketFilters)
+      const matchesTicketId =
+        !filters.ticketId || 
+        (ticket.ticket_id && ticket.ticket_id.toLowerCase().includes(filters.ticketId.toLowerCase())) ||
+        (ticket.id && ticket.id.toLowerCase().includes(filters.ticketId.toLowerCase()));
       // Date range (from TicketFilters)
       let matchesDate = true;
       if (filters.startDate) {
@@ -799,6 +836,9 @@ const AgentCRM = () => {
         matchesStatus &&
         matchesPriority &&
         matchesCategory &&
+        matchesRegion &&
+        matchesDistrict &&
+        matchesTicketId &&
         matchesDate
       );
     });
@@ -1371,7 +1411,15 @@ const AgentCRM = () => {
         if (response.ok && data.results?.length) {
           console.log("Found results:", data.results.length);
           const suggestions = data.results.map((result) => {
-            const originalName = result.name || "";
+            // Extract employee data and dependents from the result
+            const employeeData = result.employee || result;
+            const dependents = result.dependents || [];
+            
+            console.log("Processing result:", result); // Debug: Log each result
+            console.log("Employee data:", employeeData); // Debug: Log employee data
+            console.log("Dependents:", dependents); // Debug: Log dependents
+            
+            const originalName = employeeData.name || "";
             // Parse the original name into components
             const numberMatch = originalName.match(/^(\d+\.)\s*/);
             const numberPrefix = numberMatch ? numberMatch[1] : "";
@@ -1399,12 +1447,12 @@ const AgentCRM = () => {
             }
 
             // Also check if phone number is directly available in the result
-            if (!phoneNumber && result.phone) {
-              phoneNumber = result.phone;
+            if (!phoneNumber && employeeData.phone) {
+              phoneNumber = employeeData.phone;
             }
 
             return {
-              id: result.memberno,
+              id: employeeData.memberno,
               numberPrefix,
               originalName,
               displayName: `${numberPrefix} ${cleanName}${
@@ -1417,11 +1465,14 @@ const AgentCRM = () => {
               cleanName,
               employerName,
               phoneNumber,
-              memberNo: result.memberno,
-              type: result.type,
-              status: result.status,
-              employer: result.employer || "", // Add employer field from API response
-              rawData: result
+              memberNo: employeeData.memberno,
+              type: employeeData.type,
+              status: employeeData.status,
+              employer: employeeData.employer || "", // Add employer field from API response
+              dependents: dependents, // Add dependents at top level
+              rawData: result, // Preserve the original result structure
+              // Spread employee data to top level for easy access
+              ...employeeData
             };
           });
 
@@ -1451,6 +1502,10 @@ const AgentCRM = () => {
       setInputValue("");
       return;
     }
+
+    // Dependents are now at the top level of the suggestion
+    const dependents = suggestion.dependents || [];
+    console.log("Dependents from suggestion:", dependents); // Debug: Log dependents
 
     // Get the raw data which contains the claim number and user details
     const rawData = suggestion.rawData || suggestion;
@@ -1503,11 +1558,12 @@ const AgentCRM = () => {
         description: rawData.description || "",
         category: rawData.category || "",
         priority: rawData.priority || "",
-        nidaNumber: rawData.nin || "",
-        phoneNumber: rawData.phoneNumber || "",
+        nidaNumber: suggestion.nin || "",
+        phoneNumber: suggestion.employee_phone || suggestion.phoneNumber || "",
         institution: institutionName, // Use employer field from API response
         employer: suggestion.employer || "", // Add employer field to form data
-        employerName: suggestion.employer || "" // Populate employer name field
+        employerName: suggestion.employer || "", // Populate employer name field
+        dependents: dependents, // Use dependents from the flattened structure
       };
     } else if (searchType === "employer") {
       updatedFormData = {
@@ -1516,9 +1572,10 @@ const AgentCRM = () => {
         description: "",
         category: "",
         priority: "",
-        nidaNumber: rawData.tin || "", // Use TIN for employer's NIDA/identifier
-        phoneNumber: rawData.phone || "",
-        institution: rawData.name || "" // Employer's name goes to institution
+        nidaNumber: suggestion.tin || "", // Use TIN for employer's NIDA/identifier
+        phoneNumber: suggestion.phone || "",
+        institution: suggestion.name || "", // Employer's name goes to institution
+        dependents: dependents, // Use dependents from the flattened structure
       };
     }
 
@@ -1550,6 +1607,13 @@ const AgentCRM = () => {
         ""
     };
     console.log("Updated Form Data:", updatedFormData);
+
+    // Log if dependents were found
+    if (updatedFormData.dependents && updatedFormData.dependents.length > 0) {
+      console.log("✅ Dependents successfully populated:", updatedFormData.dependents);
+    } else {
+      console.log("❌ No dependents found in the search response");
+    }
 
     setFormData(updatedFormData);
 
@@ -2077,8 +2141,14 @@ const AgentCRM = () => {
   };
 
   const handleEmployeeSelection = (employee) => {
+    console.log("handleEmployeeSelection called with:", employee); // Debug log
+    
     // Extract employee information from the API response
     const employeeData = employee.employee || employee;
+    
+    // Extract dependents from the correct level (same level as employee, not inside employee)
+    const dependents = employee.dependents || [];
+    console.log("Dependents extracted:", dependents); // Debug log
     
     // Parse the name to extract first, middle, and last names
     const fullName = employeeData.name || "";
@@ -2104,7 +2174,9 @@ const AgentCRM = () => {
       allocated_user_name: employeeData.allocated_user || "",
       allocated_user_id: employeeData.allocated_user_id || "",
       // Store claim information
-      claimNumber: employeeData.claim_number || ""
+      claimNumber: employeeData.claim_number || "",
+      // Store dependents from search response (correctly extracted)
+      dependents: dependents
     }));
 
     // Set selected suggestion for claim button display
@@ -2162,7 +2234,9 @@ const AgentCRM = () => {
       allocated_user_name: "",
       allocated_user_id: "",
       // Clear claim information
-      claimNumber: ""
+      claimNumber: "",
+      // Clear dependents
+      dependents: []
     });
     
     // Clear form errors
@@ -2694,6 +2768,18 @@ const AgentCRM = () => {
             setFilters(newFilters);
             setCurrentPage(1);
           }}
+          filterRegion={filters.region || ""}
+          onFilterRegionChange={(e) => {
+            const newFilters = { ...filters, region: e.target.value };
+            setFilters(newFilters);
+            setCurrentPage(1);
+          }}
+          filterDistrict={filters.district || ""}
+          onFilterDistrictChange={(e) => {
+            const newFilters = { ...filters, district: e.target.value };
+            setFilters(newFilters);
+            setCurrentPage(1);
+          }}
           activeColumns={activeColumns}
           onColumnsChange={setActiveColumns}
           tableData={filteredTickets}
@@ -2985,6 +3071,84 @@ const AgentCRM = () => {
                   </span>
                 </div>
 
+                {/* Dependents Section */}
+                {selectedTicket.dependents && selectedTicket.dependents.trim() !== "" && (
+                  <Box sx={{ mt: 3, mb: 2, p: 2, bgcolor: '#f8f9fa', borderRadius: 2, border: '1px solid #e9ecef' }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2, color: '#1976d2', display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <span style={{ fontSize: '1.2rem' }}>👥</span>
+                      Dependents
+                    </Typography>
+                    
+                    {/* Parse comma-separated dependents string to array */}
+                    {(() => {
+                      const dependentsArray = selectedTicket.dependents.split(',').map(dep => dep.trim()).filter(dep => dep);
+                      return (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                          {dependentsArray.map((dependent, index) => (
+                            <div
+                              key={index}
+                              style={{
+                                padding: "12px",
+                                backgroundColor: "#ffffff",
+                                borderRadius: "6px",
+                                border: "1px solid #dee2e6",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "12px"
+                              }}
+                            >
+                              <div
+                                style={{
+                                  width: "32px",
+                                  height: "32px",
+                                  borderRadius: "50%",
+                                  backgroundColor: "#e3f2fd",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  color: "#1976d2",
+                                  fontWeight: "bold",
+                                  fontSize: "0.875rem"
+                                }}
+                              >
+                                {index + 1}
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <Typography
+                                  variant="subtitle2"
+                                  style={{ fontWeight: "600", color: "#2c3e50" }}
+                                >
+                                  {dependent}
+                                </Typography>
+                                <Typography
+                                  variant="caption"
+                                  style={{ color: "#6c757d" }}
+                                >
+                                  Dependent #{index + 1}
+                                </Typography>
+                              </div>
+                              <div
+                                style={{
+                                  padding: "4px 8px",
+                                  backgroundColor: "#e8f5e9",
+                                  borderRadius: "12px",
+                                  border: "1px solid #c8e6c9"
+                                }}
+                              >
+                                <Typography
+                                  variant="caption"
+                                  style={{ color: "#2e7d32", fontWeight: "500" }}
+                                >
+                                  Active
+                                </Typography>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </Box>
+                )}
 
                 {/* Representative Details Section */}
                 {selectedTicket.requester === "Representative" && selectedTicket.representative_name && (
@@ -3463,6 +3627,36 @@ const AgentCRM = () => {
                         "No Active Claim"
                       )}
                     </Typography>
+                    
+                    {/* Display Dependents */}
+                    {formData.dependents && formData.dependents.length > 0 && (
+                      <div style={{ marginTop: 8 }}>
+                        <Typography
+                          variant="subtitle2"
+                          style={{ fontWeight: "bold", marginBottom: 4 }}
+                        >
+                          Dependents ({formData.dependents.length}):
+                        </Typography>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                          {formData.dependents.map((dependent, index) => (
+                            <span
+                              key={index}
+                              style={{
+                                padding: "4px 8px",
+                                background: "#e3f2fd",
+                                borderRadius: 12,
+                                border: "1px solid #bbdefb",
+                                fontSize: "0.75rem",
+                                color: "#1976d2",
+                                fontWeight: 500
+                              }}
+                            >
+                              {dependent}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   
                   {/* Claim Button */}
@@ -3491,11 +3685,128 @@ const AgentCRM = () => {
                 </div>
               )}
 
+              {/* Dependents Details Section */}
+              {/* {formData.dependents && formData.dependents.length > 0 && (
+                <div
+                  style={{
+                    marginTop: "16px",
+                    marginBottom: "16px",
+                    padding: "16px",
+                    backgroundColor: "#f8f9fa",
+                    borderRadius: "8px",
+                    border: "1px solid #e9ecef"
+                  }}
+                >
+                  <Typography
+                    variant="h6"
+                    style={{
+                      fontWeight: "bold",
+                      marginBottom: "12px",
+                      color: "#1976d2",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "8px"
+                    }}
+                  >
+                    <span style={{ fontSize: "1.2rem" }}>👥</span>
+                    Dependent Details
+                  </Typography>
+                  
+                  <Typography
+                    variant="body2"
+                    style={{ marginBottom: "12px", color: "#6c757d" }}
+                  >
+                    Found {formData.dependents.length} dependent(s) for this employee. These dependents are automatically included in the ticket.
+                  </Typography>
+                  
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    {formData.dependents.map((dependent, index) => (
+                      <div
+                        key={index}
+                        style={{
+                          padding: "12px",
+                          backgroundColor: "#ffffff",
+                          borderRadius: "6px",
+                          border: "1px solid #dee2e6",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "12px"
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: "32px",
+                            height: "32px",
+                            borderRadius: "50%",
+                            backgroundColor: "#e3f2fd",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "#1976d2",
+                            fontWeight: "bold",
+                            fontSize: "0.875rem"
+                          }}
+                        >
+                          {index + 1}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <Typography
+                            variant="subtitle2"
+                            style={{ fontWeight: "600", color: "#2c3e50" }}
+                          >
+                            {dependent}
+                          </Typography>
+                          <Typography
+                            variant="caption"
+                            style={{ color: "#6c757d" }}
+                          >
+                            Dependent #{index + 1}
+                          </Typography>
+                        </div>
+                        <div
+                          style={{
+                            padding: "4px 8px",
+                            backgroundColor: "#e8f5e9",
+                            borderRadius: "12px",
+                            border: "1px solid #c8e6c9"
+                          }}
+                        >
+                          <Typography
+                            variant="caption"
+                            style={{ color: "#2e7d32", fontWeight: "500" }}
+                          >
+                            Active
+                          </Typography>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  <div
+                    style={{
+                      marginTop: "12px",
+                      padding: "8px 12px",
+                      backgroundColor: "#fff3cd",
+                      borderRadius: "6px",
+                      border: "1px solid #ffeaa7"
+                    }}
+                  >
+                    <Typography
+                      variant="caption"
+                      style={{ color: "#856404", display: "flex", alignItems: "center", gap: "4px" }}
+                    >
+                      <span>ℹ️</span>
+                      Dependents will be automatically saved with the ticket when submitted.
+                    </Typography>
+                  </div>
+                </div>
+              )} */}
+
               {/* Existing form fields */}
               {formSearchType !== "employer" && (
                 <div className="modal-form-row">
                   <div className="modal-form-group" style={{ flex: 1 }}>
-                    <label style={{ fontSize: "0.875rem" }}>First Name:</label>
+                    <label style={{ fontSize: "0.875rem" }}>First Name: <span style={{ color: "red" }}>*</span></label>
                     <input
                       name="firstName"
                       value={formData.firstName}
@@ -3538,7 +3849,7 @@ const AgentCRM = () => {
                   <div className="modal-form-group" style={{ flex: 1 }}>
                     <label style={{ fontSize: "0.875rem" }}>
                       Last Name
-                      {formData.requester === "Employer" ? <span style={{ fontSize: "0.75rem", color: "#666" }}> (Optional)</span> : ""}:
+                      {formData.requester === "Employer" ? <span style={{ fontSize: "0.75rem", color: "#666" }}> (Optional)</span> : <span style={{ color: "red" }}> *</span>}:
                     </label>
                     <input
                       name="lastName"
@@ -3570,7 +3881,7 @@ const AgentCRM = () => {
               <div className="modal-form-row">
                 <div className="modal-form-group" style={{ flex: 1 }}>
                   <label style={{ fontSize: "0.875rem" }}>
-                    {formSearchType === "employer" ? "Institution Name:" : "Institution:"}
+                    {formSearchType === "employer" ? "Institution Name:" : "Institution:"} <span style={{ color: "red" }}>*</span>
                   </label>
                   <input
                     name="institution"
@@ -3616,7 +3927,7 @@ const AgentCRM = () => {
               {/* Phone & NIDA */}
               <div className="modal-form-row">
                 <div className="modal-form-group">
-                  <label style={{ fontSize: "0.875rem" }}>Phone Number:</label>
+                  <label style={{ fontSize: "0.875rem" }}>Phone Number: <span style={{ color: "red" }}>*</span></label>
                   <input
                     type="tel"
                     name="phoneNumber"
@@ -3674,7 +3985,7 @@ const AgentCRM = () => {
               {/* Requester & Institution */}
               <div className="modal-form-row">
                 <div className="modal-form-group">
-                  <label style={{ fontSize: "0.875rem" }}>Requester:</label>
+                  <label style={{ fontSize: "0.875rem" }}>Requester: <span style={{ color: "red" }}>*</span></label>
                   <select
                     name="requester"
                     value={formData.requester}
@@ -3704,7 +4015,7 @@ const AgentCRM = () => {
                 </div>
 
                 <div className="modal-form-group">
-                  <label style={{ fontSize: "0.875rem" }}>Institution:</label>
+                  <label style={{ fontSize: "0.875rem" }}>Institution: <span style={{ color: "red" }}>*</span></label>
                   <input
                     name="institution"
                     value={formData.institution}
@@ -3739,7 +4050,7 @@ const AgentCRM = () => {
                     </Typography>
                     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
                       <div>
-                        <label style={{ fontSize: '0.875rem' }}>Representative Name:</label>
+                        <label style={{ fontSize: '0.875rem' }}>Representative Name: <span style={{ color: "red" }}>*</span></label>
                         <input
                           name="requesterName"
                           value={formData.requesterName}
@@ -3759,7 +4070,7 @@ const AgentCRM = () => {
                         )}
                       </div>
                       <div>
-                        <label style={{ fontSize: '0.875rem' }}>Representative Phone Number:</label>
+                        <label style={{ fontSize: '0.875rem' }}>Representative Phone Number: <span style={{ color: "red" }}>*</span></label>
                         <input
                           type="tel"
                           name="requesterPhoneNumber"
@@ -3815,7 +4126,7 @@ const AgentCRM = () => {
                         />
                       </div>
                       <div>
-                        <label style={{ fontSize: '0.875rem' }}>Relationship to Employee/Employee:</label>
+                        <label style={{ fontSize: '0.875rem' }}>Relationship to Employee/Employee: <span style={{ color: "red" }}>*</span></label>
                         <input
                           name="relationshipToEmployee"
                           value={formData.relationshipToEmployee}
@@ -3842,7 +4153,7 @@ const AgentCRM = () => {
               {/* Region & District */}
               <div className="modal-form-row">
                 <div className="modal-form-group">
-                  <label style={{ fontSize: "0.875rem" }}>Region:</label>
+                  <label style={{ fontSize: "0.875rem" }}>Region: <span style={{ color: "red" }}>*</span></label>
                   <input
                     name="region"
                     value={formData.region}
@@ -3865,7 +4176,7 @@ const AgentCRM = () => {
                 </div>
 
                 <div className="modal-form-group">
-                  <label style={{ fontSize: "0.875rem" }}>District:</label>
+                  <label style={{ fontSize: "0.875rem" }}>District: <span style={{ color: "red" }}>*</span></label>
                   <input
                     name="district"
                     value={formData.district}
@@ -3891,7 +4202,7 @@ const AgentCRM = () => {
               {/* Category & Channel */}
               <div className="modal-form-row">
                 <div className="modal-form-group" style={{ flex: 1 }}>
-                  <label style={{ fontSize: "0.875rem" }}>Category:</label>
+                  <label style={{ fontSize: "0.875rem" }}>Category: <span style={{ color: "red" }}>*</span></label>
                   <select
                     name="category"
                     value={formData.category || ""}
@@ -3920,7 +4231,7 @@ const AgentCRM = () => {
                 </div>
 
                 <div className="modal-form-group" style={{ flex: 1 }}>
-                  <label style={{ fontSize: "0.875rem" }}>Channel:</label>
+                  <label style={{ fontSize: "0.875rem" }}>Channel: <span style={{ color: "red" }}>*</span></label>
                   <select
                     name="channel"
                     value={formData.channel}
@@ -3950,7 +4261,7 @@ const AgentCRM = () => {
               {/* Subject, Sub-section, Section */}
               <div className="modal-form-row">
                 <div className="modal-form-group" style={{ flex: 1 }}>
-                  <label style={{ fontSize: "0.875rem" }}>Subject:</label>
+                  <label style={{ fontSize: "0.875rem" }}>Subject: <span style={{ color: "red" }}>*</span></label>
                   <select
                     name="functionId"
                     value={formData.functionId}
@@ -4010,7 +4321,7 @@ const AgentCRM = () => {
 
               {/* Description */}
               <div className="modal-form-group">
-                <label style={{ fontSize: "0.875rem" }}>Description:</label>
+                <label style={{ fontSize: "0.875rem" }}>Description: <span style={{ color: "red" }}>*</span></label>
                 <textarea
                   rows="2"
                   name="description"

@@ -280,6 +280,7 @@ const defaultFormData = {
   requesterEmail: "",
   requesterAddress: "",
   relationshipToEmployee: "",
+  dependents: [],
 };
 
 function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", functionData = [] }) {
@@ -463,7 +464,9 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
       allocated_user_name: employeeData.allocated_user || "",
       allocated_user_id: employeeData.allocated_user_id || "",
       // Store claim information
-      claimNumber: employeeData.claim_number || ""
+      claimNumber: employeeData.claim_number || "",
+      // Store dependents information
+      dependents: employee.dependents || employeeData.dependents || []
     }));
 
     // Set selected suggestion for claim button display
@@ -503,7 +506,9 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
       allocated_user_name: "",
       allocated_user_id: "",
       // Clear claim information
-      claimNumber: ""
+      claimNumber: "",
+      // Clear dependents
+      dependents: []
     }));
     
     // Clear form errors
@@ -568,12 +573,21 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
   };
 
   const handleSuggestionSelected = (event, suggestion) => {
+    console.log("Selected suggestion:", suggestion); // Debug: Log the selected suggestion
+    
     if (!suggestion) {
       setSelectedSuggestion(null);
       setInputValue("");
       return;
     }
+    
+    // Dependents are now at the top level of the suggestion
+    const dependents = suggestion.dependents || [];
+    console.log("Dependents from suggestion:", dependents); // Debug: Log dependents
+    
     const rawData = suggestion.rawData || suggestion;
+    console.log("Raw data from suggestion:", rawData); // Debug: Log the raw data
+    
     const institutionMatch =
       suggestion.displayName?.match(/—\s*\((.*?)\)/) ||
       suggestion.originalName?.match(/—\s*\((.*?)\)/) ||
@@ -595,12 +609,13 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
     if (searchType === "employee") {
       updatedFormData = {
         ...updatedFormData,
-        firstName: rawData.firstname || "",
-        middleName: rawData.middlename || "",
-        lastName: rawData.lastname || "",
-        nidaNumber: rawData.nin || "",
-        phoneNumber: rawData.phoneNumber || "",
-        institution: institutionName
+        firstName: suggestion.firstname || "",
+        middleName: suggestion.middlename || "",
+        lastName: suggestion.lastname || "",
+        nidaNumber: suggestion.nin || "",
+        phoneNumber: suggestion.employee_phone || suggestion.phoneNumber || "",
+        institution: institutionName,
+        dependents: dependents, // Use dependents from the flattened structure
       };
     } else if (searchType === "employer") {
       updatedFormData = {
@@ -608,10 +623,19 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
         firstName: "",
         middleName: "",
         lastName: "",
-        nidaNumber: rawData.tin || "",
-        phoneNumber: rawData.phone || "",
-        institution: rawData.name || ""
+        nidaNumber: suggestion.tin || "",
+        phoneNumber: suggestion.phone || "",
+        institution: suggestion.name || "",
+        dependents: dependents, // Use dependents from the flattened structure
       };
+    }
+    console.log("Updated form data with dependents:", updatedFormData.dependents); // Debug: Log the dependents in form data
+    
+    // Log if dependents were found
+    if (updatedFormData.dependents && updatedFormData.dependents.length > 0) {
+      console.log("✅ Dependents successfully populated:", updatedFormData.dependents);
+    } else {
+      console.log("❌ No dependents found in the search response");
     }
     updatedFormData = {
       ...updatedFormData,
@@ -699,8 +723,30 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
         }
       );
       const data = await response.json();
-      setSearchSuggestions(data.results || []);
+      console.log("Search API Response:", data); // Debug: Log the full response
+      
+      // Process the results to flatten the structure and preserve dependents
+      const results = data.results || [];
+      const suggestionsWithDependents = results.map(result => {
+        // Extract employee data and dependents from the result
+        const employeeData = result.employee || result;
+        const dependents = result.dependents || [];
+        
+        console.log("Processing result:", result); // Debug: Log each result
+        console.log("Employee data:", employeeData); // Debug: Log employee data
+        console.log("Dependents:", dependents); // Debug: Log dependents
+        
+        return {
+          ...employeeData, // Spread employee data to top level
+          dependents: dependents, // Add dependents at top level
+          rawData: result // Preserve the original result structure
+        };
+      });
+      
+      console.log("Processed suggestions with dependents:", suggestionsWithDependents); // Debug: Log processed suggestions
+      setSearchSuggestions(suggestionsWithDependents);
     } catch (error) {
+      console.error("Search error:", error);
       setSearchSuggestions([]);
     } finally {
       setIsSearching(false);
@@ -1035,6 +1081,36 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                         "No Active Claim"
                       )}
                     </Typography>
+                    
+                    {/* Display Dependents */}
+                    {formData.dependents && formData.dependents.length > 0 && (
+                      <div style={{ marginTop: 8 }}>
+                        <Typography
+                          variant="subtitle2"
+                          style={{ fontWeight: "bold", marginBottom: 4 }}
+                        >
+                          Dependents ({formData.dependents.length}):
+                        </Typography>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                          {formData.dependents.map((dependent, index) => (
+                            <span
+                              key={index}
+                              style={{
+                                padding: "4px 8px",
+                                background: "#e3f2fd",
+                                borderRadius: 12,
+                                border: "1px solid #bbdefb",
+                                fontSize: "0.75rem",
+                                color: "#1976d2",
+                                fontWeight: 500
+                              }}
+                            >
+                              {dependent}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   
                   {/* Claim Button */}
@@ -1067,7 +1143,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
               {formSearchType !== "employer" && (
                 <div className="modal-form-row">
                   <div className="modal-form-group" style={{ flex: 1 }}>
-                    <label style={{ fontSize: "0.875rem" }}>First Name:</label>
+                    <label style={{ fontSize: "0.875rem" }}>First Name: <span style={{ color: "red" }}>*</span></label>
                     <input
                       name="firstName"
                       value={formData.firstName}
@@ -1110,7 +1186,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                   <div className="modal-form-group" style={{ flex: 1 }}>
                     <label style={{ fontSize: "0.875rem" }}>
                       Last Name
-                      {formData.requester === "Employer" ? " (Optional)" : ""}:
+                      {formData.requester === "Employer" ? " (Optional)" : <span style={{ color: "red" }}> *</span>}:
                     </label>
                     <input
                       name="lastName"
@@ -1141,7 +1217,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
               {/* Phone & NIDA */}
               <div className="modal-form-row">
                 <div className="modal-form-group">
-                  <label style={{ fontSize: "0.875rem" }}>Phone Number:</label>
+                  <label style={{ fontSize: "0.875rem" }}>Phone Number: <span style={{ color: "red" }}>*</span></label>
                   <input
                     type="tel"
                     name="phoneNumber"
@@ -1199,7 +1275,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
               {/* Requester & Institution */}
               <div className="modal-form-row">
                 <div className="modal-form-group">
-                  <label style={{ fontSize: "0.875rem" }}>Requester:</label>
+                  <label style={{ fontSize: "0.875rem" }}>Requester: <span style={{ color: "red" }}>*</span></label>
                   <select
                     name="requester"
                     value={formData.requester}
@@ -1229,7 +1305,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                 </div>
 
                 <div className="modal-form-group">
-                  <label style={{ fontSize: "0.875rem" }}>Institution:</label>
+                  <label style={{ fontSize: "0.875rem" }}>Institution: <span style={{ color: "red" }}>*</span></label>
                   <input
                     name="institution"
                     value={formData.institution}
@@ -1264,7 +1340,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                   <div className="modal-form-row">
                     <div className="modal-form-group">
                       <label style={{ fontSize: "0.875rem" }}>
-                        Representative Name:
+                        Representative Name: <span style={{ color: "red" }}>*</span>
                       </label>
                       <input
                         name="requesterName"
@@ -1288,7 +1364,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                     </div>
                     <div className="modal-form-group">
                       <label style={{ fontSize: "0.875rem" }}>
-                        Representative Phone Number:
+                        Representative Phone Number: <span style={{ color: "red" }}>*</span>
                       </label>
                       <input
                         type="tel"
@@ -1354,7 +1430,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                   <div className="modal-form-row">
                     <div className="modal-form-group">
                       <label style={{ fontSize: "0.875rem" }}>
-                        Relationship to Employee/Employee:
+                        Relationship to Employee/Employee: <span style={{ color: "red" }}>*</span>
                       </label>
                       <input
                         name="relationshipToEmployee"
@@ -1382,10 +1458,117 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                 </>
               )}
 
+              {/* Dependents Section */}
+              {/* {(() => {
+                console.log("🔍 Checking dependents section - formData.dependents:", formData.dependents);
+                console.log("🔍 Dependents length:", formData.dependents?.length);
+                return formData.dependents && formData.dependents.length > 0 && (
+                  <>
+                    <Typography
+                      variant="h6"
+                      sx={{ mt: 3, mb: 1, fontWeight: "bold" }}
+                    >
+                      Dependents
+                    </Typography>
+                    <div style={{ 
+                      padding: 16, 
+                      background: "#f8f9fa", 
+                      borderRadius: 8, 
+                      border: "1px solid #e9ecef",
+                      marginBottom: 16 
+                    }}>
+                      <Typography variant="body2" sx={{ mb: 2, color: "#6c757d" }}>
+                        Found {formData.dependents.length} dependent(s) for this employee. These dependents are automatically included in the ticket.
+                      </Typography>
+                      
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
+                        {formData.dependents.map((dependent, index) => (
+                          <div
+                            key={index}
+                            style={{
+                              padding: "12px",
+                              backgroundColor: "#ffffff",
+                              borderRadius: "6px",
+                              border: "1px solid #dee2e6",
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "12px"
+                            }}
+                          >
+                            <div
+                              style={{
+                                width: "32px",
+                                height: "32px",
+                                borderRadius: "50%",
+                                backgroundColor: "#e3f2fd",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                color: "#1976d2",
+                                fontWeight: "bold",
+                                fontSize: "0.875rem"
+                              }}
+                            >
+                              {index + 1}
+                            </div>
+                            <div style={{ flex: 1 }}>
+                              <Typography
+                                variant="subtitle2"
+                                style={{ fontWeight: "600", color: "#2c3e50" }}
+                              >
+                                {dependent}
+                              </Typography>
+                              <Typography
+                                variant="caption"
+                                style={{ color: "#6c757d" }}
+                              >
+                                Dependent #{index + 1}
+                              </Typography>
+                            </div>
+                            <div
+                              style={{
+                                padding: "4px 8px",
+                                backgroundColor: "#e8f5e9",
+                                borderRadius: "12px",
+                                border: "1px solid #c8e6c9"
+                              }}
+                            >
+                              <Typography
+                                variant="caption"
+                                style={{ color: "#2e7d32", fontWeight: "500" }}
+                              >
+                                Active
+                              </Typography>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      <div
+                        style={{
+                          padding: "8px 12px",
+                          backgroundColor: "#fff3cd",
+                          borderRadius: "6px",
+                          border: "1px solid #ffeaa7"
+                        }}
+                      >
+                        <Typography
+                          variant="caption"
+                          style={{ color: "#856404", display: "flex", alignItems: "center", gap: "4px" }}
+                        >
+                          <span>ℹ️</span>
+                          Dependents will be automatically saved with the ticket when submitted.
+                        </Typography>
+                      </div>
+                    </div>
+                  </>
+                );
+              })()} */}
+
               {/* Region & District */}
               <div className="modal-form-row">
                 <div className="modal-form-group">
-                  <label style={{ fontSize: "0.875rem" }}>Region:</label>
+                  <label style={{ fontSize: "0.875rem" }}>Region: <span style={{ color: "red" }}>*</span></label>
                   <input
                     name="region"
                     value={formData.region}
@@ -1408,7 +1591,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                 </div>
 
                 <div className="modal-form-group">
-                  <label style={{ fontSize: "0.875rem" }}>District:</label>
+                  <label style={{ fontSize: "0.875rem" }}>District: <span style={{ color: "red" }}>*</span></label>
                   <input
                     name="district"
                     value={formData.district}
@@ -1434,7 +1617,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
               {/* Category & Channel */}
               <div className="modal-form-row">
                 <div className="modal-form-group" style={{ flex: 1 }}>
-                  <label style={{ fontSize: "0.875rem" }}>Category:</label>
+                  <label style={{ fontSize: "0.875rem" }}>Category: <span style={{ color: "red" }}>*</span></label>
                   <select
                     name="category"
                     value={formData.category}
@@ -1463,7 +1646,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                 </div>
 
                 <div className="modal-form-group" style={{ flex: 1 }}>
-                  <label style={{ fontSize: "0.875rem" }}>Channel:</label>
+                  <label style={{ fontSize: "0.875rem" }}>Channel: <span style={{ color: "red" }}>*</span></label>
                   <select
                     name="channel"
                     value={formData.channel}
@@ -1493,7 +1676,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
               {/* Subject, Sub-section, Section */}
               <div className="modal-form-row">
                 <div className="modal-form-group" style={{ flex: 1 }}>
-                  <label style={{ fontSize: "0.875rem" }}>Subject:</label>
+                  <label style={{ fontSize: "0.875rem" }}>Subject: <span style={{ color: "red" }}>*</span></label>
                   <select
                     name="functionId"
                     value={formData.functionId}
@@ -1553,7 +1736,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
 
               {/* Description */}
               <div className="modal-form-group">
-                <label style={{ fontSize: "0.875rem" }}>Description:</label>
+                <label style={{ fontSize: "0.875rem" }}>Description: <span style={{ color: "red" }}>*</span></label>
                 <textarea
                   rows="2"
                   name="description"

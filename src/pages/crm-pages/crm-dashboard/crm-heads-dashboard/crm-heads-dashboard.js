@@ -115,6 +115,9 @@ export default function FocalPersonDashboard() {
     status: "",
     priority: "",
     category: "",
+    region: "",
+    district: "",
+    ticketId: "",
     startDate: null,
     endDate: null
   });
@@ -395,6 +398,18 @@ export default function FocalPersonDashboard() {
     if (filters.category) {
       matches = matches && ticket.category === filters.category;
     }
+    if (filters.region) {
+      matches = matches && ticket.region === filters.region;
+    }
+    if (filters.district) {
+      matches = matches && ticket.district === filters.district;
+    }
+    if (filters.ticketId) {
+      matches = matches && (
+        (ticket.ticket_id && ticket.ticket_id.toLowerCase().includes(filters.ticketId.toLowerCase())) ||
+        (ticket.id && ticket.id.toLowerCase().includes(filters.ticketId.toLowerCase()))
+      );
+    }
     if (filters.startDate) {
       matches =
         matches && new Date(ticket.created_at) >= new Date(filters.startDate);
@@ -603,6 +618,10 @@ export default function FocalPersonDashboard() {
             onSearchChange={(e) => setSearch(e.target.value)}
             filterStatus={filters.status}
             onFilterStatusChange={(e) => setFilters({ ...filters, status: e.target.value })}
+            filterRegion={filters.region}
+            onFilterRegionChange={(e) => setFilters({ ...filters, region: e.target.value })}
+            filterDistrict={filters.district}
+            onFilterDistrictChange={(e) => setFilters({ ...filters, district: e.target.value })}
             activeColumns={activeColumns}
             onColumnsChange={setActiveColumns}
             tableData={filteredTickets}

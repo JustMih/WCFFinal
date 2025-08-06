@@ -91,6 +91,9 @@ export default function CoordinatorDashboard() {
     status: "",
     priority: "",
     category: "",
+    region: "",
+    district: "",
+    ticketId: "",
     startDate: null,
     endDate: null
   });
@@ -475,6 +478,18 @@ export default function CoordinatorDashboard() {
     if (filters.priority && filters.priority !== "") {
       matches = matches && t.priority === filters.priority;
     }
+    if (filters.region && filters.region !== "") {
+      matches = matches && t.region === filters.region;
+    }
+    if (filters.district && filters.district !== "") {
+      matches = matches && t.district === filters.district;
+    }
+    if (filters.ticketId && filters.ticketId !== "") {
+      matches = matches && (
+        (t.ticket_id && t.ticket_id.toLowerCase().includes(filters.ticketId.toLowerCase())) ||
+        (t.id && t.id.toLowerCase().includes(filters.ticketId.toLowerCase()))
+      );
+    }
     if (filters.startDate) {
       matches =
         matches &&
@@ -818,6 +833,10 @@ export default function CoordinatorDashboard() {
             onSearchChange={(e) => setSearch(e.target.value)}
             filterStatus={filters.status}
             onFilterStatusChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+            filterRegion={filters.region}
+            onFilterRegionChange={(e) => setFilters(prev => ({ ...prev, region: e.target.value }))}
+            filterDistrict={filters.district}
+            onFilterDistrictChange={(e) => setFilters(prev => ({ ...prev, district: e.target.value }))}
             activeColumns={activeColumns}
             onColumnsChange={setActiveColumns}
             tableData={filteredTickets}

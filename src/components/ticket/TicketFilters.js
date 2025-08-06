@@ -45,6 +45,8 @@ const TicketFilters = ({ onFilterChange, initialFilters, compact = false }) => {
       status: "",
       priority: "",
       category: "",
+      region: "",
+      ticketId: "",
       startDate: null,
       endDate: null
     });
@@ -223,6 +225,59 @@ const TicketFilters = ({ onFilterChange, initialFilters, compact = false }) => {
                   Advanced Filters
                 </Typography>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <TextField
+                    label="Ticket ID"
+                    value={initialFilters.ticketId || ""}
+                    onChange={(e) => handleFilterChange('ticketId', e.target.value)}
+                    size="small"
+                    fullWidth
+                    placeholder="Enter ticket ID..."
+                    InputLabelProps={{ shrink: true }}
+                  />
+                  
+                  <TextField
+                    select
+                    label="Region"
+                    value={initialFilters.region || ""}
+                    onChange={(e) => handleFilterChange('region', e.target.value)}
+                    size="small"
+                    fullWidth
+                    InputLabelProps={{ shrink: true }}
+                  >
+                    <MenuItem value="">All Regions</MenuItem>
+                    <MenuItem value="HQ">HQ</MenuItem>
+                    <MenuItem value="Arusha">Arusha</MenuItem>
+                    <MenuItem value="Dar es Salaam">Dar es Salaam</MenuItem>
+                    <MenuItem value="Dodoma">Dodoma</MenuItem>
+                    <MenuItem value="Geita">Geita</MenuItem>
+                    <MenuItem value="Iringa">Iringa</MenuItem>
+                    <MenuItem value="Kagera">Kagera</MenuItem>
+                    <MenuItem value="Katavi">Katavi</MenuItem>
+                    <MenuItem value="Kigoma">Kigoma</MenuItem>
+                    <MenuItem value="Kilimanjaro">Kilimanjaro</MenuItem>
+                    <MenuItem value="Lindi">Lindi</MenuItem>
+                    <MenuItem value="Manyara">Manyara</MenuItem>
+                    <MenuItem value="Mara">Mara</MenuItem>
+                    <MenuItem value="Mbeya">Mbeya</MenuItem>
+                    <MenuItem value="Morogoro">Morogoro</MenuItem>
+                    <MenuItem value="Mtwara">Mtwara</MenuItem>
+                    <MenuItem value="Mwanza">Mwanza</MenuItem>
+                    <MenuItem value="Njombe">Njombe</MenuItem>
+                    <MenuItem value="Pemba North">Pemba North</MenuItem>
+                    <MenuItem value="Pemba South">Pemba South</MenuItem>
+                    <MenuItem value="Pwani">Pwani</MenuItem>
+                    <MenuItem value="Rukwa">Rukwa</MenuItem>
+                    <MenuItem value="Ruvuma">Ruvuma</MenuItem>
+                    <MenuItem value="Shinyanga">Shinyanga</MenuItem>
+                    <MenuItem value="Simiyu">Simiyu</MenuItem>
+                    <MenuItem value="Singida">Singida</MenuItem>
+                    <MenuItem value="Songwe">Songwe</MenuItem>
+                    <MenuItem value="Tabora">Tabora</MenuItem>
+                    <MenuItem value="Tanga">Tanga</MenuItem>
+                    <MenuItem value="Unguja North">Unguja North</MenuItem>
+                    <MenuItem value="Unguja South">Unguja South</MenuItem>
+                  </TextField>
+                  
                   <TextField
                     select
                     label="Category"
@@ -420,6 +475,61 @@ const TicketFilters = ({ onFilterChange, initialFilters, compact = false }) => {
             Advanced Filters
           </Typography>
           <Grid container spacing={2}>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                label="Ticket ID"
+                value={initialFilters.ticketId || ""}
+                onChange={(e) => handleFilterChange('ticketId', e.target.value)}
+                size="small"
+                fullWidth
+                placeholder="Enter ticket ID..."
+                InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                select
+                label="Region"
+                value={initialFilters.region || ""}
+                onChange={(e) => handleFilterChange('region', e.target.value)}
+                size="small"
+                fullWidth
+                InputLabelProps={{ shrink: true }}
+              >
+                <MenuItem value="">All Regions</MenuItem>
+                <MenuItem value="HQ">HQ</MenuItem>
+                <MenuItem value="Arusha">Arusha</MenuItem>
+                <MenuItem value="Dar es Salaam">Dar es Salaam</MenuItem>
+                <MenuItem value="Dodoma">Dodoma</MenuItem>
+                <MenuItem value="Geita">Geita</MenuItem>
+                <MenuItem value="Iringa">Iringa</MenuItem>
+                <MenuItem value="Kagera">Kagera</MenuItem>
+                <MenuItem value="Katavi">Katavi</MenuItem>
+                <MenuItem value="Kigoma">Kigoma</MenuItem>
+                <MenuItem value="Kilimanjaro">Kilimanjaro</MenuItem>
+                <MenuItem value="Lindi">Lindi</MenuItem>
+                <MenuItem value="Manyara">Manyara</MenuItem>
+                <MenuItem value="Mara">Mara</MenuItem>
+                <MenuItem value="Mbeya">Mbeya</MenuItem>
+                <MenuItem value="Morogoro">Morogoro</MenuItem>
+                <MenuItem value="Mtwara">Mtwara</MenuItem>
+                <MenuItem value="Mwanza">Mwanza</MenuItem>
+                <MenuItem value="Njombe">Njombe</MenuItem>
+                <MenuItem value="Pemba North">Pemba North</MenuItem>
+                <MenuItem value="Pemba South">Pemba South</MenuItem>
+                <MenuItem value="Pwani">Pwani</MenuItem>
+                <MenuItem value="Rukwa">Rukwa</MenuItem>
+                <MenuItem value="Ruvuma">Ruvuma</MenuItem>
+                <MenuItem value="Shinyanga">Shinyanga</MenuItem>
+                <MenuItem value="Simiyu">Simiyu</MenuItem>
+                <MenuItem value="Singida">Singida</MenuItem>
+                <MenuItem value="Songwe">Songwe</MenuItem>
+                <MenuItem value="Tabora">Tabora</MenuItem>
+                <MenuItem value="Tanga">Tanga</MenuItem>
+                <MenuItem value="Unguja North">Unguja North</MenuItem>
+                <MenuItem value="Unguja South">Unguja South</MenuItem>
+              </TextField>
+            </Grid>
             <Grid item xs={12} sm={6}>
               <TextField
                 select

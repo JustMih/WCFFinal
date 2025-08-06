@@ -439,18 +439,18 @@ export default function CRMSidebar({ isSidebarOpen }) {
                             // value: ticketStats.overdue,
                             icon: "⚠️"
                           },
-                          {
-                            label: "Closed Tickets",
-                            to: "/ticket/closed",
-                            value: ticketStats.closed || 0,
-                            icon: "🔒"
-                          },
-                          {
-                            label: "Total Tickets",
-                            to: "/ticket/all",
-                            value: ticketStats.total || 0,
-                            icon: "📊"
-                          }
+                          // {
+                          //   label: "Closed Tickets",
+                          //   to: "/ticket/closed",
+                          //   value: ticketStats.closed || 0,
+                          //   icon: "🔒"
+                          // },
+                          // {
+                          //   label: "Total Tickets",
+                          //   to: "/ticket/all",
+                          //   value: ticketStats.total || 0,
+                          //   icon: "📊"
+                          // }
                         ].map((item, idx) => (
                           <NavLink
                             key={idx}

@@ -54,6 +54,9 @@ export default function Crm() {
     status: '',
     priority: '',
     category: '',
+    region: "",
+    district: "",
+    ticketId: "",
     startDate: null,
     endDate: null,
   });
@@ -213,6 +216,11 @@ export default function Crm() {
     const matchesStatus = !filters.status || ticket.status === filters.status;
     const matchesPriority = !filters.priority || ticket.priority === filters.priority;
     const matchesCategory = !filters.category || ticket.category === filters.category;
+    const matchesRegion = !filters.region || ticket.region === filters.region;
+    const matchesDistrict = !filters.district || ticket.district === filters.district;
+    const matchesTicketId = !filters.ticketId || 
+      (ticket.ticket_id && ticket.ticket_id.toLowerCase().includes(filters.ticketId.toLowerCase())) ||
+      (ticket.id && ticket.id.toLowerCase().includes(filters.ticketId.toLowerCase()));
     let matchesDate = true;
     if (filters.startDate) {
       const ticketDate = new Date(ticket.created_at);
@@ -224,7 +232,7 @@ export default function Crm() {
       endDate.setHours(23, 59, 59, 999);
       if (ticketDate > endDate) matchesDate = false;
     }
-    return matchesSearch && matchesStatus && matchesPriority && matchesCategory && matchesDate;
+    return matchesSearch && matchesStatus && matchesPriority && matchesCategory && matchesRegion && matchesDistrict && matchesTicketId && matchesDate;
   });
 
   const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);

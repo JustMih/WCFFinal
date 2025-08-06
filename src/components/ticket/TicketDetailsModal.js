@@ -152,6 +152,85 @@ const TicketDetailsModal = ({ open, onClose, ticket }) => {
             <Typography><strong>Description:</strong> {ticket.description || "N/A"}</Typography>
           </Box>
 
+          {/* Dependents Section */}
+          {ticket.dependents && ticket.dependents.trim() !== "" && (
+            <Box sx={{ mt: 3, p: 2, bgcolor: '#f8f9fa', borderRadius: 2, border: '1px solid #e9ecef' }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2, color: '#1976d2', display: 'flex', alignItems: 'center', gap: 1 }}>
+                <span style={{ fontSize: '1.2rem' }}>👥</span>
+                Dependents
+              </Typography>
+              
+              {/* Parse comma-separated dependents string to array */}
+              {(() => {
+                const dependentsArray = ticket.dependents.split(',').map(dep => dep.trim()).filter(dep => dep);
+                return (
+                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                    {dependentsArray.map((dependent, index) => (
+                      <div
+                        key={index}
+                        style={{
+                          padding: "12px",
+                          backgroundColor: "#ffffff",
+                          borderRadius: "6px",
+                          border: "1px solid #dee2e6",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "12px"
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: "32px",
+                            height: "32px",
+                            borderRadius: "50%",
+                            backgroundColor: "#e3f2fd",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            color: "#1976d2",
+                            fontWeight: "bold",
+                            fontSize: "0.875rem"
+                          }}
+                        >
+                          {index + 1}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <Typography
+                            variant="subtitle2"
+                            style={{ fontWeight: "600", color: "#2c3e50" }}
+                          >
+                            {dependent}
+                          </Typography>
+                          <Typography
+                            variant="caption"
+                            style={{ color: "#6c757d" }}
+                          >
+                            Dependent #{index + 1}
+                          </Typography>
+                        </div>
+                        <div
+                          style={{
+                            padding: "4px 8px",
+                            backgroundColor: "#e8f5e9",
+                            borderRadius: "12px",
+                            border: "1px solid #c8e6c9"
+                          }}
+                        >
+                          <Typography
+                            variant="caption"
+                            style={{ color: "#2e7d32", fontWeight: "500" }}
+                          >
+                            Active
+                          </Typography>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </Box>
+          )}
+
           {/* Resolution Details Section (for closed tickets) */}
           {ticket.status === "Closed" && (
             <Box sx={{ mt: 3, p: 2, bgcolor: '#f8f9fa', borderRadius: 2, border: '1px solid #dee2e6' }}>

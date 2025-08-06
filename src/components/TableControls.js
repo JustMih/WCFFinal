@@ -11,12 +11,54 @@ const TableControls = ({
   onSearchChange,
   filterStatus,
   onFilterStatusChange,
+  filterRegion,
+  onFilterRegionChange,
+  filterDistrict,
+  onFilterDistrictChange,
   showAllOption = true,
   searchPlaceholder = "Search by name, phone, NIN",
   statusOptions = [
     { value: "", label: "All" },
     { value: "Open", label: "Open" },
     { value: "Closed", label: "Closed" }
+  ],
+  regionOptions = [
+    { value: "", label: "All Regions" },
+    { value: "HQ", label: "HQ" },
+    { value: "Arusha", label: "Arusha" },
+    { value: "Dar es Salaam", label: "Dar es Salaam" },
+    { value: "Dodoma", label: "Dodoma" },
+    { value: "Geita", label: "Geita" },
+    { value: "Iringa", label: "Iringa" },
+    { value: "Kagera", label: "Kagera" },
+    { value: "Katavi", label: "Katavi" },
+    { value: "Kigoma", label: "Kigoma" },
+    { value: "Kilimanjaro", label: "Kilimanjaro" },
+    { value: "Lindi", label: "Lindi" },
+    { value: "Manyara", label: "Manyara" },
+    { value: "Mara", label: "Mara" },
+    { value: "Mbeya", label: "Mbeya" },
+    { value: "Morogoro", label: "Morogoro" },
+    { value: "Mtwara", label: "Mtwara" },
+    { value: "Mwanza", label: "Mwanza" },
+    { value: "Njombe", label: "Njombe" },
+    { value: "Pemba North", label: "Pemba North" },
+    { value: "Pemba South", label: "Pemba South" },
+    { value: "Pwani", label: "Pwani" },
+    { value: "Rukwa", label: "Rukwa" },
+    { value: "Ruvuma", label: "Ruvuma" },
+    { value: "Shinyanga", label: "Shinyanga" },
+    { value: "Simiyu", label: "Simiyu" },
+    { value: "Singida", label: "Singida" },
+    { value: "Songwe", label: "Songwe" },
+    { value: "Tabora", label: "Tabora" },
+    { value: "Tanga", label: "Tanga" },
+    { value: "Unguja North", label: "Unguja North" },
+    { value: "Unguja South", label: "Unguja South" }
+  ],
+  districtOptions = [
+    { value: "", label: "All Districts" },
+    { value: "HQ", label: "HQ" }
   ],
   activeColumns: initialActiveColumns,
   onColumnsChange,
@@ -437,6 +479,54 @@ const TableControls = ({
           }}
         >
           {statusOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        
+        <select
+          className="filter-select"
+          value={filterRegion || ""}
+          onChange={onFilterRegionChange}
+          style={{
+            padding: "8px 12px",
+            borderRadius: "4px",
+            border: "1px solid #ccc",
+            backgroundColor: "white",
+            minWidth: "140px",
+            height: "36px",
+            fontSize: "14px",
+            boxSizing: "border-box",
+            margin: 0,
+            lineHeight: "1"
+          }}
+        >
+          {regionOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        
+        <select
+          className="filter-select"
+          value={filterDistrict || ""}
+          onChange={onFilterDistrictChange}
+          style={{
+            padding: "8px 12px",
+            borderRadius: "4px",
+            border: "1px solid #ccc",
+            backgroundColor: "white",
+            minWidth: "140px",
+            height: "36px",
+            fontSize: "14px",
+            boxSizing: "border-box",
+            margin: 0,
+            lineHeight: "1"
+          }}
+        >
+          {districtOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>

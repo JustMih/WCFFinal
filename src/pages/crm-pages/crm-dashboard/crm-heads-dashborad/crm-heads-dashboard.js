@@ -108,6 +108,8 @@ export default function FocalPersonDashboard() {
     status: "",
     priority: "",
     category: "",
+    region: "",
+    ticketId: "",
     startDate: null,
     endDate: null
   });
