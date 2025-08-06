@@ -1151,10 +1151,14 @@ export default function TicketDetailsModal({
     }
 
     // Check if trying to forward without rating
-    if (effectiveUnitName && !currentTicket?.complaint_type) {
+    // Allow forwarding if either the ticket is already rated OR a rating is being provided in this request
+    const isProvidingRating = selectedRating && ["Minor", "Major"].includes(selectedRating);
+    const isAlreadyRated = currentTicket?.complaint_type;
+    
+    if (effectiveUnitName && !isAlreadyRated && !isProvidingRating) {
       setSnackbar({
         open: true,
-        message: "Ticket must be rated (Minor or Major) before it can be forwarded",
+        message: "Ticket must be rated (Minor or Major) before it can be forwarded. Please select a rating from the dropdown above.",
         severity: "warning"
       });
       return;
@@ -1162,11 +1166,12 @@ export default function TicketDetailsModal({
 
     try {
       // Prepare the payload to match backend expectations
+      // Use selectedRating if available, otherwise use existing complaint_type
       const payload = { 
         userId,
         responsible_unit_name: effectiveUnitName || undefined,
         category: category || undefined,
-        complaintType: currentTicket?.complaint_type || undefined
+        complaintType: selectedRating || currentTicket?.complaint_type || undefined
       };
 
       const response = await fetch(`${baseURL}/coordinator/${ticketId}/convert-or-forward-ticket`, {
@@ -1192,6 +1197,8 @@ export default function TicketDetailsModal({
           delete newState[ticketId];
           return newState;
         });
+        // Clear selected rating after successful update
+        setSelectedRating("");
       } else {
         setSnackbar({ open: true, message: data.message || "Failed to update ticket", severity: "error" });
       }

@@ -1459,7 +1459,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
               )}
 
               {/* Dependents Section */}
-              {/* {(() => {
+              {(() => {
                 console.log("🔍 Checking dependents section - formData.dependents:", formData.dependents);
                 console.log("🔍 Dependents length:", formData.dependents?.length);
                 return formData.dependents && formData.dependents.length > 0 && (
@@ -1563,7 +1563,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                     </div>
                   </>
                 );
-              })()} */}
+              })()}
 
               {/* Region & District */}
               <div className="modal-form-row">
