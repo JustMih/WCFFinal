@@ -1,29 +1,30 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Autocomplete from "@mui/material/Autocomplete";
-import { FormControl, InputLabel, Select } from '@mui/material';
-import { Avatar, Paper } from "@mui/material";
+import FormControl from "@mui/material/FormControl";
+import InputLabel from "@mui/material/InputLabel";
+import Select from "@mui/material/Select";
+import Avatar from "@mui/material/Avatar";
+import Paper from "@mui/material/Paper";
 
 // React Icons
 import { FaEye } from "react-icons/fa";
 import { FiSettings } from "react-icons/fi";
 import { MdOutlineSupportAgent, MdImportExport, MdSwapHoriz } from "react-icons/md";
 
-// MUI Components
-import {
-  Alert,
-  Box,
-  Button,
-  Divider,
-  Grid,
-  IconButton,
-  Modal,
-  Snackbar,
-  Tooltip,
-  Typography,
-  TextField,
-  MenuItem
-} from "@mui/material";
+// MUI Components - Individual imports for better tree shaking
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Divider from "@mui/material/Divider";
+import Grid from "@mui/material/Grid";
+import IconButton from "@mui/material/IconButton";
+import Modal from "@mui/material/Modal";
+import Snackbar from "@mui/material/Snackbar";
+import Tooltip from "@mui/material/Tooltip";
+import Typography from "@mui/material/Typography";
+import TextField from "@mui/material/TextField";
+import MenuItem from "@mui/material/MenuItem";
 
 // Custom Components
 // import ColumnSelector from "../../../../components/colums-select/ColumnSelector";

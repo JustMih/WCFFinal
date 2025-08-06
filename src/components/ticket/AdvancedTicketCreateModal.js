@@ -1,20 +1,21 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
-import {
-  Modal,
-  Box,
-  Button,
-  TextField,
-  Typography,
-  CircularProgress,
-  Autocomplete,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  IconButton,
-  Avatar,
-  Paper,
-  Divider,
-} from "@mui/material";
+
+// MUI Components - Individual imports for better tree shaking
+import Modal from "@mui/material/Modal";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import TextField from "@mui/material/TextField";
+import Typography from "@mui/material/Typography";
+import CircularProgress from "@mui/material/CircularProgress";
+import Autocomplete from "@mui/material/Autocomplete";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import IconButton from "@mui/material/IconButton";
+import Avatar from "@mui/material/Avatar";
+import Paper from "@mui/material/Paper";
+import Divider from "@mui/material/Divider";
+
 import { styled } from "@mui/material/styles";
 import ChatIcon from '@mui/icons-material/Chat';
 import { baseURL } from "../../config";
@@ -783,6 +784,12 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
           }
         }
       }
+      
+      // If not found in nested structure, try direct search
+      if (!selectedSubject) {
+        selectedSubject = functionData.find(item => item.id === formData.functionId);
+      }
+      
       // --- Allocated User Logic ---
       // Routing Rules:
       // 1. If searched details has a claim number → Send to checklist user shown in details
@@ -793,16 +800,20 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
       if (selectedSuggestion && selectedSuggestion.allocated_user_username) {
         // Use allocated user from employee search response
         employerAllocatedStaffUsername = selectedSuggestion.allocated_user_username;
-        console.log("Routing: Using allocated user from employee search:", employerAllocatedStaffUsername);
       } else {
         // No allocated user found, will be assigned by backend logic
         employerAllocatedStaffUsername = "";
-        console.log("Routing: No allocated user found, will be assigned by backend");
       }
 
       const ticketData = {
         ...formData,
+        subject: selectedSubject ? selectedSubject.name : "",
+        sub_section: parentFunction ? parentFunction.name : "",
+        section: parentSection ? parentSection.name : "",
+        responsible_unit_id: formData.functionId,
+        responsible_unit_name: parentSection ? parentSection.name : "",
         status: action === "closed" ? "Closed" : "Open",
+        employerAllocatedStaffUsername,
         shouldClose: action === "closed",
         // Add claim number for routing decision
         claimId: selectedSuggestion?.claimId || null,
@@ -817,6 +828,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
         employer: formData.employer || selectedSuggestion?.employer || "",
         employerName: formData.employerName || "",
       };
+      
       if (formData.requester === "Employer") {
         ticketData.employerRegistrationNumber = formData.nidaNumber;
         ticketData.employerName = formData.institution;

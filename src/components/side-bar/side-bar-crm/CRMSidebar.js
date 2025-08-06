@@ -6,7 +6,10 @@ import { MdOutlineSupportAgent, MdEmail } from "react-icons/md";
 import { FaChevronUp, FaChevronDown } from "react-icons/fa";
 import { baseURL } from "../../../config";
 import "./crmSidebar.css";
-import { IconButton, Badge } from "@mui/material";
+
+// MUI Components - Individual imports for better tree shaking
+import IconButton from "@mui/material/IconButton";
+import Badge from "@mui/material/Badge";
 
 export default function CRMSidebar({ isSidebarOpen }) {
   const [isAgentsOpen, setIsAgentsOpen] = useState(false);

@@ -8,27 +8,29 @@ import { FaEye, FaPlus, FaSearch } from "react-icons/fa";
 import { FaUsersLine } from "react-icons/fa6";
 import { GrLineChart } from "react-icons/gr";
 import { FiSettings } from "react-icons/fi";
-import {
-  Alert,
-  Box,
-  Button,
-  Divider,
-  Grid,
-  IconButton,
-  Modal,
-  Snackbar,
-  TextField,
-  Tooltip,
-  Typography,
-  Autocomplete,
-  CircularProgress,
-  Avatar,
-  Paper,
-  Dialog,
-  DialogTitle,
-  DialogContent
-} from "@mui/material";
+
+// MUI Components - Individual imports for better tree shaking
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Divider from "@mui/material/Divider";
+import Grid from "@mui/material/Grid";
+import IconButton from "@mui/material/IconButton";
+import Modal from "@mui/material/Modal";
+import Snackbar from "@mui/material/Snackbar";
+import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
+import Typography from "@mui/material/Typography";
+import Autocomplete from "@mui/material/Autocomplete";
+import CircularProgress from "@mui/material/CircularProgress";
+import Avatar from "@mui/material/Avatar";
+import Paper from "@mui/material/Paper";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+
 import { styled } from "@mui/material/styles";
+import ChatIcon from '@mui/icons-material/Chat';
 import { baseURL } from "../../../../config";
 import { getDomainCredentials } from "../../../../utils/credentials";
 import "./crm-agent-dashboard.css";
@@ -39,7 +41,6 @@ import Pagination from "../../../../components/Pagination";
 import TableControls from "../../../../components/TableControls";
 import EnhancedSearchForm from "../../../../components/search/EnhancedSearchForm";
 import axios from "axios";
-import ChatIcon from '@mui/icons-material/Chat';
 
 // Add styled components for better typeahead styling
 const StyledAutocomplete = styled(Autocomplete)(({ theme }) => ({

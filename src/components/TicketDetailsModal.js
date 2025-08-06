@@ -1,7 +1,26 @@
 import React, { useState, useEffect } from "react";
-import { Modal, Box, Typography, Divider, IconButton, Button, Dialog, DialogTitle, DialogContent, Avatar, Paper, TextField, Tooltip, Select, MenuItem, Chip } from "@mui/material";
+
+// MUI Components - Individual imports for better tree shaking
+import Modal from "@mui/material/Modal";
+import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+import Divider from "@mui/material/Divider";
+import IconButton from "@mui/material/IconButton";
+import Button from "@mui/material/Button";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+import Avatar from "@mui/material/Avatar";
+import Paper from "@mui/material/Paper";
+import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
+import Select from "@mui/material/Select";
+import MenuItem from "@mui/material/MenuItem";
+import Chip from "@mui/material/Chip";
+
 import ChatIcon from '@mui/icons-material/Chat';
-import { Download, AttachFile } from '@mui/icons-material';
+import Download from '@mui/icons-material/Download';
+import AttachFile from '@mui/icons-material/AttachFile';
 import { baseURL } from "../config";
 
 const getCreatorName = (selectedTicket) =>

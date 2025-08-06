@@ -296,6 +296,8 @@ export default function TicketCreateModal({ open, onClose, initialPhoneNumber = 
       status: submitAction === "closed" ? "Closed" : "Open",
       // Add claim number for routing decision
       claimId: selectedSuggestion?.claimId || null,
+      // Add subject field using the selected function name
+      subject: selectedFunction || "",
     };
     try {
       const token = localStorage.getItem("authToken");
