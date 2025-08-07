@@ -1353,15 +1353,6 @@ export default function AgentsDashboard() {
           {/* Queue Monitoring Section */}
           <CallQueueCard />
         </div>
-        <div className="dashboard-single-agent-row_two">
-          {/* Total Contact Summary */}
-          <TotalContactSummary />
-          {/* Contact Summary Grid - 4 Equal Boxes */}
-          <ContactSummaryGrid />
-        </div>
-        {/* <div className="dashboard-single-agent-row_three">
-          <QueueStatusTable />
-        </div> */}
         <div className="dashboard-single-agent-row_four">
           <AgentPerformanceScore />
         </div>
