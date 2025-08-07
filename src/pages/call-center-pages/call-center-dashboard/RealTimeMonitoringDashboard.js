@@ -15,9 +15,11 @@ import AgentStatusCard from '../../../components/realtime-monitoring/AgentStatus
 import RecentCallsCard from '../../../components/realtime-monitoring/RecentCallsCard';
 
 const RealTimeMonitoringDashboard = () => {
-  // State for real-time data
+  // Initial state
   const [dashboardData, setDashboardData] = useState({
     totalCalls: 1247,
+    inboundCalls: 832,
+    outboundCalls: 415,
     activeCalls: 23,
     waitingCalls: 8,
     avgCallDuration: '4m 32s',
@@ -45,25 +47,20 @@ const RealTimeMonitoringDashboard = () => {
     ]
   });
 
-  // Connection status
   const [connectionStatus, setConnectionStatus] = useState({
     isConnected: false,
     reconnectAttempts: 0
   });
 
-  // Notifications
   const [notification, setNotification] = useState({
     open: false,
     message: '',
     severity: 'info'
   });
 
-  // Initialize real-time monitoring
   useEffect(() => {
-    // Connect to real-time monitoring service
     realTimeMonitoringService.connect();
 
-    // Subscribe to real-time events
     const unsubscribeDashboard = realTimeMonitoringService.subscribe('dashboard_update', (data) => {
       setDashboardData(prev => ({
         ...prev,
@@ -83,17 +80,14 @@ const RealTimeMonitoringDashboard = () => {
       showNotification(data.message, data.severity || 'info');
     });
 
-    // Start simulation if not connected to real server
     if (!realTimeMonitoringService.getConnectionStatus().isConnected) {
       realTimeMonitoringService.simulateRealTimeData();
     }
 
-    // Update connection status periodically
     const connectionInterval = setInterval(() => {
       setConnectionStatus(realTimeMonitoringService.getConnectionStatus());
     }, 1000);
 
-    // Cleanup on unmount
     return () => {
       unsubscribeDashboard();
       unsubscribeCallEvent();
@@ -104,16 +98,10 @@ const RealTimeMonitoringDashboard = () => {
     };
   }, []);
 
-  // Handle call events
   const handleCallEvent = (event) => {
     if (event.type === 'call_started') {
-      setDashboardData(prev => ({
-        ...prev,
-        activeCalls: prev.activeCalls + 1,
-        totalCalls: prev.totalCalls + 1
-      }));
+      const isInbound = event.direction === 'inbound';
 
-      // Add to recent calls
       const newCall = {
         id: Date.now(),
         number: event.phoneNumber,
@@ -125,7 +113,11 @@ const RealTimeMonitoringDashboard = () => {
 
       setDashboardData(prev => ({
         ...prev,
-        recentCalls: [newCall, ...prev.recentCalls.slice(0, 9)] // Keep only 10 most recent
+        activeCalls: prev.activeCalls + 1,
+        totalCalls: prev.totalCalls + 1,
+        inboundCalls: isInbound ? prev.inboundCalls + 1 : prev.inboundCalls,
+        outboundCalls: !isInbound ? prev.outboundCalls + 1 : prev.outboundCalls,
+        recentCalls: [newCall, ...prev.recentCalls.slice(0, 9)]
       }));
     } else if (event.type === 'call_ended') {
       setDashboardData(prev => ({
@@ -135,19 +127,17 @@ const RealTimeMonitoringDashboard = () => {
     }
   };
 
-  // Handle agent status changes
   const handleAgentStatusChange = (data) => {
     setDashboardData(prev => ({
       ...prev,
-      agents: prev.agents.map(agent => 
-        agent.id === data.agentId 
+      agents: prev.agents.map(agent =>
+        agent.id === data.agentId
           ? { ...agent, status: data.status }
           : agent
       )
     }));
   };
 
-  // Show notification
   const showNotification = (message, severity = 'info') => {
     setNotification({
       open: true,
@@ -156,32 +146,29 @@ const RealTimeMonitoringDashboard = () => {
     });
   };
 
-  // Handle notification close
   const handleNotificationClose = () => {
     setNotification(prev => ({ ...prev, open: false }));
   };
 
-  // Refresh dashboard
   const handleRefresh = () => {
     realTimeMonitoringService.requestDashboardData();
     showNotification('Dashboard refreshed', 'success');
   };
 
-  // Handle close button
   const handleClose = () => {
     window.history.back();
   };
 
   return (
-    <Box sx={{ 
-      backgroundColor: '#f5f5f5', 
+    <Box sx={{
+      backgroundColor: '#f5f5f5',
       minHeight: '100vh',
       width: '100%',
       position: 'relative',
       overflow: 'auto'
     }}>
       {/* Header */}
-      <DashboardHeader 
+      <DashboardHeader
         connectionStatus={connectionStatus}
         onClose={handleClose}
       />
@@ -192,20 +179,15 @@ const RealTimeMonitoringDashboard = () => {
       {/* Charts Section */}
       <ChartsSection dashboardData={dashboardData} />
 
-      {/* Agent Status and Performance */}
+      {/* Agent Status and Recent Calls */}
       <Grid container spacing={4}>
-        {/* Agent Status */}
         <Grid item xs={12} lg={6}>
           <AgentStatusCard dashboardData={dashboardData} />
         </Grid>
-
-        {/* Recent Calls */}
         <Grid item xs={12} lg={6}>
           <RecentCallsCard dashboardData={dashboardData} />
         </Grid>
       </Grid>
-
-    
 
       {/* Notifications */}
       <Snackbar
@@ -214,8 +196,8 @@ const RealTimeMonitoringDashboard = () => {
         onClose={handleNotificationClose}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
-        <Alert 
-          onClose={handleNotificationClose} 
+        <Alert
+          onClose={handleNotificationClose}
           severity={notification.severity}
           sx={{ width: '100%' }}
         >
@@ -226,4 +208,4 @@ const RealTimeMonitoringDashboard = () => {
   );
 };
 
-export default RealTimeMonitoringDashboard; 
+export default RealTimeMonitoringDashboard;

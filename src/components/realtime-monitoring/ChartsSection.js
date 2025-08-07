@@ -97,23 +97,24 @@ const ChartsSection = ({ dashboardData }) => {
   };
 
   return (
-    <Grid container spacing={4} sx={{ mb: 4 }}>
+    <Grid spacing={4} sx={{ mb: 4 }}>
       {/* Call Volume Chart */}
-      <Grid item xs={12} lg={12} xl={12}>
-        <StyledCard>
-          <CardContent sx={{ p: 4 }}>
-            <Typography variant="h5" gutterBottom sx={{ mb: 3, fontWeight: 600 }}>
-              Call Volume (24 Hours)
-            </Typography>
-            <ReactApexChart
-              options={callVolumeOptions}
-              series={[{ name: 'Calls', data: dashboardData.callVolume }]}
-              type="area"
-              height={350}
-            />
-          </CardContent>
-        </StyledCard>
-      </Grid>
+      <Grid item xs={12} lg={12} xl={12} sx={{ mb: 3 }}>
+  <StyledCard>
+    <CardContent sx={{ p: 4 }}>
+      <Typography variant="h5" gutterBottom sx={{ mb: 3, fontWeight: 600 }}>
+        Call Volume (24 Hours)
+      </Typography>
+      <ReactApexChart
+        options={callVolumeOptions}
+        series={[{ name: 'Calls', data: dashboardData.callVolume }]}
+        type="area"
+        height={350}
+      />
+    </CardContent>
+  </StyledCard>
+</Grid>
+
 
       {/* Call Types Chart */}
       <Grid item xs={12} lg={4}>
