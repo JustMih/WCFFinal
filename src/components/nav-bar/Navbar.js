@@ -451,7 +451,7 @@ export default function Navbar({
           </Tooltip>
         )}
         {canAccessCRM && (
-          <Tooltip title="CRM">
+          <Tooltip title="Back Office">
             <IconButton
               onClick={() => handleSystemSwitch("crm")}
               className={getActiveButtonClass("crm")}
