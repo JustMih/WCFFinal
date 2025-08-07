@@ -42,7 +42,7 @@ const formatTimeDifference = (dateString) => {
   const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
   
   if (diffInMinutes < 1) {
-    return 'Just now';
+    return '';
   } else if (diffInMinutes < 60) {
     return `${diffInMinutes}min`;
   } else if (diffInHours < 24) {
@@ -398,7 +398,7 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
                     } else {
                       // For all other statuses (Assigned, Forwarded, Escalated, etc.), show time with person
                       if (durationMinutes < 1) {
-                        durationText = 'Just now';
+                        durationText = '';
                       } else if (durationMinutes < 60) {
                         durationText = `${durationMinutes}min`;
                       } else if (durationHours < 24) {
@@ -751,6 +751,7 @@ export default function TicketDetailsModal({
   // Reverse modal state
   const [isReverseModalOpen, setIsReverseModalOpen] = useState(false);
   const [reverseReason, setReverseReason] = useState("");
+  const [reverseResolutionType, setReverseResolutionType] = useState("");
   const [isReversing, setIsReversing] = useState(false);
 
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
@@ -758,6 +759,18 @@ export default function TicketDetailsModal({
   const [assignReason, setAssignReason] = useState("");
   const [assignLoading, setAssignLoading] = useState(false);
   const [attendees, setAttendees] = useState([]);
+
+  // Reassign modal state
+  const [isReassignModalOpen, setIsReassignModalOpen] = useState(false);
+  const [selectedReassignAttendee, setSelectedReassignAttendee] = useState(null);
+  const [reassignReason, setReassignReason] = useState("");
+  const [reassignLoading, setReassignLoading] = useState(false);
+
+  // Agent reverse inquiry modal state
+  const [isAgentReverseModalOpen, setIsAgentReverseModalOpen] = useState(false);
+  const [agentRecommendation, setAgentRecommendation] = useState("");
+  const [complaintSeverity, setComplaintSeverity] = useState("minor");
+  const [agentReverseLoading, setAgentReverseLoading] = useState(false);
 
   // Major complaint workflow states
   const [isMajorComplaintClosureDialogOpen, setIsMajorComplaintClosureDialogOpen] = useState(false);
@@ -781,6 +794,7 @@ export default function TicketDetailsModal({
     selectedTicket.status !== "Closed" &&
     selectedTicket.assigned_to_id &&
     userRole !== "coordinator" &&
+    userRole !== "director-general" &&
     String(selectedTicket.assigned_to_id) === String(userId);
 
   // Reviewer-specific conditions
@@ -821,44 +835,69 @@ export default function TicketDetailsModal({
 
   // Forward to Director General handler
   const handleForwardToDG = () => {
-    // Initialize edited resolution with current resolution details
-    setEditedResolution(selectedTicket?.resolution_details || "");
+    // Initialize edited resolution with current resolution details or ticket description
+    let initialResolution = selectedTicket?.resolution_details || "";
+    
+    // If ticket is reversed and with coordinator, pre-fill with ticket description
+    if (selectedTicket.status === "Reversed" && 
+        userRole === "coordinator" && 
+        selectedTicket.assigned_to_id &&
+        String(selectedTicket.assigned_to_id) === String(userId)) {
+      initialResolution = selectedTicket?.description || selectedTicket?.resolution_details || "";
+    }
+    
+    setEditedResolution(initialResolution);
     setIsForwardToDGDialogOpen(true);
+  };
+
+  // Director General approval dialog handler
+  const handleDGApprovalDialog = () => {
+    setDgNotes("");
+    setDgApproved(true);
+    setIsDGApprovalDialogOpen(true);
   };
 
   // Director General approval handler
   const handleDGApproval = async () => {
     try {
       const token = localStorage.getItem("authToken");
-      const response = await fetch(
-        `${baseURL}/ticket/${selectedTicket.id}/approve-major-complaint`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            userId,
-            approved: dgApproved,
-            dg_notes: dgNotes
-          })
-        }
-      );
+      
+      let endpoint;
+      let payload = {
+        userId,
+        dg_notes: dgNotes
+      };
+      
+      if (dgApproved) {
+        // Approve and forward to coordinator
+        endpoint = `${baseURL}/ticket/${selectedTicket.id}/approve-and-forward`;
+      } else {
+        // Reverse and assign to coordinator
+        endpoint = `${baseURL}/ticket/${selectedTicket.id}/reverse-and-assign`;
+      }
+
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(payload)
+      });
 
       if (response.ok) {
         setIsDGApprovalDialogOpen(false);
         onClose();
         refreshTickets();
-        const action = dgApproved ? 'approved' : 'reversed';
-        setSnackbar({open: true, message: `Major complaint ${action} by Director General`, severity: 'success'});
+        const action = dgApproved ? 'forwarded' : 'reversed and assigned';
+        setSnackbar({open: true, message: `Ticket ${action} to coordinator by Director General`, severity: 'success'});
       } else {
         const data = await response.json();
-        setSnackbar({open: true, message: data.message || 'Failed to process DG approval', severity: 'error'});
+        setSnackbar({open: true, message: data.message || 'Failed to process DG action', severity: 'error'});
       }
     } catch (error) {
       console.error("Error in DG approval:", error);
-      setSnackbar({open: true, message: 'Error processing DG approval', severity: 'error'});
+      setSnackbar({open: true, message: 'Error processing DG action', severity: 'error'});
     }
   };
 
@@ -953,19 +992,37 @@ export default function TicketDetailsModal({
     setIsReversing(true);
     try {
       const token = localStorage.getItem("authToken");
+      const formData = new FormData();
+      formData.append("userId", userId);
+      
+      // Use resolution details as reason, with resolution type prefix
+      const fullReason = reverseResolutionType ? 
+        `[${reverseResolutionType}] ${reverseReason}` : 
+        reverseReason;
+      formData.append("reason", fullReason);
+      formData.append("status", "reversing");
+      
+      if (attachment) {
+        formData.append("attachment", attachment);
+      }
+
       const response = await fetch(`${baseURL}/ticket/${selectedTicket.id}/reverse`, {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${token}`
+          // Do NOT set Content-Type; browser will set it for FormData
         },
-        body: JSON.stringify({ userId, reason: reverseReason })
+        body: formData
       });
+      
       const data = await response.json();
       if (response.ok) {
         setSnackbar({ open: true, message: data.message, severity: "success" });
         refreshTickets();
         setIsReverseModalOpen(false);
+        setReverseReason("");
+        setReverseResolutionType("");
+        setAttachment(null);
         onClose();
       } else {
         setSnackbar({ open: true, message: data.message, severity: "error" });
@@ -974,13 +1031,12 @@ export default function TicketDetailsModal({
       setSnackbar({ open: true, message: error.message, severity: "error" });
     } finally {
       setIsReversing(false);
-      setReverseReason("");
     }
   };
 
   // Fetch attendees when modal opens
   useEffect(() => {
-    if (isAssignModalOpen) {
+    if (isAssignModalOpen || isReassignModalOpen) {
       const fetchAttendees = async () => {
         try {
           const token = localStorage.getItem("authToken");
@@ -1001,7 +1057,15 @@ export default function TicketDetailsModal({
       };
       fetchAttendees();
     }
-  }, [isAssignModalOpen]);
+  }, [isAssignModalOpen, isReassignModalOpen]);
+
+  // Clear reassign form when reassign modal opens
+  useEffect(() => {
+    if (isReassignModalOpen) {
+      setSelectedReassignAttendee(null);
+      setReassignReason("");
+    }
+  }, [isReassignModalOpen]);
 
   const handleAssignTicket = async () => {
     if (!selectedAttendee || !selectedAttendee.username) {
@@ -1066,14 +1130,14 @@ export default function TicketDetailsModal({
   }, [selectedTicket]);
 
   const handleForwardToDGSubmit = async () => {
-    if (!coordinatorNotes.trim()) {
-      alert("Please add coordinator notes before forwarding to Director General");
+    if (!editedResolution.trim()) {
+      setSnackbar({ open: true, message: "Please edit the resolution details before forwarding to Director General", severity: "warning" });
       return;
     }
 
     try {
       const token = localStorage.getItem("authToken");
-      const response = await fetch(`${process.env.REACT_APP_API_URL}/api/tickets/${selectedTicket.id}/forward-to-dg`, {
+      const response = await fetch(`${baseURL}/ticket/${selectedTicket.id}/forward-to-dg`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1081,26 +1145,25 @@ export default function TicketDetailsModal({
         },
         body: JSON.stringify({
           userId,
-          coordinator_notes: coordinatorNotes,
-          resolution_details: editedResolution // Include the edited resolution
+          resolution_details: editedResolution,
+          assignmentId: selectedTicket.id
         })
       });
 
       if (response.ok) {
         const result = await response.json();
-        alert("Major complaint forwarded to Director General successfully!");
+        setSnackbar({ open: true, message: "Ticket forwarded to Director General successfully!", severity: "success" });
         setIsForwardToDGDialogOpen(false);
-        setCoordinatorNotes("");
         setEditedResolution("");
         onClose();
         refreshTickets();
       } else {
         const errorData = await response.json();
-        alert(`Error: ${errorData.message || 'Failed to forward to Director General'}`);
+        setSnackbar({ open: true, message: `Error: ${errorData.message || 'Failed to forward to Director General'}`, severity: "error" });
       }
     } catch (error) {
       console.error("Error forwarding to Director General:", error);
-      alert("Failed to forward to Director General. Please try again.");
+      setSnackbar({ open: true, message: "Failed to forward to Director General. Please try again.", severity: "error" });
     }
   };
 
@@ -1204,6 +1267,135 @@ export default function TicketDetailsModal({
       }
     } catch (error) {
       setSnackbar({ open: true, message: error.message, severity: "error" });
+    }
+  };
+
+  const handleReassignTicket = async () => {
+    if (!selectedReassignAttendee || !selectedReassignAttendee.username) {
+      setSnackbar && setSnackbar({ open: true, message: 'Please select an attendee', severity: 'warning' });
+      return;
+    }
+    if (!selectedTicket || !selectedTicket.id) {
+      setSnackbar && setSnackbar({ open: true, message: 'No ticket selected or ticket ID missing', severity: 'error' });
+      console.error('Reassign error: selectedTicket or selectedTicket.id missing', selectedTicket);
+      return;
+    }
+    const assignedToUsername = selectedReassignAttendee.username;
+    const assignedById = localStorage.getItem("userId");
+    const reason = reassignReason;
+    if (!assignedToUsername || !assignedById) {
+      setSnackbar && setSnackbar({ open: true, message: 'Missing required fields for reassignment', severity: 'error' });
+      console.error('Reassign error: missing assignedToUsername or assignedById', { assignedToUsername, assignedById });
+      return;
+    }
+    setReassignLoading(true);
+    try {
+      console.log('Reassigning ticket:', selectedTicket);
+      console.log('Reassigning to username:', assignedToUsername, 'by user:', assignedById, 'reason:', reason);
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(`${baseURL}/ticket/${selectedTicket.id}/reassign`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          assigned_to_id: selectedReassignAttendee.id,
+          assigned_to_role: selectedReassignAttendee.role || 'attendee',
+          reassignment_reason: reason,
+          notes: `Reassigned by ${localStorage.getItem("name") || "Focal Person"}`
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSnackbar && setSnackbar({ open: true, message: `Failed to reassign ticket: ${res.status} ${data.message || ''}`, severity: 'error' });
+        console.error('Reassign fetch error:', res.status, data);
+        return;
+      }
+      setSnackbar && setSnackbar({
+        open: true,
+        message: data.message || "Ticket reassigned successfully",
+        severity: "success"
+      });
+      setSelectedReassignAttendee(null);
+      setReassignReason("");
+      setIsReassignModalOpen(false);
+      refreshTickets && refreshTickets();
+    } catch (e) {
+      setSnackbar && setSnackbar({ open: true, message: `Reassign error: ${e.message}`, severity: "error" });
+      console.error('Reassign exception:', e);
+    } finally {
+      setReassignLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    console.log("MODAL selectedTicket", selectedTicket);
+  }, [selectedTicket]);
+
+  const handleAgentReverse = async () => {
+    if (!agentRecommendation.trim()) {
+      setSnackbar && setSnackbar({ open: true, message: 'Please provide a recommendation', severity: 'warning' });
+      return;
+    }
+    if (!selectedTicket || !selectedTicket.id) {
+      setSnackbar && setSnackbar({ open: true, message: 'No ticket selected or ticket ID missing', severity: 'error' });
+      return;
+    }
+
+    setAgentReverseLoading(true);
+    try {
+      const token = localStorage.getItem("authToken");
+      const formData = new FormData();
+      formData.append("userId", localStorage.getItem("userId"));
+      formData.append("recommendation", agentRecommendation);
+      
+      if (attachment) {
+        formData.append("attachment", attachment);
+      }
+
+      const res = await fetch(`${baseURL}/ticket/${selectedTicket.id}/reverse-complaint`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`
+          // Do NOT set Content-Type; browser will set it for FormData
+        },
+        body: formData
+      });
+      
+      const data = await res.json();
+      if (!res.ok) {
+        setSnackbar && setSnackbar({ 
+          open: true, 
+          message: `Failed to reverse complaint: ${res.status} ${data.message || ''}`, 
+          severity: 'error' 
+        });
+        return;
+      }
+      
+      setSnackbar && setSnackbar({
+        open: true,
+        message: data.message || "Complaint reversed with recommendation successfully",
+        severity: "success"
+      });
+      
+      // Clear form and close modal
+      setAgentRecommendation("");
+      setComplaintSeverity("minor");
+      setAttachment(null);
+      setIsAgentReverseModalOpen(false);
+      refreshTickets && refreshTickets();
+      onClose && onClose();
+      
+    } catch (error) {
+      setSnackbar && setSnackbar({ 
+        open: true, 
+        message: `Reverse error: ${error.message}`, 
+        severity: "error" 
+      });
+      console.error('Agent reverse exception:', error);
+    } finally {
+      setAgentReverseLoading(false);
     }
   };
 
@@ -1456,7 +1648,7 @@ export default function TicketDetailsModal({
                 </div>
                 <div style={{ flex: "1 1 45%" }}>
                   <Typography>
-                    <strong>Category:</strong>{" "}
+                    <strong>Request Category:</strong>{" "}
                     {selectedTicket.category || "N/A"}
                   </Typography>
                 </div>
@@ -1513,10 +1705,8 @@ export default function TicketDetailsModal({
                 {/* Reviewer Actions */}
                 {showCoordinatorActions && (
                   <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2, justifyContent: "flex-end" }}>
-                    {/* Show rating selection only if not a major complaint that's been returned */}
-                    {!(selectedTicket.category === "Complaint" && 
-                       selectedTicket.complaint_type === "Major" && 
-                       selectedTicket.status === "Returned") && (
+                    {/* Show rating selection only if ticket is not returned and not already rated */}
+                    {!(selectedTicket.status === "Returned" || selectedTicket.complaint_type) && (
                       <>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                           <Typography variant="body2" sx={{ fontWeight: "bold", fontSize: "0.8rem" }}>
@@ -1546,10 +1736,14 @@ export default function TicketDetailsModal({
                       </>
                     )}
 
-                    {/* Show Forward to DG button only for Major complaints that have been reversed from head of unit */}
-                    {selectedTicket.category === "Complaint" && 
+                    {/* Show Forward to DG button for Major complaints that have been returned OR reversed tickets with coordinator */}
+                    {(selectedTicket.category === "Complaint" && 
                      selectedTicket.complaint_type === "Major" && 
-                     selectedTicket.status === "Returned" && (
+                     selectedTicket.status === "Returned") ||
+                    (selectedTicket.status === "Reversed" && 
+                     userRole === "coordinator" && 
+                     selectedTicket.assigned_to_id &&
+                     String(selectedTicket.assigned_to_id) === String(userId)) ? (
                       <>
                         <Button
                           variant="contained"
@@ -1566,12 +1760,10 @@ export default function TicketDetailsModal({
                           Close
                         </Button>
                       </>
-                    )}
+                    ) : null}
 
-                    {/* Show regular assign/forward options for non-Major complaints or Major complaints that haven't been returned */}
-                    {!(selectedTicket.category === "Complaint" && 
-                       selectedTicket.complaint_type === "Major" && 
-                       selectedTicket.status === "Returned") && (
+                    {/* Show regular assign/forward options only if ticket is not returned and not already rated */}
+                    {!(selectedTicket.status === "Returned" || selectedTicket.complaint_type) && (
                       <>
                         {selectedTicket.category === "Complaint" && (
                           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
@@ -1623,7 +1815,7 @@ export default function TicketDetailsModal({
                           </Button>
                         </Box>
 
-                        {/* Close ticket button - only show if not a major complaint that's been returned */}
+                        {/* Close ticket button - only show if not returned and not already rated */}
                         <Button
                           variant="contained"
                           color="success"
@@ -1633,27 +1825,59 @@ export default function TicketDetailsModal({
                         </Button>
                       </>
                     )}
+
+                    {/* Show only Close button if ticket is returned or already rated */}
+                    {(selectedTicket.status === "Returned" || selectedTicket.complaint_type) && 
+                     !(selectedTicket.category === "Complaint" && 
+                       selectedTicket.complaint_type === "Major" && 
+                       selectedTicket.status === "Returned") && (
+                      <Button
+                        variant="contained"
+                        color="success"
+                        onClick={handleCoordinatorClose}
+                      >
+                        Close ticket
+                      </Button>
+                    )}
                   </Box>
                 )}
 
-                {/* Director General Actions for Major Complaints */}
+                {/* Director General Actions for Assigned Tickets */}
                 {userRole === "director-general" && 
-                 selectedTicket.category === "Complaint" && 
-                 selectedTicket.complaint_type === "Major" && 
-                 selectedTicket.status === "Assigned" && (
+                 selectedTicket?.assigned_to_id === userId && (
                   <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2, justifyContent: "flex-end" }}>
+                    {/* Forward (Approve) to Coordinator */}
                     <Button
                       variant="contained"
                       color="success"
-                      onClick={() => setIsDGApprovalDialogOpen(true)}
+                      onClick={handleDGApprovalDialog}
                     >
-                      Review & Approve
+                      Forward
+                    </Button>
+                    
+                    {/* Reverse (Assign) to Coordinator */}
+                    <Button
+                      variant="contained"
+                      color="warning"
+                      onClick={() => setIsReverseModalOpen(true)}
+                      disabled={isReversing}
+                    >
+                      Reverse
+                    </Button>
+                    
+                    {/* Close Modal */}
+                    <Button
+                      variant="outlined"
+                      onClick={onClose}
+                    >
+                      Close
                     </Button>
                   </Box>
                 )}
 
-                {/* Reverse and Assign buttons for roles other than agent, coordinator, attendee */}
-                {!["agent", "coordinator", "attendee"].includes(localStorage.getItem("role")) && 
+                {/* Reverse, Assign, and Reassign buttons for focal persons and other roles */}
+                {(["focal-person", "claim-focal-person", "compliance-focal-person"].includes(localStorage.getItem("role")) || 
+                  !["agent", "coordinator", "attendee", "director-general"].includes(localStorage.getItem("role"))) && 
                  selectedTicket?.assigned_to_id === localStorage.getItem("userId") && (
                   <>
                     <Button
@@ -1673,11 +1897,37 @@ export default function TicketDetailsModal({
                     >
                       Assign
                     </Button>
+                    <Button
+                      variant="contained"
+                      color="secondary"
+                      sx={{ mr: 1 }}
+                      onClick={() => setIsReassignModalOpen(true)}
+                    >
+                      Reassign
+                    </Button>
                   </>
                 )}
-                <Button variant="outlined" onClick={onClose}>
-                  Close
-                </Button>
+
+                {/* Agent Reverse button for rated tickets */}
+                {(userRole === "agent" || userRole === "attendee") && 
+                 selectedTicket?.assigned_to_id === localStorage.getItem("userId") &&
+                 selectedTicket?.complaint_type && 
+                 ["Major", "Minor"].includes(selectedTicket.complaint_type) && (
+                  <Button
+                    variant="contained"
+                    color="warning"
+                    sx={{ mr: 1 }}
+                    onClick={() => setIsAgentReverseModalOpen(true)}
+                    disabled={agentReverseLoading}
+                  >
+                    Reverse with Recommendation
+                  </Button>
+                )}
+                {userRole !== "director-general" && (
+                  <Button variant="outlined" onClick={onClose}>
+                    Close
+                  </Button>
+                )}
               </Box>
             </>
           )}
@@ -1816,35 +2066,93 @@ export default function TicketDetailsModal({
       </Dialog>
 
       {/* Reverse Modal */}
-      <Dialog open={isReverseModalOpen} onClose={() => setIsReverseModalOpen(false)}>
-        <DialogTitle>Reverse Ticket to Previous User</DialogTitle>
+      <Dialog open={isReverseModalOpen} onClose={() => setIsReverseModalOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Reverse Ticket - Resolution Details</DialogTitle>
         <DialogContent>
-          <TextField
-            label="Reason for Reversal"
-            multiline
-            rows={3}
-            value={reverseReason}
-            onChange={e => setReverseReason(e.target.value)}
-            fullWidth
-            sx={{ mt: 2 }}
-          />
-          <Box sx={{ mt: 2, textAlign: "right" }}>
-            <Button
-              variant="contained"
-              color="warning"
-              onClick={handleReverse}
-              disabled={isReversing || !reverseReason.trim()}
-            >
-              {isReversing ? "Reversing..." : "Confirm Reverse"}
-            </Button>
-            <Button
-              variant="outlined"
-              onClick={() => setIsReverseModalOpen(false)}
-              sx={{ ml: 1 }}
-              disabled={isReversing}
-            >
-              Cancel
-            </Button>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Resolution Type:
+              </Typography>
+              <select
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  fontSize: "0.9rem",
+                  borderRadius: "4px",
+                  border: "1px solid #ccc"
+                }}
+                value={reverseResolutionType}
+                onChange={(e) => setReverseResolutionType(e.target.value)}
+              >
+                <option value="">Select Resolution Type</option>
+                <option value="Resolved">Resolved</option>
+                <option value="Not Applicable">Not Applicable</option>
+                <option value="Duplicate">Duplicate</option>
+                <option value="Referred">Referred</option>
+              </select>
+            </Box>
+
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Resolution Details:
+              </Typography>
+              <TextField
+                multiline
+                rows={4}
+                value={reverseReason}
+                onChange={(e) => setReverseReason(e.target.value)}
+                fullWidth
+                placeholder="Enter resolution details..."
+              />
+            </Box>
+
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Attachment (Optional):
+              </Typography>
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+                onChange={(e) => setAttachment(e.target.files[0])}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  fontSize: "0.9rem",
+                  borderRadius: "4px",
+                  border: "1px solid #ccc"
+                }}
+              />
+              {attachment && (
+                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
+                  File selected: {attachment.name}
+                </Typography>
+              )}
+            </Box>
+
+            <Box sx={{ mt: 2, textAlign: "right" }}>
+              <Button
+                variant="contained"
+                color="warning"
+                onClick={handleReverse}
+                disabled={isReversing || !reverseResolutionType || !reverseReason.trim()}
+              >
+                {isReversing ? "Reversing..." : "Reverse Ticket"}
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  setIsReverseModalOpen(false);
+                  setReverseReason("");
+                  setReverseResolutionType("");
+                  setAttachment(null);
+                }}
+                sx={{ ml: 1 }}
+                disabled={isReversing}
+              >
+                Cancel
+              </Button>
+            </Box>
           </Box>
         </DialogContent>
       </Dialog>
@@ -1909,6 +2217,72 @@ export default function TicketDetailsModal({
               disabled={assignLoading}
             >
               {assignLoading ? "Assigning..." : "Confirm Assignment"}
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
+
+      {/* Reassign Ticket Modal */}
+      <Modal
+        open={isReassignModalOpen}
+        onClose={() => setIsReassignModalOpen(false)}
+        aria-labelledby="reassign-ticket-modal-title"
+      >
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: 400,
+            bgcolor: "background.paper",
+            boxShadow: 24,
+            borderRadius: 2,
+            p: 4,
+            display: "flex",
+            flexDirection: "column",
+            gap: 3
+          }}
+        >
+          <Typography id="reassign-ticket-modal-title" variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+            Reassign Ticket
+          </Typography>
+          <Select
+            value={selectedReassignAttendee ? selectedReassignAttendee.id : ""}
+            onChange={e => {
+              const attendee = attendees.find(a => a.id === e.target.value);
+              setSelectedReassignAttendee(attendee);
+            }}
+            displayEmpty
+            fullWidth
+            sx={{ mb: 2 }}
+          >
+            <MenuItem value="" disabled>Select attendee</MenuItem>
+            {attendees.map(a => (
+              <MenuItem key={a.id} value={a.id}>{a.name} ({a.username})</MenuItem>
+            ))}
+          </Select>
+          <TextField
+            label="Reassignment Reason (required)"
+            value={reassignReason}
+            onChange={e => setReassignReason(e.target.value)}
+            fullWidth
+            multiline
+            minRows={2}
+            sx={{ mb: 2 }}
+            required
+          />
+          <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
+            <Button onClick={() => setIsReassignModalOpen(false)} disabled={reassignLoading}>
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              color="secondary"
+              onClick={handleReassignTicket}
+              disabled={reassignLoading || !reassignReason.trim()}
+            >
+              {reassignLoading ? "Reassigning..." : "Confirm Reassignment"}
             </Button>
           </Box>
         </Box>
@@ -2002,82 +2376,114 @@ export default function TicketDetailsModal({
 
       {/* Forward to DG Dialog */}
       <Dialog open={isForwardToDGDialogOpen} onClose={() => setIsForwardToDGDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Forward Major Complaint to Director General</DialogTitle>
+        <DialogTitle>Forward to Director General</DialogTitle>
         <DialogContent>
-          {/* Display the original description from agent/attendee */}
-          <Box sx={{ mt: 2, mb: 2 }}>
-            <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
-              Original Description from Agent/Attendee:
-            </Typography>
-            <TextField
-              multiline
-              rows={4}
-              value={selectedTicket?.description || ""}
-              fullWidth
-              disabled
-              sx={{ 
-                backgroundColor: '#f5f5f5',
-                '& .MuiInputBase-input.Mui-disabled': {
-                  WebkitTextFillColor: '#000',
-                  color: '#000'
-                }
-              }}
-            />
-          </Box>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
+            {/* Display the original ticket description (read-only) */}
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Original Ticket Description:
+              </Typography>
+              <TextField
+                multiline
+                rows={4}
+                value={selectedTicket?.description || ""}
+                fullWidth
+                disabled
+                sx={{ 
+                  backgroundColor: '#f5f5f5',
+                  '& .MuiInputBase-input.Mui-disabled': {
+                    WebkitTextFillColor: '#000',
+                    color: '#000'
+                  }
+                }}
+              />
+            </Box>
 
-          {/* Editable resolution details */}
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
-              Resolution Details (Editable):
-            </Typography>
-            <TextField
-              multiline
-              rows={4}
-              value={editedResolution}
-              onChange={e => setEditedResolution(e.target.value)}
-              fullWidth
-              placeholder="Edit the resolution details from attendee..."
-              sx={{ mt: 1 }}
-            />
-          </Box>
+            {/* Show existing attendee attachment if any */}
+            {selectedTicket?.attachment_path && (
+              <Box>
+                <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                  Attendee's Attachment:
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{ 
+                    color: '#28a745', 
+                    fontStyle: 'italic', 
+                    cursor: 'pointer', 
+                    textDecoration: 'underline',
+                    p: 1,
+                    bgcolor: '#f8f9fa',
+                    borderRadius: 1,
+                    border: '1px solid #dee2e6'
+                  }}
+                  onClick={() => handleDownloadAttachment(selectedTicket.attachment_path)}
+                >
+                  📎 View Attendee's Attachment: {getFileNameFromPath(selectedTicket.attachment_path)}
+                </Typography>
+              </Box>
+            )}
 
-          <TextField
-            label="Reviewer Notes (required)"
-            multiline
-            rows={3}
-            value={coordinatorNotes}
-            onChange={e => setCoordinatorNotes(e.target.value)}
-            fullWidth
-            sx={{ mt: 2 }}
-            placeholder="Add your notes about this major complaint..."
-          />
+            {/* Editable attendee resolution details */}
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Resolution Details (Editable):
+              </Typography>
+              <TextField
+                multiline
+                rows={4}
+                value={editedResolution}
+                onChange={e => setEditedResolution(e.target.value)}
+                fullWidth
+                placeholder="Edit the resolution details..."
+              />
+            </Box>
 
-          <Box sx={{ mt: 2, textAlign: "right" }}>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleForwardToDGSubmit}
-              disabled={!coordinatorNotes.trim()}
-            >
-              Forward to Director General
-            </Button>
-            <Button
-              variant="outlined"
-              onClick={() => setIsForwardToDGDialogOpen(false)}
-              sx={{ ml: 1 }}
-            >
-              Cancel
-            </Button>
+            <Box sx={{ mt: 2, textAlign: "right" }}>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleForwardToDGSubmit}
+                disabled={!editedResolution.trim()}
+              >
+                Forward to Director General
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={() => setIsForwardToDGDialogOpen(false)}
+                sx={{ ml: 1 }}
+              >
+                Cancel
+              </Button>
+            </Box>
           </Box>
         </DialogContent>
       </Dialog>
 
       {/* DG Approval Dialog */}
       <Dialog open={isDGApprovalDialogOpen} onClose={() => setIsDGApprovalDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Director General Approval</DialogTitle>
+        <DialogTitle>
+          {selectedTicket?.category === "Complaint" && selectedTicket?.complaint_type === "Major" 
+            ? "Director General Approval - Major Complaint"
+            : "Director General Review - Reversed Ticket"
+          }
+        </DialogTitle>
         <DialogContent>
+          {/* Show coordinator notes for reversed tickets */}
+          {selectedTicket?.coordinator_notes && (
+            <Box sx={{ mb: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Coordinator Notes:
+              </Typography>
+              <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
+                {selectedTicket.coordinator_notes}
+              </Typography>
+            </Box>
+          )}
+          
           <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
-            DG Notes (optional):
+            DG Notes (required):
           </Typography>
           <TextField
             multiline
@@ -2086,27 +2492,32 @@ export default function TicketDetailsModal({
             onChange={e => setDgNotes(e.target.value)}
             fullWidth
             sx={{ mt: 2 }}
+            placeholder={
+              selectedTicket?.category === "Complaint" && selectedTicket?.complaint_type === "Major"
+                ? "Add your approval notes..."
+                : "Add your review notes..."
+            }
+            required
           />
           <Typography variant="body2" sx={{ mt: 2, fontWeight: "bold" }}>
-            DG Approval:
+            DG Decision:
           </Typography>
           <Select
-            value={dgApproved ? "Approved" : "Reversed"}
-            onChange={e => setDgApproved(e.target.value === "Approved")}
+            value={dgApproved ? "Forward" : "Reverse"}
+            onChange={e => setDgApproved(e.target.value === "Forward")}
             fullWidth
             sx={{ mb: 2 }}
           >
-            <MenuItem value="Approved">Approved</MenuItem>
-            <MenuItem value="Reversed">Reversed</MenuItem>
+            <MenuItem value="Forward">Forward</MenuItem>
+            <MenuItem value="Reverse">Reverse</MenuItem>
           </Select>
           <Box sx={{ mt: 2, textAlign: "right" }}>
             <Button
               variant="contained"
               color="success"
               onClick={handleDGApproval}
-              disabled={dgApproved === null}
             >
-              {dgApproved ? "Approve" : "Reject"}
+              {dgApproved ? "Forward" : "Reverse"}
             </Button>
             <Button
               variant="outlined"
@@ -2115,6 +2526,98 @@ export default function TicketDetailsModal({
             >
               Cancel
             </Button>
+          </Box>
+        </DialogContent>
+      </Dialog>
+
+      {/* Agent Reverse Complaint Dialog */}
+      <Dialog open={isAgentReverseModalOpen} onClose={() => setIsAgentReverseModalOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Reverse Complaint - Resolution Details</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Resolution Type:
+              </Typography>
+              <select
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  fontSize: "0.9rem",
+                  borderRadius: "4px",
+                  border: "1px solid #ccc"
+                }}
+                value={complaintSeverity}
+                onChange={(e) => setComplaintSeverity(e.target.value)}
+              >
+                <option value="">Select Resolution Type</option>
+                <option value="minor">Minor</option>
+                <option value="moderate">Moderate</option>
+                <option value="serious">Serious</option>
+                <option value="critical">Critical</option>
+              </select>
+            </Box>
+
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Resolution Details:
+              </Typography>
+              <TextField
+                multiline
+                rows={4}
+                value={agentRecommendation}
+                onChange={e => setAgentRecommendation(e.target.value)}
+                fullWidth
+                placeholder="Enter resolution details..."
+              />
+            </Box>
+
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Attachment (Optional):
+              </Typography>
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+                onChange={(e) => setAttachment(e.target.files[0])}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  fontSize: "0.9rem",
+                  borderRadius: "4px",
+                  border: "1px solid #ccc"
+                }}
+              />
+              {attachment && (
+                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
+                  File selected: {attachment.name}
+                </Typography>
+              )}
+            </Box>
+
+            <Box sx={{ mt: 2, textAlign: "right" }}>
+              <Button
+                variant="contained"
+                color="warning"
+                onClick={handleAgentReverse}
+                disabled={!complaintSeverity || !agentRecommendation.trim() || agentReverseLoading}
+              >
+                {agentReverseLoading ? "Submitting..." : "Reverse Complaint"}
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={() => {
+                  setIsAgentReverseModalOpen(false);
+                  setAgentRecommendation("");
+                  setComplaintSeverity("");
+                  setAttachment(null);
+                }}
+                sx={{ ml: 1 }}
+                disabled={agentReverseLoading}
+              >
+                Cancel
+              </Button>
+            </Box>
           </Box>
         </DialogContent>
       </Dialog>

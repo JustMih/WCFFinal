@@ -773,7 +773,6 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
 
     const requiredFields = {
       phoneNumber: "Phone Number",
-      nidaNumber: "NIDA Number",
       requester: "Requester",
       institution: "Institution",
       region: "Region",
@@ -791,7 +790,6 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
     }
 
     if (formData.requester === "Employer") {
-      requiredFields.nidaNumber = "Employer Registration Number / TIN";
       requiredFields.institution = "Employer Name";
       requiredFields.phoneNumber = "Employer Phone";
     }
@@ -1083,7 +1081,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                     </Typography>
                     
                     {/* Display Dependents */}
-                    {formData.dependents && formData.dependents.length > 0 && (
+                    {/* {formData.dependents && formData.dependents.length > 0 && (
                       <div style={{ marginTop: 8 }}>
                         <Typography
                           variant="subtitle2"
@@ -1110,7 +1108,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                           ))}
                         </div>
                       </div>
-                    )}
+                    )} */}
                   </div>
                   
                   {/* Claim Button */}

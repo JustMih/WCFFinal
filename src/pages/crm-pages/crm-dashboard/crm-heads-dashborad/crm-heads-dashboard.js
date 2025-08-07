@@ -28,7 +28,7 @@ import {
 // Custom Components
 import ColumnSelector from "../../../../components/colums-select/ColumnSelector";
 import TicketFilters from "../../../../components/ticket/TicketFilters";
-import TicketDetailsModal from "../../../../components/TicketDetailsModal";
+import TicketDetailsModal from "../../../../components/ticket/TicketDetailsModal";
 
 // Config
 import { baseURL } from "../../../../config";
@@ -765,7 +765,7 @@ export default function FocalPersonDashboard() {
 
       {/* Ticket Details Modal */}
       <TicketDetailsModal
-  open={isModalOpen}
+        open={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         selectedTicket={selectedTicket}
         assignmentHistory={assignmentHistory}

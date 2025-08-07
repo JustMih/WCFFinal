@@ -392,7 +392,9 @@ export default function Crm() {
       institutionName.includes(searchValue) ||
       (ticket.first_name || "").toLowerCase().includes(searchValue) ||
       (ticket.last_name || "").toLowerCase().includes(searchValue) ||
-      (ticket.middle_name || "").toLowerCase().includes(searchValue);
+      (ticket.middle_name || "").toLowerCase().includes(searchValue) ||
+      (ticket.ticket_id || "").toLowerCase().includes(searchValue) ||
+      (ticket.id || "").toLowerCase().includes(searchValue);
     
     const matchesStatus = !filterStatus || ticket.status === filterStatus;
     

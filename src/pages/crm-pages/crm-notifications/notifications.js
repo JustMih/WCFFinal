@@ -23,7 +23,7 @@ import ChatIcon from '@mui/icons-material/Chat';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
-import TicketDetailsModal from '../../../components/TicketDetailsModal';
+import TicketDetailsModal from '../../../components/ticket/TicketDetailsModal';
 import Pagination from '../../../components/Pagination';
 import { useQuery } from "@tanstack/react-query";
 import TableControls from "../../../components/TableControls";

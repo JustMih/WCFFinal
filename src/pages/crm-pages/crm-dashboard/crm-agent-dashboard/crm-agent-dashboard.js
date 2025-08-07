@@ -557,7 +557,6 @@ const AgentCRM = () => {
 
     const requiredFields = {
       phoneNumber: "Phone Number",
-      nidaNumber: "NIDA Number",
       requester: "Requester",
       institution: "Institution",
       region: "Region",
@@ -577,7 +576,6 @@ const AgentCRM = () => {
 
     // Conditionally add employer-specific fields to required fields
     if (formData.requester === "Employer") {
-      requiredFields.nidaNumber = "Employer Registration Number / TIN";
       requiredFields.institution = "Employer Name";
       requiredFields.phoneNumber = "Employer Phone";
     }
@@ -798,7 +796,9 @@ const AgentCRM = () => {
         institutionName.includes(s) ||
         ticket.first_name?.toLowerCase().includes(s) ||
         ticket.last_name?.toLowerCase().includes(s) ||
-        ticket.middle_name?.toLowerCase().includes(s);
+        ticket.middle_name?.toLowerCase().includes(s) ||
+        ticket.ticket_id?.toLowerCase().includes(s) ||
+        ticket.id?.toLowerCase().includes(s);
       
       // Status (from TicketFilters)
       const matchesStatus = !filters.status || ticket.status === filters.status;
@@ -4202,7 +4202,7 @@ const AgentCRM = () => {
               {/* Category & Channel */}
               <div className="modal-form-row">
                 <div className="modal-form-group" style={{ flex: 1 }}>
-                  <label style={{ fontSize: "0.875rem" }}>Category: <span style={{ color: "red" }}>*</span></label>
+                  <label style={{ fontSize: "0.875rem" }}>Request Category: <span style={{ color: "red" }}>*</span></label>
                   <select
                     name="category"
                     value={formData.category || ""}

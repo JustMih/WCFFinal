@@ -468,7 +468,9 @@ export default function CoordinatorDashboard() {
         institutionName.includes(s) ||
         (t.firstName || t.first_name || "").toLowerCase().includes(s) ||
         (t.lastName || t.last_name || "").toLowerCase().includes(s) ||
-        (t.middleName || t.middle_name || "").toLowerCase().includes(s)) &&
+        (t.middleName || t.middle_name || "").toLowerCase().includes(s) ||
+        (t.ticket_id || "").toLowerCase().includes(s) ||
+        (t.id || "").toLowerCase().includes(s)) &&
       (!filters.status || t.status === filters.status);
 
     // Apply advanced filters
@@ -1037,9 +1039,19 @@ export default function CoordinatorDashboard() {
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
       >
-        <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
+        <Alert 
+          severity={snackbar.severity}
+          onClose={handleSnackbarClose}
+          sx={{ 
+            minWidth: '300px',
+            fontSize: '14px',
+            fontWeight: snackbar.severity === 'success' ? 'bold' : 'normal'
+          }}
+        >
+          {snackbar.message}
+        </Alert>
       </Snackbar>
 
       {/* CoordinatorActionModal */}

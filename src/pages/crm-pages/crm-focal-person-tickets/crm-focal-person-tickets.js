@@ -19,7 +19,7 @@ import { baseURL } from "../../../config";
 import "../crm-tickets/ticket.css";
 import TicketActions from "../../../components/ticket/TicketActions";
 import TicketReassignModal from '../../../components/ticket/TicketReassignModal';
-import TicketDetailsModal from '../../../components/TicketDetailsModal';
+import TicketDetailsModal from '../../../components/ticket/TicketDetailsModal';
 import Pagination from "../../../components/Pagination";
 import TableControls from "../../../components/TableControls";
 import TicketFilters from '../../../components/ticket/TicketFilters';

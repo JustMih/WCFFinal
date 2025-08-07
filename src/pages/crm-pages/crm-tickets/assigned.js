@@ -221,7 +221,9 @@ export default function Crm() {
       fullName.includes(searchValue) ||
       (ticket.first_name || "").toLowerCase().includes(searchValue) ||
       (ticket.last_name || "").toLowerCase().includes(searchValue) ||
-      (ticket.middle_name || "").toLowerCase().includes(searchValue);
+      (ticket.middle_name || "").toLowerCase().includes(searchValue) ||
+      (ticket.ticket_id || "").toLowerCase().includes(searchValue) ||
+      (ticket.id || "").toLowerCase().includes(searchValue);
     
     const matchesStatus = !filters.status || ticket.status === filters.status;
     const matchesRegion = !filters.region || ticket.region === filters.region;
