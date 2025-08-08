@@ -6,6 +6,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-left: auto;
   position: fixed; /* Fix the navbar at the top */
   top: 0; /* Align with the top of the screen */
   width: 100%; /* Ensure it spans the full width of the screen */

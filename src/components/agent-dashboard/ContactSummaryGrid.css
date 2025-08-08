@@ -1,0 +1,366 @@
+/* Contact Summary Grid */
+.contact-summary-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  flex: 1;
+  min-width: 0;
+  padding: 20px 20px;
+}
+
+.grid-row {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  flex: 1;
+}
+
+/* Summary Box Base Styles */
+.summary-box {
+  flex: 1;
+  background: white;
+  border-radius: 12px;
+  padding: 22px;
+  /* box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); */
+  display: flex;
+  flex-direction: column;
+  min-height: 160px;
+  max-height: 180px;
+  transition: all 0.3s ease;
+  min-width: 0;
+  /* padding-top: 20px; */
+}
+
+.summary-box:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Header Styles */
+.summary-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.summary-header h4 {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #374151;
+  margin: 0;
+  flex: 1;
+}
+
+.total-count {
+  background: #3b82f6;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  min-width: 32px;
+  text-align: center;
+}
+
+/* Content Styles */
+.summary-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.status-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: #f9fafb;
+  border-radius: 6px;
+  font-size: 0.875rem;
+}
+
+.status-row:nth-child(even) {
+  background: white;
+  border: 1px solid #e5e7eb;
+}
+
+.status-row span:first-child {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.status-row .count {
+  color: #374151;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+/* Chart Container */
+.chart-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 120px;
+  position: relative;
+}
+
+.chart-container canvas {
+  max-width: 100% !important;
+  max-height: 100% !important;
+  width: auto !important;
+  height: auto !important;
+}
+
+/* Donut Chart Styles */
+.donut-chart-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.donut-center-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  z-index: 10;
+}
+
+.center-label {
+  font-size: 0.75rem;
+  color: #6B7280;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.center-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #374151;
+  line-height: 1;
+}
+
+/* Radial Chart Styles */
+.radial-chart-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-height: 120px;
+}
+
+.radial-chart {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.radial-center-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  z-index: 10;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+}
+
+.radial-chart-container:hover .radial-center-text {
+  opacity: 1;
+  visibility: visible;
+}
+
+.radial-chart-container:hover .radial-legend {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.radial-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 3px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.radial-ring::before {
+  content: '';
+  position: absolute;
+  top: -3px;
+  left: -3px;
+  right: -3px;
+  bottom: -3px;
+  border-radius: 50%;
+  background: conic-gradient(
+    var(--color) 0deg calc(var(--progress) * 3.6deg),
+    #e5e7eb calc(var(--progress) * 3.6deg) 360deg
+  );
+  mask: radial-gradient(circle, transparent 50%, black 51%);
+  -webkit-mask: radial-gradient(circle, transparent 50%, black 51%);
+}
+
+.whatsapp-ring {
+  width: 100px;
+  height: 100px;
+}
+
+.email-ring {
+  width: 80px;
+  height: 80px;
+}
+
+.instagram-ring {
+  width: 60px;
+  height: 60px;
+}
+
+.twitter-ring {
+  width: 40px;
+  height: 40px;
+}
+
+.ring-fill {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: transparent;
+}
+
+/* Legend Styles */
+.radial-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.75rem;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.95);
+  padding: 8px;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  z-index: 10;
+}
+
+.radial-chart-container:hover .radial-legend {
+  opacity: 1;
+  visibility: visible;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-text {
+  color: #374151;
+  font-weight: 500;
+}
+
+/* Box-specific styling */
+.inbound-box {
+  background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%);
+  border-left: 4px solid #3b82f6;
+}
+
+.outbound-box {
+  background: linear-gradient(135deg, #dcfce7 0%, #f0fdf4 100%);
+  border-left: 4px solid #10b981;
+}
+
+.social-box {
+  background: linear-gradient(135deg, #f3e8ff 0%, #faf5ff 100%);
+  border-left: 4px solid #8b5cf6;
+}
+
+.voicemail-box {
+  background: linear-gradient(135deg, #fef3c7 0%, #fffbeb 100%);
+  border-left: 4px solid #f59e0b;
+}
+
+/* Loading State */
+.loading-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+  .grid-row {
+    flex-direction: column;
+  }
+  
+  .summary-box {
+    min-height: 180px;
+  }
+}
+
+@media (max-width: 768px) {
+  .contact-summary-grid {
+    gap: 12px;
+  }
+  
+  .grid-row {
+    gap: 12px;
+  }
+  
+  .summary-box {
+    padding: 12px;
+    min-height: 160px;
+  }
+  
+  .summary-header h4 {
+    font-size: 0.9rem;
+  }
+  
+  .total-count {
+    font-size: 0.8rem;
+    padding: 3px 6px;
+  }
+  
+  .status-row {
+    padding: 6px 8px;
+    font-size: 0.8rem;
+  }
+  
+  .status-row .count {
+    font-size: 0.9rem;
+  }
+  
+  .chart-container {
+    min-height: 100px;
+  }
+} 

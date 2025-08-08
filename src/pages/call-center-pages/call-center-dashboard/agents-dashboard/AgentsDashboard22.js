@@ -1340,9 +1340,13 @@ export default function AgentsDashboard() {
             </IconButton>
           </Tooltip>
         </div>
-        <div className="dashboard-single-agent">
-          <SingleAgentDashboardCard />
+        <div className="dashboard-single-agent-row_two">
+          {/* Total Contact Summary */}
+          <TotalContactSummary />
+          {/* Contact Summary Grid - 4 Equal Boxes */}
+          <ContactSummaryGrid />
         </div>
+        
         <div className="dashboard-single-agent-row_two">
           {/* Online Agents Table */}
           <OnlineAgentsTable />

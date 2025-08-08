@@ -11,6 +11,7 @@ const { Server } = require("socket.io");
 const http = require("http");
 const { router: agentMetricsRouter, initializeDatabase } = require('./src/api/agentMetrics');
 const mysql = require('mysql2/promise');
+const RealTimeMonitoringServer = require('./server/realTimeMonitoringServer');
 
 dotenv.config();
 const app = express();
@@ -42,6 +43,9 @@ app.use("/sounds", express.static("/var/lib/asterisk/sounds", {
 // Create HTTP Server & WebSocket Server
 const server = http.createServer(app);
 const io = new Server(server, {});
+
+// Initialize Real-Time Monitoring Server
+const realTimeMonitoringServer = new RealTimeMonitoringServer(server);
 
 const users = {}; 
 
@@ -133,7 +137,10 @@ sequelize.sync({ force: false, alter: false }).then(() => {
   registerSuperAdmin(); // Ensure Super Admin is created at startup
   
   const PORT = process.env.PORT || 5070;
-  server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+  server.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+    console.log('Real-time monitoring server initialized');
+  });
 }).catch(error => {
   console.error("Database sync failed:", error);
   process.exit(1);

@@ -1,76 +1,325 @@
 .login-container {
   display: flex;
-  justify-content: center;
-  align-items: center;
   height: 100vh;
   width: 100%;
-  /* make background gradient from left to right */
-  background: linear-gradient(to right top
-      , #0d47a1, #83b974, #45849d, #e8ebec, #2196f3);
-} 
+  background-size: cover;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Background elements */
+.login-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 1;
+}
+
 .login-card {
-  width: 60%;
-  padding: 0px;
-  background-color: #fff;
-  border-radius: 5px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-  display: flex;
-  justify-content: center;
-}
-.login-image {
-  width: 50%;
-  height: 450px;
-}
-.wcf-image {
   width: 100%;
   height: 100%;
-  object-fit: fill;
-  border-radius: 5px;
-}
-.logo {
   display: flex;
-  justify-content: center;
-  align-items: center;
+  position: relative;
+  z-index: 2;
 }
-.wcf-logo {
-  width: 120px;
-  height: 60px;
-  object-fit: fill;
-  border-radius: 5px;
-  text-align: center;
-  margin-top: 0px;
-  margin-bottom: 20px;
-}
-.login-form {
-  width: 50%;
-  padding: 20px;
+
+/* Left content section */
+.login-image {
+  width: 100%;
+  height: 100%;
+  position: relative;
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items: flex-start;
+  color: white;
+  text-align: left;
+  padding: 40px;
+  padding-left: 120px;
+  padding-right: 120px;
+  box-sizing: border-box;
 }
-.login-input {
-  width: 100%;
-  padding: 10px;
+
+.content-overlay {
+  position: relative;
+  z-index: 3;
+  max-width: 500px;
+  text-align: left;
+}
+
+.main-heading {
+  font-size: 2.5rem;
+  font-weight: bold;
   margin-bottom: 10px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
 }
-.login-button {
+
+.year-text {
+  font-size: 3rem;
+  font-weight: bold;
+  color: #3498db;
+  margin-bottom: 30px;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+}
+
+.slogan {
+  font-size: 3rem;
+  font-weight: bold;
+  margin-bottom: 30px;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+  text-decoration: underline;
+  text-decoration-color: #3498db;
+  text-decoration-thickness: 3px;
+}
+
+.slogan-our {
+  color: #3498db;
+}
+
+.slogan-slogan {
+  color: white;
+}
+
+.support-info {
+  text-align: center;
+  margin-top: 40px;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  backdrop-filter: blur(5px);
+}
+
+.support-item {
+  margin-bottom: 15px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+}
+
+.support-item:last-child {
+  margin-bottom: 0;
+}
+
+.support-label {
+  color: #3498db;
+  font-weight: bold;
+  font-size: 1rem;
+}
+
+.support-value {
+  color: white;
+  font-size: 1rem;
+}
+
+.content-paragraph {
+  font-size: 1.1rem;
+  line-height: 1.6;
+  margin-bottom: 20px;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+}
+
+.clock-section {
+  position: relative;
+  margin-top: 40px;
+}
+
+.clock-face {
+  width: 120px;
+  height: 120px;
+  border: 4px solid #3498db;
+  border-radius: 50%;
+  position: relative;
+  margin: 0 auto 20px;
+  background: rgba(52, 152, 219, 0.1);
+}
+
+.clock-text {
+  position: absolute;
+  font-size: 0.9rem;
+  font-weight: bold;
+}
+
+.clock-text.left {
+  left: -80px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.clock-text.right {
+  right: -80px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Login form overlay */
+.login-form {
+  position: absolute;
+  top: 50%;
+  right: 80px;
+  transform: translateY(-50%);
+  width: 400px;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  border-radius: 15px;
+  padding: 40px;
+  box-sizing: border-box;
+  z-index: 10;
+}
+
+.form-container {
   width: 100%;
-  padding: 10px;
-  margin-top: 20px !important;
-  background-color: #255196 !important;
-  color: #fff !important;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
+  text-align: left;
 }
+
+.logo {
+  margin-bottom: 30px;
+  text-align: center;
+}
+
+.wcf-logo {
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
+}
+
+.login-heading {
+  color: white;
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 30px;
+  text-transform: uppercase;
+}
+
+.form-field {
+  margin-bottom: 20px;
+  position: relative;
+  text-align: left;
+}
+
+.form-field .MuiTextField-root {
+  width: 100%;
+  text-align: left;
+}
+
+.form-field .MuiOutlinedInput-root {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+
+.form-field .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.form-field .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.form-field .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: #3498db;
+}
+
+.form-field .MuiInputLabel-root {
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-weight: 600 !important;
+  font-size: 0.95rem !important;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  position: static !important;
+  transform: none !important;
+  margin-bottom: 8px !important;
+  display: block !important;
+  text-align: left !important;
+}
+
+.form-field .MuiInputLabel-root.Mui-focused {
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-weight: 600 !important;
+}
+
+.form-field .MuiInputBase-input {
+  color: white;
+  font-size: 1rem;
+}
+
+.form-field .MuiInputBase-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Remove floating label behavior */
+.form-field .MuiInputLabel-shrink {
+  color: rgba(255, 255, 255, 0.9) !important;
+  font-weight: 600 !important;
+  position: static !important;
+  transform: none !important;
+}
+
+/* Hide the notched outline since we don't want floating labels */
+.form-field .MuiOutlinedInput-notchedOutline {
+  display: none !important;
+}
+
+.login-button {
+  width: 100% !important;
+  padding: 15px !important;
+  margin-top: 30px !important;
+  background: linear-gradient(135deg, #3498db, #2980b9) !important;
+  color: white !important;
+  border: none !important;
+  border-radius: 8px !important;
+  font-size: 1.1rem !important;
+  font-weight: bold !important;
+  text-transform: uppercase !important;
+  transition: all 0.3s ease !important;
+}
+
 .login-button:hover {
-  background-color: #010712 !important;
+  background: linear-gradient(135deg, #2980b9, #1f5f8b) !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4) !important;
 }
-.error{
-    color: red;
-    font-size: 12px;
-    margin-top: 5px;
-    margin-bottom: 5px;
+
+.error {
+  color: #e74c3c;
+  font-size: 0.9rem;
+  margin-top: 10px;
+  text-align: center;
+}
+
+.lockout-timer {
+  color: #f39c12;
+  font-size: 0.9rem;
+  margin-top: 10px;
+  text-align: center;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .login-form {
+    position: relative;
+    top: auto;
+    right: auto;
+    transform: none;
+    width: 90%;
+    margin: 20px auto;
+  }
+  
+  .login-image {
+    display: none;
+  }
+  
+  .main-heading {
+    font-size: 1.8rem;
+  }
+  
+  .year-text {
+    font-size: 2rem;
+  }
+  
+  .content-paragraph {
+    font-size: 1rem;
+  }
 }
