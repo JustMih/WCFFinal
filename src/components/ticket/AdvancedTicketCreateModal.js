@@ -284,6 +284,116 @@ const defaultFormData = {
   dependents: [],
 };
 
+// Sample data for regions and districts
+const regionsData = [
+  { value: "arusha", label: "Arusha" },
+  { value: "dar-es-salaam", label: "Dar es Salaam" },
+  { value: "dodoma", label: "Dodoma" },
+  { value: "geita", label: "Geita" },
+  { value: "iringa", label: "Iringa" },
+  { value: "kagera", label: "Kagera" },
+  { value: "katavi", label: "Katavi" },
+  { value: "kigoma", label: "Kigoma" },
+  { value: "kilimanjaro", label: "Kilimanjaro" },
+  { value: "lindi", label: "Lindi" },
+  { value: "manyara", label: "Manyara" },
+  { value: "mara", label: "Mara" },
+  { value: "mbeya", label: "Mbeya" },
+  { value: "morogoro", label: "Morogoro" },
+  { value: "mtwara", label: "Mtwara" },
+  { value: "mwanza", label: "Mwanza" },
+  { value: "njombe", label: "Njombe" },
+  { value: "pwani", label: "Pwani" },
+  { value: "rukwa", label: "Rukwa" },
+  { value: "ruvuma", label: "Ruvuma" },
+  { value: "shinyanga", label: "Shinyanga" },
+  { value: "simiyu", label: "Simiyu" },
+  { value: "singida", label: "Singida" },
+  { value: "songwe", label: "Songwe" },
+  { value: "tabora", label: "Tabora" },
+  { value: "tanga", label: "Tanga" },
+  { value: "zanzibar-urban", label: "Zanzibar Urban" },
+  { value: "zanzibar-rural", label: "Zanzibar Rural" }
+];
+
+const districtsData = {
+  "arusha": [
+    { value: "arusha-city", label: "Arusha City" },
+    { value: "arusha-rural", label: "Arusha Rural" },
+    { value: "karatu", label: "Karatu" },
+    { value: "longido", label: "Longido" },
+    { value: "meru", label: "Meru" },
+    { value: "monduli", label: "Monduli" },
+    { value: "ngorongoro", label: "Ngorongoro" }
+  ],
+  "dar-es-salaam": [
+    { value: "ilala", label: "Ilala" },
+    { value: "kinondoni", label: "Kinondoni" },
+    { value: "temeke", label: "Temeke" },
+    { value: "kigamboni", label: "Kigamboni" },
+    { value: "ubungo", label: "Ubungo" }
+  ],
+  "dodoma": [
+    { value: "dodoma-city", label: "Dodoma City" },
+    { value: "dodoma-rural", label: "Dodoma Rural" },
+    { value: "bahi", label: "Bahi" },
+    { value: "chamwino", label: "Chamwino" },
+    { value: "chemba", label: "Chemba" },
+    { value: "kongwa", label: "Kongwa" },
+    { value: "mpwapwa", label: "Mpwapwa" },
+    { value: "kondoa", label: "Kondoa" }
+  ],
+  "mwanza": [
+    { value: "mwanza-city", label: "Mwanza City" },
+    { value: "ilemela", label: "Ilemela" },
+    { value: "nyamagana", label: "Nyamagana" },
+    { value: "buchosa", label: "Buchosa" },
+    { value: "magu", label: "Magu" },
+    { value: "misungwi", label: "Misungwi" },
+    { value: "kwimba", label: "Kwimba" },
+    { value: "ukerewe", label: "Ukerewe" },
+    { value: "sengerema", label: "Sengerema" }
+  ],
+  "mbeya": [
+    { value: "mbeya-city", label: "Mbeya City" },
+    { value: "mbeya-rural", label: "Mbeya Rural" },
+    { value: "chunya", label: "Chunya" },
+    { value: "kyela", label: "Kyela" },
+    { value: "mbarali", label: "Mbarali" },
+    { value: "rujewa", label: "Rujewa" }
+  ],
+  "kilimanjaro": [
+    { value: "moshi-city", label: "Moshi City" },
+    { value: "moshi-rural", label: "Moshi Rural" },
+    { value: "hai", label: "Hai" },
+    { value: "siha", label: "Siha" },
+    { value: "rombo", label: "Rombo" },
+    { value: "mwanga", label: "Mwanga" },
+    { value: "same", label: "Same" }
+  ],
+  "tanga": [
+    { value: "tanga-city", label: "Tanga City" },
+    { value: "tanga-rural", label: "Tanga Rural" },
+    { value: "muheza", label: "Muheza" },
+    { value: "pangani", label: "Pangani" },
+    { value: "handeni", label: "Handeni" },
+    { value: "kilindi", label: "Kilindi" },
+    { value: "korogwe", label: "Korogwe" },
+    { value: "lushoto", label: "Lushoto" },
+    { value: "mkinga", label: "Mkinga" }
+  ],
+  "morogoro": [
+    { value: "morogoro-city", label: "Morogoro City" },
+    { value: "morogoro-rural", label: "Morogoro Rural" },
+    { value: "kilosa", label: "Kilosa" },
+    { value: "ulanga", label: "Ulanga" },
+    { value: "kilombero", label: "Kilombero" },
+    { value: "malinyi", label: "Malinyi" },
+    { value: "gairo", label: "Gairo" },
+    { value: "mvomero", label: "Mvomero" }
+  ]
+};
+
 function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", functionData = [] }) {
   // --- CRM Modal State ---
   const [formData, setFormData] = useState({ ...defaultFormData, phoneNumber: initialPhoneNumber });
@@ -327,8 +437,15 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
   const [registrationType, setRegistrationType] = useState(""); // "employee" or "employer"
   const [searchResults, setSearchResults] = useState([]);
   const [currentSearchQuery, setCurrentSearchQuery] = useState("");
+  
+  // --- Call Phone Number Preservation ---
+  const [callPhoneNumber] = useState(initialPhoneNumber); // Preserve call phone number throughout component lifecycle
   // --- End Enhanced Search Form State ---
   
+  // --- Region and District State ---
+  const [selectedRegion, setSelectedRegion] = useState("");
+  // --- End Region and District State ---
+
   // --- Justification History State ---
   const [isJustificationModalOpen, setIsJustificationModalOpen] = useState(false);
   const [selectedTicketForJustification, setSelectedTicketForJustification] = useState(null);
@@ -395,14 +512,15 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
     setShowUserNotFound(false);
     setShowRegistrationOptions(false);
     
-    // Update form data with employer information
+    // Update form data with employer information while preserving call phone number
     setFormData(prev => ({
       ...prev,
       firstName: "",
       middleName: "",
       lastName: "",
       nidaNumber: employer.tin || "",
-      phoneNumber: employer.phone || "",
+      // ALWAYS preserve the call phone number - never overwrite it with search results
+      phoneNumber: prev.phoneNumber || callPhoneNumber || "",
       institution: employer.name || "",
       requester: "Employer",
       employerName: employer.name || ""
@@ -462,15 +580,15 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
     setShowUserNotFound(false);
     setShowRegistrationOptions(false);
     
-    // Update form data with employee information while preserving employer info
+    // Update form data with employee information while preserving call phone number
     setFormData(prev => ({
       ...prev,
       firstName: firstName,
       middleName: middleName,
       lastName: lastName,
       nidaNumber: employeeData.nin || "",
-      // Preserve existing phone number if it's already filled (from call)
-      phoneNumber: prev.phoneNumber || employeeData.employee_phone || employeeData.phoneNumber || "",
+      // ALWAYS preserve the call phone number - never overwrite it with search results
+      phoneNumber: prev.phoneNumber || callPhoneNumber || "",
       // Preserve the institution name from the selected employer
       institution: selectedEmployer ? selectedEmployer.name : (employeeData.institution || employeeData.employerName || ""),
       requester: "Employee",
@@ -512,7 +630,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
     setShowForm(true);
     setShowUserNotFound(false);
     
-    // Pre-fill form based on registration type
+    // Pre-fill form based on registration type while preserving call phone number
     if (type === "employer") {
       setFormData(prev => ({
         ...prev,
@@ -520,6 +638,8 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
         firstName: "",
         middleName: "",
         lastName: "",
+        // ALWAYS preserve the call phone number
+        phoneNumber: prev.phoneNumber || callPhoneNumber || "",
         // Keep the search query as institution name
         institution: currentSearchQuery,
         // Clear employee-specific fields
@@ -534,6 +654,8 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
         firstName: currentSearchQuery.split(" ")[0] || "",
         middleName: currentSearchQuery.split(" ").slice(1, -1).join(" ") || "",
         lastName: currentSearchQuery.split(" ").slice(-1)[0] || "",
+        // ALWAYS preserve the call phone number
+        phoneNumber: prev.phoneNumber || callPhoneNumber || "",
         // Clear employer-specific fields
         claimNumber: "",
         dependents: []
@@ -553,18 +675,20 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
     setRegistrationType("");
     setSearchResults([]);
     setCurrentSearchQuery("");
+    setSelectedRegion(""); // Clear selected region
     
     // Clear institution details panel
     setSelectedInstitution(null);
     
-    // Clear all form fields
+    // Clear all form fields except the call phone number
     setFormData(prev => ({
       ...prev,
       firstName: "",
       middleName: "",
       lastName: "",
       nidaNumber: "",
-      phoneNumber: "",
+      // ALWAYS preserve the call phone number - never clear it
+      phoneNumber: prev.phoneNumber || callPhoneNumber || "",
       institution: "",
       requester: "",
       employerName: "",
@@ -697,6 +821,25 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
       return;
     }
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  // Handler for region selection
+  const handleRegionChange = (e) => {
+    const { value } = e.target;
+    setSelectedRegion(value);
+    setFormData((prev) => ({ 
+      ...prev, 
+      region: value,
+      district: "" // Clear district when region changes
+    }));
+    setFormErrors((prev) => ({ ...prev, region: undefined }));
+  };
+
+  // Handler for district selection
+  const handleDistrictChange = (e) => {
+    const { value } = e.target;
+    setFormData((prev) => ({ ...prev, district: value }));
+    setFormErrors((prev) => ({ ...prev, district: undefined }));
   };
 
   const handleSuggestionSelected = (event, suggestion) => {
@@ -1160,9 +1303,9 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
           sx={{
             display: "flex",
             flexDirection: "row",
-            width: 1050,
+            width: 1200,
             maxWidth: "98vw",
-            minHeight: 500,
+            minHeight: searchStep === 0 && !showForm ? 350 : 500,
             maxHeight: "90vh",
             bgcolor: "background.paper",
             boxShadow: 24,
@@ -1172,7 +1315,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
         >
           <Box
             sx={{
-              flex: 2,
+              flex: 3,
               p: 4,
               borderRight: "1px solid #eee",
               overflowY: "auto",
@@ -1301,47 +1444,94 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                       style={{
                         marginTop: "10px",
                         marginBottom: "12px",
-                        padding: "10px",
-                        backgroundColor: "#f5f5f5",
+                        padding: "15px",
+                        backgroundColor: "#f8f9fa",
                         borderRadius: "8px",
-                        display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center"
+                        border: "1px solid #e9ecef"
                       }}
                     >
-                      <div>
-                        <Typography
-                          variant="subtitle2"
-                          style={{ fontWeight: "bold" }}
-                        >
-                          {formData.claimNumber ? (
-                            <>
-                              Claim Number:{" "}
-                              <span style={{ color: "#1976d2" }}>
-                                {formData.claimNumber}
-                              </span>
-                            </>
-                          ) : (
-                            "No Active Claim"
-                          )}
-                        </Typography>
+                      {/* Claim Number and Button Row */}
+                      <div style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: formData.dependents && formData.dependents.length > 0 ? "12px" : "0"
+                      }}>
+                        <div>
+                          <Typography
+                            variant="subtitle2"
+                            style={{ fontWeight: "bold" }}
+                          >
+                            {formData.claimNumber ? (
+                              <>
+                                Claim Number:{" "}
+                                <span style={{ color: "#1976d2" }}>
+                                  {formData.claimNumber}
+                                </span>
+                              </>
+                            ) : (
+                              "No Active Claim"
+                            )}
+                          </Typography>
+                        </div>
+                        
+                        {/* Claim Button with Login Redirect */}
+                        {formData.claimNumber && (
+                          <ClaimRedirectButton
+                            claimNumber={formData.claimNumber}
+                            employerId={formData.employerId || ''}
+                            buttonText="View Claim in MAC"
+                            onSuccess={(data) => {
+                              console.log('Claim redirect successful:', data);
+                              // You can add additional success handling here
+                            }}
+                            onError={(error) => {
+                              console.error('Claim redirect failed:', error);
+                              // You can add additional error handling here
+                            }}
+                          />
+                        )}
                       </div>
-                      
-                      {/* Claim Button with Login Redirect */}
-                      {formData.claimNumber && (
-                        <ClaimRedirectButton
-                          claimNumber={formData.claimNumber}
-                          employerId={formData.employerId || ''}
-                          buttonText="View Claim in MAC"
-                          onSuccess={(data) => {
-                            console.log('Claim redirect successful:', data);
-                            // You can add additional success handling here
-                          }}
-                          onError={(error) => {
-                            console.error('Claim redirect failed:', error);
-                            // You can add additional error handling here
-                          }}
-                        />
+
+                      {/* Dependents Section */}
+                      {formData.dependents && formData.dependents.length > 0 && (
+                        <div style={{
+                          borderTop: "1px solid #dee2e6",
+                          paddingTop: "12px"
+                        }}>
+                          <Typography
+                            variant="subtitle2"
+                            style={{ 
+                              fontWeight: "bold", 
+                              marginBottom: "8px",
+                              color: "#495057"
+                            }}
+                          >
+                            Dependents ({formData.dependents.length}):
+                          </Typography>
+                          <div style={{
+                            display: "flex",
+                            flexWrap: "wrap",
+                            gap: "8px"
+                          }}>
+                            {formData.dependents.map((dependent, index) => (
+                              <div
+                                key={index}
+                                style={{
+                                  padding: "6px 12px",
+                                  backgroundColor: "#e3f2fd",
+                                  borderRadius: "16px",
+                                  border: "1px solid #bbdefb",
+                                  color: "#1976d2",
+                                  fontSize: "0.875rem",
+                                  fontWeight: "500"
+                                }}
+                              >
+                                {dependent}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
                       )}
                     </div>
                   )}
@@ -1424,7 +1614,19 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                   {/* Phone & NIDA */}
                   <div className="modal-form-row">
                     <div className="modal-form-group">
-                      <label style={{ fontSize: "0.875rem" }}>Phone Number: <span style={{ color: "red" }}>*</span></label>
+                      <label style={{ fontSize: "0.875rem" }}>
+                        Phone Number: <span style={{ color: "red" }}>*</span>
+                        {callPhoneNumber && (
+                          <span style={{ 
+                            color: "#1976d2", 
+                            fontSize: "0.75rem", 
+                            marginLeft: "8px",
+                            fontWeight: "500"
+                          }}>
+                            📞 From Call
+                          </span>
+                        )}
+                      </label>
                       <input
                         type="tel"
                         name="phoneNumber"
@@ -1437,12 +1639,26 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                           padding: "4px 8px",
                           border: formErrors.phoneNumber
                             ? "1px solid red"
-                            : "1px solid #ccc",
+                            : callPhoneNumber 
+                              ? "2px solid #1976d2" 
+                              : "1px solid #ccc",
+                          backgroundColor: callPhoneNumber ? "#f8f9fa" : "white",
+                          fontWeight: callPhoneNumber ? "500" : "normal"
                         }}
+                        title={callPhoneNumber ? "Phone number preserved from call - will not be overwritten by search results" : ""}
                       />
                       {formErrors.phoneNumber && (
                         <span style={{ color: "red", fontSize: "0.75rem" }}>
                           {formErrors.phoneNumber}
+                        </span>
+                      )}
+                      {callPhoneNumber && (
+                        <span style={{ 
+                          color: "#1976d2", 
+                          fontSize: "0.75rem",
+                          fontStyle: "italic"
+                        }}>
+                          This number is preserved from the call and will not be changed by search results
                         </span>
                       )}
                     </div>
@@ -1666,130 +1882,33 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                   )}
 
                   {/* Dependents Section */}
-                  {(() => {
-                    console.log("🔍 Checking dependents section - formData.dependents:", formData.dependents);
-                    console.log("🔍 Dependents length:", formData.dependents?.length);
-                    return formData.dependents && formData.dependents.length > 0 && (
-                      <>
-                        <Typography
-                          variant="h6"
-                          sx={{ mt: 3, mb: 1, fontWeight: "bold" }}
-                        >
-                          Dependents
-                        </Typography>
-                        <div style={{ 
-                          padding: 16, 
-                          background: "#f8f9fa", 
-                          borderRadius: 8, 
-                          border: "1px solid #e9ecef",
-                          marginBottom: 16 
-                        }}>
-                          <Typography variant="body2" sx={{ mb: 2, color: "#6c757d" }}>
-                            Found {formData.dependents.length} dependent(s) for this employee. These dependents are automatically included in the ticket.
-                          </Typography>
-                          
-                          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 12 }}>
-                            {formData.dependents.map((dependent, index) => (
-                              <div
-                                key={index}
-                                style={{
-                                  padding: "12px",
-                                  backgroundColor: "#ffffff",
-                                  borderRadius: "6px",
-                                  border: "1px solid #dee2e6",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: "12px"
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    width: "32px",
-                                    height: "32px",
-                                    borderRadius: "50%",
-                                    backgroundColor: "#e3f2fd",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    color: "#1976d2",
-                                    fontWeight: "bold",
-                                    fontSize: "0.875rem"
-                                  }}
-                                >
-                                  {index + 1}
-                                </div>
-                                <div style={{ flex: 1 }}>
-                                  <Typography
-                                    variant="subtitle2"
-                                    style={{ fontWeight: "600", color: "#2c3e50" }}
-                                  >
-                                    {dependent}
-                                  </Typography>
-                                  <Typography
-                                    variant="caption"
-                                    style={{ color: "#6c757d" }}
-                                  >
-                                    Dependent #{index + 1}
-                                  </Typography>
-                                </div>
-                                <div
-                                  style={{
-                                    padding: "4px 8px",
-                                    backgroundColor: "#e8f5e9",
-                                    borderRadius: "12px",
-                                    border: "1px solid #c8e6c9"
-                                  }}
-                                >
-                                  <Typography
-                                    variant="caption"
-                                    style={{ color: "#2e7d32", fontWeight: "500" }}
-                                  >
-                                    Active
-                                  </Typography>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                          
-                          <div
-                            style={{
-                              padding: "8px 12px",
-                              backgroundColor: "#fff3cd",
-                              borderRadius: "6px",
-                              border: "1px solid #ffeaa7"
-                            }}
-                          >
-                            <Typography
-                              variant="caption"
-                              style={{ color: "#856404", display: "flex", alignItems: "center", gap: "4px" }}
-                            >
-                              <span>ℹ️</span>
-                              Dependents will be automatically saved with the ticket when submitted.
-                            </Typography>
-                          </div>
-                        </div>
-                      </>
-                    );
-                  })()}
+                  {/* Old dependents section removed - now integrated with claim section above */}
 
                   {/* Region & District */}
                   <div className="modal-form-row">
                     <div className="modal-form-group">
                       <label style={{ fontSize: "0.875rem" }}>Region: <span style={{ color: "red" }}>*</span></label>
-                      <input
+                      <select
                         name="region"
                         value={formData.region}
-                        onChange={handleChange}
-                        placeholder="Enter region"
+                        onChange={handleRegionChange}
                         style={{
                           height: "32px",
                           fontSize: "0.875rem",
                           padding: "4px 8px",
+                          width: "100%",
                           border: formErrors.region
                             ? "1px solid red"
                             : "1px solid #ccc"
                         }}
-                      />
+                      >
+                        <option value="">Select Region</option>
+                        {regionsData.map((region) => (
+                          <option key={region.value} value={region.value}>
+                            {region.label}
+                          </option>
+                        ))}
+                      </select>
                       {formErrors.region && (
                         <span style={{ color: "red", fontSize: "0.75rem" }}>
                           {formErrors.region}
@@ -1799,20 +1918,33 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
 
                     <div className="modal-form-group">
                       <label style={{ fontSize: "0.875rem" }}>District: <span style={{ color: "red" }}>*</span></label>
-                      <input
+                      <select
                         name="district"
                         value={formData.district}
-                        onChange={handleChange}
-                        placeholder="Enter district"
+                        onChange={handleDistrictChange}
+                        disabled={!formData.region}
                         style={{
                           height: "32px",
                           fontSize: "0.875rem",
                           padding: "4px 8px",
+                          width: "100%",
                           border: formErrors.district
                             ? "1px solid red"
-                            : "1px solid #ccc"
+                            : "1px solid #ccc",
+                          backgroundColor: !formData.region ? "#f5f5f5" : "white"
                         }}
-                      />
+                      >
+                        <option value="">
+                          {formData.region ? "Select District" : "Select Region First"}
+                        </option>
+                        {formData.region && districtsData[formData.region] && 
+                          districtsData[formData.region].map((district) => (
+                            <option key={district.value} value={district.value}>
+                              {district.label}
+                            </option>
+                          ))
+                        }
+                      </select>
                       {formErrors.district && (
                         <span style={{ color: "red", fontSize: "0.75rem" }}>
                           {formErrors.district}
@@ -2005,12 +2137,12 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
               p: 4,
               overflowY: "auto",
               minWidth: 350,
-              maxWidth: 420,
+              maxWidth: 450,
               maxHeight: "90vh"
             }}
           >
             {/* Employer/Institution Details */}
-            {selectedInstitution && (
+            {(selectedInstitution || (selectedEmployee && formData.allocated_user_name)) && (
               <div
                 style={{
                   flex: 1,
@@ -2022,31 +2154,58 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                 }}
               >
                 <h4 style={{ color: "#1976d2", marginBottom: 12 }}>
-                  Institution Details
+                  {selectedInstitution ? "Institution Details" : "Employee Details"}
                 </h4>
-                <div>
-                  <strong>Name:</strong> {selectedInstitution.name}
-                </div>
-                <div>
-                  <strong>TIN:</strong> {selectedInstitution.tin}
-                </div>
-                <div>
-                  <strong>Phone:</strong> {selectedInstitution.phone}
-                </div>
-                <div>
-                  <strong>Email:</strong> {selectedInstitution.email}
-                </div>
-                <div>
-                  <strong>Status:</strong> {selectedInstitution.employer_status}
-                </div>
-                <div>
-                  <strong>Allocated User Name:</strong>{" "}
-                  {selectedInstitution.allocated_staff_name}
-                </div>
-                <div>
-                  <strong>Allocated Username:</strong>{" "}
-                  {selectedInstitution.allocated_staff_username}
-                </div>
+                {selectedInstitution && (
+                  <>
+                    <div>
+                      <strong>Name:</strong> {selectedInstitution.name}
+                    </div>
+                    <div>
+                      <strong>TIN:</strong> {selectedInstitution.tin}
+                    </div>
+                    <div>
+                      <strong>Phone:</strong> {selectedInstitution.phone}
+                    </div>
+                    <div>
+                      <strong>Email:</strong> {selectedInstitution.email}
+                    </div>
+                    <div>
+                      <strong>Status:</strong> {selectedInstitution.employer_status}
+                    </div>
+                    <div>
+                      <strong>Allocated User:</strong>{" "}
+                      {selectedInstitution.allocated_staff_name || "Not assigned"}
+                    </div>
+                    {/* <div>
+                      <strong>Allocated Username:</strong>{" "}
+                      {selectedInstitution.allocated_staff_username || "Not assigned"}
+                    </div> */}
+                  </>
+                )}
+                {selectedEmployee && formData.allocated_user_name && (
+                  <>
+                    {!selectedInstitution && (
+                      <>
+                        <div>
+                          <strong>Employee Name:</strong> {`${formData.firstName} ${formData.middleName} ${formData.lastName}`.trim()}
+                        </div>
+                        <div>
+                          <strong>Claim Number:</strong> {formData.claimNumber || "No active claim"}
+                        </div>
+                      </>
+                    )}
+                    <div>
+                      <strong>Checklist User:</strong> {formData.allocated_user_name}
+                    </div>
+                    {/* <div>
+                      <strong>Allocated Username:</strong> {formData.allocated_user_username || "Not assigned"}
+                    </div> */}
+                    {/* <div>
+                      <strong>Allocated User ID:</strong> {formData.allocated_user_id || "Not assigned"}
+                    </div> */}
+                  </>
+                )}
               </div>
             )}
             {/* Ticket history for entered phone number */}
