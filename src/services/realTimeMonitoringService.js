@@ -1,4 +1,5 @@
 import io from 'socket.io-client';
+import { amiURL } from '../config';
 
 class RealTimeMonitoringService {
   constructor() {
@@ -10,7 +11,7 @@ class RealTimeMonitoringService {
   }
 
   // Initialize WebSocket connection
-  connect(url = 'http://localhost:3001') {
+  connect(url = amiURL) {
     try {
       this.socket = io(url, {
         transports: ['websocket', 'polling'],
