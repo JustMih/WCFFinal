@@ -73,6 +73,16 @@
   text-align: center;
 }
 
+/* 2-column variant for compact cards (e.g., voicemail) */
+.single-agent-stats-row.cols-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+/* 3-column variant for voicemail */
+.single-agent-stats-row.cols-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
 /* Stat block layout */
 .stat-block {
   background: transparent;
