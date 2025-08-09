@@ -1,29 +1,30 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Autocomplete from "@mui/material/Autocomplete";
-import { FormControl, InputLabel, Select } from '@mui/material';
-import { Avatar, Paper } from "@mui/material";
+import FormControl from "@mui/material/FormControl";
+import InputLabel from "@mui/material/InputLabel";
+import Select from "@mui/material/Select";
+import Avatar from "@mui/material/Avatar";
+import Paper from "@mui/material/Paper";
 
 // React Icons
 import { FaEye } from "react-icons/fa";
 import { FiSettings } from "react-icons/fi";
 import { MdOutlineSupportAgent, MdImportExport, MdSwapHoriz } from "react-icons/md";
 
-// MUI Components
-import {
-  Alert,
-  Box,
-  Button,
-  Divider,
-  Grid,
-  IconButton,
-  Modal,
-  Snackbar,
-  Tooltip,
-  Typography,
-  TextField,
-  MenuItem
-} from "@mui/material";
+// MUI Components - Individual imports for better tree shaking
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Divider from "@mui/material/Divider";
+import Grid from "@mui/material/Grid";
+import IconButton from "@mui/material/IconButton";
+import Modal from "@mui/material/Modal";
+import Snackbar from "@mui/material/Snackbar";
+import Tooltip from "@mui/material/Tooltip";
+import Typography from "@mui/material/Typography";
+import TextField from "@mui/material/TextField";
+import MenuItem from "@mui/material/MenuItem";
 
 // Custom Components
 // import ColumnSelector from "../../../../components/colums-select/ColumnSelector";
@@ -90,6 +91,9 @@ export default function CoordinatorDashboard() {
     status: "",
     priority: "",
     category: "",
+    region: "",
+    district: "",
+    ticketId: "",
     startDate: null,
     endDate: null
   });
@@ -353,7 +357,7 @@ export default function CoordinatorDashboard() {
       const response = await fetch(
         `${baseURL}/coordinator/${ticketId}/convert-or-forward-ticket`,
         {
-          method: "POST",
+          method: "PUT",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`
@@ -464,7 +468,9 @@ export default function CoordinatorDashboard() {
         institutionName.includes(s) ||
         (t.firstName || t.first_name || "").toLowerCase().includes(s) ||
         (t.lastName || t.last_name || "").toLowerCase().includes(s) ||
-        (t.middleName || t.middle_name || "").toLowerCase().includes(s)) &&
+        (t.middleName || t.middle_name || "").toLowerCase().includes(s) ||
+        (t.ticket_id || "").toLowerCase().includes(s) ||
+        (t.id || "").toLowerCase().includes(s)) &&
       (!filters.status || t.status === filters.status);
 
     // Apply advanced filters
@@ -473,6 +479,18 @@ export default function CoordinatorDashboard() {
     }
     if (filters.priority && filters.priority !== "") {
       matches = matches && t.priority === filters.priority;
+    }
+    if (filters.region && filters.region !== "") {
+      matches = matches && t.region === filters.region;
+    }
+    if (filters.district && filters.district !== "") {
+      matches = matches && t.district === filters.district;
+    }
+    if (filters.ticketId && filters.ticketId !== "") {
+      matches = matches && (
+        (t.ticket_id && t.ticket_id.toLowerCase().includes(filters.ticketId.toLowerCase())) ||
+        (t.id && t.id.toLowerCase().includes(filters.ticketId.toLowerCase()))
+      );
     }
     if (filters.startDate) {
       matches =
@@ -817,6 +835,10 @@ export default function CoordinatorDashboard() {
             onSearchChange={(e) => setSearch(e.target.value)}
             filterStatus={filters.status}
             onFilterStatusChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+            filterRegion={filters.region}
+            onFilterRegionChange={(e) => setFilters(prev => ({ ...prev, region: e.target.value }))}
+            filterDistrict={filters.district}
+            onFilterDistrictChange={(e) => setFilters(prev => ({ ...prev, district: e.target.value }))}
             activeColumns={activeColumns}
             onColumnsChange={setActiveColumns}
             tableData={filteredTickets}
@@ -1017,9 +1039,19 @@ export default function CoordinatorDashboard() {
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
       >
-        <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
+        <Alert 
+          severity={snackbar.severity}
+          onClose={handleSnackbarClose}
+          sx={{ 
+            minWidth: '300px',
+            fontSize: '14px',
+            fontWeight: snackbar.severity === 'success' ? 'bold' : 'normal'
+          }}
+        >
+          {snackbar.message}
+        </Alert>
       </Snackbar>
 
       {/* CoordinatorActionModal */}

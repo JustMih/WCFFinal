@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { ImSpinner9 } from "react-icons/im";
 import wcf_image from "../../asserts/images/wcf_image.jpg";
-import wcf_logo from "../../asserts/images/logo.PNG";
+import wcf_logo from "../../asserts/images/logo.png";
 import loginBg from "../../asserts/images/login-bg.png";
 import { TextField, Button } from "@mui/material";
 import { baseURL } from "../../config";

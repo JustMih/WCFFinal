@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import { RxDashboard } from "react-icons/rx";
-import logo from "../../../asserts/images/logo.PNG";
+import logo from "../../../asserts/images/logo.png";
 import { MdOutlineSupportAgent, MdEmail } from "react-icons/md";
 import { FaChevronUp, FaChevronDown } from "react-icons/fa";
 import { baseURL } from "../../../config";
 import "./crmSidebar.css";
-import { IconButton, Badge } from "@mui/material";
+
+// MUI Components - Individual imports for better tree shaking
+import IconButton from "@mui/material/IconButton";
+import Badge from "@mui/material/Badge";
 
 export default function CRMSidebar({ isSidebarOpen }) {
   const [isAgentsOpen, setIsAgentsOpen] = useState(false);
@@ -436,18 +439,18 @@ export default function CRMSidebar({ isSidebarOpen }) {
                             // value: ticketStats.overdue,
                             icon: "⚠️"
                           },
-                          {
-                            label: "Closed Tickets",
-                            to: "/ticket/closed",
-                            value: ticketStats.closed || 0,
-                            icon: "🔒"
-                          },
-                          {
-                            label: "Total Tickets",
-                            to: "/ticket/all",
-                            value: ticketStats.total || 0,
-                            icon: "📊"
-                          }
+                          // {
+                          //   label: "Closed Tickets",
+                          //   to: "/ticket/closed",
+                          //   value: ticketStats.closed || 0,
+                          //   icon: "🔒"
+                          // },
+                          // {
+                          //   label: "Total Tickets",
+                          //   to: "/ticket/all",
+                          //   value: ticketStats.total || 0,
+                          //   icon: "📊"
+                          // }
                         ].map((item, idx) => (
                           <NavLink
                             key={idx}

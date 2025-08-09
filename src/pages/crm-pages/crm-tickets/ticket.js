@@ -26,6 +26,7 @@ import TicketDetailsModal from '../../../components/TicketDetailsModal';
 import { AssignmentStepper } from '../../../components/TicketDetailsModal';
 import Pagination from '../../../components/Pagination';
 import TableControls from "../../../components/TableControls";
+import TicketFilters from '../../../components/ticket/TicketFilters';
 
 export default function Crm() {
   const [agentTickets, setAgentTickets] = useState([]);
@@ -391,7 +392,9 @@ export default function Crm() {
       institutionName.includes(searchValue) ||
       (ticket.first_name || "").toLowerCase().includes(searchValue) ||
       (ticket.last_name || "").toLowerCase().includes(searchValue) ||
-      (ticket.middle_name || "").toLowerCase().includes(searchValue);
+      (ticket.middle_name || "").toLowerCase().includes(searchValue) ||
+      (ticket.ticket_id || "").toLowerCase().includes(searchValue) ||
+      (ticket.id || "").toLowerCase().includes(searchValue);
     
     const matchesStatus = !filterStatus || ticket.status === filterStatus;
     

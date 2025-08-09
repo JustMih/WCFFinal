@@ -1,5 +1,13 @@
+/* eslint-disable no-undef */
 import React from "react";
 import { Box, Typography } from "@mui/material";
+import { baseURL } from '../config';
+
+
+const getFileNameFromPath = (filePath) => {
+  if (!filePath) return '';
+  return filePath.split('/').pop() || filePath.split('\\').pop() || filePath;
+};
 
 export default function AssignmentStepper({ assignmentHistory, selectedTicket }) {
   // Helper function to calculate aging
@@ -73,7 +81,7 @@ export default function AssignmentStepper({ assignmentHistory, selectedTicket })
       if (diffDays > 1) return `(${diffDays}d)`;
       if (diffHours > 1) return `(${diffHours}h)`;
       if (diffMinutes > 1) return `(${diffMinutes}min)`;
-      return "(Just now)";
+      return "";
     }
   };
 
@@ -126,6 +134,17 @@ export default function AssignmentStepper({ assignmentHistory, selectedTicket })
     } catch (error) {
       return "";
     }
+  };
+
+  // Local function to handle attachment download
+  const openAttachmentFile = (attachmentPath) => {
+    if (!attachmentPath) return;
+    
+    const filename = getFileNameFromPath(attachmentPath);
+    const downloadUrl = `${baseURL}/ticket/attachment/${filename}`;
+    
+    // Open in new tab
+    window.open(downloadUrl, '_blank');
   };
 
   const steps = [
@@ -292,7 +311,7 @@ export default function AssignmentStepper({ assignmentHistory, selectedTicket })
                 <Typography
                   variant="body2"
                   sx={{ color: '#28a745', fontStyle: 'italic', cursor: 'pointer', textDecoration: 'underline' }}
-                  onClick={() => handleDownloadAttachment(a.attachment_path)}
+                  onClick={() => openAttachmentFile(a.attachment_path)}
                 >
                   Download attachment
                 </Typography>

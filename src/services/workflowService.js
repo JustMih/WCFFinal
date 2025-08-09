@@ -42,7 +42,7 @@ export const getAvailableUsers = async (role) => {
   }
 };
 
-// Assign ticket to attendee
+// Assign to attendee
 export const assignToAttendee = async (ticketId, attendeeId, justification) => {
   try {
     const token = localStorage.getItem('authToken');
@@ -54,16 +54,20 @@ export const assignToAttendee = async (ticketId, attendeeId, justification) => {
       },
       body: JSON.stringify({
         attendeeId,
-        justification,
-        userId: localStorage.getItem('userId')
+        justification
       })
     });
     
+    const data = await response.json();
+    
     if (response.ok) {
-      return await response.json();
+      return {
+        success: true,
+        message: data.message || 'Ticket assigned successfully',
+        data: data.data
+      };
     } else {
-      const data = await response.json();
-      throw new Error(data.message || 'Failed to assign to attendee');
+      throw new Error(data.message || 'Failed to assign ticket to attendee');
     }
   } catch (error) {
     console.error('Error assigning to attendee:', error);
@@ -76,9 +80,8 @@ export const attendAndClose = async (ticketId, resolutionType, resolutionDetails
   try {
     const token = localStorage.getItem('authToken');
     const formData = new FormData();
-    formData.append('resolutionType', resolutionType);
-    formData.append('resolutionDetails', resolutionDetails);
-    formData.append('userId', localStorage.getItem('userId'));
+    formData.append('resolution_type', resolutionType);
+    formData.append('resolution_details', resolutionDetails);
     
     if (attachment) {
       formData.append('attachment', attachment);
@@ -92,10 +95,15 @@ export const attendAndClose = async (ticketId, resolutionType, resolutionDetails
       body: formData
     });
     
+    const data = await response.json();
+    
     if (response.ok) {
-      return await response.json();
+      return {
+        success: true,
+        message: data.message || 'Ticket attended and closed successfully',
+        data: data.data
+      };
     } else {
-      const data = await response.json();
       throw new Error(data.message || 'Failed to attend and close ticket');
     }
   } catch (error) {
@@ -116,15 +124,19 @@ export const recommendAction = async (ticketId, recommendation, justification) =
       },
       body: JSON.stringify({
         recommendation,
-        justification,
-        userId: localStorage.getItem('userId')
+        evidence_url: justification
       })
     });
     
+    const data = await response.json();
+    
     if (response.ok) {
-      return await response.json();
+      return {
+        success: true,
+        message: data.message || 'Recommendation submitted successfully',
+        data: data.data
+      };
     } else {
-      const data = await response.json();
       throw new Error(data.message || 'Failed to recommend action');
     }
   } catch (error) {

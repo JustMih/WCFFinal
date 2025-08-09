@@ -54,6 +54,9 @@ export default function Crm() {
     status: '',
     priority: '',
     category: '',
+    region: '',
+    district: '',
+    ticketId: '',
     startDate: null,
     endDate: null,
   });
@@ -218,11 +221,18 @@ export default function Crm() {
       fullName.includes(searchValue) ||
       (ticket.first_name || "").toLowerCase().includes(searchValue) ||
       (ticket.last_name || "").toLowerCase().includes(searchValue) ||
-      (ticket.middle_name || "").toLowerCase().includes(searchValue);
+      (ticket.middle_name || "").toLowerCase().includes(searchValue) ||
+      (ticket.ticket_id || "").toLowerCase().includes(searchValue) ||
+      (ticket.id || "").toLowerCase().includes(searchValue);
     
     const matchesStatus = !filters.status || ticket.status === filters.status;
+    const matchesRegion = !filters.region || ticket.region === filters.region;
+    const matchesDistrict = !filters.district || ticket.district === filters.district;
+    const matchesTicketId = !filters.ticketId || 
+      (ticket.ticket_id && ticket.ticket_id.toLowerCase().includes(filters.ticketId.toLowerCase())) ||
+      (ticket.id && ticket.id.toLowerCase().includes(filters.ticketId.toLowerCase()));
 
-    return matchesSearch && matchesStatus;
+    return matchesSearch && matchesStatus && matchesRegion && matchesDistrict && matchesTicketId;
   });
 
   const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
@@ -366,6 +376,10 @@ export default function Crm() {
           onSearchChange={(e) => setSearch(e.target.value)}
           filterStatus={filters.status}
           onFilterStatusChange={(e) => setFilters({ ...filters, status: e.target.value })}
+          filterRegion={filters.region}
+          onFilterRegionChange={(e) => setFilters({ ...filters, region: e.target.value })}
+          filterDistrict={filters.district}
+          onFilterDistrictChange={(e) => setFilters({ ...filters, district: e.target.value })}
           activeColumns={activeColumns}
           onColumnsChange={setActiveColumns}
           tableData={filteredTickets}

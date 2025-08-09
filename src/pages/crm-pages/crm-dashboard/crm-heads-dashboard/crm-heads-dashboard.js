@@ -38,37 +38,6 @@ import { baseURL } from "../../../../config";
 // Styles
 import "./crm-heads-dashboard.css";
 
-function AssignmentFlowChat({ assignmentHistory }) {
-  return (
-    <Box sx={{ maxWidth: 400, ml: "auto" }}>
-      <Typography variant="h6" sx={{ color: "#3f51b5", mb: 2 }}>
-        Assignment Flow
-      </Typography>
-      {assignmentHistory.map((a, idx) => (
-        <Box key={idx} sx={{ display: "flex", mb: 2, alignItems: "flex-start" }}>
-          <Avatar sx={{ bgcolor: "#1976d2", mr: 2 }}>
-            {a.assigned_to_name ? a.assigned_to_name[0] : "?"}
-          </Avatar>
-          <Paper elevation={2} sx={{ p: 2, bgcolor: "#f5f5f5", flex: 1 }}>
-            <Typography sx={{ fontWeight: "bold" }}>
-              {a.assigned_to_name || "Unknown"}{" "}
-              <span style={{ color: "#888", fontWeight: "normal" }}>
-                ({a.assigned_to_role || "N/A"})
-              </span>
-            </Typography>
-            <Typography variant="body2" sx={{ color: "#1976d2" }}>
-              {a.reason || <span style={{ color: "#888" }}>No reason provided</span>}
-            </Typography>
-            <Typography variant="caption" sx={{ color: "#888" }}>
-              {a.created_at ? new Date(a.created_at).toLocaleString() : ""}
-            </Typography>
-          </Paper>
-        </Box>
-      ))}
-    </Box>
-  );
-}
-
 const Card = ({ title, data, color, icon }) => (
   <div className="crm-card">
     <div className="crm-header">
@@ -115,6 +84,9 @@ export default function FocalPersonDashboard() {
     status: "",
     priority: "",
     category: "",
+    region: "",
+    district: "",
+    ticketId: "",
     startDate: null,
     endDate: null
   });
@@ -388,12 +360,26 @@ export default function FocalPersonDashboard() {
       (!searchValue ||
         ticket.phone_number?.toLowerCase().includes(searchValue) ||
         ticket.nida_number?.toLowerCase().includes(searchValue) ||
-        fullName.includes(searchValue)) &&
+        fullName.includes(searchValue) ||
+        (ticket.ticket_id || "").toLowerCase().includes(searchValue) ||
+        (ticket.id || "").toLowerCase().includes(searchValue)) &&
       (!filters.status || ticket.status === filters.status);
 
     // Apply advanced filters
     if (filters.category) {
       matches = matches && ticket.category === filters.category;
+    }
+    if (filters.region) {
+      matches = matches && ticket.region === filters.region;
+    }
+    if (filters.district) {
+      matches = matches && ticket.district === filters.district;
+    }
+    if (filters.ticketId) {
+      matches = matches && (
+        (ticket.ticket_id && ticket.ticket_id.toLowerCase().includes(filters.ticketId.toLowerCase())) ||
+        (ticket.id && ticket.id.toLowerCase().includes(filters.ticketId.toLowerCase()))
+      );
     }
     if (filters.startDate) {
       matches =
@@ -603,6 +589,10 @@ export default function FocalPersonDashboard() {
             onSearchChange={(e) => setSearch(e.target.value)}
             filterStatus={filters.status}
             onFilterStatusChange={(e) => setFilters({ ...filters, status: e.target.value })}
+            filterRegion={filters.region}
+            onFilterRegionChange={(e) => setFilters({ ...filters, region: e.target.value })}
+            filterDistrict={filters.district}
+            onFilterDistrictChange={(e) => setFilters({ ...filters, district: e.target.value })}
             activeColumns={activeColumns}
             onColumnsChange={setActiveColumns}
             tableData={filteredTickets}
@@ -736,7 +726,7 @@ export default function FocalPersonDashboard() {
 
       {/* Ticket Details Modal */}
       <TicketDetailsModal
-  open={isModalOpen}
+        open={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         selectedTicket={selectedTicket}
         assignmentHistory={assignmentHistory}
@@ -747,11 +737,21 @@ export default function FocalPersonDashboard() {
       {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={4000}
+        autoHideDuration={6000}
         onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
       >
-        <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
+        <Alert 
+          severity={snackbar.severity}
+          onClose={handleSnackbarClose}
+          sx={{ 
+            minWidth: '300px',
+            fontSize: '14px',
+            fontWeight: snackbar.severity === 'success' ? 'bold' : 'normal'
+          }}
+        >
+          {snackbar.message}
+        </Alert>
       </Snackbar>
     </div>
   );
