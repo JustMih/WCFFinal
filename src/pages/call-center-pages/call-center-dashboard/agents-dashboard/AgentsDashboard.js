@@ -880,52 +880,45 @@ export default function AgentsDashboard() {
     if (!session || !transferTarget) return;
 
     try {
-      // Step 1: Fetch the list of online users (agents and supervisors)
-      const response = await fetch(`${baseURL}/users/online-users`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch online users");
+      // Prefer already-fetched online users; fetch if empty
+      let users = onlineUsers;
+      if (!users || users.length === 0) {
+        users = await fetchOnlineUsers();
       }
 
-      const onlineUsers = await response.json();
-
-      // Step 2: Check if the transfer target is an online agent or supervisor
-      const isValidTransferTarget = onlineUsers.some(
-        (user) =>
-          user.username === transferTarget &&
-          (user.role === "agent" || user.role === "supervisor")
-      );
-
-      if (!isValidTransferTarget) {
-        setSnackbarMessage(
-          "❌ No online agent or supervisor available for transfer."
+      const isKnownOnlineTarget =
+        users &&
+        users.some(
+          (user) =>
+            (user.extension === transferTarget ||
+              user.username === transferTarget) &&
+            (user.role === "agent" || user.role === "supervisor")
         );
-        setSnackbarSeverity("error");
-        setSnackbarOpen(true);
-        return;
-      }
 
-      // Step 3: Proceed with the transfer if the target is valid
       const targetURI = UserAgent.makeURI(
         `sip:${transferTarget}@192.168.1.170`
       );
       if (!targetURI) {
         console.error("Invalid transfer target URI");
+        setSnackbarMessage("❌ Invalid transfer target");
+        setSnackbarSeverity("error");
+        setSnackbarOpen(true);
         return;
       }
 
       await session.refer(targetURI);
-      console.log(`🔁 Call transferred to ${transferTarget}`);
-      setSnackbarMessage(`🔁 Call transferred to ${transferTarget}`);
+
+      const successMsg = isKnownOnlineTarget
+        ? `🔁 Call transferred to ${transferTarget}`
+        : `🔁 Call transferred to ${transferTarget} (not verified online)`;
+
+      console.log(successMsg);
+      setSnackbarMessage(successMsg);
       setSnackbarSeverity("success");
       setSnackbarOpen(true);
-      handleEndCall(); // Optionally end the session on agent's side
+
+      // End the agent's leg after blind transfer
+      handleEndCall();
     } catch (err) {
       console.error("❌ Call transfer failed:", err);
       setSnackbarMessage("❌ Transfer failed");
@@ -1173,11 +1166,14 @@ export default function AgentsDashboard() {
       });
       if (!response.ok) throw new Error("Failed to fetch online users");
       const users = await response.json();
-      setOnlineUsers(
-        users.filter((u) => u.role === "agent" || u.role === "supervisor")
+      const filtered = users.filter(
+        (u) => u.role === "agent" || u.role === "supervisor"
       );
+      setOnlineUsers(filtered);
+      return filtered;
     } catch (err) {
       setOnlineUsers([]);
+      return [];
     }
   };
 
@@ -1469,13 +1465,13 @@ export default function AgentsDashboard() {
                   </span>
                 </div>
                 <Autocomplete
-                  options={onlineUsers.map((u) => u.username)}
+                  options={onlineUsers.map((u) => u.extension || u.username)}
                   value={transferTarget}
                   onChange={(_, v) => setTransferTarget(v || "")}
                   renderInput={(params) => (
                     <TextField
                       {...params}
-                      label="Transfer To (Extension)"
+                      label="Transfer To (Extension/Username)"
                       variant="outlined"
                       margin="normal"
                       fullWidth
@@ -1494,7 +1490,7 @@ export default function AgentsDashboard() {
                   className="modern-action-btn"
                   style={{ marginTop: "10px" }}
                 >
-                  Transfer Call
+                  Blind Transfer
                 </Button>
               </>
             )}
