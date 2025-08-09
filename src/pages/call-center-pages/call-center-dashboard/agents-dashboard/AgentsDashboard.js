@@ -1340,18 +1340,20 @@ export default function AgentsDashboard() {
             </IconButton>
           </Tooltip>
         </div>
+        
+        <div className="dashboard-single-agent-row_two">
+          {/* Queue Monitoring Section */}
+          <CallQueueCard />
+        </div>    
+        
         <div className="dashboard-single-agent">
           <SingleAgentDashboardCard />
-        </div>
+        </div>    
         <div className="dashboard-single-agent-row_two">
           {/* Online Agents Table */}
           <OnlineAgentsTable />
           {/* Online Supervisors Table */}
           <OnlineSupervisorsTable />
-        </div>
-        <div className="dashboard-single-agent-row_two">
-          {/* Queue Monitoring Section */}
-          <CallQueueCard />
         </div>
         <div className="dashboard-single-agent-row_four">
           <AgentPerformanceScore />
