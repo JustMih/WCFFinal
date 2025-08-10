@@ -598,6 +598,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
       allocated_user_id: employeeData.allocated_user_id || "",
       // Store claim information
       claimNumber: employeeData.claim_number || "",
+      notification_report_id: employeeData.notification_report_id || "",
       // Store dependents information
       dependents: employee.dependents || employeeData.dependents || []
     }));
@@ -886,6 +887,9 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
         phoneNumber: suggestion.employee_phone || suggestion.phoneNumber || "",
         institution: institutionName,
         dependents: dependents, // Use dependents from the flattened structure
+        // Store both claim number and notification report ID
+        claimNumber: suggestion.claim_number || rawData.claim_number || "",
+        notification_report_id: suggestion.notification_report_id || rawData.notification_report_id || "",
       };
     } else if (searchType === "employer") {
       updatedFormData = {
@@ -1469,6 +1473,15 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                                 <span style={{ color: "#1976d2" }}>
                                   {formData.claimNumber}
                                 </span>
+                                {formData.notification_report_id && (
+                                  <>
+                                    <br />
+                                    Notification ID:{" "}
+                                    <span style={{ color: "#28a745" }}>
+                                      {formData.notification_report_id}
+                                    </span>
+                                  </>
+                                )}
                               </>
                             ) : (
                               "No Active Claim"
@@ -1477,11 +1490,13 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                         </div>
                         
                         {/* Claim Button with Login Redirect */}
-                        {formData.claimNumber && (
+                        {formData.notification_report_id && (
                           <ClaimRedirectButton
-                            claimNumber={formData.claimNumber}
+                            notificationReportId={formData.notification_report_id}
                             employerId={formData.employerId || ''}
                             buttonText="View Claim in MAC"
+                            openMode="new-tab"
+                            openEarlyNewTab={true}
                             onSuccess={(data) => {
                               console.log('Claim redirect successful:', data);
                               // You can add additional success handling here
