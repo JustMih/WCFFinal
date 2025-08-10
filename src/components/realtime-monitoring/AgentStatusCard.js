@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Typography,
@@ -18,8 +18,11 @@ import {
   PhoneDisabled,
   CallEnd,
 } from '@mui/icons-material';
+import { baseURL } from '../../config';
 
 const AgentStatusTable = ({ dashboardData }) => {
+  const [agents, setAgents] = useState(dashboardData?.agents || []);
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'online': return '#4caf50';
@@ -38,6 +41,66 @@ const AgentStatusTable = ({ dashboardData }) => {
     }
   };
 
+  useEffect(() => {
+    setAgents(dashboardData?.agents || []);
+  }, [dashboardData?.agents]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const fetchAgents = async () => {
+      try {
+        const response = await fetch(`${baseURL}/users/agents`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${localStorage.getItem('authToken')}`,
+          },
+        });
+
+        if (!response.ok) throw new Error('Failed to fetch agents');
+        const data = await response.json();
+        const fetchedAgents = Array.isArray(data?.agents) ? data.agents : [];
+
+        if (!isMounted) return;
+
+        // Merge fetched status with existing metrics (calls/avgTime) if available
+        setAgents((prevAgents) => {
+          const prevById = new Map((prevAgents || []).map((a) => [a.id, a]));
+          const merged = fetchedAgents.map((fa) => {
+            const prev = prevById.get(fa.id);
+            return {
+              id: fa.id,
+              name: fa.name || prev?.name || fa.email || 'Agent',
+              status: fa.status || prev?.status || 'offline',
+              calls: prev?.calls ?? 0,
+              avgTime: prev?.avgTime ?? '0m 0s',
+              satisfaction: prev?.satisfaction ?? 0,
+            };
+          });
+
+          // Include any agents only present in prev (e.g., demo data), keep them at the end
+          const fetchedIds = new Set(fetchedAgents.map((a) => a.id));
+          (prevAgents || []).forEach((p) => {
+            if (!fetchedIds.has(p.id)) merged.push(p);
+          });
+
+          return merged;
+        });
+      } catch (error) {
+        // On error, keep existing state
+        // console.error('Error fetching agents:', error);
+      }
+    };
+
+    fetchAgents();
+    const interval = setInterval(fetchAgents, 30000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
   return (
     <Box sx={{ p: 3 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
@@ -45,7 +108,7 @@ const AgentStatusTable = ({ dashboardData }) => {
           Agent Status
         </Typography>
         <Chip
-          label={`${dashboardData.agents.filter((a) => a.status === 'online').length} Online`}
+          label={`${(agents || []).filter((a) => a.status === 'online').length} Online`}
           color="success"
         />
       </Box>
@@ -62,7 +125,7 @@ const AgentStatusTable = ({ dashboardData }) => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {dashboardData.agents.map((agent) => (
+            {(agents || []).map((agent) => (
               <TableRow key={agent.id}>
                 <TableCell>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

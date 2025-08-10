@@ -12,7 +12,6 @@ import {
 import { TiFlowSwitch } from "react-icons/ti";
 import { GiVrHeadset } from "react-icons/gi";
 import { BsChatRightTextFill } from "react-icons/bs";
-import logo from "../../../asserts/images/logo.png";
 import "./callCenterSidebar.css";
 import { baseURL } from "../../../config";
 import { Collapse, List, ListItemButton, Badge } from "@mui/material";
@@ -55,10 +54,8 @@ export default function CallCenterSidebar({
     <aside
       className={`call-center-sidebar ${isSidebarOpen ? "open" : "closed"}`}
     >
-      {isSidebarOpen && (
-        <img src={logo} alt="Avatar" className="sidebar-logo" />
-      )}
-
+      {/* Logo moved to Navbar */}
+      
       <ul>
         <li>
           {(role === "admin" || role === "super-admin") && (
@@ -267,19 +264,6 @@ export default function CallCenterSidebar({
                   <RxDashboard className="menu-icon" />
                   {isSidebarOpen && (
                     <span className="menu-text">Agent Dashboard</span>
-                  )}
-                </div>
-              </NavLink>
-              <NavLink
-                to="/dashboard2"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <RxDashboard className="menu-icon" />
-                  {isSidebarOpen && (
-                    <span className="menu-text">Agent Dashboard2</span>
                   )}
                 </div>
               </NavLink>

@@ -6,6 +6,7 @@ import {
   Alert
 } from '@mui/material';
 import realTimeMonitoringService from '../../../services/realTimeMonitoringService';
+import { baseURL } from '../../../config';
 
 // Import components
 import DashboardHeader from '../../../components/realtime-monitoring/DashboardHeader';
@@ -15,36 +16,25 @@ import AgentStatusCard from '../../../components/realtime-monitoring/AgentStatus
 import RecentCallsCard from '../../../components/realtime-monitoring/RecentCallsCard';
 
 const RealTimeMonitoringDashboard = () => {
-  // Initial state
+  // Initial state (no dummy values)
   const [dashboardData, setDashboardData] = useState({
-    totalCalls: 1247,
-    inboundCalls: 832,
-    outboundCalls: 415,
-    activeCalls: 23,
-    waitingCalls: 8,
-    avgCallDuration: '4m 32s',
-    avgWaitTime: '1m 45s',
-    agentUtilization: 78,
-    customerSatisfaction: 92,
-    callVolume: [45, 52, 38, 67, 89, 76, 54, 43, 65, 78, 89, 67],
+    totalCalls: 0,
+    inboundCalls: 0,
+    outboundCalls: 0,
+    activeCalls: 0,
+    waitingCalls: 0,
+    avgCallDuration: '0m 0s',
+    avgWaitTime: '0m 0s',
+    agentUtilization: 0,
+    customerSatisfaction: 0,
+    callVolume: [],
     callTypes: {
-      inbound: 65,
-      outbound: 25,
-      internal: 10
+      inbound: 0,
+      outbound: 0,
+      internal: 0
     },
-    agents: [
-      { id: 1, name: 'Sarah Johnson', status: 'online', calls: 12, avgTime: '3m 45s', satisfaction: 95 },
-      { id: 2, name: 'Mike Chen', status: 'busy', calls: 8, avgTime: '4m 12s', satisfaction: 88 },
-      { id: 3, name: 'Emily Davis', status: 'online', calls: 15, avgTime: '3m 28s', satisfaction: 92 },
-      { id: 4, name: 'David Wilson', status: 'offline', calls: 0, avgTime: '0m 0s', satisfaction: 0 },
-      { id: 5, name: 'Lisa Brown', status: 'online', calls: 9, avgTime: '4m 56s', satisfaction: 89 }
-    ],
-    recentCalls: [
-      { id: 1, number: '+1 (555) 123-4567', duration: '3m 45s', agent: 'Sarah Johnson', status: 'completed', time: '2 min ago' },
-      { id: 2, number: '+1 (555) 234-5678', duration: '4m 12s', agent: 'Mike Chen', status: 'in-progress', time: '5 min ago' },
-      { id: 3, number: '+1 (555) 345-6789', duration: '2m 30s', agent: 'Emily Davis', status: 'completed', time: '8 min ago' },
-      { id: 4, number: '+1 (555) 456-7890', duration: '5m 18s', agent: 'Lisa Brown', status: 'completed', time: '12 min ago' }
-    ]
+    agents: [],
+    recentCalls: []
   });
 
   const [connectionStatus, setConnectionStatus] = useState({
@@ -80,9 +70,8 @@ const RealTimeMonitoringDashboard = () => {
       showNotification(data.message, data.severity || 'info');
     });
 
-    if (!realTimeMonitoringService.getConnectionStatus().isConnected) {
-      realTimeMonitoringService.simulateRealTimeData();
-    }
+    // Seed with API data on mount
+    fetchInitialData();
 
     const connectionInterval = setInterval(() => {
       setConnectionStatus(realTimeMonitoringService.getConnectionStatus());
@@ -97,6 +86,48 @@ const RealTimeMonitoringDashboard = () => {
       realTimeMonitoringService.disconnect();
     };
   }, []);
+
+  const fetchInitialData = async () => {
+    try {
+      // Calls counts and trends
+      const countsRes = await fetch(`${baseURL}/calls/calls-count`);
+      const counts = await countsRes.json();
+
+      // Live calls (for recent calls approximation)
+      const liveRes = await fetch(`${baseURL}/calls/live-calls`);
+      const live = await liveRes.json();
+
+      // Agents list
+      const agentsRes = await fetch(`${baseURL}/users/agents`, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('authToken')}`,
+        },
+      });
+      const agentsData = await agentsRes.json();
+
+      setDashboardData(prev => ({
+        ...prev,
+        callVolume: Array.isArray(counts?.monthlyCounts)
+          ? counts.monthlyCounts.map(c => c.count)
+          : prev.callVolume,
+        callTypes: prev.callTypes, // update if you have an endpoint providing breakdown
+        recentCalls: Array.isArray(live)
+          ? live.map((c) => ({
+              id: c.id || c.callId || `${c.caller}-${c.timestamp || Date.now()}`,
+              number: c.caller || c.phoneNumber || 'Unknown',
+              duration: c.duration || '0:00',
+              agent: c.agentName || `Agent ${c.agentId || ''}`,
+              status: c.status || 'in-progress',
+              time: c.startTime || c.timestamp || '',
+            }))
+          : prev.recentCalls,
+        agents: Array.isArray(agentsData?.agents) ? agentsData.agents : prev.agents,
+      }));
+    } catch (e) {
+      // Keep defaults on failure
+    }
+  };
 
   const handleCallEvent = (event) => {
     if (event.type === 'call_started') {
@@ -152,6 +183,7 @@ const RealTimeMonitoringDashboard = () => {
 
   const handleRefresh = () => {
     realTimeMonitoringService.requestDashboardData();
+    fetchInitialData();
     showNotification('Dashboard refreshed', 'success');
   };
 

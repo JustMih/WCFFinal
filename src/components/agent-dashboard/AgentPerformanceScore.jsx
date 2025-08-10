@@ -24,27 +24,17 @@ const AgentPerformanceScore = () => {
     unanswered: "4%",
     cs: "88%"
   };
- 
-  const renderMetricCard = (icon, title, individualValue, teamValue) => (
-    <div className="metric-card">
-      <div className="metric-icon">
-        {icon}
-      </div>
-      <div className="metric-info">
-        <h5>{title}</h5>
-        <div className="metric-values">
-          <div className="individual-value">
-            <span className="label">Your Score:</span>
-            <span className="value">{individualValue}</span>
-          </div>
-          <div className="team-value">
-            <span className="label">Team Average:</span>
-            <span className="value">{teamValue}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
+
+  // Rows for the table
+  const metrics = [
+    { key: 'aht', title: 'Average Handling Time (AHT)', icon: <MdOutlineTimer /> },
+    { key: 'frt', title: 'First Response Time (FRT)', icon: <MdOutlineSpeed /> },
+    { key: 'fcr', title: 'First Call Resolution (FCR)', icon: <MdOutlineCheckCircle /> },
+    { key: 'asa', title: 'Average Speed of Answer (ASA)', icon: <MdOutlineSpeed /> },
+    { key: 'avar', title: 'Call Abandonment Rate (AVAR)', icon: <MdOutlinePhoneMissed /> },
+    { key: 'unanswered', title: 'Unanswered Rate', icon: <MdOutlinePhoneMissed /> },
+    { key: 'cs', title: 'Customer Satisfaction (CS)', icon: <MdOutlineSentimentSatisfied /> }
+  ];
 
   return (
     <div className="performance-score">
@@ -52,55 +42,31 @@ const AgentPerformanceScore = () => {
         <h4>Agent Performance Score Card</h4>
         <span className="agent-name">Agent ID: {localStorage.getItem('extension')}</span>
       </div>
-      <div className="performance-metrics">
-        {renderMetricCard(
-          <MdOutlineTimer />,
-          "Average Handling Time (AHT)",
-          individualData.aht,
-          teamData.aht
-        )}
 
-        {renderMetricCard(
-          <MdOutlineSpeed />,
-          "First Response Time (FRT)",
-          individualData.frt,
-          teamData.frt
-        )}
-
-        {renderMetricCard(
-          <MdOutlineCheckCircle />,
-          "First Call Resolution (FCR)",
-          individualData.fcr,
-          teamData.fcr
-        )}
-
-        {renderMetricCard(
-          <MdOutlineSpeed />,
-          "Average Speed of Answer (ASA)",
-          individualData.asa,
-          teamData.asa
-        )}
-
-        {renderMetricCard(
-          <MdOutlinePhoneMissed />,
-          "Call Abandonment Rate (AVAR)",
-          individualData.avar,
-          teamData.avar
-        )}
-
-        {renderMetricCard(
-          <MdOutlinePhoneMissed />,
-          "Unanswered Rate",
-          individualData.unanswered,
-          teamData.unanswered
-        )}
-
-        {renderMetricCard(
-          <MdOutlineSentimentSatisfied />,
-          "Customer Satisfaction (CS)",
-          individualData.cs,
-          teamData.cs
-        )}
+      <div className="performance-table-container">
+        <table className="performance-table">
+          <thead>
+            <tr>
+              <th>Metric</th>
+              <th>Your Score</th>
+              <th>Team Average</th>
+            </tr>
+          </thead>
+          <tbody>
+            {metrics.map(({ key, title, icon }) => (
+              <tr key={key}>
+                <td>
+                  <div className="metric-cell">
+                    <div className="metric-icon">{icon}</div>
+                    <span className="metric-title">{title}</span>
+                  </div>
+                </td>
+                <td className="value-individual">{individualData[key]}</td>
+                <td className="value-team">{teamData[key]}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );

@@ -21,6 +21,7 @@ import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { clearDomainCredentials } from "../../utils/credentials";
+import logo from "../../asserts/images/logo.png";
 
 export default function Navbar({
   toggleTheme,
@@ -434,6 +435,9 @@ export default function Navbar({
 
   return (
     <nav className="navbar">
+      <div className={`navbar-sidebar-brand ${isSidebarOpen ? "open" : "closed"}`}>
+        <img src={logo} alt="Logo" className="navbar-logo" />
+      </div>
       <div className={`navbar-left ${isSidebarOpen ? "open" : "closed"}`}>
         {isSidebarOpen ? (
           <RiMenuFoldLine className="menu-icon" onClick={toggleSidebar} />
