@@ -22,6 +22,7 @@ import ChatIcon from '@mui/icons-material/Chat';
 import Download from '@mui/icons-material/Download';
 import AttachFile from '@mui/icons-material/AttachFile';
 import { baseURL } from "../config";
+import { PermissionManager } from "../utils/permissions";
 
 const getCreatorName = (selectedTicket) =>
   selectedTicket.created_by ||
@@ -151,7 +152,8 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
       assigned_to_role: "Creator",
       action: "Created",
       created_at: selectedTicket.created_at,
-      assigned_to_id: "creator"
+      assigned_to_id: "creator",
+      reason: selectedTicket.description || undefined
     }
   ];
 
@@ -159,6 +161,55 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
   const isWithCoordinator = selectedTicket.status === "Open" && 
     ["Complaint", "Compliment", "Suggestion"].includes(selectedTicket.category);
 
+  // Always include assignment history if available (preserve ALL fields including reason)
+  if (Array.isArray(assignmentHistory) && assignmentHistory.length > 0) {
+    // Process assignment history to attribute reasons to the actor who performed the action (previous step)
+    const processedHistory = [];
+    
+    for (let i = 0; i < assignmentHistory.length; i++) {
+      const current = assignmentHistory[i];
+      const next = assignmentHistory[i + 1];
+
+      // Move current.reason to the previous step (actor)
+      if (current.reason) {
+        // Determine the previous step record to attach the reason to
+        if (processedHistory.length > 0) {
+          const prev = processedHistory[processedHistory.length - 1];
+          prev.reason = prev.reason ? prev.reason : current.reason;
+        } else {
+          // First assignment: attach to creator step
+          if (!steps[0].reason) {
+            steps[0].reason = current.reason;
+          }
+        }
+      }
+      
+      // Escalation handling is covered by generic shift above. Keep the step but without duplicating the reason
+      const currentWithoutReason = { ...current };
+      delete currentWithoutReason.reason;
+
+      // Consolidate Assigned+Closed by same person
+      if (current.action === "Assigned" && 
+          next && 
+          next.action === "Closed" && 
+          current.assigned_to_id === next.assigned_to_id) {
+        processedHistory.push({
+          ...currentWithoutReason,
+          action: "Closed",
+          closed_at: next.created_at,
+          isConsolidated: true
+        });
+        i++; // Skip the next step since consolidated
+      } else {
+        processedHistory.push(currentWithoutReason);
+      }
+    }
+
+    // Use processedHistory directly (reasons already shifted to previous actors)
+    steps.push(...processedHistory);
+  }
+
+  // Add coordinator step if applicable (do not block assignment history)
   if (isWithCoordinator) {
     // Add coordinator step for open complaints/compliments/suggestions
     steps.push({
@@ -168,41 +219,10 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
       created_at: selectedTicket.created_at,
       assigned_to_id: "coordinator"
     });
-  } else if (Array.isArray(assignmentHistory) && assignmentHistory.length > 0) {
-    // Process assignment history to consolidate steps
-    const processedHistory = [];
-    
-    for (let i = 0; i < assignmentHistory.length; i++) {
-      const current = assignmentHistory[i];
-      const next = assignmentHistory[i + 1];
-      
-      // Check if current step is "Assigned" and next step is "Closed" by the same person
-      if (current.action === "Assigned" && 
-          next && 
-          next.action === "Closed" && 
-          current.assigned_to_id === next.assigned_to_id) {
-        // Consolidate into one step showing closure time
-        processedHistory.push({
-          ...current,
-          action: "Closed",
-          closed_at: next.created_at,
-          isConsolidated: true
-        });
-        i++; // Skip the next step since we consolidated it
-      } else {
-        processedHistory.push(current);
-      }
-    }
-    
-    // Use assignmentHistory as-is, do not override assigned_to_role unless missing
-    steps.push(...processedHistory.map(a => ({
-      ...a,
-      assigned_to_role: a.assigned_to_role ? a.assigned_to_role : "Unknown"
-    })));
-  } else if (
-    selectedTicket.assigned_to_id &&
-    selectedTicket.assigned_to_id !== "creator"
-  ) {
+  } else if ((!assignmentHistory || assignmentHistory.length === 0) &&
+             selectedTicket.assigned_to_id &&
+             selectedTicket.assigned_to_id !== "creator") {
+    // Fallback when no assignment history exists: show current assignee
     steps.push({
       assigned_to_name: (assignedUser && assignedUser.name) ||
         (selectedTicket.assignee && selectedTicket.assignee.name) ||
@@ -217,43 +237,48 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
     });
   }
 
-  // Determine current step index
+  // Determine current step index for descending order
   let currentAssigneeIdx = 0;
   if (isWithCoordinator) {
-    // If ticket is with coordinator, the coordinator step is current
-    currentAssigneeIdx = 1; // Index 1 is the coordinator step
+    // If ticket is with coordinator, the coordinator step is current (will be index 0 in reversed array)
+    currentAssigneeIdx = 0;
   } else if (
     selectedTicket.status === "Open" &&
     (!selectedTicket.assigned_to_id || steps.length === 1)
   ) {
-    currentAssigneeIdx = 0;
+    currentAssigneeIdx = steps.length - 1; // Last step in original array (first in reversed)
   } else {
     const idx = steps.findIndex(
       a => a.assigned_to_id && selectedTicket.assigned_to_id && a.assigned_to_id === selectedTicket.assigned_to_id
     );
-    currentAssigneeIdx = idx !== -1 ? idx : steps.length - 1;
+    currentAssigneeIdx = idx !== -1 ? (steps.length - 1 - idx) : 0; // Convert to reversed index
   }
+
+  // Create reversed steps array for display
+  const reversedSteps = [...steps].reverse();
+  
+  // (debug removed)
 
   return (
     <Box>
-      {steps.map((a, idx) => {
-        // Determine if this is the last step and ticket is closed
-        const isLastStep = idx === steps.length - 1;
-        const isClosed = selectedTicket.status === "Closed" && isLastStep;
-        const isCurrentWithCoordinator = isWithCoordinator && idx === 1; // Coordinator step
+      {reversedSteps.map((a, idx) => {
+        // Determine if this is the first step (most recent) and ticket is closed
+        const isFirstStep = idx === 0;
+        const isClosed = selectedTicket.status === "Closed" && isFirstStep;
+        const isCurrentWithCoordinator = isWithCoordinator && idx === 0; // Coordinator step is first in reversed
 
-        // Set color: green for completed, blue for current, gray for pending, green for closed last step
+        // Set color: green for completed, blue for current, gray for pending, green for closed first step
         let color;
         
-        // Check if next step is escalated
-        const nextStep = steps[idx + 1];
-        const isNextEscalated = nextStep && (nextStep.action === "Escalated" || nextStep.assigned_to_role === "Escalated");
+        // Check if previous step (in reversed order) is escalated
+        const previousStep = reversedSteps[idx - 1];
+        const isPreviousEscalated = previousStep && (previousStep.action === "Escalated" || previousStep.assigned_to_role === "Escalated");
         
         // Check if current step is escalated
         const isCurrentEscalated = a.action === "Escalated" || a.assigned_to_role === "Escalated";
         
         // Check if this step was assigned and then forwarded to someone else (not escalated)
-        const wasAssignedAndForwarded = a.action === "Assigned" && nextStep && nextStep.action !== "Escalated";
+        const wasAssignedAndForwarded = a.action === "Assigned" && previousStep && previousStep.action !== "Escalated";
         
         // Check if ticket is closed
         const isTicketClosed = selectedTicket.status === "Closed" || selectedTicket.status === "Resolved";
@@ -263,16 +288,16 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
           color = "green"; // Green for all steps when ticket is closed or consolidated closed steps
         } else if (isCurrentEscalated) {
           // Check if this escalated step was followed by an assignment
-          const nextStep = steps[idx + 1];
-          if (nextStep && nextStep.action === "Assigned") {
+          const previousStep = reversedSteps[idx - 1];
+          if (previousStep && previousStep.action === "Assigned") {
             color = "green"; // Green if escalated but then assigned to next user
-          } else if (nextStep && (nextStep.action === "Escalated" || nextStep.assigned_to_role === "Escalated")) {
+          } else if (previousStep && (previousStep.action === "Escalated" || previousStep.assigned_to_role === "Escalated")) {
             color = "red"; // Red if escalated again to another user
           } else {
             color = "gray"; // Gray for escalated (pending/not handled)
           }
-        } else if (isNextEscalated) {
-          color = "red"; // Red for previous step when next is escalated
+        } else if (isPreviousEscalated) {
+          color = "red"; // Red for next step when previous is escalated
         } else if (wasAssignedAndForwarded) {
           color = "green"; // Green for assigned step that was forwarded to another user
         } else if (a.action === "Assigned") {
@@ -280,11 +305,11 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
         } else if (a.action === "Currently with" || a.assigned_to_role === "Coordinator") {
           color = "gray"; // Gray for currently with and coordinator
         } else if (idx === currentAssigneeIdx && selectedTicket.status !== "Closed") {
-          color = "gray"; // Gray for current active step
-        } else if (idx < currentAssigneeIdx || selectedTicket.status === "Closed") {
+          color = "blue"; // Blue for current active step
+        } else if (idx > currentAssigneeIdx || selectedTicket.status === "Closed") {
           color = "green"; // Green for completed steps or when ticket is closed
         } else {
-          color = "gray"; // Gray for pending or last step when open
+          color = "gray"; // Gray for pending or future steps
         }
 
         // Set action label
@@ -335,14 +360,14 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
                     } else if (selectedTicket.status === "Closed" && selectedTicket.date_of_resolution) {
                       // If ticket is closed, use the resolution date as end time
                       endTime = new Date(selectedTicket.date_of_resolution);
-                    } else if (idx === steps.length - 1) {
-                      // Last assignment - use current time
+                    } else if (idx === 0) {
+                      // First step (most recent) - use current time
                       endTime = new Date();
                     } else {
-                      // Find the next assignment time
-                      const nextAssignment = steps[idx + 1];
-                      if (nextAssignment && nextAssignment.created_at) {
-                        endTime = new Date(nextAssignment.created_at);
+                      // Find the previous assignment time (in reversed order)
+                      const previousAssignment = reversedSteps[idx - 1];
+                      if (previousAssignment && previousAssignment.created_at) {
+                        endTime = new Date(previousAssignment.created_at);
                       } else {
                         endTime = new Date();
                       }
@@ -507,12 +532,60 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
                     (Closed by: {closedBy})
                   </span>
                 )}
-                {isCurrentWithCoordinator && (
+                {idx === currentAssigneeIdx && selectedTicket.status !== "Closed" && (
                   <span style={{ color: "#1976d2", marginLeft: 8, fontWeight: "bold" }}>
                     (Current)
                   </span>
                 )}
               </Typography>
+              
+              {/* Justification */}
+              {a.reason && (
+                <Box sx={{ mt: 1, p: 1.25, bgcolor: '#f8f9fa', borderRadius: 1, border: '1px solid #e9ecef' }}>
+                  <Typography variant="body2" sx={{ color: '#444', fontStyle: 'italic' }}>
+                    <strong>Justification:</strong> {a.reason}
+                  </Typography>
+                </Box>
+              )}
+              
+              {/* Additional workflow details if available */}
+              {(a.workflow_step || a.coordinator_notes || a.dg_notes) && (
+                <Box sx={{ mt: 1, p: 1.5, bgcolor: '#fff3cd', borderRadius: 1, border: '1px solid #ffeaa7' }}>
+                  {a.workflow_step && (
+                    <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 'bold', color: '#856404' }}>
+                      Workflow Step: {a.workflow_step}
+                    </Typography>
+                  )}
+                  {a.coordinator_notes && (
+                    <Typography variant="body2" sx={{ mb: 0.5, color: '#856404' }}>
+                      <strong>Reviewer Notes:</strong> {a.coordinator_notes}
+                    </Typography>
+                  )}
+                  {a.dg_notes && (
+                    <Typography variant="body2" sx={{ color: '#856404' }}>
+                      <strong>DG Notes:</strong> {a.dg_notes}
+                    </Typography>
+                  )}
+                </Box>
+              )}
+              
+              {/* Resolution details for closed tickets */}
+              {selectedTicket.status === "Closed" && selectedTicket.resolution_details && idx === 0 && (
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    mt: 1, 
+                    p: 1.5, 
+                    bgcolor: '#d4edda', 
+                    borderRadius: 1, 
+                    border: '1px solid #c3e6cb',
+                    color: '#155724'
+                  }}
+                >
+                  <strong>Resolution:</strong> {selectedTicket.resolution_details}
+                </Typography>
+              )}
+              
               {/* Attachment/Evidence link if present, else show 'No attachment' */}
               {a.attachment_path ? (
                 <Typography
@@ -735,10 +808,15 @@ export default function TicketDetailsModal({
   setSnackbar = () => {},
   setConvertCategory = () => {},
   setForwardUnit = () => {},
+  userUnitSection = null, // Add this prop for permission checking
 }) {
   const [isFlowModalOpen, setIsFlowModalOpen] = useState(false);
   const userRole = localStorage.getItem("role");
   const userId = localStorage.getItem("userId");
+  
+  // Initialize PermissionManager for permission checking
+  const permissionManager = new PermissionManager(userRole, userUnitSection);
+  
   const [isAttendDialogOpen, setIsAttendDialogOpen] = useState(false);
   const [resolutionDetails, setResolutionDetails] = useState("");
   const [attachment, setAttachment] = useState(null);
@@ -804,6 +882,11 @@ export default function TicketDetailsModal({
     selectedTicket.assigned_to_id &&
     String(selectedTicket.assigned_to_id) === String(userId) &&
     selectedTicket.status !== "Closed";
+
+  // Debug close permission for coordinators
+  if (userRole === 'coordinator' && selectedTicket?.category === 'Complaint') {
+    permissionManager.debugClosePermission(selectedTicket);
+  }
 
   const handleAttend = async () => {
     try {
@@ -1179,14 +1262,36 @@ export default function TicketDetailsModal({
         },
         body: JSON.stringify({ complaintType: rating, userId })
       });
-      const data = await response.json();
+      
+      // Get the raw response text first
+      const responseText = await response.text();
+      
       if (response.ok) {
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error('🔍 JSON parse error:', parseError);
+          console.error('🔍 Response text that failed to parse:', responseText);
+          throw new Error(`Invalid JSON response: ${responseText.substring(0, 200)}`);
+        }
+        
         setSnackbar({ open: true, message: `Rated as ${rating}`, severity: "success" });
         // Don't refresh tickets here - only refresh after forwarding
       } else {
-        setSnackbar({ open: true, message: data.message || "Failed to rate ticket", severity: "error" });
+        let errorData;
+        try {
+          errorData = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error('🔍 Error response JSON parse error:', parseError);
+          console.error('🔍 Error response text:', responseText);
+          throw new Error(`Server error (${response.status}): ${responseText.substring(0, 200)}`);
+        }
+        
+        setSnackbar({ open: true, message: errorData.message || "Failed to rate ticket", severity: "error" });
       }
     } catch (error) {
+      console.error('🔍 Error caught:', error);
       setSnackbar({ open: true, message: error.message, severity: "error" });
     }
   };
@@ -1262,11 +1367,17 @@ export default function TicketDetailsModal({
         });
         // Clear selected rating after successful update
         setSelectedRating("");
+        // Hide modal after successful forward/convert
+        onClose && onClose();
       } else {
         setSnackbar({ open: true, message: data.message || "Failed to update ticket", severity: "error" });
+        // Hide modal even on failure per requirement
+        onClose && onClose();
       }
     } catch (error) {
       setSnackbar({ open: true, message: error.message, severity: "error" });
+      // Hide modal even on error per requirement
+      onClose && onClose();
     }
   };
 
@@ -1413,7 +1524,7 @@ export default function TicketDetailsModal({
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            width: { xs: "90%", sm: 600 },
+            width: { xs: "90%", sm: 800 },
             maxHeight: "85vh",
             overflowY: "auto",
             bgcolor: "background.paper",
@@ -1737,13 +1848,17 @@ export default function TicketDetailsModal({
                     )}
 
                     {/* Show Forward to DG button for Major complaints that have been returned OR reversed tickets with coordinator */}
-                    {(selectedTicket.category === "Complaint" && 
+                    {((selectedTicket.category === "Complaint" && 
                      selectedTicket.complaint_type === "Major" && 
                      selectedTicket.status === "Returned") ||
                     (selectedTicket.status === "Reversed" && 
                      userRole === "coordinator" && 
                      selectedTicket.assigned_to_id &&
-                     String(selectedTicket.assigned_to_id) === String(userId)) ? (
+                     String(selectedTicket.assigned_to_id) === String(userId))) && 
+                     (permissionManager.canCloseAtCurrentStep(selectedTicket) ||
+                      (userRole === 'coordinator' && 
+                       (selectedTicket.assigned_to_id === userId || 
+                        forwardUnit[selectedTicket.id]))) ? (
                       <>
                         <Button
                           variant="contained"
@@ -1752,13 +1867,21 @@ export default function TicketDetailsModal({
                         >
                           Forward to Director General
                         </Button>
-                        <Button
-                          variant="contained"
-                          color="success"
-                          onClick={handleCoordinatorClose}
-                        >
-                          Close
-                        </Button>
+                        <Box sx={{ display: "flex", gap: 1 }}>
+                          <Button
+                            variant="contained"
+                            color="success"
+                            onClick={handleCoordinatorClose}
+                          >
+                            Close ticket
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            onClick={onClose}
+                          >
+                            Cancel
+                          </Button>
+                        </Box>
                       </>
                     ) : null}
 
@@ -1816,13 +1939,27 @@ export default function TicketDetailsModal({
                         </Box>
 
                         {/* Close ticket button - only show if not returned and not already rated */}
-                        <Button
-                          variant="contained"
-                          color="success"
-                          onClick={handleCoordinatorClose}
-                        >
-                          Close ticket
-                        </Button>
+                        {(permissionManager.canCloseAtCurrentStep(selectedTicket) || 
+                          (userRole === 'coordinator' && 
+                           (selectedTicket.assigned_to_id === userId || 
+                            selectedTicket.responsible_unit_name === "Public Relation Unit" ||
+                            forwardUnit[selectedTicket.id]))) && (
+                          <Box sx={{ display: "flex", gap: 1 }}>
+                            <Button
+                              variant="contained"
+                              color="success"
+                              onClick={handleCoordinatorClose}
+                            >
+                              Close ticket
+                            </Button>
+                            <Button
+                              variant="outlined"
+                              onClick={onClose}
+                            >
+                              Cancel
+                            </Button>
+                          </Box>
+                        )}
                       </>
                     )}
 
@@ -1830,14 +1967,26 @@ export default function TicketDetailsModal({
                     {(selectedTicket.status === "Returned" || selectedTicket.complaint_type) && 
                      !(selectedTicket.category === "Complaint" && 
                        selectedTicket.complaint_type === "Major" && 
-                       selectedTicket.status === "Returned") && (
-                      <Button
-                        variant="contained"
-                        color="success"
-                        onClick={handleCoordinatorClose}
-                      >
-                        Close ticket
-                      </Button>
+                       selectedTicket.status === "Returned") && 
+                     (permissionManager.canCloseAtCurrentStep(selectedTicket) ||
+                      (userRole === 'coordinator' && 
+                       (selectedTicket.assigned_to_id === userId || 
+                        forwardUnit[selectedTicket.id]))) && (
+                      <Box sx={{ display: "flex", gap: 1 }}>
+                        <Button
+                          variant="contained"
+                          color="success"
+                          onClick={handleCoordinatorClose}
+                        >
+                          Close ticket
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          onClick={onClose}
+                        >
+                          Cancel
+                        </Button>
+                      </Box>
                     )}
                   </Box>
                 )}
@@ -1846,7 +1995,7 @@ export default function TicketDetailsModal({
                 {userRole === "director-general" && 
                  selectedTicket?.assigned_to_id === userId && (
                   <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2, justifyContent: "flex-end" }}>
-                    {/* Forward (Approve) to Coordinator */}
+                    {/* F orward (Approve) to Coordinator */}
                     <Button
                       variant="contained"
                       color="success"
@@ -1870,7 +2019,7 @@ export default function TicketDetailsModal({
                       variant="outlined"
                       onClick={onClose}
                     >
-                      Close
+                      Cancel
                     </Button>
                   </Box>
                 )}
@@ -1923,9 +2072,10 @@ export default function TicketDetailsModal({
                     Reverse with Recommendation
                   </Button>
                 )}
-                {userRole !== "director-general" && (
+                {/* General Cancel button for all users except coordinators */}
+                {userRole !== "coordinator" && (
                   <Button variant="outlined" onClick={onClose}>
-                    Close
+                    Cancel
                   </Button>
                 )}
               </Box>
@@ -2001,9 +2151,7 @@ export default function TicketDetailsModal({
               >
                 <option value="">Select Resolution Type</option>
                 <option value="Resolved">Resolved</option>
-                <option value="Not Applicable">Not Applicable</option>
                 <option value="Duplicate">Duplicate</option>
-                {/* <option value="Referred">Referred</option> */}
               </select>
             </Box>
 
@@ -2087,9 +2235,7 @@ export default function TicketDetailsModal({
               >
                 <option value="">Select Resolution Type</option>
                 <option value="Resolved">Resolved</option>
-                <option value="Not Applicable">Not Applicable</option>
                 <option value="Duplicate">Duplicate</option>
-                <option value="Referred">Referred</option>
               </select>
             </Box>
 
@@ -2310,9 +2456,7 @@ export default function TicketDetailsModal({
               >
                 <option value="">Select Resolution Type</option>
                 <option value="Resolved">Resolved</option>
-                <option value="Not Applicable">Not Applicable</option>
                 <option value="Duplicate">Duplicate</option>
-                {/* <option value="Referred">Referred</option> */}
               </select>
             </Box>
 
@@ -2551,10 +2695,8 @@ export default function TicketDetailsModal({
                 onChange={(e) => setComplaintSeverity(e.target.value)}
               >
                 <option value="">Select Resolution Type</option>
-                <option value="minor">Minor</option>
-                <option value="moderate">Moderate</option>
-                <option value="serious">Serious</option>
-                <option value="critical">Critical</option>
+                <option value="Resolved">Resolved</option>
+                <option value="Duplicate">Duplicate</option>
               </select>
             </Box>
 

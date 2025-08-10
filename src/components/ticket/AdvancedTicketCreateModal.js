@@ -1177,7 +1177,6 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
           type: "success",
           message: data.message || "Ticket created successfully"
         });
-        setShowModal(false);
         
         // Reset form data completely
         setFormData({
@@ -1210,8 +1209,10 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
         // Reset search state
         resetSearch();
         
-        // Close the modal
-        onClose();
+        // Close the modal after a short delay to show success message
+        setTimeout(() => {
+          onClose();
+        }, 2000);
       } else {
         setModal({
           isOpen: true,

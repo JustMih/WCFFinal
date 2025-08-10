@@ -5,9 +5,10 @@ import { FormControl, InputLabel, Select } from '@mui/material';
 import { Avatar, Paper } from "@mui/material";
 
 // React Icons
-import { FaEye } from "react-icons/fa";
+import { FaEye, FaPlus } from "react-icons/fa";
 import { FiSettings } from "react-icons/fi";
 import { MdOutlineSupportAgent, MdImportExport } from "react-icons/md";
+import { FaSearch } from "react-icons/fa";
 
 // MUI Components
 import {
@@ -22,13 +23,16 @@ import {
   Tooltip,
   Typography,
   TextField,
-  MenuItem
+  MenuItem,
+  CircularProgress
 } from "@mui/material";
+import ChatIcon from '@mui/icons-material/Chat';
 
 // Custom Components
 // import ColumnSelector from "../../../../components/colums-select/ColumnSelector";
 import TicketFilters from "../../../../components/ticket/TicketFilters";
-import TicketDetailsModal from "../../../../components/TicketDetailsModal";
+import TicketDetailsModal from "../../../../components/ticket/TicketDetailsModal";
+import AdvancedTicketCreateModal from "../../../../components/ticket/AdvancedTicketCreateModal";
 import Pagination from "../../../../components/Pagination";
 import TableControls from "../../../../components/TableControls";
 
@@ -98,6 +102,16 @@ export default function FocalPersonDashboard() {
   const [assignLoading, setAssignLoading] = useState(false);
   const [selectedAction, setSelectedAction] = useState("");
   const [assignmentHistory, setAssignmentHistory] = useState([]);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+
+  // State for AdvancedTicketCreateModal
+  const [showAdvancedTicketModal, setShowAdvancedTicketModal] = useState(false);
+  const [ticketPhoneNumber, setTicketPhoneNumber] = useState("");
+  const [phoneSearch, setPhoneSearch] = useState("");
+  const [existingTicketsModal, setExistingTicketsModal] = useState(false);
+  const [newTicketConfirmationModal, setNewTicketConfirmationModal] = useState(false);
+  const [foundTickets, setFoundTickets] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Dashboard Stats
   const [newTickets, setNewTickets] = useState({
@@ -337,6 +351,12 @@ export default function FocalPersonDashboard() {
     } catch (e) {
       setAssignmentHistory([]);
     }
+    
+    // Also trigger phone search to populate ticket history (like in agent dashboard)
+    const searchValue = ticket.phone_number || ticket.nida_number;
+    if (searchValue) {
+      handlePhoneSearch(searchValue, ticket);
+    }
   };
 
   const closeModal = () => {
@@ -515,9 +535,87 @@ export default function FocalPersonDashboard() {
     return "Dashboard";
   };
 
+  const handlePhoneSearch = async (searchValue, selectedTicketFromTable = null) => {
+    try {
+      setIsLoading(true);
+      // Search by phone number (this endpoint also searches by NIDA number)
+      const response = await fetch(
+        `${baseURL}/ticket/search-by-phone/${searchValue}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`
+          }
+        }
+      );
+      const data = await response.json();
+      
+      if (data.found) {
+        setFoundTickets(data.tickets);
+        if (selectedTicketFromTable) {
+          setSelectedTicket(selectedTicketFromTable);
+          setShowDetailsModal(true);
+        } else {
+          setExistingTicketsModal(true);
+        }
+      } else {
+        setNewTicketConfirmationModal(true);
+      }
+    } catch (error) {
+      console.error("Error searching tickets:", error);
+      setSnackbar({
+        open: true,
+        message: "Error searching tickets",
+        severity: "error"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleNewTicketConfirmation = (confirmed) => {
+    if (confirmed) {
+      // Set the phone number for the AdvancedTicketCreateModal
+      setTicketPhoneNumber(phoneSearch);
+      setShowAdvancedTicketModal(true);
+    }
+    setNewTicketConfirmationModal(false);
+  };
+
   return (
     <div className="focal-person-dashboard-container">
       <h2 className="title">{getDashboardTitle()}</h2>
+
+      {/* Full-width Phone/NIDA Search Section */}
+      <div
+        style={{
+          display: "flex",
+          gap: "10px",
+          marginBottom: "1rem",
+          alignItems: "center",
+        }}
+      >
+        <input
+          className="crm-search-input"
+          type="text"
+          placeholder="Search by phone or NIDA..."
+          value={phoneSearch}
+          onChange={(e) => setPhoneSearch(e.target.value)}
+          onKeyPress={(e) => {
+            if (e.key === "Enter") handlePhoneSearch(phoneSearch);
+          }}
+          style={{ flex: 1 }}
+        />
+        <button
+          className="search-btn"
+          onClick={() => handlePhoneSearch(phoneSearch)}
+          aria-label="Search"
+        >
+          <FaSearch />
+        </button>
+        <button className="add-user-button" onClick={() => setShowAdvancedTicketModal(true)}>
+          <FaPlus /> New Ticket
+        </button>
+      </div>
 
       {/* Cards */}
       <div className="crm-dashboard">
@@ -689,8 +787,8 @@ export default function FocalPersonDashboard() {
                         <button
                           className="view-ticket-details-btn"
                             onClick={() => {
-                              setSelectedTicket(ticket);
-                              setIsModalOpen(true);
+                              setExistingTicketsModal(false);
+                              openModal(ticket);
                             }}
                         >
                           <FaEye />
@@ -726,8 +824,8 @@ export default function FocalPersonDashboard() {
 
       {/* Ticket Details Modal */}
       <TicketDetailsModal
-        open={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        open={showDetailsModal}
+        onClose={() => setShowDetailsModal(false)}
         selectedTicket={selectedTicket}
         assignmentHistory={assignmentHistory}
         setSnackbar={setSnackbar}
@@ -753,6 +851,174 @@ export default function FocalPersonDashboard() {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* Advanced Ticket Create Modal */}
+      <AdvancedTicketCreateModal
+        open={showAdvancedTicketModal}
+        onClose={() => setShowAdvancedTicketModal(false)}
+        initialPhoneNumber={ticketPhoneNumber}
+        functionData={[]}
+      />
+
+      {/* Existing Tickets Modal */}
+      <Modal
+        open={existingTicketsModal}
+        onClose={() => setExistingTicketsModal(false)}
+      >
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: { xs: "90%", sm: 600 },
+            maxHeight: "80vh",
+            overflowY: "auto",
+            bgcolor: "background.paper",
+            boxShadow: 24,
+            borderRadius: 2,
+            p: 3,
+          }}
+        >
+          <Typography variant="h6" component="h2" gutterBottom>
+            Existing Tickets for {phoneSearch}
+          </Typography>
+          <Divider sx={{ mb: 2 }} />
+
+          {foundTickets.map((ticket) => (
+            <Box
+              key={ticket.id}
+              sx={{ mb: 2, p: 2, border: "1px solid #eee", borderRadius: 1 }}
+            >
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="subtitle1">
+                  Ticket ID: {ticket.ticket_id}
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography
+                    sx={{
+                      px: 1.5,
+                      py: 0.5,
+                      borderRadius: '12px',
+                      color: 'white',
+                      background:
+                        ticket.status === 'Closed'
+                          ? '#757575'
+                          : ticket.status === 'Open'
+                          ? '#2e7d32'
+                          : '#1976d2',
+                      fontSize: '0.75rem',
+                      fontWeight: 500
+                    }}
+                  >
+                    {ticket.status || "Escalated"}
+                  </Typography>
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // handleOpenJustificationHistory(ticket);
+                    }}
+                    sx={{
+                      color: '#1976d2',
+                      '&:hover': {
+                        backgroundColor: 'rgba(25, 118, 210, 0.1)'
+                      }
+                    }}
+                    title="View Recommendation History"
+                  >
+                    <ChatIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              </Box>
+              <Typography>
+                Created: {new Date(ticket.created_at).toLocaleDateString()}
+              </Typography>
+              <Button
+                variant="contained"
+                size="small"
+                onClick={() => {
+                  setExistingTicketsModal(false);
+                  setSelectedTicket(ticket);
+                  setIsModalOpen(true);
+                }}
+                sx={{ mt: 1 }}
+              >
+                View Details
+              </Button>
+            </Box>
+          ))}
+
+          <Box
+            sx={{ mt: 2, display: "flex", justifyContent: "flex-end", gap: 1 }}
+          >
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => {
+                setExistingTicketsModal(false);
+                setNewTicketConfirmationModal(true);
+              }}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <CircularProgress size={24} color="inherit" />
+              ) : (
+                "Create Ticket"
+              )}
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => setExistingTicketsModal(false)}
+            >
+              Close
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
+
+      {/* New Ticket Confirmation Modal */}
+      <Modal
+        open={newTicketConfirmationModal}
+        onClose={() => setNewTicketConfirmationModal(false)}
+      >
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: { xs: "90%", sm: 400 },
+            bgcolor: "background.paper",
+            boxShadow: 24,
+            borderRadius: 2,
+            p: 3,
+          }}
+        >
+          <Typography variant="h6" component="h2" gutterBottom>
+            No Existing Tickets Found
+          </Typography>
+          <Typography sx={{ mb: 2 }}>
+            Would you like to create a new ticket for {phoneSearch}?
+          </Typography>
+          <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => handleNewTicketConfirmation(true)}
+            >
+              Yes, Create Ticket
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => handleNewTicketConfirmation(false)}
+            >
+              No, Cancel
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
+
     </div>
   );
 }

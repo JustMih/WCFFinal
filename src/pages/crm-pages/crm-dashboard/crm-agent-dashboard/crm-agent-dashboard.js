@@ -37,6 +37,7 @@ import "./crm-agent-dashboard.css";
 import TicketActions from "../../../../components/ticket/TicketActions";
 import TicketFilters from "../../../../components/ticket/TicketFilters";
 import TicketDetailsModal from "../../../../components/ticket/TicketDetailsModal";
+import AdvancedTicketCreateModal from "../../../../components/ticket/AdvancedTicketCreateModal";
 import Pagination from "../../../../components/Pagination";
 import TableControls from "../../../../components/TableControls";
 import EnhancedSearchForm from "../../../../components/search/EnhancedSearchForm";
@@ -137,6 +138,10 @@ const AgentCRM = () => {
 
   // State for ticket creation modal
   const [showModal, setShowModal] = useState(false);
+
+  // State for AdvancedTicketCreateModal
+  const [showAdvancedTicketModal, setShowAdvancedTicketModal] = useState(false);
+  const [ticketPhoneNumber, setTicketPhoneNumber] = useState("");
 
   // State for ticket details modal
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -1191,8 +1196,8 @@ const AgentCRM = () => {
     selectedTicketFromTable = null
   ) => {
     try {
-      // Try phone number search first
-      let response = await fetch(
+      // Search by phone number (this endpoint also searches by NIDA number)
+      const response = await fetch(
         `${baseURL}/ticket/search-by-phone/${searchValue}`,
         {
           headers: {
@@ -1200,27 +1205,8 @@ const AgentCRM = () => {
           }
         }
       );
-      let data = await response.json();
-      if (data.found) {
-        setFoundTickets(data.tickets);
-        if (selectedTicketFromTable) {
-          setSelectedTicket(selectedTicketFromTable);
-          setShowDetailsModal(true);
-        } else {
-          setExistingTicketsModal(true);
-        }
-        return;
-      }
-      // If not found, try NIDA number search (if you have such an endpoint)
-      response = await fetch(
-        `${baseURL}/ticket/search-by-nida/${searchValue}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
-      data = await response.json();
+      const data = await response.json();
+      
       if (data.found) {
         setFoundTickets(data.tickets);
         if (selectedTicketFromTable) {
@@ -1251,29 +1237,9 @@ const AgentCRM = () => {
   // Update: Pre-fill form with previous ticket details if available
   const handleNewTicketConfirmation = (confirmed) => {
     if (confirmed) {
-      // If there are previous tickets, use the most recent one to pre-fill
-      if (foundTickets && foundTickets.length > 0) {
-        const prev = foundTickets[0]; // most recent ticket
-        setFormData({
-          subject: prev.subject || "",
-          description: prev.description || "",
-          category: prev.category || "",
-          priority: prev.priority || "",
-          // Reset representative fields
-          requesterName: prev.requesterName || "",
-          requesterPhoneNumber: prev.requesterPhoneNumber || "",
-          requesterEmail: prev.requesterEmail || "",
-          requesterAddress: prev.requesterAddress || "",
-          relationshipToEmployee: prev.relationshipToEmployee || ""
-        });
-      } else {
-        // fallback: just pre-fill phone number
-        setFormData((prev) => ({
-          ...prev,
-          phoneNumber: phoneSearch
-        }));
-      }
-      setShowModal(true);
+      // Set the phone number for the AdvancedTicketCreateModal
+      setTicketPhoneNumber(phoneSearch);
+      setShowAdvancedTicketModal(true);
     }
     setNewTicketConfirmationModal(false);
   };
@@ -2526,7 +2492,7 @@ const AgentCRM = () => {
         >
           <FaSearch />
         </button>
-        <button className="add-user-button" onClick={() => setShowModal(true)}>
+        <button className="add-user-button" onClick={() => setShowAdvancedTicketModal(true)}>
           <FaPlus /> New Ticket
         </button>
       </div>
@@ -3217,7 +3183,8 @@ const AgentCRM = () => {
                       
                       // Close details modal and open ticket creation modal
                       setShowDetailsModal(false);
-                      setShowModal(true);
+                      setTicketPhoneNumber(selectedTicket.phone_number || "");
+                      setShowAdvancedTicketModal(true);
                     }}
                   >
                     New Ticket
@@ -3554,1025 +3521,197 @@ const AgentCRM = () => {
         </Box>
       </Modal>
 
-      {/* Ticket Creation Modal */}
-      <Modal open={showModal} onClose={() => setShowModal(false)}>
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: "row",
-            width: 1050,
-            maxWidth: "98vw",
-            minHeight: 500,
-            maxHeight: "90vh",
-            bgcolor: "background.paper",
-            boxShadow: 24,
-            borderRadius: 2,
-            p: 0,
+      {/* Ticket Creation Modal - Replaced with AdvancedTicketCreateModal */}
+      {/* Old modal removed - now using the improved AdvancedTicketCreateModal component */}
+
+      {/* Employer/Institution Details */}
+      {selectedInstitution && (
+        <div
+          style={{
+            flex: 1,
+            background: "#e3f2fd",
+            borderRadius: "8px",
+            padding: "16px",
+            minWidth: 0,
+            marginBottom: 16,
           }}
         >
-          <Box
-            sx={{
-              flex: 2,
-              p: 4,
-              borderRight: "1px solid #eee",
-              overflowY: "auto",
-              minWidth: 0,
-              maxHeight: "90vh",
+          <h4 style={{ color: "#1976d2", marginBottom: 12 }}>
+            Institution Details
+          </h4>
+          <div>
+            <strong>Name:</strong> {selectedInstitution.name}
+          </div>
+          <div>
+            <strong>TIN:</strong> {selectedInstitution.tin}
+          </div>
+          <div>
+            <strong>Phone:</strong> {selectedInstitution.phone}
+          </div>
+          <div>
+            <strong>Email:</strong> {selectedInstitution.email}
+          </div>
+          <div>
+            <strong>Status:</strong> {selectedInstitution.employer_status}
+          </div>
+          <div>
+            <strong>Allocated User Name:</strong>{" "}
+            {selectedInstitution.allocated_staff_name}
+          </div>
+          <div>
+            <strong>Allocated Username:</strong>{" "}
+            {selectedInstitution.allocated_staff_username}
+          </div>
+          {/* All details shown for reference - only name used for submission, allocated user from employee search used for assignment */}
+        </div>
+      )}
+      {/* Ticket history for entered phone number */}
+      {formData.phoneNumber && (
+        <div
+          style={{
+            marginTop: 8,
+            background: "#f8f9fa",
+            borderRadius: 8,
+            padding: 0,
+            minHeight: 60,
+          }}
+        >
+          <h4
+            style={{
+              color: "#1976d2",
+              margin: "16px 0 8px 0",
+              paddingLeft: 16,
             }}
           >
-            <div className="modal-form-container">
-              <h2 className="modal-title">New Ticket</h2>
-
-              {/* Search Section - Replaced with EnhancedSearchForm */}
-              {/* The old search form has been replaced with the enhanced two-step search functionality */}
-
-              {/* Enhanced Two-Step Search Form */}
-              <EnhancedSearchForm
-                onEmployerSelect={handleEmployerSelection}
-                onEmployeeSelect={handleEmployeeSelection}
-                onReset={resetSearch}
-                selectedEmployer={selectedEmployer}
-                searchStep={searchStep}
-                setSearchStep={setSearchStep}
-                onSearchTypeChange={handleSearchTypeChange}
-              />
-
-              {/* Update the claim status section */}
-              {formSearchType === "employee" && selectedSuggestion && (
-                <div
-                  style={{
-                    marginTop: "10px",
-                    marginBottom: "12px",
-                    padding: "10px",
-                    backgroundColor: "#f5f5f5",
-                    borderRadius: "8px",
+            Ticket History for {formData.phoneNumber}
+          </h4>
+          {creationTicketsLoading ? (
+            <div style={{ textAlign: "center", padding: 12 }}>
+              <CircularProgress size={22} />
+            </div>
+          ) : creationFoundTickets.length > 0 ? (
+            creationFoundTickets.map((ticket) => (
+              <Box
+                key={ticket.id}
+                onClick={() => setCreationActiveTicketId(ticket.id)}
+                sx={{
+                  mb: 2,
+                  p: 2,
+                  borderRadius: 2,
+                  bgcolor:
+                    creationActiveTicketId === ticket.id
+                      ? "#e3f2fd"
+                      : "#fff",
+                  cursor: "pointer",
+                  border:
+                    creationActiveTicketId === ticket.id
+                      ? "2px solid #1976d2"
+                      : "1px solid #e0e0e0",
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 1,
+                  transition: "box-shadow 0.2s, border-color 0.2s",
+                  "&:hover": {
+                    boxShadow: "0 4px 8px rgba(25,118,210,0.1)",
+                    borderColor: "#1976d2",
+                  },
+                }}
+              >
+                <Box
+                  sx={{
                     display: "flex",
                     justifyContent: "space-between",
                     alignItems: "center",
                   }}
                 >
-                  <div>
-                    <Typography
-                      variant="subtitle2"
-                      style={{ fontWeight: "bold" }}
-                    >
-                      {selectedSuggestion.claim_number ? (
-                        <>
-                          Claim Number:{" "}
-                          <span style={{ color: "#1976d2" }}>
-                            {selectedSuggestion.claim_number}
-                          </span>
-                        </>
-                      ) : (
-                        "No Active Claim"
-                      )}
-                    </Typography>
-                    
-                    {/* Display Dependents */}
-                    {formData.dependents && formData.dependents.length > 0 && (
-                      <div style={{ marginTop: 8 }}>
-                        <Typography
-                          variant="subtitle2"
-                          style={{ fontWeight: "bold", marginBottom: 4 }}
-                        >
-                          Dependents ({formData.dependents.length}):
-                        </Typography>
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                          {formData.dependents.map((dependent, index) => (
-                            <span
-                              key={index}
-                              style={{
-                                padding: "4px 8px",
-                                background: "#e3f2fd",
-                                borderRadius: 12,
-                                border: "1px solid #bbdefb",
-                                fontSize: "0.75rem",
-                                color: "#1976d2",
-                                fontWeight: 500
-                              }}
-                            >
-                              {dependent}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Claim Button */}
-                  {selectedSuggestion.claim_number && (
-                    <button
-                      style={{
-                        padding: "8px 16px",
-                        backgroundColor: "#1976d2",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "4px",
-                        cursor: "pointer",
-                        fontSize: "14px",
-                        fontWeight: "bold"
-                      }}
-                      onClick={() => {
-                        // Handle claim button click - you can add your claim logic here
-                        window.open(`/claims/${selectedSuggestion.claim_number}`, '_blank');
-                        // Or navigate to claim details page
-                        // window.location.href = `/claims/${selectedSuggestion.claim_number}`;
-                      }}
-                    >
-                      View Claim
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Dependents Details Section */}
-              {/* {formData.dependents && formData.dependents.length > 0 && (
-                <div
-                  style={{
-                    marginTop: "16px",
-                    marginBottom: "16px",
-                    padding: "16px",
-                    backgroundColor: "#f8f9fa",
-                    borderRadius: "8px",
-                    border: "1px solid #e9ecef"
-                  }}
-                >
                   <Typography
-                    variant="h6"
-                    style={{
-                      fontWeight: "bold",
-                      marginBottom: "12px",
-                      color: "#1976d2",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px"
-                    }}
+                    variant="subtitle1"
+                    sx={{ fontWeight: 600, color: "#1976d2" }}
                   >
-                    <span style={{ fontSize: "1.2rem" }}>👥</span>
-                    Dependent Details
+                    {ticket.ticket_id}
                   </Typography>
-                  
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography
+                      sx={{
+                        px: 1.5,
+                        py: 0.5,
+                        borderRadius: "12px",
+                        color: "white",
+                        background:
+                          ticket.status === "Closed"
+                            ? "#757575"
+                            : ticket.status === "Open"
+                            ? "#2e7d32"
+                            : "#1976d2",
+                        fontSize: "0.75rem",
+                        fontWeight: 500
+                      }}
+                    >
+                      {ticket.status}
+                    </Typography>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenJustificationHistory(ticket);
+                      }}
+                      sx={{
+                        color: '#1976d2',
+                        '&:hover': {
+                          backgroundColor: 'rgba(25, 118, 210, 0.1)'
+                        }
+                      }}
+                      title="View Recomendation History"
+                    >
+                      <ChatIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                </Box>
+                <Box sx={{ mt: 1 }}>
                   <Typography
                     variant="body2"
-                    style={{ marginBottom: "12px", color: "#6c757d" }}
+                    sx={{ color: "#666", mb: 0.5 }}
                   >
-                    Found {formData.dependents.length} dependent(s) for this employee. These dependents are automatically included in the ticket.
+                    Created:{" "}
+                    {new Date(ticket.created_at).toLocaleDateString()}
                   </Typography>
-                  
-                  <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
-                    {formData.dependents.map((dependent, index) => (
-                      <div
-                        key={index}
-                        style={{
-                          padding: "12px",
-                          backgroundColor: "#ffffff",
-                          borderRadius: "6px",
-                          border: "1px solid #dee2e6",
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "12px"
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: "32px",
-                            height: "32px",
-                            borderRadius: "50%",
-                            backgroundColor: "#e3f2fd",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            color: "#1976d2",
-                            fontWeight: "bold",
-                            fontSize: "0.875rem"
-                          }}
-                        >
-                          {index + 1}
-                        </div>
-                        <div style={{ flex: 1 }}>
-                          <Typography
-                            variant="subtitle2"
-                            style={{ fontWeight: "600", color: "#2c3e50" }}
-                          >
-                            {dependent}
-                          </Typography>
-                          <Typography
-                            variant="caption"
-                            style={{ color: "#6c757d" }}
-                          >
-                            Dependent #{index + 1}
-                          </Typography>
-                        </div>
-                        <div
-                          style={{
-                            padding: "4px 8px",
-                            backgroundColor: "#e8f5e9",
-                            borderRadius: "12px",
-                            border: "1px solid #c8e6c9"
-                          }}
-                        >
-                          <Typography
-                            variant="caption"
-                            style={{ color: "#2e7d32", fontWeight: "500" }}
-                          >
-                            Active
-                          </Typography>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  
-                  <div
-                    style={{
-                      marginTop: "12px",
-                      padding: "8px 12px",
-                      backgroundColor: "#fff3cd",
-                      borderRadius: "6px",
-                      border: "1px solid #ffeaa7"
+                  <Typography
+                    variant="subtitle2"
+                    sx={{ fontWeight: 500, color: "#333", mb: 1 }}
+                  >
+                    Subject: {ticket.subject}
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: "#666",
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
                     }}
                   >
-                    <Typography
-                      variant="caption"
-                      style={{ color: "#856404", display: "flex", alignItems: "center", gap: "4px" }}
-                    >
-                      <span>ℹ️</span>
-                      Dependents will be automatically saved with the ticket when submitted.
-                    </Typography>
-                  </div>
-                </div>
-              )} */}
-
-              {/* Existing form fields */}
-              {formSearchType !== "employer" && (
-                <div className="modal-form-row">
-                  <div className="modal-form-group" style={{ flex: 1 }}>
-                    <label style={{ fontSize: "0.875rem" }}>First Name: <span style={{ color: "red" }}>*</span></label>
-                    <input
-                      name="firstName"
-                      value={formData.firstName}
-                      onChange={handleChange}
-                      placeholder="Enter first name"
-                      style={{
-                        height: "32px",
-                        fontSize: "0.875rem",
-                        padding: "4px 8px",
-                        border: formErrors.firstName
-                          ? "1px solid red"
-                          : "1px solid #ccc",
-                      }}
-                    />
-                    {formErrors.firstName && (
-                      <span style={{ color: "red", fontSize: "0.75rem" }}>
-                        {formErrors.firstName}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="modal-form-group" style={{ flex: 1 }}>
-                    <label style={{ fontSize: "0.875rem" }}>
-                      Middle Name <span style={{ fontSize: "0.75rem", color: "#666" }}>(Optional)</span>:
-                    </label>
-                    <input
-                      name="middleName"
-                      value={formData.middleName}
-                      onChange={handleChange}
-                      placeholder="Enter middle name"
-                      style={{
-                        height: "32px",
-                        fontSize: "0.875rem",
-                        padding: "4px 8px",
-                        border: "1px solid #ccc",
-                      }}
-                    />
-                  </div>
-
-                  <div className="modal-form-group" style={{ flex: 1 }}>
-                    <label style={{ fontSize: "0.875rem" }}>
-                      Last Name
-                      {formData.requester === "Employer" ? <span style={{ fontSize: "0.75rem", color: "#666" }}> (Optional)</span> : <span style={{ color: "red" }}> *</span>}:
-                    </label>
-                    <input
-                      name="lastName"
-                      value={formData.lastName}
-                      onChange={handleChange}
-                      placeholder="Enter last name"
-                      style={{
-                        height: "32px",
-                        fontSize: "0.875rem",
-                        padding: "4px 8px",
-                        border:
-                          formErrors.lastName &&
-                          formData.requester !== "Employer"
-                            ? "1px solid red"
-                            : "1px solid #ccc",
-                      }}
-                    />
-                    {formErrors.lastName &&
-                      formData.requester !== "Employer" && (
-                        <span style={{ color: "red", fontSize: "0.75rem" }}>
-                          {formErrors.lastName}
-                        </span>
-                      )}
-                  </div>
-                </div>
-              )}
-
-              {/* Institution field - Show first for employer search, normal position for employee search */}
-              <div className="modal-form-row">
-                <div className="modal-form-group" style={{ flex: 1 }}>
-                  <label style={{ fontSize: "0.875rem" }}>
-                    {formSearchType === "employer" ? "Institution Name:" : "Institution:"} <span style={{ color: "red" }}>*</span>
-                  </label>
-                  <input
-                    name="institution"
-                    value={formData.institution}
-                    onChange={handleChange}
-                    placeholder={formSearchType === "employer" ? "Enter institution name" : "Enter Institution"}
-                    style={{
-                      height: "32px",
-                      fontSize: "0.875rem",
-                      padding: "4px 8px",
-                      border: formErrors.institution
-                        ? "1px solid red"
-                        : "1px solid #ccc"
-                    }}
-                  />
-                  {formErrors.institution && (
-                    <span style={{ color: "red", fontSize: "0.75rem" }}>
-                      {formErrors.institution}
-                    </span>
-                  )}
-                </div>
-
-                {/* Show employer name field only for employee search */}
-                {formSearchType === "employee" && (
-                  <div className="modal-form-group" style={{ flex: 1 }}>
-                    <label style={{ fontSize: "0.875rem" }}>Employer Name:</label>
-                    <input
-                      name="employerName"
-                      value={formData.employerName}
-                      onChange={handleChange}
-                      placeholder="Enter employer name"
-                      style={{
-                        height: "32px",
-                        fontSize: "0.875rem",
-                        padding: "4px 8px",
-                        border: "1px solid #ccc"
-                      }}
-                    />
-                  </div>
-                )}
-              </div>
-
-              {/* Phone & NIDA */}
-              <div className="modal-form-row">
-                <div className="modal-form-group">
-                  <label style={{ fontSize: "0.875rem" }}>Phone Number: <span style={{ color: "red" }}>*</span></label>
-                  <input
-                    type="tel"
-                    name="phoneNumber"
-                    value={formData.phoneNumber}
-                    onChange={handleChange}
-                    placeholder="Enter phone number"
-                    style={{
-                      height: "32px",
-                      fontSize: "0.875rem",
-                      padding: "4px 8px",
-                      border: formErrors.phoneNumber
-                        ? "1px solid red"
-                        : "1px solid #ccc",
-                    }}
-                  />
-                  {formErrors.phoneNumber && (
-                    <span style={{ color: "red", fontSize: "0.75rem" }}>
-                      {formErrors.phoneNumber}
-                    </span>
-                  )}
-                </div>
-
-                <div className="modal-form-group">
-                  <label style={{ fontSize: "0.875rem" }}>
-                    {formData.requester === "Employer"
-                      ? "TIN:"
-                      : "National Identification Number:"}
-                  </label>
-                  <input
-                    name="nidaNumber"
-                    value={formData.nidaNumber}
-                    onChange={handleChange}
-                    placeholder={
-                      formData.requester === "Employer"
-                        ? "Enter TIN number"
-                        : "Enter NIN number"
-                    }
-                    style={{
-                      height: "32px",
-                      fontSize: "0.875rem",
-                      padding: "4px 8px",
-                      border: formErrors.nidaNumber
-                        ? "1px solid red"
-                        : "1px solid #ccc",
-                    }}
-                  />
-                  {formErrors.nidaNumber && (
-                    <span style={{ color: "red", fontSize: "0.75rem" }}>
-                      {formErrors.nidaNumber}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Requester & Institution */}
-              <div className="modal-form-row">
-                <div className="modal-form-group">
-                  <label style={{ fontSize: "0.875rem" }}>Requester: <span style={{ color: "red" }}>*</span></label>
-                  <select
-                    name="requester"
-                    value={formData.requester}
-                    onChange={handleChange}
-                    style={{
-                      height: "32px",
-                      fontSize: "0.875rem",
-                      padding: "4px 8px",
-                      width: "100%",
-                      border: formErrors.requester
-                        ? "1px solid red"
-                        : "1px solid #ccc",
-                    }}
-                  >
-                    <option value="">Select..</option>
-                    <option value="Employee">Employee</option>
-                    <option value="Employer">Employer</option>
-                    <option value="Pensioners">Pensioners</option>
-                    <option value="Stakeholders">Stakeholders</option>
-                    <option value="Representative">Representative</option>
-                  </select>
-                  {formErrors.requester && (
-                    <span style={{ color: "red", fontSize: "0.75rem" }}>
-                      {formErrors.requester}
-                    </span>
-                  )}
-                </div>
-
-                <div className="modal-form-group">
-                  <label style={{ fontSize: "0.875rem" }}>Institution: <span style={{ color: "red" }}>*</span></label>
-                  <input
-                    name="institution"
-                    value={formData.institution}
-                    onChange={handleChange}
-                    placeholder="Enter Institution"
-                    style={{
-                      height: "32px",
-                      fontSize: "0.875rem",
-                      padding: "4px 8px",
-                      border: formErrors.institution
-                        ? "1px solid red"
-                        : "1px solid #ccc",
-                    }}
-                  />
-                  {formErrors.institution && (
-                    <span style={{ color: "red", fontSize: "0.75rem" }}>
-                      {formErrors.institution}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* New fields for Representative if selected */}
-              {(formData.requester === "Representative" || formData.requester === "Stakeholders") && (
-                <>
-                  <Box sx={{ mt: 3, mb: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 2, boxShadow: 0, border: '1px solid #e0e0e0' }}>
-                    <Typography
-                      variant="h6"
-                      sx={{ mb: 2, fontWeight: 'bold', color: '#1976d2', letterSpacing: 0.5 }}
-                    >
-                      Representative Details
-                    </Typography>
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-                      <div>
-                        <label style={{ fontSize: '0.875rem' }}>Representative Name: <span style={{ color: "red" }}>*</span></label>
-                        <input
-                          name="requesterName"
-                          value={formData.requesterName}
-                          onChange={handleChange}
-                          placeholder="Enter representative's name"
-                          style={{
-                            width: '100%',
-                            height: '32px',
-                            fontSize: '0.875rem',
-                            padding: '4px 8px',
-                            border: formErrors.requesterName ? '1px solid red' : '1px solid #ccc',
-                            borderRadius: 4
-                          }}
-                        />
-                        {formErrors.requesterName && (
-                          <span style={{ color: 'red', fontSize: '0.75rem' }}>{formErrors.requesterName}</span>
-                        )}
-                      </div>
-                      <div>
-                        <label style={{ fontSize: '0.875rem' }}>Representative Phone Number: <span style={{ color: "red" }}>*</span></label>
-                        <input
-                          type="tel"
-                          name="requesterPhoneNumber"
-                          value={formData.requesterPhoneNumber}
-                          onChange={handleChange}
-                          placeholder="Enter representative's phone number"
-                          style={{
-                            width: '100%',
-                            height: '32px',
-                            fontSize: '0.875rem',
-                            padding: '4px 8px',
-                            border: formErrors.requesterPhoneNumber ? '1px solid red' : '1px solid #ccc',
-                            borderRadius: 4
-                          }}
-                        />
-                        {formErrors.requesterPhoneNumber && (
-                          <span style={{ color: 'red', fontSize: '0.75rem' }}>{formErrors.requesterPhoneNumber}</span>
-                        )}
-                      </div>
-                      <div>
-                        <label style={{ fontSize: '0.875rem' }}>Representative Email <span style={{ fontSize: "0.75rem", color: "#666" }}>(Optional)</span>:</label>
-                        <input
-                          type="email"
-                          name="requesterEmail"
-                          value={formData.requesterEmail}
-                          onChange={handleChange}
-                          placeholder="Enter representative's email"
-                          style={{
-                            width: '100%',
-                            height: '32px',
-                            fontSize: '0.875rem',
-                            padding: '4px 8px',
-                            border: '1px solid #ccc',
-                            borderRadius: 4
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <label style={{ fontSize: '0.875rem' }}>Representative Address <span style={{ fontSize: "0.75rem", color: "#666" }}>(Optional)</span>:</label>
-                        <input
-                          name="requesterAddress"
-                          value={formData.requesterAddress}
-                          onChange={handleChange}
-                          placeholder="Enter representative's address"
-                          style={{
-                            width: '100%',
-                            height: '32px',
-                            fontSize: '0.875rem',
-                            padding: '4px 8px',
-                            border: '1px solid #ccc',
-                            borderRadius: 4
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <label style={{ fontSize: '0.875rem' }}>Relationship to Employee/Employee: <span style={{ color: "red" }}>*</span></label>
-                        <input
-                          name="relationshipToEmployee"
-                          value={formData.relationshipToEmployee}
-                          onChange={handleChange}
-                          placeholder="e.g., Parent, Spouse, Child"
-                          style={{
-                            width: '100%',
-                            height: '32px',
-                            fontSize: '0.875rem',
-                            padding: '4px 8px',
-                            border: formErrors.relationshipToEmployee ? '1px solid red' : '1px solid #ccc',
-                            borderRadius: 4
-                          }}
-                        />
-                        {formErrors.relationshipToEmployee && (
-                          <span style={{ color: 'red', fontSize: '0.75rem' }}>{formErrors.relationshipToEmployee}</span>
-                        )}
-                      </div>
-                    </Box>
-                  </Box>
-                </>
-              )}
-
-              {/* Region & District */}
-              <div className="modal-form-row">
-                <div className="modal-form-group">
-                  <label style={{ fontSize: "0.875rem" }}>Region: <span style={{ color: "red" }}>*</span></label>
-                  <input
-                    name="region"
-                    value={formData.region}
-                    onChange={handleChange}
-                    placeholder="Enter region"
-                    style={{
-                      height: "32px",
-                      fontSize: "0.875rem",
-                      padding: "4px 8px",
-                      border: formErrors.region
-                        ? "1px solid red"
-                        : "1px solid #ccc",
-                    }}
-                  />
-                  {formErrors.region && (
-                    <span style={{ color: "red", fontSize: "0.75rem" }}>
-                      {formErrors.region}
-                    </span>
-                  )}
-                </div>
-
-                <div className="modal-form-group">
-                  <label style={{ fontSize: "0.875rem" }}>District: <span style={{ color: "red" }}>*</span></label>
-                  <input
-                    name="district"
-                    value={formData.district}
-                    onChange={handleChange}
-                    placeholder="Enter district"
-                    style={{
-                      height: "32px",
-                      fontSize: "0.875rem",
-                      padding: "4px 8px",
-                      border: formErrors.district
-                        ? "1px solid red"
-                        : "1px solid #ccc",
-                    }}
-                  />
-                  {formErrors.district && (
-                    <span style={{ color: "red", fontSize: "0.75rem" }}>
-                      {formErrors.district}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Category & Channel */}
-              <div className="modal-form-row">
-                <div className="modal-form-group" style={{ flex: 1 }}>
-                  <label style={{ fontSize: "0.875rem" }}>Request Category: <span style={{ color: "red" }}>*</span></label>
-                  <select
-                    name="category"
-                    value={formData.category || ""}
-                    onChange={handleChange}
-                    style={{
-                      height: "32px",
-                      fontSize: "0.875rem",
-                      padding: "4px 8px",
-                      width: "100%",
-                      border: formErrors.category
-                        ? "1px solid red"
-                        : "1px solid #ccc",
-                    }}
-                  >
-                    <option value="">Select Category</option>
-                    <option value="Inquiry">Inquiry</option>
-                    <option value="Complaint">Complaint</option>
-                    <option value="Suggestion">Suggestion</option>
-                    <option value="Compliment">Compliment</option>
-                  </select>
-                  {formErrors.category && (
-                    <span style={{ color: "red", fontSize: "0.75rem" }}>
-                      {formErrors.category}
-                    </span>
-                  )}
-                </div>
-
-                <div className="modal-form-group" style={{ flex: 1 }}>
-                  <label style={{ fontSize: "0.875rem" }}>Channel: <span style={{ color: "red" }}>*</span></label>
-                  <select
-                    name="channel"
-                    value={formData.channel}
-                    onChange={handleChange}
-                    style={{
-                      height: "32px",
-                      fontSize: "0.875rem",
-                      padding: "4px 8px",
-                      width: "100%",
-                      border: formErrors.channel
-                        ? "1px solid red"
-                        : "1px solid #ccc",
-                    }}
-                  >
-                    <option value="">Select Channel</option>
-                    <option value="Call">Call</option>
-                    <option value="Email">Email</option>
-                  </select>
-                  {formErrors.channel && (
-                    <span style={{ color: "red", fontSize: "0.75rem" }}>
-                      {formErrors.channel}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Subject, Sub-section, Section */}
-              <div className="modal-form-row">
-                <div className="modal-form-group" style={{ flex: 1 }}>
-                  <label style={{ fontSize: "0.875rem" }}>Subject: <span style={{ color: "red" }}>*</span></label>
-                  <select
-                    name="functionId"
-                    value={formData.functionId}
-                    onChange={handleChange}
-                    style={{
-                      height: "32px",
-                      fontSize: "0.875rem",
-                      padding: "4px 8px",
-                      width: "100%",
-                      border: formErrors.functionId
-                        ? "1px solid red"
-                        : "1px solid #ccc",
-                    }}
-                  >
-                    <option value="">Select Subject</option>
-                    {functionData.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                  </select>
-                  {formErrors.functionId && (
-                    <span style={{ color: "red", fontSize: "0.75rem" }}>
-                      {formErrors.functionId}
-                    </span>
-                  )}
-                </div>
-
-                <div className="modal-form-group">
-                  <label style={{ fontSize: "0.875rem" }}>Sub-section:</label>
-                  <input
-                    value={selectedFunction}
-                    readOnly
-                    style={{
-                      height: "32px",
-                      fontSize: "0.875rem",
-                      padding: "4px 8px",
-                      backgroundColor: "#f5f5f5",
-                    }}
-                  />
-                </div>
-
-                <div className="modal-form-group">
-                  <label style={{ fontSize: "0.875rem" }}>Section:</label>
-                  <input
-                    value={selectedSection || "Unit"}
-                    readOnly
-                    style={{
-                      height: "32px",
-                      fontSize: "0.875rem",
-                      padding: "4px 8px",
-                      backgroundColor: "#f5f5f5",
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Description */}
-              <div className="modal-form-group">
-                <label style={{ fontSize: "0.875rem" }}>Description: <span style={{ color: "red" }}>*</span></label>
-                <textarea
-                  rows="2"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  placeholder="Detailed descriptions.."
-                  style={{
-                    fontSize: "0.875rem",
-                    padding: "8px",
-                    resize: "vertical",
-                    border: formErrors.description
-                      ? "1px solid red"
-                      : "1px solid #ccc",
-                  }}
-                />
-                {formErrors.description && (
-                  <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.description}
-                  </span>
-                )}
-              </div>
-
-              {/* Submit */}
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  gap: "10px",
-                  marginTop: "1.5rem",
-                }}
-              >
-                <button
-                  className="cancel-btn"
-                  onClick={() => setShowModal(false)}
-                >
-                  Cancel
-                </button>
-                <button className="submit-btn" onClick={(e) => handleSubmit(e)}>
-                  Submit to Backoffice
-                </button>
-                <button
-                  className="close-btn"
-                  style={{ background: "gray", color: "white" }}
-                  onClick={(e) => handleSubmit(e, "closed")}
-                >
-                  Close Ticket
-                </button>
-              </div>
+                    Description: {ticket.description}
+                  </Typography>
+                </Box>
+              </Box>
+            ))
+          ) : (
+            <div
+              style={{
+                color: "#888",
+                fontSize: "0.95em",
+                textAlign: "center",
+                padding: 16,
+              }}
+            >
+              No previous tickets found for this number.
             </div>
-          </Box>
-          <Box
-            sx={{
-              flex: 1,
-              p: 4,
-              overflowY: "auto",
-              minWidth: 350,
-              maxWidth: 420,
-              maxHeight: "90vh",
-            }}
-          >
-            {/* Employer/Institution Details */}
-            {selectedInstitution && (
-              <div
-                style={{
-                  flex: 1,
-                  background: "#e3f2fd",
-                  borderRadius: "8px",
-                  padding: "16px",
-                  minWidth: 0,
-                  marginBottom: 16,
-                }}
-              >
-                <h4 style={{ color: "#1976d2", marginBottom: 12 }}>
-                  Institution Details
-                </h4>
-                <div>
-                  <strong>Name:</strong> {selectedInstitution.name}
-                </div>
-                <div>
-                  <strong>TIN:</strong> {selectedInstitution.tin}
-                </div>
-                <div>
-                  <strong>Phone:</strong> {selectedInstitution.phone}
-                </div>
-                <div>
-                  <strong>Email:</strong> {selectedInstitution.email}
-                </div>
-                <div>
-                  <strong>Status:</strong> {selectedInstitution.employer_status}
-                </div>
-                <div>
-                  <strong>Allocated User Name:</strong>{" "}
-                  {selectedInstitution.allocated_staff_name}
-                </div>
-                <div>
-                  <strong>Allocated Username:</strong>{" "}
-                  {selectedInstitution.allocated_staff_username}
-                </div>
-                {/* All details shown for reference - only name used for submission, allocated user from employee search used for assignment */}
-              </div>
-            )}
-            {/* Ticket history for entered phone number */}
-            {formData.phoneNumber && (
-              <div
-                style={{
-                  marginTop: 8,
-                  background: "#f8f9fa",
-                  borderRadius: 8,
-                  padding: 0,
-                  minHeight: 60,
-                }}
-              >
-                <h4
-                  style={{
-                    color: "#1976d2",
-                    margin: "16px 0 8px 0",
-                    paddingLeft: 16,
-                  }}
-                >
-                  Ticket History for {formData.phoneNumber}
-                </h4>
-                {creationTicketsLoading ? (
-                  <div style={{ textAlign: "center", padding: 12 }}>
-                    <CircularProgress size={22} />
-                  </div>
-                ) : creationFoundTickets.length > 0 ? (
-                  creationFoundTickets.map((ticket) => (
-                    <Box
-                      key={ticket.id}
-                      onClick={() => setCreationActiveTicketId(ticket.id)}
-                      sx={{
-                        mb: 2,
-                        p: 2,
-                        borderRadius: 2,
-                        bgcolor:
-                          creationActiveTicketId === ticket.id
-                            ? "#e3f2fd"
-                            : "#fff",
-                        cursor: "pointer",
-                        border:
-                          creationActiveTicketId === ticket.id
-                            ? "2px solid #1976d2"
-                            : "1px solid #e0e0e0",
-                        boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 1,
-                        transition: "box-shadow 0.2s, border-color 0.2s",
-                        "&:hover": {
-                          boxShadow: "0 4px 8px rgba(25,118,210,0.1)",
-                          borderColor: "#1976d2",
-                        },
-                      }}
-                    >
-                      <Box
-                        sx={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                        }}
-                      >
-                        <Typography
-                          variant="subtitle1"
-                          sx={{ fontWeight: 600, color: "#1976d2" }}
-                        >
-                          {ticket.ticket_id}
-                        </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography
-                            sx={{
-                              px: 1.5,
-                              py: 0.5,
-                              borderRadius: "12px",
-                              color: "white",
-                              background:
-                                ticket.status === "Closed"
-                                  ? "#757575"
-                                  : ticket.status === "Open"
-                                  ? "#2e7d32"
-                                  : "#1976d2",
-                              fontSize: "0.75rem",
-                              fontWeight: 500
-                            }}
-                          >
-                            {ticket.status}
-                          </Typography>
-                          <IconButton
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenJustificationHistory(ticket);
-                            }}
-                            sx={{
-                              color: '#1976d2',
-                              '&:hover': {
-                                backgroundColor: 'rgba(25, 118, 210, 0.1)'
-                              }
-                            }}
-                            title="View Recomendation History"
-                          >
-                            <ChatIcon fontSize="small" />
-                          </IconButton>
-                        </Box>
-                      </Box>
-                      <Box sx={{ mt: 1 }}>
-                        <Typography
-                          variant="body2"
-                          sx={{ color: "#666", mb: 0.5 }}
-                        >
-                          Created:{" "}
-                          {new Date(ticket.created_at).toLocaleDateString()}
-                        </Typography>
-                        <Typography
-                          variant="subtitle2"
-                          sx={{ fontWeight: 500, color: "#333", mb: 1 }}
-                        >
-                          Subject: {ticket.subject}
-                        </Typography>
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            color: "#666",
-                            display: "-webkit-box",
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: "vertical",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis",
-                          }}
-                        >
-                          Description: {ticket.description}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  ))
-                ) : (
-                  <div
-                    style={{
-                      color: "#888",
-                      fontSize: "0.95em",
-                      textAlign: "center",
-                      padding: 16,
-                    }}
-                  >
-                    No previous tickets found for this number.
-                  </div>
-                )}
-              </div>
-            )}
-          </Box>
-        </Box>
-      </Modal>
+          )}
+        </div>
+      )}
 
       {/* Column Selector Modal - Replaced with dropdown */}
       {/* <ColumnSelector
@@ -4781,6 +3920,14 @@ const AgentCRM = () => {
           </Box>
         </Box>
       </Modal>
+
+      {/* Advanced Ticket Create Modal */}
+      <AdvancedTicketCreateModal
+        open={showAdvancedTicketModal}
+        onClose={() => setShowAdvancedTicketModal(false)}
+        initialPhoneNumber={ticketPhoneNumber}
+        functionData={functionData}
+      />
 
     </div>
   );

@@ -287,11 +287,15 @@ export default function CoordinatorDashboard() {
         });
         // Refresh both tickets and dashboard counts
         await Promise.all([fetchTickets(), fetchDashboardCounts(userId)]);
+        // Close the details modal on success
+        setIsDetailsModalOpen(false);
       } else {
         throw new Error("Failed to rate ticket.");
       }
     } catch (error) {
       setSnackbar({ open: true, message: error.message, severity: "error" });
+      // Close the details modal on failure too
+      setIsDetailsModalOpen(false);
     }
   };
 
@@ -386,6 +390,8 @@ export default function CoordinatorDashboard() {
           delete newState[ticketId];
           return newState;
         });
+        // Close the details modal on success
+        setIsDetailsModalOpen(false);
       } else {
         throw new Error(data.message || "Failed to update ticket");
       }
@@ -396,6 +402,8 @@ export default function CoordinatorDashboard() {
         message: error.message || "Failed to update ticket", 
         severity: "error" 
       });
+      // Close the details modal on failure too
+      setIsDetailsModalOpen(false);
     }
   };
 
@@ -746,6 +754,10 @@ export default function CoordinatorDashboard() {
   }
 
   const openDetailsModal = async (ticket) => {
+    console.log('🔍 ===== openDetailsModal FUNCTION CALLED =====');
+    console.log('🔍 Ticket ID:', ticket.id);
+    console.log('🔍 Ticket object:', ticket);
+    
     setDetailsModalTicket(ticket);
     setIsDetailsModalOpen(true);
     // Fetch assignment history for the ticket
@@ -755,8 +767,14 @@ export default function CoordinatorDashboard() {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
+      console.log('🔍 API Response for assignments:', data);
+      console.log('🔍 Data type:', typeof data);
+      console.log('🔍 Is array:', Array.isArray(data));
+      console.log('🔍 Data length:', data.length);
       setDetailsModalAssignmentHistory(Array.isArray(data) ? data : []);
+      console.log('🔍 Set detailsModalAssignmentHistory to:', Array.isArray(data) ? data : []);
     } catch (err) {
+      console.error('🔍 Error fetching assignments:', err);
       setDetailsModalAssignmentHistory([]);
     }
   };
@@ -910,7 +928,10 @@ export default function CoordinatorDashboard() {
                     <button
                       className="view-ticket-details-btn"
                       title="View"
-                      onClick={() => openDetailsModal(ticket)}
+                      onClick={() => {
+                        alert('Button clicked! Ticket ID: ' + ticket.id);
+                        openDetailsModal(ticket);
+                      }}
                     >
                       <FaEye />
                     </button>
@@ -1039,7 +1060,7 @@ export default function CoordinatorDashboard() {
         open={snackbar.open}
         autoHideDuration={6000}
         onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
       >
         <Alert 
           severity={snackbar.severity}
