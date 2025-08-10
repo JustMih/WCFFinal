@@ -1307,7 +1307,7 @@ export default function TicketDetailsModal({
 
     // Validate that at least one option is selected
     // If unitName is empty but ticket has a section, use the ticket's section
-    const effectiveUnitName = unitName || currentTicket?.section || currentTicket?.responsible_unit_name;
+    const effectiveUnitName = unitName || currentTicket?.sub_section || currentTicket?.section || currentTicket?.responsible_unit_name;
     
     if (!category && !effectiveUnitName) {
       setSnackbar({
@@ -1323,12 +1323,31 @@ export default function TicketDetailsModal({
     const isProvidingRating = selectedRating && ["Minor", "Major"].includes(selectedRating);
     const isAlreadyRated = currentTicket?.complaint_type;
     
+    console.log('Debug - Forward validation:', {
+      effectiveUnitName,
+      isProvidingRating,
+      selectedRating,
+      isAlreadyRated,
+      currentTicketComplaintType: currentTicket?.complaint_type
+    });
+    
     if (effectiveUnitName && !isAlreadyRated && !isProvidingRating) {
-      setSnackbar({
-        open: true,
-        message: "Ticket must be rated (Minor or Major) before it can be forwarded. Please select a rating from the dropdown above.",
-        severity: "warning"
-      });
+      // Check if the rating dropdown is visible to the user
+      const isRatingDropdownVisible = !(currentTicket.status === "Returned" || currentTicket.complaint_type);
+      
+      if (isRatingDropdownVisible) {
+        setSnackbar({
+          open: true,
+          message: "Please select a rating (Minor or Major) from the 'Complaint Category' dropdown above before forwarding.",
+          severity: "warning"
+        });
+      } else {
+        setSnackbar({
+          open: true,
+          message: "This ticket needs to be rated before forwarding. Please contact an administrator.",
+          severity: "warning"
+        });
+      }
       return;
     }
 
@@ -1921,10 +1940,15 @@ export default function TicketDetailsModal({
                               height: "32px",
                               borderRadius: "4px"
                             }}
-                            value={forwardUnit[selectedTicket.id] || selectedTicket.section || selectedTicket.responsible_unit_name || ""}
+                            value={forwardUnit[selectedTicket.id] || selectedTicket.sub_section || ""}
                             onChange={(e) => handleUnitChange(selectedTicket.id, e.target.value)}
                           >
                             <option value="">Forward To</option>
+                            {selectedTicket.sub_section && (
+                              <option value={selectedTicket.sub_section}>
+                                {selectedTicket.sub_section} 
+                              </option>
+                            )}
                             {units.map((unit) => (
                               <option key={unit.name} value={unit.name}>{unit.name}</option>
                             ))}
@@ -1933,9 +1957,21 @@ export default function TicketDetailsModal({
                             size="small"
                             variant="contained"
                             onClick={() => handleConvertOrForward(selectedTicket.id)}
+                            disabled={!selectedRating || !["Minor", "Major"].includes(selectedRating)}
+                            title={!selectedRating || !["Minor", "Major"].includes(selectedRating) ? "Please select a rating (Minor or Major) from the 'Complaint Category' dropdown above before forwarding" : ""}
                           >
                             Forward
                           </Button>
+                          {(!selectedRating || !["Minor", "Major"].includes(selectedRating)) && (
+                            <Typography variant="caption" color="warning.main" sx={{ fontSize: "0.7rem" }}>
+                              Rating required
+                            </Typography>
+                          )}
+                          {selectedTicket.sub_section && !forwardUnit[selectedTicket.id] && (
+                            <Typography variant="caption" color="info.main" sx={{ fontSize: "0.7rem" }}>
+                              Will forward to: {selectedTicket.sub_section}
+                            </Typography>
+                          )}
                         </Box>
 
                         {/* Close ticket button - only show if not returned and not already rated */}

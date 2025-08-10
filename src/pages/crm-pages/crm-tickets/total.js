@@ -192,8 +192,7 @@ export default function Crm() {
   };
 
   const handleFilterChange = (newFilters) => {
-    const { status, ...rest } = newFilters;
-    setFilters(rest);
+    setFilters(newFilters);
     setCurrentPage(1);
   };
 
@@ -226,12 +225,14 @@ export default function Crm() {
     let matchesDate = true;
     if (filters.startDate) {
       const ticketDate = new Date(ticket.created_at);
-      if (ticketDate < filters.startDate) matchesDate = false;
+      const startDate = new Date(filters.startDate);
+      startDate.setHours(0, 0, 0, 0); // Set to start of day
+      if (ticketDate < startDate) matchesDate = false;
     }
     if (filters.endDate) {
       const ticketDate = new Date(ticket.created_at);
       const endDate = new Date(filters.endDate);
-      endDate.setHours(23, 59, 59, 999);
+      endDate.setHours(23, 59, 59, 999); // Set to end of day
       if (ticketDate > endDate) matchesDate = false;
     }
     return matchesSearch && matchesStatus && matchesPriority && matchesCategory && matchesRegion && matchesDistrict && matchesTicketId && matchesDate;
@@ -414,6 +415,14 @@ export default function Crm() {
           onSearchChange={(e) => setSearch(e.target.value)}
           filterStatus={filters.status}
           onFilterStatusChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
+          filterRegion={filters.region}
+          onFilterRegionChange={(e) => setFilters(prev => ({ ...prev, region: e.target.value }))}
+          filterDistrict={filters.district}
+          onFilterDistrictChange={(e) => setFilters(prev => ({ ...prev, district: e.target.value }))}
+          startDate={filters.startDate}
+          onStartDateChange={(e) => setFilters(prev => ({ ...prev, startDate: e.target.value }))}
+          endDate={filters.endDate}
+          onEndDateChange={(e) => setFilters(prev => ({ ...prev, endDate: e.target.value }))}
           activeColumns={activeColumns}
           onColumnsChange={setActiveColumns}
           tableData={filteredTickets}

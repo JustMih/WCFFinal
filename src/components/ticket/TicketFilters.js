@@ -134,41 +134,44 @@ const TicketFilters = ({ onFilterChange, initialFilters, compact = false }) => {
               top: '50%',
               right: '20px',
               transform: 'translateY(-50%)',
-              width: 320,
-              maxHeight: '80vh',
+              width: 280,
+              maxHeight: '85vh',
               bgcolor: 'background.paper',
               boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
               borderRadius: '8px',
               border: '1px solid #e0e0e0',
-              overflowY: 'auto'
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column'
             }}
           >
             {/* Modal Header */}
             <Box sx={{ 
-              p: 2, 
+              p: 1, 
               backgroundColor: '#f8f9fa',
               borderBottom: '1px solid #e0e0e0',
               borderRadius: '8px 8px 0 0',
               display: 'flex',
               justifyContent: 'space-between',
-              alignItems: 'center'
+              alignItems: 'center',
+              flexShrink: 0
             }}>
-              <Typography variant="subtitle1" fontWeight="bold" color="primary">
+              <Typography variant="subtitle2" fontWeight="bold" color="primary">
                 Filter Tickets
               </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 {activeFiltersCount > 0 && (
                   <Chip
                     label={activeFiltersCount}
                     size="small"
                     color="primary"
-                    sx={{ fontSize: '0.7rem' }}
+                    sx={{ fontSize: '0.6rem', height: '20px' }}
                   />
                 )}
                 <IconButton
                   onClick={() => setShowModal(false)}
                   size="small"
-                  sx={{ color: '#666' }}
+                  sx={{ color: '#666', p: 0.5 }}
                 >
                   <FaTimes />
                 </IconButton>
@@ -176,13 +179,13 @@ const TicketFilters = ({ onFilterChange, initialFilters, compact = false }) => {
             </Box>
 
             {/* Filter Content */}
-            <Box sx={{ p: 2 }}>
+            <Box sx={{ p: 1, flex: 1, overflowY: 'auto' }}>
               {/* Quick Filters */}
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" fontWeight="bold" sx={{ mb: 1, color: '#333' }}>
+              <Box sx={{ mb: 1 }}>
+                <Typography variant="caption" fontWeight="bold" sx={{ mb: 0.25, color: '#333', display: 'block' }}>
                   Quick Filters
                 </Typography>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                   <TextField
                     select
                     label="Status"
@@ -190,41 +193,53 @@ const TicketFilters = ({ onFilterChange, initialFilters, compact = false }) => {
                     onChange={(e) => handleFilterChange('status', e.target.value)}
                     size="small"
                     fullWidth
-                    InputLabelProps={{ shrink: true }}
+                    InputLabelProps={{ 
+                      shrink: true,
+                      sx: { 
+                        fontSize: '0.75rem',
+                        backgroundColor: 'white',
+                        px: 0.25,
+                        color: 'rgba(0, 0, 0, 0.6)'
+                      }
+                    }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        height: '36px',
+                        fontSize: '0.75rem',
+                        '& fieldset': {
+                          borderColor: '#ccc',
+                        },
+                        '&:hover fieldset': {
+                          borderColor: '#999',
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor: '#1976d2',
+                        },
+                      },
+                      '& .MuiInputLabel-root': {
+                        '&.Mui-focused': {
+                          color: '#1976d2',
+                        },
+                      },
+                    }}
                   >
-                    <MenuItem value="">All Status</MenuItem>
-                    <MenuItem value="Open">Open</MenuItem>
-                    <MenuItem value="In Progress">In Progress</MenuItem>
-                    <MenuItem value="Closed">Closed</MenuItem>
-                    <MenuItem value="Escalated">Escalated</MenuItem>
-                  </TextField>
-                  
-                  <TextField
-                    select
-                    label="Priority"
-                    value={initialFilters.priority || ""}
-                    onChange={(e) => handleFilterChange('priority', e.target.value)}
-                    size="small"
-                    fullWidth
-                    InputLabelProps={{ shrink: true }}
-                  >
-                    <MenuItem value="">All Priority</MenuItem>
-                    <MenuItem value="Low">Low</MenuItem>
-                    <MenuItem value="Medium">Medium</MenuItem>
-                    <MenuItem value="High">High</MenuItem>
-                    <MenuItem value="Urgent">Urgent</MenuItem>
+                    <MenuItem value="" sx={{ fontSize: '0.75rem' }}>All Status</MenuItem>
+                    <MenuItem value="Open" sx={{ fontSize: '0.75rem' }}>Open</MenuItem>
+                    <MenuItem value="In Progress" sx={{ fontSize: '0.75rem' }}>In Progress</MenuItem>
+                    <MenuItem value="Closed" sx={{ fontSize: '0.75rem' }}>Closed</MenuItem>
+                    <MenuItem value="Escalated" sx={{ fontSize: '0.75rem' }}>Escalated</MenuItem>
                   </TextField>
                 </Box>
               </Box>
 
-              <Divider sx={{ my: 2 }} />
+              <Divider sx={{ my: 1 }} />
 
               {/* Advanced Filters */}
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" fontWeight="bold" sx={{ mb: 1, color: '#333' }}>
+              <Box sx={{ mb: 1 }}>
+                <Typography variant="caption" fontWeight="bold" sx={{ mb: 0.25, color: '#333', display: 'block' }}>
                   Advanced Filters
                 </Typography>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
                   <TextField
                     label="Ticket ID"
                     value={initialFilters.ticketId || ""}
@@ -232,7 +247,35 @@ const TicketFilters = ({ onFilterChange, initialFilters, compact = false }) => {
                     size="small"
                     fullWidth
                     placeholder="Enter ticket ID..."
-                    InputLabelProps={{ shrink: true }}
+                    InputLabelProps={{ 
+                      shrink: true,
+                      sx: { 
+                        fontSize: '0.75rem',
+                        backgroundColor: 'white',
+                        px: 0.25,
+                        color: 'rgba(0, 0, 0, 0.6)'
+                      }
+                    }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        height: '36px',
+                        fontSize: '0.75rem',
+                        '& fieldset': {
+                          borderColor: '#ccc',
+                        },
+                        '&:hover fieldset': {
+                          borderColor: '#999',
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor: '#1976d2',
+                        },
+                      },
+                      '& .MuiInputLabel-root': {
+                        '&.Mui-focused': {
+                          color: '#1976d2',
+                        },
+                      },
+                    }}
                   />
                   
                   <TextField
@@ -242,40 +285,68 @@ const TicketFilters = ({ onFilterChange, initialFilters, compact = false }) => {
                     onChange={(e) => handleFilterChange('region', e.target.value)}
                     size="small"
                     fullWidth
-                    InputLabelProps={{ shrink: true }}
+                    InputLabelProps={{ 
+                      shrink: true,
+                      sx: { 
+                        fontSize: '0.75rem',
+                        backgroundColor: 'white',
+                        px: 0.25,
+                        color: 'rgba(0, 0, 0, 0.6)'
+                      }
+                    }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        height: '36px',
+                        fontSize: '0.75rem',
+                        '& fieldset': {
+                          borderColor: '#ccc',
+                        },
+                        '&:hover fieldset': {
+                          borderColor: '#999',
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor: '#1976d2',
+                        },
+                      },
+                      '& .MuiInputLabel-root': {
+                        '&.Mui-focused': {
+                          color: '#1976d2',
+                        },
+                      },
+                    }}
                   >
-                    <MenuItem value="">All Regions</MenuItem>
-                    <MenuItem value="HQ">HQ</MenuItem>
-                    <MenuItem value="Arusha">Arusha</MenuItem>
-                    <MenuItem value="Dar es Salaam">Dar es Salaam</MenuItem>
-                    <MenuItem value="Dodoma">Dodoma</MenuItem>
-                    <MenuItem value="Geita">Geita</MenuItem>
-                    <MenuItem value="Iringa">Iringa</MenuItem>
-                    <MenuItem value="Kagera">Kagera</MenuItem>
-                    <MenuItem value="Katavi">Katavi</MenuItem>
-                    <MenuItem value="Kigoma">Kigoma</MenuItem>
-                    <MenuItem value="Kilimanjaro">Kilimanjaro</MenuItem>
-                    <MenuItem value="Lindi">Lindi</MenuItem>
-                    <MenuItem value="Manyara">Manyara</MenuItem>
-                    <MenuItem value="Mara">Mara</MenuItem>
-                    <MenuItem value="Mbeya">Mbeya</MenuItem>
-                    <MenuItem value="Morogoro">Morogoro</MenuItem>
-                    <MenuItem value="Mtwara">Mtwara</MenuItem>
-                    <MenuItem value="Mwanza">Mwanza</MenuItem>
-                    <MenuItem value="Njombe">Njombe</MenuItem>
-                    <MenuItem value="Pemba North">Pemba North</MenuItem>
-                    <MenuItem value="Pemba South">Pemba South</MenuItem>
-                    <MenuItem value="Pwani">Pwani</MenuItem>
-                    <MenuItem value="Rukwa">Rukwa</MenuItem>
-                    <MenuItem value="Ruvuma">Ruvuma</MenuItem>
-                    <MenuItem value="Shinyanga">Shinyanga</MenuItem>
-                    <MenuItem value="Simiyu">Simiyu</MenuItem>
-                    <MenuItem value="Singida">Singida</MenuItem>
-                    <MenuItem value="Songwe">Songwe</MenuItem>
-                    <MenuItem value="Tabora">Tabora</MenuItem>
-                    <MenuItem value="Tanga">Tanga</MenuItem>
-                    <MenuItem value="Unguja North">Unguja North</MenuItem>
-                    <MenuItem value="Unguja South">Unguja South</MenuItem>
+                    <MenuItem value="" sx={{ fontSize: '0.75rem' }}>All Regions</MenuItem>
+                    <MenuItem value="HQ" sx={{ fontSize: '0.75rem' }}>HQ</MenuItem>
+                    <MenuItem value="Arusha" sx={{ fontSize: '0.75rem' }}>Arusha</MenuItem>
+                    <MenuItem value="Dar es Salaam" sx={{ fontSize: '0.75rem' }}>Dar es Salaam</MenuItem>
+                    <MenuItem value="Dodoma" sx={{ fontSize: '0.75rem' }}>Dodoma</MenuItem>
+                    <MenuItem value="Geita" sx={{ fontSize: '0.75rem' }}>Geita</MenuItem>
+                    <MenuItem value="Iringa" sx={{ fontSize: '0.75rem' }}>Iringa</MenuItem>
+                    <MenuItem value="Kagera" sx={{ fontSize: '0.75rem' }}>Kagera</MenuItem>
+                    <MenuItem value="Katavi" sx={{ fontSize: '0.75rem' }}>Katavi</MenuItem>
+                    <MenuItem value="Kigoma" sx={{ fontSize: '0.75rem' }}>Kigoma</MenuItem>
+                    <MenuItem value="Kilimanjaro" sx={{ fontSize: '0.75rem' }}>Kilimanjaro</MenuItem>
+                    <MenuItem value="Lindi" sx={{ fontSize: '0.75rem' }}>Lindi</MenuItem>
+                    <MenuItem value="Manyara" sx={{ fontSize: '0.75rem' }}>Manyara</MenuItem>
+                    <MenuItem value="Mara" sx={{ fontSize: '0.75rem' }}>Mara</MenuItem>
+                    <MenuItem value="Mbeya" sx={{ fontSize: '0.75rem' }}>Mbeya</MenuItem>
+                    <MenuItem value="Morogoro" sx={{ fontSize: '0.75rem' }}>Morogoro</MenuItem>
+                    <MenuItem value="Mtwara" sx={{ fontSize: '0.75rem' }}>Mtwara</MenuItem>
+                    <MenuItem value="Mwanza" sx={{ fontSize: '0.75rem' }}>Mwanza</MenuItem>
+                    <MenuItem value="Njombe" sx={{ fontSize: '0.75rem' }}>Njombe</MenuItem>
+                    <MenuItem value="Pemba North" sx={{ fontSize: '0.75rem' }}>Pemba North</MenuItem>
+                    <MenuItem value="Pemba South" sx={{ fontSize: '0.75rem' }}>Pemba South</MenuItem>
+                    <MenuItem value="Pwani" sx={{ fontSize: '0.75rem' }}>Pwani</MenuItem>
+                    <MenuItem value="Rukwa" sx={{ fontSize: '0.75rem' }}>Rukwa</MenuItem>
+                    <MenuItem value="Ruvuma" sx={{ fontSize: '0.75rem' }}>Ruvuma</MenuItem>
+                    <MenuItem value="Shinyanga" sx={{ fontSize: '0.75rem' }}>Shinyanga</MenuItem>
+                    <MenuItem value="Simiyu" sx={{ fontSize: '0.75rem' }}>Simiyu</MenuItem>
+                    <MenuItem value="Singida" sx={{ fontSize: '0.75rem' }}>Singida</MenuItem>
+                    <MenuItem value="Songwe" sx={{ fontSize: '0.75rem' }}>Songwe</MenuItem>
+                    <MenuItem value="Tabora" sx={{ fontSize: '0.75rem' }}>Tabora</MenuItem>
+                    <MenuItem value="Tanga" sx={{ fontSize: '0.75rem' }}>Tanga</MenuItem>
+                    <MenuItem value="Unguja North" sx={{ fontSize: '0.75rem' }}>Unguja North</MenuItem>
+                    <MenuItem value="Unguja South" sx={{ fontSize: '0.75rem' }}>Unguja South</MenuItem>
                   </TextField>
                   
                   <TextField
@@ -285,29 +356,41 @@ const TicketFilters = ({ onFilterChange, initialFilters, compact = false }) => {
                     onChange={(e) => handleFilterChange('category', e.target.value)}
                     size="small"
                     fullWidth
-                    InputLabelProps={{ shrink: true }}
+                    InputLabelProps={{ 
+                      shrink: true,
+                      sx: { 
+                        fontSize: '0.75rem',
+                        backgroundColor: 'white',
+                        px: 0.25,
+                        color: 'rgba(0, 0, 0, 0.6)'
+                      }
+                    }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        height: '36px',
+                        fontSize: '0.75rem',
+                        '& fieldset': {
+                          borderColor: '#ccc',
+                        },
+                        '&:hover fieldset': {
+                          borderColor: '#999',
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor: '#1976d2',
+                        },
+                      },
+                      '& .MuiInputLabel-root': {
+                        '&.Mui-focused': {
+                          color: '#1976d2',
+                        },
+                      },
+                    }}
                   >
-                    <MenuItem value="">All Categories</MenuItem>
-                    <MenuItem value="Inquiry">Inquiry</MenuItem>
-                    <MenuItem value="Suggestion">Suggestion</MenuItem>
-                    <MenuItem value="Complement">Complement</MenuItem>
-                    <MenuItem value="Complaint">Complaint</MenuItem>
-                  </TextField>
-                  
-                  <TextField
-                    select
-                    label="Channel"
-                    value={initialFilters.channel || ""}
-                    onChange={(e) => handleFilterChange('channel', e.target.value)}
-                    size="small"
-                    fullWidth
-                    InputLabelProps={{ shrink: true }}
-                  >
-                    <MenuItem value="">All Channels</MenuItem>
-                    <MenuItem value="Email">Email</MenuItem>
-                    <MenuItem value="Phone">Phone</MenuItem>
-                    <MenuItem value="Web">Web</MenuItem>
-                    <MenuItem value="Social Media">Social Media</MenuItem>
+                    <MenuItem value="" sx={{ fontSize: '0.75rem' }}>All Categories</MenuItem>
+                    <MenuItem value="Inquiry" sx={{ fontSize: '0.75rem' }}>Inquiry</MenuItem>
+                    <MenuItem value="Suggestion" sx={{ fontSize: '0.75rem' }}>Suggestion</MenuItem>
+                    <MenuItem value="Complement" sx={{ fontSize: '0.75rem' }}>Complement</MenuItem>
+                    <MenuItem value="Complaint" sx={{ fontSize: '0.75rem' }}>Complaint</MenuItem>
                   </TextField>
                   
                   <LocalizationProvider dateAdapter={AdapterDateFns}>
@@ -315,15 +398,42 @@ const TicketFilters = ({ onFilterChange, initialFilters, compact = false }) => {
                       label="Start Date"
                       value={initialFilters.startDate}
                       onChange={(date) => handleFilterChange('startDate', date)}
-                      renderInput={(params) => (
-                        <TextField 
-                          {...params} 
-                          size="small" 
-                          fullWidth 
-                          InputLabelProps={{ shrink: true }}
-                          placeholder="Select start date..."
-                        />
-                      )}
+                      slotProps={{
+                        textField: {
+                          size: "small",
+                          fullWidth: true,
+                          InputLabelProps: { 
+                            shrink: true,
+                            sx: { 
+                              fontSize: '0.75rem',
+                              backgroundColor: 'white',
+                              px: 0.25,
+                              color: 'rgba(0, 0, 0, 0.6)'
+                            }
+                          },
+                          placeholder: "Select start date...",
+                          sx: {
+                            '& .MuiOutlinedInput-root': {
+                              height: '36px',
+                              fontSize: '0.75rem',
+                              '& fieldset': {
+                                borderColor: '#ccc',
+                              },
+                              '&:hover fieldset': {
+                                borderColor: '#999',
+                              },
+                              '&.Mui-focused fieldset': {
+                                borderColor: '#1976d2',
+                              },
+                            },
+                            '& .MuiInputLabel-root': {
+                              '&.Mui-focused': {
+                                color: '#1976d2',
+                              },
+                            },
+                          }
+                        }
+                      }}
                     />
                   </LocalizationProvider>
                   
@@ -332,40 +442,85 @@ const TicketFilters = ({ onFilterChange, initialFilters, compact = false }) => {
                       label="End Date"
                       value={initialFilters.endDate}
                       onChange={(date) => handleFilterChange('endDate', date)}
-                      renderInput={(params) => (
-                        <TextField 
-                          {...params} 
-                          size="small" 
-                          fullWidth 
-                          InputLabelProps={{ shrink: true }}
-                          placeholder="Select end date..."
-                        />
-                      )}
+                      slotProps={{
+                        textField: {
+                          size: "small",
+                          fullWidth: true,
+                          InputLabelProps: { 
+                            shrink: true,
+                            sx: { 
+                              fontSize: '0.75rem',
+                              backgroundColor: 'white',
+                              px: 0.25,
+                              color: 'rgba(0, 0, 0, 0.6)'
+                            }
+                          },
+                          placeholder: "Select end date...",
+                          sx: {
+                            '& .MuiOutlinedInput-root': {
+                              height: '36px',
+                              fontSize: '0.75rem',
+                              '& fieldset': {
+                                borderColor: '#ccc',
+                              },
+                              '&:hover fieldset': {
+                                borderColor: '#999',
+                              },
+                              '&.Mui-focused fieldset': {
+                                borderColor: '#1976d2',
+                              },
+                            },
+                            '& .MuiInputLabel-root': {
+                              '&.Mui-focused': {
+                                color: '#1976d2',
+                              },
+                            },
+                          }
+                        }
+                      }}
                     />
                   </LocalizationProvider>
                 </Box>
               </Box>
+            </Box>
 
-              {/* Action Buttons */}
-              <Box sx={{ display: 'flex', gap: 1 }}>
-                <Button
-                  variant="outlined"
-                  onClick={handleReset}
-                  startIcon={<FaUndo />}
-                  size="small"
-                  sx={{ flex: 1 }}
-                >
-                  Reset
-                </Button>
-                <Button
-                  variant="contained"
-                  onClick={() => setShowModal(false)}
-                  size="small"
-                  sx={{ flex: 1 }}
-                >
-                  Apply
-                </Button>
-              </Box>
+            {/* Action Buttons - Fixed at bottom */}
+            <Box sx={{ 
+              p: 1, 
+              borderTop: '1px solid #e0e0e0',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '0 0 8px 8px',
+              display: 'flex',
+              gap: 0.5,
+              flexShrink: 0
+            }}>
+              <Button
+                variant="outlined"
+                onClick={handleReset}
+                startIcon={<FaUndo />}
+                size="small"
+                sx={{ 
+                  flex: 1,
+                  fontSize: '0.75rem',
+                  py: 0.5,
+                  minHeight: '36px'
+                }}
+              >
+                Reset
+              </Button>
+              <Button
+                variant="contained"
+                onClick={() => setShowModal(false)}
+                size="small"
+                sx={{ 
+                  flex: 1,
+                  fontSize: '0.75rem',
+                  py: 0.5,
+                  minHeight: '36px'
+                }}
+              >
+                Apply
+              </Button>
             </Box>
           </Box>
         </Modal>
@@ -465,7 +620,7 @@ const TicketFilters = ({ onFilterChange, initialFilters, compact = false }) => {
       <Collapse in={showAdvanced}>
         <Divider sx={{ my: 2 }} />
         <Box sx={{ 
-          pt: 2,
+          pt: 0,
           backgroundColor: '#fafafa',
           p: 2,
           borderRadius: '8px',
@@ -570,15 +725,39 @@ const TicketFilters = ({ onFilterChange, initialFilters, compact = false }) => {
                   label="Start Date"
                   value={initialFilters.startDate}
                   onChange={(date) => handleFilterChange('startDate', date)}
-                  renderInput={(params) => (
-                    <TextField 
-                      {...params} 
-                      size="small" 
-                      fullWidth 
-                      InputLabelProps={{ shrink: true }}
-                      placeholder="Select start date..."
-                    />
-                  )}
+                  slotProps={{
+                    textField: {
+                      size: "small",
+                      fullWidth: true,
+                      InputLabelProps: { 
+                        shrink: true,
+                        sx: { 
+                          backgroundColor: 'white',
+                          px: 0.5,
+                          color: 'rgba(0, 0, 0, 0.6)'
+                        }
+                      },
+                      placeholder: "Select start date...",
+                      sx: {
+                        '& .MuiOutlinedInput-root': {
+                          '& fieldset': {
+                            borderColor: '#ccc',
+                          },
+                          '&:hover fieldset': {
+                            borderColor: '#999',
+                          },
+                          '&.Mui-focused fieldset': {
+                            borderColor: '#1976d2',
+                          },
+                        },
+                        '& .MuiInputLabel-root': {
+                          '&.Mui-focused': {
+                            color: '#1976d2',
+                          },
+                        },
+                      }
+                    }
+                  }}
                 />
               </LocalizationProvider>
             </Grid>
@@ -588,15 +767,39 @@ const TicketFilters = ({ onFilterChange, initialFilters, compact = false }) => {
                   label="End Date"
                   value={initialFilters.endDate}
                   onChange={(date) => handleFilterChange('endDate', date)}
-                  renderInput={(params) => (
-                    <TextField 
-                      {...params} 
-                      size="small" 
-                      fullWidth 
-                      InputLabelProps={{ shrink: true }}
-                      placeholder="Select end date..."
-                    />
-                  )}
+                  slotProps={{
+                    textField: {
+                      size: "small",
+                      fullWidth: true,
+                      InputLabelProps: { 
+                        shrink: true,
+                        sx: { 
+                          backgroundColor: 'white',
+                          px: 0.5,
+                          color: 'rgba(0, 0, 0, 0.6)'
+                        }
+                      },
+                      placeholder: "Select end date...",
+                      sx: {
+                        '& .MuiOutlinedInput-root': {
+                          '& fieldset': {
+                            borderColor: '#ccc',
+                          },
+                          '&:hover fieldset': {
+                            borderColor: '#999',
+                          },
+                          '&.Mui-focused fieldset': {
+                            borderColor: '#1976d2',
+                          },
+                        },
+                        '& .MuiInputLabel-root': {
+                          '&.Mui-focused': {
+                            color: '#1976d2',
+                          },
+                        },
+                      }
+                    }
+                  }}
                 />
               </LocalizationProvider>
             </Grid>

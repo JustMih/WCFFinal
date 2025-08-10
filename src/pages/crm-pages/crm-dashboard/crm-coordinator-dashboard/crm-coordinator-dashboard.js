@@ -707,6 +707,7 @@ export default function CoordinatorDashboard() {
       });
 
       setIsCloseModalOpen(false);
+      setIsDetailsModalOpen(false); // Close the main ticket details modal
       setResolutionType("");
       setResolutionDetails("");
       setAttachment(null);
@@ -929,7 +930,6 @@ export default function CoordinatorDashboard() {
                       className="view-ticket-details-btn"
                       title="View"
                       onClick={() => {
-                        alert('Button clicked! Ticket ID: ' + ticket.id);
                         openDetailsModal(ticket);
                       }}
                     >

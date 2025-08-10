@@ -143,6 +143,13 @@ export default function CoordinatorDashboard() {
     const unitId = forwardUnit[ticketId];
     const selectedRating = forwardRating[ticketId]; // Add rating for forwarding
     
+    console.log('Debug - handleConvertOrForward:', {
+      ticketId,
+      category,
+      unitId,
+      selectedRating
+    });
+    
     if (!category && !unitId) {
       setSnackbar({
         open: true,
@@ -171,18 +178,24 @@ export default function CoordinatorDashboard() {
         }
       }
       
-      // If forwarding to unit, include rating
-      if (unitId && !category) {
+      // If forwarding to unit (either with or without conversion)
+      if (unitId) {
         payload.responsible_unit_name = unitId;
         
         // Check if ticket is already rated or if rating is selected for this action
         const ticket = tickets.find(t => t.id === ticketId);
+        console.log('Debug - ticket found:', ticket);
+        console.log('Debug - ticket.complaint_type:', ticket?.complaint_type);
+        console.log('Debug - selectedRating:', selectedRating);
+        
         if (ticket && ticket.complaint_type) {
           // Ticket is already rated, use existing rating
           payload.complaintType = ticket.complaint_type;
+          console.log('Debug - using existing rating:', ticket.complaint_type);
         } else if (selectedRating) {
           // Rating is selected for this forwarding action
           payload.complaintType = selectedRating;
+          console.log('Debug - using selected rating:', selectedRating);
         } else {
           // No rating available, show error
           setSnackbar({
@@ -193,6 +206,8 @@ export default function CoordinatorDashboard() {
           return;
         }
       }
+      
+      console.log('Debug - final payload:', payload);
       
       const response = await fetch(
         `${baseURL}/coordinator/${ticketId}/convert-or-forward-ticket`,
@@ -711,11 +726,16 @@ export default function CoordinatorDashboard() {
                     size="small"
                     variant="contained"
                     onClick={() => handleConvertOrForward(selectedTicket.id)}
-                    disabled={!forwardUnit[selectedTicket.id] || !forwardRating[selectedTicket.id] || convertCategory[selectedTicket.id]}
-                    title={!forwardUnit[selectedTicket.id] || !forwardRating[selectedTicket.id] || convertCategory[selectedTicket.id] ? "Please select both unit and rating (and clear conversion)" : ""}
+                    disabled={!forwardUnit[selectedTicket.id] || !forwardRating[selectedTicket.id]}
+                    title={!forwardUnit[selectedTicket.id] || !forwardRating[selectedTicket.id] ? "Please select both unit and rating" : ""}
                   >
                     Forward
                   </Button>
+                  {forwardUnit[selectedTicket.id] && forwardRating[selectedTicket.id] && (
+                    <Typography variant="caption" color="success.main" sx={{ fontSize: "0.7rem" }}>
+                      Will forward to {forwardUnit[selectedTicket.id]} as {forwardRating[selectedTicket.id]}
+                    </Typography>
+                  )}
                 </Box>
               </Box>
               <Box sx={{ mt: 2, textAlign: "right" }}>

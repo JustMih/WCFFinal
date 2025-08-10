@@ -4,6 +4,233 @@ import { FiSettings, FiDownload, FiFileText } from "react-icons/fi";
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
+// Districts data organized by region
+const districtsByRegion = {
+  "HQ": [
+    { value: "HQ", label: "HQ" }
+  ],
+  "arusha": [
+    { value: "arusha-city", label: "Arusha City" },
+    { value: "arusha-rural", label: "Arusha Rural" },
+    { value: "karatu", label: "Karatu" },
+    { value: "longido", label: "Longido" },
+    { value: "meru", label: "Meru" },
+    { value: "monduli", label: "Monduli" },
+    { value: "ngorongoro", label: "Ngorongoro" }
+  ],
+  "dar-es-salaam": [
+    { value: "ilala", label: "Ilala" },
+    { value: "kinondoni", label: "Kinondoni" },
+    { value: "temeke", label: "Temeke" },
+    { value: "kigamboni", label: "Kigamboni" },
+    { value: "ubungo", label: "Ubungo" }
+  ],
+  "dodoma": [
+    { value: "dodoma-city", label: "Dodoma City" },
+    { value: "dodoma-rural", label: "Dodoma Rural" },
+    { value: "bahi", label: "Bahi" },
+    { value: "chamwino", label: "Chamwino" },
+    { value: "chemba", label: "Chemba" },
+    { value: "kongwa", label: "Kongwa" },
+    { value: "mpwapwa", label: "Mpwapwa" },
+    { value: "kondoa", label: "Kondoa" }
+  ],
+  "mwanza": [
+    { value: "mwanza-city", label: "Mwanza City" },
+    { value: "ilemela", label: "Ilemela" },
+    { value: "nyamagana", label: "Nyamagana" },
+    { value: "buchosa", label: "Buchosa" },
+    { value: "magu", label: "Magu" },
+    { value: "misungwi", label: "Misungwi" },
+    { value: "kwimba", label: "Kwimba" },
+    { value: "ukerewe", label: "Ukerewe" },
+    { value: "sengerema", label: "Sengerema" }
+  ],
+  "mbeya": [
+    { value: "mbeya-city", label: "Mbeya City" },
+    { value: "mbeya-rural", label: "Mbeya Rural" },
+    { value: "chunya", label: "Chunya" },
+    { value: "kyela", label: "Kyela" },
+    { value: "mbarali", label: "Mbarali" },
+    { value: "rujewa", label: "Rujewa" }
+  ],
+  "kilimanjaro": [
+    { value: "moshi-city", label: "Moshi City" },
+    { value: "moshi-rural", label: "Moshi Rural" },
+    { value: "hai", label: "Hai" },
+    { value: "siha", label: "Siha" },
+    { value: "rombo", label: "Rombo" },
+    { value: "mwanga", label: "Mwanga" },
+    { value: "same", label: "Same" }
+  ],
+  "tanga": [
+    { value: "tanga-city", label: "Tanga City" },
+    { value: "tanga-rural", label: "Tanga Rural" },
+    { value: "muheza", label: "Muheza" },
+    { value: "pangani", label: "Pangani" },
+    { value: "handeni", label: "Handeni" },
+    { value: "kilindi", label: "Kilindi" },
+    { value: "korogwe", label: "Korogwe" },
+    { value: "lushoto", label: "Lushoto" },
+    { value: "mkinga", label: "Mkinga" }
+  ],
+  "morogoro": [
+    { value: "morogoro-city", label: "Morogoro City" },
+    { value: "morogoro-rural", label: "Morogoro Rural" },
+    { value: "kilosa", label: "Kilosa" },
+    { value: "ulanga", label: "Ulanga" },
+    { value: "kilombero", label: "Kilombero" },
+    { value: "malinyi", label: "Malinyi" },
+    { value: "gairo", label: "Gairo" },
+    { value: "mvomero", label: "Mvomero" }
+  ],
+  "geita": [
+    { value: "geita", label: "Geita" },
+    { value: "nyang'hwale", label: "Nyang'hwale" },
+    { value: "chato", label: "Chato" },
+    { value: "mbogwe", label: "Mbogwe" },
+    { value: "bukombe", label: "Bukombe" }
+  ],
+  "iringa": [
+    { value: "iringa-rural", label: "Iringa Rural" },
+    { value: "kilolo", label: "Kilolo" },
+    { value: "mufindi", label: "Mufindi" },
+    { value: "iringa-urban", label: "Iringa Urban" }
+  ],
+  "kagera": [
+    { value: "bukoba-rural", label: "Bukoba Rural" },
+    { value: "bukoba-urban", label: "Bukoba Urban" },
+    { value: "karagwe", label: "Karagwe" },
+    { value: "kibondo", label: "Kibondo" },
+    { value: "kakonko", label: "Kakonko" },
+    { value: "muleba", label: "Muleba" },
+    { value: "ngara", label: "Ngara" },
+    { value: "biharamulo", label: "Biharamulo" }
+  ],
+  "katavi": [
+    { value: "mpanda-rural", label: "Mpanda Rural" },
+    { value: "mpanda-urban", label: "Mpanda Urban" },
+    { value: "mlele", label: "Mlele" }
+  ],
+  "kigoma": [
+    { value: "kigoma-rural", label: "Kigoma Rural" },
+    { value: "kigoma-urban", label: "Kigoma Urban" },
+    { value: "kasulu", label: "Kasulu" },
+    { value: "buhigwe", label: "Buhigwe" },
+    { value: "ulongwe", label: "Ulongwe" }
+  ],
+  "lindi": [
+    { value: "lindi-rural", label: "Lindi Rural" },
+    { value: "lindi-urban", label: "Lindi Urban" },
+    { value: "kilwa", label: "Kilwa" },
+    { value: "liwale", label: "Liwale" },
+    { value: "ruangwa", label: "Ruangwa" },
+    { value: "nachingwea", label: "Nachingwea" }
+  ],
+  "manyara": [
+    { value: "babati-rural", label: "Babati Rural" },
+    { value: "babati-urban", label: "Babati Urban" },
+    { value: "hanang", label: "Hanang" },
+    { value: "kiteto", label: "Kiteto" },
+    { value: "mbulu", label: "Mbulu" },
+    { value: "simanjiro", label: "Simanjiro" }
+  ],
+  "mara": [
+    { value: "musoma-rural", label: "Musoma Rural" },
+    { value: "musoma-urban", label: "Musoma Urban" },
+    { value: "tarime", label: "Tarime" },
+    { value: "serengeti", label: "Serengeti" },
+    { value: "bunda", label: "Bunda" },
+    { value: "butiama", label: "Butiama" },
+    { value: "rorya", label: "Rorya" }
+  ],
+  "mtwara": [
+    { value: "mtwara-rural", label: "Mtwara Rural" },
+    { value: "mtwara-urban", label: "Mtwara Urban" },
+    { value: "masasi", label: "Masasi" },
+    { value: "newala", label: "Newala" },
+    { value: "tandahimba", label: "Tandahimba" },
+    { value: "nanyumbu", label: "Nanyumbu" }
+  ],
+  "njombe": [
+    { value: "njombe-rural", label: "Njombe Rural" },
+    { value: "njombe-urban", label: "Njombe Urban" },
+    { value: "wanging'ombe", label: "Wanging'ombe" },
+    { value: "ludewa", label: "Ludewa" },
+    { value: "makete", label: "Makete" }
+  ],
+  "pwani": [
+    { value: "kibaha-rural", label: "Kibaha Rural" },
+    { value: "kibaha-urban", label: "Kibaha Urban" },
+    { value: "bagamoyo", label: "Bagamoyo" },
+    { value: "kisarawe", label: "Kisarawe" },
+    { value: "mkuranga", label: "Mkuranga" },
+    { value: "rufiji", label: "Rufiji" },
+    { value: "kibiti", label: "Kibiti" }
+  ],
+  "rukwa": [
+    { value: "sumbawanga-rural", label: "Sumbawanga Rural" },
+    { value: "sumbawanga-urban", label: "Sumbawanga Urban" },
+    { value: "nkcasi", label: "Nkasi" },
+    { value: "kalambo", label: "Kalambo" }
+  ],
+  "ruvuma": [
+    { value: "songea-rural", label: "Songea Rural" },
+    { value: "songea-urban", label: "Songea Urban" },
+    { value: "tunduru", label: "Tunduru" },
+    { value: "namtumbo", label: "Namtumbo" },
+    { value: "nyasa", label: "Nyasa" },
+    { value: "mbinga", label: "Mbinga" }
+  ],
+  "shinyanga": [
+    { value: "shinyanga-rural", label: "Shinyanga Rural" },
+    { value: "shinyanga-urban", label: "Shinyanga Urban" },
+    { value: "kahama", label: "Kahama" },
+    { value: "kishapu", label: "Kishapu" },
+    { value: "maswa", label: "Maswa" },
+    { value: "meatu", label: "Meatu" }
+  ],
+  "simiyu": [
+    { value: "bariadi", label: "Bariadi" },
+    { value: "busega", label: "Busega" },
+    { value: "itilima", label: "Itilima" }
+  ],
+  "singida": [
+    { value: "singida-rural", label: "Singida Rural" },
+    { value: "singida-urban", label: "Singida Urban" },
+    { value: "ikungi", label: "Ikungi" },
+    { value: "manyoni", label: "Manyoni" },
+    { value: "mkalama", label: "Mkalama" },
+    { value: "itigi", label: "Itigi" }
+  ],
+  "songwe": [
+    { value: "ileje", label: "Ileje" },
+    { value: "mbozi", label: "Mbozi" }
+  ],
+  "tabora": [
+    { value: "tabora-urban", label: "Tabora Urban" },
+    { value: "tabora-rural", label: "Tabora Rural" },
+    { value: "igunga", label: "Igunga" },
+    { value: "uroki", label: "Uroki" },
+    { value: "sikonge", label: "Sikonge" },
+    { value: "kaliua", label: "Kaliua" }
+  ],
+  "zanzibar-urban": [
+    { value: "magharibi", label: "Magharibi" },
+    { value: "kaskazini-unguja", label: "Kaskazini Unguja" },
+    { value: "kusini-unguja", label: "Kusini Unguja" },
+    { value: "mjini-magharibi", label: "Mjini Magharibi" }
+  ],
+  "zanzibar-rural": [
+    { value: "kaskazini-pemba", label: "Kaskazini Pemba" },
+    { value: "kusini-pemba", label: "Kusini Pemba" },
+    { value: "mjini-kaskazini", label: "Mjini Kaskazini" },
+    { value: "wete", label: "Wete" },
+    { value: "chake-chake", label: "Chake Chake" },
+    { value: "mkoani", label: "Mkoani" }
+  ]
+};
+
 const TableControls = ({
   itemsPerPage,
   onItemsPerPageChange,
@@ -25,40 +252,34 @@ const TableControls = ({
   regionOptions = [
     { value: "", label: "All Regions" },
     { value: "HQ", label: "HQ" },
-    { value: "Arusha", label: "Arusha" },
-    { value: "Dar es Salaam", label: "Dar es Salaam" },
-    { value: "Dodoma", label: "Dodoma" },
-    { value: "Geita", label: "Geita" },
-    { value: "Iringa", label: "Iringa" },
-    { value: "Kagera", label: "Kagera" },
-    { value: "Katavi", label: "Katavi" },
-    { value: "Kigoma", label: "Kigoma" },
-    { value: "Kilimanjaro", label: "Kilimanjaro" },
-    { value: "Lindi", label: "Lindi" },
-    { value: "Manyara", label: "Manyara" },
-    { value: "Mara", label: "Mara" },
-    { value: "Mbeya", label: "Mbeya" },
-    { value: "Morogoro", label: "Morogoro" },
-    { value: "Mtwara", label: "Mtwara" },
-    { value: "Mwanza", label: "Mwanza" },
-    { value: "Njombe", label: "Njombe" },
-    { value: "Pemba North", label: "Pemba North" },
-    { value: "Pemba South", label: "Pemba South" },
-    { value: "Pwani", label: "Pwani" },
-    { value: "Rukwa", label: "Rukwa" },
-    { value: "Ruvuma", label: "Ruvuma" },
-    { value: "Shinyanga", label: "Shinyanga" },
-    { value: "Simiyu", label: "Simiyu" },
-    { value: "Singida", label: "Singida" },
-    { value: "Songwe", label: "Songwe" },
-    { value: "Tabora", label: "Tabora" },
-    { value: "Tanga", label: "Tanga" },
-    { value: "Unguja North", label: "Unguja North" },
-    { value: "Unguja South", label: "Unguja South" }
-  ],
-  districtOptions = [
-    { value: "", label: "All Districts" },
-    { value: "HQ", label: "HQ" }
+    { value: "arusha", label: "Arusha" },
+    { value: "dar-es-salaam", label: "Dar es Salaam" },
+    { value: "dodoma", label: "Dodoma" },
+    { value: "geita", label: "Geita" },
+    { value: "iringa", label: "Iringa" },
+    { value: "kagera", label: "Kagera" },
+    { value: "katavi", label: "Katavi" },
+    { value: "kigoma", label: "Kigoma" },
+    { value: "kilimanjaro", label: "Kilimanjaro" },
+    { value: "lindi", label: "Lindi" },
+    { value: "manyara", label: "Manyara" },
+    { value: "mara", label: "Mara" },
+    { value: "mbeya", label: "Mbeya" },
+    { value: "morogoro", label: "Morogoro" },
+    { value: "mtwara", label: "Mtwara" },
+    { value: "mwanza", label: "Mwanza" },
+    { value: "njombe", label: "Njombe" },
+    { value: "pwani", label: "Pwani" },
+    { value: "rukwa", label: "Rukwa" },
+    { value: "ruvuma", label: "Ruvuma" },
+    { value: "shinyanga", label: "Shinyanga" },
+    { value: "simiyu", label: "Simiyu" },
+    { value: "singida", label: "Singida" },
+    { value: "songwe", label: "Songwe" },
+    { value: "tabora", label: "Tabora" },
+    { value: "tanga", label: "Tanga" },
+    { value: "zanzibar-urban", label: "Zanzibar Urban" },
+    { value: "zanzibar-rural", label: "Zanzibar Rural" }
   ],
   activeColumns: initialActiveColumns,
   onColumnsChange,
@@ -69,10 +290,10 @@ const TableControls = ({
 }) => {
   const defaultColumns = ["ticket_id", "fullName", "phone_number", "region", "status"];
   
+  const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
   const [activeColumns, setActiveColumns] = useState(
     initialActiveColumns || defaultColumns
   );
-  const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
 
   // Update activeColumns when initialActiveColumns prop changes
   useEffect(() => {
@@ -80,6 +301,33 @@ const TableControls = ({
       setActiveColumns(initialActiveColumns);
     }
   }, [initialActiveColumns]);
+
+  // Handle region change and reset district
+  const handleRegionChange = (e) => {
+    const newRegion = e.target.value;
+    onFilterRegionChange(e);
+    // Reset district when region changes
+    if (onFilterDistrictChange) {
+      onFilterDistrictChange({ target: { value: "" } });
+    }
+  };
+
+  // Get available districts for the selected region
+  const getAvailableDistricts = () => {
+    if (!filterRegion) {
+      return [{ value: "", label: "All Districts" }];
+    }
+    
+    const regionDistricts = districtsByRegion[filterRegion];
+    if (!regionDistricts) {
+      return [{ value: "", label: "All Districts" }];
+    }
+    
+    return [
+      { value: "", label: "All Districts" },
+      ...regionDistricts
+    ];
+  };
 
   const exportableColumns = [
     { key: "id", label: "#" },
@@ -488,7 +736,7 @@ const TableControls = ({
         <select
           className="filter-select"
           value={filterRegion || ""}
-          onChange={onFilterRegionChange}
+          onChange={handleRegionChange}
           style={{
             padding: "8px 12px",
             borderRadius: "4px",
@@ -509,29 +757,37 @@ const TableControls = ({
           ))}
         </select>
         
-        <select
-          className="filter-select"
-          value={filterDistrict || ""}
-          onChange={onFilterDistrictChange}
-          style={{
-            padding: "8px 12px",
-            borderRadius: "4px",
-            border: "1px solid #ccc",
-            backgroundColor: "white",
-            minWidth: "140px",
-            height: "36px",
-            fontSize: "14px",
-            boxSizing: "border-box",
-            margin: 0,
-            lineHeight: "1"
-          }}
+        <Tooltip 
+          title={!filterRegion ? "Please select a region first" : ""} 
+          arrow
+          disableHoverListener={filterRegion}
         >
-          {districtOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+          <select
+            className="filter-select"
+            value={filterDistrict || ""}
+            onChange={onFilterDistrictChange}
+            disabled={!filterRegion}
+            style={{
+              padding: "8px 12px",
+              borderRadius: "4px",
+              border: "1px solid #ccc",
+              backgroundColor: filterRegion ? "white" : "#f5f5f5",
+              minWidth: "140px",
+              height: "36px",
+              fontSize: "14px",
+              boxSizing: "border-box",
+              margin: 0,
+              lineHeight: "1",
+              cursor: filterRegion ? "pointer" : "not-allowed"
+            }}
+          >
+            {getAvailableDistricts().map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </Tooltip>
       </div>
 
       {/* Column Selector Modal */}

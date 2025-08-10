@@ -399,6 +399,8 @@ export default function Crm() {
     setCurrentPage(1);
   };
 
+  
+
   const openHistoryModal = async (ticket) => {
     setSelectedTicket(ticket);
     setIsHistoryModalOpen(true);

@@ -132,8 +132,7 @@ export default function CRMCoordinatorTickets() {
   };
 
   const handleFilterChange = (newFilters) => {
-    const { status, ...rest } = newFilters;
-    setFilters(rest);
+    setFilters(newFilters);
     setCurrentPage(1);
   };
 

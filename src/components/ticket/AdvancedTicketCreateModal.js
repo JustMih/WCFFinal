@@ -391,6 +391,162 @@ const districtsData = {
     { value: "malinyi", label: "Malinyi" },
     { value: "gairo", label: "Gairo" },
     { value: "mvomero", label: "Mvomero" }
+  ],
+  "geita": [
+    { value: "geita", label: "Geita" },
+    { value: "nyang'hwale", label: "Nyang'hwale" },
+    { value: "chato", label: "Chato" },
+    { value: "mbogwe", label: "Mbogwe" },
+    { value: "bukombe", label: "Bukombe" }
+  ],
+  "iringa": [
+    { value: "iringa-rural", label: "Iringa Rural" },
+    { value: "kilolo", label: "Kilolo" },
+    { value: "mufindi", label: "Mufindi" },
+    { value: "iringa-urban", label: "Iringa Urban" }
+  ],
+  "kagera": [
+    { value: "bukoba-rural", label: "Bukoba Rural" },
+    { value: "bukoba-urban", label: "Bukoba Urban" },
+    { value: "karagwe", label: "Karagwe" },
+    { value: "kibondo", label: "Kibondo" },
+    { value: "kakonko", label: "Kakonko" },
+    { value: "muleba", label: "Muleba" },
+    { value: "ngara", label: "Ngara" },
+    { value: "biharamulo", label: "Biharamulo" },
+    { value: "chato", label: "Chato" }
+  ],
+  "katavi": [
+    { value: "mpanda-rural", label: "Mpanda Rural" },
+    { value: "mpanda-urban", label: "Mpanda Urban" },
+    { value: "mlele", label: "Mlele" }
+  ],
+  "kigoma": [
+    { value: "kigoma-rural", label: "Kigoma Rural" },
+    { value: "kigoma-urban", label: "Kigoma Urban" },
+    { value: "kasulu", label: "Kasulu" },
+    { value: "kibondo", label: "Kibondo" },
+    { value: "buhigwe", label: "Buhigwe" },
+    { value: "ulongwe", label: "Ulongwe" }
+  ],
+  "lindi": [
+    { value: "lindi-rural", label: "Lindi Rural" },
+    { value: "lindi-urban", label: "Lindi Urban" },
+    { value: "kilwa", label: "Kilwa" },
+    { value: "liwale", label: "Liwale" },
+    { value: "ruangwa", label: "Ruangwa" },
+    { value: "nachingwea", label: "Nachingwea" }
+  ],
+  "manyara": [
+    { value: "babati-rural", label: "Babati Rural" },
+    { value: "babati-urban", label: "Babati Urban" },
+    { value: "hanang", label: "Hanang" },
+    { value: "kiteto", label: "Kiteto" },
+    { value: "mbulu", label: "Mbulu" },
+    { value: "simanjiro", label: "Simanjiro" }
+  ],
+  "mara": [
+    { value: "musoma-rural", label: "Musoma Rural" },
+    { value: "musoma-urban", label: "Musoma Urban" },
+    { value: "tarime", label: "Tarime" },
+    { value: "serengeti", label: "Serengeti" },
+    { value: "bunda", label: "Bunda" },
+    { value: "butiama", label: "Butiama" },
+    { value: "rorya", label: "Rorya" }
+  ],
+  "mtwara": [
+    { value: "mtwara-rural", label: "Mtwara Rural" },
+    { value: "mtwara-urban", label: "Mtwara Urban" },
+    { value: "masasi", label: "Masasi" },
+    { value: "newala", label: "Newala" },
+    { value: "tandahimba", label: "Tandahimba" },
+    { value: "nanyumbu", label: "Nanyumbu" }
+  ],
+  "njombe": [
+    { value: "njombe-rural", label: "Njombe Rural" },
+    { value: "njombe-urban", label: "Njombe Urban" },
+    { value: "wanging'ombe", label: "Wanging'ombe" },
+    { value: "ludewa", label: "Ludewa" },
+    { value: "makete", label: "Makete" }
+  ],
+  "pwani": [
+    { value: "kibaha-rural", label: "Kibaha Rural" },
+    { value: "kibaha-urban", label: "Kibaha Urban" },
+    { value: "bagamoyo", label: "Bagamoyo" },
+    { value: "kisarawe", label: "Kisarawe" },
+    { value: "mkuranga", label: "Mkuranga" },
+    { value: "rufiji", label: "Rufiji" },
+    { value: "kibiti", label: "Kibiti" }
+  ],
+  "rukwa": [
+    { value: "sumbawanga-rural", label: "Sumbawanga Rural" },
+    { value: "sumbawanga-urban", label: "Sumbawanga Urban" },
+    { value: "nkcasi", label: "Nkasi" },
+    { value: "kalambo", label: "Kalambo" }
+  ],
+  "ruvuma": [
+    { value: "songea-rural", label: "Songea Rural" },
+    { value: "songea-urban", label: "Songea Urban" },
+    { value: "tunduru", label: "Tunduru" },
+    { value: "namtumbo", label: "Namtumbo" },
+    { value: "nyasa", label: "Nyasa" },
+    { value: "mbinga", label: "Mbinga" }
+  ],
+  "shinyanga": [
+    { value: "shinyanga-rural", label: "Shinyanga Rural" },
+    { value: "shinyanga-urban", label: "Shinyanga Urban" },
+    { value: "kahama", label: "Kahama" },
+    { value: "kishapu", label: "Kishapu" },
+    { value: "maswa", label: "Maswa" },
+    { value: "meatu", label: "Meatu" }
+  ],
+  "simiyu": [
+    { value: "bariadi", label: "Bariadi" },
+    { value: "busega", label: "Busega" },
+    { value: "itilima", label: "Itilima" },
+    { value: "maswa", label: "Maswa" },
+    { value: "meatu", label: "Meatu" }
+  ],
+  "singida": [
+    { value: "singida-rural", label: "Singida Rural" },
+    { value: "singida-urban", label: "Singida Urban" },
+    { value: "ikungi", label: "Ikungi" },
+    { value: "manyoni", label: "Manyoni" },
+    { value: "mkalama", label: "Mkalama" },
+    { value: "itigi", label: "Itigi" }
+  ],
+  "songwe": [
+    { value: "mbeya-city", label: "Mbeya City" },
+    { value: "mbeya-rural", label: "Mbeya Rural" },
+    { value: "chunya", label: "Chunya" },
+    { value: "kyela", label: "Kyela" },
+    { value: "mbarali", label: "Mbarali" },
+    { value: "rujewa", label: "Rujewa" },
+    { value: "ileje", label: "Ileje" },
+    { value: "mbozi", label: "Mbozi" }
+  ],
+  "tabora": [
+    { value: "tabora-urban", label: "Tabora Urban" },
+    { value: "tabora-rural", label: "Tabora Rural" },
+    { value: "igunga", label: "Igunga" },
+    { value: "nkasi", label: "Nkasi" },
+    { value: "uroki", label: "Uroki" },
+    { value: "sikonge", label: "Sikonge" },
+    { value: "kaliua", label: "Kaliua" }
+  ],
+  "zanzibar-urban": [
+    { value: "magharibi", label: "Magharibi" },
+    { value: "kaskazini-unguja", label: "Kaskazini Unguja" },
+    { value: "kusini-unguja", label: "Kusini Unguja" },
+    { value: "mjini-magharibi", label: "Mjini Magharibi" }
+  ],
+  "zanzibar-rural": [
+    { value: "kaskazini-pemba", label: "Kaskazini Pemba" },
+    { value: "kusini-pemba", label: "Kusini Pemba" },
+    { value: "mjini-kaskazini", label: "Mjini Kaskazini" },
+    { value: "wete", label: "Wete" },
+    { value: "chake-chake", label: "Chake Chake" },
+    { value: "mkoani", label: "Mkoani" }
   ]
 };
 
@@ -437,6 +593,10 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
   const [registrationType, setRegistrationType] = useState(""); // "employee" or "employer"
   const [searchResults, setSearchResults] = useState([]);
   const [currentSearchQuery, setCurrentSearchQuery] = useState("");
+  
+  // --- Right Part Visibility Control ---
+  const [showRightPart, setShowRightPart] = useState(true);
+  const [rightPartContent, setRightPartContent] = useState("no-history"); // "no-history", "hidden", "ticket-history"
   
   // --- Call Phone Number Preservation ---
   const [callPhoneNumber] = useState(initialPhoneNumber); // Preserve call phone number throughout component lifecycle
@@ -708,6 +868,10 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
     
     // Clear selected suggestion
     setSelectedSuggestion(null);
+    
+    // Show right part again and reset to no-history state
+    setShowRightPart(true);
+    setRightPartContent("no-history");
   };
 
   const handleSearchTypeChange = (newSearchType) => {
@@ -764,6 +928,15 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
     // Clear any user not found states
     setShowUserNotFound(false);
     setShowRegistrationOptions(false);
+    // Hide right part during form display
+    setShowRightPart(false);
+    setRightPartContent("hidden");
+    
+    // Show right part again after a short delay to allow form to display
+    setTimeout(() => {
+      setShowRightPart(true);
+      setRightPartContent("ticket-history");
+    }, 100);
   };
 
   const handleEmployeeSelectionWithFlow = (employee) => {
@@ -772,6 +945,15 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
     // Clear any user not found states
     setShowUserNotFound(false);
     setShowRegistrationOptions(false);
+    // Hide right part during form display
+    setShowRightPart(false);
+    setRightPartContent("hidden");
+    
+    // Show right part again after a short delay to allow form to display
+    setTimeout(() => {
+      setShowRightPart(true);
+      setRightPartContent("ticket-history");
+    }, 100);
   };
   // --- End Enhanced Search Form Handlers ---
 
@@ -1260,7 +1442,9 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
     const phone = formData.phoneNumber?.trim();
     const normalizedPhone = normalizePhone(phone);
     const token = localStorage.getItem("authToken");
-    if (normalizedPhone && normalizedPhone.length >= 7 && token) { // basic length check
+    
+    // Only fetch ticket history if we have a phone number and the right part should be visible
+    if (normalizedPhone && normalizedPhone.length >= 7 && token && showRightPart && rightPartContent !== "hidden") {
       setCreationTicketsLoading(true);
       fetch(`${baseURL}/ticket/search-by-phone/${normalizedPhone}`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -1269,16 +1453,23 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
         .then((data) => {
           if (data.found && Array.isArray(data.tickets)) {
             setCreationFoundTickets(data.tickets);
+            setRightPartContent("ticket-history");
           } else {
             setCreationFoundTickets([]);
+            setRightPartContent("no-history");
           }
         })
-        .catch(() => setCreationFoundTickets([]))
+        .catch(() => {
+          setCreationFoundTickets([]);
+          setRightPartContent("no-history");
+        })
         .finally(() => setCreationTicketsLoading(false));
-    } else {
+    } else if (!normalizedPhone || normalizedPhone.length < 7) {
+      // No phone number, show no history
       setCreationFoundTickets([]);
+      setRightPartContent("no-history");
     }
-  }, [formData.phoneNumber]);
+  }, [formData.phoneNumber, showRightPart, rightPartContent]);
 
   // Add useEffect to monitor search state and handle not found scenarios
   useEffect(() => {
@@ -1294,6 +1485,15 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
       }, 1000); // Small delay to allow the search to complete
     }
   }, [searchCompleted, selectedEmployee, selectedEmployer, currentSearchQuery, formSearchType]);
+
+  // Add useEffect to show right part when form is displayed
+  useEffect(() => {
+    if (showForm) {
+      // Show right part when form is displayed
+      setShowRightPart(true);
+      setRightPartContent("ticket-history");
+    }
+  }, [showForm]);
 
   // Add a function to manually trigger user not found (can be called from EnhancedSearchForm)
   const triggerUserNotFound = (searchQuery, searchType) => {
@@ -2154,187 +2354,206 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
               overflowY: "auto",
               minWidth: 350,
               maxWidth: 450,
-              maxHeight: "90vh"
+              maxHeight: "90vh",
+              display: showRightPart ? "block" : "none"
             }}
           >
-            {/* Employer/Institution Details */}
-            {(selectedInstitution || (selectedEmployee && formData.allocated_user_name)) && (
+            {/* Show "No history yet" initially */}
+            {rightPartContent === "no-history" && (
               <div
                 style={{
-                  flex: 1,
-                  background: "#e3f2fd",
-                  borderRadius: "8px",
-                  padding: "16px",
-                  minWidth: 0,
-                  marginBottom: 16
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  height: "100%",
+                  color: "#666",
+                  textAlign: "center"
                 }}
               >
-                <h4 style={{ color: "#1976d2", marginBottom: 12 }}>
-                  {selectedInstitution ? "Institution Details" : "Employee Details"}
-                </h4>
-                {selectedInstitution && (
-                  <>
-                    <div>
-                      <strong>Name:</strong> {selectedInstitution.name}
-                    </div>
-                    <div>
-                      <strong>TIN:</strong> {selectedInstitution.tin}
-                    </div>
-                    <div>
-                      <strong>Phone:</strong> {selectedInstitution.phone}
-                    </div>
-                    <div>
-                      <strong>Email:</strong> {selectedInstitution.email}
-                    </div>
-                    <div>
-                      <strong>Status:</strong> {selectedInstitution.employer_status}
-                    </div>
-                    <div>
-                      <strong>Allocated User:</strong>{" "}
-                      {selectedInstitution.allocated_staff_name || "Not assigned"}
-                    </div>
-                    {/* <div>
-                      <strong>Allocated Username:</strong>{" "}
-                      {selectedInstitution.allocated_staff_username || "Not assigned"}
-                    </div> */}
-                  </>
-                )}
-                {selectedEmployee && formData.allocated_user_name && (
-                  <>
-                    {!selectedInstitution && (
+                <Typography variant="h6" style={{ marginBottom: 8, color: "#1976d2" }}>
+                  No History Yet
+                </Typography>
+                <Typography variant="body2" style={{ color: "#888" }}>
+                  Start searching for an employer or employee to see ticket history.
+                </Typography>
+              </div>
+            )}
+
+            {/* Show ticket history when available */}
+            {rightPartContent === "ticket-history" && (
+              <>
+                {/* Employer/Institution Details */}
+                {(selectedInstitution || (selectedEmployee && formData.allocated_user_name)) && (
+                  <div
+                    style={{
+                      flex: 1,
+                      background: "#e3f2fd",
+                      borderRadius: "8px",
+                      padding: "16px",
+                      minWidth: 0,
+                      marginBottom: 16
+                    }}
+                  >
+                    <h4 style={{ color: "#1976d2", marginBottom: 12 }}>
+                      {selectedInstitution ? "Institution Details" : "Employee Details"}
+                    </h4>
+                    {selectedInstitution && (
                       <>
                         <div>
-                          <strong>Employee Name:</strong> {`${formData.firstName} ${formData.middleName} ${formData.lastName}`.trim()}
+                          <strong>Name:</strong> {selectedInstitution.name}
                         </div>
                         <div>
-                          <strong>Claim Number:</strong> {formData.claimNumber || "No active claim"}
+                          <strong>TIN:</strong> {selectedInstitution.tin}
+                        </div>
+                        <div>
+                          <strong>Phone:</strong> {selectedInstitution.phone}
+                        </div>
+                        <div>
+                          <strong>Email:</strong> {selectedInstitution.email}
+                        </div>
+                        <div>
+                          <strong>Status:</strong> {selectedInstitution.employer_status}
+                        </div>
+                        <div>
+                          <strong>Allocated User:</strong>{" "}
+                          {selectedInstitution.allocated_staff_name || "Not assigned"}
                         </div>
                       </>
                     )}
-                    <div>
-                      <strong>Checklist User:</strong> {formData.allocated_user_name}
-                    </div>
-                    {/* <div>
-                      <strong>Allocated Username:</strong> {formData.allocated_user_username || "Not assigned"}
-                    </div> */}
-                    {/* <div>
-                      <strong>Allocated User ID:</strong> {formData.allocated_user_id || "Not assigned"}
-                    </div> */}
-                  </>
-                )}
-              </div>
-            )}
-            {/* Ticket history for entered phone number */}
-            {formData.phoneNumber && (
-              <div
-                style={{
-                  marginTop: 8,
-                  background: "#f8f9fa",
-                  borderRadius: 8,
-                  padding: 0,
-                  minHeight: 60
-                }}
-              >
-                <h4 style={{ color: "#1976d2", margin: '16px 0 8px 0', paddingLeft: 16 }}>
-                  Ticket History for {formData.phoneNumber}
-                </h4>
-                {creationTicketsLoading ? (
-                  <div style={{ textAlign: "center", padding: 12 }}>
-                    <CircularProgress size={22} />
+                    {selectedEmployee && formData.allocated_user_name && (
+                      <>
+                        {!selectedInstitution && (
+                          <>
+                            <div>
+                              <strong>Employee Name:</strong> {`${formData.firstName} ${formData.middleName} ${formData.lastName}`.trim()}
+                            </div>
+                            <div>
+                              <strong>Claim Number:</strong> {formData.claimNumber || "No active claim"}
+                            </div>
+                          </>
+                        )}
+                        <div>
+                          <strong>Checklist User:</strong> {formData.allocated_user_name}
+                        </div>
+                      </>
+                    )}
                   </div>
-                ) : creationFoundTickets.length > 0 ? (
-                  creationFoundTickets.map((ticket) => (
-                    <Box
-                      key={ticket.id}
-                      onClick={() => setCreationActiveTicketId(ticket.id)}
-                      sx={{
-                        mb: 2,
-                        p: 2,
-                        borderRadius: 2,
-                        bgcolor: creationActiveTicketId === ticket.id ? "#e3f2fd" : "#fff",
-                        cursor: "pointer",
-                        border: creationActiveTicketId === ticket.id ? "2px solid #1976d2" : "1px solid #e0e0e0",
-                        boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 1,
-                        transition: 'box-shadow 0.2s, border-color 0.2s',
-                        '&:hover': {
-                          boxShadow: '0 4px 8px rgba(25,118,210,0.1)',
-                          borderColor: '#1976d2'
-                        }
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#1976d2' }}>
-                          {ticket.ticket_id}
-                        </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography
-                            sx={{
-                              px: 1.5,
-                              py: 0.5,
-                              borderRadius: '12px',
-                              color: 'white',
-                              background:
-                                ticket.status === 'Closed'
-                                  ? '#757575'
-                                  : ticket.status === 'Open'
-                                  ? '#2e7d32'
-                                  : '#1976d2',
-                              fontSize: '0.75rem',
-                              fontWeight: 500
-                            }}
-                          >
-                            {ticket.status}
-                          </Typography>
-                          <IconButton
-                            size="small"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenJustificationHistory(ticket);
-                            }}
-                            sx={{
-                              color: '#1976d2',
-                              '&:hover': {
-                                backgroundColor: 'rgba(25, 118, 210, 0.1)'
-                              }
-                            }}
-                            title="View Recomendation History"
-                          >
-                            <ChatIcon fontSize="small" />
-                          </IconButton>
-                        </Box>
-                      </Box>
-                      <Box sx={{ mt: 1 }}>
-                        <Typography variant="body2" sx={{ color: '#666', mb: 0.5 }}>
-                          Created: {new Date(ticket.created_at).toLocaleDateString()}
-                        </Typography>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 500, color: '#333', mb: 1 }}>
-                          Subject: {ticket.subject}
-                        </Typography>
-                        <Typography
-                          variant="body2"
+                )}
+                
+                {/* Ticket history for entered phone number */}
+                {formData.phoneNumber && (
+                  <div
+                    style={{
+                      marginTop: 8,
+                      background: "#f8f9fa",
+                      borderRadius: 8,
+                      padding: 0,
+                      minHeight: 60
+                    }}
+                  >
+                    <h4 style={{ color: "#1976d2", margin: '16px 0 8px 0', paddingLeft: 16 }}>
+                      Ticket History for {formData.phoneNumber}
+                    </h4>
+                    {creationTicketsLoading ? (
+                      <div style={{ textAlign: "center", padding: 12 }}>
+                        <CircularProgress size={22} />
+                      </div>
+                    ) : creationFoundTickets.length > 0 ? (
+                      creationFoundTickets.map((ticket) => (
+                        <Box
+                          key={ticket.id}
+                          onClick={() => setCreationActiveTicketId(ticket.id)}
                           sx={{
-                            color: '#666',
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
+                            mb: 2,
+                            p: 2,
+                            borderRadius: 2,
+                            bgcolor: creationActiveTicketId === ticket.id ? "#e3f2fd" : "#fff",
+                            cursor: "pointer",
+                            border: creationActiveTicketId === ticket.id ? "2px solid #1976d2" : "1px solid #e0e0e0",
+                            boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 1,
+                            transition: 'box-shadow 0.2s, border-color 0.2s',
+                            '&:hover': {
+                              boxShadow: '0 4px 8px rgba(25,118,210,0.1)',
+                              borderColor: '#1976d2'
+                            }
                           }}
                         >
-                          Description: {ticket.description}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  ))
-                ) : (
-                  <div style={{ color: '#888', fontSize: '0.95em', textAlign: 'center', padding: 16 }}>
-                    No previous tickets found for this number.
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#1976d2' }}>
+                              {ticket.ticket_id}
+                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Typography
+                                sx={{
+                                  px: 1.5,
+                                  py: 0.5,
+                                  borderRadius: '12px',
+                                  color: 'white',
+                                  background:
+                                    ticket.status === 'Closed'
+                                      ? '#757575'
+                                      : ticket.status === 'Open'
+                                      ? '#2e7d32'
+                                      : '#1976d2',
+                                  fontSize: '0.75rem',
+                                  fontWeight: 500
+                                }}
+                              >
+                                {ticket.status}
+                              </Typography>
+                              <IconButton
+                                size="small"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOpenJustificationHistory(ticket);
+                                }}
+                                sx={{
+                                  color: '#1976d2',
+                                  '&:hover': {
+                                    backgroundColor: 'rgba(25, 118, 210, 0.1)'
+                                  }
+                                }}
+                                title="View Recomendation History"
+                              >
+                                <ChatIcon fontSize="small" />
+                              </IconButton>
+                            </Box>
+                          </Box>
+                          <Box sx={{ mt: 1 }}>
+                            <Typography variant="body2" sx={{ color: '#666', mb: 0.5 }}>
+                              Created: {new Date(ticket.created_at).toLocaleDateString()}
+                            </Typography>
+                            <Typography variant="subtitle2" sx={{ fontWeight: 500, color: '#333', mb: 1 }}>
+                              Subject: {ticket.subject}
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                color: '#666',
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                              }}
+                            >
+                              Description: {ticket.description}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      ))
+                    ) : (
+                      <div style={{ color: '#888', fontSize: '0.95em', textAlign: 'center', padding: 16 }}>
+                        No previous tickets found for this number.
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
+              </>
             )}
           </Box>
         </Box>

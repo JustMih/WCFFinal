@@ -117,8 +117,14 @@ export default function CRMSidebar({ isSidebarOpen }) {
       stats.inProgress = inProgressAssignments;
       setTicketStats(stats);
       setFetchError(null);
-      // Debug: Log the ticketStats received from the API
-      console.log('Sidebar ticketStats:', stats);
+      // Debug: Log the updated ticketStats
+      console.log('Updated Sidebar ticketStats:', stats);
+      console.log('Updated channeledTickets:', stats.channeledTickets);
+      console.log('Updated ticketStatus:', stats.ticketStatus);
+      console.log('Updated newTickets:', stats.newTickets);
+      console.log('New Tickets Total:', stats.newTickets?.Total);
+      console.log('New Tickets Count:', stats.newTickets?.["New Tickets"]);
+      console.log('Escalated Tickets Count:', stats.newTickets?.["Escalated Tickets"]);
     } catch (error) {
       setFetchError(error.message);
     }
@@ -722,20 +728,19 @@ export default function CRMSidebar({ isSidebarOpen }) {
                     >
                       <span className="section-title">Ticket Status</span>
                       <span className="section-count">
-                        {/* {(ticketStats.ticketStatus?.["On Progress"] || 0) + (ticketStats.ticketStatus?.Closed || 0)} */}
-                        {ticketStats.ticketStatus?.Closed || 0}
+                        {(ticketStats.ticketStatus?.["On Progress"] || 0) + (ticketStats.ticketStatus?.Closed || 0)}
                       </span>
                     </div>
                     {openSection === "ticketStatus" && (
                       <div className="section-items">
                         {[
-                          // {
-                          //   label: "On Progress",
-                          //   to: "/coordinator/on-progress",
-                          //   value:
-                          //     ticketStats.ticketStatus?.["On Progress"] || 0,
-                          //   icon: "⏳"
-                          // },
+                          {
+                            label: "On Progress",
+                            to: "/coordinator/on-progress",
+                            value:
+                              ticketStats.ticketStatus?.["On Progress"] || 0,
+                            icon: "⏳"
+                          },
                           {
                             label: "Closed",
                             to: `/coordinator/closed`,

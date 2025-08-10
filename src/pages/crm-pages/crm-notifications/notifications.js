@@ -253,8 +253,7 @@ export default function Crm() {
   };
 
   const handleFilterChange = (newFilters) => {
-    const { status, ...rest } = newFilters;
-    setFilters(rest);
+    setFilters(newFilters);
     setCurrentPage(1);
   };
 

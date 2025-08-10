@@ -190,7 +190,6 @@ export default function Crm() {
     setFilters(newFilters);
     setCurrentPage(1);
   };
-
   const openHistoryModal = async (ticket) => {
     setSelectedTicket(ticket);
     setIsHistoryModalOpen(true);

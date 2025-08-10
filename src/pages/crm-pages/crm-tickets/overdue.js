@@ -101,7 +101,7 @@ export default function Crm() {
           setAssignmentsError("No ticket found");
           return;
         }
-        throw new Error(`HTTP error! Status: ${response.status}`);
+        throw new Error(`HTTP errorr! Status: ${response.status}`);
       }
       const data = await response.json();
       if (data && Array.isArray(data.assignments)) {
