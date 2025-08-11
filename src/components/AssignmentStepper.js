@@ -254,9 +254,11 @@ export default function AssignmentStepper({ assignmentHistory, selectedTicket })
         // Check if ticket is closed
         const isTicketClosed = selectedTicket.status === "Closed" || selectedTicket.status === "Resolved";
         
-        // Priority order: Closed > Escalated > Previous to Escalated > Assigned > Current > Completed > Pending
+        // Priority order: Closed > Forwarded > Escalated > Previous to Escalated > Assigned > Current > Completed > Pending
         if (selectedTicket.status === "Closed" || selectedTicket.status === "Resolved" || a.isConsolidated) {
           color = "green"; // Green for all steps when ticket is closed or consolidated closed steps
+        } else if (a.action === "Forwarded") {
+          color = "green"; // Green for forwarded actions
         } else if (isCurrentEscalated) {
           // Check if this escalated step was followed by an assignment
           const nextStep = steps[idx + 1];

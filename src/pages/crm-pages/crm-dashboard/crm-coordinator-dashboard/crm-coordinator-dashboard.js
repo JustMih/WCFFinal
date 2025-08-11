@@ -782,7 +782,7 @@ export default function CoordinatorDashboard() {
 
   return (
     <div className="user-table-container">
-      <h2 className="title">Reviewer Dashboard</h2>
+      <h2 className="title">CC Dashboard</h2>
 
       {/* Cards */}
       <div className="crm-cards">
@@ -987,6 +987,7 @@ export default function CoordinatorDashboard() {
         setSnackbar={setSnackbar}
         setConvertCategory={setConvertCategory}
         setForwardUnit={setForwardUnit}
+        refreshDashboardCounts={() => fetchDashboardCounts(userId)}
       />
 
       {/* Close Ticket Modal */}

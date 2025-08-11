@@ -17,6 +17,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import Chip from "@mui/material/Chip";
+import CloseIcon from '@mui/icons-material/Close';
 
 import ChatIcon from '@mui/icons-material/Chat';
 import Download from '@mui/icons-material/Download';
@@ -61,8 +62,13 @@ const formatTimeDifference = (dateString) => {
   }
 };
 
-// Utility function to get aging color based on time difference
-const getAgingColor = (dateString) => {
+// Utility function to get aging color based on time difference and action type
+const getAgingColor = (dateString, action = null) => {
+  // If it's a "Forwarded" action, always return green
+  if (action === "Forwarded") {
+    return '#28a745'; // Green for forwarded actions
+  }
+  
   if (!dateString) return '#6c757d';
   
   const date = new Date(dateString);
@@ -283,9 +289,11 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
         // Check if ticket is closed
         const isTicketClosed = selectedTicket.status === "Closed" || selectedTicket.status === "Resolved";
         
-        // Priority order: Closed > Escalated > Previous to Escalated > Assigned > Current > Completed > Pending
+        // Priority order: Closed > Forwarded > Escalated > Previous to Escalated > Assigned > Current > Completed > Pending
         if (selectedTicket.status === "Closed" || selectedTicket.status === "Resolved" || a.isConsolidated) {
           color = "green"; // Green for all steps when ticket is closed or consolidated closed steps
+        } else if (a.action === "Forwarded") {
+          color = "green"; // Green for forwarded actions
         } else if (isCurrentEscalated) {
           // Check if this escalated step was followed by an assignment
           const previousStep = reversedSteps[idx - 1];
@@ -809,6 +817,7 @@ export default function TicketDetailsModal({
   setConvertCategory = () => {},
   setForwardUnit = () => {},
   userUnitSection = null, // Add this prop for permission checking
+  refreshDashboardCounts = () => {}, // Add this prop to refresh dashboard counts
 }) {
   const [isFlowModalOpen, setIsFlowModalOpen] = useState(false);
   const userRole = localStorage.getItem("role");
@@ -873,7 +882,8 @@ export default function TicketDetailsModal({
     selectedTicket.assigned_to_id &&
     userRole !== "coordinator" &&
     userRole !== "director-general" &&
-    String(selectedTicket.assigned_to_id) === String(userId);
+    String(selectedTicket.assigned_to_id) === String(userId) &&
+    ((userRole === "manager") || (userRole === "agent" || userRole === "attendee") && !selectedTicket.complaint_type); // Managers can attend rated tickets, others only if not rated
 
   // Reviewer-specific conditions
   const showCoordinatorActions = 
@@ -890,6 +900,53 @@ export default function TicketDetailsModal({
 
   const handleAttend = async () => {
     try {
+      console.log('DEBUG handleAttend:', {
+        userRole,
+        complaintType: selectedTicket?.complaint_type,
+        isManager: userRole === "manager",
+        isMajor: selectedTicket?.complaint_type === "Major",
+        shouldUseManagerAPI: userRole === "manager" && selectedTicket?.complaint_type === "Major",
+        selectedTicketId: selectedTicket?.id,
+        selectedTicketStatus: selectedTicket?.status,
+        selectedTicketCategory: selectedTicket?.category
+      });
+
+      // Special handling for managers - always use manager route
+      if (userRole === "manager") {
+        console.log('DEBUG: Using manager attend API for manager role');
+        // For managers, always use the manager attend route
+        const response = await fetch(`${baseURL}/ticket/${selectedTicket.id}/manager-attend-major`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(localStorage.getItem("authToken") ? { 'Authorization': `Bearer ${localStorage.getItem("authToken")}` } : {})
+          },
+          body: JSON.stringify({
+            userId: userId,
+            recommendation: resolutionDetails,
+            evidence_url: attachment ? `${baseURL}/ticket/attachment/${attachment.name}` : null,
+            responsible_unit_name: selectedTicket.responsible_unit_name || userUnitSection
+          })
+        });
+        
+        if (!response.ok) {
+          const error = await response.json();
+          setSnackbar({ open: true, message: error.message || 'Failed to submit recommendation', severity: 'error' });
+          return;
+        }
+        
+        setSnackbar({ open: true, message: 'Recommendation submitted! Ticket sent to Head of Unit for review.', severity: 'success' });
+        setIsAttendDialogOpen(false); // Close the attend dialog
+        if (onClose) onClose(); // Close the main modal
+        refreshTickets();
+        return;
+      }
+      
+      console.log('DEBUG: Using default workflow API - not a manager');
+      console.log('DEBUG: userRole value:', userRole);
+      console.log('DEBUG: complaint_type value:', selectedTicket.complaint_type);
+      
+      // Default workflow for other roles
       const response = await fetch(`${baseURL}/workflow/${selectedTicket.id}/attend-and-recommend`, {
         method: 'POST',
         headers: {
@@ -904,15 +961,15 @@ export default function TicketDetailsModal({
       });
       if (!response.ok) {
         const error = await response.json();
-        alert(error.message || 'Failed to submit recommendation');
+        setSnackbar({ open: true, message: error.message || 'Failed to submit recommendation', severity: 'error' });
         return;
       }
-      alert('Recommendation submitted! The Head of Unit will review it next.');
-      // Optionally close modal, refresh ticket list, etc.
-      if (onClose) onClose();
+      setSnackbar({ open: true, message: 'Recommendation submitted! The Head of Unit will review it next.', severity: 'success' });
+      setIsAttendDialogOpen(false); // Close the attend dialog
+      if (onClose) onClose(); // Close the main modal
       refreshTickets();
     } catch (err) {
-      alert('Network error: ' + err.message);
+      setSnackbar({ open: true, message: 'Network error: ' + err.message, severity: 'error' });
     }
   };
 
@@ -1011,10 +1068,11 @@ export default function TicketDetailsModal({
         refreshTickets();
         setSnackbar({open: true, message: 'Ticket closed successfully', severity: 'success'});
       } else {
-        // Optionally show an error message
+        const errorData = await response.json();
+        setSnackbar({open: true, message: errorData.message || 'Failed to close ticket', severity: 'error'});
       }
     } catch (error) {
-      // Optionally show an error message
+      setSnackbar({open: true, message: 'Error closing ticket: ' + error.message, severity: 'error'});
     }
   };
 
@@ -1101,12 +1159,16 @@ export default function TicketDetailsModal({
       const data = await response.json();
       if (response.ok) {
         setSnackbar({ open: true, message: data.message, severity: "success" });
-        refreshTickets();
         setIsReverseModalOpen(false);
         setReverseReason("");
         setReverseResolutionType("");
         setAttachment(null);
-        onClose();
+        
+        // Add a small delay before refreshing and closing to prevent ResizeObserver error
+        setTimeout(() => {
+          refreshTickets();
+          onClose();
+        }, 100);
       } else {
         setSnackbar({ open: true, message: data.message, severity: "error" });
       }
@@ -1161,34 +1223,51 @@ export default function TicketDetailsModal({
       return;
     }
     const assignedToUsername = selectedAttendee.username;
-    const assignedById = localStorage.getItem("userId");
     const reason = assignReason;
-    if (!assignedToUsername || !assignedById) {
+    
+    console.log('DEBUG: selectedAttendee:', selectedAttendee);
+    console.log('DEBUG: assignedToUsername:', assignedToUsername);
+    console.log('DEBUG: reason:', reason);
+    
+    if (!assignedToUsername) {
       setSnackbar && setSnackbar({ open: true, message: 'Missing required fields for assignment', severity: 'error' });
-      console.error('Assign error: missing assignedToUsername or assignedById', { assignedToUsername, assignedById });
+      console.error('Assign error: missing assignedToUsername', { assignedToUsername });
       return;
     }
     setAssignLoading(true);
     try {
       console.log('Assigning ticket:', selectedTicket);
-      console.log('Assigning to username:', assignedToUsername, 'by user:', assignedById, 'reason:', reason);
+      console.log('Assigning to username:', assignedToUsername, 'reason:', reason);
       const token = localStorage.getItem("authToken");
-      const res = await fetch(`${baseURL}/ticket/${selectedTicket.id}/assign`, {
+      const requestBody = {
+        assignedToUsername,
+        reason
+      };
+      console.log('DEBUG: Request body:', requestBody);
+      console.log('DEBUG: Token exists:', !!token);
+      console.log('DEBUG: Token length:', token ? token.length : 0);
+      
+      const url = `${baseURL}/ticket/${selectedTicket.id}/assign`;
+      console.log('DEBUG: Calling URL:', url);
+      console.log('DEBUG: selectedTicket.id:', selectedTicket.id);
+      console.log('DEBUG: baseURL:', baseURL);
+      
+      const res = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({
-          assignedToUsername,
-          assignedById,
-          reason
-        })
+        body: JSON.stringify(requestBody)
       });
       const data = await res.json();
       if (!res.ok) {
         setSnackbar && setSnackbar({ open: true, message: `Failed to assign ticket: ${res.status} ${data.message || ''}`, severity: 'error' });
         console.error('Assign fetch error:', res.status, data);
+        // Add delay for error snackbar to be visible
+        setTimeout(() => {
+          setAssignLoading(false);
+        }, 500);
         return;
       }
       setSnackbar && setSnackbar({
@@ -1199,7 +1278,15 @@ export default function TicketDetailsModal({
       setAssignReason("");
       setSelectedAttendee(null);
       setIsAssignModalOpen(false);
-      refreshTickets && refreshTickets();
+      
+      // Add a longer delay before refreshing and closing to ensure snackbar is visible
+      setTimeout(() => {
+        refreshTickets && refreshTickets();
+        // Refresh dashboard counts to update sidebar
+        refreshDashboardCounts && refreshDashboardCounts();
+        // Close the main ticket details modal after successful assignment
+        onClose && onClose();
+      }, 500); // Increased from 100ms to 500ms
     } catch (e) {
       setSnackbar && setSnackbar({ open: true, message: `Assign error: ${e.message}`, severity: "error" });
       console.error('Assign exception:', e);
@@ -1509,14 +1596,17 @@ export default function TicketDetailsModal({
         severity: "success"
       });
       
-      // Clear form and close modal
+      // Clear form and close modal with a small delay to prevent ResizeObserver error
       setAgentRecommendation("");
       setComplaintSeverity("minor");
       setAttachment(null);
       setIsAgentReverseModalOpen(false);
-      refreshTickets && refreshTickets();
-      onClose && onClose();
       
+      // Add a small delay before refreshing and closing to prevent ResizeObserver error
+      setTimeout(() => {
+        refreshTickets && refreshTickets();
+        onClose && onClose();
+      }, 100);
     } catch (error) {
       setSnackbar && setSnackbar({ 
         open: true, 
@@ -1554,13 +1644,37 @@ export default function TicketDetailsModal({
         >
           {selectedTicket && (
             <>
-              <Typography
-                id="ticket-details-title"
-                variant="h5"
-                sx={{ fontWeight: "bold", color: "#1976d2", mb: 2 }}
-              >
-                Ticket Details {selectedTicket.ticket_id ? `#${selectedTicket.ticket_id}` : ""}
-              </Typography>
+              {/* Modal Header with Close Button */}
+              <Box sx={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                mb: 2,
+                position: 'relative'
+              }}>
+                <Typography
+                  id="ticket-details-title"
+                  variant="h5"
+                  sx={{ fontWeight: "bold", color: "#1976d2" }}
+                >
+                  Ticket Details {selectedTicket.ticket_id ? `#${selectedTicket.ticket_id}` : ""}
+                </Typography>
+                <IconButton
+                  onClick={onClose}
+                  sx={{
+                    position: 'absolute',
+                    right: -8,
+                    top: -8,
+                    bgcolor: 'rgba(0, 0, 0, 0.04)',
+                    '&:hover': {
+                      bgcolor: 'rgba(0, 0, 0, 0.08)',
+                    },
+                  }}
+                  aria-label="close"
+                >
+                  <CloseIcon />
+                </IconButton>
+              </Box>
               <Divider sx={{ mb: 2 }} />
 
               {/* Workflow Status Section */}
@@ -1827,7 +1941,7 @@ export default function TicketDetailsModal({
               {/* Action Buttons */}
               <Box sx={{ mt: 2, textAlign: "right" }}>
                 {showAttendButton && (
-                  <Button variant="contained" color="primary" onClick={() => setIsCoordinatorCloseDialogOpen(true)} sx={{ mr: 1 }}>
+                  <Button variant="contained" color="primary" onClick={() => setIsAttendDialogOpen(true)} sx={{ mr: 1 }}>
                     Attend
                   </Button>
                 )}
@@ -1866,18 +1980,41 @@ export default function TicketDetailsModal({
                       </>
                     )}
 
-                    {/* Show Forward to DG button for Major complaints that have been returned OR reversed tickets with coordinator */}
-                    {((selectedTicket.category === "Complaint" && 
-                     selectedTicket.complaint_type === "Major" && 
-                     selectedTicket.status === "Returned") ||
-                    (selectedTicket.status === "Reversed" && 
-                     userRole === "coordinator" && 
-                     selectedTicket.assigned_to_id &&
-                     String(selectedTicket.assigned_to_id) === String(userId))) && 
-                     (permissionManager.canCloseAtCurrentStep(selectedTicket) ||
-                      (userRole === 'coordinator' && 
-                       (selectedTicket.assigned_to_id === userId || 
-                        forwardUnit[selectedTicket.id]))) ? (
+                    {/* Show Forward to DG button for Major complaints assigned to Head of Unit with Reversed status */}
+                    {(() => {
+                      const isComplaint = selectedTicket.category === "Complaint";
+                      const isMajor = selectedTicket.complaint_type === "Major";
+                      const isReversed = selectedTicket.status === "Reversed";
+                      const isHeadOfUnit = selectedTicket.assigned_to_role === "head-of-unit";
+                      const isAssignedToUser = selectedTicket.assigned_to_id && String(selectedTicket.assigned_to_id) === String(userId);
+                      const hasAssignmentHistory = assignmentHistory && assignmentHistory.length > 0;
+                      const previousWasManager = hasAssignmentHistory && assignmentHistory[assignmentHistory.length - 1]?.assigned_by_role === "manager";
+                      
+                      console.log('DEBUG Forward to DG button conditions:', {
+                        isComplaint,
+                        isMajor,
+                        isReversed,
+                        isHeadOfUnit,
+                        isAssignedToUser,
+                        hasAssignmentHistory,
+                        previousWasManager,
+                        assignmentHistory: assignmentHistory?.map(h => ({ 
+                          assigned_by_role: h.assigned_by_role, 
+                          assigned_to_role: h.assigned_to_role,
+                          action: h.action 
+                        })),
+                        selectedTicket: {
+                          category: selectedTicket.category,
+                          complaint_type: selectedTicket.complaint_type,
+                          status: selectedTicket.status,
+                          assigned_to_role: selectedTicket.assigned_to_role,
+                          assigned_to_id: selectedTicket.assigned_to_id,
+                          userId: userId
+                        }
+                      });
+                      
+                      return isComplaint && isMajor && isReversed && isHeadOfUnit && isAssignedToUser && previousWasManager;
+                    })() ? (
                       <>
                         <Button
                           variant="contained"
@@ -2082,14 +2219,14 @@ export default function TicketDetailsModal({
                     >
                       Assign
                     </Button>
-                    <Button
+                    {/* <Button
                       variant="contained"
                       color="secondary"
                       sx={{ mr: 1 }}
                       onClick={() => setIsReassignModalOpen(true)}
                     >
                       Reassign
-                    </Button>
+                    </Button> */}
                   </>
                 )}
 
@@ -2127,47 +2264,83 @@ export default function TicketDetailsModal({
         </DialogContent>
       </Dialog>
       {/* Attend/Resolve Dialog */}
-      <Dialog open={isAttendDialogOpen} onClose={() => setIsAttendDialogOpen(false)}>
-        <DialogTitle>Enter Resolution Details</DialogTitle>
+      <Dialog open={isAttendDialogOpen} onClose={() => setIsAttendDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {userRole === "manager" && selectedTicket?.complaint_type === "Major" 
+            ? "Attend - Submit Recommendation" 
+            : "Enter Resolution Details"}
+        </DialogTitle>
         <DialogContent>
-          <TextField
-            label="Resolution Details"
-            multiline
-            rows={4}
-            value={resolutionDetails}
-            onChange={e => setResolutionDetails(e.target.value)}
-            fullWidth
-            sx={{ mt: 2 }}
-          />
-          <input
-            type="file"
-            accept="*"
-            onChange={e => setAttachment(e.target.files[0])}
-            style={{ marginTop: 16 }}
-          />
-          <Box sx={{ mt: 2, textAlign: "right" }}>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleAttend}
-              disabled={!resolutionDetails.trim()}
-            >
-              Submit
-            </Button>
-            <Button
-              variant="outlined"
-              onClick={() => setIsAttendDialogOpen(false)}
-              sx={{ ml: 1 }}
-            >
-              Cancel
-            </Button>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                {userRole === "manager" && selectedTicket?.complaint_type === "Major" 
+                  ? "Recommendation Details:" 
+                  : "Resolution Details:"}
+              </Typography>
+              <TextField
+                multiline
+                rows={4}
+                value={resolutionDetails}
+                onChange={e => setResolutionDetails(e.target.value)}
+                fullWidth
+                placeholder={
+                  userRole === "manager" && selectedTicket?.complaint_type === "Major"
+                    ? "Enter recommendation details..."
+                    : "Enter resolution details..."
+                }
+              />
+            </Box>
+
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Attachment (Optional):
+              </Typography>
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+                onChange={e => setAttachment(e.target.files[0])}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  fontSize: "0.9rem",
+                  borderRadius: "4px",
+                  border: "1px solid #ccc"
+                }}
+              />
+              {attachment && (
+                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
+                  File selected: {attachment.name}
+                </Typography>
+              )}
+            </Box>
+
+            <Box sx={{ mt: 2, textAlign: "right" }}>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleAttend}
+                disabled={!resolutionDetails.trim()}
+              >
+                {userRole === "manager" && selectedTicket?.complaint_type === "Major" 
+                  ? "Submit Recommendation" 
+                  : "Submit"}
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={() => setIsAttendDialogOpen(false)}
+                sx={{ ml: 1 }}
+              >
+                Cancel
+              </Button>
+            </Box>
           </Box>
         </DialogContent>
       </Dialog>
 
       {/* Reviewer Close Dialog */}
       <Dialog open={isCoordinatorCloseDialogOpen} onClose={() => setIsCoordinatorCloseDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Close Ticket - Resolution Details</DialogTitle>
+        <DialogTitle>Resolution Details</DialogTitle>
         <DialogContent>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
             <Box>

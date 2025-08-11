@@ -731,13 +731,13 @@ export default function CRMSidebar({ isSidebarOpen }) {
                     {openSection === "ticketStatus" && (
                       <div className="section-items">
                         {[
-                          {
-                            label: "On Progress",
-                            to: "/coordinator/on-progress",
-                            value:
-                              ticketStats.ticketStatus?.["On Progress"] || 0,
-                            icon: "⏳"
-                          },
+                          // {
+                          //   label: "On Progress",
+                          //   to: "/coordinator/on-progress",
+                          //   value:
+                          //     ticketStats.ticketStatus?.["On Progress"] || 0,
+                          //   icon: "⏳"
+                          // },
                           {
                             label: "Closed",
                             to: `/coordinator/closed`,

@@ -463,6 +463,8 @@ export default function Crm() {
         onClose={closeModal}
         selectedTicket={selectedTicket}
         assignmentHistory={assignmentHistory.assignments || []}
+        refreshTickets={fetchAgentTickets}
+        refreshDashboardCounts={() => {}} // This page doesn't have dashboard counts, so pass empty function
       />
 
       {/* Column Selector */}

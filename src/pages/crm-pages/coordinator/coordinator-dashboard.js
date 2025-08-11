@@ -266,6 +266,8 @@ export default function CoordinatorDashboard() {
       {activeColumns.includes("category") && <th>Category</th>}
       {activeColumns.includes("assigned_to_role") && <th>Assigned Role</th>}
       {activeColumns.includes("createdAt") && <th>Created At</th>}
+      {activeColumns.includes("dateCreatedAt") && <th>Date Created At</th>}
+      {activeColumns.includes("categoryType") && <th>Category Type (Major/Minor)</th>}
     </tr>
   );
 
@@ -308,6 +310,25 @@ export default function CoordinatorDashboard() {
                 hour12: true
               })
             : "N/A"}
+        </td>
+      )}
+      {activeColumns.includes("dateCreatedAt") && (
+        <td>
+          {ticket.created_at
+            ? new Date(ticket.created_at).toLocaleString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true
+              })
+            : "N/A"}
+        </td>
+      )}
+      {activeColumns.includes("categoryType") && (
+        <td>
+          {ticket.complaint_type ? ticket.complaint_type : "Not Rated"}
         </td>
       )}
     </tr>

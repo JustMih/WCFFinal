@@ -2462,7 +2462,7 @@ const AgentCRM = () => {
   return (
     <div className="user-table-container">
        <h3 className="title">
-          Contact Center Dashboard
+          CC Dashboard
         </h3>
 
       {/* Full-width Phone/NIDA Search Section */}

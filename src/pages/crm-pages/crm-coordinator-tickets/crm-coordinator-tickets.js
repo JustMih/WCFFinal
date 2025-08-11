@@ -42,10 +42,13 @@ export default function CRMCoordinatorTickets() {
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   const DEFAULT_COLUMNS = [
     "ticket_id",
+    "created_at",
     "fullName",
     "phone_number",
     "region",
-    "status"
+    "status",
+    "dateCreatedAt",
+    "categoryType"
   ];
   const [activeColumns, setActiveColumns] = useState(DEFAULT_COLUMNS);
   const [loading, setLoading] = useState(true);
@@ -213,6 +216,8 @@ export default function CRMCoordinatorTickets() {
       {activeColumns.includes("category") && <th>Category</th>}
       {activeColumns.includes("assigned_to_role") && <th>Assigned Role</th>}
       {activeColumns.includes("createdAt") && <th>Created At</th>}
+      {activeColumns.includes("dateCreatedAt") && <th>Date Created At</th>}
+      {activeColumns.includes("categoryType") && <th>Category Type (Major/Minor)</th>}
       <th>Actions</th>
     </tr>
   );
@@ -272,6 +277,25 @@ export default function CRMCoordinatorTickets() {
                 hour12: true,
               })
             : "N/A"}
+        </td>
+      )}
+      {activeColumns.includes("dateCreatedAt") && (
+        <td>
+          {ticket.created_at
+            ? new Date(ticket.created_at).toLocaleString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true,
+              })
+            : "N/A"}
+        </td>
+      )}
+      {activeColumns.includes("categoryType") && (
+        <td>
+          {ticket.complaint_type ? ticket.complaint_type : "Not Rated"}
         </td>
       )}
       <td>
@@ -456,6 +480,7 @@ export default function CRMCoordinatorTickets() {
         setSnackbar={setSnackbar}
         setConvertCategory={setConvertCategory}
         setForwardUnit={setForwardUnit}
+        refreshDashboardCounts={() => {}} // This page doesn't have dashboard counts, so pass empty function
       />
 
       <Snackbar

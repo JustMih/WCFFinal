@@ -771,6 +771,7 @@ export default function FocalPersonDashboard() {
         assignmentHistory={assignmentHistory}
         setSnackbar={setSnackbar}
         refreshTickets={fetchTickets}
+        refreshDashboardCounts={() => fetchDashboardCounts(userId)}
       />
 
       {/* Column Selector */}

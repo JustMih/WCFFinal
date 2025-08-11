@@ -539,14 +539,24 @@ export default function FocalPersonDashboard() {
   ];
 
   const role = localStorage.getItem("role");
+  // const getDashboardTitle = () => {
+  //   if (role === "focal-person") return "Focal Person Dashboard";
+  //   if (role === "claim-focal-person") return "Claim Focal Person Dashboard";
+  //   if (role === "compliance-focal-person") return "Compliance Focal Person Dashboard";
+  //   if (role === "head-of-unit") return "Head of Unit Dashboard";
+  //   if (role === "director-general") return "Director General Dashboard";
+  //   return "Dashboard";
+  // };
+
   const getDashboardTitle = () => {
-    if (role === "focal-person") return "Focal Person Dashboard";
-    if (role === "claim-focal-person") return "Claim Focal Person Dashboard";
-    if (role === "compliance-focal-person") return "Compliance Focal Person Dashboard";
-    if (role === "head-of-unit") return "Head of Unit Dashboard";
-    if (role === "director-general") return "Director General Dashboard";
+    if (role === "focal-person") return "CC Dashboard";
+    if (role === "claim-focal-person") return "CC Dashboard";
+    if (role === "compliance-focal-person") return "CC Dashboard";
+    if (role === "head-of-unit") return "CC Dashboard";
+    if (role === "director-general") return "CC Dashboard";
     return "Dashboard";
   };
+
 
   const handlePhoneSearch = async (searchValue, selectedTicketFromTable = null) => {
     try {
@@ -841,6 +851,7 @@ export default function FocalPersonDashboard() {
         assignmentHistory={assignmentHistory}
         setSnackbar={setSnackbar}
         refreshTickets={fetchTickets}
+        refreshDashboardCounts={() => fetchDashboardCounts(userId)}
       />
 
       {/* Column Selector */}
