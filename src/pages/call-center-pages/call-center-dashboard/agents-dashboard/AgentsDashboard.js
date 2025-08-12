@@ -1,16 +1,26 @@
-import React, { useState, useEffect, useRef } from "react";
-import axios from "axios";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   MdOutlineLocalPhone,
   MdPauseCircleOutline,
   MdLocalPhone,
-  MdOutlineEmail,
-  MdOutlinePhoneInTalk,
   MdOutlineVoicemail,
+  MdOutlineFreeBreakfast,
+  MdWifiCalling2,
+  MdOutlineFollowTheSigns,
+  MdOutlineLunchDining,
 } from "react-icons/md";
 import { HiMiniSpeakerWave } from "react-icons/hi2";
 import { IoKeypadOutline } from "react-icons/io5";
 import { BsFillMicMuteFill } from "react-icons/bs";
+import { GiExplosiveMeeting, GiTrafficLightsReadyToGo } from "react-icons/gi";
+import { TbEmergencyBed } from "react-icons/tb";
+import { FiPhoneOff, FiPhoneCall, FiPhoneIncoming } from "react-icons/fi";
+import {
+  UserAgent,
+  Inviter,
+  Registerer,
+  SessionState,
+} from "sip.js";
 import {
   TextField,
   Button,
@@ -18,270 +28,146 @@ import {
   DialogTitle,
   DialogContent,
   Autocomplete,
-  CircularProgress,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
+  IconButton,
+  Tooltip,
+  Avatar,
+  Menu,
+  MenuItem,
+  ListItemIcon,
+  Alert,
+  Snackbar,
 } from "@mui/material";
-import SearchIcon from "@mui/icons-material/Search";
-import IconButton from "@mui/material/IconButton";
-import Tooltip from "@mui/material/Tooltip";
-import Avatar from "@mui/material/Avatar";
-import Menu from "@mui/material/Menu";
-import MenuItem from "@mui/material/MenuItem";
-import ListItemIcon from "@mui/material/ListItemIcon";
-import {
-  MdOutlineFreeBreakfast,
-  MdWifiCalling2,
-  MdOutlineFollowTheSigns,
-  MdOutlineLunchDining,
-} from "react-icons/md";
-import { GiExplosiveMeeting, GiTrafficLightsReadyToGo } from "react-icons/gi";
-import { TbEmergencyBed } from "react-icons/tb";
-import { FiPhoneOff, FiPhoneCall, FiPhoneIncoming } from "react-icons/fi";
-import {
-  UserAgent,
-  Inviter,
-  Invitation,
-  Registerer,
-  SessionState,
-  URI,
-} from "sip.js";
-import { Alert, Snackbar } from "@mui/material";
+
 import { baseURL } from "../../../../config";
 import "./agentsDashboard.css";
+
+// Sub-components
 import SingleAgentDashboardCard from "../../../../components/agent-dashboard/SingleAgentDashboardCard";
-import QueueStatusTable from "../../../../components/agent-dashboard/QueueStatusTable";
-import WaitingCallsTable from "../../../../components/agent-dashboard/WaitingCallsTable";
-import AgentPerformanceScore from "../../../../components/agent-dashboard/AgentPerformanceScore";
-import AdvancedTicketCreateModal from "../../../../components/ticket/AdvancedTicketCreateModal";
-import VoiceNotesReport from "../../cal-center-ivr/VoiceNotesReport";
 import CallQueueCard from "../../../../components/supervisor-dashboard/CallQueueCard";
 import OnlineAgentsTable from "../../../../components/agent-dashboard/OnlineAgentsTable";
 import OnlineSupervisorsTable from "../../../../components/agent-dashboard/OnlineSupervisorsTable";
-import TotalContactSummary from "../../../../components/agent-dashboard/TotalContactSummary";
-import ContactSummaryGrid from "../../../../components/agent-dashboard/ContactSummaryGrid";
+import AgentPerformanceScore from "../../../../components/agent-dashboard/AgentPerformanceScore";
+import AdvancedTicketCreateModal from "../../../../components/ticket/AdvancedTicketCreateModal";
+import VoiceNotesReport from "../../cal-center-ivr/VoiceNotesReport";
 
 export default function AgentsDashboard() {
-  const [customerType, setCustomerType] = useState("");
-  const [searchName, setSearchName] = useState(""); // typed input
-  const [nameSuggestions, setNameSuggestions] = useState([]); // results from API
-  const [registrationNumber, setRegistrationNumber] = useState(""); // optional
-  const [inputValue, setInputValue] = useState("");
-  const [options, setOptions] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [claimed, setClaimed] = useState("");
-  const [searchLoading, setSearchLoading] = useState(false);
-
-  useEffect(() => {
-    const fetchEmployers = async () => {
-      if (!customerType || inputValue.length < 3) {
-        setOptions([]);
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const response = await fetch(
-          "https://demomspapi.wcf.go.tz/api/v1/search/details",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              type: customerType,
-              name: inputValue,
-              employer_registration_number: "",
-            }),
-          }
-        );
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const result = await response.json();
-        const data = result?.results || [];
-        console.log("mac data", data);
-        setOptions(data);
-      } catch (error) {
-        console.error("Error fetching employers:", error);
-        setOptions([]);
-      }
-      setLoading(false);
-    };
-
-    const timeout = setTimeout(fetchEmployers, 500); // debounce
-    return () => clearTimeout(timeout);
-  }, [inputValue]);
-
-  const handleSearch = async () => {
-    setSearchLoading(true);
-    const cleanedSearchName = searchName.split(" — ")[0].trim();
-
-    console.log("Cleaned Search Name:", cleanedSearchName);
-
-    const payload = {
-      type: customerType,
-      name: cleanedSearchName, // Use cleaned search name
-      employer_registration_number: registrationNumber,
-    };
-
-    try {
-      const response = await fetch(
-        "https://demomspapi.wcf.go.tz/api/v1/search/details",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(payload),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      const employeeData = result?.results[0];
-      console.log("Employee Data:", employeeData);
-
-      const isClaimed = employeeData.claim_number;
-      setClaimed(isClaimed); // Set the claimed state
-
-      if (employeeData) {
-        setFormValues({
-          firstName: employeeData.firstname,
-          middleName: employeeData.middlename,
-          lastName: employeeData.lastname,
-          phoneNumber: "",
-          nidaNumber: employeeData.nin,
-          requester: "",
-          institution: "",
-          region: "",
-          district: "",
-          channel: "",
-          category: "",
-          functionId: "",
-          description: "",
-          status: "Open",
-        });
-      }
-    } catch (error) {
-      console.error("Failed to fetch search results:", error);
-    }
-    setSearchLoading(false);
-  };
-
+  // --------- Core phone state ---------
   const [showPhonePopup, setShowPhonePopup] = useState(false);
-  const [consultSession, setConsultSession] = useState(null); // The target agent session
-  const [isTransferring, setIsTransferring] = useState(false);
-  const [callerId, setCallerId] = useState("");
-  const autoRejectTimerRef = useRef(null);
-  const [missedCalls, setMissedCalls] = useState([]);
-  const [missedOpen, setMissedOpen] = useState(false);
-  const [transferTarget, setTransferTarget] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
   const [phoneStatus, setPhoneStatus] = useState("Idle");
   const [userAgent, setUserAgent] = useState(null);
   const [session, setSession] = useState(null);
   const [incomingCall, setIncomingCall] = useState(null);
-  const [ringAudio] = useState(new Audio("/ringtone.mp3"));
-  const [remoteAudio] = useState(new Audio());
+  const [lastIncomingNumber, setLastIncomingNumber] = useState("");
+
+  const [ringAudio] = useState(() => new Audio("/ringtone.mp3"));
+  const remoteAudioRef = useRef(null);
+
+  // --------- Call control ---------
   const [callDuration, setCallDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
   const [isOnHold, setIsOnHold] = useState(false);
   const [showKeypad, setShowKeypad] = useState(false);
-  const [anchorEl, setAnchorEl] = React.useState(null);
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [transferTarget, setTransferTarget] = useState("");
+
+  // --------- Status / break menu ---------
+  const [anchorEl, setAnchorEl] = useState(null);
   const openStatus = Boolean(anchorEl);
-  const [agentStatus, setAgentStatus] = useState("");
-  const [userDefinedTimes, setUserDefinedTimes] = useState({
-    attendingMeeting: 0, // default value
-    emergency: 0, // default value
-  });
-  // const [onlineAgents, setOnlineAgents] = useState([]); // Removed - now in OnlineAgentsTable component
+  const [agentStatus, setAgentStatus] = useState("ready");
+  const [timeRemaining, setTimeRemaining] = useState(0);
+  const [userDefinedTimes, setUserDefinedTimes] = useState({ attendingMeeting: 0, emergency: 0 });
+
+  // --------- Timers (separate refs!) ---------
+  const callTimerRef = useRef(null);
+  const statusTimerRef = useRef(null);
+  const autoRejectTimerRef = useRef(null);
   const wasAnsweredRef = useRef(false);
 
-  const [statusTimer, setStatusTimer] = useState(0); // Timer for the current status
-  const [timeRemaining, setTimeRemaining] = useState(0); // Time left for the current status
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState("");
-  const [snackbarSeverity, setSnackbarSeverity] = useState("warning"); // could be "success", "error", "info", "warning"
-  // const [loginTime, setLoginTime] = useState("");
-  // const socket = io(baseURL.replace("/api", ""));
+  // --------- Missed calls ---------
+  const [missedCalls, setMissedCalls] = useState([]);
+  const [missedOpen, setMissedOpen] = useState(false);
 
-  // user ticket from mac system
+  // --------- Tickets / MAC lookup ---------
   const [userData, setUserData] = useState(null);
   const [showUserForm, setShowUserForm] = useState(true);
-  const [formValues, setFormValues] = useState({
-    firstName: "",
-    middleName: "", // Add middle name
-    lastName: "",
-    phoneNumber: "",
-    nidaNumber: "",
-    requester: "",
-    institution: "",
-    region: "",
-    district: "",
-    channel: "",
-    category: "",
-    functionId: "",
-    description: "",
-    status: "Open",
-  });
-  const [loadingUserData, setLoadingUserData] = useState(false);
-
-  const fetchUserByPhoneNumber = async (phone) => {
-    setLoadingUserData(true);
-    try {
-      const response = await fetch(
-        `${baseURL}/mac-system/search-by-phone-number?phone_number=${encodeURIComponent(
-          phone
-        )}`
-      );
-      if (!response.ok) {
-        setUserData(null);
-        setShowUserForm(false);
-        setLoadingUserData(false);
-        return;
-      }
-      const data = await response.json();
-      setUserData(data);
-      setFormValues({
-        first_name: data.first_name || "",
-        middle_name: data.middle_name || "",
-        last_name: data.last_name || "",
-        phone_number: data.phone_number || phone,
-        nida_number: data.nida_number || "",
-        institution: data.institution || "",
-        region: data.region || "",
-        district: data.district || "",
-      });
-      setShowUserForm(true);
-    } catch (error) {
-      console.error("Failed to fetch user data:", error);
-      setUserData(null);
-      setShowUserForm(false);
-    }
-    setLoadingUserData(false);
-  };
-
-  const timerRef = useRef(null);
-
-  // Add state for ticket search and modals
-  const [customerTickets, setCustomerTickets] = useState([]);
-  const [showTicketHistoryModal, setShowTicketHistoryModal] = useState(false);
-  const [showCreateTicketModal, setShowCreateTicketModal] = useState(false);
-  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [functionData, setFunctionData] = useState([]);
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [ticketPhoneNumber, setTicketPhoneNumber] = useState("");
-  const [functionData, setFunctionData] = useState([]);
+
+  // --------- Online users (for transfer) ---------
+  const [onlineUsers, setOnlineUsers] = useState([]);
+
+  // --------- Voice notes ---------
+  const [voiceNotes, setVoiceNotes] = useState([]);
+  const [unplayedVoiceNotes, setUnplayedVoiceNotes] = useState(0);
+  const [showVoiceNotesModal, setShowVoiceNotesModal] = useState(false);
+
+  // --------- Snackbars ---------
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
+  const [snackbarSeverity, setSnackbarSeverity] = useState("warning");
+
+  // --------- Config ---------
+  const extension = localStorage.getItem("extension");
+  const sipPassword = localStorage.getItem("sipPassword");
+  const SIP_DOMAIN = "192.168.21.70"; // unify here (adjust if needed)
+
+  const sipConfig = useMemo(() => {
+    if (!extension || !sipPassword) return null;
+    return {
+      uri: UserAgent.makeURI(`sip:${extension}@${SIP_DOMAIN}`),
+      transportOptions: { server: `wss://${SIP_DOMAIN}:8089/ws` },
+      authorizationUsername: extension,
+      authorizationPassword: sipPassword,
+      sessionDescriptionHandlerFactoryOptions: {
+        constraints: { audio: true, video: false },
+        // Use TURN for external callers behind NATs/firewalls
+        peerConnectionConfiguration: {
+          iceServers: [
+            { urls: 'stun:stun.l.google.com:19302' },
+            // TODO: replace with your TURN server details
+            // { urls: ['turn:turn.example.com:3478','turns:turn.example.com:5349'], username: 'user', credential: 'pass' },
+          ],
+        },
+      },
+    };
+  }, [extension, sipPassword]);
+
+  // ---------- Helpers ----------
+  const iconStyle = (bgColor) => ({ backgroundColor: bgColor, padding: 10, borderRadius: "50%", color: "white" });
+  const formatDuration = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    const hrs = Math.floor(mins / 60);
+    const pad = (n) => String(n).padStart(2, "0");
+    return hrs > 0 ? `${pad(hrs)}:${pad(mins % 60)}:${pad(secs)}` : `${pad(mins)}:${pad(secs)}`;
+  };
+  const formatRemainingTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    const pad = (n) => String(n).padStart(2, "0");
+    return `${pad(mins)}:${pad(secs)}`;
+  };
+  const mapActivityToTimerKey = (activity) => {
+    switch ((activity || "").toLowerCase()) {
+      case "breakfast": return "breakfast";
+      case "lunch": return "lunch";
+      case "short call": return "shortCall";
+      case "follow-up of customer inquiries": return "followUp";
+      case "attending meeting": return "attendingMeeting";
+      case "emergency": return "emergency";
+      default: return null; // covers "ready" and unknowns
+    }
+  };
+  const timeIntervals = {
+    breakfast: 15 * 60,
+    lunch: 45 * 60,
+    shortCall: 10 * 60,
+    followUp: 15 * 60,
+    attendingMeeting: (userDefinedTimes.attendingMeeting || 30) * 60,
+    emergency: (userDefinedTimes.emergency || 20) * 60,
+  };
 
   const showAlert = (message, severity = "warning") => {
     setSnackbarMessage(message);
@@ -289,144 +175,256 @@ export default function AgentsDashboard() {
     setSnackbarOpen(true);
   };
 
-  const timeIntervals = {
-    breakfast: 15 * 60, // 15 minutes in seconds
-    lunch: 45 * 60, // 45 minutes in seconds
-    shortCall: 10 * 60, // 10 minutes in seconds
-    followUp: 15 * 60, // 15 minutes in seconds
-    attendingMeeting: userDefinedTimes.attendingMeeting * 60 || 30 * 60, // default 30 minutes if not set
-    emergency: userDefinedTimes.emergency * 60 || 20 * 60, // default 20 minutes if not set
+  // ---------- Ringtone ----------
+  const stopRingtone = () => { ringAudio.pause(); ringAudio.currentTime = 0; };
+
+  // ---------- Timers ----------
+  const startCallTimer = () => {
+    stopCallTimer();
+    callTimerRef.current = setInterval(() => setCallDuration((p) => p + 1), 1000);
+  };
+  const stopCallTimer = () => {
+    if (callTimerRef.current) clearInterval(callTimerRef.current);
+    callTimerRef.current = null;
+    setCallDuration(0);
   };
 
-  const extension = localStorage.getItem("extension");
-  const sipPassword = localStorage.getItem("sipPassword");
-
-  const sipConfig = {
-    uri: UserAgent.makeURI(`sip:${extension}@192.168.21.170`),
-    transportOptions: {
-      server: "wss://192.168.21.70:8089/ws",
-    },
-    authorizationUsername: extension,
-    authorizationPassword: sipPassword,
-    sessionDescriptionHandlerFactoryOptions: {
-      constraints: { audio: true, video: false },
-      peerConnectionOptions: {
-        iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-      },
-    },
+  const startStatusTimer = (activity) => {
+    const key = mapActivityToTimerKey(activity);
+    if (!key) return;
+    const limit = timeIntervals[key] || 0;
+    stopStatusTimer();
+    setTimeRemaining(limit);
+    statusTimerRef.current = setInterval(() => {
+      setTimeRemaining((t) => {
+        if (t <= 1) { alert(`You have exceeded your ${activity} time limit.`); stopStatusTimer(); return 0; }
+        return t - 1;
+      });
+    }, 1000);
   };
-
-  const togglePhonePopup = () => {
-    setShowPhonePopup(!showPhonePopup);
+  const stopStatusTimer = () => {
+    if (statusTimerRef.current) clearInterval(statusTimerRef.current);
+    statusTimerRef.current = null;
+    setTimeRemaining(0);
   };
 
   useEffect(() => {
-    const savedStatus = localStorage.getItem("agentStatus");
-    if (savedStatus) {
-      setAgentStatus(savedStatus);
+    return () => { stopCallTimer(); stopStatusTimer(); };
+  }, []);
+
+  // ---------- SIP: incoming ----------
+  const handleIncomingInvite = (invitation) => {
+    wasAnsweredRef.current = false;
+
+    const number = invitation?.remoteIdentity?.uri?.user || "";
+    setLastIncomingNumber(number);
+    setIncomingCall(invitation);
+    setShowPhonePopup(true);
+    setPhoneStatus("Ringing");
+
+    // Pre-fetch user info by phone
+    if (number) fetchUserByPhoneNumber(number);
+
+    ringAudio.loop = true; ringAudio.volume = 0.7;
+    ringAudio.play().catch(() => {});
+
+    invitation.stateChange.addListener((state) => {
+      if (state === SessionState.Terminated) {
+        stopRingtone();
+        clearTimeout(autoRejectTimerRef.current);
+        setIncomingCall(null);
+        setShowPhonePopup(false);
+        setPhoneStatus("Idle");
+        setShowUserForm(false);
+        setUserData(null);
+        if (!wasAnsweredRef.current) addMissedCall(number);
+      }
+    });
+
+    autoRejectTimerRef.current = setTimeout(() => {
+      invitation.reject().catch(console.error);
+      setShowPhonePopup(false);
+      setPhoneStatus("Idle");
+      stopRingtone();
+      setIncomingCall(null);
+      setShowUserForm(false);
+      setUserData(null);
+      if (!wasAnsweredRef.current) addMissedCall(number);
+    }, 20000);
+  };
+
+  // ---------- SIP: UA startup ----------
+  useEffect(() => {
+    if (!sipConfig) {
+      setPhoneStatus("Not configured");
+      return;
     }
-
-    ringAudio.loop = true;
-    ringAudio.volume = 0.7;
-    remoteAudio.autoplay = true;
-
     const ua = new UserAgent(sipConfig);
     const registerer = new Registerer(ua);
+
+    // set delegate BEFORE start to handle early INVITEs
+    ua.delegate = { onInvite: handleIncomingInvite };
+
     setUserAgent(ua);
 
-    ua.start()
-      .then(() => {
-        registerer.register();
-        console.log("✅ SIP UA Registered");
-        setPhoneStatus("Idle");
-      })
-      .catch((error) => {
-        console.error("❌ UA failed to start:", error);
-        setPhoneStatus("Connection Failed");
-      });
-
-    ua.delegate = {
-      onInvite: (invitation) => {
-        console.log("📞 Incoming call");
-
-        wasAnsweredRef.current = false;
-
-        const incomingCaller =
-          invitation.remoteIdentity.displayName ||
-          invitation.remoteIdentity.uri.user ||
-          "Unknown Caller";
-
-        setCallerId(incomingCaller);
-        setIncomingCall(invitation);
-        setShowPhonePopup(true);
-        setPhoneStatus("Ringing");
-        // Extract phone number and search tickets
-        const incomingNumber = invitation.remoteIdentity.uri.user;
-        ringAudio
-          .play()
-          .catch((err) => console.error("🔇 Ringtone error:", err));
-
-        invitation.stateChange.addListener((state) => {
-          if (state === SessionState.Terminated) {
-            stopRingtone();
-            clearTimeout(autoRejectTimerRef.current);
-            setIncomingCall(null);
-            setShowPhonePopup(false);
-            setPhoneStatus("Idle");
-            setShowUserForm(false);
-            setUserData(null);
-
-            if (!wasAnsweredRef.current) {
-              addMissedCall(incomingCaller);
-            }
-          }
-        });
-
-        autoRejectTimerRef.current = setTimeout(() => {
-          if (incomingCall) {
-            incomingCall.reject().catch(console.error);
-            setShowPhonePopup(false);
-            setPhoneStatus("Idle");
-            stopRingtone();
-            setIncomingCall(null);
-            setShowUserForm(false);
-            setUserData(null);
-
-            if (!wasAnsweredRef.current) {
-              addMissedCall(incomingCaller);
-            }
-          }
-        }, 20000);
-      },
-    };
+    ua
+      .start()
+      .then(() => { registerer.register(); setPhoneStatus("Idle"); })
+      .catch((error) => { console.error("UA failed to start:", error); setPhoneStatus("Connection Failed"); });
 
     return () => {
       registerer.unregister().catch(console.error);
       ua.stop();
       stopRingtone();
-      stopTimer();
+      stopCallTimer();
     };
+  }, [sipConfig]);
+
+  // ---------- Fetch function data (ticket modal) ----------
+  useEffect(() => {
+    (async () => {
+      try {
+        const token = localStorage.getItem("authToken");
+        const res = await fetch(`${baseURL}/section/functions-data`, { headers: { Authorization: `Bearer ${token}` } });
+        const json = await res.json();
+        setFunctionData(json.data || []);
+      } catch (err) { console.error("Fetch functionData error:", err); }
+    })();
   }, []);
 
-  // ✅ Load missed calls from backend on component mount
+  // ---------- Online users (for transfer options) ----------
+  useEffect(() => { if (showPhonePopup) fetchOnlineUsers(); }, [showPhonePopup]);
+  const fetchOnlineUsers = async () => {
+    try {
+      const headers = {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+      };
+
+      // Fetch agents and supervisors from their own endpoints
+      const [agentsRes, supervisorsRes] = await Promise.all([
+        fetch(`${baseURL}/users/agents-online`, { method: "GET", headers }),
+        fetch(`${baseURL}/users/supervisors-online`, { method: "GET", headers }),
+      ]);
+
+      if (!agentsRes.ok && !supervisorsRes.ok) throw new Error("Failed to fetch online users");
+
+      const [agentsPayload, supervisorsPayload] = await Promise.all([
+        agentsRes.ok ? agentsRes.json() : Promise.resolve([]),
+        supervisorsRes.ok ? supervisorsRes.json() : Promise.resolve([]),
+      ]);
+
+      const extractUsers = (payload) => {
+        if (!payload) return [];
+        if (Array.isArray(payload)) return payload;
+        if (Array.isArray(payload.agents)) return payload.agents;
+        if (Array.isArray(payload.supervisors)) return payload.supervisors;
+        if (Array.isArray(payload.data)) return payload.data;
+        if (Array.isArray(payload.items)) return payload.items;
+        return [];
+      };
+
+      const agents = extractUsers(agentsPayload).map((u) => ({ ...u, role: u.role || "agent" }));
+      const supervisors = extractUsers(supervisorsPayload).map((u) => ({ ...u, role: u.role || "supervisor" }));
+
+      // Only keep entries that have an extension or username (for display/transfer)
+      const selfExt = String(localStorage.getItem("extension") || "");
+      const selfUserId = String(localStorage.getItem("userId") || "");
+      const selfUsername = String(localStorage.getItem("username") || "");
+      const combined = [...agents, ...supervisors]
+        .filter((u) => u && (u.extension || u.username))
+        .filter((u) => {
+          const uExt = String(u.extension || "");
+          const uId = String((u.id ?? u.userId ?? u._id) || "");
+          const uName = String(u.username || u.name || "");
+          return uExt !== selfExt && uId !== selfUserId && uName !== selfUsername;
+        });
+      setOnlineUsers(combined);
+      return combined;
+    } catch (err) {
+      setOnlineUsers([]);
+      return [];
+    }
+  };
+
+  // ---------- Voice notes ----------
   useEffect(() => {
-    fetchMissedCallsFromBackend();
+    const fetchVoiceNotes = async () => {
+      try {
+        const agentId = localStorage.getItem("userId");
+        const response = await fetch(`${baseURL}/voice-notes?agentId=${agentId}`, {
+          method: "GET",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("authToken")}` },
+        });
+        if (!response.ok) throw new Error("Failed to fetch voice notes");
+        const data = await response.json();
+        const notes = data.voiceNotes || [];
+        const storedPlayed = JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
+        const unplayedCount = notes.filter((note) => !storedPlayed[note.id]).length;
+        setVoiceNotes(notes);
+        setUnplayedVoiceNotes(unplayedCount);
+      } catch (error) {
+        setVoiceNotes([]);
+        setUnplayedVoiceNotes(0);
+      }
+    };
+    fetchVoiceNotes();
+    const handleStorage = (e) => { if (e.key === "playedVoiceNotes") fetchVoiceNotes(); };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
-  // Debug missed calls count
-  useEffect(() => {
-    console.log("🔢 Current missed calls count:", missedCalls.length);
-    console.log("📋 Current missed calls:", missedCalls);
-  }, [missedCalls]);
+  // ---------- Missed calls ----------
+  useEffect(() => { fetchMissedCallsFromBackend(); }, []);
+  const addMissedCall = (raw) => {
+    const agentId = localStorage.getItem("extension");
+    if (!raw || raw.trim() === "") return;
+    let formattedCaller = raw.startsWith("+255") ? `0${raw.substring(4)}` : raw;
+    const time = new Date();
+    const newCall = { caller: formattedCaller, time };
+    setMissedCalls((prev) => [...prev, newCall]);
+    showAlert(`Missed Call from ${formattedCaller}`, "warning");
 
-  const setPhonePopupVisible = (visible) => {
-    setShowPhonePopup(visible);
+    fetch(`${baseURL}/missed-calls`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("authToken")}` },
+      body: JSON.stringify({ caller: formattedCaller, time: time.toISOString(), agentId }),
+    }).catch((err) => console.error("Failed to post missed call:", err));
+  };
+  const fetchMissedCallsFromBackend = async () => {
+    try {
+      const ext = localStorage.getItem("extension");
+      const response = await fetch(`${baseURL}/missed-calls?agentId=${ext}&status=pending`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("authToken")}` },
+      });
+      if (!response.ok) throw new Error("Failed to fetch missed calls");
+      const data = await response.json();
+      const formatted = (data || []).map((call) => ({ ...call, time: new Date(call.time) }));
+      setMissedCalls(formatted);
+      localStorage.setItem("missedCalls", JSON.stringify(formatted));
+    } catch (error) {
+      console.error("Error fetching missed calls:", error);
+    }
   };
 
-  const stopRingtone = () => {
-    ringAudio.pause();
-    ringAudio.currentTime = 0;
+  // ---------- MAC: fetch user by phone ----------
+  const fetchUserByPhoneNumber = async (phone) => {
+    try {
+      const response = await fetch(`${baseURL}/mac-system/search-by-phone-number?phone_number=${encodeURIComponent(phone)}`);
+      if (!response.ok) { setUserData(null); setShowUserForm(false); return; }
+      const data = await response.json();
+      setUserData(data);
+      setShowUserForm(true);
+    } catch (error) {
+      console.error("Failed to fetch user data:", error);
+      setUserData(null);
+      setShowUserForm(false);
+    }
   };
+
+  // ---------- Phone controls ----------
+  const togglePhonePopup = () => setShowPhonePopup((v) => !v);
 
   const toggleMute = () => {
     if (!session) return;
@@ -438,231 +436,55 @@ export default function AgentsDashboard() {
       }
     });
   };
-
   const toggleSpeaker = () => {
-    if (remoteAudio.setSinkId) {
-      const deviceId = isSpeakerOn ? "communications" : "default";
-      remoteAudio
-        .setSinkId(deviceId)
-        .then(() => {
-          setIsSpeakerOn(!isSpeakerOn);
-        })
-        .catch((err) =>
-          console.warn("🔇 Failed to change output device:", err)
-        );
-    } else {
-      console.warn("Audio output device selection not supported.");
+    const el = remoteAudioRef.current;
+    if (el && el.setSinkId) {
+      const deviceId = isSpeakerOn ? 'communications' : 'default';
+      el.setSinkId(deviceId).then(() => setIsSpeakerOn(!isSpeakerOn)).catch(() => {});
     }
   };
-
   const toggleHold = () => {
     if (!session) return;
     const pc = session.sessionDescriptionHandler.peerConnection;
     const senders = pc.getSenders();
-
-    if (isOnHold) {
-      senders.forEach((sender) => {
-        if (sender.track && sender.track.kind === "audio") {
-          sender.track.enabled = true;
-        }
-      });
-    } else {
-      senders.forEach((sender) => {
-        if (sender.track && sender.track.kind === "audio") {
-          sender.track.enabled = false;
-        }
-      });
-    }
+    if (isOnHold) senders.forEach((s) => { if (s.track && s.track.kind === "audio") s.track.enabled = true; });
+    else senders.forEach((s) => { if (s.track && s.track.kind === "audio") s.track.enabled = false; });
     setIsOnHold(!isOnHold);
   };
-
   const sendDTMF = (digit) => {
-    if (session && session.sessionDescriptionHandler) {
-      const dtmfSender = session.sessionDescriptionHandler.peerConnection
-        .getSenders()
-        .find((sender) => sender.dtmf);
+    if (!session?.sessionDescriptionHandler) return;
+    const sender = session.sessionDescriptionHandler.peerConnection.getSenders().find((s) => s.dtmf);
+    if (sender?.dtmf) sender.dtmf.insertDTMF(digit);
+  };
 
-      if (dtmfSender && dtmfSender.dtmf) {
-        dtmfSender.dtmf.insertDTMF(digit);
-        console.log("📲 Sent DTMF digit:", digit);
+  const attachMediaStream = (sipSession) => {
+    const pc = sipSession.sessionDescriptionHandler.peerConnection;
+
+    // Attach any already-present remote tracks
+    const existing = new MediaStream();
+    pc.getReceivers().forEach((r) => { if (r.track) existing.addTrack(r.track); });
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.srcObject = existing;
+      // remoteAudioRef.current.play().catch(() => {});
+    }
+
+    // React to future tracks (common for external/PSTN calls)
+    pc.ontrack = (event) => {
+      const stream = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
+      if (remoteAudioRef.current) {
+        remoteAudioRef.current.srcObject = stream;
+        // remoteAudioRef.current.play().catch(() => {});
       }
-    }
-  };
-
-  const addMissedCall = (caller) => {
-    if (!caller || caller.trim() === "") {
-      console.warn("🚫 Skipping missed call: no caller ID provided");
-      return;
-    }
-
-    // Format the caller number: replace +255 with 0
-    let formattedCaller = caller;
-    if (caller.startsWith("+255")) {
-      formattedCaller = "0" + caller.substring(4); // Remove +255 and add 0
-      console.log(`📞 Formatted caller: ${caller} → ${formattedCaller}`);
-    }
-
-    const time = new Date();
-    const agentId = localStorage.getItem("extension");
-
-    // Update UI immediately
-    const newCall = { caller: formattedCaller, time };
-    setMissedCalls((prev) => [...prev, newCall]);
-
-    setSnackbarMessage(`📞 Missed Call from ${formattedCaller}`);
-    setSnackbarSeverity("warning");
-    setSnackbarOpen(true);
-
-    // 🔁 POST to backend
-    fetch(`${baseURL}/missed-calls`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-      },
-      body: JSON.stringify({
-        caller: formattedCaller,
-        time: time.toISOString(),
-        agentId,
-      }),
-    })
-      .then((res) => {
-        if (!res.ok) throw new Error("Failed to log missed call");
-        return res.json();
-      })
-      .then((data) => {
-        console.log("✅ Missed call logged to DB:", data);
-      })
-      .catch((err) => {
-        console.error("❌ Failed to post missed call:", err);
-      });
-  };
-
-  const fetchMissedCallsFromBackend = async () => {
-    try {
-      console.log("🔍 Fetching missed calls for agent:", extension);
-      const response = await fetch(
-        `${baseURL}/missed-calls?agentId=${extension}&status=pending`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-          },
-        }
-      );
-
-      if (!response.ok) throw new Error("Failed to fetch missed calls");
-
-      const data = await response.json();
-      console.log("📥 Received missed calls from backend:", data);
-      console.log("📊 Total pending missed calls:", data.length);
-
-      const formatted = data.map((call) => ({
-        ...call,
-        time: new Date(call.time),
-      }));
-
-      setMissedCalls(formatted);
-      localStorage.setItem("missedCalls", JSON.stringify(formatted));
-      console.log(
-        "✅ Updated missedCalls state with",
-        formatted.length,
-        "calls"
-      );
-    } catch (error) {
-      console.error("❌ Error fetching missed calls:", error);
-    }
-  };
-
-  const handleAttendedTransferDial = () => {
-    if (!userAgent || !transferTarget) return;
-
-    const targetURI = UserAgent.makeURI(`sip:${transferTarget}@192.168.21.70`);
-    if (!targetURI) {
-      console.error("Invalid transfer target URI");
-      return;
-    }
-
-    const inviter = new Inviter(userAgent, targetURI, {
-      sessionDescriptionHandlerOptions: {
-        constraints: { audio: true, video: false },
-      },
-    });
-
-    setConsultSession(inviter);
-    setIsTransferring(true);
-    setPhoneStatus("Consulting");
-
-    // Put original call on hold
-    toggleHold();
-
-    inviter
-      .invite()
-      .then(() => {
-        inviter.stateChange.addListener((state) => {
-          if (state === SessionState.Terminated) {
-            console.log(" Consult call ended");
-            setConsultSession(null);
-            setIsTransferring(false);
-            setPhoneStatus("In Call");
-            toggleHold(); // Resume original call
-          }
-        });
-      })
-      .catch((err) => {
-        console.error("❌ Consult call failed:", err);
-        setIsTransferring(false);
-        setConsultSession(null);
-        setPhoneStatus("In Call");
-        toggleHold();
-      });
-  };
-
-  const completeAttendedTransfer = () => {
-    if (!session || !consultSession) return;
-
-    session
-      .refer(consultSession.remoteIdentity.uri)
-      .then(() => {
-        console.log("🔁 Attended transfer completed");
-        setSnackbarMessage(`🔁 Call transferred to ${transferTarget}`);
-        setSnackbarSeverity("success");
-        setSnackbarOpen(true);
-        handleEndCall(); // Hang up original call
-      })
-      .catch((err) => {
-        console.error("❌ Transfer failed:", err);
-        setSnackbarMessage("❌ Transfer failed");
-        setSnackbarSeverity("error");
-        setSnackbarOpen(true);
-      });
-
-    setIsTransferring(false);
-    setConsultSession(null);
-  };
-
-  const cancelAttendedTransfer = () => {
-    if (consultSession) {
-      consultSession.bye().catch(console.error);
-      setConsultSession(null);
-    }
-    setIsTransferring(false);
-    setPhoneStatus("In Call");
-    toggleHold(); // Resume the original call
+    };
   };
 
   const handleAcceptCall = () => {
     if (!incomingCall) return;
     clearTimeout(autoRejectTimerRef.current);
-
     incomingCall
       .accept({
         sessionDescriptionHandlerOptions: {
           constraints: { audio: true, video: false },
-          peerConnectionOptions: {
-            iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-          },
         },
       })
       .then(() => {
@@ -671,55 +493,42 @@ export default function AgentsDashboard() {
         setIncomingCall(null);
         setPhoneStatus("In Call");
         stopRingtone();
-        startTimer();
-
-        // Show ticket modal after answering
-        setTicketPhoneNumber(callerId || "");
+        startCallTimer();
+        setTicketPhoneNumber(lastIncomingNumber || "");
         setShowTicketModal(true);
-        // setShowPhonePopup(false); // Keep call modal open after accept
 
         incomingCall.stateChange.addListener((state) => {
-          if (state === SessionState.Established) {
-            console.log("📞 Call accepted and media flowing");
-            attachMediaStream(incomingCall);
-          } else if (state === SessionState.Terminated) {
-            console.log("📴 Call ended after accept");
+          if (state === SessionState.Established) attachMediaStream(incomingCall);
+          if (state === SessionState.Terminated) {
             setPhoneStatus("Idle");
             setSession(null);
-            setIncomingCall(null);
-            remoteAudio.srcObject = null;
-            stopTimer();
+            if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
+            stopCallTimer();
           }
         });
       })
-      .catch((error) => {
-        console.error("❌ Failed to accept call:", error);
-        setPhoneStatus("Idle");
-        setShowPhonePopup(false);
-      });
+      .catch((error) => { console.error("Failed to accept call:", error); setPhoneStatus("Idle"); setShowPhonePopup(false); });
   };
 
   const handleRejectCall = () => {
     if (!incomingCall) return;
     clearTimeout(autoRejectTimerRef.current);
     incomingCall.reject().catch(console.error);
-    addMissedCall(callerId);
+    addMissedCall(lastIncomingNumber);
     setIncomingCall(null);
-    setShowPhonePopup(false); // ✅ Close Modal
+    setShowPhonePopup(false);
     setPhoneStatus("Idle");
     stopRingtone();
   };
 
   const handleEndCall = () => {
-    const agentId = localStorage.getItem("userId");
-
     if (session) {
       session.bye().catch(console.error);
       setSession(null);
       setPhoneStatus("Idle");
-      remoteAudio.srcObject = null;
+      if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
       stopRingtone();
-      stopTimer();
+      stopCallTimer();
       setShowPhonePopup(false);
       setIncomingCall(null);
     } else if (incomingCall) {
@@ -727,880 +536,276 @@ export default function AgentsDashboard() {
       setIncomingCall(null);
       setPhoneStatus("Idle");
       stopRingtone();
-      stopTimer();
+      stopCallTimer();
       setShowPhonePopup(false);
     }
   };
 
-  const handleRedial = (number, missedCallId = null) => {
-    if (!userAgent) {
-      console.error("❌ SIP User Agent not initialized.");
-      return;
-    }
-
-    if (!number) {
-      console.error("❌ No number provided for redial.");
-      return;
-    }
-
-    // Format the number: replace +255 with 0
-    let formattedNumber = number;
-    if (number.startsWith("+255")) {
-      formattedNumber = "0" + number.substring(4); // Remove +255 and add 0
-      console.log(`📞 Formatted number: ${number} → ${formattedNumber}`);
-    }
-
-    const target = `sip:${formattedNumber}@192.168.21.70`;
-    const targetURI = UserAgent.makeURI(target);
-
-    if (!targetURI) {
-      console.error("❌ Invalid SIP URI:", target);
-      return;
-    }
-
-    console.log("📞 Redialing SIP URI:", targetURI.toString());
-
-    const inviter = new Inviter(userAgent, targetURI, {
-      sessionDescriptionHandlerOptions: {
-        constraints: { audio: true, video: false },
-        peerConnectionOptions: {
-          iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-        },
-      },
-    });
-
-    setSession(inviter);
-
-    inviter
-      .invite()
-      .then(() => {
-        setPhoneStatus("Dialing");
-
-        inviter.stateChange.addListener((state) => {
-          console.log("🔄 Redial call state:", state);
-          if (state === SessionState.Established) {
-            attachMediaStream(inviter);
-            setPhoneStatus("In Call");
-            startTimer();
-
-            // ✅ Mark the missed call as called back
-            if (missedCallId) {
-              console.log(
-                "➡️ Sending PUT to mark call as called_back for ID:",
-                missedCallId
-              );
-              console.log(
-                "➡️ PUT URL:",
-                `${baseURL}/missed-calls/${missedCallId}/status`
-              );
-              fetch(`${baseURL}/missed-calls/${missedCallId}/status`, {
-                method: "PUT",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-                },
-                body: JSON.stringify({ status: "called_back" }),
-              })
-                .then((res) => {
-                  if (!res.ok) throw new Error("Failed to update call status");
-                  return res.json();
-                })
-                .then(() => {
-                  console.log("✅ Missed call marked as called_back");
-                  // Remove this call from the UI
-                  setMissedCalls((prev) =>
-                    prev.filter((call) => call.id !== missedCallId)
-                  );
-                })
-                .catch((err) =>
-                  console.error("❌ Failed to update missed call status:", err)
-                );
-            }
-          }
-
-          if (state === SessionState.Terminated) {
-            setPhoneStatus("Idle");
-            setSession(null);
-            remoteAudio.srcObject = null;
-            stopTimer();
-          }
-        });
-      })
-      .catch((error) => {
-        console.error("❌ Redial invite failed:", error.message, error);
-        setPhoneStatus("Call Failed");
-      });
-  };
-
   const handleDial = () => {
     if (!userAgent || !phoneNumber) return;
-
-    const target = `sip:${phoneNumber}@192.168.21.70`;
-    const targetURI = UserAgent.makeURI(target);
+    const targetURI = UserAgent.makeURI(`sip:${phoneNumber}@${SIP_DOMAIN}`);
     if (!targetURI) return;
 
     const inviter = new Inviter(userAgent, targetURI, {
       sessionDescriptionHandlerOptions: {
         constraints: { audio: true, video: false },
-        peerConnectionOptions: {
-          iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-        },
+        
       },
     });
 
     setSession(inviter);
-
     inviter
       .invite()
       .then(() => {
         setPhoneStatus("Dialing");
-
         inviter.stateChange.addListener((state) => {
-          if (state === SessionState.Established) {
-            console.log("📞 Outgoing call established");
-            setPhoneStatus("In Call");
-            attachMediaStream(inviter);
-            startTimer();
-          } else if (state === SessionState.Terminated) {
-            console.log("📴 Call ended");
-            setPhoneStatus("Idle");
-            setSession(null);
-            remoteAudio.srcObject = null;
-            stopTimer();
-          }
+          if (state === SessionState.Established) { attachMediaStream(inviter); setPhoneStatus("In Call"); startCallTimer(); }
+          if (state === SessionState.Terminated) { setPhoneStatus("Idle"); setSession(null); if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null; stopCallTimer(); }
         });
       })
-      .catch((error) => {
-        console.error("❌ Call failed:", error);
-        setPhoneStatus("Call Failed");
-      });
+      .catch((error) => { console.error("Call failed:", error); setPhoneStatus("Call Failed"); });
   };
 
-  const handleBlindTransfer = async () => {
-    if (!session || !transferTarget) return;
+  const handleRedial = (number, missedCallId = null) => {
+    if (!userAgent || !number) return;
+    const formatted = number.startsWith("+255") ? `0${number.substring(4)}` : number;
+    const targetURI = UserAgent.makeURI(`sip:${formatted}@${SIP_DOMAIN}`);
+    if (!targetURI) return;
 
+    const inviter = new Inviter(userAgent, targetURI, {
+      sessionDescriptionHandlerOptions: {
+        constraints: { audio: true, video: false },
+        
+      },
+    });
+
+    setSession(inviter);
+    inviter
+      .invite()
+      .then(() => {
+        setPhoneStatus("Dialing");
+        inviter.stateChange.addListener((state) => {
+          if (state === SessionState.Established) {
+            attachMediaStream(inviter);
+            setPhoneStatus("In Call");
+            startCallTimer();
+            if (missedCallId) {
+              fetch(`${baseURL}/missed-calls/${missedCallId}/status`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("authToken")}` },
+                body: JSON.stringify({ status: "called_back" }),
+              })
+                .then((res) => { if (!res.ok) throw new Error("Failed to update status"); return res.json(); })
+                .then(() => setMissedCalls((prev) => prev.filter((c) => c.id !== missedCallId)))
+                .catch((err) => console.error("Failed to update missed call status:", err));
+            }
+          }
+          if (state === SessionState.Terminated) { setPhoneStatus("Idle"); setSession(null); if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null; stopCallTimer(); }
+        });
+      })
+      .catch((error) => { console.error("Redial invite failed:", error); setPhoneStatus("Call Failed"); });
+  };
+
+  // ---------- BLIND TRANSFER ONLY ----------
+  const handleBlindTransfer = async (targetExt) => {
+    const target = String(targetExt ?? transferTarget ?? "").trim();
+    if (!session || !target) {
+      showAlert("Select an online agent/supervisor to transfer", "warning");
+      return;
+    }
+    // Enforce ONLINE only (agents or supervisors)
+    const isAllowed = onlineUsers.some(
+      (u) => (u.role === "agent" || u.role === "supervisor") && String(u.extension) === target
+    );
+    if (!isAllowed) {
+      showAlert("Target is not currently online", "error");
+      return;
+    }
     try {
-      // Prefer already-fetched online users; fetch if empty
-      let users = onlineUsers;
-      if (!users || users.length === 0) {
-        users = await fetchOnlineUsers();
-      }
-
-      const isKnownOnlineTarget =
-        users &&
-        users.some(
-          (user) =>
-            (user.extension === transferTarget ||
-              user.username === transferTarget) &&
-            (user.role === "agent" || user.role === "supervisor")
-        );
-
-      const targetURI = UserAgent.makeURI(
-        `sip:${transferTarget}@192.168.21.70`
-      );
-      if (!targetURI) {
-        console.error("Invalid transfer target URI");
-        setSnackbarMessage("❌ Invalid transfer target");
-        setSnackbarSeverity("error");
-        setSnackbarOpen(true);
-        return;
-      }
+      const targetURI = UserAgent.makeURI(`sip:${target}@${SIP_DOMAIN}`);
+      if (!targetURI) { showAlert("Invalid transfer target", "error"); return; }
 
       await session.refer(targetURI);
-
-      const successMsg = isKnownOnlineTarget
-        ? `🔁 Call transferred to ${transferTarget}`
-        : `🔁 Call transferred to ${transferTarget} (not verified online)`;
-
-      console.log(successMsg);
-      setSnackbarMessage(successMsg);
-      setSnackbarSeverity("success");
-      setSnackbarOpen(true);
-
-      // End the agent's leg after blind transfer
-      handleEndCall();
+      showAlert(`Call transferred to ${target}`, "success");
+      handleEndCall(); // end the agent leg after blind transfer
     } catch (err) {
-      console.error("❌ Call transfer failed:", err);
-      setSnackbarMessage("❌ Transfer failed");
-      setSnackbarSeverity("error");
-      setSnackbarOpen(true);
+      console.error("Transfer failed:", err);
+      showAlert("Transfer failed", "error");
     }
   };
 
-  const attachMediaStream = (sipSession) => {
-    const remoteStream = new MediaStream();
-    sipSession.sessionDescriptionHandler.peerConnection
-      .getReceivers()
-      .forEach((receiver) => {
-        if (receiver.track) remoteStream.addTrack(receiver.track);
-      });
-    remoteAudio.srcObject = remoteStream;
-    remoteAudio
-      .play()
-      .catch((err) => console.error("🔇 Audio playback failed:", err));
-  };
-
-  const startTimer = () => {
-    stopTimer();
-    timerRef.current = setInterval(() => {
-      setCallDuration((prev) => prev + 1);
-    }, 1000);
-  };
-
-  const stopTimer = () => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    setCallDuration(0);
-  };
-
-  const formatDuration = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    const hrs = Math.floor(mins / 60);
-    const pad = (n) => String(n).padStart(2, "0");
-    return hrs > 0
-      ? `${pad(hrs)}:${pad(mins % 60)}:${pad(secs)}`
-      : `${pad(mins)}:${pad(secs)}`;
-  };
-
-  const iconStyle = (bgColor) => ({
-    backgroundColor: bgColor,
-    padding: 10,
-    borderRadius: "50%",
-    color: "white",
-  });
-
-  // Timer logic
-  const startStatusTimer = (activity) => {
-    const statusKey = mapActivityToTimerKey(activity);
-    if (!statusKey) return; // skip if status doesn't map to timer (like "ready")
-
-    let timeLimit = timeIntervals[statusKey] || 0;
-    stopStatusTimer();
-    setTimeRemaining(timeLimit);
-
-    timerRef.current = setInterval(() => {
-      setTimeRemaining((prev) => {
-        if (prev <= 1) {
-          alert(`You have exceeded your ${activity} time limit.`);
-          stopStatusTimer();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
-  const stopStatusTimer = () => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    setTimeRemaining(0);
-  };
-
-  useEffect(() => {
-    localStorage.setItem("agentStatus", agentStatus);
-  }, [agentStatus]);
-
-  const handleClick = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-  const handleClose = () => {
-    setAnchorEl(null);
-  };
+  // ---------- Status menu ----------
+  const handleClick = (event) => setAnchorEl(event.currentTarget);
+  const handleClose = () => setAnchorEl(null);
 
   const handleAgentEmergency = async (activity) => {
-    if (activity.toLowerCase() !== "ready") {
-      try {
-        // Check if enough agents are available
-        const response = await fetch(`${baseURL}/users/agents-online`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-          },
-        });
-        const data = await response.json();
-        const count = data.agentCount;
-        // console.log("Active agents count:", count);
-
-        const totalResponse = await fetch(`${baseURL}/users/agents`, {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-          },
-        });
-
-        const totalData = await totalResponse.json();
-        console.log("Total agents data:", totalData);
-        // setOnlineAgents(totalData.agents || []); // Removed
-        const totalCount = totalData.total;
-        // console.log("Total agents count:", totalCount);
-
-        // // Ensure there are at least 3 agents available for non-"ready" status
-        // if (count < 3) {
-        //   showAlert("⚠️ Not enough agents available. Minimum 3 required.");
-        //   return;
-        // }
-
-        // find percentage if online agents are less than 50%
-        const fiftyPercentage = totalCount * 0.5;
-        // console.log("fifty percentage is", fiftyPercentage);
-        if (count < fiftyPercentage) {
-          showAlert("⚠️ Not enough agents available. Minimum 50% required.");
-          return;
-        }
-      } catch (error) {
-        console.error("Failed to check active agents:", error);
-        showAlert("Something went wrong. Try again.", "error");
-        return;
-      }
-    }
-
-    // Update local status (displayed in the UI)
+    // Update local UI state
     setAgentStatus(activity);
 
-    // Start or stop timer based on the activity
-    if (activity.toLowerCase() !== "ready") {
-      startStatusTimer(activity);
-    } else {
-      stopStatusTimer();
-    }
+    // Start/stop status timer
+    if ((activity || "").toLowerCase() !== "ready") startStatusTimer(activity);
+    else stopStatusTimer();
 
-    // Set the backend status based on the selected activity
-    const statusToUpdate =
-      activity.toLowerCase() === "ready" ? "online" : "offline";
-
-    // Update backend status (offline for non-"ready", online for "ready")
+    // Translate to backend online/offline
+    const statusToUpdate = (activity || "").toLowerCase() === "ready" ? "online" : "offline";
     try {
-      const updateResponse = await fetch(
-        `${baseURL}/users/status/${localStorage.getItem("userId")}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-          },
-          body: JSON.stringify({
-            status: statusToUpdate, // online for "ready", offline otherwise
-          }),
-        }
-      );
-
-      if (!updateResponse.ok) {
-        throw new Error("Failed to update status");
-      }
-
-      console.log(`User status updated to ${statusToUpdate}`);
-    } catch (err) {
-      console.error("Failed to update status:", err);
-    }
-  };
-  const formatRemainingTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    const pad = (n) => String(n).padStart(2, "0");
-    return `${pad(mins)}:${pad(secs)}`;
-  };
-
-  const mapActivityToTimerKey = (activity) => {
-    switch (activity.toLowerCase()) {
-      case "breakfast":
-        return "breakfast";
-      case "lunch":
-        return "lunch";
-      case "short call":
-        return "shortCall";
-      case "follow-up of customer inquiries":
-        return "followUp";
-      case "attending meeting":
-        return "attendingMeeting";
-      case "emergency":
-        return "emergency";
-      default:
-        return null; // covers "ready" and unknowns
-    }
-  };
-
-  // getOnlineAgents function removed - now handled in OnlineAgentsTable component
-
-  useEffect(() => {
-    // Fetch function data for ticket modal (same as CRM)
-    const fetchFunctionData = async () => {
-      try {
-        const token = localStorage.getItem("authToken");
-        const res = await fetch(`${baseURL}/section/functions-data`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        const json = await res.json();
-        setFunctionData(json.data || []);
-      } catch (err) {
-        console.error("Fetch functionData error:", err);
-      }
-    };
-    fetchFunctionData();
-  }, []);
-
-  const [onlineUsers, setOnlineUsers] = useState([]);
-
-  // Fetch online users when phone popup opens
-  useEffect(() => {
-    if (showPhonePopup) {
-      fetchOnlineUsers();
-    }
-  }, [showPhonePopup]);
-
-  const fetchOnlineUsers = async () => {
-    try {
-      const response = await fetch(`${baseURL}/online-users`, {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-        },
+      await fetch(`${baseURL}/users/status/${localStorage.getItem("userId")}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("authToken")}` },
+        body: JSON.stringify({ status: statusToUpdate }),
       });
-      if (!response.ok) throw new Error("Failed to fetch online users");
-      const users = await response.json();
-      const filtered = users.filter(
-        (u) => u.role === "agent" || u.role === "supervisor"
-      );
-      setOnlineUsers(filtered);
-      return filtered;
-    } catch (err) {
-      setOnlineUsers([]);
-      return [];
-    }
+    } catch (err) { console.error("Failed to update status:", err); }
   };
-
-  const [voiceNotes, setVoiceNotes] = useState([]);
-  const [unplayedVoiceNotes, setUnplayedVoiceNotes] = useState(0);
-
-  // Fetch unplayed voicenotes for the agent
-  useEffect(() => {
-    const fetchVoiceNotes = async () => {
-      try {
-        const agentId = localStorage.getItem("userId");
-        const response = await fetch(
-          `${baseURL}/voice-notes?agentId=${agentId}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-            },
-          }
-        );
-        if (!response.ok) throw new Error("Failed to fetch voice notes");
-        const data = await response.json();
-        const notes = data.voiceNotes || [];
-        const storedPlayed =
-          JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
-        const unplayedCount = notes.filter(
-          (note) => !storedPlayed[note.id]
-        ).length;
-        setVoiceNotes(notes);
-        setUnplayedVoiceNotes(unplayedCount);
-      } catch (error) {
-        setVoiceNotes([]);
-        setUnplayedVoiceNotes(0);
-      }
-    };
-    fetchVoiceNotes();
-    // Listen for localStorage changes to update badge in real time
-    const handleStorage = (e) => {
-      if (e.key === "playedVoiceNotes") {
-        fetchVoiceNotes();
-      }
-    };
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, []);
-
-  const [showVoiceNotesModal, setShowVoiceNotesModal] = useState(false);
 
   return (
     <div className="p-6">
+      {/* hidden remote audio for WebRTC (needed esp. on iOS/Safari) */}
+      <audio ref={remoteAudioRef} autoPlay playsInline style={{ display: 'none' }} />
       <div className="agent-body">
         <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
           <h3>Agent</h3>
           <Tooltip title="View Missed Calls" arrow>
-            <div
-              style={{ position: "relative", cursor: "pointer" }}
-              onClick={() => setMissedOpen(true)}
-            >
+            <div style={{ position: "relative", cursor: "pointer" }} onClick={() => setMissedOpen(true)}>
               <FiPhoneIncoming size={20} />
               {missedCalls.length > 0 && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: -5,
-                    right: -5,
-                    background: "red",
-                    color: "white",
-                    fontSize: "12px",
-                    borderRadius: "50%",
-                    width: "18px",
-                    height: "18px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
+                <span style={{ position: "absolute", top: -5, right: -5, background: "red", color: "white", fontSize: "12px", borderRadius: "50%", width: "18px", height: "18px", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   {missedCalls.length}
                 </span>
               )}
             </div>
           </Tooltip>
           <Tooltip title="Voice Notes" arrow>
-            <div
-              style={{ position: "relative", cursor: "pointer" }}
-              onClick={() => setShowVoiceNotesModal(true)}
-            >
+            <div style={{ position: "relative", cursor: "pointer" }} onClick={() => setShowVoiceNotesModal(true)}>
               <MdOutlineVoicemail size={22} />
               {unplayedVoiceNotes > 0 && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: -5,
-                    right: -5,
-                    background: "orange",
-                    color: "white",
-                    fontSize: "12px",
-                    borderRadius: "50%",
-                    width: "18px",
-                    height: "18px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
+                <span style={{ position: "absolute", top: -5, right: -5, background: "orange", color: "white", fontSize: "12px", borderRadius: "50%", width: "18px", height: "18px", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   {unplayedVoiceNotes}
                 </span>
               )}
             </div>
           </Tooltip>
         </div>
+
         <div className="phone-navbar">
           {agentStatus === "ready" ? (
             <>
-              <MdOutlineLocalPhone
-                className="phone-btn-call"
-                onClick={togglePhonePopup}
-              />
-              <h4
-                style={{
-                  backgroundColor: "green",
-                  color: "white",
-                  padding: "7px",
-                  borderRadius: "15px",
-                }}
-              >
-                {agentStatus.toUpperCase()}
-              </h4>
+              <MdOutlineLocalPhone className="phone-btn-call" onClick={togglePhonePopup} />
+              <h4 style={{ backgroundColor: "green", color: "white", padding: "7px", borderRadius: "15px" }}>{agentStatus.toUpperCase()}</h4>
             </>
           ) : (
             <>
               <FiPhoneOff className="out-phone-btn-call" />
               <div>
-                <h4
-                  style={{
-                    backgroundColor: "red",
-                    color: "white",
-                    padding: "7px",
-                    borderRadius: "15px",
-                  }}
-                >
-                  {agentStatus.toUpperCase()}
-                </h4>
-                <span style={{ color: "black", marginLeft: "10px" }}>
-                  Time Remaining: {formatRemainingTime(timeRemaining)}
-                </span>
+                <h4 style={{ backgroundColor: "red", color: "white", padding: "7px", borderRadius: "15px" }}>{agentStatus.toUpperCase()}</h4>
+                <span style={{ color: "black", marginLeft: "10px" }}>Time Remaining: {formatRemainingTime(timeRemaining)}</span>
               </div>
             </>
           )}
           <Tooltip title="Agent Emergency">
-            <IconButton
-              onClick={handleClick}
-              size="small"
-              sx={{ ml: 2 }}
-              aria-controls={openStatus ? "account-menu" : undefined}
-              aria-haspopup="true"
-              aria-expanded={openStatus ? "true" : undefined}
-            >
+            <IconButton onClick={handleClick} size="small" sx={{ ml: 2 }} aria-controls={openStatus ? "account-menu" : undefined} aria-haspopup="true" aria-expanded={openStatus ? "true" : undefined}>
               <Avatar sx={{ width: 32, height: 32 }}>E</Avatar>
             </IconButton>
           </Tooltip>
         </div>
-        
+
         <div className="dashboard-single-agent-row_two">
-          {/* Queue Monitoring Section */}
           <CallQueueCard />
-        </div>    
-        
+        </div>
+
         <div className="dashboard-single-agent">
           <SingleAgentDashboardCard />
-        </div>    
+        </div>
+
         <div className="dashboard-single-agent-row_two">
-          {/* Online Agents Table */}
           <OnlineAgentsTable />
-          {/* Online Supervisors Table */}
           <OnlineSupervisorsTable />
         </div>
+
         <div className="dashboard-single-agent-row_four">
           <AgentPerformanceScore />
         </div>
       </div>
 
-      <Menu
-        anchorEl={anchorEl}
-        id="account-menu"
-        open={openStatus}
-        onClose={handleClose}
-        onClick={handleClose}
-        slotProps={{
-          paper: {
-            elevation: 0,
-            sx: {
-              overflow: "visible",
-              filter: "drop-shadow(0px 2px 8px rgba(0,0,0,0.32))",
-              mt: 1.5,
-              "& .MuiAvatar-root": {
-                width: 32,
-                height: 32,
-                ml: -0.5,
-                mr: 1,
-              },
-              "&::before": {
-                content: '""',
-                display: "block",
-                position: "absolute",
-                top: 0,
-                right: 14,
-                width: 10,
-                height: 10,
-                bgcolor: "background.paper",
-                transform: "translateY(-50%) rotate(45deg)",
-                zIndex: 0,
-              },
-            },
-          },
-        }}
-        transformOrigin={{ horizontal: "right", vertical: "top" }}
-        anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
-      >
-        <MenuItem onClick={() => handleAgentEmergency("ready")}>
-          <ListItemIcon>
-            <GiTrafficLightsReadyToGo fontSize="large" />
-          </ListItemIcon>
-          Ready
-        </MenuItem>
-        <MenuItem onClick={() => handleAgentEmergency("breakfast")}>
-          <ListItemIcon>
-            <MdOutlineFreeBreakfast fontSize="large" />
-          </ListItemIcon>
-          Breakfast
-        </MenuItem>
-        <MenuItem onClick={() => handleAgentEmergency("lunch")}>
-          <ListItemIcon>
-            <MdOutlineLunchDining fontSize="large" />
-          </ListItemIcon>
-          Lunch
-        </MenuItem>
-        <MenuItem onClick={() => handleAgentEmergency("attending meeting")}>
-          <ListItemIcon>
-            <GiExplosiveMeeting fontSize="large" />
-          </ListItemIcon>
-          Attending Meeting
-        </MenuItem>
-        <MenuItem onClick={() => handleAgentEmergency("short call")}>
-          <ListItemIcon>
-            <MdWifiCalling2 fontSize="large" />
-          </ListItemIcon>
-          Short Call
-        </MenuItem>
-        <MenuItem onClick={() => handleAgentEmergency("emergency")}>
-          <ListItemIcon>
-            <TbEmergencyBed fontSize="large" />
-          </ListItemIcon>
-          Emergency
-        </MenuItem>
-        <MenuItem
-          onClick={() =>
-            handleAgentEmergency("follow-up of customer inquiries")
-          }
-        >
-          <ListItemIcon>
-            <MdOutlineFollowTheSigns fontSize="large" />
-          </ListItemIcon>
-          Follow-up of customer inquiries
-        </MenuItem>
+      {/* Status menu */}
+      <Menu anchorEl={anchorEl} id="account-menu" open={openStatus} onClose={handleClose} onClick={handleClose}
+        slotProps={{ paper: { elevation: 0, sx: { overflow: "visible", filter: "drop-shadow(0px 2px 8px rgba(0,0,0,0.32))", mt: 1.5, "& .MuiAvatar-root": { width: 32, height: 32, ml: -0.5, mr: 1 }, "&::before": { content: '""', display: "block", position: "absolute", top: 0, right: 14, width: 10, height: 10, bgcolor: "background.paper", transform: "translateY(-50%) rotate(45deg)", zIndex: 0 } } } }}
+        transformOrigin={{ horizontal: "right", vertical: "top" }} anchorOrigin={{ horizontal: "right", vertical: "bottom" }}>
+        <MenuItem onClick={() => handleAgentEmergency("ready")}><ListItemIcon><GiTrafficLightsReadyToGo fontSize="large" /></ListItemIcon>Ready</MenuItem>
+        <MenuItem onClick={() => handleAgentEmergency("breakfast")}><ListItemIcon><MdOutlineFreeBreakfast fontSize="large" /></ListItemIcon>Breakfast</MenuItem>
+        <MenuItem onClick={() => handleAgentEmergency("lunch")}><ListItemIcon><MdOutlineLunchDining fontSize="large" /></ListItemIcon>Lunch</MenuItem>
+        <MenuItem onClick={() => handleAgentEmergency("attending meeting")}><ListItemIcon><GiExplosiveMeeting fontSize="large" /></ListItemIcon>Attending Meeting</MenuItem>
+        <MenuItem onClick={() => handleAgentEmergency("short call")}><ListItemIcon><MdWifiCalling2 fontSize="large" /></ListItemIcon>Short Call</MenuItem>
+        <MenuItem onClick={() => handleAgentEmergency("emergency")}><ListItemIcon><TbEmergencyBed fontSize="large" /></ListItemIcon>Emergency</MenuItem>
+        <MenuItem onClick={() => handleAgentEmergency("follow-up of customer inquiries")}><ListItemIcon><MdOutlineFollowTheSigns fontSize="large" /></ListItemIcon>Follow-up of customer inquiries</MenuItem>
       </Menu>
 
+      {/* Phone popup */}
       {showPhonePopup && (
         <div className="modern-phone-popup">
           <div className="modern-phone-header">
-            <span>
-              {phoneStatus === "In Call" ? "Call in Progress" : "Phone"}
-            </span>
-            <button
-              onClick={togglePhonePopup}
-              className="modern-close-btn"
-              aria-label="Close"
-            >
-              ×
-            </button>
+            <span>{phoneStatus === "In Call" ? "Call in Progress" : "Phone"}</span>
+            <button onClick={togglePhonePopup} className="modern-close-btn" aria-label="Close">&times;</button>
           </div>
+
           <div className="modern-phone-body">
             {phoneStatus === "In Call" && (
               <>
                 <div className="modern-phone-status">
                   <span className="modern-status-badge">In Call</span>
-                  <span className="modern-call-duration">
-                    {formatDuration(callDuration)}
-                  </span>
+                  <span className="modern-call-duration">{formatDuration(callDuration)}</span>
                 </div>
+
+                {/* BLIND TRANSFER UI (online only) */}
                 <Autocomplete
-                  options={onlineUsers.map((u) => u.extension || u.username)}
-                  value={transferTarget}
-                  onChange={(_, v) => setTransferTarget(v || "")}
+                  options={onlineUsers.filter((u) => !!u.extension && (u.role === "agent" || u.role === "supervisor") && String(u.extension) !== String(extension))}
+                  getOptionLabel={(u) => (u ? `${u.extension} — ${(u.name || u.username || "User")} (${u.role})` : "")}
+                  isOptionEqualToValue={(a, b) => a?.extension === b?.extension}
+                  onChange={(_, u) => {
+                    setTransferTarget(u?.extension || "");
+                  }}
                   renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Transfer To (Extension/Username)"
-                      variant="outlined"
-                      margin="normal"
-                      fullWidth
-                    />
+                    <TextField {...params} label="Transfer to online (agent/supervisor)" variant="outlined" margin="normal" fullWidth />
                   )}
                   fullWidth
-                  disableClearable={false}
-                  isOptionEqualToValue={(option, value) => option === value}
                 />
                 <Button
                   variant="contained"
                   color="secondary"
-                  onClick={handleBlindTransfer}
+                  onClick={() => handleBlindTransfer()}
                   disabled={!session || !transferTarget}
                   fullWidth
                   className="modern-action-btn"
-                  style={{ marginTop: "10px" }}
+                  style={{ marginTop: 10 }}
                 >
-                  Blind Transfer
+                  Transfer
                 </Button>
               </>
             )}
 
             {phoneStatus !== "In Call" && (
               <>
-                <TextField
-                  label="Phone Number"
-                  variant="outlined"
-                  fullWidth
-                  margin="normal"
-                  required
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                />
+                <TextField label="Phone Number" variant="outlined" fullWidth margin="normal" required value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} />
                 {showKeypad && (
                   <div className="modern-keypad" style={{ marginBottom: 10 }}>
-                    {[
-                      "1",
-                      "2",
-                      "3",
-                      "4",
-                      "5",
-                      "6",
-                      "7",
-                      "8",
-                      "9",
-                      "*",
-                      "0",
-                      "#",
-                    ].map((digit) => (
-                      <button
-                        key={digit}
-                        className="modern-keypad-btn"
-                        onClick={() => setPhoneNumber((prev) => prev + digit)}
-                      >
-                        {digit}
-                      </button>
+                    {["1","2","3","4","5","6","7","8","9","*","0","#"].map((digit) => (
+                      <button key={digit} className="modern-keypad-btn" onClick={() => setPhoneNumber((prev) => prev + digit)}>{digit}</button>
                     ))}
-                    <button
-                      className="modern-keypad-btn"
-                      onClick={() =>
-                        setPhoneNumber((prev) => prev.slice(0, -1))
-                      }
-                      style={{
-                        gridColumn: "span 3",
-                        background: "#ffeaea",
-                        color: "#e53935",
-                        fontSize: "1.3rem",
-                      }}
-                      aria-label="Backspace"
-                    >
-                      ⌫
-                    </button>
+                    <button className="modern-keypad-btn" onClick={() => setPhoneNumber((prev) => prev.slice(0, -1))} style={{ gridColumn: "span 3", background: "#ffeaea", color: "#e53935", fontSize: "1.3rem" }} aria-label="Backspace">DEL</button>
                   </div>
                 )}
               </>
             )}
 
             <div className="modern-phone-actions">
-              <Tooltip title="Toggle Speaker">
-                <IconButton onClick={toggleSpeaker}>
-                  <HiMiniSpeakerWave
-                    fontSize={20}
-                    style={iconStyle(isSpeakerOn ? "green" : "grey")}
-                  />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title={isOnHold ? "Resume Call" : "Hold Call"}>
-                <IconButton onClick={toggleHold}>
-                  <MdPauseCircleOutline
-                    fontSize={20}
-                    style={iconStyle(isOnHold ? "orange" : "#3c8aba")}
-                  />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Keypad">
-                <IconButton onClick={() => setShowKeypad((prev) => !prev)}>
-                  <IoKeypadOutline
-                    fontSize={20}
-                    style={iconStyle(showKeypad ? "#1976d2" : "#939488")}
-                  />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="End Call">
-                <IconButton onClick={handleEndCall}>
-                  <MdLocalPhone fontSize={20} style={iconStyle("red")} />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title={isMuted ? "Unmute Mic" : "Mute Mic"}>
-                <IconButton onClick={toggleMute}>
-                  <BsFillMicMuteFill
-                    fontSize={20}
-                    style={iconStyle(isMuted ? "orange" : "grey")}
-                  />
-                </IconButton>
-              </Tooltip>
+              <Tooltip title="Toggle Speaker"><IconButton onClick={toggleSpeaker}><HiMiniSpeakerWave fontSize={20} style={iconStyle(isSpeakerOn ? "green" : "grey")} /></IconButton></Tooltip>
+              <Tooltip title={isOnHold ? "Resume Call" : "Hold Call"}><IconButton onClick={toggleHold}><MdPauseCircleOutline fontSize={20} style={iconStyle(isOnHold ? "orange" : "#3c8aba")} /></IconButton></Tooltip>
+              <Tooltip title="Keypad"><IconButton onClick={() => setShowKeypad((p) => !p)}><IoKeypadOutline fontSize={20} style={iconStyle(showKeypad ? "#1976d2" : "#939488")} /></IconButton></Tooltip>
+              <Tooltip title="End Call"><IconButton onClick={handleEndCall}><MdLocalPhone fontSize={20} style={iconStyle("red")} /></IconButton></Tooltip>
+              <Tooltip title={isMuted ? "Unmute Mic" : "Mute Mic"}><IconButton onClick={toggleMute}><BsFillMicMuteFill fontSize={20} style={iconStyle(isMuted ? "orange" : "grey")} /></IconButton></Tooltip>
             </div>
 
             {phoneStatus !== "In Call" && (
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleDial}
-                disabled={
-                  phoneStatus === "Dialing" || phoneStatus === "Ringing"
-                }
-                className="modern-action-btn"
-                style={{ marginTop: "10px" }}
-              >
+              <Button variant="contained" color="primary" onClick={handleDial} disabled={phoneStatus === "Dialing" || phoneStatus === "Ringing"} className="modern-action-btn" style={{ marginTop: 10 }}>
                 Dial
               </Button>
             )}
@@ -1608,27 +813,11 @@ export default function AgentsDashboard() {
             {incomingCall && phoneStatus !== "In Call" && (
               <>
                 <div style={{ marginBottom: 10 }}>
-                  <span style={{ fontWeight: 500 }}>From: </span>
-                  {incomingCall.remoteIdentity.displayName ||
-                    incomingCall.remoteIdentity.uri.user}
+                  <span style={{ fontWeight: 500 }}>From: </span>{lastIncomingNumber || "Unknown"}
                 </div>
                 <div className="modern-phone-actions">
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    onClick={handleAcceptCall}
-                    className="modern-action-btn"
-                  >
-                    Accept
-                  </Button>
-                  <Button
-                    variant="contained"
-                    color="secondary"
-                    onClick={handleRejectCall}
-                    className="modern-action-btn"
-                  >
-                    Reject
-                  </Button>
+                  <Button variant="contained" color="primary" onClick={handleAcceptCall} className="modern-action-btn">Accept</Button>
+                  <Button variant="contained" color="secondary" onClick={handleRejectCall} className="modern-action-btn">Reject</Button>
                 </div>
               </>
             )}
@@ -1636,180 +825,45 @@ export default function AgentsDashboard() {
         </div>
       )}
 
-      <Dialog
-        open={missedOpen}
-        onClose={() => setMissedOpen(false)}
-        fullWidth
-        maxWidth="xs"
-      >
-        <DialogTitle>📞 Missed Calls</DialogTitle>
+      {/* Missed calls dialog */}
+      <Dialog open={missedOpen} onClose={() => setMissedOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Missed Calls</DialogTitle>
         <DialogContent dividers>
           {missedCalls.length === 0 ? (
-            <p>No missed calls! 🎉</p>
+            <p>No missed calls!</p>
           ) : (
             <ul style={{ listStyle: "none", padding: 0 }}>
               {[...missedCalls].reverse().map((call, index) => (
-                <li
-                  key={index}
-                  style={{
-                    marginBottom: "15px",
-                    borderBottom: "1px solid #ccc",
-                    paddingBottom: "10px",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
+                <li key={index} style={{ marginBottom: 15, borderBottom: "1px solid #ccc", paddingBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div>
                     <strong>{call.caller}</strong>
                     <br />
-                    <small>{call.time.toLocaleTimeString()}</small>
+                    <small>{new Date(call.time).toLocaleTimeString()}</small>
                   </div>
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    size="small"
-                    onClick={() => {
-                      setMissedOpen(false);
-                      setShowPhonePopup(true);
-                      setPhoneNumber(call.caller);
-                      handleRedial(call.caller, call.id);
-                    }}
-                    startIcon={<FiPhoneCall />}
-                  >
-                    Call Back
-                  </Button>
+                  <Button variant="contained" color="primary" size="small" onClick={() => { setMissedOpen(false); setShowPhonePopup(true); setPhoneNumber(call.caller); handleRedial(call.caller, call.id); }} startIcon={<FiPhoneCall />}>Call Back</Button>
                 </li>
               ))}
             </ul>
           )}
-          <Button
-            onClick={() => setMissedCalls([])}
-            fullWidth
-            variant="outlined"
-            color="error"
-            style={{ marginTop: "10px" }}
-          >
-            Clear Missed Calls
-          </Button>
+          <Button onClick={() => { setMissedCalls([]); localStorage.removeItem("missedCalls"); }} fullWidth variant="outlined" color="error" style={{ marginTop: 10 }}>Clear Missed Calls</Button>
         </DialogContent>
       </Dialog>
 
-      <Snackbar
-        open={snackbarOpen}
-        autoHideDuration={4000}
-        onClose={() => setSnackbarOpen(false)}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
-      >
-        <Alert
-          onClose={() => setSnackbarOpen(false)}
-          severity={snackbarSeverity}
-          sx={{ width: "100%" }}
-        >
-          {snackbarMessage}
-        </Alert>
+      {/* Snackbar */}
+      <Snackbar open={snackbarOpen} autoHideDuration={4000} onClose={() => setSnackbarOpen(false)} anchorOrigin={{ vertical: "top", horizontal: "center" }}>
+        <Alert onClose={() => setSnackbarOpen(false)} severity={snackbarSeverity} sx={{ width: "100%" }}>{snackbarMessage}</Alert>
       </Snackbar>
 
-      {/* Ticket History Modal */}
-      <Dialog
-        open={showTicketHistoryModal}
-        onClose={() => setShowTicketHistoryModal(false)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>Customer Ticket History</DialogTitle>
-        <DialogContent>
-          {customerTickets.length > 0 ? (
-            customerTickets.map((ticket) => (
-              <div
-                key={ticket.id}
-                style={{
-                  border: "1px solid #eee",
-                  margin: 8,
-                  padding: 8,
-                  borderRadius: 4,
-                }}
-              >
-                <div>Ticket ID: {ticket.ticket_id}</div>
-                <div>Status: {ticket.status}</div>
-                <div>
-                  Created: {new Date(ticket.created_at).toLocaleString()}
-                </div>
-                <Button onClick={() => setSelectedTicket(ticket)}>
-                  View Details
-                </Button>
-              </div>
-            ))
-          ) : (
-            <div>No tickets found.</div>
-          )}
-          {/* Ticket Details Modal (nested) */}
-          <Dialog
-            open={!!selectedTicket}
-            onClose={() => setSelectedTicket(null)}
-            maxWidth="sm"
-            fullWidth
-          >
-            <DialogTitle>Ticket Details</DialogTitle>
-            <DialogContent>
-              {selectedTicket && (
-                <div>
-                  <div>
-                    <strong>Ticket ID:</strong> {selectedTicket.ticket_id}
-                  </div>
-                  <div>
-                    <strong>Status:</strong> {selectedTicket.status}
-                  </div>
-                  <div>
-                    <strong>Phone:</strong> {selectedTicket.phone_number}
-                  </div>
-                  <div>
-                    <strong>NIDA:</strong> {selectedTicket.nida_number}
-                  </div>
-                  <div>
-                    <strong>Category:</strong> {selectedTicket.category}
-                  </div>
-                  <div>
-                    <strong>Description:</strong> {selectedTicket.description}
-                  </div>
-                  <div>
-                    <strong>Created:</strong>{" "}
-                    {new Date(selectedTicket.created_at).toLocaleString()}
-                  </div>
-                  {/* Add more fields as needed */}
-                </div>
-              )}
-            </DialogContent>
-          </Dialog>
-        </DialogContent>
-      </Dialog>
-
-      {/* Create Ticket Button (example, place where appropriate) */}
-      <Button
-        variant="contained"
-        color="primary"
-        onClick={() => {
-          setTicketPhoneNumber(phoneNumber || ""); // or use the relevant phone number
-          setShowTicketModal(true);
-        }}
-      >
+      {/* Create Ticket quick button */}
+      <Button variant="contained" color="primary" onClick={() => { setTicketPhoneNumber(phoneNumber || ""); setShowTicketModal(true); }}>
         Create Ticket
       </Button>
 
-      {/* Ticket Create Modal (after answering call) */}
-      <AdvancedTicketCreateModal
-        open={showTicketModal}
-        onClose={() => setShowTicketModal(false)}
-        initialPhoneNumber={ticketPhoneNumber}
-        functionData={functionData}
-      />
+      {/* Ticket modal */}
+      <AdvancedTicketCreateModal open={showTicketModal} onClose={() => setShowTicketModal(false)} initialPhoneNumber={ticketPhoneNumber} functionData={functionData} />
 
-      <Dialog
-        open={showVoiceNotesModal}
-        onClose={() => setShowVoiceNotesModal(false)}
-        fullWidth
-        maxWidth="md"
-      >
+      {/* Voice notes modal */}
+      <Dialog open={showVoiceNotesModal} onClose={() => setShowVoiceNotesModal(false)} fullWidth maxWidth="md">
         <DialogContent>
           <VoiceNotesReport />
         </DialogContent>
@@ -1817,10 +871,3 @@ export default function AgentsDashboard() {
     </div>
   );
 }
-
-const iconStyle = (bgColor) => ({
-  backgroundColor: bgColor,
-  padding: 10,
-  borderRadius: "50%",
-  color: "white",
-});
