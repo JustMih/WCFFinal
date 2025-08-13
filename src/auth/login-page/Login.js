@@ -40,7 +40,7 @@ export default function Login() {
 
         // Core user session (localStorage for persistence)
         localStorage.setItem("authToken", token);
-        localStorage.setItem("username", data.user.name);
+        localStorage.setItem("username", data.user.full_name);
         localStorage.setItem("role", data.user.role);
         localStorage.setItem("tokenExpiration", tokenExpiration);
         localStorage.setItem("userId", data.user.id);
