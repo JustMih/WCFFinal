@@ -199,11 +199,8 @@ export default function CallCenterSidebar({
               >
                 <div className="menu-item">
                   <MdOutlineAudiotrack className="menu-icon" />
-                  {isSidebarOpen && <span className="menu-text">IVR Reports</span>}
-                
+                  {isSidebarOpen && <span className="menu-text">CDR Reports</span>}
                 </div>
-                                
-               
               </NavLink>
               <NavLink
                 to="/ivr-interactions"
@@ -374,11 +371,27 @@ export default function CallCenterSidebar({
                     <Badge
                       badgeContent={unreadMessagesCount}
                       color="error"
-                      sx={{ marginLeft: 1,}}
+                      sx={{ marginLeft: 1 }}
                     />
                   )}
                 </div>
               </NavLink>
+
+              <NavLink
+                to="/voice-notes-report"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <BsChatRightTextFill className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">Voice Notes Report</span>
+                  )}
+                </div>
+              </NavLink>
+
+            
 
               {/* Social Notifications Toggle */}
               {/* <ListItemButton

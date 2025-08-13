@@ -29,16 +29,19 @@ export default function CallCenterUsers() {
   const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [usersPerPage] = useState(5);
+  const [usersPerPage] = useState(10);
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [newUserData, setNewUserData] = useState({
-    name: "",
+    full_name: "",
     email: "",
     password: "",
+    username: "",
     extension: "",
     role: "admin",
     isActive: false,
+    report_to: "",
+    designation: "",
   });
   const [currentUser, setCurrentUser] = useState(null); // For editing a user
   const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -90,25 +93,43 @@ export default function CallCenterUsers() {
   };
   const handleAddUser = async () => {
     try {
+      // Generate username from full_name
+      const generatedUsername = newUserData.full_name
+        .toLowerCase()
+        .replace(/\s+/g, ".");
+
+      // Prepare user data - set extension to null if role is not agent or attendee
+      const userDataToSend = {
+        ...newUserData,
+        username: generatedUsername,
+        extension:
+          newUserData.role === "agent" || newUserData.role === "attendee"
+            ? newUserData.extension
+            : null,
+      };
+
       const response = await fetch(`${baseURL}/users/create-user`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("authToken")}`,
         },
-        body: JSON.stringify(newUserData),
+        body: JSON.stringify(userDataToSend),
       });
       if (!response.ok) {
         throw new Error("Failed to create user");
       }
       setShowModal(false);
       setNewUserData({
-        name: "",
+        full_name: "",
         email: "",
         password: "",
+        username: "",
         extension: "",
         role: "admin",
         isActive: false,
+        report_to: "",
+        designation: "",
       });
       fetchUsers();
       setSnackbarMessage("User added successfully!");
@@ -124,13 +145,28 @@ export default function CallCenterUsers() {
 
   const handleUpdateUser = async () => {
     try {
+      // Generate username from full_name
+      const generatedUsername = currentUser.full_name
+        .toLowerCase()
+        .replace(/\s+/g, ".");
+
+      // Prepare user data - set extension to null if role is not agent or attendee
+      const userDataToSend = {
+        ...currentUser,
+        username: generatedUsername,
+        extension:
+          currentUser.role === "agent" || currentUser.role === "attendee"
+            ? currentUser.extension
+            : null,
+      };
+
       const response = await fetch(`${baseURL}/users/${currentUser.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("authToken")}`,
         },
-        body: JSON.stringify(currentUser),
+        body: JSON.stringify(userDataToSend),
       });
       if (!response.ok) {
         throw new Error("Failed to update user");
@@ -230,17 +266,19 @@ export default function CallCenterUsers() {
     setIsEditing(false);
     setCurrentUser(null);
     setNewUserData({
-      name: "",
+      full_name: "",
       email: "",
       password: "",
       extension: "",
       role: "admin",
       isActive: false,
+      report_to: "",
+      designation: "",
     });
   };
 
   const filteredUsers = users.filter((user) =>
-    user.name.toLowerCase().includes(search.toLowerCase())
+    user.full_name.toLowerCase().includes(search.toLowerCase())
   );
 
   const indexOfLastUser = currentPage * usersPerPage;
@@ -253,7 +291,7 @@ export default function CallCenterUsers() {
       <div className="controls">
         <input
           type="text"
-          placeholder="Search by name..."
+          placeholder="Search by full name..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="search-input"
@@ -264,12 +302,15 @@ export default function CallCenterUsers() {
             setShowModal(true);
             setIsEditing(false);
             setNewUserData({
-              name: "",
+              full_name: "",
               email: "",
               password: "",
               extension: "",
+              username: "",
               role: "admin",
               isActive: false,
+              report_to: "",
+              designation: "",
             });
           }}
         >
@@ -291,7 +332,7 @@ export default function CallCenterUsers() {
           {currentUsers.map((user, index) => (
             <tr key={user.id}>
               <td>{index + 1}</td>
-              <td>{user.name}</td>
+              <td>{user.full_name}</td>
               <td>{user.email}</td>
               <td>{user.role}</td>
               <td>{user.isActive ? "Active" : "Inactive"}</td>
@@ -352,19 +393,78 @@ export default function CallCenterUsers() {
       </table>
 
       {/* Pagination */}
-      <div className="pagination">
-        {Array.from(
-          { length: Math.ceil(filteredUsers.length / usersPerPage) },
-          (_, i) => (
-            <button
-              key={i + 1}
-              onClick={() => setCurrentPage(i + 1)}
-              className={currentPage === i + 1 ? "active" : ""}
-            >
-              {i + 1}
-            </button>
-          )
-        )}
+      <div
+        className="pagination"
+        style={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          gap: "8px",
+          marginTop: "20px",
+        }}
+      >
+        <button
+          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+          disabled={currentPage === 1}
+          style={{
+            padding: "8px 12px",
+            border: "1px solid #ddd",
+            backgroundColor: currentPage === 1 ? "#f5f5f5" : "#fff",
+            color: currentPage === 1 ? "#999" : "#333",
+            cursor: currentPage === 1 ? "not-allowed" : "pointer",
+            borderRadius: "4px",
+            fontSize: "14px",
+          }}
+        >
+          ← Previous
+        </button>
+
+        <span
+          style={{
+            padding: "8px 12px",
+            backgroundColor: "#f8f9fa",
+            border: "1px solid #ddd",
+            borderRadius: "4px",
+            fontSize: "14px",
+            fontWeight: "bold",
+          }}
+        >
+          Page {currentPage} of {Math.ceil(filteredUsers.length / usersPerPage)}
+        </span>
+
+        <button
+          onClick={() =>
+            setCurrentPage(
+              Math.min(
+                Math.ceil(filteredUsers.length / usersPerPage),
+                currentPage + 1
+              )
+            )
+          }
+          disabled={
+            currentPage === Math.ceil(filteredUsers.length / usersPerPage)
+          }
+          style={{
+            padding: "8px 12px",
+            border: "1px solid #ddd",
+            backgroundColor:
+              currentPage === Math.ceil(filteredUsers.length / usersPerPage)
+                ? "#f5f5f5"
+                : "#fff",
+            color:
+              currentPage === Math.ceil(filteredUsers.length / usersPerPage)
+                ? "#999"
+                : "#333",
+            cursor:
+              currentPage === Math.ceil(filteredUsers.length / usersPerPage)
+                ? "not-allowed"
+                : "pointer",
+            borderRadius: "4px",
+            fontSize: "14px",
+          }}
+        >
+          Next →
+        </button>
       </div>
 
       {/* Add and Update User Modal */}
@@ -384,11 +484,11 @@ export default function CallCenterUsers() {
         >
           <h2>{isEditing ? "Edit User" : "Add User"}</h2>
           <TextField
-            label="Name"
+            label="Full Name"
             fullWidth
             margin="normal"
-            name="name"
-            value={isEditing ? currentUser.name : newUserData.name}
+            name="full_name"
+            value={isEditing ? currentUser.full_name : newUserData.full_name}
             onChange={isEditing ? handleUpdateInputChange : handleInputChange}
           />
           <TextField
@@ -406,6 +506,24 @@ export default function CallCenterUsers() {
             type="password"
             name="password"
             value={isEditing ? currentUser.password : newUserData.password}
+            onChange={isEditing ? handleUpdateInputChange : handleInputChange}
+          />
+          <TextField
+            label="Report To"
+            fullWidth
+            margin="normal"
+            name="report_to"
+            value={isEditing ? currentUser.report_to : newUserData.report_to}
+            onChange={isEditing ? handleUpdateInputChange : handleInputChange}
+          />
+          <TextField
+            label="Designation"
+            fullWidth
+            margin="normal"
+            name="designation"
+            value={
+              isEditing ? currentUser.designation : newUserData.designation
+            }
             onChange={isEditing ? handleUpdateInputChange : handleInputChange}
           />
           <FormControl fullWidth margin="normal">
@@ -428,9 +546,12 @@ export default function CallCenterUsers() {
               <MenuItem value="focal-person">Focal Person</MenuItem>
             </Select>
           </FormControl>
-          {/* add extension if role is agent */}
+          {/* add extension if role is agent or attendee */}
           {(newUserData.role === "agent" ||
-            (currentUser && currentUser.role === "agent")) && (
+            newUserData.role === "attendee" ||
+            (currentUser &&
+              (currentUser.role === "agent" ||
+                currentUser.role === "attendee"))) && (
             <TextField
               label="Extension"
               fullWidth
