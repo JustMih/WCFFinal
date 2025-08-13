@@ -42,6 +42,7 @@ export default function CallCenterUsers() {
     isActive: false,
     report_to: "",
     designation: "",
+    unit_section: "",
   });
   const [currentUser, setCurrentUser] = useState(null); // For editing a user
   const [snackbarOpen, setSnackbarOpen] = useState(false);
@@ -130,6 +131,7 @@ export default function CallCenterUsers() {
         isActive: false,
         report_to: "",
         designation: "",
+        unit_section: "",
       });
       fetchUsers();
       setSnackbarMessage("User added successfully!");
@@ -274,6 +276,7 @@ export default function CallCenterUsers() {
       isActive: false,
       report_to: "",
       designation: "",
+      unit_section: "",
     });
   };
 
@@ -311,6 +314,7 @@ export default function CallCenterUsers() {
               isActive: false,
               report_to: "",
               designation: "",
+              unit_section: "",
             });
           }}
         >
@@ -324,6 +328,7 @@ export default function CallCenterUsers() {
             <th>Name</th>
             <th>Email</th>
             <th>Role</th>
+            <th>Unit Section</th>
             <th>Status</th>
             <th>Action</th>
           </tr>
@@ -335,6 +340,11 @@ export default function CallCenterUsers() {
               <td>{user.full_name}</td>
               <td>{user.email}</td>
               <td>{user.role}</td>
+              <td>
+                <Tooltip title={user.unit_section || 'No unit section assigned'}>
+                  <span>{user.unit_section || 'N/A'}</span>
+                </Tooltip>
+              </td>
               <td>{user.isActive ? "Active" : "Inactive"}</td>
               <td className="action-buttons">
                 <Tooltip title="Edit User">
@@ -475,130 +485,430 @@ export default function CallCenterUsers() {
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            width: 500,
-            borderRadius: "10px",
+            width: 450,
+            maxHeight: "90vh",
+            overflowY: "auto",
+            borderRadius: "12px",
             bgcolor: "white",
-            boxShadow: 24,
-            p: 4,
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
+            p: 3,
+            border: "1px solid #e0e0e0",
           }}
         >
-          <h2>{isEditing ? "Edit User" : "Add User"}</h2>
-          <TextField
-            label="Full Name"
-            fullWidth
-            margin="normal"
-            name="full_name"
-            value={isEditing ? currentUser.full_name : newUserData.full_name}
-            onChange={isEditing ? handleUpdateInputChange : handleInputChange}
-          />
-          <TextField
-            label="Email"
-            fullWidth
-            margin="normal"
-            name="email"
-            value={isEditing ? currentUser.email : newUserData.email}
-            onChange={isEditing ? handleUpdateInputChange : handleInputChange}
-          />
-          <TextField
-            label="Password"
-            fullWidth
-            margin="normal"
-            type="password"
-            name="password"
-            value={isEditing ? currentUser.password : newUserData.password}
-            onChange={isEditing ? handleUpdateInputChange : handleInputChange}
-          />
-          <TextField
-            label="Report To"
-            fullWidth
-            margin="normal"
-            name="report_to"
-            value={isEditing ? currentUser.report_to : newUserData.report_to}
-            onChange={isEditing ? handleUpdateInputChange : handleInputChange}
-          />
-          <TextField
-            label="Designation"
-            fullWidth
-            margin="normal"
-            name="designation"
-            value={
-              isEditing ? currentUser.designation : newUserData.designation
-            }
-            onChange={isEditing ? handleUpdateInputChange : handleInputChange}
-          />
-          <FormControl fullWidth margin="normal">
-            <InputLabel>Role</InputLabel>
-            <Select
-              label="Role"
-              name="role"
-              value={isEditing ? currentUser.role : newUserData.role}
-              onChange={isEditing ? handleUpdateInputChange : handleInputChange}
+          <Box sx={{ 
+            display: "flex", 
+            justifyContent: "space-between", 
+            alignItems: "center", 
+            mb: 2,
+            pb: 2,
+            borderBottom: "2px solid #f0f0f0"
+          }}>
+            <h2 style={{ 
+              margin: 0, 
+              color: "#333", 
+              fontSize: "20px",
+              fontWeight: "600"
+            }}>
+              {isEditing ? "Edit User" : "Add New User"}
+            </h2>
+            <button
+              onClick={handleCloseModal}
+              style={{
+                background: "none",
+                border: "none",
+                fontSize: "20px",
+                cursor: "pointer",
+                color: "#666",
+                padding: "4px",
+                borderRadius: "4px",
+                transition: "all 0.2s"
+              }}
+              onMouseEnter={(e) => e.target.style.color = "#333"}
+              onMouseLeave={(e) => e.target.style.color = "#666"}
             >
-              <MenuItem value="admin">Admin</MenuItem>
-              <MenuItem value="supervisor">Supervisor</MenuItem>
-              <MenuItem value="agent">Agent</MenuItem>
-              <MenuItem value="attendee">Attendee</MenuItem>
-              <MenuItem value="coordinator">Reviewer</MenuItem>
-              <MenuItem value="head-of-unit">Head of Unit</MenuItem>
-              <MenuItem value="manager">Manager</MenuItem>
-              <MenuItem value="director">Director</MenuItem>
-              <MenuItem value="director-general">Direct General</MenuItem>
-              <MenuItem value="focal-person">Focal Person</MenuItem>
-            </Select>
-          </FormControl>
-          {/* add extension if role is agent or attendee */}
-          {(newUserData.role === "agent" ||
-            newUserData.role === "attendee" ||
-            (currentUser &&
-              (currentUser.role === "agent" ||
-                currentUser.role === "attendee"))) && (
+              ×
+            </button>
+          </Box>
+          
+          <Box sx={{ display: "grid", gap: 1.5 }}>
+            <TextField
+              label="Full Name"
+              fullWidth
+              size="small"
+              name="full_name"
+              value={isEditing ? currentUser?.full_name || "" : newUserData.full_name}
+              onChange={isEditing ? handleUpdateInputChange : handleInputChange}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  "&:hover fieldset": {
+                    borderColor: "#1976d2",
+                  },
+                  "&.Mui-focused fieldset": {
+                    borderColor: "#1976d2",
+                  },
+                },
+              }}
+            />
+            
+            <TextField
+              label="Email"
+              fullWidth
+              size="small"
+              name="email"
+              type="email"
+              value={isEditing ? currentUser?.email || "" : newUserData.email}
+              onChange={isEditing ? handleUpdateInputChange : handleInputChange}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  "&:hover fieldset": {
+                    borderColor: "#1976d2",
+                  },
+                  "&.Mui-focused fieldset": {
+                    borderColor: "#1976d2",
+                  },
+                },
+              }}
+            />
+            
+            <TextField
+              label="Password"
+              fullWidth
+              size="small"
+              type="password"
+              name="password"
+              value={isEditing ? currentUser?.password || "" : newUserData.password}
+              onChange={isEditing ? handleUpdateInputChange : handleInputChange}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  "&:hover fieldset": {
+                    borderColor: "#1976d2",
+                  },
+                  "&.Mui-focused fieldset": {
+                    borderColor: "#1976d2",
+                  },
+                },
+              }}
+            />
+            
+            <TextField
+              label="Report To"
+              fullWidth
+              size="small"
+              name="report_to"
+              value={isEditing ? currentUser?.report_to || "" : newUserData.report_to}
+              onChange={isEditing ? handleUpdateInputChange : handleInputChange}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  "&:hover fieldset": {
+                    borderColor: "#1976d2",
+                  },
+                  "&.Mui-focused fieldset": {
+                    borderColor: "#1976d2",
+                  },
+                },
+              }}
+            />
+            
+            <TextField
+              label="Designation"
+              fullWidth
+              size="small"
+              name="designation"
+              value={isEditing ? currentUser?.designation || "" : newUserData.designation}
+              onChange={isEditing ? handleUpdateInputChange : handleInputChange}
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  "&:hover fieldset": {
+                    borderColor: "#1976d2",
+                  },
+                  "&.Mui-focused fieldset": {
+                    borderColor: "#1976d2",
+                  },
+                },
+              }}
+            />
+            
+            <FormControl fullWidth size="small">
+              <InputLabel>Unit Section</InputLabel>
+              <Select
+                label="Unit Section"
+                name="unit_section"
+                value={isEditing ? currentUser?.unit_section || "" : newUserData.unit_section}
+                onChange={isEditing ? handleUpdateInputChange : handleInputChange}
+                MenuProps={{
+                  PaperProps: {
+                    style: {
+                      maxHeight: 250,
+                      width: '400px',
+                      maxWidth: '400px',
+                      overflow: 'hidden'
+                    }
+                  },
+                  anchorOrigin: {
+                    vertical: 'bottom',
+                    horizontal: 'left',
+                  },
+                  transformOrigin: {
+                    vertical: 'top',
+                    horizontal: 'left',
+                  },
+                  getContentAnchorEl: null,
+                }}
+                sx={{
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    "&:hover": {
+                      borderColor: "#1976d2",
+                    },
+                  },
+                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "#1976d2",
+                  },
+                }}
+              >
+                <MenuItem value="" sx={{ 
+                  whiteSpace: 'nowrap', 
+                  overflow: 'hidden', 
+                  textOverflow: 'ellipsis',
+                  maxWidth: '380px',
+                  fontSize: '14px'
+                }}>None</MenuItem>
+                <MenuItem value="directorate of operations" sx={{ 
+                  whiteSpace: 'nowrap', 
+                  overflow: 'hidden', 
+                  textOverflow: 'ellipsis',
+                  maxWidth: '380px',
+                  fontSize: '14px'
+                }}>Directorate of Operations</MenuItem>
+                <MenuItem value="directorate of assessment services" sx={{ 
+                  whiteSpace: 'nowrap', 
+                  overflow: 'hidden', 
+                  textOverflow: 'ellipsis',
+                  maxWidth: '380px',
+                  fontSize: '14px'
+                }}>Directorate of Assessment Services</MenuItem>
+                <MenuItem value="directorate of finance, planning and investment" sx={{ 
+                  whiteSpace: 'nowrap', 
+                  overflow: 'hidden', 
+                  textOverflow: 'ellipsis',
+                  maxWidth: '380px',
+                  fontSize: '14px'
+                }}>Directorate of Finance, Planning and Investment</MenuItem>
+                <MenuItem value="legal unit" sx={{ 
+                  whiteSpace: 'nowrap', 
+                  overflow: 'hidden', 
+                  textOverflow: 'ellipsis',
+                  maxWidth: '380px',
+                  fontSize: '14px'
+                }}>Legal Unit</MenuItem>
+                <MenuItem value="ict unit" sx={{ 
+                  whiteSpace: 'nowrap', 
+                  overflow: 'hidden', 
+                  textOverflow: 'ellipsis',
+                  maxWidth: '380px',
+                  fontSize: '14px'
+                }}>ICT Unit</MenuItem>
+                <MenuItem value="actuarial statistics and risk management" sx={{ 
+                  whiteSpace: 'nowrap', 
+                  overflow: 'hidden', 
+                  textOverflow: 'ellipsis',
+                  maxWidth: '380px',
+                  fontSize: '14px'
+                }}>Actuarial Statistics and Risk Management</MenuItem>
+                <MenuItem value="public relation unit" sx={{ 
+                  whiteSpace: 'nowrap', 
+                  overflow: 'hidden', 
+                  textOverflow: 'ellipsis',
+                  maxWidth: '380px',
+                  fontSize: '14px'
+                }}>Public Relation Unit</MenuItem>
+                <MenuItem value="procurement management unit" sx={{ 
+                  whiteSpace: 'nowrap', 
+                  overflow: 'hidden', 
+                  textOverflow: 'ellipsis',
+                  maxWidth: '380px',
+                  fontSize: '14px'
+                }}>Procurement Management Unit</MenuItem>
+                <MenuItem value="human resource management and attachment unit" sx={{ 
+                  whiteSpace: 'nowrap', 
+                  overflow: 'hidden', 
+                  textOverflow: 'ellipsis',
+                  maxWidth: '380px',
+                  fontSize: '14px'
+                }}>Human Resource Management and Attachment Unit</MenuItem>
+                <MenuItem value="internal audit unit" sx={{ 
+                  whiteSpace: 'nowrap', 
+                  overflow: 'hidden', 
+                  textOverflow: 'ellipsis',
+                  maxWidth: '380px',
+                  fontSize: '14px'
+                }}>Internal Audit Unit</MenuItem>
+              </Select>
+            </FormControl>
+            
+            <FormControl fullWidth size="small">
+              <InputLabel>Role</InputLabel>
+              <Select
+                label="Role"
+                name="role"
+                value={isEditing ? currentUser?.role || "admin" : newUserData.role}
+                onChange={isEditing ? handleUpdateInputChange : handleInputChange}
+                MenuProps={{
+                  PaperProps: {
+                    style: {
+                      maxHeight: 250,
+                      width: '400px',
+                      maxWidth: '400px',
+                      overflow: 'hidden'
+                    }
+                  },
+                  anchorOrigin: {
+                    vertical: 'bottom',
+                    horizontal: 'left',
+                  },
+                  transformOrigin: {
+                    vertical: 'top',
+                    horizontal: 'left',
+                  },
+                  getContentAnchorEl: null,
+                }}
+                sx={{
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    "&:hover": {
+                      borderColor: "#1976d2",
+                    },
+                  },
+                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "#1976d2",
+                  },
+                }}
+              >
+                <MenuItem value="admin" sx={{ fontSize: '14px', maxWidth: '380px' }}>Admin</MenuItem>
+                <MenuItem value="supervisor" sx={{ fontSize: '14px', maxWidth: '380px' }}>Supervisor</MenuItem>
+                <MenuItem value="agent" sx={{ fontSize: '14px', maxWidth: '380px' }}>Agent</MenuItem>
+                <MenuItem value="attendee" sx={{ fontSize: '14px', maxWidth: '380px' }}>Attendee</MenuItem>
+                <MenuItem value="coordinator" sx={{ fontSize: '14px', maxWidth: '380px' }}>Reviewer</MenuItem>
+                <MenuItem value="head-of-unit" sx={{ fontSize: '14px', maxWidth: '380px' }}>Head of Unit</MenuItem>
+                <MenuItem value="manager" sx={{ fontSize: '14px', maxWidth: '380px' }}>Manager</MenuItem>
+                <MenuItem value="director" sx={{ fontSize: '14px', maxWidth: '380px' }}>Director</MenuItem>
+                <MenuItem value="director-general" sx={{ fontSize: '14px', maxWidth: '380px' }}>Direct General</MenuItem>
+                <MenuItem value="focal-person" sx={{ fontSize: '14px', maxWidth: '380px' }}>Focal Person</MenuItem>
+              </Select>
+            </FormControl>
+            
+            {/* Extension field - always visible but with conditional logic */}
             <TextField
               label="Extension"
               fullWidth
-              margin="normal"
+              size="small"
               name="extension"
-              value={isEditing ? currentUser.extension : newUserData.extension}
+              type="number"
+              value={isEditing ? currentUser?.extension || "" : newUserData.extension}
               onChange={isEditing ? handleUpdateInputChange : handleInputChange}
+              disabled={
+                (isEditing ? currentUser?.role : newUserData.role) !== "agent" && 
+                (isEditing ? currentUser?.role : newUserData.role) !== "attendee"
+              }
+              helperText={
+                (isEditing ? currentUser?.role : newUserData.role) !== "agent" && 
+                (isEditing ? currentUser?.role : newUserData.role) !== "attendee"
+                  ? "Extension is only required for Agent or Attendee roles"
+                  : ""
+              }
+              sx={{
+                "& .MuiOutlinedInput-root": {
+                  "&:hover fieldset": {
+                    borderColor: "#1976d2",
+                  },
+                  "&.Mui-focused fieldset": {
+                    borderColor: "#1976d2",
+                  },
+                },
+                "& .MuiInputBase-root.Mui-disabled": {
+                  backgroundColor: "#f5f5f5",
+                  color: "#666",
+                },
+              }}
             />
-          )}
-          {/* Checkbox for isActive */}
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={
-                  isEditing ? currentUser.isActive : newUserData.isActive
-                }
-                onChange={(e) =>
-                  isEditing
-                    ? setCurrentUser({
-                        ...currentUser,
-                        isActive: e.target.checked,
-                      })
-                    : setNewUserData({
-                        ...newUserData,
-                        isActive: e.target.checked,
-                      })
-                }
-              />
-            }
-            label="Is Active"
-          />
-          <div className="modal-action-button">
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={isEditing ? handleUpdateUser : handleAddUser}
-            >
-              {isEditing ? "Update User" : "Add User"}
-            </Button>
-            <Button
-              variant="outlined"
-              color="secondary"
-              onClick={handleCloseModal}
-            >
-              Cancel
-            </Button>
-          </div>
+            
+            {/* Checkbox for isActive */}
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={isEditing ? currentUser?.isActive || false : newUserData.isActive}
+                  onChange={(e) =>
+                    isEditing
+                      ? setCurrentUser({
+                          ...currentUser,
+                          isActive: e.target.checked,
+                        })
+                      : setNewUserData({
+                          ...newUserData,
+                          isActive: e.target.checked,
+                        })
+                  }
+                  sx={{
+                    color: "#1976d2",
+                    "&.Mui-checked": {
+                      color: "#1976d2",
+                    },
+                  }}
+                />
+              }
+              label="Is Active"
+              sx={{ mt: 1 }}
+            />
+            
+            {/* Action Buttons */}
+            <Box sx={{ 
+              display: "flex", 
+              gap: 2, 
+              mt: 2,
+              pt: 2,
+              borderTop: "1px solid #e0e0e0"
+            }}>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={isEditing ? handleUpdateUser : handleAddUser}
+                sx={{
+                  flex: 1,
+                  py: 1,
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  borderRadius: "6px",
+                  textTransform: "none",
+                  boxShadow: "0 2px 8px rgba(25, 118, 210, 0.3)",
+                  "&:hover": {
+                    boxShadow: "0 4px 12px rgba(25, 118, 210, 0.4)",
+                  },
+                }}
+              >
+                {isEditing ? "Update User" : "Add User"}
+              </Button>
+              <Button
+                variant="outlined"
+                color="secondary"
+                onClick={handleCloseModal}
+                sx={{
+                  flex: 1,
+                  py: 1,
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  borderRadius: "6px",
+                  textTransform: "none",
+                  borderColor: "#666",
+                  color: "#666",
+                  "&:hover": {
+                    borderColor: "#333",
+                    color: "#333",
+                    backgroundColor: "#f5f5f5",
+                  },
+                }}
+              >
+                Cancel
+              </Button>
+            </Box>
+          </Box>
         </Box>
       </Modal>
 
@@ -610,27 +920,88 @@ export default function CallCenterUsers() {
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            width: "auto",
-            borderRadius: "10px",
+            width: 400,
+            borderRadius: "12px",
             bgcolor: "white",
-            boxShadow: 24,
+            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
             p: 4,
+            border: "1px solid #e0e0e0",
+            textAlign: "center",
           }}
         >
-          <FaRegQuestionCircle style={{ fontSize: 50, color: "red" }} />
-          <p>Are you sure you want to {actionType} this user?</p>
-          <div className="user-modal-action-buttons">
-            <Button variant="contained" color="primary" onClick={handleConfirm}>
+          <Box sx={{ mb: 3 }}>
+            <FaRegQuestionCircle 
+              style={{ 
+                fontSize: 60, 
+                color: "#ff6b6b",
+                marginBottom: "16px"
+              }} 
+            />
+            <h3 style={{ 
+              margin: "0 0 8px 0", 
+              color: "#333", 
+              fontSize: "20px",
+              fontWeight: "600"
+            }}>
+              Confirm Action
+            </h3>
+            <p style={{ 
+              margin: 0, 
+              color: "#666", 
+              fontSize: "16px",
+              lineHeight: "1.5"
+            }}>
+              Are you sure you want to {actionType} this user?
+            </p>
+          </Box>
+          
+          <Box sx={{ 
+            display: "flex", 
+            gap: 2,
+            justifyContent: "center"
+          }}>
+            <Button 
+              variant="contained" 
+              color="primary" 
+              onClick={handleConfirm}
+              sx={{
+                px: 3,
+                py: 1.5,
+                fontSize: "16px",
+                fontWeight: "600",
+                borderRadius: "8px",
+                textTransform: "none",
+                boxShadow: "0 2px 8px rgba(25, 118, 210, 0.3)",
+                "&:hover": {
+                  boxShadow: "0 4px 12px rgba(25, 118, 210, 0.4)",
+                },
+              }}
+            >
               Confirm
             </Button>
             <Button
               variant="outlined"
               color="secondary"
               onClick={() => setShowConfirmModal(false)}
+              sx={{
+                px: 3,
+                py: 1.5,
+                fontSize: "16px",
+                fontWeight: "600",
+                borderRadius: "8px",
+                textTransform: "none",
+                borderColor: "#666",
+                color: "#666",
+                "&:hover": {
+                  borderColor: "#333",
+                  color: "#333",
+                  backgroundColor: "#f5f5f5",
+                },
+              }}
             >
               Cancel
             </Button>
-          </div>
+          </Box>
         </Box>
       </Modal>
 

@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import { RxDashboard } from "react-icons/rx";
+<<<<<<< HEAD
+=======
+import logo from "../../../asserts/images/logo.png";
+>>>>>>> cb3e2d8a68072a403351ec6d084de7048180a1e1
 import { MdOutlineSupportAgent, MdEmail } from "react-icons/md";
 import { FaChevronUp, FaChevronDown } from "react-icons/fa";
 import { baseURL } from "../../../config";
