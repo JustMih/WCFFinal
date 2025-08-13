@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import { RxDashboard } from "react-icons/rx";
+import logo from "../../../asserts/images/logo.png";
 import { MdOutlineSupportAgent, MdEmail } from "react-icons/md";
 import { FaChevronUp, FaChevronDown } from "react-icons/fa";
 import { baseURL } from "../../../config";

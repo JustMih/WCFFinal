@@ -41,8 +41,7 @@ import RecordedAudio from "../call-center-pages/cal-center-ivr/RecordedAudio";
 import Message from "../call-center-pages/call-center-social-message/CallCenterSocialMessage";
 import IvrCardsPage from "../call-center-pages/cal-center-ivr/IvrCardsPage";
 import DTMFStats from "../call-center-pages/cal-center-ivr/DTMFStats";
-
-
+import VoiceNoteReport from "../call-center-pages/call-center-report/voice-note-report";
 
 export default function Dashboard() {
   const [isDarkMode, setDarkMode] = useState(false);
@@ -181,6 +180,14 @@ export default function Dashboard() {
                   }
                 />
                 <Route
+                  path="/voice-notes-report"
+                  element={<VoiceNoteReport />}
+                />
+                <Route
+                  path="/voice-note-report"
+                  element={<VoiceNoteReport />}
+                />
+                <Route
                   path="/recorded-sounds"
                   element={<PrivateRoute element={<RecordedSounds />} />}
                 />
@@ -189,7 +196,7 @@ export default function Dashboard() {
                 <Route path="/ivr-emegency" element={<EmegencyManager />} />
 
                 <Route path="/voice-notes" element={<VoiceNotesReport />} />
-                <Route path="/cdr-reports" element={<CDRReports />} />
+                <Route path="/cdr-reports" element={<VoiceNoteReport />} />
                 <Route path="/ivr-interactions" element={<IVRInteractions />} />
                 <Route path="/livestream" element={<Livestream />} />
                 <Route path="/recorded-audio" element={<RecordedAudio />} />
