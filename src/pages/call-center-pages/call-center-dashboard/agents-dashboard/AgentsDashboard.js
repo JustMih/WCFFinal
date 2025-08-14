@@ -488,11 +488,12 @@ export default function AgentsDashboard() {
     console.log("Current showPhonePopup:", showPhonePopup);
     console.log("Current phoneStatus:", phoneStatus);
     
-    // Don't close phone popup - keep it open in background
+    // Close phone popup and open ticket modal
+    setShowPhonePopup(false);
     setShowTicketModal(true);
     setIsTicketModalOpen(true);
     
-    console.log("After setting showTicketModal to true");
+    console.log("After setting showTicketModal to true and closing phone popup");
     
     // Preserve current call context in ticket form data
     if (phoneStatus === "In Call" || phoneStatus === "Ringing") {
@@ -534,67 +535,7 @@ export default function AgentsDashboard() {
   // Function to handle ticket modal cancellation
   const handleTicketCancel = () => {
     console.log("=== TICKET MODAL CANCELLED ===");
-    forceCloseTicketModal();
-  };
-
-  // Robust function to close ticket modal
-  const forceCloseTicketModal = () => {
-    console.log("=== FORCE CLOSE TICKET MODAL ===");
-    
-    // Set both states to false
-    setShowTicketModal(false);
-    setIsTicketModalOpen(false);
-    
-    // Force a re-render by updating the key
-    setTimeout(() => {
-      console.log("Ticket modal should be closed now");
-      
-      // Additional check - if modal is still open, force close
-      if (showTicketModal || isTicketModalOpen) {
-        console.log("Modal still open, forcing close...");
-        setShowTicketModal(false);
-        setIsTicketModalOpen(false);
-      }
-    }, 100);
-  };
-
-  // Direct DOM-based close function as fallback
-  const closeTicketModalDirectly = () => {
-    console.log("=== DIRECT DOM CLOSE TICKET MODAL ===");
-    
-    // Try to close via state first
-    setShowTicketModal(false);
-    setIsTicketModalOpen(false);
-    
-    // Also try to close any Material-UI modals directly
-    setTimeout(() => {
-      const modals = document.querySelectorAll('[role="dialog"], .MuiDialog-root, .MuiModal-root');
-      console.log("Found modals:", modals.length);
-      
-      modals.forEach((modal, index) => {
-        console.log(`Modal ${index}:`, modal);
-        
-        // Try to hide the modal
-        if (modal.style) {
-          modal.style.display = 'none';
-          modal.style.visibility = 'hidden';
-          console.log(`Modal ${index} hidden via style`);
-        }
-        
-        // Try to remove the modal
-        if (modal.parentNode) {
-          modal.parentNode.removeChild(modal);
-          console.log(`Modal ${index} removed from DOM`);
-        }
-      });
-      
-      // Force page refresh if modal still exists
-      const remainingModals = document.querySelectorAll('[role="dialog"], .MuiDialog-root, .MuiModal-root');
-      if (remainingModals.length > 0) {
-        console.log("Modal still exists, forcing page refresh");
-        window.location.reload();
-      }
-    }, 200);
+    closeTicketModal();
   };
 
   // Function to restore ticket form data when reopening
@@ -658,58 +599,9 @@ export default function AgentsDashboard() {
     console.log("Ticket submitted successfully - clearing preserved data");
     setTicketFormData({});
     setTicketType(null);
-    forceCloseTicketModal();
+    closeTicketModal();
     showAlert("Ticket created successfully!", "success");
   };
-
-  // Function to clear preserved form data
-  const clearTicketFormData = () => {
-    console.log("Clearing preserved ticket form data");
-    setTicketFormData({});
-    setTicketType(null);
-  };
-
-  // Handle clicking outside modal
-  const handleOutsideClick = (e) => {
-    // Check if click is outside the modal content
-    if (e.target.classList.contains('MuiBackdrop-root') || 
-        e.target.classList.contains('modal-backdrop')) {
-      console.log("Clicked outside modal - closing ticket modal, keeping phone modal open");
-      
-      // Close ticket modal but keep phone modal open
-      forceCloseTicketModal();
-      
-      // Ticket form data is preserved in state
-      console.log("Ticket form data preserved:", ticketFormData);
-      
-      // Don't close phone modal - it stays open
-      // setShowPhonePopup(false); // This line is intentionally commented out
-    }
-  };
-
-  // Debug ticket modal state changes
-  useEffect(() => {
-    console.log("=== TICKET MODAL STATE CHANGED ===");
-    console.log("showTicketModal:", showTicketModal);
-    console.log("isTicketModalOpen:", isTicketModalOpen);
-    console.log("ticketType:", ticketType);
-    
-    if (showTicketModal) {
-      console.log("Ticket modal should be visible now");
-      // Check if the modal is actually in the DOM
-      setTimeout(() => {
-        const ticketModal = document.querySelector('[role="dialog"], .MuiDialog-root, .MuiModal-root');
-        if (ticketModal) {
-          console.log("Ticket modal found in DOM:", ticketModal);
-          console.log("Ticket modal z-index:", ticketModal.style.zIndex);
-          console.log("Ticket modal display:", ticketModal.style.display);
-          console.log("Ticket modal visibility:", ticketModal.style.visibility);
-        } else {
-          console.log("No ticket modal found in DOM");
-        }
-      }, 200);
-    }
-  }, [showTicketModal, isTicketModalOpen, ticketType]);
 
   // Keyboard shortcut to close ticket modal (Escape key)
   useEffect(() => {
@@ -717,7 +609,7 @@ export default function AgentsDashboard() {
       if (event.key === 'Escape' && showTicketModal) {
         console.log("Escape key pressed - closing ticket modal");
         event.preventDefault();
-        closeTicketModalDirectly();
+        closeTicketModal();
       }
     };
 
@@ -799,10 +691,11 @@ export default function AgentsDashboard() {
       stopRingtone();
       startCallTimer();
       
-      // Set ticket phone number and open modal directly
+      // Set ticket phone number, close phone popup, and open ticket modal
       setTicketPhoneNumber(lastIncomingNumber || "");
+      setShowPhonePopup(false); // Close phone popup
       openTicketModal('employer'); // Default to employer ticket for test calls
-      console.log("Ticket modal opened directly for test call:", lastIncomingNumber);
+      console.log("Phone popup closed and ticket modal opened for test call:", lastIncomingNumber);
       
       // Simulate call state changes for test
       setTimeout(() => {
@@ -828,10 +721,11 @@ export default function AgentsDashboard() {
         stopRingtone();
         startCallTimer();
         
-        // Set ticket phone number and open modal directly
+        // Set ticket phone number, close phone popup, and open ticket modal
         setTicketPhoneNumber(lastIncomingNumber || "");
+        setShowPhonePopup(false); // Close phone popup
         openTicketModal('employer'); // Default to employer ticket for incoming calls
-        console.log("Ticket modal opened directly for incoming call:", lastIncomingNumber);
+        console.log("Phone popup closed and ticket modal opened for incoming call:", lastIncomingNumber);
 
         incomingCall.stateChange.addListener((state) => {
           if (state === SessionState.Established) attachMediaStream(incomingCall);
@@ -1140,18 +1034,6 @@ export default function AgentsDashboard() {
               <div className="phone-popup-title">
                 <MdOutlineLocalPhone className="phone-icon" />
                 <span>{phoneStatus === "In Call" ? "Active Call" : phoneStatus === "Ringing" ? "Incoming Call" : "Phone"}</span>
-                {/* Show indicator when ticket modal is open */}
-                {showTicketModal && (
-                  <div className="ticket-modal-indicator">
-                    📝 Ticket Open
-                  </div>
-                )}
-                {/* Show indicator when there's preserved ticket data */}
-                {!showTicketModal && Object.keys(ticketFormData).length > 0 && ticketType && (
-                  <div className="preserved-data-indicator">
-                    💾 {ticketType.charAt(0).toUpperCase() + ticketType.slice(1)} Data Saved
-                  </div>
-                )}
               </div>
               <button onClick={togglePhonePopup} className="phone-popup-close" aria-label="Close">
                 <span>&times;</span>
@@ -1176,23 +1058,6 @@ export default function AgentsDashboard() {
                   title="Switch to Ticket Form"
                 >
                   📝 Ticket
-                </button>
-              </div>
-            )}
-
-            {/* Quick Ticket Button for Preserved Data */}
-            {!showTicketModal && Object.keys(ticketFormData).length > 0 && ticketType && (
-              <div className="quick-ticket-section">
-                <button 
-                  className="quick-ticket-btn"
-                  onClick={() => {
-                    console.log("Opening ticket modal with preserved data:", ticketFormData);
-                    setShowTicketModal(true);
-                    setIsTicketModalOpen(true);
-                  }}
-                  title={`Reopen ${ticketType} ticket with your saved details`}
-                >
-                  💾 Reopen {ticketType.charAt(0).toUpperCase() + ticketType.slice(1)} Ticket
                 </button>
               </div>
             )}
@@ -1426,118 +1291,14 @@ export default function AgentsDashboard() {
         👤 Employee Ticket
       </Button>
 
-      {/* Reopen Ticket Modal with Preserved Data Button */}
-      {Object.keys(ticketFormData).length > 0 && ticketType && (
-        <Button 
-          variant="outlined" 
-          color="secondary" 
-          onClick={() => {
-            console.log("Reopening ticket modal with preserved data:", ticketFormData);
-            setShowTicketModal(true);
-            setIsTicketModalOpen(true);
-          }}
-          style={{ marginLeft: '10px' }}
-          title={`Reopen ${ticketType} ticket with your previously filled details`}
-        >
-          📝 Reopen {ticketType.charAt(0).toUpperCase() + ticketType.slice(1)} Ticket
-        </Button>
-      )}
-
-      {/* Clear Preserved Ticket Data Button */}
-      {Object.keys(ticketFormData).length > 0 && (
-        <Button 
-          variant="outlined" 
-          color="secondary" 
-          onClick={clearTicketFormData}
-          style={{ marginLeft: '10px' }}
-          title="Clear saved ticket form data"
-        >
-          Clear Saved Data
-        </Button>
-      )}
-
-      {/* Manual Close Ticket Modal Button (Fallback) */}
-      {showTicketModal && (
-        <Button 
-          variant="outlined" 
-          color="error" 
-          onClick={closeTicketModalDirectly}
-          style={{ marginLeft: '10px' }}
-          title="Force close ticket modal (fallback)"
-        >
-          🚫 Force Close Ticket
-        </Button>
-      )}
-
-      {/* Debug Ticket Modal State Button */}
-      {showTicketModal && (
-        <Button 
-          variant="outlined" 
-          color="warning" 
-          onClick={() => {
-            console.log("=== DEBUG TICKET MODAL STATE ===");
-            console.log("showTicketModal:", showTicketModal);
-            console.log("isTicketModalOpen:", isTicketModalOpen);
-            console.log("ticketType:", ticketType);
-            
-            // Check DOM
-            const modals = document.querySelectorAll('[role="dialog"], .MuiDialog-root, .MuiModal-root');
-            console.log("DOM modals found:", modals.length);
-            modals.forEach((modal, index) => {
-              console.log(`Modal ${index}:`, modal);
-              console.log(`Modal ${index} display:`, modal.style?.display);
-              console.log(`Modal ${index} visibility:`, modal.style?.visibility);
-            });
-            
-            // Try to close
-            closeTicketModalDirectly();
-          }}
-          style={{ marginLeft: '10px' }}
-          title="Debug ticket modal state and force close"
-        >
-          🐛 Debug & Close
-        </Button>
-      )}
-
       {/* Ticket modal with custom wrapper for better control */}
       <div style={{ position: 'relative' }}>
         <AdvancedTicketCreateModal 
-          key={`ticket-modal-${showTicketModal}-${ticketType}`}
           open={showTicketModal} 
-          onClose={closeTicketModalDirectly} 
+          onClose={closeTicketModal} 
           initialPhoneNumber={ticketPhoneNumber} 
           functionData={functionData}
-          // Pass preserved form data and ticket type
-          preservedFormData={ticketFormData}
-          ticketType={ticketType}
-          onTicketTypeSelect={handleTicketTypeSelect}
-          onFormDataChange={handleTicketFormDataChange}
-          onTicketSubmitted={handleTicketSubmitted}
-          onTicketCancel={closeTicketModalDirectly}
-          // Handle outside clicks
-          BackdropProps={{
-            onClick: closeTicketModalDirectly
-          }}
         />
-        
-        {/* Custom close button overlay if modal is open */}
-        {showTicketModal && (
-          <div style={{
-            position: 'fixed',
-            top: '20px',
-            right: '20px',
-            zIndex: 10003,
-            background: 'red',
-            color: 'white',
-            padding: '8px 12px',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '12px',
-            fontWeight: 'bold'
-          }} onClick={closeTicketModalDirectly}>
-            🚫 CLOSE TICKET
-          </div>
-        )}
       </div>
 
       {/* Voice notes modal */}
