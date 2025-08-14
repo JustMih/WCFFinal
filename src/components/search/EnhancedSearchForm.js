@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { CircularProgress } from '@mui/material';
 
 const EnhancedSearchForm = ({ 
@@ -8,7 +8,8 @@ const EnhancedSearchForm = ({
   selectedEmployer,
   searchStep,
   setSearchStep,
-  onSearchTypeChange // Add this prop to pass searchType to parent
+  onSearchTypeChange, // Add this prop to pass searchType to parent
+  onUserNotFound // Add this prop to handle user not found scenarios
 }) => {
   const [searchType, setSearchType] = useState(""); // "employer" or "employee"
   const [employerSearchQuery, setEmployerSearchQuery] = useState("");
@@ -17,6 +18,14 @@ const EnhancedSearchForm = ({
   const [employeeSearchQuery, setEmployeeSearchQuery] = useState("");
   const [employeeSearchResults, setEmployeeSearchResults] = useState([]);
   const [isEmployeeSearching, setIsEmployeeSearching] = useState(false);
+  
+  // Add refs for timeout management
+  const employerSearchTimeoutRef = useRef(null);
+  const employeeSearchTimeoutRef = useRef(null);
+  
+  // Add state for tracking no results
+  const [employerNoResults, setEmployerNoResults] = useState(false);
+  const [employeeNoResults, setEmployeeNoResults] = useState(false);
 
   // Call the callback when searchType changes
   useEffect(() => {
@@ -24,6 +33,18 @@ const EnhancedSearchForm = ({
       onSearchTypeChange(searchType);
     }
   }, [searchType, onSearchTypeChange]);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (employerSearchTimeoutRef.current) {
+        clearTimeout(employerSearchTimeoutRef.current);
+      }
+      if (employeeSearchTimeoutRef.current) {
+        clearTimeout(employeeSearchTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleEmployerSearch = async (searchQuery) => {
     if (!searchQuery || searchQuery.trim() === "") {
@@ -53,12 +74,22 @@ const EnhancedSearchForm = ({
 
       if (response.ok && data.results?.length > 0) {
         setEmployerSearchResults(data.results);
+        setEmployerNoResults(false);
       } else {
         setEmployerSearchResults([]);
+        setEmployerNoResults(true);
+        // Call onUserNotFound when no employer results found
+        if (onUserNotFound) {
+          onUserNotFound(searchQuery, "employer");
+        }
       }
     } catch (error) {
       console.error("Error searching for employers:", error);
       setEmployerSearchResults([]);
+      // Call onUserNotFound on error as well
+      if (onUserNotFound) {
+        onUserNotFound(searchQuery, "employer");
+      }
     } finally {
       setIsEmployerSearching(false);
     }
@@ -105,12 +136,22 @@ const EnhancedSearchForm = ({
 
       if (response.ok && data.results?.length > 0) {
         setEmployeeSearchResults(data.results);
+        setEmployeeNoResults(false);
       } else {
         setEmployeeSearchResults([]);
+        setEmployeeNoResults(true);
+        // Call onUserNotFound when no employee results found
+        if (onUserNotFound) {
+          onUserNotFound(searchQuery, "employee");
+        }
       }
     } catch (error) {
       console.error("Error searching for employees:", error);
       setEmployeeSearchResults([]);
+      // Call onUserNotFound on error as well
+      if (onUserNotFound) {
+        onUserNotFound(searchQuery, "employee");
+      }
     } finally {
       setIsEmployeeSearching(false);
     }
@@ -127,11 +168,21 @@ const EnhancedSearchForm = ({
   };
 
   const resetSearch = () => {
+    // Clear timeouts
+    if (employerSearchTimeoutRef.current) {
+      clearTimeout(employerSearchTimeoutRef.current);
+    }
+    if (employeeSearchTimeoutRef.current) {
+      clearTimeout(employeeSearchTimeoutRef.current);
+    }
+    
     setSearchType("");
     setEmployerSearchQuery("");
     setEmployerSearchResults([]);
+    setEmployerNoResults(false);
     setEmployeeSearchQuery("");
     setEmployeeSearchResults([]);
+    setEmployeeNoResults(false);
     setSearchStep("employer");
     onReset();
   };
@@ -246,9 +297,19 @@ const EnhancedSearchForm = ({
               type="text"
               value={employerSearchQuery}
               onChange={(e) => {
-                setEmployerSearchQuery(e.target.value);
-                if (e.target.value.trim()) {
-                  handleEmployerSearch(e.target.value);
+                const query = e.target.value;
+                setEmployerSearchQuery(query);
+                
+                // Clear previous timeout
+                if (employerSearchTimeoutRef.current) {
+                  clearTimeout(employerSearchTimeoutRef.current);
+                }
+                
+                if (query.trim()) {
+                  // Set a timeout to search after user stops typing
+                  employerSearchTimeoutRef.current = setTimeout(() => {
+                    handleEmployerSearch(query);
+                  }, 1000); // Wait 1 second after user stops typing
                 } else {
                   setEmployerSearchResults([]);
                 }
@@ -309,6 +370,23 @@ const EnhancedSearchForm = ({
               ))}
             </div>
           )}
+          
+          {/* No Results Found Message for Employer */}
+          {employerNoResults && !isEmployerSearching && employerSearchQuery.trim() && (
+            <div style={{
+              marginTop: "8px",
+              padding: "10px 12px",
+              border: "1px solid #ffcdd2",
+              borderRadius: "4px",
+              backgroundColor: "#ffebee",
+              color: "#c62828",
+              fontSize: "14px",
+              textAlign: "center"
+            }}>
+              No employer found with the name "{employerSearchQuery}". 
+              Would you like to register a new employer?
+            </div>
+          )}
         </div>
       )}
 
@@ -364,9 +442,19 @@ const EnhancedSearchForm = ({
               type="text"
               value={employeeSearchQuery}
               onChange={(e) => {
-                setEmployeeSearchQuery(e.target.value);
-                if (e.target.value.trim()) {
-                  handleEmployeeSearch(e.target.value);
+                const query = e.target.value;
+                setEmployeeSearchQuery(query);
+                
+                // Clear previous timeout
+                if (employeeSearchTimeoutRef.current) {
+                  clearTimeout(employeeSearchTimeoutRef.current);
+                }
+                
+                if (query.trim()) {
+                  // Set a timeout to search after user stops typing
+                  employeeSearchTimeoutRef.current = setTimeout(() => {
+                    handleEmployeeSearch(query);
+                  }, 1000); // Wait 1 second after user stops typing
                 } else {
                   setEmployeeSearchResults([]);
                 }
@@ -437,6 +525,23 @@ const EnhancedSearchForm = ({
                   </div>
                 );
               })}
+            </div>
+          )}
+          
+          {/* No Results Found Message for Employee */}
+          {employeeNoResults && !isEmployeeSearching && employeeSearchQuery.trim() && (
+            <div style={{
+              marginTop: "8px",
+              padding: "10px 12px",
+              border: "1px solid #ffcdd2",
+              borderRadius: "4px",
+              backgroundColor: "#ffebee",
+              color: "#c62828",
+              fontSize: "14px",
+              textAlign: "center"
+            }}>
+              No employee found with the name "{employeeSearchQuery}" at {selectedEmployer?.name || "the selected employer"}. 
+              Would you like to register a new employee?
             </div>
           )}
         </div>

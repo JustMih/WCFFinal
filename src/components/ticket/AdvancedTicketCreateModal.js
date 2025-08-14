@@ -805,7 +805,13 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
         institution: currentSearchQuery,
         // Clear employee-specific fields
         claimNumber: "",
-        dependents: []
+        dependents: [],
+        // Add representative fields for new employer registration
+        requesterName: "",
+        requesterPhoneNumber: prev.phoneNumber || callPhoneNumber || "",
+        requesterEmail: "",
+        requesterAddress: "",
+        relationshipToEmployee: ""
       }));
     } else if (type === "employee") {
       setFormData(prev => ({
@@ -819,7 +825,13 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
         phoneNumber: prev.phoneNumber || callPhoneNumber || "",
         // Clear employer-specific fields
         claimNumber: "",
-        dependents: []
+        dependents: [],
+        // Clear representative fields for employee registration
+        requesterName: "",
+        requesterPhoneNumber: "",
+        requesterEmail: "",
+        requesterAddress: "",
+        relationshipToEmployee: ""
       }));
     }
   };
@@ -860,7 +872,13 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
       // Clear claim information
       claimNumber: "",
       // Clear dependents
-      dependents: []
+      dependents: [],
+      // Clear representative fields
+      requesterName: "",
+      requesterPhoneNumber: "",
+      requesterEmail: "",
+      requesterAddress: "",
+      relationshipToEmployee: ""
     }));
     
     // Clear form errors
@@ -1248,6 +1266,10 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
     if (formData.requester === "Employer") {
       requiredFields.institution = "Employer Name";
       requiredFields.phoneNumber = "Employer Phone";
+      // Add representative fields for employer registration
+      requiredFields.requesterName = "Representative Name";
+      requiredFields.requesterPhoneNumber = "Representative Phone Number";
+      requiredFields.relationshipToEmployee = "Representative Position/Role";
     }
 
     const errors = {};
@@ -1338,8 +1360,8 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
         ticketData.employerStatus = formData.employerStatus || "";
         // Removed employer allocated user fields - only using employee search allocated user
       }
-      // Map representative fields to backend field names if requester is Representative
-      if (formData.requester === "Representative") {
+      // Map representative fields to backend field names if requester is Representative or Employer
+      if (formData.requester === "Representative" || formData.requester === "Employer") {
         ticketData.representative_name = formData.requesterName;
         ticketData.representative_phone = formData.requesterPhoneNumber;
         ticketData.representative_email = formData.requesterEmail;
@@ -1546,35 +1568,35 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
               />
 
               {/* User Not Found Message */}
-              {showUserNotFound && (
+              {/* {showUserNotFound && (
                 <div
                   style={{
-                    marginTop: "20px",
-                    padding: "20px",
+                    marginTop: "10px",
+                    padding: "15px",
                     backgroundColor: "#fff3cd",
                     border: "1px solid #ffeaa7",
                     borderRadius: "8px",
                     textAlign: "center"
                   }}
                 >
-                  <Typography variant="h6" style={{ color: "#856404", marginBottom: "10px" }}>
+                  <Typography variant="h6" style={{ color: "#856404", marginBottom: "8px" }}>
                     User Not Found
                   </Typography>
-                  <Typography variant="body2" style={{ color: "#856404", marginBottom: "15px" }}>
+                  <Typography variant="body2" style={{ color: "#856404", marginBottom: "10px" }}>
                     No {registrationType} found with the name "{currentSearchQuery}".
                   </Typography>
                   <Typography variant="body2" style={{ color: "#856404" }}>
                     Would you like to register a new {registrationType} or try a different search?
                   </Typography>
                 </div>
-              )}
+              )} */}
 
               {/* Registration Options */}
               {showRegistrationOptions && (
                 <div
                   style={{
-                    marginTop: "20px",
-                    padding: "20px",
+                    marginTop: "10px",
+                    padding: "15px",
                     backgroundColor: "#f8f9fa",
                     border: "1px solid #dee2e6",
                     borderRadius: "8px"
@@ -1968,18 +1990,18 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                   </div>
 
                   {/* New fields for Representative if selected */}
-                  {formData.requester === "Representative" && (
+                  {(formData.requester === "Representative" || formData.requester === "Employer") && (
                     <>
                       <Typography
                         variant="h6"
                         sx={{ mt: 3, mb: 1, fontWeight: "bold" }}
                       >
-                        Representative Details
+                        {formData.requester === "Employer" ? "Employer Representative Details" : "Representative Details"}
                       </Typography>
                       <div className="modal-form-row">
                         <div className="modal-form-group">
                           <label style={{ fontSize: "0.875rem" }}>
-                            Representative Name: <span style={{ color: "red" }}>*</span>
+                            {formData.requester === "Employer" ? "Representative Name" : "Representative Name"}: <span style={{ color: "red" }}>*</span>
                           </label>
                           <input
                             name="requesterName"
@@ -2069,13 +2091,13 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                       <div className="modal-form-row">
                         <div className="modal-form-group">
                           <label style={{ fontSize: "0.875rem" }}>
-                            Relationship to Employee/Employee: <span style={{ color: "red" }}>*</span>
+                            {formData.requester === "Employer" ? "Representative Position/Role" : "Relationship to Employee"}: <span style={{ color: "red" }}>*</span>
                           </label>
                           <input
                             name="relationshipToEmployee"
                             value={formData.relationshipToEmployee}
                             onChange={handleChange}
-                            placeholder="e.g., Parent, Spouse, Child"
+                            placeholder={formData.requester === "Employer" ? "e.g., HR Manager, Director, CEO" : "e.g., Parent, Spouse, Child"}
                             style={{
                               height: "32px",
                               fontSize: "0.875rem",
