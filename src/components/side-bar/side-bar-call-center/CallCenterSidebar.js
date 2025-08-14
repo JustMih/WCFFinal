@@ -12,10 +12,6 @@ import {
 import { TiFlowSwitch } from "react-icons/ti";
 import { GiVrHeadset } from "react-icons/gi";
 import { BsChatRightTextFill } from "react-icons/bs";
-<<<<<<< HEAD
-=======
-import logo from "../../../asserts/images/logo.png";
->>>>>>> cb3e2d8a68072a403351ec6d084de7048180a1e1
 import "./callCenterSidebar.css";
 import { baseURL } from "../../../config";
 import { Collapse, List, ListItemButton, Badge } from "@mui/material";

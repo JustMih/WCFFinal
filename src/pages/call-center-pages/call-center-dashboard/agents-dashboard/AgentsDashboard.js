@@ -94,6 +94,11 @@ export default function AgentsDashboard() {
   const [functionData, setFunctionData] = useState([]);
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [ticketPhoneNumber, setTicketPhoneNumber] = useState("");
+  
+  // Ticket form data preservation
+  const [ticketFormData, setTicketFormData] = useState({});
+  const [ticketType, setTicketType] = useState(null); // 'employer' or 'employee'
+  const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
 
   // --------- Online users (for transfer) ---------
   const [onlineUsers, setOnlineUsers] = useState([]);
@@ -136,6 +141,54 @@ export default function AgentsDashboard() {
 
   // ---------- Helpers ----------
   const iconStyle = (bgColor) => ({ backgroundColor: bgColor, padding: 10, borderRadius: "50%", color: "white" });
+  
+  // Test function for debugging incoming calls
+  const testIncomingCall = () => {
+    console.log("Testing incoming call...");
+    
+    // Clean up any existing states first
+    if (session) {
+      setSession(null);
+    }
+    if (incomingCall) {
+      setIncomingCall(null);
+    }
+    setPhoneStatus("Idle");
+    stopCallTimer();
+    stopRingtone();
+    
+    setLastIncomingNumber("123456789");
+    
+    // Create a mock SIP invitation object for testing
+    const mockInvitation = {
+      test: true,
+      accept: (options) => {
+        console.log("Mock accept called with options:", options);
+        return Promise.resolve();
+      },
+      reject: () => {
+        console.log("Mock reject called");
+        return Promise.resolve();
+      },
+      stateChange: {
+        addListener: (callback) => {
+          console.log("Mock state listener added");
+          // Simulate call state changes
+          setTimeout(() => callback(SessionState.Established), 1000);
+        }
+      }
+    };
+    
+    setIncomingCall(mockInvitation);
+    setShowPhonePopup(true);
+    setPhoneStatus("Ringing");
+    
+    // Test ringtone
+    ringAudio.loop = true;
+    ringAudio.volume = 0.7;
+    ringAudio.play().catch(() => {});
+  };
+  
   const formatDuration = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -426,6 +479,259 @@ export default function AgentsDashboard() {
   // ---------- Phone controls ----------
   const togglePhonePopup = () => setShowPhonePopup((v) => !v);
 
+  // Modal swap functionality
+  const swapToTicketModal = () => {
+    if (showTicketModal) return; // Already open
+    
+    console.log("=== SWAP TO TICKET MODAL ===");
+    console.log("Current showTicketModal:", showTicketModal);
+    console.log("Current showPhonePopup:", showPhonePopup);
+    console.log("Current phoneStatus:", phoneStatus);
+    
+    // Don't close phone popup - keep it open in background
+    setShowTicketModal(true);
+    setIsTicketModalOpen(true);
+    
+    console.log("After setting showTicketModal to true");
+    
+    // Preserve current call context in ticket form data
+    if (phoneStatus === "In Call" || phoneStatus === "Ringing") {
+      setTicketFormData(prev => ({
+        ...prev,
+        phoneNumber: lastIncomingNumber || phoneNumber,
+        callStatus: phoneStatus,
+        callDuration: callDuration,
+        timestamp: new Date().toISOString()
+      }));
+      console.log("Call context preserved in ticket form data");
+    }
+  };
+
+  const swapToPhoneModal = () => {
+    if (showPhonePopup) return; // Already open
+    
+    console.log("Swapping to phone modal, closing ticket modal");
+    setShowTicketModal(false);
+    setIsTicketModalOpen(false);
+    // Phone modal is already open, so no need to setShowPhonePopup(true)
+  };
+
+  const closeTicketModal = () => {
+    console.log("=== CLOSE TICKET MODAL CALLED ===");
+    console.log("Current showTicketModal:", showTicketModal);
+    console.log("Current isTicketModalOpen:", isTicketModalOpen);
+    
+    setShowTicketModal(false);
+    setIsTicketModalOpen(false);
+    
+    console.log("After setting to false - showTicketModal:", false);
+    console.log("After setting to false - isTicketModalOpen:", false);
+    
+    // Form data is preserved in state for next time
+    // Phone modal remains open in background
+  };
+
+  // Function to handle ticket modal cancellation
+  const handleTicketCancel = () => {
+    console.log("=== TICKET MODAL CANCELLED ===");
+    forceCloseTicketModal();
+  };
+
+  // Robust function to close ticket modal
+  const forceCloseTicketModal = () => {
+    console.log("=== FORCE CLOSE TICKET MODAL ===");
+    
+    // Set both states to false
+    setShowTicketModal(false);
+    setIsTicketModalOpen(false);
+    
+    // Force a re-render by updating the key
+    setTimeout(() => {
+      console.log("Ticket modal should be closed now");
+      
+      // Additional check - if modal is still open, force close
+      if (showTicketModal || isTicketModalOpen) {
+        console.log("Modal still open, forcing close...");
+        setShowTicketModal(false);
+        setIsTicketModalOpen(false);
+      }
+    }, 100);
+  };
+
+  // Direct DOM-based close function as fallback
+  const closeTicketModalDirectly = () => {
+    console.log("=== DIRECT DOM CLOSE TICKET MODAL ===");
+    
+    // Try to close via state first
+    setShowTicketModal(false);
+    setIsTicketModalOpen(false);
+    
+    // Also try to close any Material-UI modals directly
+    setTimeout(() => {
+      const modals = document.querySelectorAll('[role="dialog"], .MuiDialog-root, .MuiModal-root');
+      console.log("Found modals:", modals.length);
+      
+      modals.forEach((modal, index) => {
+        console.log(`Modal ${index}:`, modal);
+        
+        // Try to hide the modal
+        if (modal.style) {
+          modal.style.display = 'none';
+          modal.style.visibility = 'hidden';
+          console.log(`Modal ${index} hidden via style`);
+        }
+        
+        // Try to remove the modal
+        if (modal.parentNode) {
+          modal.parentNode.removeChild(modal);
+          console.log(`Modal ${index} removed from DOM`);
+        }
+      });
+      
+      // Force page refresh if modal still exists
+      const remainingModals = document.querySelectorAll('[role="dialog"], .MuiDialog-root, .MuiModal-root');
+      if (remainingModals.length > 0) {
+        console.log("Modal still exists, forcing page refresh");
+        window.location.reload();
+      }
+    }, 200);
+  };
+
+  // Function to restore ticket form data when reopening
+  const restoreTicketFormData = () => {
+    if (Object.keys(ticketFormData).length > 0) {
+      console.log("Restoring preserved ticket form data:", ticketFormData);
+      // The AdvancedTicketCreateModal will receive this data via props
+    }
+  };
+
+  // Function to capture form data changes from ticket modal
+  const handleTicketFormDataChange = (formData) => {
+    console.log("Ticket form data changed:", formData);
+    setTicketFormData(formData);
+  };
+
+  // Function to handle opening ticket modal
+  const openTicketModal = (type = null) => {
+    console.log("Opening ticket modal with type:", type);
+    
+    // If type is provided, set it
+    if (type) {
+      handleTicketTypeSelect(type);
+    }
+    
+    // If we have preserved data and type, use that
+    if (Object.keys(ticketFormData).length > 0 && ticketType && !type) {
+      console.log("Using preserved ticket type:", ticketType);
+    }
+    
+    setShowTicketModal(true);
+    setIsTicketModalOpen(true);
+  };
+
+  // Function to handle ticket type selection
+  const handleTicketTypeSelect = (type) => {
+    console.log("Ticket type selected:", type);
+    setTicketType(type);
+    
+    // Clear previous form data when switching types
+    if (ticketType && ticketType !== type) {
+      console.log("Switching ticket type - clearing previous form data");
+      setTicketFormData({});
+    }
+    
+    // Set initial form data based on type
+    const initialData = {
+      ticketType: type,
+      phoneNumber: lastIncomingNumber || phoneNumber,
+      callStatus: phoneStatus,
+      callDuration: callDuration,
+      timestamp: new Date().toISOString()
+    };
+    
+    setTicketFormData(initialData);
+    console.log("Initial form data set for type:", type, initialData);
+  };
+
+  // Function to handle ticket submission success
+  const handleTicketSubmitted = () => {
+    console.log("Ticket submitted successfully - clearing preserved data");
+    setTicketFormData({});
+    setTicketType(null);
+    forceCloseTicketModal();
+    showAlert("Ticket created successfully!", "success");
+  };
+
+  // Function to clear preserved form data
+  const clearTicketFormData = () => {
+    console.log("Clearing preserved ticket form data");
+    setTicketFormData({});
+    setTicketType(null);
+  };
+
+  // Handle clicking outside modal
+  const handleOutsideClick = (e) => {
+    // Check if click is outside the modal content
+    if (e.target.classList.contains('MuiBackdrop-root') || 
+        e.target.classList.contains('modal-backdrop')) {
+      console.log("Clicked outside modal - closing ticket modal, keeping phone modal open");
+      
+      // Close ticket modal but keep phone modal open
+      forceCloseTicketModal();
+      
+      // Ticket form data is preserved in state
+      console.log("Ticket form data preserved:", ticketFormData);
+      
+      // Don't close phone modal - it stays open
+      // setShowPhonePopup(false); // This line is intentionally commented out
+    }
+  };
+
+  // Debug ticket modal state changes
+  useEffect(() => {
+    console.log("=== TICKET MODAL STATE CHANGED ===");
+    console.log("showTicketModal:", showTicketModal);
+    console.log("isTicketModalOpen:", isTicketModalOpen);
+    console.log("ticketType:", ticketType);
+    
+    if (showTicketModal) {
+      console.log("Ticket modal should be visible now");
+      // Check if the modal is actually in the DOM
+      setTimeout(() => {
+        const ticketModal = document.querySelector('[role="dialog"], .MuiDialog-root, .MuiModal-root');
+        if (ticketModal) {
+          console.log("Ticket modal found in DOM:", ticketModal);
+          console.log("Ticket modal z-index:", ticketModal.style.zIndex);
+          console.log("Ticket modal display:", ticketModal.style.display);
+          console.log("Ticket modal visibility:", ticketModal.style.visibility);
+        } else {
+          console.log("No ticket modal found in DOM");
+        }
+      }, 200);
+    }
+  }, [showTicketModal, isTicketModalOpen, ticketType]);
+
+  // Keyboard shortcut to close ticket modal (Escape key)
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape' && showTicketModal) {
+        console.log("Escape key pressed - closing ticket modal");
+        event.preventDefault();
+        closeTicketModalDirectly();
+      }
+    };
+
+    if (showTicketModal) {
+      document.addEventListener('keydown', handleKeyDown);
+      console.log("Escape key listener added");
+    }
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      console.log("Escape key listener removed");
+    };
+  }, [showTicketModal]);
+
   const toggleMute = () => {
     if (!session) return;
     const pc = session.sessionDescriptionHandler.peerConnection;
@@ -481,6 +787,33 @@ export default function AgentsDashboard() {
   const handleAcceptCall = () => {
     if (!incomingCall) return;
     clearTimeout(autoRejectTimerRef.current);
+    
+    // Check if this is a test call or real SIP invitation
+    if (incomingCall.test) {
+      console.log("Accepting test call...");
+      // Handle test call acceptance
+      wasAnsweredRef.current = true;
+      setSession(incomingCall);
+      setIncomingCall(null);
+      setPhoneStatus("In Call");
+      stopRingtone();
+      startCallTimer();
+      
+      // Set ticket phone number and open modal directly
+      setTicketPhoneNumber(lastIncomingNumber || "");
+      openTicketModal('employer'); // Default to employer ticket for test calls
+      console.log("Ticket modal opened directly for test call:", lastIncomingNumber);
+      
+      // Simulate call state changes for test
+      setTimeout(() => {
+        console.log("Test call established");
+        setPhoneStatus("In Call");
+      }, 1000);
+      
+      return;
+    }
+    
+    // Handle real SIP invitation
     incomingCall
       .accept({
         sessionDescriptionHandlerOptions: {
@@ -494,8 +827,11 @@ export default function AgentsDashboard() {
         setPhoneStatus("In Call");
         stopRingtone();
         startCallTimer();
+        
+        // Set ticket phone number and open modal directly
         setTicketPhoneNumber(lastIncomingNumber || "");
-        setShowTicketModal(true);
+        openTicketModal('employer'); // Default to employer ticket for incoming calls
+        console.log("Ticket modal opened directly for incoming call:", lastIncomingNumber);
 
         incomingCall.stateChange.addListener((state) => {
           if (state === SessionState.Established) attachMediaStream(incomingCall);
@@ -513,6 +849,20 @@ export default function AgentsDashboard() {
   const handleRejectCall = () => {
     if (!incomingCall) return;
     clearTimeout(autoRejectTimerRef.current);
+    
+    // Check if this is a test call or real SIP invitation
+    if (incomingCall.test) {
+      console.log("Rejecting test call...");
+      // Handle test call rejection
+      addMissedCall(lastIncomingNumber);
+      setIncomingCall(null);
+      setShowPhonePopup(false);
+      setPhoneStatus("Idle");
+      stopRingtone();
+      return;
+    }
+    
+    // Handle real SIP invitation
     incomingCall.reject().catch(console.error);
     addMissedCall(lastIncomingNumber);
     setIncomingCall(null);
@@ -523,21 +873,44 @@ export default function AgentsDashboard() {
 
   const handleEndCall = () => {
     if (session) {
-      session.bye().catch(console.error);
-      setSession(null);
-      setPhoneStatus("Idle");
-      if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
-      stopRingtone();
-      stopCallTimer();
-      setShowPhonePopup(false);
-      setIncomingCall(null);
+      if (session.test) {
+        console.log("Ending test call...");
+        // Handle test call ending
+        setSession(null);
+        setPhoneStatus("Idle");
+        stopCallTimer();
+        setShowPhonePopup(false);
+        setIncomingCall(null);
+        setShowTicketModal(false);
+      } else {
+        // Handle real SIP call ending
+        session.bye().catch(console.error);
+        setSession(null);
+        setPhoneStatus("Idle");
+        if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
+        stopRingtone();
+        stopCallTimer();
+        setShowPhonePopup(false);
+        setIncomingCall(null);
+      }
     } else if (incomingCall) {
-      incomingCall.reject().catch(console.error);
-      setIncomingCall(null);
-      setPhoneStatus("Idle");
-      stopRingtone();
-      stopCallTimer();
-      setShowPhonePopup(false);
+      if (incomingCall.test) {
+        console.log("Ending test incoming call...");
+        // Handle test incoming call ending
+        setIncomingCall(null);
+        setPhoneStatus("Idle");
+        stopRingtone();
+        stopCallTimer();
+        setShowPhonePopup(false);
+      } else {
+        // Handle real SIP incoming call ending
+        incomingCall.reject().catch(console.error);
+        setIncomingCall(null);
+        setPhoneStatus("Idle");
+        stopRingtone();
+        stopCallTimer();
+        setShowPhonePopup(false);
+      }
     }
   };
 
@@ -684,6 +1057,25 @@ export default function AgentsDashboard() {
               )}
             </div>
           </Tooltip>
+          {/* Test button for debugging incoming calls */}
+          {process.env.NODE_ENV === 'development' && (
+            <Tooltip title="Test Incoming Call" arrow>
+              <button 
+                onClick={testIncomingCall}
+                style={{ 
+                  background: '#ff9800', 
+                  color: 'white', 
+                  border: 'none', 
+                  padding: '8px 12px', 
+                  borderRadius: '4px', 
+                  cursor: 'pointer',
+                  fontSize: '12px'
+                }}
+              >
+                Test Call
+              </button>
+            </Tooltip>
+          )}
         </div>
 
         <div className="phone-navbar">
@@ -741,86 +1133,239 @@ export default function AgentsDashboard() {
 
       {/* Phone popup */}
       {showPhonePopup && (
-        <div className="modern-phone-popup">
-          <div className="modern-phone-header">
-            <span>{phoneStatus === "In Call" ? "Call in Progress" : "Phone"}</span>
-            <button onClick={togglePhonePopup} className="modern-close-btn" aria-label="Close">&times;</button>
-          </div>
-
-          <div className="modern-phone-body">
-            {phoneStatus === "In Call" && (
-              <>
-                <div className="modern-phone-status">
-                  <span className="modern-status-badge">In Call</span>
-                  <span className="modern-call-duration">{formatDuration(callDuration)}</span>
-                </div>
-
-                {/* BLIND TRANSFER UI (online only) */}
-                <Autocomplete
-                  options={onlineUsers.filter((u) => !!u.extension && (u.role === "agent" || u.role === "supervisor") && String(u.extension) !== String(extension))}
-                  getOptionLabel={(u) => (u ? `${u.extension} — ${(u.name || u.username || "User")} (${u.role})` : "")}
-                  isOptionEqualToValue={(a, b) => a?.extension === b?.extension}
-                  onChange={(_, u) => {
-                    setTransferTarget(u?.extension || "");
-                  }}
-                  renderInput={(params) => (
-                    <TextField {...params} label="Transfer to online (agent/supervisor)" variant="outlined" margin="normal" fullWidth />
-                  )}
-                  fullWidth
-                />
-                <Button
-                  variant="contained"
-                  color="secondary"
-                  onClick={() => handleBlindTransfer()}
-                  disabled={!session || !transferTarget}
-                  fullWidth
-                  className="modern-action-btn"
-                  style={{ marginTop: 10 }}
-                >
-                  Transfer
-                </Button>
-              </>
-            )}
-
-            {phoneStatus !== "In Call" && (
-              <>
-                <TextField label="Phone Number" variant="outlined" fullWidth margin="normal" required value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} />
-                {showKeypad && (
-                  <div className="modern-keypad" style={{ marginBottom: 10 }}>
-                    {["1","2","3","4","5","6","7","8","9","*","0","#"].map((digit) => (
-                      <button key={digit} className="modern-keypad-btn" onClick={() => setPhoneNumber((prev) => prev + digit)}>{digit}</button>
-                    ))}
-                    <button className="modern-keypad-btn" onClick={() => setPhoneNumber((prev) => prev.slice(0, -1))} style={{ gridColumn: "span 3", background: "#ffeaea", color: "#e53935", fontSize: "1.3rem" }} aria-label="Backspace">DEL</button>
+        <div className="phone-popup-overlay">
+          <div className="phone-popup-container">
+            {/* Header */}
+            <div className="phone-popup-header">
+              <div className="phone-popup-title">
+                <MdOutlineLocalPhone className="phone-icon" />
+                <span>{phoneStatus === "In Call" ? "Active Call" : phoneStatus === "Ringing" ? "Incoming Call" : "Phone"}</span>
+                {/* Show indicator when ticket modal is open */}
+                {showTicketModal && (
+                  <div className="ticket-modal-indicator">
+                    📝 Ticket Open
                   </div>
                 )}
-              </>
-            )}
-
-            <div className="modern-phone-actions">
-              <Tooltip title="Toggle Speaker"><IconButton onClick={toggleSpeaker}><HiMiniSpeakerWave fontSize={20} style={iconStyle(isSpeakerOn ? "green" : "grey")} /></IconButton></Tooltip>
-              <Tooltip title={isOnHold ? "Resume Call" : "Hold Call"}><IconButton onClick={toggleHold}><MdPauseCircleOutline fontSize={20} style={iconStyle(isOnHold ? "orange" : "#3c8aba")} /></IconButton></Tooltip>
-              <Tooltip title="Keypad"><IconButton onClick={() => setShowKeypad((p) => !p)}><IoKeypadOutline fontSize={20} style={iconStyle(showKeypad ? "#1976d2" : "#939488")} /></IconButton></Tooltip>
-              <Tooltip title="End Call"><IconButton onClick={handleEndCall}><MdLocalPhone fontSize={20} style={iconStyle("red")} /></IconButton></Tooltip>
-              <Tooltip title={isMuted ? "Unmute Mic" : "Mute Mic"}><IconButton onClick={toggleMute}><BsFillMicMuteFill fontSize={20} style={iconStyle(isMuted ? "orange" : "grey")} /></IconButton></Tooltip>
+                {/* Show indicator when there's preserved ticket data */}
+                {!showTicketModal && Object.keys(ticketFormData).length > 0 && ticketType && (
+                  <div className="preserved-data-indicator">
+                    💾 {ticketType.charAt(0).toUpperCase() + ticketType.slice(1)} Data Saved
+                  </div>
+                )}
+              </div>
+              <button onClick={togglePhonePopup} className="phone-popup-close" aria-label="Close">
+                <span>&times;</span>
+              </button>
             </div>
 
-            {phoneStatus !== "In Call" && (
-              <Button variant="contained" color="primary" onClick={handleDial} disabled={phoneStatus === "Dialing" || phoneStatus === "Ringing"} className="modern-action-btn" style={{ marginTop: 10 }}>
-                Dial
-              </Button>
+            {/* Call Status Bar */}
+            {phoneStatus === "In Call" && (
+              <div className="call-status-bar">
+                <div className="call-status-indicator">
+                  <div className="call-status-dot active"></div>
+                  <span>Call in Progress</span>
+                </div>
+                <div className="call-duration">
+                  <span className="duration-label">Duration:</span>
+                  <span className="duration-time">{formatDuration(callDuration)}</span>
+                </div>
+                {/* Swap to Ticket Modal Button */}
+                <button 
+                  className="swap-to-ticket-btn"
+                  onClick={swapToTicketModal}
+                  title="Switch to Ticket Form"
+                >
+                  📝 Ticket
+                </button>
+              </div>
             )}
 
-            {incomingCall && phoneStatus !== "In Call" && (
-              <>
-                <div style={{ marginBottom: 10 }}>
-                  <span style={{ fontWeight: 500 }}>From: </span>{lastIncomingNumber || "Unknown"}
-                </div>
-                <div className="modern-phone-actions">
-                  <Button variant="contained" color="primary" onClick={handleAcceptCall} className="modern-action-btn">Accept</Button>
-                  <Button variant="contained" color="secondary" onClick={handleRejectCall} className="modern-action-btn">Reject</Button>
-                </div>
-              </>
+            {/* Quick Ticket Button for Preserved Data */}
+            {!showTicketModal && Object.keys(ticketFormData).length > 0 && ticketType && (
+              <div className="quick-ticket-section">
+                <button 
+                  className="quick-ticket-btn"
+                  onClick={() => {
+                    console.log("Opening ticket modal with preserved data:", ticketFormData);
+                    setShowTicketModal(true);
+                    setIsTicketModalOpen(true);
+                  }}
+                  title={`Reopen ${ticketType} ticket with your saved details`}
+                >
+                  💾 Reopen {ticketType.charAt(0).toUpperCase() + ticketType.slice(1)} Ticket
+                </button>
+              </div>
             )}
+
+            {/* Main Content */}
+            <div className="phone-popup-content">
+              {/* Incoming Call Display */}
+              {incomingCall && phoneStatus === "Ringing" && (
+                <div className="incoming-call-section">
+                  <div className="caller-info">
+                    <div className="caller-avatar">
+                      <span>{lastIncomingNumber ? lastIncomingNumber.charAt(0) : "?"}</span>
+                    </div>
+                    <div className="caller-details">
+                      <div className="caller-number">{lastIncomingNumber || "Unknown"}</div>
+                      <div className="caller-label">Incoming Call</div>
+                    </div>
+                  </div>
+                  <div className="call-actions">
+                    <button className="call-btn accept-btn" onClick={handleAcceptCall}>
+                      <FiPhoneCall />
+                      <span>Answer</span>
+                    </button>
+                    <button className="call-btn reject-btn" onClick={handleRejectCall}>
+                      <FiPhoneOff />
+                      <span>Decline</span>
+                    </button>
+                  </div>
+                  {/* Note: Ticket modal opens automatically when answering call */}
+                  <div className="call-instruction">
+                    <small style={{ color: '#6c757d', fontStyle: 'italic' }}>
+                      💡 Ticket form will open automatically when you answer the call
+                    </small>
+                  </div>
+                </div>
+              )}
+
+              {/* Dial Pad Section */}
+              {phoneStatus !== "In Call" && phoneStatus !== "Ringing" && (
+                <div className="dial-pad-section">
+                  <div className="phone-number-display">
+                    <input
+                      type="text"
+                      className="phone-number-input"
+                      placeholder="Enter phone number"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                    />
+                  </div>
+                  
+                  {showKeypad && (
+                    <div className="keypad-grid">
+                      {["1","2","3","4","5","6","7","8","9","*","0","#"].map((digit) => (
+                        <button 
+                          key={digit} 
+                          className="keypad-btn" 
+                          onClick={() => setPhoneNumber((prev) => prev + digit)}
+                        >
+                          {digit}
+                        </button>
+                      ))}
+                      <button 
+                        className="keypad-btn backspace-btn" 
+                        onClick={() => setPhoneNumber((prev) => prev.slice(0, -1))}
+                        style={{ gridColumn: "span 3" }}
+                      >
+                        <span>⌫</span>
+                        <span>Backspace</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Transfer Section (when in call) */}
+              {phoneStatus === "In Call" && (
+                <div className="transfer-section">
+                  <div className="transfer-header">
+                    <MdOutlineFollowTheSigns className="transfer-icon" />
+                    <span>Transfer Call</span>
+                  </div>
+                  <Autocomplete
+                    options={onlineUsers.filter((u) => !!u.extension && (u.role === "agent" || u.role === "supervisor") && String(u.extension) !== String(extension))}
+                    getOptionLabel={(u) => (u ? `${u.extension} — ${(u.name || u.username || "User")} (${u.role})` : "")}
+                    isOptionEqualToValue={(a, b) => a?.extension === b?.extension}
+                    onChange={(_, u) => {
+                      setTransferTarget(u?.extension || "");
+                    }}
+                    renderInput={(params) => (
+                      <TextField 
+                        {...params} 
+                        label="Select online agent/supervisor" 
+                        variant="outlined" 
+                        size="small"
+                        className="transfer-input"
+                      />
+                    )}
+                    fullWidth
+                  />
+                  <button
+                    className="transfer-btn"
+                    onClick={() => handleBlindTransfer()}
+                    disabled={!session || !transferTarget}
+                  >
+                    <MdOutlineFollowTheSigns />
+                    <span>Transfer</span>
+                  </button>
+                </div>
+              )}
+
+              {/* Control Buttons */}
+              <div className="phone-controls">
+                <div className="control-row">
+                  <button 
+                    className={`control-btn ${isMuted ? 'active' : ''}`}
+                    onClick={toggleMute}
+                    title={isMuted ? "Unmute" : "Mute"}
+                  >
+                    <BsFillMicMuteFill />
+                    <span>{isMuted ? "Unmute" : "Mute"}</span>
+                  </button>
+                  
+                  <button 
+                    className={`control-btn ${isSpeakerOn ? 'active' : ''}`}
+                    onClick={toggleSpeaker}
+                    title={isSpeakerOn ? "Speaker On" : "Speaker Off"}
+                  >
+                    <HiMiniSpeakerWave />
+                    <span>Speaker</span>
+                  </button>
+                  
+                  <button 
+                    className={`control-btn ${isOnHold ? 'active' : ''}`}
+                    onClick={toggleHold}
+                    title={isOnHold ? "Resume" : "Hold"}
+                  >
+                    <MdPauseCircleOutline />
+                    <span>{isOnHold ? "Resume" : "Hold"}</span>
+                  </button>
+                </div>
+                
+                <div className="control-row">
+                  <button 
+                    className="control-btn keypad-toggle"
+                    onClick={() => setShowKeypad((p) => !p)}
+                    title={showKeypad ? "Hide Keypad" : "Show Keypad"}
+                  >
+                    <IoKeypadOutline />
+                    <span>Keypad</span>
+                  </button>
+                  
+                  {phoneStatus !== "In Call" && phoneStatus !== "Ringing" && (
+                    <button 
+                      className="control-btn dial-btn"
+                      onClick={handleDial}
+                      disabled={phoneStatus === "Dialing" || phoneStatus === "Ringing"}
+                    >
+                      <MdLocalPhone />
+                      <span>Dial</span>
+                    </button>
+                  )}
+                  
+                  <button 
+                    className="control-btn end-call-btn"
+                    onClick={handleEndCall}
+                    title="End Call"
+                  >
+                    <FiPhoneOff />
+                    <span>End</span>
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -855,12 +1400,145 @@ export default function AgentsDashboard() {
       </Snackbar>
 
       {/* Create Ticket quick button */}
-      <Button variant="contained" color="primary" onClick={() => { setTicketPhoneNumber(phoneNumber || ""); setShowTicketModal(true); }}>
+      <Button variant="contained" color="primary" onClick={() => openTicketModal()}>
         Create Ticket
       </Button>
 
-      {/* Ticket modal */}
-      <AdvancedTicketCreateModal open={showTicketModal} onClose={() => setShowTicketModal(false)} initialPhoneNumber={ticketPhoneNumber} functionData={functionData} />
+      {/* Create Employer Ticket Button */}
+      <Button 
+        variant="contained" 
+        color="primary" 
+        onClick={() => openTicketModal('employer')}
+        style={{ marginLeft: '10px' }}
+        title="Create ticket for employer"
+      >
+        🏢 Employer Ticket
+      </Button>
+
+      {/* Create Employee Ticket Button */}
+      <Button 
+        variant="contained" 
+        color="primary" 
+        onClick={() => openTicketModal('employee')}
+        style={{ marginLeft: '10px' }}
+        title="Create ticket for employee"
+      >
+        👤 Employee Ticket
+      </Button>
+
+      {/* Reopen Ticket Modal with Preserved Data Button */}
+      {Object.keys(ticketFormData).length > 0 && ticketType && (
+        <Button 
+          variant="outlined" 
+          color="secondary" 
+          onClick={() => {
+            console.log("Reopening ticket modal with preserved data:", ticketFormData);
+            setShowTicketModal(true);
+            setIsTicketModalOpen(true);
+          }}
+          style={{ marginLeft: '10px' }}
+          title={`Reopen ${ticketType} ticket with your previously filled details`}
+        >
+          📝 Reopen {ticketType.charAt(0).toUpperCase() + ticketType.slice(1)} Ticket
+        </Button>
+      )}
+
+      {/* Clear Preserved Ticket Data Button */}
+      {Object.keys(ticketFormData).length > 0 && (
+        <Button 
+          variant="outlined" 
+          color="secondary" 
+          onClick={clearTicketFormData}
+          style={{ marginLeft: '10px' }}
+          title="Clear saved ticket form data"
+        >
+          Clear Saved Data
+        </Button>
+      )}
+
+      {/* Manual Close Ticket Modal Button (Fallback) */}
+      {showTicketModal && (
+        <Button 
+          variant="outlined" 
+          color="error" 
+          onClick={closeTicketModalDirectly}
+          style={{ marginLeft: '10px' }}
+          title="Force close ticket modal (fallback)"
+        >
+          🚫 Force Close Ticket
+        </Button>
+      )}
+
+      {/* Debug Ticket Modal State Button */}
+      {showTicketModal && (
+        <Button 
+          variant="outlined" 
+          color="warning" 
+          onClick={() => {
+            console.log("=== DEBUG TICKET MODAL STATE ===");
+            console.log("showTicketModal:", showTicketModal);
+            console.log("isTicketModalOpen:", isTicketModalOpen);
+            console.log("ticketType:", ticketType);
+            
+            // Check DOM
+            const modals = document.querySelectorAll('[role="dialog"], .MuiDialog-root, .MuiModal-root');
+            console.log("DOM modals found:", modals.length);
+            modals.forEach((modal, index) => {
+              console.log(`Modal ${index}:`, modal);
+              console.log(`Modal ${index} display:`, modal.style?.display);
+              console.log(`Modal ${index} visibility:`, modal.style?.visibility);
+            });
+            
+            // Try to close
+            closeTicketModalDirectly();
+          }}
+          style={{ marginLeft: '10px' }}
+          title="Debug ticket modal state and force close"
+        >
+          🐛 Debug & Close
+        </Button>
+      )}
+
+      {/* Ticket modal with custom wrapper for better control */}
+      <div style={{ position: 'relative' }}>
+        <AdvancedTicketCreateModal 
+          key={`ticket-modal-${showTicketModal}-${ticketType}`}
+          open={showTicketModal} 
+          onClose={closeTicketModalDirectly} 
+          initialPhoneNumber={ticketPhoneNumber} 
+          functionData={functionData}
+          // Pass preserved form data and ticket type
+          preservedFormData={ticketFormData}
+          ticketType={ticketType}
+          onTicketTypeSelect={handleTicketTypeSelect}
+          onFormDataChange={handleTicketFormDataChange}
+          onTicketSubmitted={handleTicketSubmitted}
+          onTicketCancel={closeTicketModalDirectly}
+          // Handle outside clicks
+          BackdropProps={{
+            onClick: closeTicketModalDirectly
+          }}
+        />
+        
+        {/* Custom close button overlay if modal is open */}
+        {showTicketModal && (
+          <div style={{
+            position: 'fixed',
+            top: '20px',
+            right: '20px',
+            zIndex: 10003,
+            background: 'red',
+            color: 'white',
+            padding: '8px 12px',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '12px',
+            fontWeight: 'bold'
+          }} onClick={closeTicketModalDirectly}>
+            🚫 CLOSE TICKET
+          </div>
+        )}
+      </div>
 
       {/* Voice notes modal */}
       <Dialog open={showVoiceNotesModal} onClose={() => setShowVoiceNotesModal(false)} fullWidth maxWidth="md">
