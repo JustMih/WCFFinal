@@ -1434,7 +1434,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
       setModal({
         isOpen: true,
         type: "error",
-        message: `Network error. Please try again later.`,
+        message: ` Ticket saved, Failed to send SMS or Email`,
       });
       setIsLoading(false); // Set loading to false after error
     }
