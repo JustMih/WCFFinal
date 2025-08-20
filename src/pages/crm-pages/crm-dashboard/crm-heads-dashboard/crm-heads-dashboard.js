@@ -527,12 +527,7 @@ export default function FocalPersonDashboard() {
 
   const role = localStorage.getItem("role");
   const getDashboardTitle = () => {
-    if (role === "focal-person") return "Focal Person Dashboard";
-    if (role === "claim-focal-person") return "Claim Focal Person Dashboard";
-    if (role === "compliance-focal-person") return "Compliance Focal Person Dashboard";
-    if (role === "head-of-unit") return "Head of Unit Dashboard";
-    if (role === "director-general") return "Director General Dashboard";
-    return "Dashboard";
+    return "CC Dashboard";
   };
 
   const handlePhoneSearch = async (searchValue, selectedTicketFromTable = null) => {
@@ -657,7 +652,7 @@ export default function FocalPersonDashboard() {
           alignItems: "center",
           marginBottom: "1rem"
         }}>
-          <h3 className="title">Head of Unit Tickets List</h3>
+          <h3 className="title">Tickets List</h3>
           
           <div style={{ 
             display: "flex", 

@@ -3117,7 +3117,7 @@ const AgentCRM = () => {
                 )}
 
                 {/* Representative Details Section */}
-                {selectedTicket.requester === "Representative" && selectedTicket.representative_name && (
+                {selectedTicket.requester === "Employer" && selectedTicket.representative_name && (
                   <Box sx={{ mt: 3, mb: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 2, border: '1px solid #e0e0e0' }}>
                     <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2, color: '#1976d2' }}>
                       Representative Details

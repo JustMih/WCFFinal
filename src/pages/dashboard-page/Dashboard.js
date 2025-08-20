@@ -73,7 +73,7 @@ export default function Dashboard() {
         role === "director-general" ||
         role === "director" ||
         // role === "admin" ||
-        // role === "super-admin" ||
+        role === "super-admin" ||
         role === "focal-person" ||
         role === "claim-focal-person" ||
         role === "compliance-focal-person"

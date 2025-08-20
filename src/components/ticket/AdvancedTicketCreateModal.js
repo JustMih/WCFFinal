@@ -1621,8 +1621,19 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                     >
                       Register New {registrationType === "employee" ? "Employee" : "Employer"}
                     </button>
-                    <button
-                      onClick={resetSearch}
+                                         <button
+                       onClick={() => {
+                         // Reset everything back to initial state
+                         resetSearch();
+                         // Ensure we're back to step 0 (initial search type selection)
+                         setSearchStep(0);
+                         // Clear all search-related state
+                         setSearchResults([]);
+                         setCurrentSearchQuery("");
+                         setShowForm(false);
+                         setShowUserNotFound(false);
+                         setShowRegistrationOptions(false);
+                       }}
                       style={{
                         padding: "12px 24px",
                         backgroundColor: "#6c757d",

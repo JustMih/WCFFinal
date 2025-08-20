@@ -332,16 +332,30 @@ const TicketDetailsModal = ({ open, onClose, ticket }) => {
           )}
 
           {/* Representative Details Section */}
-          {ticket.requester === "Representative" && ticket.RequesterDetail && (
+          {ticket.requester === "Representative" && (
             <Box sx={{ mt: 3, p: 2, bgcolor: '#f5f5f5', borderRadius: 2 }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1 }}>
                 Representative Details
               </Typography>
-              <Typography><strong>Name:</strong> {ticket.RequesterDetail.name || 'N/A'}</Typography>
-              <Typography><strong>Phone:</strong> {ticket.RequesterDetail.phoneNumber || 'N/A'}</Typography>
-              <Typography><strong>Email:</strong> {ticket.RequesterDetail.email || 'N/A'}</Typography>
-              <Typography><strong>Address:</strong> {ticket.RequesterDetail.address || 'N/A'}</Typography>
-              <Typography><strong>Relationship to Employee:</strong> {ticket.RequesterDetail.relationshipToEmployee || 'N/A'}</Typography>
+              <Typography><strong>Name:</strong> {ticket.representative_name || 'N/A'}</Typography>
+              <Typography><strong>Phone:</strong> {ticket.representative_phone || 'N/A'}</Typography>
+              <Typography><strong>Email:</strong> {ticket.representative_email || 'N/A'}</Typography>
+              <Typography><strong>Address:</strong> {ticket.representative_address || 'N/A'}</Typography>
+              <Typography><strong>Relationship to Employee:</strong> {ticket.representative_relationship || 'N/A'}</Typography>
+            </Box>
+          )}
+
+          {/* Employer Representative Details Section */}
+          {ticket.requester === "Employer" && (
+            <Box sx={{ mt: 3, p: 2, bgcolor: '#f0f8ff', borderRadius: 2 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 1, color: '#1976d2' }}>
+                Employer Representative Details
+              </Typography>
+              <Typography><strong>Representative Name:</strong> {ticket.representative_name || 'N/A'}</Typography>
+              <Typography><strong>Representative Phone:</strong> {ticket.representative_phone || 'N/A'}</Typography>
+              <Typography><strong>Representative Email:</strong> {ticket.representative_email || 'N/A'}</Typography>
+              <Typography><strong>Representative Address:</strong> {ticket.representative_address || 'N/A'}</Typography>
+              <Typography><strong>Representative Position/Role:</strong> {ticket.representative_relationship || 'N/A'}</Typography>
             </Box>
           )}
         </Box>
