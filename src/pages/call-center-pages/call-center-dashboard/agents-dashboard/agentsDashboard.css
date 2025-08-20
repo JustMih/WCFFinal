@@ -230,3 +230,902 @@
   color: #b71c1c;
   box-shadow: 0 4px 12px rgba(229,57,53,0.10);
 }
+
+/* Phone Popup Modal - 3CX Style */
+.phone-popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  backdrop-filter: blur(4px);
+}
+
+.phone-popup-container {
+  background: linear-gradient(135deg, #1a237e 0%, #0d47a1 50%, #1565c0 100%);
+  border-radius: 20px;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.5);
+  width: 95%;
+  max-width: 420px;
+  max-height: 90vh;
+  overflow: hidden;
+  animation: slideIn3CX 0.4s ease-out;
+  border: 2px solid #42a5f5;
+}
+
+@keyframes slideIn3CX {
+  from {
+    opacity: 0;
+    transform: translateY(30px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.phone-popup-header {
+  background: linear-gradient(135deg, #0d47a1 0%, #1565c0 100%);
+  color: white;
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: relative;
+  border-bottom: 2px solid #42a5f5;
+}
+
+.phone-popup-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #4caf50, #2196f3, #ff9800, #f44336);
+}
+
+.phone-popup-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 20px;
+  font-weight: 700;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.phone-icon {
+  font-size: 28px;
+  color: #ffffff;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.phone-popup-close {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(10px);
+}
+
+.phone-popup-close:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(255, 255, 255, 0.2);
+}
+
+/* Call Status Bar - 3CX Style */
+.call-status-bar {
+  background: rgba(255, 255, 255, 0.05);
+  padding: 12px 20px;
+  border-bottom: 1px solid rgba(66, 165, 245, 0.3);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  backdrop-filter: blur(10px);
+}
+
+.call-status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.call-status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #6c757d;
+  box-shadow: 0 0 8px rgba(108, 117, 125, 0.5);
+}
+
+.call-status-dot.active {
+  background: #4caf50;
+  animation: pulse3CX 2s infinite;
+  box-shadow: 0 0 12px rgba(76, 175, 80, 0.6);
+}
+
+@keyframes pulse3CX {
+  0%, 100% { 
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.7;
+    transform: scale(1.1);
+  }
+}
+
+.call-duration {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.duration-label {
+  font-size: 11px;
+  color: #b3e5fc;
+  font-weight: 500;
+}
+
+.duration-time {
+  font-size: 18px;
+  font-weight: 700;
+  color: #ffffff;
+  font-family: 'Courier New', monospace;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+/* Main Content - 3CX Style */
+.phone-popup-content {
+  padding: 16px;
+  max-height: 70vh;
+  overflow-y: auto;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* 3CX Logo Section */
+.cx3-logo-section {
+  text-align: center;
+  margin-bottom: 24px;
+  padding: 20px;
+}
+
+.cx3-logo {
+  font-size: 48px;
+  font-weight: 900;
+  background: linear-gradient(135deg, #42a5f5, #2196f3, #1976d2);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  margin-bottom: 8px;
+}
+
+.cx3-status {
+  color: #ffffff;
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.cx3-timer {
+  color: #b3e5fc;
+  font-size: 14px;
+  font-family: 'Courier New', monospace;
+  font-weight: 700;
+}
+
+.cx3-availability {
+  color: #4caf50;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* Line Indicators - 3CX Style */
+.line-indicators {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.line-indicator {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(66, 165, 245, 0.3);
+  border-radius: 8px;
+  padding: 8px 12px;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  backdrop-filter: blur(10px);
+}
+
+.line-indicator.active {
+  background: rgba(76, 175, 80, 0.2);
+  border-color: #4caf50;
+  color: #4caf50;
+}
+
+/* Incoming Call Section - 3CX Style */
+.incoming-call-section {
+  text-align: center;
+  margin-bottom: 20px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  padding: 20px;
+  border: 1px solid rgba(66, 165, 245, 0.2);
+  backdrop-filter: blur(10px);
+}
+
+.caller-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.caller-avatar {
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #42a5f5, #2196f3);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 700;
+  box-shadow: 0 8px 24px rgba(66, 165, 245, 0.4);
+  border: 3px solid rgba(255, 255, 255, 0.2);
+}
+
+.caller-details {
+  text-align: center;
+}
+
+.caller-number {
+  font-size: 24px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 4px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.caller-label {
+  color: #b3e5fc;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* Call Actions - 3CX Style */
+.call-actions {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
+.call-instruction {
+  text-align: center;
+  margin-top: 10px;
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+.call-instruction small {
+  color: #b3e5fc;
+  font-style: italic;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.call-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 20px;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 700;
+  transition: all 0.3s ease;
+  min-width: 90px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.call-btn svg {
+  font-size: 24px;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.accept-btn {
+  background: linear-gradient(135deg, #4caf50, #45a049);
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.accept-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 32px rgba(76, 175, 80, 0.5);
+  background: linear-gradient(135deg, #45a049, #3d8b40);
+}
+
+.reject-btn {
+  background: linear-gradient(135deg, #f44336, #d32f2f);
+  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.reject-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 32px rgba(244, 67, 54, 0.5);
+  background: linear-gradient(135deg, #d32f2f, #c62828);
+}
+
+/* Dial Pad Section - 3CX Style */
+.dial-pad-section {
+  margin-bottom: 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 16px;
+  padding: 16px;
+  border: 1px solid rgba(66, 165, 245, 0.1);
+}
+
+.phone-number-display {
+  margin-bottom: 16px;
+}
+
+.phone-number-input {
+  width: calc(100% - 40px);
+  padding: 14px 20px;
+  border: 2px solid rgba(66, 165, 245, 0.3);
+  border-radius: 12px;
+  font-size: 18px;
+  text-align: center;
+  font-family: 'Courier New', monospace;
+  transition: all 0.3s ease;
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+  backdrop-filter: blur(10px);
+}
+
+.phone-number-input:focus {
+  outline: none;
+  border-color: #42a5f5;
+  box-shadow: 0 0 0 4px rgba(66, 165, 245, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.phone-number-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.keypad-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.keypad-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(66, 165, 245, 0.2);
+  border-radius: 12px;
+  padding: 18px 16px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  backdrop-filter: blur(10px);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.keypad-btn:hover {
+  background: rgba(66, 165, 245, 0.15);
+  border-color: #42a5f5;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(66, 165, 245, 0.3);
+}
+
+.keypad-btn:active {
+  transform: translateY(-1px);
+}
+
+.keypad-btn span:last-child {
+  font-size: 9px;
+  color: #b3e5fc;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.backspace-btn {
+  background: rgba(244, 67, 54, 0.15);
+  border-color: rgba(244, 67, 54, 0.3);
+  color: #ffcdd2;
+  font-size: 18px;
+}
+
+.backspace-btn:hover {
+  background: rgba(244, 67, 54, 0.25);
+  border-color: #f44336;
+}
+
+/* Transfer Section - 3CX Style */
+.transfer-section {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 20px;
+  border: 1px solid rgba(66, 165, 245, 0.2);
+  backdrop-filter: blur(10px);
+}
+
+.transfer-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.transfer-icon {
+  color: #42a5f5;
+  font-size: 18px;
+}
+
+.transfer-input {
+  margin-bottom: 12px;
+}
+
+.transfer-input .MuiOutlinedInput-root {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  backdrop-filter: blur(10px);
+}
+
+.transfer-input .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline {
+  border-color: rgba(66, 165, 245, 0.3);
+}
+
+.transfer-input .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+  border-color: #42a5f5;
+}
+
+.transfer-input .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: #42a5f5;
+  border-width: 2px;
+}
+
+.transfer-input .MuiInputLabel-root {
+  color: #b3e5fc;
+}
+
+.transfer-input .MuiInputBase-input {
+  color: #ffffff;
+}
+
+.transfer-btn {
+  background: linear-gradient(135deg, #ff9800, #f57c00);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 24px;
+  cursor: pointer;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.3s ease;
+  width: 100%;
+  justify-content: center;
+  box-shadow: 0 4px 16px rgba(255, 152, 0, 0.3);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.transfer-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 24px rgba(255, 152, 0, 0.5);
+  background: linear-gradient(135deg, #f57c00, #ef6c00);
+}
+
+.transfer-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Phone Controls - 3CX Style */
+.phone-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.control-row {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.control-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(66, 165, 245, 0.2);
+  border-radius: 12px;
+  padding: 14px 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 80px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #ffffff;
+  backdrop-filter: blur(10px);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.control-btn:hover {
+  background: rgba(66, 165, 245, 0.15);
+  border-color: #42a5f5;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(66, 165, 245, 0.3);
+}
+
+.control-btn.active {
+  background: rgba(66, 165, 245, 0.25);
+  border-color: #42a5f5;
+  color: #42a5f5;
+  box-shadow: 0 0 20px rgba(66, 165, 245, 0.4);
+}
+
+.control-btn svg {
+  font-size: 20px;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+.dial-btn {
+  background: linear-gradient(135deg, #4caf50, #45a049);
+  border-color: #4caf50;
+  color: white;
+  box-shadow: 0 4px 16px rgba(76, 175, 80, 0.3);
+}
+
+.dial-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 32px rgba(76, 175, 80, 0.5);
+  background: linear-gradient(135deg, #45a049, #3d8b40);
+}
+
+.dial-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.end-call-btn {
+  background: linear-gradient(135deg, #f44336, #d32f2f);
+  border-color: #f44336;
+  color: white;
+  box-shadow: 0 4px 16px rgba(244, 67, 54, 0.3);
+}
+
+.end-call-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 32px rgba(244, 67, 54, 0.5);
+  background: linear-gradient(135deg, #d32f2f, #c62828);
+}
+
+/* Force End Call Button - 3CX Style */
+.force-end-btn {
+  background: linear-gradient(135deg, #d32f2f, #c62828) !important;
+  border-color: #d32f2f !important;
+  color: white !important;
+  animation: pulse-red3CX 2s infinite;
+  box-shadow: 0 4px 16px rgba(211, 47, 47, 0.4) !important;
+}
+
+.force-end-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 32px rgba(211, 47, 47, 0.6);
+  background: linear-gradient(135deg, #c62828, #b71c1c) !important;
+}
+
+@keyframes pulse-red3CX {
+  0%, 100% { 
+    box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.7);
+  }
+  50% { 
+    box-shadow: 0 0 0 15px rgba(211, 47, 47, 0);
+  }
+}
+
+.keypad-toggle {
+  background: rgba(255, 152, 0, 0.15);
+  border-color: rgba(255, 152, 0, 0.3);
+  color: #ffcc02;
+}
+
+.keypad-toggle:hover {
+  background: rgba(255, 152, 0, 0.25);
+  border-color: #ff9800;
+}
+
+/* Responsive Design - 3CX Style */
+@media (max-width: 480px) {
+  .phone-popup-container {
+    width: 98%;
+    margin: 10px;
+    border-radius: 16px;
+  }
+  
+  .phone-popup-content {
+    padding: 16px;
+  }
+  
+  .control-row {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  
+  .control-btn {
+    min-width: 80px;
+    padding: 16px 12px;
+  }
+  
+  .call-btn {
+    min-width: 100px;
+    padding: 16px 20px;
+  }
+  
+  .keypad-grid {
+    gap: 12px;
+  }
+  
+  .keypad-btn {
+    padding: 20px 16px;
+    font-size: 20px;
+  }
+  
+  .cx3-logo {
+    font-size: 40px;
+  }
+  
+  .caller-avatar {
+    width: 80px;
+    height: 80px;
+    font-size: 32px;
+  }
+  
+  .caller-number {
+    font-size: 24px;
+  }
+}
+
+/* Scrollbar Styling - 3CX Style */
+.phone-popup-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.phone-popup-content::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+
+.phone-popup-content::-webkit-scrollbar-thumb {
+  background: rgba(66, 165, 245, 0.3);
+  border-radius: 4px;
+}
+
+.phone-popup-content::-webkit-scrollbar-thumb:hover {
+  background: rgba(66, 165, 245, 0.5);
+}
+
+/* Ticket Modal Indicator */
+.ticket-modal-indicator {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  animation: pulse 2s infinite;
+}
+
+/* Preserved Data Indicator */
+.preserved-data-indicator {
+  background: rgba(76, 175, 80, 0.2);
+  border: 1px solid rgba(76, 175, 80, 0.3);
+  border-radius: 12px;
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #4caf50;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  animation: pulse 2s infinite;
+}
+
+/* Quick Ticket Section */
+.quick-ticket-section {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e9ecef;
+}
+
+.quick-ticket-btn {
+  background: linear-gradient(135deg, #4caf50, #45a049);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 20px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 auto;
+}
+
+.quick-ticket-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(76, 175, 80, 0.4);
+  background: linear-gradient(135deg, #45a049, #3d8b40);
+}
+
+/* Ticket Type Buttons */
+.employer-ticket-btn {
+  background: linear-gradient(135deg, #2196f3, #1976d2);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 20px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 5px;
+}
+
+.employer-ticket-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(33, 150, 243, 0.4);
+  background: linear-gradient(135deg, #1976d2, #1565c0);
+}
+
+.employee-ticket-btn {
+  background: linear-gradient(135deg, #ff9800, #f57c00);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 20px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 5px;
+}
+
+.employee-ticket-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(255, 152, 0, 0.4);
+  background: linear-gradient(135deg, #f57c00, #ef6c00);
+}
+
+/* 3CX Status Bar */
+.cx3-status-bar {
+  background: rgba(0, 0, 0, 0.3);
+  border-top: 1px solid rgba(66, 165, 245, 0.3);
+  padding: 12px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #b3e5fc;
+  backdrop-filter: blur(10px);
+}
+
+.cx3-extension {
+  font-weight: 600;
+  font-family: 'Courier New', monospace;
+}
+
+.cx3-connection {
+  font-weight: 500;
+  color: #4caf50;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Top action buttons styling */
+.top-action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.top-action-btn {
+  background: #4caf50;
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.top-action-btn:hover {
+  background: #45a049;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.top-action-btn.test-call {
+  background: #ff9800;
+}
+
+.top-action-btn.test-call:hover {
+  background: #f57c00;
+}
+
+.top-action-btn.back-to-ticket {
+  background: #4caf50;
+}
+
+.top-action-btn.back-to-ticket:hover {
+  background: #45a049;
+}
