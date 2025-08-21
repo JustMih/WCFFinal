@@ -980,6 +980,24 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
 
+    // Auto-fill phone number when requester is changed to Employer or Representative
+    if (name === "requester" && (value === "Employer" || value === "Representative")) {
+      setFormData((prev) => {
+        const updatedData = { ...prev, [name]: value };
+        
+        // If there's representative phone number data available, auto-fill the main phone number
+        if (prev.requesterPhoneNumber && prev.requesterPhoneNumber.trim()) {
+          updatedData.phoneNumber = prev.requesterPhoneNumber.trim();
+        }
+        // If there's main phone number data available, auto-fill the representative phone number
+        else if (prev.phoneNumber && prev.phoneNumber.trim()) {
+          updatedData.requesterPhoneNumber = prev.phoneNumber.trim();
+        }
+        
+        return updatedData;
+      });
+    }
+
     if (name === "functionId") {
       const selectedFunctionData = functionData.find((item) => item.id === value);
       if (selectedFunctionData) {
@@ -997,7 +1015,18 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
         cleaned = "+" + cleaned;
       }
       if (cleaned.length > 14) cleaned = cleaned.slice(0, 14);
-      setFormData((prev) => ({ ...prev, [name]: cleaned }));
+      
+      setFormData((prev) => {
+        const updatedData = { ...prev, [name]: cleaned };
+        
+        // Auto-fill representative phone number when main phone number is entered for Employer or Representative
+        if ((prev.requester === "Employer" || prev.requester === "Representative") && cleaned.trim()) {
+          updatedData.requesterPhoneNumber = cleaned;
+        }
+        
+        return updatedData;
+      });
+      
       if (!/^\+?\d{0,13}$/.test(cleaned)) {
         setFormErrors((prev) => ({ ...prev, phoneNumber: "Phone number must contain only numbers" }));
       } else {
@@ -1018,6 +1047,34 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
         }));
       } else {
         setFormErrors((prev) => ({ ...prev, nidaNumber: undefined }));
+      }
+      return;
+    }
+    
+    // Handle representative phone number validation and auto-fill
+    if (name === "requesterPhoneNumber") {
+      let cleaned = value.replace(/[^\d+]/g, "");
+      if (cleaned.startsWith("+") && cleaned.slice(1).includes("+")) {
+        cleaned = cleaned.replace(/\+/g, "");
+        cleaned = "+" + cleaned;
+      }
+      if (cleaned.length > 14) cleaned = cleaned.slice(0, 14);
+      
+      setFormData((prev) => {
+        const updatedData = { ...prev, [name]: cleaned };
+        
+        // Auto-fill the main phone number field if requester is Employer or Representative
+        if ((prev.requester === "Employer" || prev.requester === "Representative") && cleaned.trim()) {
+          updatedData.phoneNumber = cleaned;
+        }
+        
+        return updatedData;
+      });
+      
+      if (!/^\+?\d{0,13}$/.test(cleaned)) {
+        setFormErrors((prev) => ({ ...prev, requesterPhoneNumber: "Phone number must contain only numbers" }));
+      } else {
+        setFormErrors((prev) => ({ ...prev, requesterPhoneNumber: undefined }));
       }
       return;
     }
@@ -1728,6 +1785,8 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                             notificationReportId={formData.notification_report_id}
                             employerId={formData.employerId || ''}
                             buttonText="View Claim in MAC"
+                            searchType="claim" // Explicitly set as claim search, but will show employer profiles if found
+                            isEmployerSearch={false} // This is for employee/claim search
                             openMode="new-tab"
                             openEarlyNewTab={true}
                             onSuccess={(data) => {
@@ -2037,6 +2096,14 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                         <div className="modal-form-group">
                           <label style={{ fontSize: "0.875rem" }}>
                             Representative Phone Number: <span style={{ color: "red" }}>*</span>
+                            {/* <span style={{ 
+                              color: "#1976d2", 
+                              fontSize: "0.75rem", 
+                              marginLeft: "8px",
+                              fontWeight: "500"
+                            }}>
+                              📞 Representative
+                            </span> */}
                           </label>
                           <input
                             type="tel"
@@ -2050,14 +2117,28 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                               padding: "4px 8px",
                               border: formErrors.requesterPhoneNumber
                                 ? "1px solid red"
-                                : "1px solid #ccc"
+                                : formData.requesterPhoneNumber && formData.requesterPhoneNumber.trim()
+                                  ? "2px solid #1976d2" 
+                                  : "1px solid #ccc",
+                              backgroundColor: formData.requesterPhoneNumber && formData.requesterPhoneNumber.trim() ? "#f8f9fa" : "white",
+                              fontWeight: formData.requesterPhoneNumber && formData.requesterPhoneNumber.trim() ? "500" : "normal"
                             }}
+                            title={formData.requesterPhoneNumber && formData.requesterPhoneNumber.trim() ? "Representative phone number - will auto-fill main phone number" : ""}
                           />
                           {formErrors.requesterPhoneNumber && (
                             <span style={{ color: "red", fontSize: "0.75rem" }}>
                               {formErrors.requesterPhoneNumber}
                             </span>
                           )}
+                          {/* {formData.requesterPhoneNumber && formData.requesterPhoneNumber.trim() && (
+                            <span style={{ 
+                              color: "#1976d2", 
+                              fontSize: "0.75rem",
+                              fontStyle: "italic"
+                            }}>
+                              This number will auto-fill the main phone number field
+                            </span>
+                          )} */}
                         </div>
                       </div>
 

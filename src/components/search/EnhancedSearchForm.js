@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CircularProgress } from '@mui/material';
+import ClaimRedirectButton from "../ticket/ClaimRedirectButton.jsx";
 
 const EnhancedSearchForm = ({ 
   onEmployerSelect, 
@@ -350,22 +351,47 @@ const EnhancedSearchForm = ({
               {employerSearchResults.map((employer, index) => (
                 <div
                   key={index}
-                  onClick={() => handleEmployerSelection(employer)}
                   style={{
                     padding: "10px 12px",
                     borderBottom: "1px solid #eee",
                     cursor: "pointer"
                   }}
-                  onMouseEnter={(e) => e.target.style.backgroundColor = "#f5f5f5"}
-                  onMouseLeave={(e) => e.target.style.backgroundColor = "white"}
                 >
-                  <div style={{ fontWeight: "bold", fontSize: "14px" }}>
-                    {employer.name}
+                  <div 
+                    onClick={() => handleEmployerSelection(employer)}
+                    style={{
+                      cursor: "pointer"
+                    }}
+                    onMouseEnter={(e) => e.target.style.backgroundColor = "#f5f5f5"}
+                    onMouseLeave={(e) => e.target.style.backgroundColor = "white"}
+                  >
+                    <div style={{ fontWeight: "bold", fontSize: "14px" }}>
+                      {employer.name}
+                    </div>
+                    <div style={{ fontSize: "12px", color: "#666", marginTop: "2px" }}>
+                      TIN: {employer.tin || "N/A"}
+                      {employer.phone && ` • Phone: ${employer.phone}`}
+                    </div>
                   </div>
-                  <div style={{ fontSize: "12px", color: "#666", marginTop: "2px" }}>
-                    TIN: {employer.tin || "N/A"}
-                    {employer.phone && ` • Phone: ${employer.phone}`}
-                  </div>
+                  
+                  {/* Profile button for this employer */}
+                  {employer.registration_number && (
+                    <div style={{ marginTop: "8px" }}>
+                      <ClaimRedirectButton
+                        notificationReportId={employer.registration_number} // Pass registration_number for API call
+                        buttonText={`View ${employer.name} Profile`}
+                        searchType="employer"
+                        isEmployerSearch={true}
+                        employerData={employer} // Pass the employer data directly
+                        onSuccess={(data) => {
+                          console.log('Employer profile redirect successful:', data);
+                        }}
+                        onError={(error) => {
+                          console.error('Employer profile redirect failed:', error);
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
