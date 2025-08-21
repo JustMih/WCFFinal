@@ -344,6 +344,11 @@ const ClaimRedirectButton = ({
     fontSize: "14px",
     fontWeight: "bold",
     opacity: isLoading ? 0.7 : 1,
+    minHeight: "36px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    whiteSpace: "nowrap",
     ...style
   };
 
@@ -351,6 +356,14 @@ const ClaimRedirectButton = ({
     ...defaultStyle,
     backgroundColor: "#28a745", // Green color for profile button
     marginLeft: "8px"
+  };
+
+  const containerStyle = {
+    display: 'flex',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: '8px',
+    justifyContent: 'flex-start'
   };
 
   // Check if we have results with registration numbers or employer names
@@ -368,7 +381,7 @@ const ClaimRedirectButton = ({
                            (employerData && employerData.registration_number);
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+    <div style={containerStyle}>
       {/* Show claim button only for employee/claim searches and when we have a valid notificationReportId */}
       {!isEmployerSearch && notificationReportId && (
         <button
@@ -415,7 +428,7 @@ const ClaimRedirectButton = ({
            className={className}
            style={profileButtonStyle}
          >
-           {`View ${employerData.name} Profile`}
+           View Employer Profile
          </button>
        )}
       
