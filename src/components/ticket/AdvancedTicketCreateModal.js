@@ -1787,6 +1787,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                             buttonText="View Claim in MAC"
                             searchType="claim" // Explicitly set as claim search, but will show employer profiles if found
                             isEmployerSearch={false} // This is for employee/claim search
+                            employerData={selectedEmployer} // Pass employer data for profile button
                             openMode="new-tab"
                             openEarlyNewTab={true}
                             onSuccess={(data) => {

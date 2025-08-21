@@ -35,7 +35,7 @@ const ClaimRedirectButton = ({
 
   // Auto-trigger API call for employer searches
   useEffect(() => {
-    if (isEmployerSearch && notificationReportId && !responseData && !hasMadeApiCall && employerData) {
+    if (isEmployerSearch && !responseData && !hasMadeApiCall && employerData) {
       // Set the response data immediately for display
       setResponseData({
         type: "EMPLOYER",
@@ -57,7 +57,14 @@ const ClaimRedirectButton = ({
   const handleClaimRedirect = async () => {
     const idToSend = notificationReportId ?? claimNumber;
     if (!idToSend) {
-      alert('Missing notification report ID');
+      // If no notification report ID, we can still show profile buttons
+      // Just set response data if we have employer data
+      if (employerData) {
+        setResponseData({
+          type: "EMPLOYER",
+          results: [employerData]
+        });
+      }
       return;
     }
 
@@ -217,6 +224,63 @@ const ClaimRedirectButton = ({
   };
 
   const handleViewProfile = async (registrationNumber) => {
+    // If no registration number provided but we have response data with employer info, try to get it
+    if (!registrationNumber && responseData?.type === "EMPLOYEE" && responseData?.results?.[0]?.employee?.employer_name) {
+      const employerName = responseData.results[0].employee.employer_name;
+      
+      // Try to get the registration number by searching for the employer
+      try {
+        const employerSearchResponse = await axios.post(
+          "https://demomspapi.wcf.go.tz/api/v1/search/details",
+          {
+            type: "employer",
+            name: employerName,
+            employer_registration_number: ""
+          },
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json"
+            }
+          }
+        );
+        
+        if (employerSearchResponse.data?.results && employerSearchResponse.data.results.length > 0) {
+          registrationNumber = employerSearchResponse.data.results[0].registration_number;
+          console.log('🔍 Found employer registration_number for profile:', registrationNumber);
+        }
+      } catch (error) {
+        console.log('❌ Error fetching employer registration number for profile:', error);
+      }
+    }
+    
+    // If still no registration number but we have employerData with name, try to get it
+    if (!registrationNumber && employerData && employerData.name && !employerData.registration_number) {
+      try {
+        const employerSearchResponse = await axios.post(
+          "https://demomspapi.wcf.go.tz/api/v1/search/details",
+          {
+            type: "employer",
+            name: employerData.name,
+            employer_registration_number: ""
+          },
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json"
+            }
+          }
+        );
+        
+        if (employerSearchResponse.data?.results && employerSearchResponse.data.results.length > 0) {
+          registrationNumber = employerSearchResponse.data.results[0].registration_number;
+          console.log('🔍 Found employer registration_number from employerData:', registrationNumber);
+        }
+      } catch (error) {
+        console.log('❌ Error fetching employer registration number from employerData:', error);
+      }
+    }
+
     if (profileUrl) {
       window.open(profileUrl, '_blank', 'noopener,noreferrer');
     } else if (registrationNumber) {
@@ -305,8 +369,8 @@ const ClaimRedirectButton = ({
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-      {/* Show claim button only for employee/claim searches */}
-      {!isEmployerSearch && (
+      {/* Show claim button only for employee/claim searches and when we have a valid notificationReportId */}
+      {!isEmployerSearch && notificationReportId && (
         <button
           onClick={handleClaimRedirect}
           disabled={isLoading}
@@ -332,28 +396,72 @@ const ClaimRedirectButton = ({
           registrationNumber = result.registration_number;
         }
         
-        return (
-          <button
-            key={`profile-${index}-${employerName}`}
-            onClick={() => handleViewProfile(registrationNumber)}
-            className={className}
-            style={profileButtonStyle}
-          >
-            {isEmployerSearch ? `View Profile - ${employerName}` : `View ${employerName} Profile`}
-          </button>
-        );
+                 return (
+           <button
+             key={`profile-${index}-${employerName}`}
+             onClick={() => handleViewProfile(registrationNumber)}
+             className={className}
+             style={profileButtonStyle}
+           >
+             {isEmployerSearch ? `View Profile - ${employerName}` : `View ${employerName} Profile`}
+           </button>
+         );
       })}
       
-      {/* Show profile button for employerData if no resultsWithRegistration */}
-      {employerData && employerData.registration_number && resultsWithRegistration.length === 0 && (
-        <button
-          onClick={() => handleViewProfile(employerData.registration_number)}
-          className={className}
-          style={profileButtonStyle}
-        >
-          {buttonText || `View ${employerData.name} Profile`}
-        </button>
-      )}
+             {/* Show profile button for employerData if no resultsWithRegistration */}
+       {employerData && employerData.registration_number && resultsWithRegistration.length === 0 && (
+         <button
+           onClick={() => handleViewProfile(employerData.registration_number)}
+           className={className}
+           style={profileButtonStyle}
+         >
+           {`View ${employerData.name} Profile`}
+         </button>
+       )}
+      
+             {/* Show profile button for employee searches when we have employer data from the API call */}
+       {!isEmployerSearch && responseData?.type === "EMPLOYEE" && responseData?.results?.[0]?.employee?.employer_name && (
+         <button
+           onClick={() => handleViewProfile(null)} // Will use the registration number from the API call
+           className={className}
+           style={profileButtonStyle}
+         >
+           {`View ${responseData.results[0].employee.employer_name} Profile`}
+         </button>
+       )}
+      
+             {/* Show profile button for employerData if no resultsWithRegistration but we have employer name */}
+       {employerData && employerData.name && !employerData.registration_number && resultsWithRegistration.length === 0 && (
+         <button
+           onClick={() => handleViewProfile(null)} // Will search for registration number using employer name
+           className={className}
+           style={profileButtonStyle}
+         >
+           {`View ${employerData.name} Profile`}
+         </button>
+       )}
+       
+       {/* Show profile button for employerData even when there's no claim but we have employer data */}
+       {employerData && employerData.registration_number && !notificationReportId && !responseData && (
+         <button
+           onClick={() => handleViewProfile(employerData.registration_number)}
+           className={className}
+           style={profileButtonStyle}
+         >
+           {`View ${employerData.name} Profile`}
+         </button>
+       )}
+       
+       {/* Show profile button for employerData when there's no claim but we have employer data (alternative condition) */}
+       {employerData && employerData.registration_number && !notificationReportId && (
+         <button
+           onClick={() => handleViewProfile(employerData.registration_number)}
+           className={className}
+           style={profileButtonStyle}
+         >
+           {`View ${employerData.name} Profile`}
+         </button>
+       )}
     </div>
   );
 };
