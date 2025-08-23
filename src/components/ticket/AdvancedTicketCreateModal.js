@@ -1773,7 +1773,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                                 <span style={{ color: "#1976d2" }}>
                                   {formData.claimNumber}
                                 </span>
-                                {formData.notification_report_id && (
+                                {/* {formData.notification_report_id && (
                                   <>
                                     <br />
                                     Notification ID:{" "}
@@ -1781,7 +1781,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                                       {formData.notification_report_id}
                                     </span>
                                   </>
-                                )}
+                                )} */}
                               </>
                             ) : (
                               "No Active Claim"
@@ -2450,7 +2450,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                   >
                     <button
                       className="cancel-btn"
-                      onClick={() => setShowModal(false)}
+                      onClick={onClose}
                     >
                       Cancel
                     </button>
@@ -2460,13 +2460,15 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                     >
                       Submit to Backoffice
                     </button>
-                    <button
-                      className="close-btn"
-                      style={{ background: "gray", color: "white" }}
-                      onClick={(e) => handleSubmit(e, "closed")}
-                    >
-                      Close Ticket
-                    </button>
+                    {formData.category === "Inquiry" && (
+                      <button
+                        className="close-btn"
+                        style={{ background: "gray", color: "white", borderRadius: "4px", padding: "8px 16px" }}
+                        onClick={(e) => handleSubmit(e, "closed")}
+                      >
+                        Close Ticket
+                      </button>
+                    )}
                   </div>
                 </>
               )}
