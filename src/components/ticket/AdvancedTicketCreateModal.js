@@ -580,10 +580,10 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
   const [isLoading, setIsLoading] = useState(false);
   
   // --- Enhanced Search Form State ---
-  const [searchStep, setSearchStep] = useState(0);
+  const [searchStep, setSearchStep] = useState("");
   const [selectedEmployer, setSelectedEmployer] = useState(null);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
-  const [formSearchType, setFormSearchType] = useState("employee");
+  const [formSearchType, setFormSearchType] = useState("");
   const [searchCompleted, setSearchCompleted] = useState(false);
   
   // --- New State for Form Visibility and User Registration ---
@@ -666,9 +666,17 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
   const handleEmployerSelection = (employer) => {
     setSelectedEmployer(employer);
     setSelectedEmployee(null);
-    setFormSearchType("employer");
+    // Don't change formSearchType here - let it remain as set by the user in Step 0
+    // setFormSearchType("employer"); // REMOVED - this was breaking the employee search flow
     setSearchCompleted(true);
-    setShowForm(true); // Show form after employer is found
+    
+    // Only show form immediately if user was searching for employer
+    // If user was searching for employee, let EnhancedSearchForm handle the flow to Step 2
+    if (formSearchType === "employer") {
+      setShowForm(true); // Show form after employer is found
+    }
+    // If formSearchType is "employee", don't show form yet - let EnhancedSearchForm show Step 2
+    
     setShowUserNotFound(false);
     setShowRegistrationOptions(false);
     
@@ -839,9 +847,9 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
   const resetSearch = () => {
     setSelectedEmployer(null);
     setSelectedEmployee(null);
-    setSearchStep(0);
+    setSearchStep("");
     setSearchCompleted(false);
-    setFormSearchType("employee");
+    setFormSearchType("");
     setShowForm(false);
     setShowUserNotFound(false);
     setShowRegistrationOptions(false);
@@ -1683,7 +1691,7 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                          // Reset everything back to initial state
                          resetSearch();
                          // Ensure we're back to step 0 (initial search type selection)
-                         setSearchStep(0);
+                         setSearchStep("");
                          // Clear all search-related state
                          setSearchResults([]);
                          setCurrentSearchQuery("");
@@ -1704,6 +1712,8 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
                     >
                       Try Different Search
                     </button>
+
+
                   </div>
                 </div>
               )}

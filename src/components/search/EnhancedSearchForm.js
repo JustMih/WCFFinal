@@ -10,9 +10,10 @@ const EnhancedSearchForm = ({
   searchStep,
   setSearchStep,
   onSearchTypeChange, // Add this prop to pass searchType to parent
-  onUserNotFound // Add this prop to handle user not found scenarios
+  onUserNotFound, // Add this prop to handle user not found scenarios
+  searchType: parentSearchType // Add this prop to sync with parent
 }) => {
-  const [searchType, setSearchType] = useState(""); // "employer" or "employee"
+  const [searchType, setSearchType] = useState(parentSearchType || ""); // "employer" or "employee"
   const [employerSearchQuery, setEmployerSearchQuery] = useState("");
   const [employerSearchResults, setEmployerSearchResults] = useState([]);
   const [isEmployerSearching, setIsEmployerSearching] = useState(false);
@@ -28,12 +29,10 @@ const EnhancedSearchForm = ({
   const [employerNoResults, setEmployerNoResults] = useState(false);
   const [employeeNoResults, setEmployeeNoResults] = useState(false);
 
-  // Call the callback when searchType changes
+  // Sync searchType with parent
   useEffect(() => {
-    if (onSearchTypeChange) {
-      onSearchTypeChange(searchType);
-    }
-  }, [searchType, onSearchTypeChange]);
+    setSearchType(parentSearchType || "");
+  }, [parentSearchType]);
 
   // Cleanup timeouts on unmount
   useEffect(() => {
@@ -178,13 +177,16 @@ const EnhancedSearchForm = ({
     }
     
     setSearchType("");
+    if (onSearchTypeChange) {
+      onSearchTypeChange("");
+    }
     setEmployerSearchQuery("");
     setEmployerSearchResults([]);
     setEmployerNoResults(false);
     setEmployeeSearchQuery("");
     setEmployeeSearchResults([]);
     setEmployeeNoResults(false);
-    setSearchStep("employer");
+    setSearchStep("");
     onReset();
   };
 
@@ -218,6 +220,9 @@ const EnhancedSearchForm = ({
             <button
               onClick={() => {
                 setSearchType("employer");
+                if (onSearchTypeChange) {
+                  onSearchTypeChange("employer");
+                }
                 setSearchStep("employer");
               }}
               style={{
@@ -237,6 +242,9 @@ const EnhancedSearchForm = ({
             <button
               onClick={() => {
                 setSearchType("employee");
+                if (onSearchTypeChange) {
+                  onSearchTypeChange("employee");
+                }
                 setSearchStep("employer");
               }}
               style={{
