@@ -173,18 +173,32 @@ export default function FocalPersonDashboard() {
       const response = await fetch(`${baseURL}/ticket/assigned/${userId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      
+             if (response.status === 404) {
+         // Handle "no tickets found" case gracefully
+         setTickets([]);
+         setSnackbar({
+           open: true,
+           message: "No assigned tickets found",
+           severity: "info"
+         });
+         return;
+       }
+      
       if (!response.ok) {
         throw new Error("Failed to fetch tickets");
       }
+      
       const data = await response.json();
       setTickets(data.tickets || []);
-      if (!data.tickets?.length) {
-        setSnackbar({
-          open: true,
-          message: "No tickets found",
-          severity: "info"
-        });
-      }
+      
+             if (!data.tickets?.length) {
+         setSnackbar({
+           open: true,
+           message: "No assigned tickets found",
+           severity: "info"
+         });
+       }
     } catch (error) {
       setSnackbar({
         open: true,
@@ -828,13 +842,13 @@ export default function FocalPersonDashboard() {
         refreshDashboardCounts={() => fetchDashboardCounts(userId)}
       />
 
-      {/* Snackbar */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
-        onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
-      >
+             {/* Snackbar */}
+       <Snackbar
+         open={snackbar.open}
+         autoHideDuration={6000}
+         onClose={handleSnackbarClose}
+         anchorOrigin={{ vertical: "top", horizontal: "center" }}
+       >
         <Alert 
           severity={snackbar.severity}
           onClose={handleSnackbarClose}
