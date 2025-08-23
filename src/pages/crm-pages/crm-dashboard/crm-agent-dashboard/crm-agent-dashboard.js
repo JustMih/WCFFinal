@@ -3925,6 +3925,7 @@ const AgentCRM = () => {
       <AdvancedTicketCreateModal
         open={showAdvancedTicketModal}
         onClose={() => setShowAdvancedTicketModal(false)}
+        onOpen={() => setShowAdvancedTicketModal(true)}
         initialPhoneNumber={ticketPhoneNumber}
         functionData={functionData}
       />

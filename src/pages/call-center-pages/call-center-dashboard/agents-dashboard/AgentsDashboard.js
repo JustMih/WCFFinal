@@ -1296,6 +1296,7 @@ export default function AgentsDashboard() {
         <AdvancedTicketCreateModal 
           open={showTicketModal} 
           onClose={closeTicketModal} 
+          onOpen={openTicketModal}
           initialPhoneNumber={ticketPhoneNumber} 
           functionData={functionData}
         />

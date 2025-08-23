@@ -18,6 +18,7 @@ import Divider from "@mui/material/Divider";
 
 import { styled } from "@mui/material/styles";
 import ChatIcon from '@mui/icons-material/Chat';
+import AssignmentIcon from '@mui/icons-material/Assignment';
 import { baseURL } from "../../config";
 import EnhancedSearchForm from "../search/EnhancedSearchForm";
 import ClaimRedirectButton from "./ClaimRedirectButton.jsx";
@@ -550,7 +551,7 @@ const districtsData = {
   ]
 };
 
-function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", functionData = [] }) {
+function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber = "", functionData = [] }) {
   // --- CRM Modal State ---
   const [formData, setFormData] = useState({ ...defaultFormData, phoneNumber: initialPhoneNumber });
   const [formErrors, setFormErrors] = useState({});
@@ -1587,9 +1588,124 @@ function AdvancedTicketCreateModal({ open, onClose, initialPhoneNumber = "", fun
     handleUserNotFound(searchQuery, searchType);
   };
 
+  // Check if there's data to show floating button
+  const hasData = formData.firstName || formData.lastName || formData.phoneNumber || 
+                  formData.institution || formData.requester || selectedEmployer || selectedEmployee;
+  
+  // Check if there's significant data (more than just phone number)
+  const hasSignificantData = formData.firstName || formData.lastName || 
+                             formData.institution || formData.requester || 
+                             selectedEmployer || selectedEmployee;
+
   // Add the full JSX structure from the CRM modal here
   return (
     <>
+      {/* Floating Ticket Button - Show when modal is closed but has data */}
+      {!open && hasData && (
+        <Box
+          sx={{
+            position: 'fixed',
+            left: '20px',
+            bottom: '20px',
+            zIndex: 1000,
+            cursor: 'pointer'
+          }}
+          onClick={() => {
+            // Reopen the modal
+            console.log('Floating button clicked - attempting to reopen modal');
+            console.log('Current form data:', formData);
+            console.log('Selected employer:', selectedEmployer);
+            console.log('Selected employee:', selectedEmployee);
+            
+            if (onOpen) {
+              onOpen();
+            } else {
+              console.warn('onOpen prop not provided - cannot reopen modal');
+            }
+          }}
+          title="Resume Ticket Creation - Click to reopen your ticket form with saved data"
+        >
+          <Box
+            sx={{
+              width: '50px',
+              height: '50px',
+              borderRadius: '50%',
+              backgroundColor: '#1976d2',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+              transition: 'all 0.3s ease',
+              position: 'relative',
+              '&:hover': {
+                transform: 'scale(1.1)',
+                boxShadow: '0 6px 16px rgba(0,0,0,0.4)'
+              }
+            }}
+          >
+            <AssignmentIcon sx={{ color: 'white', fontSize: 28 }} />
+            {/* Notification badge for significant data */}
+            {hasSignificantData && (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: '-5px',
+                  right: '-5px',
+                  width: '20px',
+                  height: '20px',
+                  borderRadius: '50%',
+                  backgroundColor: '#f44336',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '12px',
+                  color: 'white',
+                  fontWeight: 'bold',
+                  border: '2px solid white'
+                }}
+              >
+                !
+              </Box>
+            )}
+          </Box>
+          {/* Enhanced Tooltip */}
+          <Box
+            sx={{
+              position: 'absolute',
+              left: '70px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              backgroundColor: 'rgba(0,0,0,0.9)',
+              color: 'white',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              fontSize: '13px',
+              whiteSpace: 'nowrap',
+              opacity: 0,
+              transition: 'opacity 0.3s ease',
+              pointerEvents: 'none',
+              '&:hover': {
+                opacity: 1
+              },
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                left: '-6px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: 0,
+                height: 0,
+                borderTop: '6px solid transparent',
+                borderBottom: '6px solid transparent',
+                borderRight: '6px solid rgba(0,0,0,0.9)'
+              }
+            }}
+          >
+            📝 Resume Ticket Creation
+          </Box>
+        </Box>
+      )}
+
       <Modal open={open} onClose={onClose}>
         <Box
           sx={{
