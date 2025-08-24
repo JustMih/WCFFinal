@@ -24,6 +24,7 @@ import Download from '@mui/icons-material/Download';
 import AttachFile from '@mui/icons-material/AttachFile';
 import { baseURL } from "../config";
 import { PermissionManager } from "../utils/permissions";
+import TicketUpdates from './ticket/TicketUpdates';
 
 const getCreatorName = (selectedTicket) =>
   selectedTicket.created_by ||
@@ -868,6 +869,9 @@ export default function TicketDetailsModal({
   const [dgNotes, setDgNotes] = useState("");
   const [dgApproved, setDgApproved] = useState(true);
 
+  // Ticket Updates toggle state
+  const [showTicketUpdates, setShowTicketUpdates] = useState(false);
+
   // Initialize selectedRating when modal opens
   useEffect(() => {
     if (selectedTicket) {
@@ -1684,9 +1688,15 @@ export default function TicketDetailsModal({
                     Ticket History
                   </Typography>
                   <Box sx={{ display: 'flex', justifyContent: 'flex-end', flex: 1 }}>
-                    <IconButton size="small" onClick={() => setIsFlowModalOpen(true)} title="Show Assignment Flow Chart">
-                      <ChatIcon color="primary" />
-                    </IconButton>
+                    <Button 
+                      size="small" 
+                      onClick={() => setIsFlowModalOpen(true)} 
+                      variant="outlined"
+                      startIcon={<ChatIcon />}
+                      sx={{ textTransform: 'none', fontSize: '0.875rem' }}
+                    >
+                      Ticket Updates
+                    </Button>
                   </Box>
                 </Box>
                 <Divider sx={{ mb: 2 }} />
@@ -1825,6 +1835,8 @@ export default function TicketDetailsModal({
                   </Box>
                 )} */}
               </Box>
+
+
 
               {/* Two-Column Ticket Fields */}
               <div style={{ display: "flex", flexWrap: "wrap", gap: "16px" }}>
@@ -2263,10 +2275,33 @@ export default function TicketDetailsModal({
         </Box>
       </Modal>
       {/* Assignment Flow Chart Dialog */}
-      <Dialog open={isFlowModalOpen} onClose={() => setIsFlowModalOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>Justification History</DialogTitle>
-        <DialogContent>
-          <AssignmentFlowChat assignmentHistory={assignmentHistory} selectedTicket={selectedTicket} />
+      <Dialog open={isFlowModalOpen} onClose={() => setIsFlowModalOpen(false)} maxWidth="lg" fullWidth>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h6" sx={{ mb: -2, color: '#1976d2', fontWeight: 'bold' }}>
+                Ticket Updates & Progress
+              </Typography>
+            <IconButton onClick={() => setIsFlowModalOpen(false)} size="small">
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ minHeight: '60vh', maxHeight: '80vh', overflow: 'auto' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, py: 1 }}>
+            
+            {/* Divider */}
+            <Divider sx={{ my: 1 }} />
+            
+            {/* Ticket Updates */}
+            <Box>
+              <TicketUpdates 
+                ticketId={selectedTicket?.id}
+                currentUserId={localStorage.getItem('userId')}
+                canAddUpdates={selectedTicket?.status !== 'Closed' && selectedTicket?.status !== 'Attended and Recommended'}
+                isAssigned={selectedTicket?.assigned_to_id === localStorage.getItem('userId')}
+              />
+            </Box>
+          </Box>
         </DialogContent>
       </Dialog>
       {/* Attend/Resolve Dialog */}

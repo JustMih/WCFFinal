@@ -1,7 +1,9 @@
 /* eslint-disable no-undef */
-import React from "react";
-import { Box, Typography } from "@mui/material";
+import React, { useState } from "react";
+import { Box, Typography, IconButton, Collapse } from "@mui/material";
+import { ExpandMore, ExpandLess } from '@mui/icons-material';
 import { baseURL } from '../config';
+import TicketUpdates from './ticket/TicketUpdates';
 
 
 const getFileNameFromPath = (filePath) => {
@@ -10,6 +12,8 @@ const getFileNameFromPath = (filePath) => {
 };
 
 export default function AssignmentStepper({ assignmentHistory, selectedTicket }) {
+  const [expandedStep, setExpandedStep] = useState(null);
+
   // Helper function to calculate aging
   const calculateAging = (dateString) => {
     if (!dateString) return "";
@@ -231,6 +235,10 @@ export default function AssignmentStepper({ assignmentHistory, selectedTicket })
   }
   
   console.log("Current Assignee Index:", currentAssigneeIdx);
+
+  const handleStepToggle = (stepIndex) => {
+    setExpandedStep(expandedStep === stepIndex ? null : stepIndex);
+  };
   
   return (
     <Box>
@@ -286,43 +294,66 @@ export default function AssignmentStepper({ assignmentHistory, selectedTicket })
         }
         
         return (
-          <Box key={idx} sx={{ display: "flex", alignItems: "center", gap: 2, mb: 2 }}>
-            <Box
-              sx={{
-                width: 30,
-                height: 30,
-                borderRadius: "50%",
-                bgcolor: color,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "white",
-                fontWeight: "bold"
-              }}
-            >
-              {idx + 1}
-            </Box>
-            <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-                {a.assigned_to_name} ({a.assigned_to_role})
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {a.action} - {formattedDate} {aging}
-              </Typography>
-              {a.attachment_path ? (
-                <Typography
-                  variant="body2"
-                  sx={{ color: '#28a745', fontStyle: 'italic', cursor: 'pointer', textDecoration: 'underline' }}
-                  onClick={() => openAttachmentFile(a.attachment_path)}
-                >
-                  Download attachment
+          <Box key={idx} sx={{ mb: 2 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <Box
+                sx={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: "50%",
+                  bgcolor: color,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "white",
+                  fontWeight: "bold"
+                }}
+              >
+                {idx + 1}
+              </Box>
+              <Box sx={{ flexGrow: 1 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
+                  {a.assigned_to_name} ({a.assigned_to_role})
                 </Typography>
-              ) : (
-                <Typography variant="body2" sx={{ color: '#28a745', fontStyle: 'italic' }}>
-                  No attachment
+                <Typography variant="body2" color="text.secondary">
+                  {a.action} - {formattedDate} {aging}
                 </Typography>
-              )}
+                {a.attachment_path ? (
+                  <Typography
+                    variant="body2"
+                    sx={{ color: '#28a745', fontStyle: 'italic', cursor: 'pointer', textDecoration: 'underline' }}
+                    onClick={() => openAttachmentFile(a.attachment_path)}
+                  >
+                    Download attachment
+                  </Typography>
+                ) : (
+                  <Typography variant="body2" sx={{ color: '#28a745', fontStyle: 'italic' }}>
+                    No attachment
+                  </Typography>
+                )}
+              </Box>
+              <IconButton
+                size="small"
+                onClick={() => handleStepToggle(idx)}
+                sx={{ color: '#1976d2' }}
+              >
+                {expandedStep === idx ? <ExpandLess /> : <ExpandMore />}
+              </IconButton>
             </Box>
+            
+            {/* Collapsible Updates Section */}
+            <Collapse in={expandedStep === idx}>
+              <Box sx={{ ml: 4, mt: 2, p: 2, bgcolor: '#f8f9fa', borderRadius: 1, border: '1px solid #e9ecef' }}>
+                <Typography variant="subtitle2" sx={{ mb: 2, color: '#1976d2', fontWeight: 'bold' }}>
+                  Updates for this step
+                </Typography>
+                <TicketUpdates 
+                  ticketId={selectedTicket.id}
+                  currentUserId={localStorage.getItem('userId')}
+                  canAddUpdates={selectedTicket.status !== 'Closed' && selectedTicket.status !== 'Attended and Recommended'}
+                />
+              </Box>
+            </Collapse>
           </Box>
         );
       })}
