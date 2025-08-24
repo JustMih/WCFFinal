@@ -31,6 +31,7 @@ const TicketUpdates = ({ ticketId, currentUserId, canAddUpdates = true, isAssign
   const [updates, setUpdates] = useState([]);
   const [loading, setLoading] = useState(false);
   const [addingUpdate, setAddingUpdate] = useState(false);
+  const [showUpdateForm, setShowUpdateForm] = useState(false);
   const [newUpdate, setNewUpdate] = useState('');
   const [editingUpdate, setEditingUpdate] = useState(null);
   const [editText, setEditText] = useState('');
@@ -86,6 +87,7 @@ const TicketUpdates = ({ ticketId, currentUserId, canAddUpdates = true, isAssign
 
       if (response.ok) {
         setNewUpdate('');
+        setShowUpdateForm(false);
         setSuccess('Update added successfully');
         fetchUpdates();
         setTimeout(() => setSuccess(''), 3000);
@@ -200,30 +202,57 @@ const TicketUpdates = ({ ticketId, currentUserId, canAddUpdates = true, isAssign
         </Alert>
       )}
 
-      {/* Add new update or show message if not assigned */}
+      {/* Add new update section */}
       {canAddUpdates && isAssigned ? (
         <Paper sx={{ p: 2, mb: 2 }}>
-          <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-            <TextField
-              fullWidth
-              multiline
-              rows={3}
-              placeholder="Enter your daily progress update..."
-              value={newUpdate}
-              onChange={(e) => setNewUpdate(e.target.value)}
-              variant="outlined"
-              size="small"
-            />
-            <Button
-              variant="contained"
-              onClick={handleAddUpdate}
-              disabled={!newUpdate.trim() || addingUpdate}
-              startIcon={addingUpdate ? <CircularProgress size={16} color="inherit" /> : <AddIcon />}
-              sx={{ minWidth: 'auto', px: 2 }}
-            >
-              {addingUpdate ? 'Adding...' : 'Add'}
-            </Button>
-          </Box>
+          {!showUpdateForm ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+              <Button
+                variant="contained"
+                onClick={() => setShowUpdateForm(true)}
+                startIcon={<AddIcon />}
+                sx={{ textTransform: 'none' }}
+              >
+                Add New Update
+              </Button>
+            </Box>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                <TextField
+                  fullWidth
+                  multiline
+                  rows={3}
+                  placeholder="Enter your daily progress update..."
+                  value={newUpdate}
+                  onChange={(e) => setNewUpdate(e.target.value)}
+                  variant="outlined"
+                  size="small"
+                />
+                <Button
+                  variant="contained"
+                  onClick={handleAddUpdate}
+                  disabled={!newUpdate.trim() || addingUpdate}
+                  startIcon={addingUpdate ? <CircularProgress size={16} color="inherit" /> : <AddIcon />}
+                  sx={{ minWidth: 'auto', px: 2 }}
+                >
+                  {addingUpdate ? 'Adding...' : 'Add'}
+                </Button>
+              </Box>
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => {
+                    setShowUpdateForm(false);
+                    setNewUpdate('');
+                  }}
+                >
+                  Cancel
+                </Button>
+              </Box>
+            </Box>
+          )}
         </Paper>
       ) : canAddUpdates && !isAssigned && updates.length === 0 ? (
         <Paper sx={{ p: 3, mb: 2, textAlign: 'center', bgcolor: '#f8f9fa' }}>
