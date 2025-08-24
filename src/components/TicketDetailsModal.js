@@ -1870,6 +1870,12 @@ export default function TicketDetailsModal({
                 </div>
                 <div style={{ flex: "1 1 45%" }}>
                   <Typography>
+                    <strong>Requester:</strong>{" "}
+                    {selectedTicket.requester || "N/A"}
+                  </Typography>
+                </div>
+                <div style={{ flex: "1 1 45%" }}>
+                  <Typography>
                     <strong>Rated:</strong>{" "}
                     {selectedTicket.complaint_type || "N/A"}
                   </Typography>
@@ -1913,7 +1919,7 @@ export default function TicketDetailsModal({
               </div>
 
               {/* Representative Details Section */}
-              {selectedTicket.requester === "Representative" && selectedTicket.representative_name && (
+              {(["Representative", "Employer"].includes(selectedTicket.requester)) && selectedTicket.representative_name && (
                 <Box sx={{ mt: 3, mb: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 2, border: '1px solid #e0e0e0' }}>
                   <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2, color: '#1976d2' }}>
                     Representative Details
