@@ -350,7 +350,7 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
                 mt: 0.5
               }}
             >
-              {idx + 1}
+              {reversedSteps.length - idx}
             </Box>
             <Box sx={{ flex: 1 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
