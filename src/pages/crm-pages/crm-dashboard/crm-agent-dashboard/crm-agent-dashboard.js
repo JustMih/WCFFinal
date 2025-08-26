@@ -2851,8 +2851,8 @@ const AgentCRM = () => {
                     ["Subject", selectedTicket.subject || "N/A"],
                     [
                       "Created By",
-                      selectedTicket?.creator?.name
-                        ? `${selectedTicket.creator.name}${
+                      selectedTicket?.creator?.full_name
+                        ? `${selectedTicket.creator.full_name}${
                             selectedTicket.role
                               ? ` (${selectedTicket.role})`
                               : ""
@@ -2860,7 +2860,7 @@ const AgentCRM = () => {
                         : "N/A",
                     ],
                     // Always show Assigned To and Assigned Role
-                    ["Assigned To", selectedTicket?.assignee?.name || "N/A"],
+                    ["Assigned To", selectedTicket?.assignee?.full_name || "N/A"],
                     ["Assigned Role", selectedTicket.assigned_to_role || "N/A"],
                   ].map(([label, value], index) => (
                     <div

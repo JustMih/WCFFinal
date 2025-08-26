@@ -78,14 +78,14 @@ const TicketDetailsModal = ({ open, onClose, ticket }) => {
     ["Channel", ticket.channel || "N/A"],
     ["Rated", ticket.complaint_type || "Unrated"],
     ["Status", ticket.status || "N/A"],
-    ["Assigned To", ticket.assignee?.name || "N/A"],
+    ["Assigned To", ticket.assignee?.full_name || "N/A"],
     ["Assigned Role", ticket.assigned_to_role || "N/A"],
-    ["Created By", ticket.creator?.name || "N/A"],
+    ["Created By", ticket.creator?.full_name || "N/A"],
     ["Created At", formatDate(ticket.created_at)],
-    ["Attended By", ticket.attendedBy?.name || "N/A"],
-    ["Rated By", ticket.ratedBy?.name || "N/A"],
-    ["Converted By", ticket.convertedBy?.name || "N/A"],
-    ["Forwarded By", ticket.forwardedBy?.name || "N/A"]
+    ["Attended By", ticket.attendedBy?.full_name || "N/A"],
+    ["Rated By", ticket.ratedBy?.full_name || "N/A"],
+    ["Converted By", ticket.convertedBy?.full_name || "N/A"],
+    ["Forwarded By", ticket.forwardedBy?.full_name || "N/A"]
   ];
 
   return (
