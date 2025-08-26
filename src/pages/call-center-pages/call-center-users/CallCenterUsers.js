@@ -117,8 +117,11 @@ export default function CallCenterUsers() {
         },
         body: JSON.stringify(userDataToSend),
       });
+      
       if (!response.ok) {
-        throw new Error("Failed to create user");
+        // Get the error response from the server
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to create user");
       }
       setShowModal(false);
       setNewUserData({
@@ -138,8 +141,11 @@ export default function CallCenterUsers() {
       setSnackbarSeverity("success");
       setSnackbarOpen(true);
     } catch (error) {
-      setError(error.message);
-      setSnackbarMessage("Error adding user.");
+      console.error("Error creating user:", error);
+      
+      const errorMessage = error.message || "Error adding user.";
+      setError(errorMessage);
+      setSnackbarMessage(errorMessage);
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
     }
@@ -170,8 +176,11 @@ export default function CallCenterUsers() {
         },
         body: JSON.stringify(userDataToSend),
       });
+      
       if (!response.ok) {
-        throw new Error("Failed to update user");
+        // Get the error response from the server
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to update user");
       }
       setShowModal(false);
       setIsEditing(false);
@@ -245,7 +254,9 @@ export default function CallCenterUsers() {
         }
 
         if (!response.ok) {
-          throw new Error(`Failed to ${actionType} user`);
+          // Get the error response from the server
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Failed to ${actionType} user`);
         }
 
         fetchUsers(); // Reload the users after action
