@@ -2811,6 +2811,8 @@ const AgentCRM = () => {
               maxHeight: "90vh",
             }}
           >
+
+            
             {selectedTicket && (
               <>
                 <Typography
@@ -2820,6 +2822,32 @@ const AgentCRM = () => {
                   Ticket Details
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
+                
+                {/* Representative Details Section */}
+                {(["Representative", "Employer"].includes(selectedTicket.requester)) && selectedTicket.representative_name && (
+                  <Box sx={{ mt: 3, mb: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 2, border: '1px solid #e0e0e0' }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2, color: '#1976d2' }}>
+                      Representative Details
+                    </Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                      <div>
+                        <Typography variant="body2"><strong>Name:</strong> {selectedTicket.representative_name || 'N/A'}</Typography>
+                      </div>
+                      <div>
+                        <Typography variant="body2"><strong>Phone:</strong> {selectedTicket.representative_phone || 'N/A'}</Typography>
+                      </div>
+                      <div>
+                        <Typography variant="body2"><strong>Email:</strong> {selectedTicket.representative_email || 'N/A'}</Typography>
+                      </div>
+                      <div>
+                        <Typography variant="body2"><strong>Address:</strong> {selectedTicket.representative_address || 'N/A'}</Typography>
+                      </div>
+                      <div>
+                        <Typography variant="body2"><strong>Relationship to Employee:</strong> {selectedTicket.representative_relationship || 'N/A'}</Typography>
+                      </div>
+                    </Box>
+                  </Box>
+                )}
                 <div
                   style={{
                     display: "grid",
@@ -3116,31 +3144,6 @@ const AgentCRM = () => {
                   </Box>
                 )}
 
-                {/* Representative Details Section */}
-                {(["Representative", "Employer"].includes(selectedTicket.requester)) && selectedTicket.representative_name && (
-                  <Box sx={{ mt: 3, mb: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 2, border: '1px solid #e0e0e0' }}>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2, color: '#1976d2' }}>
-                      Representative Details
-                    </Typography>
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-                      <div>
-                        <Typography variant="body2"><strong>Name:</strong> {selectedTicket.representative_name || 'N/A'}</Typography>
-                      </div>
-                      <div>
-                        <Typography variant="body2"><strong>Phone:</strong> {selectedTicket.representative_phone || 'N/A'}</Typography>
-                      </div>
-                      <div>
-                        <Typography variant="body2"><strong>Email:</strong> {selectedTicket.representative_email || 'N/A'}</Typography>
-                      </div>
-                      <div>
-                        <Typography variant="body2"><strong>Address:</strong> {selectedTicket.representative_address || 'N/A'}</Typography>
-                      </div>
-                      <div>
-                        <Typography variant="body2"><strong>Relationship to Employee:</strong> {selectedTicket.representative_relationship || 'N/A'}</Typography>
-                      </div>
-                    </Box>
-                  </Box>
-                )}
                 <Box sx={{ mt: 3, textAlign: "right" }}>
                   <Button
                     variant="contained"
