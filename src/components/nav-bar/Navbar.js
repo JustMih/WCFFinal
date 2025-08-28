@@ -11,7 +11,7 @@ import { baseURL } from "../../config";
 import "./navbar.css";
 import { IoMdNotificationsOutline } from "react-icons/io";
 import { Badge } from "@mui/material";
-import CoordinatorActionModal from "../coordinator/CoordinatorActionModal";
+import ReviewerActionModal from "../reviewer/ReviewerActionModal";
 import Rating from '@mui/material/Rating';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -421,7 +421,7 @@ export default function Navbar({
     role === "super-admin" ||
     role === "agent" ||
     role === "attendee" ||
-    role === "coordinator" ||
+            role === "reviewer" ||
     role === "supervisor";
 
   const handleSystemSwitch = (system) => {
@@ -548,7 +548,7 @@ export default function Navbar({
           </div>
         </div>
       </div>
-      <CoordinatorActionModal
+      <ReviewerActionModal
         open={isActionModalOpen}
         onClose={() => setIsActionModalOpen(false)}
         ticket={modalTicket}

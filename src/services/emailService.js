@@ -130,14 +130,14 @@ const sendTicketEmail = async (ticket, recipientEmail) => {
     return false;
 };
 
-// Function to get coordinator email based on ticket category
-const getCoordinatorEmail = async (category) => {
-    // This should be replaced with actual logic to fetch coordinator email from your database
-    return 'coordinator@wcf.go.tz';
+// Function to get reviewer email based on ticket category
+const getReviewerEmail = async (category) => {
+  // This should be replaced with actual logic to fetch reviewer email from your database
+  return 'reviewer@wcf.go.tz';
 };
 
 module.exports = {
     sendTicketEmail,
-    getCoordinatorEmail,
+    getReviewerEmail,
     verifyConnection
 }; 

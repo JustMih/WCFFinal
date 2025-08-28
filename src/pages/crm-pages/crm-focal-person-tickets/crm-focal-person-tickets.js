@@ -301,7 +301,7 @@ export default function CRMFocalPersonTickets() {
     if (responsible_unit_id) payload.responsible_unit_id = responsible_unit_id;
 
     try {
-      const response = await fetch(`${baseURL}/coordinator/${ticketId}/convert-or-forward-ticket`, {
+              const response = await fetch(`${baseURL}/reviewer/${ticketId}/convert-or-forward-ticket`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

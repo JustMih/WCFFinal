@@ -189,8 +189,8 @@ const renderAssignmentStepper = (assignmentHistory, selectedTicket) => {
           color = "green"; // Green for assigned step that was forwarded to another user
         } else if (a.action === "Assigned") {
           color = "gray"; // Gray for assigned but still open
-        } else if (a.action === "Currently with" || a.assigned_to_role === "Coordinator") {
-          color = "gray"; // Gray for currently with and coordinator
+            } else if (a.action === "Currently with" || a.assigned_to_role === "Reviewer") {
+      color = "gray"; // Gray for currently with and reviewer
         } else if (idx === currentAssigneeIdx && selectedTicket.status !== "Closed") {
           color = "gray"; // Gray for current active step
         } else if (idx < currentAssigneeIdx || selectedTicket.status === "Closed") {

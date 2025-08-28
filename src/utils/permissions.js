@@ -25,14 +25,14 @@ export const ACTIONS = {
 export const ROLE_PERMISSIONS = {
   'agent': {
     actions: [ACTIONS.CREATE_TICKET, ACTIONS.VIEW_TICKET, ACTIONS.DOWNLOAD_ATTACHMENT],
-    can_assign_to: ['coordinator'],
+    can_assign_to: ['reviewer'],
     workflow_stages: ['initial'],
     can_access_tickets: ['own', 'assigned'],
     sla_hours: 24,
-    description: 'Can create tickets and assign to coordinator',
+    description: 'Can create tickets and assign to reviewer',
     color: '#2196f3'
   },
-  'coordinator': {
+  'reviewer': {
     actions: [
       ACTIONS.VIEW_TICKET,
       ACTIONS.RATE_COMPLAINT,
@@ -45,7 +45,7 @@ export const ROLE_PERMISSIONS = {
     can_rate: ['minor', 'major'],
     can_close: ['MINOR_UNIT', 'MINOR_DIRECTORATE'], // Can close minor complaints
     can_close_special: ['public-relations', 'directorate-of-operations'], // Special closing for specific sections
-    workflow_stages: ['coordinator_review'],
+    workflow_stages: ['reviewer_review'],
     can_access_tickets: ['all'],
     sla_hours: 48,
     description: 'Can rate complaints, assign to workflow path, and close in special cases',
@@ -63,7 +63,7 @@ export const ROLE_PERMISSIONS = {
       ACTIONS.VIEW_REPORTS
     ],
     can_assign_to: ['attendee'],
-    can_reverse_to: ['coordinator'],
+    can_reverse_to: ['reviewer'],
     can_close: ['MINOR_UNIT'],
     workflow_stages: ['head_of_unit_review', 'head_of_unit_final'],
     can_access_tickets: ['all'],
@@ -84,7 +84,7 @@ export const ROLE_PERMISSIONS = {
       ACTIONS.VIEW_REPORTS
     ],
     can_assign_to: ['manager'],
-    can_reverse_to: ['coordinator'],
+    can_reverse_to: ['reviewer'],
     workflow_stages: ['director_review', 'director_final'],
     can_access_tickets: ['all'],
     sla_hours: 24,
@@ -154,10 +154,10 @@ export const ROLE_PERMISSIONS = {
 export const WORKFLOW_PATHS = {
   MINOR_UNIT: {
     name: 'Minor Complaint - Unit',
-    steps: ['agent', 'coordinator', 'head-of-unit', 'attendee', 'head-of-unit'],
+    steps: ['agent', 'reviewer', 'head-of-unit', 'attendee', 'head-of-unit'],
     totalSteps: 5,
     sla: {
-      coordinator: 48,
+      reviewer: 48,
       'head-of-unit': 24,
       attendee: 72
     },
@@ -165,10 +165,10 @@ export const WORKFLOW_PATHS = {
   },
   MINOR_DIRECTORATE: {
     name: 'Minor Complaint - Directorate',
-    steps: ['agent', 'coordinator', 'director', 'manager', 'attendee', 'manager', 'director'],
+    steps: ['agent', 'reviewer', 'director', 'manager', 'attendee', 'manager', 'director'],
     totalSteps: 7,
     sla: {
-      coordinator: 48,
+      reviewer: 48,
       director: 24,
       manager: 24,
       attendee: 72
@@ -177,10 +177,10 @@ export const WORKFLOW_PATHS = {
   },
   MAJOR_UNIT: {
     name: 'Major Complaint - Unit',
-    steps: ['agent', 'coordinator', 'head-of-unit', 'attendee', 'head-of-unit', 'director-general'],
+    steps: ['agent', 'reviewer', 'head-of-unit', 'attendee', 'head-of-unit', 'director-general'],
     totalSteps: 6,
     sla: {
-      coordinator: 48,
+      reviewer: 48,
       'head-of-unit': 24,
       attendee: 168, // 7 days
       'director-general': 24
@@ -189,10 +189,10 @@ export const WORKFLOW_PATHS = {
   },
   MAJOR_DIRECTORATE: {
     name: 'Major Complaint - Directorate',
-    steps: ['agent', 'coordinator', 'director', 'manager', 'attendee', 'manager', 'director', 'director-general'],
+    steps: ['agent', 'reviewer', 'director', 'manager', 'attendee', 'manager', 'director', 'director-general'],
     totalSteps: 8,
     sla: {
-      coordinator: 48,
+      reviewer: 48,
       director: 24,
       manager: 24,
       attendee: 168, // 7 days
@@ -231,7 +231,7 @@ export class PermissionManager {
         this.userRole === 'head-of-unit' || 
         this.userRole === 'director' || 
         this.userRole === 'manager' || 
-        this.userRole === 'coordinator') {
+        this.userRole === 'reviewer') {
       return true;
     }
 
@@ -303,11 +303,11 @@ export class PermissionManager {
       case ACTIONS.RATE_COMPLAINT:
         return ticket?.category === 'Complaint' && 
                !ticket?.complaint_type && 
-               workflowStage === 'coordinator_review';
+               workflowStage === 'reviewer_review';
       
       case ACTIONS.CHANGE_TYPE:
         return ticket?.category === 'Complaint' && 
-               workflowStage === 'coordinator_review';
+               workflowStage === 'reviewer_review';
       
       case ACTIONS.ASSIGN_TICKET:
         return this.rolePermissions.can_assign_to && 
@@ -337,9 +337,9 @@ export class PermissionManager {
         // Check if user can close at current step
         if (!this.canCloseAtCurrentStep(ticket)) return false;
         
-        // Special case: Coordinator can close in specific scenarios
-        if (this.userRole === 'coordinator') {
-          // Check if coordinator's unit_section matches the ticket's section
+        // Special case: Reviewer can close in specific scenarios
+        if (this.userRole === 'reviewer') {
+          // Check if reviewer's unit_section matches the ticket's section
           if (this.userUnitSection && 
               this.userUnitSection.toLowerCase().replace(/\s+/g, '-') === 
               (ticket?.section || ticket?.unit_section)?.toLowerCase().replace(/\s+/g, '-')) {
@@ -361,7 +361,7 @@ export class PermissionManager {
             return true;
           }
           
-          // If none of the special cases apply, coordinator cannot close
+          // If none of the special cases apply, reviewer cannot close
           return false;
         }
         
@@ -398,9 +398,9 @@ export class PermissionManager {
       }
     }
     
-    // Coordinator special closing scenarios
-    if (this.userRole === 'coordinator' && currentRole === 'coordinator') {
-      // Check if coordinator's unit_section matches the ticket's section
+    // Reviewer special closing scenarios
+    if (this.userRole === 'reviewer' && currentRole === 'reviewer') {
+      // Check if reviewer's unit_section matches the ticket's section
       if (this.userUnitSection && 
           this.userUnitSection.toLowerCase().replace(/\s+/g, '-') === 
           (ticket?.section || ticket?.unit_section)?.toLowerCase().replace(/\s+/g, '-')) {
@@ -422,7 +422,7 @@ export class PermissionManager {
         return true;
       }
       
-      // If none of the special cases apply, coordinator cannot close
+      // If none of the special cases apply, reviewer cannot close
       return false;
     }
     

@@ -268,7 +268,7 @@ export default function Crm() {
         },
         {
           title: "Reviewer Review",
-          details: ticket.assigned_to_role === "Coordinator"
+          details: ticket.assigned_to_role === "Reviewer"
             ? "Currently under reviewer review"
             : "Pending Reviewer Review"
         },
@@ -502,7 +502,7 @@ export default function Crm() {
     </tr>
   );
 
-  // Add handler functions for coordinator actions
+      // Add handler functions for reviewer actions
   const handleRating = async (ticketId, rating) => {
     try {
       const token = localStorage.getItem("authToken");

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Modal, Box, Typography, Divider, Button, Tooltip } from "@mui/material";
 
-export default function CoordinatorActionModal({
+export default function ReviewerActionModal({
   open,
   onClose,
   ticket,

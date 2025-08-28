@@ -42,7 +42,7 @@ export default function TicketsTable() {
       const userId = localStorage.getItem('userId');
 
       const response = await fetch(
-        `${baseURL}/coordinator/tickets/${category}/${type}?page=${page}&search=${search}`,
+        `${baseURL}/reviewer/tickets/${category}/${type}?page=${page}&search=${search}`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -67,7 +67,7 @@ export default function TicketsTable() {
   };
 
   const handleViewTicket = (ticketId) => {
-    navigate(`/coordinator/ticket/${ticketId}`);
+            navigate(`/reviewer/ticket/${ticketId}`);
   };
 
   const getStatusColor = (status) => {

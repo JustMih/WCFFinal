@@ -22,13 +22,13 @@ import {
 // import ColumnSelector from "../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../config";
 import "../crm-tickets/ticket.css";
-import TicketActions from "../../../components/coordinator/TicketActions";
+import TicketActions from "../../../components/reviewer/TicketActions";
 import TicketDetailsModal from '../../../components/TicketDetailsModal';
 import Pagination from '../../../components/Pagination';
 import TableControls from "../../../components/TableControls";
 import TicketFilters from '../../../components/ticket/TicketFilters';
 
-export default function CRMCoordinatorTickets() {
+export default function CRMReviewerTickets() {
   const { status } = useParams();
   const [tickets, setTickets] = useState([]);
   const [error, setError] = useState(null);
@@ -80,7 +80,7 @@ export default function CRMCoordinatorTickets() {
     try {
       setLoading(true);
       const token = localStorage.getItem("authToken");
-      const response = await fetch(`${baseURL}/coordinator/tickets?status=${status}`, {
+      const response = await fetch(`${baseURL}/reviewer/tickets?status=${status}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -341,7 +341,7 @@ export default function CRMCoordinatorTickets() {
     if (responsible_unit_name) payload.responsible_unit_name = responsible_unit_name;
 
     try {
-      const response = await fetch(`${baseURL}/coordinator/${ticketId}/convert-or-forward-ticket`, {
+              const response = await fetch(`${baseURL}/reviewer/${ticketId}/convert-or-forward-ticket`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

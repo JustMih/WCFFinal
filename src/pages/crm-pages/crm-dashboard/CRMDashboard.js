@@ -1,6 +1,6 @@
 import React from 'react'
 import AgentDashboard from "../crm-dashboard/crm-agent-dashboard/crm-agent-dashboard"
-import CoordinatorDashboard from "../crm-dashboard/crm-coordinator-dashboard/crm-coordinator-dashboard"
+import ReviewerDashboard from "../crm-dashboard/crm-reviewer-dashboard/crm-reviewer-dashboard"
 import FocalPersonDashboard from "./crm-focal-person-dashboard/crm-focal-person-dashboard"
 import HeadsDashboard from "./crm-heads-dashboard/crm-heads-dashboard"
 
@@ -13,7 +13,7 @@ export default function CRMDashboard() {
    return (
      <>
        {(role === "agent") && (<AgentDashboard /> )}
-       {role === "coordinator" && <CoordinatorDashboard />}
+       {role === "reviewer" && <ReviewerDashboard />}
        {role === "attendee" && <AgentDashboard />}
        {role === "focal-person" && <FocalPersonDashboard />}
        {role === "claim-focal-person" && <HeadsDashboard />}

@@ -4,7 +4,7 @@ import { baseURL } from '../config';
 export const getWorkflowStatus = async (ticketId) => {
   try {
     const token = localStorage.getItem('authToken');
-    const response = await fetch(`${baseURL}/coordinator/workflow/${ticketId}/status`, {
+    const response = await fetch(`${baseURL}/reviewer/workflow/${ticketId}/status`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
@@ -25,7 +25,7 @@ export const getWorkflowStatus = async (ticketId) => {
 export const getAvailableUsers = async (role) => {
   try {
     const token = localStorage.getItem('authToken');
-    const response = await fetch(`${baseURL}/coordinator/workflow/users/${role}`, {
+    const response = await fetch(`${baseURL}/reviewer/workflow/users/${role}`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }

@@ -54,7 +54,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
     if (role === "claim-focal-person") return "Claim Focal Person Dashboard";
     if (role === "compliance-focal-person") return "Compliance Focal Person Dashboard";
     if (role === "head-of-unit") return "Head of Unit Dashboard";
-    if (role === "coordinator") return "Reviewer Dashboard";
+    if (role === "reviewer") return "Reviewer Dashboard";
     if (role === "agent" || role === "attendee") return "Agent Dashboard";
     return "Dashboard";
   };
@@ -88,8 +88,8 @@ export default function CRMSidebar({ isSidebarOpen }) {
     try {
       // Use different endpoints based on role
       let url;
-      if (role === "coordinator") {
-        url = `${baseURL}/coordinator/dashboard-counts/${userId}`;
+      if (role === "reviewer") {
+        url = `${baseURL}/reviewer/dashboard-counts/${userId}`;
       } else if (['focal-person', 'claim-focal-person', 'compliance-focal-person'].includes(role)) {
         // url = `${baseURL}/focal-person/dashboard-counts`;
         url = `${baseURL}/ticket/dashboard-counts/${userId}`;
@@ -488,7 +488,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
           </>
         )}
         
-        {role === "coordinator" && (
+        {role === "reviewer" && (
           <>
             <li>
               <NavLink
@@ -535,7 +535,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                 </div>
               </NavLink>
               <NavLink
-                to="/coordinator/ticket"
+                                  to="/reviewer/ticket"
                 className={({ isActive }) =>
                   isActive ? "menu-item active-link" : "menu-item"
                 }
@@ -552,7 +552,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
               </NavLink>
 
               {isSidebarOpen && isAgentsOpen && (
-                <div className="dropdown-menu submenu coordinator-menu">
+                <div className="dropdown-menu submenu reviewer-menu">
                   <div className="menu-section">
                     <div
                       className={`section-header ${
@@ -570,13 +570,13 @@ export default function CRMSidebar({ isSidebarOpen }) {
                         {[
                           {
                             label: "New Tickets",
-                            to: `/coordinator/new`,
+                            to: `/reviewer/new`,
                             value: ticketStats.newTickets?.["New Tickets"] || 0,
                             icon: "🆕"
                           },
                           {
                             label: "Escalated",
-                            to: `/coordinator/escalated`,
+                            to: `/reviewer/escalated`,
                             value:
                               ticketStats.newTickets?.["Escalated Tickets"] ||
                               0,
@@ -623,21 +623,21 @@ export default function CRMSidebar({ isSidebarOpen }) {
                         {[
                           {
                             label: "Complaints",
-                            to: "/coordinator/complaints",
+                            to: "/reviewer/complaints",
                             value:
                               ticketStats.convertedTickets?.Complaints || 0,
                             icon: "📋"
                           },
                           {
                             label: "Suggestions",
-                            to: "/coordinator/suggestions",
+                            to: "/reviewer/suggestions",
                             value:
                               ticketStats.convertedTickets?.Suggestions || 0,
                             icon: "💡"
                           },
                           {
                             label: "Compliments",
-                            to: "/coordinator/complements",
+                            to: "/reviewer/complements",
                             value:
                               ticketStats.convertedTickets?.Compliments || 0,
                             icon: "⭐"
@@ -683,14 +683,14 @@ export default function CRMSidebar({ isSidebarOpen }) {
                         {[
                           {
                             label: "Directorate",
-                            to: "/coordinator/directorate",
+                            to: "/reviewer/directorate",
                             value:
                               ticketStats.channeledTickets?.Directorate || 0,
                             icon: "🏢"
                           },
                           {
                             label: "Units",
-                            to: "/coordinator/units",
+                            to: "/reviewer/units",
                             value: ticketStats.channeledTickets?.Units || 0,
                             icon: "👥"
                           }
@@ -733,14 +733,14 @@ export default function CRMSidebar({ isSidebarOpen }) {
                         {[
                           // {
                           //   label: "On Progress",
-                          //   to: "/coordinator/on-progress",
+                          //   to: "/reviewer/on-progress",
                           //   value:
                           //     ticketStats.ticketStatus?.["On Progress"] || 0,
                           //   icon: "⏳"
                           // },
                           {
                             label: "Closed",
-                            to: `/coordinator/closed`,
+                            to: `/reviewer/closed`,
                             value: ticketStats.ticketStatus?.Closed || 0,
                             icon: "🔒"
                           }

@@ -164,8 +164,8 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
     }
   ];
 
-  // Check if ticket should be with coordinator
-  const isWithCoordinator = selectedTicket.status === "Open" && 
+      // Check if ticket should be with reviewer
+    const isWithReviewer = selectedTicket.status === "Open" && 
     ["Complaint", "Compliment", "Suggestion"].includes(selectedTicket.category);
 
   // Always include assignment history if available (preserve ALL fields including reason)
@@ -216,15 +216,15 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
     steps.push(...processedHistory);
   }
 
-  // Add coordinator step if applicable (do not block assignment history)
-  if (isWithCoordinator) {
-    // Add coordinator step for open complaints/compliments/suggestions
+  // Add reviewer step if applicable (do not block assignment history)
+  if (isWithReviewer) {
+    // Add reviewer step for open complaints/compliments/suggestions
     steps.push({
-      assigned_to_name: "Coordinator",
-      assigned_to_role: "Coordinator",
+      assigned_to_name: "Reviewer",
+      assigned_to_role: "Reviewer",
       action: "Currently with",
       created_at: selectedTicket.created_at,
-      assigned_to_id: "coordinator"
+      assigned_to_id: "reviewer"
     });
   } else if ((!assignmentHistory || assignmentHistory.length === 0) &&
              selectedTicket.assigned_to_id &&
@@ -246,8 +246,8 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
 
   // Determine current step index for descending order
   let currentAssigneeIdx = 0;
-  if (isWithCoordinator) {
-    // If ticket is with coordinator, the coordinator step is current (will be index 0 in reversed array)
+  if (isWithReviewer) {
+    // If ticket is with reviewer, the reviewer step is current (will be index 0 in reversed array)
     currentAssigneeIdx = 0;
   } else if (
     selectedTicket.status === "Open" &&
@@ -272,7 +272,7 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
         // Determine if this is the first step (most recent) and ticket is closed
         const isFirstStep = idx === 0;
         const isClosed = selectedTicket.status === "Closed" && isFirstStep;
-        const isCurrentWithCoordinator = isWithCoordinator && idx === 0; // Coordinator step is first in reversed
+        const isCurrentWithReviewer = isWithReviewer && idx === 0; // Reviewer step is first in reversed
 
         // Set color: green for completed, blue for current, gray for pending, green for closed first step
         let color;
@@ -311,8 +311,8 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
           color = "green"; // Green for assigned step that was forwarded to another user
         } else if (a.action === "Assigned") {
           color = "gray"; // Gray for assigned but still open
-        } else if (a.action === "Currently with" || a.assigned_to_role === "Coordinator") {
-          color = "gray"; // Gray for currently with and coordinator
+        } else if (a.action === "Currently with" || a.assigned_to_role === "Reviewer") {
+          color = "gray"; // Gray for currently with and reviewer
         } else if (idx === currentAssigneeIdx && selectedTicket.status !== "Closed") {
           color = "blue"; // Blue for current active step
         } else if (idx > currentAssigneeIdx || selectedTicket.status === "Closed") {
@@ -325,7 +325,7 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
         let actionLabel = a.action;
         if (isClosed) {
           actionLabel = "Closed";
-        } else if (isCurrentWithCoordinator) {
+        } else if (isCurrentWithReviewer) {
           actionLabel = "Currently with";
         }
 
@@ -833,7 +833,7 @@ export default function TicketDetailsModal({
   
   // Reviewer-specific states
   const [resolutionType, setResolutionType] = useState("");
-  const [isCoordinatorCloseDialogOpen, setIsCoordinatorCloseDialogOpen] = useState(false);
+  const [isReviewerCloseDialogOpen, setIsReviewerCloseDialogOpen] = useState(false);
   const [selectedRating, setSelectedRating] = useState("");
 
   // Reverse modal state
@@ -864,7 +864,7 @@ export default function TicketDetailsModal({
   const [isMajorComplaintClosureDialogOpen, setIsMajorComplaintClosureDialogOpen] = useState(false);
   const [isForwardToDGDialogOpen, setIsForwardToDGDialogOpen] = useState(false);
   const [isDGApprovalDialogOpen, setIsDGApprovalDialogOpen] = useState(false);
-  const [coordinatorNotes, setCoordinatorNotes] = useState("");
+  const [reviewerNotes, setReviewerNotes] = useState("");
   const [editedResolution, setEditedResolution] = useState("");
   const [dgNotes, setDgNotes] = useState("");
   const [dgApproved, setDgApproved] = useState(true);
@@ -884,21 +884,21 @@ export default function TicketDetailsModal({
     selectedTicket &&
     selectedTicket.status !== "Closed" &&
     selectedTicket.assigned_to_id &&
-    userRole !== "coordinator" &&
+            userRole !== "reviewer" &&
     userRole !== "director-general" &&
     String(selectedTicket.assigned_to_id) === String(userId) &&
     ((userRole === "manager") || (userRole === "agent" || userRole === "attendee") && !selectedTicket.complaint_type); // Managers can attend rated tickets, others only if not rated
 
   // Reviewer-specific conditions
-  const showCoordinatorActions = 
-    userRole === "coordinator" && 
+    const showReviewerActions =
+    userRole === "reviewer" && 
     selectedTicket && 
     selectedTicket.assigned_to_id &&
     String(selectedTicket.assigned_to_id) === String(userId) &&
     selectedTicket.status !== "Closed";
 
-  // Debug close permission for coordinators
-  if (userRole === 'coordinator' && selectedTicket?.category === 'Complaint') {
+      // Debug close permission for reviewers
+    if (userRole === 'reviewer' && selectedTicket?.category === 'Complaint') {
     permissionManager.debugClosePermission(selectedTicket);
   }
 
@@ -982,9 +982,9 @@ export default function TicketDetailsModal({
     // Initialize edited resolution with current resolution details or ticket description
     let initialResolution = selectedTicket?.resolution_details || "";
     
-    // If ticket is reversed and with coordinator, pre-fill with ticket description
-    if (selectedTicket.status === "Reversed" && 
-        userRole === "coordinator" && 
+        // If ticket is reversed and with reviewer, pre-fill with ticket description
+    if (selectedTicket.status === "Reversed" &&
+        userRole === "reviewer" && 
         selectedTicket.assigned_to_id &&
         String(selectedTicket.assigned_to_id) === String(userId)) {
       initialResolution = selectedTicket?.description || selectedTicket?.resolution_details || "";
@@ -1013,10 +1013,10 @@ export default function TicketDetailsModal({
       };
       
       if (dgApproved) {
-        // Approve and forward to coordinator
+        // Approve and forward to reviewer
         endpoint = `${baseURL}/ticket/${selectedTicket.id}/approve-and-forward`;
       } else {
-        // Reverse and assign to coordinator
+        // Reverse and assign to reviewer
         endpoint = `${baseURL}/ticket/${selectedTicket.id}/reverse-and-assign`;
       }
 
@@ -1034,7 +1034,7 @@ export default function TicketDetailsModal({
         onClose();
         refreshTickets();
         const action = dgApproved ? 'forwarded' : 'reversed and assigned';
-        setSnackbar({open: true, message: `Ticket ${action} to coordinator by Director General`, severity: 'success'});
+        setSnackbar({open: true, message: `Ticket ${action} to reviewer by Director General`, severity: 'success'});
       } else {
         const data = await response.json();
         setSnackbar({open: true, message: data.message || 'Failed to process DG action', severity: 'error'});
@@ -1080,11 +1080,11 @@ export default function TicketDetailsModal({
     }
   };
 
-  const handleCoordinatorClose = () => {
-    setIsCoordinatorCloseDialogOpen(true);
+  const handleReviewerClose = () => {
+    setIsReviewerCloseDialogOpen(true);
   };
 
-  const handleCoordinatorCloseSubmit = async () => {
+  const handleReviewerCloseSubmit = async () => {
     if (!resolutionType || !resolutionDetails) {
       alert("Please provide both resolution type and details");
       return;
@@ -1104,8 +1104,8 @@ export default function TicketDetailsModal({
       }
 
       // Use different endpoints based on user role
-      const endpoint = userRole === "coordinator" 
-        ? `${baseURL}/coordinator/${selectedTicket.id}/close`
+          const endpoint = userRole === "reviewer"
+      ? `${baseURL}/reviewer/${selectedTicket.id}/close`
         : `${baseURL}/ticket/${selectedTicket.id}/close`;
 
       const response = await fetch(endpoint, {
@@ -1117,10 +1117,10 @@ export default function TicketDetailsModal({
       });
 
       if (response.ok) {
-        setIsCoordinatorCloseDialogOpen(false);
+        setIsReviewerCloseDialogOpen(false);
         onClose();
         refreshTickets();
-        const roleText = userRole === "coordinator" ? "Coordinator" : 
+        const roleText = userRole === "reviewer" ? "Reviewer" : 
                         userRole === "claim-focal-person" ? "Claim Focal Person" : "Focal Person";
         setSnackbar({open: true, message: `Ticket closed successfully by ${roleText}`, severity: 'success'});
       } else {
@@ -1345,7 +1345,7 @@ export default function TicketDetailsModal({
     const token = localStorage.getItem("authToken");
     const userId = localStorage.getItem("userId");
     try {
-      const response = await fetch(`${baseURL}/coordinator/${ticketId}/rate`, {
+      const response = await fetch(`${baseURL}/reviewer/${ticketId}/rate`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1452,7 +1452,7 @@ export default function TicketDetailsModal({
         complaintType: selectedRating || currentTicket?.complaint_type || undefined
       };
 
-      const response = await fetch(`${baseURL}/coordinator/${ticketId}/convert-or-forward-ticket`, {
+      const response = await fetch(`${baseURL}/reviewer/${ticketId}/convert-or-forward-ticket`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -1837,6 +1837,31 @@ export default function TicketDetailsModal({
               </Box>
 
 
+              {/* Representative Details Section */}
+              {(["Representative", "Employer"].includes(selectedTicket.requester)) && selectedTicket.representative_name && (
+                <Box sx={{ mt: 3, mb: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 2, border: '1px solid #e0e0e0' }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2, color: '#1976d2' }}>
+                    Representative Details
+                  </Typography>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                    <div>
+                      <Typography variant="body2"><strong>Name:</strong> {selectedTicket.representative_name || 'N/A'}</Typography>
+                    </div>
+                    <div>
+                      <Typography variant="body2"><strong>Phone:</strong> {selectedTicket.representative_phone || 'N/A'}</Typography>
+                    </div>
+                    <div>
+                      <Typography variant="body2"><strong>Email:</strong> {selectedTicket.representative_email || 'N/A'}</Typography>
+                    </div>
+                    <div>
+                      <Typography variant="body2"><strong>Address:</strong> {selectedTicket.representative_address || 'N/A'}</Typography>
+                    </div>
+                    <div>
+                      <Typography variant="body2"><strong>Relationship to Employee:</strong> {selectedTicket.representative_relationship || 'N/A'}</Typography>
+                    </div>
+                  </Box>
+                </Box>
+              )}
 
               {/* Two-Column Ticket Fields */}
               <div style={{ display: "flex", flexWrap: "wrap", gap: "16px" }}>
@@ -1930,31 +1955,6 @@ export default function TicketDetailsModal({
 
               </div>
 
-              {/* Representative Details Section */}
-              {(["Representative", "Employer"].includes(selectedTicket.requester)) && selectedTicket.representative_name && (
-                <Box sx={{ mt: 3, mb: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 2, border: '1px solid #e0e0e0' }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2, color: '#1976d2' }}>
-                    Representative Details
-                  </Typography>
-                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-                    <div>
-                      <Typography variant="body2"><strong>Name:</strong> {selectedTicket.representative_name || 'N/A'}</Typography>
-                    </div>
-                    <div>
-                      <Typography variant="body2"><strong>Phone:</strong> {selectedTicket.representative_phone || 'N/A'}</Typography>
-                    </div>
-                    <div>
-                      <Typography variant="body2"><strong>Email:</strong> {selectedTicket.representative_email || 'N/A'}</Typography>
-                    </div>
-                    <div>
-                      <Typography variant="body2"><strong>Address:</strong> {selectedTicket.representative_address || 'N/A'}</Typography>
-                    </div>
-                    <div>
-                      <Typography variant="body2"><strong>Relationship to Employee:</strong> {selectedTicket.representative_relationship || 'N/A'}</Typography>
-                    </div>
-                  </Box>
-                </Box>
-              )}
 
               {/* Action Buttons */}
               <Box sx={{ mt: 2, textAlign: "right" }}>
@@ -1965,7 +1965,7 @@ export default function TicketDetailsModal({
                 )}
                 
                 {/* Reviewer Actions */}
-                {showCoordinatorActions && (
+                {showReviewerActions && (
                   <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2, justifyContent: "flex-end" }}>
                     {/* Show rating selection only if ticket is not returned and not already rated */}
                     {!(selectedTicket.status === "Returned" || selectedTicket.complaint_type) && (
@@ -2045,7 +2045,7 @@ export default function TicketDetailsModal({
                           <Button
                             variant="contained"
                             color="success"
-                            onClick={handleCoordinatorClose}
+                            onClick={handleReviewerClose}
                           >
                             Close ticket
                           </Button>
@@ -2131,7 +2131,7 @@ export default function TicketDetailsModal({
 
                         {/* Close ticket button - only show if not returned and not already rated */}
                         {(permissionManager.canCloseAtCurrentStep(selectedTicket) || 
-                          (userRole === 'coordinator' && 
+                          (userRole === 'reviewer' && 
                            (selectedTicket.assigned_to_id === userId || 
                             selectedTicket.responsible_unit_name === "Public Relation Unit" ||
                             forwardUnit[selectedTicket.id]))) && (
@@ -2139,7 +2139,7 @@ export default function TicketDetailsModal({
                             <Button
                               variant="contained"
                               color="success"
-                              onClick={handleCoordinatorClose}
+                              onClick={handleReviewerClose}
                             >
                               Close ticket
                             </Button>
@@ -2160,14 +2160,14 @@ export default function TicketDetailsModal({
                        selectedTicket.complaint_type === "Major" && 
                        selectedTicket.status === "Returned") && 
                      (permissionManager.canCloseAtCurrentStep(selectedTicket) ||
-                      (userRole === 'coordinator' && 
+                      (userRole === 'reviewer' && 
                        (selectedTicket.assigned_to_id === userId || 
                         forwardUnit[selectedTicket.id]))) && (
                       <Box sx={{ display: "flex", gap: 1 }}>
                         <Button
                           variant="contained"
                           color="success"
-                          onClick={handleCoordinatorClose}
+                          onClick={handleReviewerClose}
                         >
                           Close ticket
                         </Button>
@@ -2186,7 +2186,7 @@ export default function TicketDetailsModal({
                 {userRole === "director-general" && 
                  selectedTicket?.assigned_to_id === userId && (
                   <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2, justifyContent: "flex-end" }}>
-                    {/* F orward (Approve) to Coordinator */}
+                    {/* Forward (Approve) to Reviewer */}
                     <Button
                       variant="contained"
                       color="success"
@@ -2195,7 +2195,7 @@ export default function TicketDetailsModal({
                       Forward
                     </Button>
                     
-                    {/* Reverse (Assign) to Coordinator */}
+                    {/* Reverse (Assign) to Reviewer */}
                     <Button
                       variant="contained"
                       color="warning"
@@ -2217,7 +2217,7 @@ export default function TicketDetailsModal({
 
                 {/* Reverse, Assign, and Reassign buttons for focal persons and other roles */}
                 {(["focal-person", "claim-focal-person", "compliance-focal-person"].includes(localStorage.getItem("role")) || 
-                  !["agent", "coordinator", "attendee", "director-general"].includes(localStorage.getItem("role"))) && 
+                  !["agent", "reviewer", "attendee", "director-general"].includes(localStorage.getItem("role"))) && 
                  selectedTicket?.assigned_to_id === localStorage.getItem("userId") && (
                   <>
                     <Button
@@ -2263,8 +2263,8 @@ export default function TicketDetailsModal({
                     Reverse with Recommendation
                   </Button>
                 )}
-                {/* General Cancel button for all users except coordinators */}
-                {userRole !== "coordinator" && (
+                      {/* General Cancel button for all users except reviewers */}
+      {userRole !== "reviewer" && (
                   <Button variant="outlined" onClick={onClose}>
                     Cancel
                   </Button>
@@ -2275,7 +2275,16 @@ export default function TicketDetailsModal({
         </Box>
       </Modal>
       {/* Assignment Flow Chart Dialog */}
-      <Dialog open={isFlowModalOpen} onClose={() => setIsFlowModalOpen(false)} maxWidth="lg" fullWidth>
+      <Dialog 
+        open={isFlowModalOpen} 
+        onClose={() => setIsFlowModalOpen(false)} 
+        PaperProps={{
+          sx: {
+            width: { xs: '90%', sm: 600 },
+            maxWidth: 600
+          }
+        }}
+      >
         <DialogTitle>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h6" sx={{ mb: -2, color: '#1976d2', fontWeight: 'bold' }}>
@@ -2286,7 +2295,7 @@ export default function TicketDetailsModal({
             </IconButton>
           </Box>
         </DialogTitle>
-        <DialogContent sx={{ minHeight: '60vh', maxHeight: '80vh', overflow: 'auto' }}>
+        <DialogContent sx={{ minHeight: '50vh', maxHeight: '70vh', overflow: 'auto' }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, py: 1 }}>
             
             {/* Divider */}
@@ -2380,7 +2389,7 @@ export default function TicketDetailsModal({
       </Dialog>
 
       {/* Reviewer Close Dialog */}
-      <Dialog open={isCoordinatorCloseDialogOpen} onClose={() => setIsCoordinatorCloseDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={isReviewerCloseDialogOpen} onClose={() => setIsReviewerCloseDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Resolution Details</DialogTitle>
         <DialogContent>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
@@ -2446,14 +2455,14 @@ export default function TicketDetailsModal({
               <Button
                 variant="contained"
                 color="success"
-                onClick={handleCoordinatorCloseSubmit}
+                onClick={handleReviewerCloseSubmit}
                 disabled={!resolutionType || !resolutionDetails.trim()}
               >
                 Close Ticket
               </Button>
               <Button
                 variant="outlined"
-                onClick={() => setIsCoordinatorCloseDialogOpen(false)}
+                onClick={() => setIsReviewerCloseDialogOpen(false)}
                 sx={{ ml: 1 }}
               >
                 Cancel
@@ -2864,11 +2873,11 @@ export default function TicketDetailsModal({
           }
         </DialogTitle>
         <DialogContent>
-          {/* Show coordinator notes for reversed tickets */}
+          {/* Show reviewer notes for reversed tickets */}
           {selectedTicket?.coordinator_notes && (
             <Box sx={{ mb: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
               <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
-                Coordinator Notes:
+                Reviewer Notes:
               </Typography>
               <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
                 {selectedTicket.coordinator_notes}

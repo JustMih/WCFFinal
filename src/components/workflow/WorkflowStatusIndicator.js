@@ -42,10 +42,10 @@ const WorkflowStatusIndicator = ({ ticket }) => {
 
   const getStepLabel = (step, workflowPath) => {
     const stepLabels = {
-      'MINOR_UNIT': ['Coordinator', 'Head of Unit', 'Attendee', 'Head of Unit'],
-      'MINOR_DIRECTORATE': ['Coordinator', 'Director', 'Manager', 'Attendee', 'Manager'],
-      'MAJOR_UNIT': ['Coordinator', 'Head of Unit', 'Attendee', 'Head of Unit', 'DG'],
-      'MAJOR_DIRECTORATE': ['Coordinator', 'Director', 'Manager', 'Attendee', 'Manager', 'Director', 'DG']
+        'MINOR_UNIT': ['Reviewer', 'Head of Unit', 'Attendee', 'Head of Unit'],
+  'MINOR_DIRECTORATE': ['Reviewer', 'Director', 'Manager', 'Attendee', 'Manager'],
+  'MAJOR_UNIT': ['Reviewer', 'Head of Unit', 'Attendee', 'Head of Unit', 'DG'],
+  'MAJOR_DIRECTORATE': ['Reviewer', 'Director', 'Manager', 'Attendee', 'Manager', 'Director', 'DG']
     };
     
     const labels = stepLabels[workflowPath] || [];

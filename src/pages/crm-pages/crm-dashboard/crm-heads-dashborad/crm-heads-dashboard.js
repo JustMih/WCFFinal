@@ -709,7 +709,7 @@ export default function FocalPersonDashboard() {
                     </td>
                   )}
                   <td>
-                    {!["agent", "coordinator", "attendee"].includes(role) && (
+                    {!["agent", "reviewer", "attendee"].includes(role) && (
                     <Tooltip title="View Details">
                       <button
                         className="view-ticket-details-btn"

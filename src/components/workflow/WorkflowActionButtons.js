@@ -94,7 +94,7 @@ const WorkflowActionButtons = ({
     const currentRole = ticket.workflow_current_role;
     
     // Map workflow step to stage
-    if (currentRole === 'coordinator') return 'coordinator_review';
+    if (currentRole === 'reviewer') return 'reviewer_review';
     if (currentRole === 'head-of-unit') return 'head_of_unit_review';
     if (currentRole === 'director') return 'director_review';
     if (currentRole === 'manager') return 'manager_review';
@@ -113,8 +113,8 @@ const WorkflowActionButtons = ({
 
     const currentStage = getCurrentWorkflowStage();
     
-    // Debug close permission for coordinators
-    if (userRole === 'coordinator' && ticket?.category === 'Complaint') {
+    // Debug close permission for reviewers
+    if (userRole === 'reviewer' && ticket?.category === 'Complaint') {
       permissionManager.debugClosePermission(ticket);
     }
     

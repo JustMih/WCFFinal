@@ -154,7 +154,7 @@ const WorkflowStepper = ({ workflowStatus, currentStep, totalSteps, ticket }) =>
           <strong>Current Status:</strong> {ticket?.status || 'Open'}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          <strong>Assigned to:</strong> {ticket?.assigned_to_role || 'Coordinator'}
+          <strong>Assigned to:</strong> {ticket?.assigned_to_role || 'Reviewer'}
         </Typography>
         {ticket?.complaint_type && (
           <Typography variant="body2" color="text.secondary">

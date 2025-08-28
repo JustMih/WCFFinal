@@ -797,7 +797,7 @@ export default function CallCenterUsers() {
                 <MenuItem value="supervisor" sx={{ fontSize: '14px', maxWidth: '380px' }}>Supervisor</MenuItem>
                 <MenuItem value="agent" sx={{ fontSize: '14px', maxWidth: '380px' }}>Agent</MenuItem>
                 <MenuItem value="attendee" sx={{ fontSize: '14px', maxWidth: '380px' }}>Attendee</MenuItem>
-                <MenuItem value="coordinator" sx={{ fontSize: '14px', maxWidth: '380px' }}>Reviewer</MenuItem>
+                <MenuItem value="reviewer" sx={{ fontSize: '14px', maxWidth: '380px' }}>Reviewer</MenuItem>
                 <MenuItem value="head-of-unit" sx={{ fontSize: '14px', maxWidth: '380px' }}>Head of Unit</MenuItem>
                 <MenuItem value="manager" sx={{ fontSize: '14px', maxWidth: '380px' }}>Manager</MenuItem>
                 <MenuItem value="director" sx={{ fontSize: '14px', maxWidth: '380px' }}>Director</MenuItem>

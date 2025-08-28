@@ -68,8 +68,8 @@ export default function TicketCategoryTable({ filter }) {
       }
 
       let url;
-      if (role === 'coordinator') {
-        url = `${baseURL}/coordinator/tickets/${category}/${type}?page=${page}&search=${search}`;
+          if (role === 'reviewer') {
+      url = `${baseURL}/reviewer/tickets/${category}/${type}?page=${page}&search=${search}`;
       } else {
         url = `${baseURL}/ticket/${type}/${userId}?page=${page}&search=${search}`;
       }

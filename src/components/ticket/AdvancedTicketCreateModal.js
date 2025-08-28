@@ -552,6 +552,15 @@ const districtsData = {
 };
 
 function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber = "", functionData = [] }) {
+  // Debug functionData prop
+  useEffect(() => {
+    console.log("AdvancedTicketCreateModal - functionData received:", functionData);
+    console.log("functionData length:", functionData ? functionData.length : 0);
+    if (functionData && functionData.length > 0) {
+      console.log("First functionData item:", functionData[0]);
+    }
+  }, [functionData]);
+
   // --- CRM Modal State ---
   const [formData, setFormData] = useState({ ...defaultFormData, phoneNumber: initialPhoneNumber });
   const [formErrors, setFormErrors] = useState({});
@@ -2488,15 +2497,25 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                         }}
                       >
                         <option value="">Select Subject</option>
-                        {functionData.map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {item.name}
-                          </option>
-                        ))}
+                        {functionData && functionData.length > 0 ? (
+                          functionData.map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.name}
+                            </option>
+                          ))
+                        ) : (
+                          <option value="" disabled>No subjects available</option>
+                        )}
                       </select>
                       {formErrors.functionId && (
                         <span style={{ color: "red", fontSize: "0.75rem" }}>
                           {formErrors.functionId}
+                        </span>
+                      )}
+                      {/* Debug info */}
+                      {functionData && functionData.length === 0 && (
+                        <span style={{ color: "orange", fontSize: "0.75rem" }}>
+                          No function data loaded. Please check if subjects are configured.
                         </span>
                       )}
                     </div>

@@ -32,15 +32,13 @@ import DialogContent from "@mui/material/DialogContent";
 import { styled } from "@mui/material/styles";
 import ChatIcon from '@mui/icons-material/Chat';
 import { baseURL } from "../../../../config";
-import { getDomainCredentials } from "../../../../utils/credentials";
 import "./crm-agent-dashboard.css";
-import TicketActions from "../../../../components/ticket/TicketActions";
 import TicketFilters from "../../../../components/ticket/TicketFilters";
-import TicketDetailsModal from "../../../../components/ticket/TicketDetailsModal";
 import AdvancedTicketCreateModal from "../../../../components/ticket/AdvancedTicketCreateModal";
 import Pagination from "../../../../components/Pagination";
 import TableControls from "../../../../components/TableControls";
-import EnhancedSearchForm from "../../../../components/search/EnhancedSearchForm";
+import PhoneSearchSection from "../../../../components/shared/PhoneSearchSection";
+import TicketUpdates from "../../../../components/ticket/TicketUpdates";
 import axios from "axios";
 
 // Add styled components for better typeahead styling
@@ -246,9 +244,6 @@ const AgentCRM = () => {
 
   // Add new state for phone search
   const [phoneSearch, setPhoneSearch] = useState("");
-  const [existingTicketsModal, setExistingTicketsModal] = useState(false);
-  const [newTicketConfirmationModal, setNewTicketConfirmationModal] =
-    useState(false);
   const [foundTickets, setFoundTickets] = useState([]);
 
   // Add submitAction state to control ticket status
@@ -353,13 +348,17 @@ const AgentCRM = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        console.log("Fetching function data from:", `${baseURL}/section/functions-data`);
         const res = await fetch(`${baseURL}/section/functions-data`, {
           headers: {
             Authorization: `Bearer ${token}`
           }
         });
+        console.log("Function data response status:", res.status);
         const json = await res.json();
+        console.log("Function data response:", json);
         setFunctionData(json.data || []);
+        console.log("Function data set to:", json.data || []);
       } catch (err) {
         console.error("Fetch error:", err);
       }
@@ -779,11 +778,7 @@ const AgentCRM = () => {
     fetchTicketComments(ticket.id);
     fetchTicketAttachments(ticket.id);
     
-    // Also trigger phone search to populate ticket history
-    const searchValue = ticket.phone_number || ticket.nida_number;
-    if (searchValue) {
-      handlePhoneSearch(searchValue, ticket);
-    }
+    // Phone search is now handled by the PhoneSearchSection component
   };
 
   const getFilteredTickets = () => {
@@ -1190,59 +1185,9 @@ const AgentCRM = () => {
     setCurrentPage(1);
   };
 
-  // Update handlePhoneSearch to accept a selectedTicketFromTable parameter
-  const handlePhoneSearch = async (
-    searchValue,
-    selectedTicketFromTable = null
-  ) => {
-    try {
-      // Search by phone number (this endpoint also searches by NIDA number)
-      const response = await fetch(
-        `${baseURL}/ticket/search-by-phone/${searchValue}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
-      const data = await response.json();
-      
-      if (data.found) {
-        setFoundTickets(data.tickets);
-        if (selectedTicketFromTable) {
-          setSelectedTicket(selectedTicketFromTable);
-          setShowDetailsModal(true);
-        } else {
-          setExistingTicketsModal(true);
-        }
-      } else {
-        setNewTicketConfirmationModal(true);
-      }
-    } catch (error) {
-      console.error("Error searching tickets:", error);
-      setSnackbar({
-        open: true,
-        message: "Error searching tickets",
-        severity: "error"
-      });
-    }
-  };
 
-  // Add handler for Details button in ticket table
-  const handleDetailsClick = (ticket) => {
-    const searchValue = ticket.phone_number || ticket.nida_number;
-    handlePhoneSearch(searchValue, ticket);
-  };
 
-  // Update: Pre-fill form with previous ticket details if available
-  const handleNewTicketConfirmation = (confirmed) => {
-    if (confirmed) {
-      // Set the phone number for the AdvancedTicketCreateModal
-      setTicketPhoneNumber(phoneSearch);
-      setShowAdvancedTicketModal(true);
-    }
-    setNewTicketConfirmationModal(false);
-  };
+
 
   // Add the search function
   const handleMemberSearch = async () => {
@@ -1651,102 +1596,6 @@ const AgentCRM = () => {
     }, 150); // Reduced from 300ms to 150ms for faster response
   };
 
-  // Update the Autocomplete component
-  /*
-  <StyledAutocomplete
-    value={selectedSuggestion}
-    onChange={(event, newValue) => handleSuggestionSelected(event, newValue)}
-    inputValue={inputValue}
-    onInputChange={handleInputChange}
-    options={searchSuggestions}
-    getOptionLabel={(option) => option.displayName || ""}
-    open={open}
-    onOpen={() => setOpen(true)}
-    onClose={() => setOpen(false)}
-    loading={isSearching}
-    loadingText={
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "10px"
-        }}
-      >
-        <CircularProgress size={20} />
-        <span>Searching...</span>
-      </div>
-    }
-    noOptionsText={
-      inputValue.length < 1
-        ? "Start typing to search"
-        : "No matching records found"
-    }
-    renderOption={(props, option) => (
-      <li {...props}>
-        <SuggestionItem>
-          <div className="suggestion-name">
-            <span style={{ color: "#666" }}>{option.numberPrefix}</span>{" "}
-            {highlightMatch(option.cleanName, inputValue)}
-            {option.employerName && (
-              <>
-                {" — ("}
-                <span style={{ color: "#666" }}>
-                  {highlightMatch(option.employerName, inputValue)}
-                </span>
-                {")"}
-              </>
-            )}
-          </div>
-          <div className="suggestion-details">
-            Member No: {option.memberNo}
-            {option.type && ` • Type: ${option.type}`}
-            {option.status && ` • Status: ${option.status}`}
-          </div>
-        </SuggestionItem>
-      </li>
-    )}
-    renderInput={(params) => (
-      <TextField
-        {...params}
-        placeholder={
-          searchBy === "name" ? "Start typing name..." : "Enter WCF number..."
-        }
-        InputProps={{
-          ...params.InputProps,
-          endAdornment: (
-            <>
-              {isSearching && <CircularProgress color="inherit" size={20} />}
-              {params.InputProps.endAdornment}
-            </>
-          )
-        }}
-        sx={{
-          "& .MuiOutlinedInput-root": {
-            "& fieldset": {
-              borderColor: "#e0e0e0"
-            },
-            "&:hover fieldset": {
-              borderColor: "#1976d2"
-            },
-            "&.Mui-focused fieldset": {
-              borderColor: "#1976d2"
-            }
-          }
-        }}
-      />
-    )}
-    filterOptions={(x) => x}
-    freeSolo={false}
-    autoComplete
-    includeInputInList
-    blurOnSelect
-    clearOnBlur={false}
-    selectOnFocus
-    handleHomeEndKeys
-    style={{ width: "100%" }}
-  />;
-  */
 
   // Highlight matching text in suggestions
   function escapeRegExp(string) {
@@ -2465,195 +2314,28 @@ const AgentCRM = () => {
           CC Dashboard
         </h3>
 
-      {/* Full-width Phone/NIDA Search Section */}
-      <div
-        style={{
-          display: "flex",
-          gap: "10px",
-          marginBottom: "1rem",
-          alignItems: "center",
+      {/* Shared Phone Search Section */}
+      <PhoneSearchSection
+        onSearch={(searchValue, foundTickets) => {
+          setFoundTickets(foundTickets);
+          // The PhoneSearchSection component handles the modal internally
         }}
-      >
-        <input
-          className="crm-search-input"
-          type="text"
-          placeholder="Search by phone or NIDA..."
-          value={phoneSearch}
-          onChange={(e) => setPhoneSearch(e.target.value)}
-          onKeyPress={(e) => {
-            if (e.key === "Enter") handlePhoneSearch(phoneSearch);
-          }}
-          style={{ flex: 1 }}
-        />
-        <button
-          className="search-btn"
-          onClick={() => handlePhoneSearch(phoneSearch)}
-          aria-label="Search"
-        >
-          <FaSearch />
-        </button>
-        <button className="add-user-button" onClick={() => setShowAdvancedTicketModal(true)}>
-          <FaPlus /> New Ticket
-        </button>
-      </div>
+        onNewTicket={(searchValue) => {
+          setTicketPhoneNumber(searchValue);
+          setShowAdvancedTicketModal(true);
+        }}
+        onViewTicketDetails={(ticket) => {
+          setSelectedTicket(ticket);
+          setShowDetailsModal(true);
+        }}
+        onShowAdvancedModal={setShowAdvancedTicketModal}
+        phoneSearch={phoneSearch}
+        setPhoneSearch={setPhoneSearch}
+        snackbar={snackbar}
+        setSnackbar={setSnackbar}
+      />
 
-      {/* Existing Tickets Modal */}
-      <Modal
-        open={existingTicketsModal}
-        onClose={() => setExistingTicketsModal(false)}
-      >
-        <Box
-          sx={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: { xs: "90%", sm: 600 },
-            maxHeight: "80vh",
-            overflowY: "auto",
-            bgcolor: "background.paper",
-            boxShadow: 24,
-            borderRadius: 2,
-            p: 3,
-          }}
-        >
-          <Typography variant="h6" component="h2" gutterBottom>
-            Existing Tickets for {phoneSearch}
-          </Typography>
-          <Divider sx={{ mb: 2 }} />
 
-          {foundTickets.map((ticket) => (
-            <Box
-              key={ticket.id}
-              sx={{ mb: 2, p: 2, border: "1px solid #eee", borderRadius: 1 }}
-            >
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                <Typography variant="subtitle1">
-                  Ticket ID: {ticket.ticket_id}
-                </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography
-                    sx={{
-                      px: 1.5,
-                      py: 0.5,
-                      borderRadius: '12px',
-                      color: 'white',
-                      background:
-                        ticket.status === 'Closed'
-                          ? '#757575'
-                          : ticket.status === 'Open'
-                          ? '#2e7d32'
-                          : '#1976d2',
-                      fontSize: '0.75rem',
-                      fontWeight: 500
-                    }}
-                  >
-                    {ticket.status || "Escalated"}
-                  </Typography>
-                  <IconButton
-                    size="small"d
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenJustificationHistory(ticket);
-                    }}
-                    sx={{
-                      color: '#1976d2',
-                      '&:hover': {
-                        backgroundColor: 'rgba(25, 118, 210, 0.1)'
-                      }
-                    }}
-                    title="View Recomendation History"
-                  >
-                    <ChatIcon fontSize="small" />
-                  </IconButton>
-                </Box>
-              </Box>
-              <Typography>
-                Created: {new Date(ticket.created_at).toLocaleDateString()}
-              </Typography>
-              <Button
-                variant="contained"
-                size="small"
-                onClick={() => {
-                  setExistingTicketsModal(false);
-                  openDetailsModal(ticket);
-                }}
-                sx={{ mt: 1 }}
-              >
-                View Details
-              </Button>
-            </Box>
-          ))}
-
-          <Box
-            sx={{ mt: 2, display: "flex", justifyContent: "flex-end", gap: 1 }}
-          >
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={() => {
-                setExistingTicketsModal(false);
-                setNewTicketConfirmationModal(true);
-              }}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <CircularProgress size={24} color="inherit" />
-              ) : (
-                "Create Ticket"
-              )}
-            </Button>
-            <Button
-              variant="outlined"
-              onClick={() => setExistingTicketsModal(false)}
-            >
-              Close
-            </Button>
-          </Box>
-        </Box>
-      </Modal>
-
-      {/* New Ticket Confirmation Modal */}
-      <Modal
-        open={newTicketConfirmationModal}
-        onClose={() => setNewTicketConfirmationModal(false)}
-      >
-        <Box
-          sx={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: { xs: "90%", sm: 400 },
-            bgcolor: "background.paper",
-            boxShadow: 24,
-            borderRadius: 2,
-            p: 3,
-          }}
-        >
-          <Typography variant="h6" component="h2" gutterBottom>
-            No Existing Tickets Found
-          </Typography>
-          <Typography sx={{ mb: 2 }}>
-            Would you like to create a new ticket for {phoneSearch}?
-          </Typography>
-          <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={() => handleNewTicketConfirmation(true)}
-            >
-              Yes, Create Ticket
-            </Button>
-            <Button
-              variant="outlined"
-              onClick={() => handleNewTicketConfirmation(false)}
-            >
-              No, Cancel
-            </Button>
-          </Box>
-        </Box>
-      </Modal>
 
       {/* Card Dashboard Section */}
       <div className="crm-dashboard">
@@ -3716,13 +3398,6 @@ const AgentCRM = () => {
         </div>
       )}
 
-      {/* Column Selector Modal - Replaced with dropdown */}
-      {/* <ColumnSelector
-        open={columnModalOpen}
-        onClose={() => setColumnModalOpen(false)}
-        data={getFilteredTickets()}
-        onColumnsChange={setActiveColumns}
-      /> */}
 
       {/* Snackbar */}
       <Snackbar
@@ -3749,139 +3424,6 @@ const AgentCRM = () => {
         </div>
       )}
       
-      {/* In the modal JSX, above the Institution input field */}
-      {/* <Autocomplete
-        value={selectedInstitution}
-        onChange={(event, newValue) => {
-          setSelectedInstitution(newValue);
-          if (newValue) {
-            setFormData((prev) => ({
-              ...prev,
-              institution: newValue.name || "",
-              employerTin: newValue.tin || "",
-              phoneNumber: newValue.phone || "",
-              employerEmail: newValue.email || "",
-              employerAllocatedStaffName: newValue.allocated_staff_name || "",
-              employerAllocatedStaffUsername:
-                newValue.allocated_staff_username || ""
-            }));
-          }
-        }}
-        inputValue={institutionSearch}
-        onInputChange={(event, newInputValue) => {
-          setInstitutionSearch(newInputValue);
-          handleInstitutionSearch(newInputValue);
-        }}
-        options={institutionSuggestions}
-        getOptionLabel={(option) => option.name || ""}
-        renderInput={(params) => (
-          <TextField
-            {...params}
-            label="Search Institution"
-            placeholder="Type institution name..."
-          />
-        )}
-        style={{ marginBottom: 16 }}
-      />
-
-      {selectedInstitution && (
-        <div
-          style={{
-            margin: "10px 0",
-            padding: "10px",
-            background: "#e3f2fd",
-            borderRadius: "6px"
-          }}
-        >
-          <div>
-            <strong>Allocated User Name:</strong>{" "}
-            {selectedInstitution.allocated_staff_name || "N/A"}
-          </div>
-          <div>
-            <strong>Allocated Username:</strong>{" "}
-            {selectedInstitution.allocated_staff_username || "N/A"}
-          </div>
-          <div>
-            <strong>TIN:</strong> {selectedInstitution.tin || "N/A"}
-          </div>
-          <div>
-            <strong>Phone:</strong> {selectedInstitution.phone || "N/A"}
-          </div>
-          <div>
-            <strong>Email:</strong> {selectedInstitution.email || "N/A"}
-          </div>
-        </div>
-      )}
-
-      {selectedInstitution && (
-        <Button
-          variant="outlined"
-          style={{ marginBottom: 8 }}
-          onClick={() => setShowInstitutionModal(true)}
-        >
-          View Institution Details
-        </Button>
-      )} */}
-
-      {/* Add the side modal for institution details */}
-      {/* <Modal
-        open={showInstitutionModal}
-        onClose={() => setShowInstitutionModal(false)}
-      >
-        <Box
-          sx={{
-            position: "fixed",
-            right: 0,
-            top: 0,
-            height: "100vh",
-            width: 400,
-            bgcolor: "background.paper",
-            boxShadow: 24,
-            p: 4,
-            overflowY: "auto"
-          }}
-        >
-          <Typography variant="h6" gutterBottom>
-            Institution Details
-          </Typography>
-          {selectedInstitution && (
-            <>
-              <div>
-                <strong>Name:</strong> {selectedInstitution.name}
-              </div>
-              <div>
-                <strong>TIN:</strong> {selectedInstitution.tin}
-              </div>
-              <div>
-                <strong>Phone:</strong> {selectedInstitution.phone}
-              </div>
-              <div>
-                <strong>Email:</strong> {selectedInstitution.email}
-              </div>
-              <div>
-                <strong>Status:</strong> {selectedInstitution.employer_status}
-              </div>
-              <div>
-                <strong>Allocated User Name:</strong>{" "}
-                {selectedInstitution.allocated_staff_name}
-              </div>
-              <div>
-                <strong>Allocated Username:</strong>{" "}
-                {selectedInstitution.allocated_staff_username}
-              </div>
-            </>
-          )}
-          <Button
-            variant="contained"
-            color="primary"
-            sx={{ mt: 2 }}
-            onClick={() => setShowInstitutionModal(false)}
-          >
-            Close
-          </Button>
-        </Box>
-      </Modal> */}
-
       {/* Justification History Modal */}
       <Modal
         open={isJustificationModalOpen}
@@ -3903,13 +3445,17 @@ const AgentCRM = () => {
           }}
         >
           <Typography variant="h6" component="h2" gutterBottom>
-            Justification History
+            View Updates
           </Typography>
           <Divider sx={{ mb: 2 }} />
-          <AssignmentFlowChat
-            assignmentHistory={assignmentHistory}
-            selectedTicket={selectedTicketForJustification}
-          />
+          <Box>
+            <TicketUpdates 
+              ticketId={selectedTicketForJustification?.id}
+              currentUserId={localStorage.getItem('userId')}
+              canAddUpdates={selectedTicketForJustification?.status !== 'Closed' && selectedTicketForJustification?.status !== 'Attended and Recommended'}
+              isAssigned={selectedTicketForJustification?.assigned_to_id === localStorage.getItem('userId')}
+            />
+          </Box>
           <Box
             sx={{ mt: 2, display: "flex", justifyContent: "flex-end", gap: 1 }}
           >

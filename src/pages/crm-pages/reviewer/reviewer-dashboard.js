@@ -19,9 +19,9 @@ import {
 import Card from "../../../components/card/card";
 import ColumnSelector from "../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../config";
-import "./coordinator-dashboard.css";
+import "./reviewer-dashboard.css";
 
-export default function CoordinatorDashboard() {
+export default function ReviewerDashboard() {
   const [tickets, setTickets] = useState([]);
   const [userId, setUserId] = useState("");
   const [search, setSearch] = useState("");
@@ -89,7 +89,7 @@ export default function CoordinatorDashboard() {
   const fetchTickets = async () => {
     try {
       const token = localStorage.getItem("authToken");
-      const response = await fetch(`${baseURL}/coordinator/tickets?status=new`, {
+      const response = await fetch(`${baseURL}/reviewer/tickets?status=new`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await response.json();
@@ -115,7 +115,7 @@ export default function CoordinatorDashboard() {
   const handleRating = async (ticketId, rating) => {
     try {
       const token = localStorage.getItem("authToken");
-      const response = await fetch(`${baseURL}/coordinator/${ticketId}/rate`, {
+              const response = await fetch(`${baseURL}/reviewer/${ticketId}/rate`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -142,13 +142,6 @@ export default function CoordinatorDashboard() {
     const category = convertCategory[ticketId];
     const unitId = forwardUnit[ticketId];
     const selectedRating = forwardRating[ticketId]; // Add rating for forwarding
-    
-    console.log('Debug - handleConvertOrForward:', {
-      ticketId,
-      category,
-      unitId,
-      selectedRating
-    });
     
     if (!category && !unitId) {
       setSnackbar({
@@ -178,24 +171,18 @@ export default function CoordinatorDashboard() {
         }
       }
       
-      // If forwarding to unit (either with or without conversion)
-      if (unitId) {
+      // If forwarding to unit, include rating
+      if (unitId && !category) {
         payload.responsible_unit_name = unitId;
         
         // Check if ticket is already rated or if rating is selected for this action
         const ticket = tickets.find(t => t.id === ticketId);
-        console.log('Debug - ticket found:', ticket);
-        console.log('Debug - ticket.complaint_type:', ticket?.complaint_type);
-        console.log('Debug - selectedRating:', selectedRating);
-        
         if (ticket && ticket.complaint_type) {
           // Ticket is already rated, use existing rating
           payload.complaintType = ticket.complaint_type;
-          console.log('Debug - using existing rating:', ticket.complaint_type);
         } else if (selectedRating) {
           // Rating is selected for this forwarding action
           payload.complaintType = selectedRating;
-          console.log('Debug - using selected rating:', selectedRating);
         } else {
           // No rating available, show error
           setSnackbar({
@@ -207,10 +194,8 @@ export default function CoordinatorDashboard() {
         }
       }
       
-      console.log('Debug - final payload:', payload);
-      
       const response = await fetch(
-        `${baseURL}/coordinator/${ticketId}/convert-or-forward-ticket`,
+        `${baseURL}/reviewer/${ticketId}/convert-or-forward-ticket`,
         {
           method: "PUT",
           headers: {
@@ -281,6 +266,8 @@ export default function CoordinatorDashboard() {
       {activeColumns.includes("category") && <th>Category</th>}
       {activeColumns.includes("assigned_to_role") && <th>Assigned Role</th>}
       {activeColumns.includes("createdAt") && <th>Created At</th>}
+      {activeColumns.includes("dateCreatedAt") && <th>Date Created At</th>}
+      {activeColumns.includes("categoryType") && <th>Category Type (Major/Minor)</th>}
     </tr>
   );
 
@@ -325,12 +312,31 @@ export default function CoordinatorDashboard() {
             : "N/A"}
         </td>
       )}
+      {activeColumns.includes("dateCreatedAt") && (
+        <td>
+          {ticket.created_at
+            ? new Date(ticket.created_at).toLocaleString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true
+              })
+            : "N/A"}
+        </td>
+      )}
+      {activeColumns.includes("categoryType") && (
+        <td>
+          {ticket.complaint_type ? ticket.complaint_type : "Not Rated"}
+        </td>
+      )}
     </tr>
   );
 
   return (
-    <div className="coordinator-dashboard-container">
-      <h2 className="title">Coordinator Dashboard</h2>
+          <div className="reviewer-dashboard-container">
+        <h2 className="title">Reviewer Dashboard</h2>
 
       {/* Cards */}
       <div className="dashboard">
@@ -726,16 +732,11 @@ export default function CoordinatorDashboard() {
                     size="small"
                     variant="contained"
                     onClick={() => handleConvertOrForward(selectedTicket.id)}
-                    disabled={!forwardUnit[selectedTicket.id] || !forwardRating[selectedTicket.id]}
-                    title={!forwardUnit[selectedTicket.id] || !forwardRating[selectedTicket.id] ? "Please select both unit and rating" : ""}
+                    disabled={!forwardUnit[selectedTicket.id] || !forwardRating[selectedTicket.id] || convertCategory[selectedTicket.id]}
+                    title={!forwardUnit[selectedTicket.id] || !forwardRating[selectedTicket.id] || convertCategory[selectedTicket.id] ? "Please select both unit and rating (and clear conversion)" : ""}
                   >
                     Forward
                   </Button>
-                  {forwardUnit[selectedTicket.id] && forwardRating[selectedTicket.id] && (
-                    <Typography variant="caption" color="success.main" sx={{ fontSize: "0.7rem" }}>
-                      Will forward to {forwardUnit[selectedTicket.id]} as {forwardRating[selectedTicket.id]}
-                    </Typography>
-                  )}
                 </Box>
               </Box>
               <Box sx={{ mt: 2, textAlign: "right" }}>
