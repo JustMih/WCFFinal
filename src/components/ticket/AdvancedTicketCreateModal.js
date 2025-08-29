@@ -1644,17 +1644,68 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
 
     setIsLoading(true);
     try {
-      // First create the ticket with closed status
+      // First create the ticket normally - only include relevant fields based on requester type
       const ticketData = {
         ...formData,
-        status: "Closed",
-        resolution_type: resolutionType,
-        resolution_details: resolutionDetails,
-        date_of_resolution: new Date().toISOString(),
-        shouldClose: true
+        status: "Open" // Create as open first
       };
 
-      const response = await fetch(`${baseURL}/ticket/create`, {
+      // Only include employer fields if requester is "Employer"
+      if (formData.requester === "Employer") {
+        ticketData.employerRegistrationNumber = formData.employerRegistrationNumber || null;
+        ticketData.employerName = formData.employerName || null;
+        ticketData.employerTin = formData.employerTin || null;
+        ticketData.employerPhone = formData.employerPhone || null;
+        ticketData.employerEmail = formData.employerEmail || null;
+        ticketData.employerStatus = formData.employerStatus || null;
+        ticketData.employerAllocatedStaffId = formData.employerAllocatedStaffId || null;
+        ticketData.employerAllocatedStaffName = formData.employerAllocatedStaffName || null;
+        ticketData.employerAllocatedStaffUsername = formData.employerAllocatedStaffUsername || null;
+      }
+
+      // Only include representative fields if requester is "Representative" or "Employer"
+      if (formData.requester === "Representative" || formData.requester === "Employer") {
+        ticketData.representative_name = formData.representative_name || null;
+        ticketData.representative_phone = formData.representative_phone || null;
+        ticketData.representative_email = formData.representative_email || null;
+        ticketData.representative_address = formData.representative_address || null;
+        ticketData.representative_relationship = formData.representative_relationship || null;
+      }
+
+      // Remove undefined values to prevent backend errors
+      Object.keys(ticketData).forEach(key => {
+        if (ticketData[key] === undefined) {
+          delete ticketData[key];
+        }
+      });
+
+      // If requester is not "Employer", remove all employer-related fields
+      if (ticketData.requester !== "Employer") {
+        delete ticketData.employerRegistrationNumber;
+        delete ticketData.employerName;
+        delete ticketData.employerTin;
+        delete ticketData.employerPhone;
+        delete ticketData.employerEmail;
+        delete ticketData.employerStatus;
+        delete ticketData.employerAllocatedStaffId;
+        delete ticketData.employerAllocatedStaffName;
+        delete ticketData.employerAllocatedStaffUsername;
+      }
+
+      // If requester is not "Representative", remove representative-related fields
+      if (ticketData.requester !== "Representative") {
+        delete ticketData.representative_name;
+        delete ticketData.representative_phone;
+        delete ticketData.representative_email;
+        delete ticketData.representative_address;
+        delete ticketData.representative_relationship;
+      }
+
+      console.log('DEBUG: Creating ticket with data:', ticketData);
+      console.log('DEBUG: Requester type:', ticketData.requester);
+      console.log('DEBUG: Using endpoint:', `${baseURL}/ticket/create-ticket`);
+
+      const response = await fetch(`${baseURL}/ticket/create-ticket`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1663,9 +1714,57 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
         body: JSON.stringify(ticketData),
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (parseError) {
+        console.error('Failed to parse response as JSON:', parseError);
+        throw new Error(`Server returned invalid response. Status: ${response.status}`);
+      }
 
-      if (response.ok) {
+      if (!response.ok) {
+        throw new Error(data.message || `Failed to create ticket. Status: ${response.status}`);
+      }
+
+      // Now close the ticket using the close endpoint (like reviewer does)
+      const createdTicketId = data.ticket?.id;
+      if (!createdTicketId) {
+        throw new Error("Ticket created but no ID returned");
+      }
+
+      console.log('DEBUG: Ticket created successfully, now closing with ID:', createdTicketId);
+
+      const token = localStorage.getItem("authToken");
+      const closeFormData = new FormData();
+      closeFormData.append("status", "Closed");
+      closeFormData.append("resolution_type", resolutionType);
+      closeFormData.append("resolution_details", resolutionDetails);
+      closeFormData.append("date_of_resolution", new Date().toISOString());
+      closeFormData.append("userId", localStorage.getItem("userId"));
+      
+      if (attachment) {
+        closeFormData.append("attachment", attachment);
+      }
+
+      console.log('DEBUG: Close form data:', {
+        status: "Closed",
+        resolution_type: resolutionType,
+        resolution_details: resolutionDetails,
+        userId: localStorage.getItem("userId"),
+        hasAttachment: !!attachment
+      });
+
+      const closeResponse = await fetch(`${baseURL}/ticket/${createdTicketId}/close`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        },
+        body: closeFormData
+      });
+
+      console.log('DEBUG: Close response status:', closeResponse.status);
+
+      if (closeResponse.ok) {
         setModal({
           isOpen: true,
           type: "success",
@@ -1677,7 +1776,8 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
         setAttachment(null);
         onClose();
       } else {
-        throw new Error(data.message || "Failed to create and close ticket");
+        const closeData = await closeResponse.json();
+        throw new Error(closeData.message || "Failed to close ticket");
       }
     } catch (error) {
       setModal({
