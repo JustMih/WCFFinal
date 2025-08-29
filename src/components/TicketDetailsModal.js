@@ -20,6 +20,7 @@ import MenuItem from "@mui/material/MenuItem";
 import Chip from "@mui/material/Chip";
 import Alert from "@mui/material/Alert";
 import CloseIcon from '@mui/icons-material/Close';
+import Autocomplete from "@mui/material/Autocomplete";
 
 import ChatIcon from '@mui/icons-material/Chat';
 import Download from '@mui/icons-material/Download';
@@ -896,6 +897,26 @@ export default function TicketDetailsModal({
     setSnackbarState({ ...snackbar, open: false });
   };
 
+  // Function to check if current user was previously assigned to this ticket
+  const wasPreviouslyAssigned = () => {
+    if (!assignmentHistory || !Array.isArray(assignmentHistory) || assignmentHistory.length === 0) {
+      return false;
+    }
+    
+    // Check if current user appears in assignment history as assigned_to_id or assigned_by_id
+    // but is not currently assigned to the ticket
+    return assignmentHistory.some(assignment => 
+      (assignment.assigned_to_id === userId || assignment.assigned_by_id === userId) && 
+      selectedTicket?.assigned_to_id !== userId
+    );
+  };
+
+  // Function to check if user has reassign permission (focal-person or manager role)
+  const hasReassignPermission = () => {
+    const userRole = localStorage.getItem("role");
+    return userRole === "focal-person" || userRole === "manager";
+  };
+
   // Initialize selectedRating when modal opens
   useEffect(() => {
     if (selectedTicket) {
@@ -1240,13 +1261,20 @@ export default function TicketDetailsModal({
             headers: { "Authorization": `Bearer ${token}` }
           });
           const data = await res.json();
-          if (Array.isArray(data.attendees)) {
-            setAttendees(data.attendees);
-          } else if (Array.isArray(data.data)) {
-            setAttendees(data.data);
-          } else {
-            setAttendees([]);
-          }
+          const raw = Array.isArray(data.attendees)
+            ? data.attendees
+            : Array.isArray(data.data)
+            ? data.data
+            : [];
+
+          // Restrict list to same unit/section as logged-in user (for all roles)
+          const currentUnit = (localStorage.getItem("unit_section") || "").toString().toLowerCase();
+          const filtered = raw.filter(a => {
+            const attendeeUnit = (a.unit_section || a.unitSection || "").toString().toLowerCase();
+            return currentUnit && attendeeUnit && attendeeUnit === currentUnit;
+          });
+
+          setAttendees(filtered);
         } catch (e) {
           setAttendees([]);
         }
@@ -1266,6 +1294,10 @@ export default function TicketDetailsModal({
   const handleAssignTicket = async () => {
     if (!selectedAttendee || !selectedAttendee.username) {
       setSnackbar && setSnackbar({ open: true, message: 'Please select an attendee', severity: 'warning' });
+      return;
+    }
+    if (!assignReason || !assignReason.trim()) {
+      setSnackbar && setSnackbar({ open: true, message: 'Assignment reason is required', severity: 'warning' });
       return;
     }
     if (!selectedTicket || !selectedTicket.id) {
@@ -1313,7 +1345,11 @@ export default function TicketDetailsModal({
       });
       const data = await res.json();
       if (!res.ok) {
-        setSnackbar && setSnackbar({ open: true, message: `Failed to assign ticket: ${res.status} ${data.message || ''}`, severity: 'error' });
+        if (typeof showSnackbar === 'function') {
+          showSnackbar(`Failed to assign ticket: ${res.status} ${data.message || ''}`, 'error');
+        } else if (setSnackbar) {
+          setSnackbar({ open: true, message: `Failed to assign ticket: ${res.status} ${data.message || ''}`, severity: 'error' });
+        }
         console.error('Assign fetch error:', res.status, data);
         // Add delay for error snackbar to be visible
         setTimeout(() => {
@@ -1321,11 +1357,11 @@ export default function TicketDetailsModal({
         }, 500);
         return;
       }
-      setSnackbar && setSnackbar({
-        open: true,
-        message: data.message || "Ticket assigned successfully",
-        severity: "success"
-      });
+      if (typeof showSnackbar === 'function') {
+        showSnackbar(data.message || "Ticket assigned successfully", 'success');
+      } else if (setSnackbar) {
+        setSnackbar({ open: true, message: data.message || "Ticket assigned successfully", severity: "success" });
+      }
       setAssignReason("");
       setSelectedAttendee(null);
       setIsAssignModalOpen(false);
@@ -1337,7 +1373,7 @@ export default function TicketDetailsModal({
         refreshDashboardCounts && refreshDashboardCounts();
         // Close the main ticket details modal after successful assignment
         onClose && onClose();
-      }, 500); // Increased from 100ms to 500ms
+      }, 1500); // ensure snackbar is visible long enough
     } catch (e) {
       setSnackbar && setSnackbar({ open: true, message: `Assign error: ${e.message}`, severity: "error" });
       console.error('Assign exception:', e);
@@ -1552,52 +1588,86 @@ export default function TicketDetailsModal({
       setSnackbar && setSnackbar({ open: true, message: 'Please select an attendee', severity: 'warning' });
       return;
     }
+    if (!reassignReason || !reassignReason.trim()) {
+      setSnackbar && setSnackbar({ open: true, message: 'Reassignment reason is required', severity: 'warning' });
+      return;
+    }
     if (!selectedTicket || !selectedTicket.id) {
       setSnackbar && setSnackbar({ open: true, message: 'No ticket selected or ticket ID missing', severity: 'error' });
       console.error('Reassign error: selectedTicket or selectedTicket.id missing', selectedTicket);
       return;
     }
     const assignedToUsername = selectedReassignAttendee.username;
-    const assignedById = localStorage.getItem("userId");
     const reason = reassignReason;
-    if (!assignedToUsername || !assignedById) {
+    
+    console.log('DEBUG: selectedReassignAttendee:', selectedReassignAttendee);
+    console.log('DEBUG: assignedToUsername:', assignedToUsername);
+    console.log('DEBUG: reason:', reason);
+    
+    if (!assignedToUsername) {
       setSnackbar && setSnackbar({ open: true, message: 'Missing required fields for reassignment', severity: 'error' });
-      console.error('Reassign error: missing assignedToUsername or assignedById', { assignedToUsername, assignedById });
+      console.error('Reassign error: missing assignedToUsername', { assignedToUsername });
       return;
     }
     setReassignLoading(true);
     try {
       console.log('Reassigning ticket:', selectedTicket);
-      console.log('Reassigning to username:', assignedToUsername, 'by user:', assignedById, 'reason:', reason);
+      console.log('Reassigning to username:', assignedToUsername, 'reason:', reason);
       const token = localStorage.getItem("authToken");
-      const res = await fetch(`${baseURL}/ticket/${selectedTicket.id}/reassign`, {
+      const requestBody = {
+        assigned_to_id: selectedReassignAttendee.id,
+        assigned_to_role: selectedReassignAttendee.role || 'attendee',
+        reassignment_reason: reason,
+        notes: `Reassigned by ${localStorage.getItem("name") || "Focal Person"}`
+      };
+      console.log('DEBUG: Request body:', requestBody);
+      console.log('DEBUG: Token exists:', !!token);
+      console.log('DEBUG: Token length:', token ? token.length : 0);
+      
+      const url = `${baseURL}/ticket/${selectedTicket.id}/reassign`;
+      console.log('DEBUG: Calling URL:', url);
+      console.log('DEBUG: selectedTicket.id:', selectedTicket.id);
+      console.log('DEBUG: baseURL:', baseURL);
+      
+      const res = await fetch(url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
         },
-        body: JSON.stringify({
-          assigned_to_id: selectedReassignAttendee.id,
-          assigned_to_role: selectedReassignAttendee.role || 'attendee',
-          reassignment_reason: reason,
-          notes: `Reassigned by ${localStorage.getItem("name") || "Focal Person"}`
-        })
+        body: JSON.stringify(requestBody)
       });
       const data = await res.json();
       if (!res.ok) {
-        setSnackbar && setSnackbar({ open: true, message: `Failed to reassign ticket: ${res.status} ${data.message || ''}`, severity: 'error' });
+        if (typeof showSnackbar === 'function') {
+          showSnackbar(`Failed to reassign ticket: ${res.status} ${data.message || ''}`, 'error');
+        } else if (setSnackbar) {
+          setSnackbar({ open: true, message: `Failed to reassign ticket: ${res.status} ${data.message || ''}`, severity: 'error' });
+        }
         console.error('Reassign fetch error:', res.status, data);
+        // Add delay for error snackbar to be visible
+        setTimeout(() => {
+          setReassignLoading(false);
+        }, 500);
         return;
       }
-      setSnackbar && setSnackbar({
-        open: true,
-        message: data.message || "Ticket reassigned successfully",
-        severity: "success"
-      });
-      setSelectedReassignAttendee(null);
+      if (typeof showSnackbar === 'function') {
+        showSnackbar(data.message || "Ticket reassigned successfully", 'success');
+      } else if (setSnackbar) {
+        setSnackbar({ open: true, message: data.message || "Ticket reassigned successfully", severity: "success" });
+      }
       setReassignReason("");
+      setSelectedReassignAttendee(null);
       setIsReassignModalOpen(false);
-      refreshTickets && refreshTickets();
+      
+      // Add a longer delay before refreshing and closing to ensure snackbar is visible
+      setTimeout(() => {
+        refreshTickets && refreshTickets();
+        // Refresh dashboard counts to update sidebar
+        refreshDashboardCounts && refreshDashboardCounts();
+        // Close the main ticket details modal after successful reassignment
+        onClose && onClose();
+      }, 1500); // ensure snackbar is visible long enough
     } catch (e) {
       setSnackbar && setSnackbar({ open: true, message: `Reassign error: ${e.message}`, severity: "error" });
       console.error('Reassign exception:', e);
@@ -2281,7 +2351,7 @@ export default function TicketDetailsModal({
                 )}
 
                 {/* Reverse, Assign, and Reassign buttons for focal persons and other roles */}
-                {(["focal-person", "claim-focal-person", "compliance-focal-person"].includes(localStorage.getItem("role")) || 
+                {(["focal-person"].includes(localStorage.getItem("role")) || 
                   !["agent", "reviewer", "attendee", "director-general"].includes(localStorage.getItem("role"))) && 
                  selectedTicket?.assigned_to_id === localStorage.getItem("userId") && selectedTicket.status !== "Closed" && (
                   <>
@@ -2302,15 +2372,22 @@ export default function TicketDetailsModal({
                     >
                       Assign
                     </Button>
-                    {/* <Button
-                      variant="contained"
-                      color="secondary"
-                      sx={{ mr: 1 }}
-                      onClick={() => setIsReassignModalOpen(true)}
-                    >
-                      Reassign
-                    </Button> */}
                   </>
+                )}
+
+                {/* Reassign button for previously assigned focal-person or manager who is not currently assigned */}
+                {hasReassignPermission() && 
+                 wasPreviouslyAssigned() && 
+                 selectedTicket?.assigned_to_id !== localStorage.getItem("userId") && 
+                 selectedTicket.status !== "Closed" && (
+                  <Button
+                    variant="contained"
+                    color="secondary"
+                    sx={{ mr: 1 }}
+                    onClick={() => setIsReassignModalOpen(true)}
+                  >
+                    Reassign
+                  </Button>
                 )}
 
                 {/* Agent Reverse button for rated tickets */}
@@ -2677,45 +2754,34 @@ export default function TicketDetailsModal({
               <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold", color: "#333" }}>
                 Select Attendee:
               </Typography>
-              <Select
-                value={selectedAttendee ? selectedAttendee.id : ""}
-                onChange={e => {
-                  const attendee = attendees.find(a => a.id === e.target.value);
-                  setSelectedAttendee(attendee);
-                }}
-                displayEmpty
-                fullWidth
-                size="small"
-                sx={{
-                  "& .MuiSelect-select": {
-                    py: 1,
-                    fontSize: "0.9rem"
-                  }
-                }}
-              >
-                <MenuItem value="" disabled>
-                  <Typography variant="body2" sx={{ color: "#999", fontStyle: "italic" }}>
-                    Choose an attendee...
-                  </Typography>
-                </MenuItem>
-                {attendees.map(a => (
-                  <MenuItem key={a.id} value={a.id} sx={{ py: 1 }}>
+              <Autocomplete
+                value={selectedAttendee || null}
+                onChange={(e, val) => setSelectedAttendee(val)}
+                options={attendees}
+                getOptionLabel={(o) => o?.full_name || o?.name || o?.username || ""}
+                renderInput={(params) => (
+                  <TextField {...params} size="small" placeholder="Type to search attendee..." />
+                )}
+                renderOption={(props, a) => (
+                  <li {...props} key={a.id}>
                     <Box sx={{ display: "flex", flexDirection: "column" }}>
                       <Typography variant="body2" sx={{ fontWeight: "medium" }}>
-                        {a.name}
+                        {a.full_name || a.name}
                       </Typography>
                       <Typography variant="caption" sx={{ color: "#666" }}>
                         @{a.username}
                       </Typography>
                     </Box>
-                  </MenuItem>
-                ))}
-              </Select>
+                  </li>
+                )}
+                isOptionEqualToValue={(opt, val) => opt.id === val?.id}
+                fullWidth
+              />
             </Box>
             
             <Box>
               <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold", color: "#333" }}>
-                Assignment Reason (Optional):
+                Assignment Reason (required):
               </Typography>
               <TextField
                 value={assignReason}
@@ -2726,6 +2792,11 @@ export default function TicketDetailsModal({
                 maxRows={4}
                 size="small"
                 placeholder="Enter reason for assignment..."
+                required
+                inputProps={{
+                  maxLength: 500
+                }}
+                helperText={`${assignReason.length}/500 characters`}
                 sx={{
                   "& .MuiInputBase-root": {
                     fontSize: "0.9rem"
@@ -2756,7 +2827,7 @@ export default function TicketDetailsModal({
               variant="contained"
               color="primary"
               onClick={handleAssignTicket}
-              disabled={assignLoading || !selectedAttendee}
+              disabled={assignLoading || !selectedAttendee || !assignReason.trim()}
               size="small"
               sx={{ 
                 px: 2,
@@ -2792,45 +2863,108 @@ export default function TicketDetailsModal({
             overflow: "auto"
           }}
         >
-          <Typography id="reassign-ticket-modal-title" variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-            Reassign Ticket
-          </Typography>
-          <Select
-            value={selectedReassignAttendee ? selectedReassignAttendee.id : ""}
-            onChange={e => {
-              const attendee = attendees.find(a => a.id === e.target.value);
-              setSelectedReassignAttendee(attendee);
-            }}
-            displayEmpty
-            fullWidth
-            sx={{ mb: 2 }}
-          >
-            <MenuItem value="" disabled>Select attendee</MenuItem>
-            {attendees.map(a => (
-              <MenuItem key={a.id} value={a.id}>{a.name} ({a.username})</MenuItem>
-            ))}
-          </Select>
-          <TextField
-            label="Reassignment Reason (required)"
-            value={reassignReason}
-            onChange={e => setReassignReason(e.target.value)}
-            fullWidth
-            multiline
-            minRows={2}
-            sx={{ mb: 2 }}
-            required
-          />
-          <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
-            <Button onClick={() => setIsReassignModalOpen(false)} disabled={reassignLoading}>
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+            <Typography id="reassign-ticket-modal-title" variant="h6" sx={{ fontWeight: 600, color: "#1976d2" }}>
+              Reassign Ticket
+            </Typography>
+            <IconButton
+              onClick={() => setIsReassignModalOpen(false)}
+              size="small"
+              sx={{ color: "#666" }}
+            >
+              <CloseIcon />
+            </IconButton>
+          </Box>
+          
+          <Divider sx={{ mb: 3 }} />
+          
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold", color: "#333" }}>
+                Select Attendee:
+              </Typography>
+              <Autocomplete
+                value={selectedReassignAttendee || null}
+                onChange={(e, val) => setSelectedReassignAttendee(val)}
+                options={attendees}
+                getOptionLabel={(o) => o?.full_name || o?.name || o?.username || ""}
+                renderInput={(params) => (
+                  <TextField {...params} size="small" placeholder="Type to search attendee..." />
+                )}
+                renderOption={(props, a) => (
+                  <li {...props} key={a.id}>
+                    <Box sx={{ display: "flex", flexDirection: "column" }}>
+                      <Typography variant="body2" sx={{ fontWeight: "medium" }}>
+                        {a.full_name || a.name}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: "#666" }}>
+                        @{a.username}
+                      </Typography>
+                    </Box>
+                  </li>
+                )}
+                isOptionEqualToValue={(opt, val) => opt.id === val?.id}
+                fullWidth
+              />
+            </Box>
+            
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold", color: "#333" }}>
+                Reassignment Reason (required):
+              </Typography>
+              <TextField
+                value={reassignReason}
+                onChange={e => setReassignReason(e.target.value)}
+                fullWidth
+                multiline
+                minRows={2}
+                maxRows={4}
+                size="small"
+                placeholder="Enter reason for reassignment..."
+                required
+                inputProps={{
+                  maxLength: 500
+                }}
+                helperText={`${reassignReason.length}/500 characters`}
+                sx={{
+                  "& .MuiInputBase-root": {
+                    fontSize: "0.9rem"
+                  }
+                }}
+              />
+            </Box>
+          </Box>
+          
+          <Divider sx={{ my: 3 }} />
+          
+          <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1.5 }}>
+            <Button 
+              onClick={() => setIsReassignModalOpen(false)} 
+              disabled={reassignLoading}
+              variant="outlined"
+              size="small"
+              sx={{ 
+                px: 2,
+                textTransform: "none",
+                borderColor: "#ccc",
+                color: "#666"
+              }}
+            >
               Cancel
             </Button>
             <Button
               variant="contained"
               color="secondary"
               onClick={handleReassignTicket}
-              disabled={reassignLoading || !reassignReason.trim()}
+              disabled={reassignLoading || !selectedReassignAttendee || !reassignReason.trim()}
+              size="small"
+              sx={{ 
+                px: 2,
+                textTransform: "none",
+                fontWeight: "medium"
+              }}
             >
-              {reassignLoading ? "Reassigning..." : "Confirm Reassignment"}
+              {reassignLoading ? "Reassigning..." : "Reassign Ticket"}
             </Button>
           </Box>
         </Box>
