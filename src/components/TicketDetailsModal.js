@@ -860,6 +860,15 @@ export default function TicketDetailsModal({
   const [complaintSeverity, setComplaintSeverity] = useState("minor");
   const [agentReverseLoading, setAgentReverseLoading] = useState(false);
 
+  // Additional loading states for other handlers
+  const [attendLoading, setAttendLoading] = useState(false);
+  const [dgApprovalLoading, setDgApprovalLoading] = useState(false);
+  const [attendSubmitLoading, setAttendSubmitLoading] = useState(false);
+  const [reviewerCloseLoading, setReviewerCloseLoading] = useState(false);
+  const [forwardToDGLoading, setForwardToDGLoading] = useState(false);
+  const [ratingLoading, setRatingLoading] = useState(false);
+  const [convertOrForwardLoading, setConvertOrForwardLoading] = useState(false);
+
   // Major complaint workflow states
   const [isMajorComplaintClosureDialogOpen, setIsMajorComplaintClosureDialogOpen] = useState(false);
   const [isForwardToDGDialogOpen, setIsForwardToDGDialogOpen] = useState(false);
@@ -880,14 +889,24 @@ export default function TicketDetailsModal({
   }, [selectedTicket]);
 
   const showAttendButton =
-    // (userRole === "agent" || userRole === "attendee") &&
     selectedTicket &&
     selectedTicket.status !== "Closed" &&
     selectedTicket.assigned_to_id &&
-            userRole !== "reviewer" &&
-    userRole !== "director-general" &&
     String(selectedTicket.assigned_to_id) === String(userId) &&
-    ((userRole === "manager") || (userRole === "agent" || userRole === "attendee") && !selectedTicket.complaint_type); // Managers can attend rated tickets, others only if not rated
+    // Allow these roles to attend tickets
+    (userRole === "agent" || 
+     userRole === "attendee" || 
+     userRole === "focal-person" || 
+     userRole === "claim-focal-person" || 
+     userRole === "compliance-focal-person" || 
+     userRole === "head-of-unit" || 
+     userRole === "supervisor" || 
+     userRole === "manager" ||
+     userRole === "reviewer") &&
+    // Exclude these roles
+    userRole !== "director-general" &&
+    // For non-managers, only allow if ticket is not rated
+    (userRole === "manager" || !selectedTicket.complaint_type);
 
   // Reviewer-specific conditions
     const showReviewerActions =
@@ -903,6 +922,7 @@ export default function TicketDetailsModal({
   }
 
   const handleAttend = async () => {
+    setAttendLoading(true);
     try {
       console.log('DEBUG handleAttend:', {
         userRole,
@@ -923,7 +943,7 @@ export default function TicketDetailsModal({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...(localStorage.getItem("authToken") ? { 'Authorization': `Bearer ${localStorage.getItem("authToken")}` } : {})
+            'Authorization': `Bearer ${localStorage.getItem("authToken")}`
           },
           body: JSON.stringify({
             userId: userId,
@@ -941,8 +961,8 @@ export default function TicketDetailsModal({
         
         setSnackbar({ open: true, message: 'Recommendation submitted! Ticket sent to Head of Unit for review.', severity: 'success' });
         setIsAttendDialogOpen(false); // Close the attend dialog
-        if (onClose) onClose(); // Close the main modal
-        refreshTickets();
+        refreshTickets(); // Refresh to update ticket state
+        // Don't close the main modal - let user see the updated state
         return;
       }
       
@@ -955,12 +975,11 @@ export default function TicketDetailsModal({
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // Add Authorization header if your backend requires it
-          ...(localStorage.getItem("authToken") ? { 'Authorization': `Bearer ${localStorage.getItem("authToken")}` } : {})
+          'Authorization': `Bearer ${localStorage.getItem("authToken")}`
         },
         body: JSON.stringify({
           recommendation: resolutionDetails,
-          evidence_url: attachment ? `${baseURL}/ticket/attachment/${attachment.name}` : null // if you have file upload, otherwise omit
+          evidence_url: attachment ? `${baseURL}/ticket/attachment/${attachment.name}` : null
         })
       });
       if (!response.ok) {
@@ -970,10 +989,12 @@ export default function TicketDetailsModal({
       }
       setSnackbar({ open: true, message: 'Recommendation submitted! The Head of Unit will review it next.', severity: 'success' });
       setIsAttendDialogOpen(false); // Close the attend dialog
-      if (onClose) onClose(); // Close the main modal
-      refreshTickets();
+      refreshTickets(); // Refresh to update ticket state
+      // Don't close the main modal - let user see the updated state
     } catch (err) {
       setSnackbar({ open: true, message: 'Network error: ' + err.message, severity: 'error' });
+    } finally {
+      setAttendLoading(false);
     }
   };
 
@@ -1003,6 +1024,7 @@ export default function TicketDetailsModal({
 
   // Director General approval handler
   const handleDGApproval = async () => {
+    setDgApprovalLoading(true);
     try {
       const token = localStorage.getItem("authToken");
       
@@ -1024,7 +1046,7 @@ export default function TicketDetailsModal({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify(payload)
       });
@@ -1042,10 +1064,13 @@ export default function TicketDetailsModal({
     } catch (error) {
       console.error("Error in DG approval:", error);
       setSnackbar({open: true, message: 'Error processing DG action', severity: 'error'});
+    } finally {
+      setDgApprovalLoading(false);
     }
   };
 
   const handleAttendSubmit = async () => {
+    setAttendSubmitLoading(true);
     try {
       const token = localStorage.getItem("authToken");
       const formData = new FormData();
@@ -1060,7 +1085,7 @@ export default function TicketDetailsModal({
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${token}`
+            "Authorization": `Bearer ${token}`
             // Do NOT set Content-Type; browser will set it for FormData
           },
           body: formData
@@ -1077,6 +1102,8 @@ export default function TicketDetailsModal({
       }
     } catch (error) {
       setSnackbar({open: true, message: 'Error closing ticket: ' + error.message, severity: 'error'});
+    } finally {
+      setAttendSubmitLoading(false);
     }
   };
 
@@ -1090,45 +1117,80 @@ export default function TicketDetailsModal({
       return;
     }
 
+    const token = localStorage.getItem("authToken");
+    if (!token) {
+      setSnackbar({open: true, message: 'Authentication token not found. Please log in again.', severity: 'error'});
+      return;
+    }
+
+    setReviewerCloseLoading(true);
     try {
-      const token = localStorage.getItem("authToken");
-      const formData = new FormData();
-      formData.append("status", "Closed");
-      formData.append("resolution_type", resolutionType);
-      formData.append("resolution_details", resolutionDetails);
-      formData.append("date_of_resolution", new Date().toISOString());
-      formData.append("userId", userId);
+      // Determine if this is an attend action or close action
+      const isAttendAction = userRole !== "reviewer";
       
-      if (attachment) {
-        formData.append("attachment", attachment);
-      }
-
-      // Use different endpoints based on user role
-          const endpoint = userRole === "reviewer"
-      ? `${baseURL}/reviewer/${selectedTicket.id}/close`
-        : `${baseURL}/ticket/${selectedTicket.id}/close`;
-
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`
-        },
-        body: formData
-      });
-
-      if (response.ok) {
-        setIsReviewerCloseDialogOpen(false);
-        onClose();
-        refreshTickets();
-        const roleText = userRole === "reviewer" ? "Reviewer" : 
-                        userRole === "claim-focal-person" ? "Claim Focal Person" : "Focal Person";
-        setSnackbar({open: true, message: `Ticket closed successfully by ${roleText}`, severity: 'success'});
+      if (isAttendAction) {
+        // For attend action, use the attend workflow
+        const requestBody = {
+          recommendation: resolutionDetails,
+          evidence_url: attachment ? `${baseURL}/ticket/attachment/${attachment.name}` : null
+        };
+        
+        // const response = await fetch(`${baseURL}/workflow/${selectedTicket.id}/attend-and-recommend`, {
+        //   method: 'POST',
+        //   headers: {
+        //     'Content-Type': 'application/json',
+        //     'Authorization': `Bearer ${token}`
+        //   },
+        //   body: JSON.stringify(requestBody)
+        // });
+        
+        // if (response.ok) {
+        //   setIsReviewerCloseDialogOpen(false);
+        //   refreshTickets();
+        //   setSnackbar({open: true, message: 'Recommendation submitted! The Head of Unit will review it next.', severity: 'success'});
+        // } else {
+        //   const error = await response.json();
+        //   setSnackbar({open: true, message: error.message || 'Failed to submit recommendation', severity: 'error'});
+        // }
       } else {
-        throw new Error("Failed to close ticket");
+        // For close action, use the close endpoint
+        const formData = new FormData();
+        formData.append("status", "Closed");
+        formData.append("resolution_type", resolutionType);
+        formData.append("resolution_details", resolutionDetails);
+        formData.append("date_of_resolution", new Date().toISOString());
+        formData.append("userId", userId);
+        
+        if (attachment) {
+          formData.append("attachment", attachment);
+        }
+
+        // Use the close endpoint for all roles
+        const endpoint = userRole === "reviewer" 
+          ? `${baseURL}/reviewer/${selectedTicket.id}/close`
+          : `${baseURL}/ticket/${selectedTicket.id}/close`;
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`
+          },
+          body: formData
+        });
+
+        if (response.ok) {
+          setIsReviewerCloseDialogOpen(false);
+          onClose();
+          refreshTickets();
+          setSnackbar({open: true, message: 'Ticket closed successfully by Reviewer', severity: 'success'});
+        } else {
+          throw new Error("Failed to close ticket");
+        }
       }
     } catch (error) {
-      console.error("Error closing ticket:", error);
-      setSnackbar({open: true, message: 'Error closing ticket', severity: 'error'});
+      console.error("Error processing action:", error);
+      setSnackbar({open: true, message: 'Error processing action: ' + error.message, severity: 'error'});
+    } finally {
+      setReviewerCloseLoading(false);
     }
   };
 
@@ -1154,7 +1216,7 @@ export default function TicketDetailsModal({
       const response = await fetch(`${baseURL}/ticket/${selectedTicket.id}/reverse`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`
+          "Authorization": `Bearer ${token}`
           // Do NOT set Content-Type; browser will set it for FormData
         },
         body: formData
@@ -1190,7 +1252,7 @@ export default function TicketDetailsModal({
         try {
           const token = localStorage.getItem("authToken");
           const res = await fetch(`${baseURL}/ticket/admin/attendee`, {
-            headers: { Authorization: `Bearer ${token}` }
+            headers: { "Authorization": `Bearer ${token}` }
           });
           const data = await res.json();
           if (Array.isArray(data.attendees)) {
@@ -1260,7 +1322,7 @@ export default function TicketDetailsModal({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify(requestBody)
       });
@@ -1309,6 +1371,7 @@ export default function TicketDetailsModal({
       return;
     }
 
+    setForwardToDGLoading(true);
     try {
       const token = localStorage.getItem("authToken");
       const response = await fetch(`${baseURL}/ticket/${selectedTicket.id}/forward-to-dg`, {
@@ -1338,10 +1401,13 @@ export default function TicketDetailsModal({
     } catch (error) {
       console.error("Error forwarding to Director General:", error);
       setSnackbar({ open: true, message: "Failed to forward to Director General. Please try again.", severity: "error" });
+    } finally {
+      setForwardToDGLoading(false);
     }
   };
 
   const handleRating = async (ticketId, rating) => {
+    setRatingLoading(true);
     const token = localStorage.getItem("authToken");
     const userId = localStorage.getItem("userId");
     try {
@@ -1349,7 +1415,7 @@ export default function TicketDetailsModal({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({ complaintType: rating, userId })
       });
@@ -1384,6 +1450,8 @@ export default function TicketDetailsModal({
     } catch (error) {
       console.error('🔍 Error caught:', error);
       setSnackbar({ open: true, message: error.message, severity: "error" });
+    } finally {
+      setRatingLoading(false);
     }
   };
 
@@ -1442,6 +1510,7 @@ export default function TicketDetailsModal({
       return;
     }
 
+    setConvertOrForwardLoading(true);
     try {
       // Prepare the payload to match backend expectations
       // Use selectedRating if available, otherwise use existing complaint_type
@@ -1456,7 +1525,7 @@ export default function TicketDetailsModal({
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify(payload)
       });
@@ -1488,6 +1557,8 @@ export default function TicketDetailsModal({
       setSnackbar({ open: true, message: error.message, severity: "error" });
       // Hide modal even on error per requirement
       onClose && onClose();
+    } finally {
+      setConvertOrForwardLoading(false);
     }
   };
 
@@ -1518,7 +1589,7 @@ export default function TicketDetailsModal({
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`
+          "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
           assigned_to_id: selectedReassignAttendee.id,
@@ -1578,7 +1649,7 @@ export default function TicketDetailsModal({
       const res = await fetch(`${baseURL}/ticket/${selectedTicket.id}/reverse-complaint`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`
+          "Authorization": `Bearer ${token}`
           // Do NOT set Content-Type; browser will set it for FormData
         },
         body: formData
@@ -1959,8 +2030,14 @@ export default function TicketDetailsModal({
               {/* Action Buttons */}
               <Box sx={{ mt: 2, textAlign: "right" }}>
                 {showAttendButton && (
-                  <Button variant="contained" color="primary" onClick={() => setIsAttendDialogOpen(true)} sx={{ mr: 1 }}>
-                    Attend
+                  <Button 
+                    variant="contained" 
+                    color="primary" 
+                    onClick={handleReviewerClose} 
+                    sx={{ mr: 1 }}
+                    disabled={attendLoading}
+                  >
+                    {attendLoading ? "Attending..." : "Attend"}
                   </Button>
                 )}
                 
@@ -1989,6 +2066,7 @@ export default function TicketDetailsModal({
                                 handleRating(selectedTicket.id, e.target.value);
                               }
                             }}
+                            disabled={ratingLoading}
                           >
                             <option value="">Select Category</option>
                             <option value="Minor">Minor</option>
@@ -2038,8 +2116,9 @@ export default function TicketDetailsModal({
                           variant="contained"
                           color="warning"
                           onClick={handleForwardToDG}
+                          disabled={forwardToDGLoading}
                         >
-                          Forward to Director General
+                          {forwardToDGLoading ? "Forwarding..." : "Forward to Director General"}
                         </Button>
                         <Box sx={{ display: "flex", gap: 1 }}>
                           <Button
@@ -2081,8 +2160,9 @@ export default function TicketDetailsModal({
                               size="small"
                               variant="contained"
                               onClick={() => handleConvertOrForward(selectedTicket.id)}
+                              disabled={convertOrForwardLoading}
                             >
-                              Convert
+                              {convertOrForwardLoading ? "Converting..." : "Convert"}
                             </Button>
                           </Box>
                         )}
@@ -2112,10 +2192,10 @@ export default function TicketDetailsModal({
                             size="small"
                             variant="contained"
                             onClick={() => handleConvertOrForward(selectedTicket.id)}
-                            disabled={!selectedRating || !["Minor", "Major"].includes(selectedRating)}
+                            disabled={!selectedRating || !["Minor", "Major"].includes(selectedRating) || convertOrForwardLoading}
                             title={!selectedRating || !["Minor", "Major"].includes(selectedRating) ? "Please select a rating (Minor or Major) from the 'Complaint Category' dropdown above before forwarding" : ""}
                           >
-                            Forward
+                            {convertOrForwardLoading ? "Forwarding..." : "Forward"}
                           </Button>
                           {(!selectedRating || !["Minor", "Major"].includes(selectedRating)) && (
                             <Typography variant="caption" color="warning.main" sx={{ fontSize: "0.7rem" }}>
@@ -2370,11 +2450,14 @@ export default function TicketDetailsModal({
                 variant="contained"
                 color="primary"
                 onClick={handleAttend}
-                disabled={!resolutionDetails.trim()}
+                disabled={!resolutionDetails.trim() || attendLoading}
               >
-                {userRole === "manager" && selectedTicket?.complaint_type === "Major" 
-                  ? "Submit Recommendation" 
-                  : "Submit"}
+                {attendLoading 
+                  ? "Submitting..." 
+                  : (userRole === "manager" && selectedTicket?.complaint_type === "Major" 
+                    ? "Submit Recommendation" 
+                    : "Submit")
+                }
               </Button>
               <Button
                 variant="outlined"
@@ -2390,7 +2473,9 @@ export default function TicketDetailsModal({
 
       {/* Reviewer Close Dialog */}
       <Dialog open={isReviewerCloseDialogOpen} onClose={() => setIsReviewerCloseDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Resolution Details</DialogTitle>
+        <DialogTitle>
+          {userRole === "reviewer" ? "Close Ticket - Resolution Details" : "Attend Ticket - Resolution Details"}
+        </DialogTitle>
         <DialogContent>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
             <Box>
@@ -2456,9 +2541,12 @@ export default function TicketDetailsModal({
                 variant="contained"
                 color="success"
                 onClick={handleReviewerCloseSubmit}
-                disabled={!resolutionType || !resolutionDetails.trim()}
+                disabled={!resolutionType || !resolutionDetails.trim() || reviewerCloseLoading}
               >
-                Close Ticket
+                {reviewerCloseLoading 
+                  ? (userRole === "reviewer" ? "Closing..." : "Submitting...") 
+                  : (userRole === "reviewer" ? "Close Ticket" : "Submit Recommendation")
+                }
               </Button>
               <Button
                 variant="outlined"
@@ -2574,54 +2662,124 @@ export default function TicketDetailsModal({
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            width: 400,
+            width: 450,
+            maxWidth: "90vw",
             bgcolor: "background.paper",
             boxShadow: 24,
             borderRadius: 2,
-            p: 4,
-            display: "flex",
-            flexDirection: "column",
-            gap: 3
+            p: 3,
+            maxHeight: "80vh",
+            overflow: "auto"
           }}
         >
-          <Typography id="assign-ticket-modal-title" variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
-            Assign Ticket
-          </Typography>
-          <Select
-            value={selectedAttendee ? selectedAttendee.id : ""}
-            onChange={e => {
-              const attendee = attendees.find(a => a.id === e.target.value);
-              setSelectedAttendee(attendee);
-            }}
-            displayEmpty
-            fullWidth
-            sx={{ mb: 2 }}
-          >
-            <MenuItem value="" disabled>Select attendee</MenuItem>
-            {attendees.map(a => (
-              <MenuItem key={a.id} value={a.id}>{a.name} ({a.username})</MenuItem>
-            ))}
-          </Select>
-          <TextField
-            label="Assignment Reason (optional)"
-            value={assignReason}
-            onChange={e => setAssignReason(e.target.value)}
-            fullWidth
-            multiline
-            minRows={2}
-            sx={{ mb: 2 }}
-          />
-          <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 2 }}>
-            <Button onClick={() => setIsAssignModalOpen(false)} disabled={assignLoading}>
+          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+            <Typography id="assign-ticket-modal-title" variant="h6" sx={{ fontWeight: 600, color: "#1976d2" }}>
+              Assign Ticket
+            </Typography>
+            <IconButton
+              onClick={() => setIsAssignModalOpen(false)}
+              size="small"
+              sx={{ color: "#666" }}
+            >
+              <CloseIcon />
+            </IconButton>
+          </Box>
+          
+          <Divider sx={{ mb: 3 }} />
+          
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold", color: "#333" }}>
+                Select Attendee:
+              </Typography>
+              <Select
+                value={selectedAttendee ? selectedAttendee.id : ""}
+                onChange={e => {
+                  const attendee = attendees.find(a => a.id === e.target.value);
+                  setSelectedAttendee(attendee);
+                }}
+                displayEmpty
+                fullWidth
+                size="small"
+                sx={{
+                  "& .MuiSelect-select": {
+                    py: 1,
+                    fontSize: "0.9rem"
+                  }
+                }}
+              >
+                <MenuItem value="" disabled>
+                  <Typography variant="body2" sx={{ color: "#999", fontStyle: "italic" }}>
+                    Choose an attendee...
+                  </Typography>
+                </MenuItem>
+                {attendees.map(a => (
+                  <MenuItem key={a.id} value={a.id} sx={{ py: 1 }}>
+                    <Box sx={{ display: "flex", flexDirection: "column" }}>
+                      <Typography variant="body2" sx={{ fontWeight: "medium" }}>
+                        {a.name}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: "#666" }}>
+                        @{a.username}
+                      </Typography>
+                    </Box>
+                  </MenuItem>
+                ))}
+              </Select>
+            </Box>
+            
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold", color: "#333" }}>
+                Assignment Reason (Optional):
+              </Typography>
+              <TextField
+                value={assignReason}
+                onChange={e => setAssignReason(e.target.value)}
+                fullWidth
+                multiline
+                minRows={2}
+                maxRows={4}
+                size="small"
+                placeholder="Enter reason for assignment..."
+                sx={{
+                  "& .MuiInputBase-root": {
+                    fontSize: "0.9rem"
+                  }
+                }}
+              />
+            </Box>
+          </Box>
+          
+          <Divider sx={{ my: 3 }} />
+          
+          <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1.5 }}>
+            <Button 
+              onClick={() => setIsAssignModalOpen(false)} 
+              disabled={assignLoading}
+              variant="outlined"
+              size="small"
+              sx={{ 
+                px: 2,
+                textTransform: "none",
+                borderColor: "#ccc",
+                color: "#666"
+              }}
+            >
               Cancel
             </Button>
             <Button
               variant="contained"
               color="primary"
               onClick={handleAssignTicket}
-              disabled={assignLoading}
+              disabled={assignLoading || !selectedAttendee}
+              size="small"
+              sx={{ 
+                px: 2,
+                textTransform: "none",
+                fontWeight: "medium"
+              }}
             >
-              {assignLoading ? "Assigning..." : "Confirm Assignment"}
+              {assignLoading ? "Assigning..." : "Assign Ticket"}
             </Button>
           </Box>
         </Box>
@@ -2639,14 +2797,14 @@ export default function TicketDetailsModal({
             top: "50%",
             left: "50%",
             transform: "translate(-50%, -50%)",
-            width: 400,
+            width: 450,
+            maxWidth: "90vw",
             bgcolor: "background.paper",
             boxShadow: 24,
             borderRadius: 2,
-            p: 4,
-            display: "flex",
-            flexDirection: "column",
-            gap: 3
+            p: 3,
+            maxHeight: "80vh",
+            overflow: "auto"
           }}
         >
           <Typography id="reassign-ticket-modal-title" variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
@@ -2919,8 +3077,9 @@ export default function TicketDetailsModal({
               variant="contained"
               color="success"
               onClick={handleDGApproval}
+              disabled={dgApprovalLoading}
             >
-              {dgApproved ? "Forward" : "Reverse"}
+              {dgApprovalLoading ? "Processing..." : (dgApproved ? "Forward" : "Reverse")}
             </Button>
             <Button
               variant="outlined"

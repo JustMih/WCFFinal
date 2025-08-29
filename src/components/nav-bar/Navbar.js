@@ -683,6 +683,20 @@ export default function Navbar({
                 <span style={{ color: '#333', fontWeight: '500' }}>
                   {ticketDetailsData.ticket.ticket_id || 'N/A'}
                 </span>
+                <span style={{ color: '#666' }}>Date Created:</span>
+                <span style={{ color: '#333', fontWeight: '500' }}>
+                  {ticketDetailsData.ticket.created_at 
+                    ? new Date(ticketDetailsData.ticket.created_at).toLocaleDateString('en-US', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                      })
+                    : 'N/A'}
+                </span>
               </div>
             </div>
           )}

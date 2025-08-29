@@ -98,7 +98,7 @@ export default function CRMFocalPersonTickets() {
   const fetchUnits = async () => {
     const token = localStorage.getItem("authToken");
     try {
-      const res = await fetch(`${baseURL}/section/units-data`, {
+              const res = await fetch(`${baseURL}/section/functions-data`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const json = await res.json();

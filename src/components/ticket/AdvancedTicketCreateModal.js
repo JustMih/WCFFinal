@@ -619,6 +619,12 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
   // --- Justification History State ---
   const [isJustificationModalOpen, setIsJustificationModalOpen] = useState(false);
   const [selectedTicketForJustification, setSelectedTicketForJustification] = useState(null);
+  
+  // Close modal state variables
+  const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
+  const [resolutionType, setResolutionType] = useState("");
+  const [resolutionDetails, setResolutionDetails] = useState("");
+  const [attachment, setAttachment] = useState(null);
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   // --- End Justification History State ---
   // --- End CRM Modal State ---
@@ -1017,11 +1023,30 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
     }
 
     if (name === "functionId") {
+      console.log('🔍 functionId changed to:', value);
+      console.log('🔍 Available functionData:', functionData);
+      
       const selectedFunctionData = functionData.find((item) => item.id === value);
       if (selectedFunctionData) {
-        setSelectedFunction(selectedFunctionData.function?.name || "");
-        setSelectedSection(selectedFunctionData.function?.section?.name || "");
+        // Try different possible data structures
+        const functionName = selectedFunctionData.function?.name || 
+                           selectedFunctionData.name || 
+                           selectedFunctionData.function_name || 
+                           "";
+        const sectionName = selectedFunctionData.function?.section?.name || 
+                          selectedFunctionData.section?.name || 
+                          selectedFunctionData.section_name || 
+                          selectedFunctionData.section || 
+                          "";
+        
+        setSelectedFunction(functionName);
+        setSelectedSection(sectionName);
+        
+        console.log('Selected function data:', selectedFunctionData);
+        console.log('Function name:', functionName);
+        console.log('Section name:', sectionName);
       } else {
+        console.log('❌ No function data found for ID:', value);
         setSelectedFunction("");
         setSelectedSection("");
       }
@@ -1605,6 +1630,72 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
   const hasSignificantData = formData.firstName || formData.lastName || 
                              formData.institution || formData.requester || 
                              selectedEmployer || selectedEmployee;
+
+  // Close modal handlers
+  const handleCloseModalSubmit = async () => {
+    if (!resolutionType || !resolutionDetails.trim()) {
+      setModal({
+        isOpen: true,
+        type: "error",
+        message: "Please provide both resolution type and details",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // First create the ticket with closed status
+      const ticketData = {
+        ...formData,
+        status: "Closed",
+        resolution_type: resolutionType,
+        resolution_details: resolutionDetails,
+        date_of_resolution: new Date().toISOString(),
+        shouldClose: true
+      };
+
+      const response = await fetch(`${baseURL}/ticket/create`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        },
+        body: JSON.stringify(ticketData),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setModal({
+          isOpen: true,
+          type: "success",
+          message: "Ticket created and closed successfully",
+        });
+        setIsCloseModalOpen(false);
+        setResolutionType("");
+        setResolutionDetails("");
+        setAttachment(null);
+        onClose();
+      } else {
+        throw new Error(data.message || "Failed to create and close ticket");
+      }
+    } catch (error) {
+      setModal({
+        isOpen: true,
+        type: "error",
+        message: error.message,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCloseModalCancel = () => {
+    setIsCloseModalOpen(false);
+    setResolutionType("");
+    setResolutionDetails("");
+    setAttachment(null);
+  };
 
   // Add the full JSX structure from the CRM modal here
   return (
@@ -2498,11 +2589,14 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                       >
                         <option value="">Select Subject</option>
                         {functionData && functionData.length > 0 ? (
-                          functionData.map((item) => (
-                            <option key={item.id} value={item.id}>
-                              {item.name}
-                            </option>
-                          ))
+                          functionData.map((item) => {
+                            console.log('🔍 Dropdown item:', item);
+                            return (
+                              <option key={item.id} value={item.id}>
+                                {item.name}
+                              </option>
+                            );
+                          })
                         ) : (
                           <option value="" disabled>No subjects available</option>
                         )}
@@ -2599,7 +2693,7 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                       <button
                         className="close-btn"
                         style={{ background: "gray", color: "white", borderRadius: "4px", padding: "8px 16px" }}
-                        onClick={(e) => handleSubmit(e, "closed")}
+                        onClick={() => setIsCloseModalOpen(true)}
                       >
                         Close Ticket
                       </button>
@@ -2885,6 +2979,91 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
           </div>
         </div>
       )}
+
+      {/* Close Modal */}
+      <Dialog open={isCloseModalOpen} onClose={handleCloseModalCancel} maxWidth="sm" fullWidth>
+        <DialogTitle>Resolution Details</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Resolution Type:
+              </Typography>
+              <select
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  fontSize: "0.9rem",
+                  borderRadius: "4px",
+                  border: "1px solid #ccc"
+                }}
+                value={resolutionType}
+                onChange={(e) => setResolutionType(e.target.value)}
+              >
+                <option value="">Select Resolution Type</option>
+                <option value="Resolved">Resolved</option>
+                <option value="Duplicate">Duplicate</option>
+              </select>
+            </Box>
+
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Resolution Details:
+              </Typography>
+              <TextField
+                multiline
+                rows={4}
+                value={resolutionDetails}
+                onChange={(e) => setResolutionDetails(e.target.value)}
+                fullWidth
+                placeholder="Enter resolution details..."
+              />
+            </Box>
+
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Attachment (Optional):
+              </Typography>
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+                onChange={(e) => setAttachment(e.target.files[0])}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  fontSize: "0.9rem",
+                  borderRadius: "4px",
+                  border: "1px solid #ccc"
+                }}
+              />
+              {attachment && (
+                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
+                  File selected: {attachment.name}
+                </Typography>
+              )}
+            </Box>
+
+            <Box sx={{ mt: 2, textAlign: "right" }}>
+              <Button
+                variant="contained"
+                color="success"
+                onClick={handleCloseModalSubmit}
+                disabled={!resolutionType || !resolutionDetails.trim() || isLoading}
+              >
+                {isLoading ? "Creating..." : "Create & Close Ticket"}
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={handleCloseModalCancel}
+                sx={{ ml: 1 }}
+                disabled={isLoading}
+              >
+                Cancel
+              </Button>
+            </Box>
+          </Box>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

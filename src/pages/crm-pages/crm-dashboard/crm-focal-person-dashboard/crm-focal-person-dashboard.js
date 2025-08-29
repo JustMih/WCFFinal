@@ -970,7 +970,7 @@ export default function FocalPersonDashboard() {
                         backgroundColor: 'rgba(25, 118, 210, 0.1)'
                       }
                     }}
-                    title="View Recommendation History"
+                     title="View Ticket Updates"
                   >
                     <ChatIcon fontSize="small" />
                   </IconButton>

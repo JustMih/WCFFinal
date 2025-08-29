@@ -12,17 +12,18 @@ export default function CRMDashboard() {
   }
    return (
      <>
-       {(role === "agent") && (<AgentDashboard /> )}
        {role === "reviewer" && <ReviewerDashboard />}
+       {(role === "agent") && (<AgentDashboard /> )}
        {role === "attendee" && <AgentDashboard />}
-       {role === "focal-person" && <FocalPersonDashboard />}
-       {role === "claim-focal-person" && <HeadsDashboard />}
-       {role === "compliance-focal-person" && <HeadsDashboard />}
-       {role === "head-of-unit" && <HeadsDashboard />}
-       {role === "director-general" && <HeadsDashboard />}
-       {role === "manager" && <HeadsDashboard />}
-       {role === "supervisor" && <HeadsDashboard />}
-       {role === "super-admin" && <HeadsDashboard />}
+       {role === "focal-person" && <AgentDashboard />}
+       {role === "claim-focal-person" && <AgentDashboard />}
+       {role === "compliance-focal-person" && <AgentDashboard />}
+       {role === "head-of-unit" && <AgentDashboard />}
+       {role === "director-general" && <AgentDashboard />}
+       {role === "manager" && <AgentDashboard />}
+       {role === "supervisor" && <AgentDashboard />}
+       {role === "super-admin" && <AgentDashboard />}
+       {/* {role === "super-admin" && <HeadsDashboard />} */}
      </>
    );
 }

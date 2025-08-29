@@ -75,7 +75,9 @@ export default function ReviewerDashboard() {
     "fullName",
     "phone_number",
     "region",
-    "status"
+    "status",
+    "dateCreatedAt",
+    "categoryType"
   ]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
@@ -135,7 +137,9 @@ export default function ReviewerDashboard() {
         "fullName",
         "phone_number",
         "region",
-        "status"
+        "status",
+        "dateCreatedAt",
+        "categoryType"
       ]);
     }
   }, [activeColumns]);
@@ -201,7 +205,8 @@ export default function ReviewerDashboard() {
     const token = localStorage.getItem("authToken");
     const fetchData = async () => {
       try {
-        const res = await fetch(`${baseURL}/section/units-data`, {
+        // const res = await fetch(`${baseURL}/section/units-data`, {
+        const res = await fetch(`${baseURL}/section/functions-data`, {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -863,7 +868,7 @@ export default function ReviewerDashboard() {
     const fetchUnits = async () => {
       const token = localStorage.getItem("authToken");
       try {
-        const res = await fetch(`${baseURL}/section/units-data`, {
+        const res = await fetch(`${baseURL}/section/functions-data`, {
           headers: {
             Authorization: `Bearer ${token}`
           }
@@ -1027,8 +1032,15 @@ export default function ReviewerDashboard() {
     console.log('🔍 Ticket ID:', ticket.id);
     console.log('🔍 Ticket object:', ticket);
     
+    // Set the ticket first, then open the modal
     setDetailsModalTicket(ticket);
-    setIsDetailsModalOpen(true);
+    console.log('🔍 Set detailsModalTicket to:', ticket);
+    
+    // Add a small delay to ensure state is updated
+    setTimeout(() => {
+      setIsDetailsModalOpen(true);
+      console.log('🔍 Set isDetailsModalOpen to true');
+    }, 100);
     // Fetch assignment history for the ticket
     try {
       const token = localStorage.getItem("authToken");
@@ -1161,10 +1173,8 @@ export default function ReviewerDashboard() {
               {activeColumns.includes("phone_number") && <th>Phone</th>}
               {activeColumns.includes("region") && <th>Region</th>}
               {activeColumns.includes("status") && <th>Status</th>}
-              {activeColumns.includes("subject") && <th>Subject</th>}
-              {activeColumns.includes("category") && <th>Category</th>}
-              {activeColumns.includes("assigned_to_role") && <th>Assigned Role</th>}
-              {activeColumns.includes("createdAt") && <th>Created At</th>}
+              {activeColumns.includes("dateCreatedAt") && <th>Date Created At</th>}
+              {activeColumns.includes("categoryType") && <th>Category Type (Major/Minor)</th>}
               <th>Actions</th>
             </tr>
           </thead>
@@ -1191,19 +1201,10 @@ export default function ReviewerDashboard() {
                   {activeColumns.includes("status") && (
                     <td>{ticket.status || "N/A"}</td>
                   )}
-                  {activeColumns.includes("subject") && (
-                    <td>{ticket.subject || "N/A"}</td>
-                  )}
-                  {activeColumns.includes("category") && (
-                    <td>{ticket.category || "N/A"}</td>
-                  )}
-                  {activeColumns.includes("assigned_to_role") && (
-                    <td>{ticket.assigned_to_role || "N/A"}</td>
-                  )}
-                  {activeColumns.includes("createdAt") && (
+                  {activeColumns.includes("dateCreatedAt") && (
                     <td>
-                      {ticket.createdAt
-                        ? new Date(ticket.createdAt).toLocaleString("en-GB", {
+                      {ticket.created_at
+                        ? new Date(ticket.created_at).toLocaleString("en-GB", {
                             day: "2-digit",
                             month: "short",
                             year: "numeric",
@@ -1212,6 +1213,11 @@ export default function ReviewerDashboard() {
                             hour12: true
                           })
                         : "N/A"}
+                    </td>
+                  )}
+                  {activeColumns.includes("categoryType") && (
+                    <td>
+                      {ticket.complaint_type ? ticket.complaint_type : "Not Rated"}
                     </td>
                   )}
                   <td>
@@ -2060,7 +2066,15 @@ export default function ReviewerDashboard() {
         initialPhoneNumber={phoneSearch}
       />
 
-
+      {/* TicketDetailsModal */}
+      <TicketDetailsModal
+        open={isDetailsModalOpen}
+        onClose={() => setIsDetailsModalOpen(false)}
+        selectedTicket={detailsModalTicket}
+        assignmentHistory={detailsModalAssignmentHistory}
+        refreshTickets={fetchTickets}
+        refreshDashboardCounts={() => {}} // This page doesn't have dashboard counts, so pass empty function
+      />
 
       {/* ReviewerActionModal */}
       {/* This modal is no longer needed as TicketDetailsModal handles actions */}
