@@ -10,6 +10,7 @@ import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
+import Snackbar from "@mui/material/Snackbar";
 import Avatar from "@mui/material/Avatar";
 import Paper from "@mui/material/Paper";
 import TextField from "@mui/material/TextField";
@@ -17,6 +18,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Select from "@mui/material/Select";
 import MenuItem from "@mui/material/MenuItem";
 import Chip from "@mui/material/Chip";
+import Alert from "@mui/material/Alert";
 import CloseIcon from '@mui/icons-material/Close';
 
 import ChatIcon from '@mui/icons-material/Chat';
@@ -814,7 +816,7 @@ export default function TicketDetailsModal({
   convertCategory = {},
   forwardUnit = {},
   refreshTickets = () => {},
-  setSnackbar = () => {},
+  setSnackbar = null,
   setConvertCategory = () => {},
   setForwardUnit = () => {},
   userUnitSection = null, // Add this prop for permission checking
@@ -880,6 +882,19 @@ export default function TicketDetailsModal({
 
   // Ticket Updates toggle state
   const [showTicketUpdates, setShowTicketUpdates] = useState(false);
+  
+  // Snackbar state
+  const [snackbar, setSnackbarState] = useState({ open: false, message: '', severity: 'info' });
+  
+  // Function to show snackbar messages
+  const showSnackbar = (message, severity = 'info') => {
+    setSnackbarState({ open: true, message, severity });
+  };
+  
+  // Function to close snackbar
+  const closeSnackbar = () => {
+    setSnackbarState({ ...snackbar, open: false });
+  };
 
   // Initialize selectedRating when modal opens
   useEffect(() => {
@@ -1119,77 +1134,47 @@ export default function TicketDetailsModal({
 
     const token = localStorage.getItem("authToken");
     if (!token) {
-      setSnackbar({open: true, message: 'Authentication token not found. Please log in again.', severity: 'error'});
+      showSnackbar('Authentication token not found. Please log in again.', 'error');
       return;
     }
 
     setReviewerCloseLoading(true);
     try {
-      // Determine if this is an attend action or close action
-      const isAttendAction = userRole !== "reviewer";
+      // Use the same close endpoint for both attend and close actions
+      const formData = new FormData();
+      formData.append("status", "Closed");
+      formData.append("resolution_type", resolutionType);
+      formData.append("resolution_details", resolutionDetails);
+      formData.append("date_of_resolution", new Date().toISOString());
+      formData.append("userId", userId);
       
-      if (isAttendAction) {
-        // For attend action, use the attend workflow
-        const requestBody = {
-          recommendation: resolutionDetails,
-          evidence_url: attachment ? `${baseURL}/ticket/attachment/${attachment.name}` : null
-        };
-        
-        // const response = await fetch(`${baseURL}/workflow/${selectedTicket.id}/attend-and-recommend`, {
-        //   method: 'POST',
-        //   headers: {
-        //     'Content-Type': 'application/json',
-        //     'Authorization': `Bearer ${token}`
-        //   },
-        //   body: JSON.stringify(requestBody)
-        // });
-        
-        // if (response.ok) {
-        //   setIsReviewerCloseDialogOpen(false);
-        //   refreshTickets();
-        //   setSnackbar({open: true, message: 'Recommendation submitted! The Head of Unit will review it next.', severity: 'success'});
-        // } else {
-        //   const error = await response.json();
-        //   setSnackbar({open: true, message: error.message || 'Failed to submit recommendation', severity: 'error'});
-        // }
-      } else {
-        // For close action, use the close endpoint
-        const formData = new FormData();
-        formData.append("status", "Closed");
-        formData.append("resolution_type", resolutionType);
-        formData.append("resolution_details", resolutionDetails);
-        formData.append("date_of_resolution", new Date().toISOString());
-        formData.append("userId", userId);
-        
-        if (attachment) {
-          formData.append("attachment", attachment);
-        }
+      if (attachment) {
+        formData.append("attachment", attachment);
+      }
 
-        // Use the close endpoint for all roles
-        const endpoint = userRole === "reviewer" 
-          ? `${baseURL}/reviewer/${selectedTicket.id}/close`
-          : `${baseURL}/ticket/${selectedTicket.id}/close`;
-        const response = await fetch(endpoint, {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${token}`
-          },
-          body: formData
-        });
+      // Use the close endpoint for all roles (same as reviewer close)
+      const endpoint = `${baseURL}/ticket/${selectedTicket.id}/close`;
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        },
+        body: formData
+      });
 
-        if (response.ok) {
+              if (response.ok) {
           setIsReviewerCloseDialogOpen(false);
           onClose();
           refreshTickets();
-          setSnackbar({open: true, message: 'Ticket closed successfully by Reviewer', severity: 'success'});
+          const actionMessage = userRole === "reviewer" ? 'Ticket closed successfully by Reviewer' : 'Ticket attended successfully';
+          showSnackbar(actionMessage, 'success');
         } else {
-          throw new Error("Failed to close ticket");
+          throw new Error("Failed to process ticket");
         }
-      }
-    } catch (error) {
-      console.error("Error processing action:", error);
-      setSnackbar({open: true, message: 'Error processing action: ' + error.message, severity: 'error'});
-    } finally {
+      } catch (error) {
+        console.error("Error processing action:", error);
+        showSnackbar('Error processing action: ' + error.message, 'error');
+      } finally {
       setReviewerCloseLoading(false);
     }
   };
@@ -3181,6 +3166,26 @@ export default function TicketDetailsModal({
           </Box>
         </DialogContent>
       </Dialog>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={closeSnackbar}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert 
+          severity={snackbar.severity}
+          onClose={closeSnackbar}
+          sx={{ 
+            minWidth: '300px',
+            fontSize: '14px',
+            fontWeight: snackbar.severity === 'success' ? 'bold' : 'normal'
+          }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </>
   );
 } 
