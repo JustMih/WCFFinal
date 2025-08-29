@@ -2283,7 +2283,7 @@ export default function TicketDetailsModal({
                 {/* Reverse, Assign, and Reassign buttons for focal persons and other roles */}
                 {(["focal-person", "claim-focal-person", "compliance-focal-person"].includes(localStorage.getItem("role")) || 
                   !["agent", "reviewer", "attendee", "director-general"].includes(localStorage.getItem("role"))) && 
-                 selectedTicket?.assigned_to_id === localStorage.getItem("userId") && (
+                 selectedTicket?.assigned_to_id === localStorage.getItem("userId") && selectedTicket.status !== "Closed" && (
                   <>
                     <Button
                       variant="contained"
