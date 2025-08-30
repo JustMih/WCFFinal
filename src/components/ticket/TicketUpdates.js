@@ -47,7 +47,7 @@ const TicketUpdates = ({ ticketId, currentUserId, canAddUpdates = true, isAssign
     setLoading(true);
     try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`${baseURL}/api/ticket-updates/ticket/${ticketId}`, {
+      const response = await fetch(`${baseURL}/ticket-updates/ticket/${ticketId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
