@@ -701,6 +701,32 @@ export default function Navbar({
                       })
                     : 'N/A'}
                 </span>
+                
+                {/* Link to open assigned ticket page */}
+                <div style={{ 
+                  marginTop: '12px',
+                  padding: '8px 12px',
+                  backgroundColor: '#e3f2fd',
+                  borderRadius: '6px',
+                  border: '1px solid #bbdefb'
+                }}>
+                  <a
+                    href={`/ticket/assigned`}
+                    style={{
+                      color: '#1976d2',
+                      textDecoration: 'none',
+                      fontSize: '0.875rem',
+                      fontWeight: '500',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                    onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+                    onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+                  >
+                    📋 Open Assigned Tickets Page
+                  </a>
+                </div>
               </div>
             </div>
           )}
