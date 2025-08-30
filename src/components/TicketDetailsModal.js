@@ -884,6 +884,18 @@ export default function TicketDetailsModal({
   // Ticket Updates toggle state
   const [showTicketUpdates, setShowTicketUpdates] = useState(false);
   
+  // Reversed ticket editing states
+  const [isEditReversedTicketDialogOpen, setIsEditReversedTicketDialogOpen] = useState(false);
+  const [editReversedTicketLoading, setEditReversedTicketLoading] = useState(false);
+  const [editReversedTicketData, setEditReversedTicketData] = useState({
+    subject: "",
+    section: "",
+    sub_section: "",
+    responsible_unit_id: "",
+    responsible_unit_name: ""
+  });
+  const [functionData, setFunctionData] = useState([]);
+  
   // Snackbar state
   const [snackbar, setSnackbarState] = useState({ open: false, message: '', severity: 'info' });
   
@@ -1230,7 +1242,7 @@ export default function TicketDetailsModal({
       
       const data = await response.json();
       if (response.ok) {
-        setSnackbar({ open: true, message: data.message, severity: "success" });
+        setSnackbarState({ open: true, message: data.message, severity: "success" });
         setIsReverseModalOpen(false);
         setReverseReason("");
         setReverseResolutionType("");
@@ -1242,14 +1254,155 @@ export default function TicketDetailsModal({
           onClose();
         }, 100);
       } else {
-        setSnackbar({ open: true, message: data.message, severity: "error" });
+        setSnackbarState({ open: true, message: data.message, severity: "error" });
       }
     } catch (error) {
-      setSnackbar({ open: true, message: error.message, severity: "error" });
+      setSnackbarState({ open: true, message: error.message, severity: "error" });
     } finally {
       setIsReversing(false);
     }
   };
+
+  // Handle opening the edit reversed ticket dialog
+  const handleEditReversedTicket = () => {
+    // Initialize form data with current ticket values
+    setEditReversedTicketData({
+      subject: selectedTicket.subject || "",
+      section: selectedTicket.section || "",
+      sub_section: selectedTicket.sub_section || "",
+      responsible_unit_id: selectedTicket.responsible_unit_id || "",
+      responsible_unit_name: selectedTicket.responsible_unit_name || ""
+    });
+    setIsEditReversedTicketDialogOpen(true);
+  };
+
+  // Handle form data changes for reversed ticket editing
+  const handleEditReversedTicketChange = (field, value) => {
+    setEditReversedTicketData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+
+    // Auto-fill section and sub-section when subject is selected
+    if (field === "subject") {
+      console.log('🔍 Subject changed to:', value);
+      console.log('🔍 Available functionData:', functionData);
+      
+      const selectedFunctionData = functionData.find((item) => item.name === value);
+      if (selectedFunctionData) {
+        // Try different possible data structures
+        const functionName = selectedFunctionData.function?.name || 
+                           selectedFunctionData.name || 
+                           selectedFunctionData.function_name || 
+                           "";
+        const sectionName = selectedFunctionData.function?.section?.name || 
+                          selectedFunctionData.section?.name || 
+                          selectedFunctionData.section_name || 
+                          selectedFunctionData.section || 
+                          "";
+        
+        console.log('Selected function data:', selectedFunctionData);
+        console.log('Function name:', functionName);
+        console.log('Section name:', sectionName);
+        
+        // Auto-fill the sub-section and section fields
+        console.log('🔍 Setting responsible_unit_id to:', selectedFunctionData.id);
+        setEditReversedTicketData(prev => ({
+          ...prev,
+          [field]: value,
+          sub_section: functionName,
+          section: sectionName,
+          responsible_unit_id: selectedFunctionData.id || "", // Use FunctionData.id for mapping
+          responsible_unit_name: sectionName
+        }));
+      } else {
+        console.log('❌ No function data found for subject:', value);
+        // Clear the auto-filled fields if no matching subject found
+        setEditReversedTicketData(prev => ({
+          ...prev,
+          [field]: value,
+          sub_section: "",
+          section: "",
+          responsible_unit_id: "",
+          responsible_unit_name: ""
+        }));
+      }
+    }
+  };
+
+  // Handle submitting the reversed ticket edit
+  const handleEditReversedTicketSubmit = async () => {
+    setEditReversedTicketLoading(true);
+    try {
+      const token = localStorage.getItem("authToken");
+      const requestBody = {
+        userId: userId,
+        ...editReversedTicketData
+      };
+      console.log('🔍 Sending request body:', requestBody);
+      
+      const response = await fetch(`${baseURL}/ticket/${selectedTicket.id}/update-reversed-details`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        let successMessage = data.message;
+        if (data.focal_person) {
+          successMessage += ` - Assigned to: ${data.focal_person.full_name} (${data.focal_person.role})`;
+        }
+        setSnackbarState({ open: true, message: successMessage, severity: "success" });
+        setIsEditReversedTicketDialogOpen(false);
+        refreshTickets();
+        onClose();
+      } else {
+        setSnackbarState({ open: true, message: data.message, severity: "error" });
+      }
+    } catch (error) {
+      console.error("Error updating reversed ticket details:", error);
+      setSnackbarState({ open: true, message: "Error updating ticket details", severity: "error" });
+    } finally {
+      setEditReversedTicketLoading(false);
+    }
+  };
+
+  // Fetch function data for subject dropdown
+  useEffect(() => {
+    if (isEditReversedTicketDialogOpen) {
+      const fetchFunctionData = async () => {
+        try {
+          const token = localStorage.getItem("authToken");
+          console.log('🔍 Fetching function data from:', `${baseURL}/section/functions-data`);
+          console.log('🔍 Token present:', !!token);
+          
+          const response = await fetch(`${baseURL}/section/functions-data`, {
+            headers: { "Authorization": `Bearer ${token}` }
+          });
+          
+          console.log('🔍 Response status:', response.status);
+          console.log('🔍 Response ok:', response.ok);
+          
+          const data = await response.json();
+          console.log('🔍 Response data:', data);
+          
+          if (response.ok && data.data) {
+            setFunctionData(data.data);
+            console.log('✅ Function data loaded:', data.data);
+          } else {
+            console.error('❌ Failed to load function data:', data);
+          }
+        } catch (error) {
+          console.error("❌ Error fetching function data:", error);
+        }
+      };
+      fetchFunctionData();
+    }
+  }, [isEditReversedTicketDialogOpen]);
 
   // Fetch attendees when modal opens
   useEffect(() => {
@@ -2095,6 +2248,19 @@ export default function TicketDetailsModal({
                     {attendLoading ? "Attending..." : "Attend"}
                   </Button>
                 )}
+
+                {/* Edit Subject & Section button for reversed tickets */}
+                {selectedTicket?.status === "Reversed" && userRole === "agent" && 
+                 selectedTicket?.assigned_to_id === userId && (
+                  <Button
+                    variant="contained"
+                    color="secondary"
+                    onClick={handleEditReversedTicket}
+                    sx={{ mr: 1 }}
+                  >
+                    Edit Subject & Section
+                  </Button>
+                )}
                 
                 {/* Reviewer Actions */}
                 {showReviewerActions && (
@@ -2316,6 +2482,7 @@ export default function TicketDetailsModal({
                     )}
                   </Box>
                 )}
+
 
                 {/* Director General Actions for Assigned Tickets */}
                 {userRole === "director-general" && 
@@ -2645,6 +2812,7 @@ export default function TicketDetailsModal({
                 <option value="">Select Resolution Type</option>
                 <option value="Resolved">Resolved</option>
                 <option value="Duplicate">Duplicate</option>
+                <option value="Duplicate">Reverse</option>
               </select>
             </Box>
 
@@ -3293,6 +3461,160 @@ export default function TicketDetailsModal({
                 }}
                 sx={{ ml: 1 }}
                 disabled={agentReverseLoading}
+              >
+                Cancel
+              </Button>
+            </Box>
+          </Box>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Reversed Ticket Dialog */}
+      <Dialog open={isEditReversedTicketDialogOpen} onClose={() => setIsEditReversedTicketDialogOpen(false)} maxWidth={false} fullWidth PaperProps={{ sx: { width: '40%' } }}>
+        <DialogTitle>
+          Edit Reversed Ticket Details
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
+            {/* Subject Field */}
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Subject: <span style={{ color: "red" }}>*</span>
+              </Typography>
+              <select
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  fontSize: "0.9rem",
+                  borderRadius: "4px",
+                  border: "1px solid #ccc"
+                }}
+                value={editReversedTicketData.subject}
+                onChange={(e) => handleEditReversedTicketChange("subject", e.target.value)}
+              >
+                <option value="">Select Subject</option>
+                {functionData && functionData.length > 0 ? (
+                  functionData.map((item) => {
+                    console.log('🔍 Dropdown item:', item);
+                    return (
+                      <option key={item.id} value={item.name}>
+                        {item.name}
+                      </option>
+                    );
+                  })
+                ) : (
+                  <option value="" disabled>
+                    {functionData ? 'No subjects available' : 'Loading subjects...'}
+                  </option>
+                )}
+              </select>
+              {/* Debug info */}
+              {functionData && functionData.length === 0 && (
+                <span style={{ color: "orange", fontSize: "0.75rem" }}>
+                  No function data loaded. Please check if subjects are configured.
+                </span>
+              )}
+              {functionData && (
+                <span style={{ color: "blue", fontSize: "0.75rem" }}>
+                  Function data loaded: {functionData.length} items
+                </span>
+              )}
+            </Box>
+
+            {/* Section Field */}
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Section:
+              </Typography>
+              <TextField
+                fullWidth
+                value={editReversedTicketData.section}
+                InputProps={{
+                  readOnly: true,
+                  style: {
+                    backgroundColor: "#f5f5f5",
+                    fontSize: "0.875rem"
+                  }
+                }}
+                placeholder="Auto-filled when subject is selected..."
+                size="small"
+              />
+            </Box>
+
+            {/* Sub-section Field */}
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Sub-section:
+              </Typography>
+              <TextField
+                fullWidth
+                value={editReversedTicketData.sub_section}
+                InputProps={{
+                  readOnly: true,
+                  style: {
+                    backgroundColor: "#f5f5f5",
+                    fontSize: "0.875rem"
+                  }
+                }}
+                placeholder="Auto-filled when subject is selected..."
+                size="small"
+              />
+            </Box>
+
+            {/* Responsible Unit ID */}
+            {/* <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Responsible Unit ID:
+              </Typography>
+              <TextField
+                fullWidth
+                value={editReversedTicketData.responsible_unit_id}
+                InputProps={{
+                  readOnly: true,
+                  style: {
+                    backgroundColor: "#f5f5f5",
+                    fontSize: "0.875rem"
+                  }
+                }}
+                placeholder="Auto-filled when subject is selected..."
+                size="small"
+              />
+            </Box> */}
+
+            {/* Responsible Unit Name */}
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Responsible Unit Name:
+              </Typography>
+              <TextField
+                fullWidth
+                value={editReversedTicketData.responsible_unit_name}
+                InputProps={{
+                  readOnly: true,
+                  style: {
+                    backgroundColor: "#f5f5f5",
+                    fontSize: "0.875rem"
+                  }
+                }}
+                placeholder="Auto-filled when subject is selected..."
+                size="small"
+              />
+            </Box>
+
+            <Box sx={{ mt: 2, textAlign: "right" }}>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleEditReversedTicketSubmit}
+                disabled={!editReversedTicketData.subject.trim() || editReversedTicketLoading}
+              >
+                {editReversedTicketLoading ? "Updating..." : "Update Ticket Details"}
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={() => setIsEditReversedTicketDialogOpen(false)}
+                sx={{ ml: 1 }}
+                disabled={editReversedTicketLoading}
               >
                 Cancel
               </Button>

@@ -683,6 +683,10 @@ export default function Navbar({
                 <span style={{ color: '#333', fontWeight: '500' }}>
                   {ticketDetailsData.ticket.ticket_id || 'N/A'}
                 </span>
+                <span style={{ color: '#666' }}>Ticket Description:</span>
+                <span style={{ color: '#333', fontWeight: '500' }}>
+                  {ticketDetailsData.ticket.description || 'N/A'}
+                </span>
                 <span style={{ color: '#666' }}>Date Created:</span>
                 <span style={{ color: '#333', fontWeight: '500' }}>
                   {ticketDetailsData.ticket.created_at 
