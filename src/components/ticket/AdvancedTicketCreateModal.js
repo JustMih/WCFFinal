@@ -1451,6 +1451,15 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
         employerName: formData.employerName || "",
       };
       
+      // Debug phone number
+      console.log("🔍 FRONTEND PHONE NUMBER DEBUG:");
+      console.log("- formData.phoneNumber:", formData.phoneNumber);
+      console.log("- ticketData.phoneNumber:", ticketData.phoneNumber);
+      console.log("- Type:", typeof ticketData.phoneNumber);
+      console.log("- Is empty:", ticketData.phoneNumber === "");
+      console.log("- Is null:", ticketData.phoneNumber === null);
+      console.log("- Is undefined:", ticketData.phoneNumber === undefined);
+      
       if (formData.requester === "Employer") {
         ticketData.employerRegistrationNumber = formData.nidaNumber;
         ticketData.employerName = formData.institution;
@@ -1647,7 +1656,8 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
       // First create the ticket normally - only include relevant fields based on requester type
       const ticketData = {
         ...formData,
-        status: "Open" // Create as open first
+        status: "Open", // Create as open first
+        shouldClose: true // Indicate that this ticket should be closed after creation
       };
 
       // Only include employer fields if requester is "Employer"
@@ -2768,6 +2778,43 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                     )}
                   </div>
 
+                  {/* File Upload */}
+                  {/* <div className="modal-form-group">
+                    <label style={{ fontSize: "0.875rem" }}>Attachment (Optional):</label>
+                    <input
+                      type="file"
+                      accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          // Check file size (50MB limit)
+                          const maxSize = 50 * 1024 * 1024; // 50MB in bytes
+                          if (file.size > maxSize) {
+                            alert(`File size too large! Maximum allowed size is 50MB. Your file is ${(file.size / (1024 * 1024)).toFixed(2)}MB.`);
+                            e.target.value = ''; // Clear the input
+                            setAttachment(null);
+                            return;
+                          }
+                          setAttachment(file);
+                        } else {
+                          setAttachment(null);
+                        }
+                      }}
+                      style={{
+                        width: "100%",
+                        padding: "8px 12px",
+                        fontSize: "0.9rem",
+                        borderRadius: "4px",
+                        border: "1px solid #ccc"
+                      }}
+                    />
+                    {attachment && (
+                      <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
+                        File selected: {attachment.name} ({(attachment.size / (1024 * 1024)).toFixed(2)}MB)
+                      </Typography>
+                    )}
+                  </div> */}
+
                   {/* Submit */}
                   <div
                     style={{
@@ -3127,7 +3174,22 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
               <input
                 type="file"
                 accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
-                onChange={(e) => setAttachment(e.target.files[0])}
+                onChange={(e) => {
+                  const file = e.target.files[0];
+                  if (file) {
+                    // Check file size (50MB limit)
+                    const maxSize = 50 * 1024 * 1024; // 50MB in bytes
+                    if (file.size > maxSize) {
+                      alert(`File size too large! Maximum allowed size is 50MB. Your file is ${(file.size / (1024 * 1024)).toFixed(2)}MB.`);
+                      e.target.value = ''; // Clear the input
+                      setAttachment(null);
+                      return;
+                    }
+                    setAttachment(file);
+                  } else {
+                    setAttachment(null);
+                  }
+                }}
                 style={{
                   width: "100%",
                   padding: "8px 12px",
