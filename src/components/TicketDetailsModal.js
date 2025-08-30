@@ -2617,6 +2617,7 @@ export default function TicketDetailsModal({
                 currentUserId={localStorage.getItem('userId')}
                 canAddUpdates={selectedTicket?.status !== 'Closed' && selectedTicket?.status !== 'Attended and Recommended'}
                 isAssigned={selectedTicket?.assigned_to_id === localStorage.getItem('userId')}
+                ticketStatus={selectedTicket?.status}
               />
             </Box>
           </Box>

@@ -27,7 +27,7 @@ import {
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 
-const TicketUpdates = ({ ticketId, currentUserId, canAddUpdates = true, isAssigned = true }) => {
+const TicketUpdates = ({ ticketId, currentUserId, canAddUpdates = true, isAssigned = true, ticketStatus }) => {
   const [updates, setUpdates] = useState([]);
   const [loading, setLoading] = useState(false);
   const [addingUpdate, setAddingUpdate] = useState(false);
@@ -254,7 +254,7 @@ const TicketUpdates = ({ ticketId, currentUserId, canAddUpdates = true, isAssign
             </Box>
           )}
         </Paper>
-      ) : canAddUpdates && !isAssigned && updates.length === 0 ? (
+      ) : (canAddUpdates && !isAssigned && updates.length === 0) || (ticketStatus === 'Closed' && !isAssigned && updates.length === 0) ? (
         <Paper sx={{ p: 3, mb: 2, textAlign: 'center', bgcolor: '#f8f9fa' }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
             <InfoIcon sx={{ fontSize: 48, color: '#6c757d' }} />

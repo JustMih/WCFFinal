@@ -19,9 +19,11 @@ import Divider from "@mui/material/Divider";
 import { styled } from "@mui/material/styles";
 import ChatIcon from '@mui/icons-material/Chat';
 import AssignmentIcon from '@mui/icons-material/Assignment';
+import CloseIcon from '@mui/icons-material/Close';
 import { baseURL } from "../../config";
 import EnhancedSearchForm from "../search/EnhancedSearchForm";
 import ClaimRedirectButton from "./ClaimRedirectButton.jsx";
+import TicketUpdates from './TicketUpdates';
 
 // Import the AssignmentFlowChat component and helper function
 const getCreatorName = (selectedTicket) =>
@@ -628,6 +630,22 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   // --- End Justification History State ---
   // --- End CRM Modal State ---
+
+  // --- Ticket Updates Modal State ---
+  const [isTicketUpdatesModalOpen, setIsTicketUpdatesModalOpen] = useState(false);
+  const [selectedTicketForUpdates, setSelectedTicketForUpdates] = useState(null);
+
+  // --- Ticket Updates Functions ---
+  const handleOpenTicketUpdates = (ticket) => {
+    console.log("Opening ticket updates for ticket:", ticket);
+    setSelectedTicketForUpdates(ticket);
+    setIsTicketUpdatesModalOpen(true);
+  };
+
+  const handleCloseTicketUpdatesModal = () => {
+    setIsTicketUpdatesModalOpen(false);
+    setSelectedTicketForUpdates(null);
+  };
 
   // --- Justification History Functions ---
   const handleOpenJustificationHistory = async (ticket) => {
@@ -3012,7 +3030,7 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                                 size="small"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleOpenJustificationHistory(ticket);
+                                  handleOpenTicketUpdates(ticket);
                                 }}
                                 sx={{
                                   color: '#1976d2',
@@ -3020,7 +3038,7 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                                     backgroundColor: 'rgba(25, 118, 210, 0.1)'
                                   }
                                 }}
-                                title="View Recomendation History"
+                                title="View Ticket Updates"
                               >
                                 <ChatIcon fontSize="small" />
                               </IconButton>
@@ -3222,6 +3240,47 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
               >
                 Cancel
               </Button>
+            </Box>
+          </Box>
+        </DialogContent>
+      </Dialog>
+
+      {/* Ticket Updates Modal */}
+      <Dialog 
+        open={isTicketUpdatesModalOpen} 
+        onClose={handleCloseTicketUpdatesModal} 
+        PaperProps={{
+          sx: {
+            width: { xs: '90%', sm: 600 },
+            maxWidth: 600
+          }
+        }}
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Typography variant="h6" sx={{ mb: -2, color: '#1976d2', fontWeight: 'bold' }}>
+              Ticket Updates & Progress
+            </Typography>
+            <IconButton onClick={handleCloseTicketUpdatesModal} size="small">
+              <CloseIcon />
+            </IconButton>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ minHeight: '50vh', maxHeight: '70vh', overflow: 'auto' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, py: 1 }}>
+            
+            {/* Divider */}
+            <Divider sx={{ my: 1 }} />
+            
+            {/* Ticket Updates */}
+            <Box>
+              <TicketUpdates 
+                ticketId={selectedTicketForUpdates?.id}
+                currentUserId={localStorage.getItem('userId')}
+                canAddUpdates={selectedTicketForUpdates?.status !== 'Closed' && selectedTicketForUpdates?.status !== 'Attended and Recommended'}
+                isAssigned={selectedTicketForUpdates?.assigned_to_id === localStorage.getItem('userId')}
+                ticketStatus={selectedTicketForUpdates?.status}
+              />
             </Box>
           </Box>
         </DialogContent>
