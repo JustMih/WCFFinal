@@ -26,6 +26,7 @@ import {
   Info as InfoIcon
 } from '@mui/icons-material';
 import { format } from 'date-fns';
+import { baseURL } from "../../config";
 
 const TicketUpdates = ({ ticketId, currentUserId, canAddUpdates = true, isAssigned = true, ticketStatus }) => {
   const [updates, setUpdates] = useState([]);
@@ -39,7 +40,7 @@ const TicketUpdates = ({ ticketId, currentUserId, canAddUpdates = true, isAssign
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const baseURL = process.env.REACT_APP_API_URL || 'http://localhost:5070';
+
 
   // Fetch updates
   const fetchUpdates = async () => {
