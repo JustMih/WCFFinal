@@ -212,6 +212,7 @@ export default function Crm() {
       (ticket.last_name || "").toLowerCase().includes(searchValue) ||
       (ticket.middle_name || "").toLowerCase().includes(searchValue) ||
       (ticket.ticket_id || "").toLowerCase().includes(searchValue) ||
+      (ticket.institution || "").toLowerCase().includes(searchValue) ||
       (ticket.id || "").toLowerCase().includes(searchValue);
     
     const matchesStatus = !filters.status || ticket.status === filters.status;

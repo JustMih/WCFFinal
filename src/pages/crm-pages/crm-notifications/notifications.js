@@ -412,7 +412,8 @@ export default function Crm() {
       institutionName.includes(searchValue) ||
       (ticketData.first_name || "").toLowerCase().includes(searchValue) ||
       (ticketData.last_name || "").toLowerCase().includes(searchValue) ||
-      (ticketData.middle_name || "").toLowerCase().includes(searchValue);
+      (ticketData.middle_name || "").toLowerCase().includes(searchValue) ||
+      (ticketData.institution || "").toLowerCase().includes(searchValue);
     
     const matchesStatus = !filters.status || ticketData.status === filters.status;
     const matchesPriority = !filters.priority || ticketData.priority === filters.priority;

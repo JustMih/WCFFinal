@@ -443,7 +443,7 @@ const AgentCRM = () => {
         // "New Tickets": ticketStats.newTickets || 0,
         Assigned: ticketStats.assigned || 0,
         "In Progress": ticketStats.inProgress || 0, // <-- Move here
-        Escalated: ticketStats.Escalated || 0,
+        Escalated: ticketStats.escalated || 0,
         // "In/Hour": ticketStats.inHour || 0,
         // "Resolved/Hour": ticketStats.resolvedHour || 0,
         // Total: ticketStats.total || 0
@@ -798,6 +798,7 @@ const AgentCRM = () => {
         ticket.last_name?.toLowerCase().includes(s) ||
         ticket.middle_name?.toLowerCase().includes(s) ||
         ticket.ticket_id?.toLowerCase().includes(s) ||
+        
         ticket.id?.toLowerCase().includes(s);
       
       // Status (from TicketFilters)
@@ -2472,7 +2473,7 @@ const AgentCRM = () => {
           sx={{
             display: "flex",
             flexDirection: "row",
-            width: 1050,
+            width: 1200,
             maxWidth: "98vw",
             minHeight: 500,
             maxHeight: "90vh",
