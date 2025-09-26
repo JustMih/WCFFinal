@@ -42,6 +42,7 @@ import Message from "../call-center-pages/call-center-social-message/CallCenterS
 import IvrCardsPage from "../call-center-pages/cal-center-ivr/IvrCardsPage";
 import DTMFStats from "../call-center-pages/cal-center-ivr/DTMFStats";
 import VoiceNoteReport from "../call-center-pages/call-center-report/voice-note-report";
+import InstagramPage from "../instagram/InstagramPage";
 
 export default function Dashboard() {
   const [isDarkMode, setDarkMode] = useState(false);
@@ -206,6 +207,10 @@ export default function Dashboard() {
                   path="/social-message"
                   element={<PrivateRoute element={<Message />} />}
                 />
+                <Route
+                  path="/instagram"
+                  element={<PrivateRoute element={<InstagramPage />} />}
+                />
               </>
             )}
 
@@ -258,6 +263,10 @@ export default function Dashboard() {
                 <Route
                   path="/focal-person/:status"
                   element={<PrivateRoute element={<CRMFocalPersonTickets />} />}
+                />
+                <Route
+                  path="/instagram"
+                  element={<PrivateRoute element={<InstagramPage />} />}
                 />
               </>
             )}

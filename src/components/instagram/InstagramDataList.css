@@ -1,0 +1,90 @@
+.instagram-data-list {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.select-all {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  color: #555;
+}
+
+.select-all input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.list-info {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.data-items {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.data-items::-webkit-scrollbar {
+  width: 6px;
+}
+
+.data-items::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.data-items::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.data-items::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+  font-size: 1.1rem;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #666;
+}
+
+.empty-state p {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+@media (max-width: 768px) {
+  .list-header {
+    flex-direction: column;
+    gap: 10px;
+    align-items: stretch;
+  }
+  
+  .select-all {
+    justify-content: center;
+  }
+  
+  .list-info {
+    text-align: center;
+  }
+}

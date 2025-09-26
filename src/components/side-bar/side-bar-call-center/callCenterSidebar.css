@@ -102,3 +102,48 @@
 .gmail-badge { background-color: #EA4335; }
 .linkedin-badge { background-color: #0077B5; }
 
+/* Instagram sub-menu styling */
+.instagram-sub-menu .menu-item {
+  background: rgba(102, 126, 234, 0.05);
+  border-radius: 8px;
+  margin: 2px 0;
+  padding: 8px 12px;
+}
+
+.instagram-sub-menu .menu-item:hover {
+  background: rgba(102, 126, 234, 0.1);
+}
+
+.instagram-sub-menu .active-link .menu-item {
+  background: rgba(102, 126, 234, 0.15);
+  color: #667eea;
+}
+
+.instagram-sub-menu .menu-icon {
+  font-size: 1.2rem;
+  margin-right: 8px;
+}
+
+.instagram-sub-menu .menu-text {
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+/* Sub-menu indentation */
+.MuiCollapse-root .MuiList-root {
+  margin-left: 1rem;
+}
+
+.MuiCollapse-root .MuiList-root .menu-item {
+  padding-left: 1rem;
+  border-left: 2px solid #e2e8f0;
+  margin-left: 0.5rem;
+}
+
+/* Override indentation for top-level menu items */
+.top-level-menu {
+  margin-left: 0 !important;
+  padding-left: 15px !important;
+  border-left: none !important;
+}
+

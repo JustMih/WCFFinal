@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import { RxDashboard } from "react-icons/rx";
 import { MdOutlineSupportAgent, MdEmail } from "react-icons/md";
-import { FaChevronUp, FaChevronDown } from "react-icons/fa";
+import { FaChevronUp, FaChevronDown, FaInstagram } from "react-icons/fa";
 import { baseURL } from "../../../config";
 import "./crmSidebar.css";
 
@@ -224,6 +224,20 @@ export default function CRMSidebar({ isSidebarOpen }) {
                         }}>{notifiedCount}</span>
                       )} */}
                     </span>
+                  )}
+                </div>
+              </NavLink>
+
+              <NavLink
+                to="/instagram"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <FaInstagram className="menu-icon" color="#E4405F" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">Instagram Management</span>
                   )}
                 </div>
               </NavLink>
