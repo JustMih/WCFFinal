@@ -199,12 +199,7 @@ a {
   margin-bottom: 4px;
 }
 
-/* Active link style: light background + left border */
-.active-link {
-  background-color: #e0f2ff;
-  /* border-left: 4px solid #1976d2; */
-  font-weight: normal; /* Ensure no bold text */
-}
+
 
 /* Flex layout for metric row (text and number side-by-side) */
 .metric-row {
@@ -382,4 +377,38 @@ a {
   vertical-align: middle;
   display: flex;
   align-items: center;
+}
+
+/* TableControls Layout */
+.controls {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 15px !important;
+  flex-wrap: wrap !important;
+  margin-bottom: 16px !important;
+  padding: 12px 0 !important;
+}
+
+.controls > div:first-child {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+.controls > div:last-child {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+}
+
+/* Ensure all input elements have consistent styling */
+.controls input,
+.controls select {
+  height: 30px !important;
+  padding: 8px 12px !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  line-height: 1 !important;
+  vertical-align: middle !important;
 }

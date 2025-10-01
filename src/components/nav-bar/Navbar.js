@@ -11,7 +11,7 @@ import { baseURL } from "../../config";
 import "./navbar.css";
 import { IoMdNotificationsOutline } from "react-icons/io";
 import { Badge } from "@mui/material";
-import CoordinatorActionModal from "../coordinator/CoordinatorActionModal";
+import ReviewerActionModal from "../reviewer/ReviewerActionModal";
 import Rating from '@mui/material/Rating';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
@@ -21,6 +21,7 @@ import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { clearDomainCredentials } from "../../utils/credentials";
+import logo from "../../asserts/images/logo.png";
 
 export default function Navbar({
   toggleTheme,
@@ -420,7 +421,7 @@ export default function Navbar({
     role === "super-admin" ||
     role === "agent" ||
     role === "attendee" ||
-    role === "coordinator" ||
+            role === "reviewer" ||
     role === "supervisor";
 
   const handleSystemSwitch = (system) => {
@@ -434,6 +435,9 @@ export default function Navbar({
 
   return (
     <nav className="navbar">
+      <div className={`navbar-sidebar-brand ${isSidebarOpen ? "open" : "closed"}`}>
+        <img src={logo} alt="Logo" className="navbar-logo" />
+      </div>
       <div className={`navbar-left ${isSidebarOpen ? "open" : "closed"}`}>
         {isSidebarOpen ? (
           <RiMenuFoldLine className="menu-icon" onClick={toggleSidebar} />
@@ -451,7 +455,7 @@ export default function Navbar({
           </Tooltip>
         )}
         {canAccessCRM && (
-          <Tooltip title="CRM">
+          <Tooltip title="Back Office">
             <IconButton
               onClick={() => handleSystemSwitch("crm")}
               className={getActiveButtonClass("crm")}
@@ -544,7 +548,7 @@ export default function Navbar({
           </div>
         </div>
       </div>
-      <CoordinatorActionModal
+      <ReviewerActionModal
         open={isActionModalOpen}
         onClose={() => setIsActionModalOpen(false)}
         ticket={modalTicket}
@@ -679,6 +683,50 @@ export default function Navbar({
                 <span style={{ color: '#333', fontWeight: '500' }}>
                   {ticketDetailsData.ticket.ticket_id || 'N/A'}
                 </span>
+                <span style={{ color: '#666' }}>Ticket Description:</span>
+                <span style={{ color: '#333', fontWeight: '500' }}>
+                  {ticketDetailsData.ticket.description || 'N/A'}
+                </span>
+                <span style={{ color: '#666' }}>Date Created:</span>
+                <span style={{ color: '#333', fontWeight: '500' }}>
+                  {ticketDetailsData.ticket.created_at 
+                    ? new Date(ticketDetailsData.ticket.created_at).toLocaleDateString('en-US', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        hour12: true
+                      })
+                    : 'N/A'}
+                </span>
+                
+                {/* Link to open assigned ticket page */}
+                <div style={{ 
+                  marginTop: '12px',
+                  padding: '8px 12px',
+                  backgroundColor: '#e3f2fd',
+                  borderRadius: '6px',
+                  border: '1px solid #bbdefb'
+                }}>
+                  <a
+                    href={`/ticket/assigned`}
+                    style={{
+                      color: '#1976d2',
+                      textDecoration: 'none',
+                      fontSize: '0.875rem',
+                      fontWeight: '500',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}
+                    onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+                    onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+                  >
+                    📋 Open Assigned Tickets Page
+                  </a>
+                </div>
               </div>
             </div>
           )}

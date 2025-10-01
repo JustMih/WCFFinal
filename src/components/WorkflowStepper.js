@@ -53,7 +53,7 @@ const WorkflowStepper = ({ workflowStatus, currentStep, totalSteps, ticket }) =>
       if (ticket?.responsible_unit_name?.toLowerCase().includes('directorate')) {
         // Minor Directorate workflow
         steps.push(
-          { label: 'Coordinator Review', description: 'Initial review and rating' },
+          { label: 'Reviewer Review', description: 'Initial review and rating' },
           { label: 'Director Assignment', description: 'Assigned to director' },
           { label: 'Manager Review', description: 'Manager processes and closes' },
           { label: 'Attendee Action', description: 'Attendee attends and recommends' },
@@ -62,7 +62,7 @@ const WorkflowStepper = ({ workflowStatus, currentStep, totalSteps, ticket }) =>
       } else {
         // Minor Unit workflow
         steps.push(
-          { label: 'Coordinator Review', description: 'Initial review and rating' },
+          { label: 'Reviewer Review', description: 'Initial review and rating' },
           { label: 'Head of Unit', description: 'Head of unit processes' },
           { label: 'Attendee Action', description: 'Attendee attends and recommends' },
           { label: 'Head of Unit Final', description: 'Head of unit closes' }
@@ -72,7 +72,7 @@ const WorkflowStepper = ({ workflowStatus, currentStep, totalSteps, ticket }) =>
       if (ticket?.responsible_unit_name?.toLowerCase().includes('directorate')) {
         // Major Directorate workflow
         steps.push(
-          { label: 'Coordinator Review', description: 'Initial review and rating' },
+          { label: 'Reviewer Review', description: 'Initial review and rating' },
           { label: 'Director Assignment', description: 'Assigned to director' },
           { label: 'Manager Review', description: 'Manager processes with evidence' },
           { label: 'Attendee Action', description: 'Attendee attends with evidence' },
@@ -83,7 +83,7 @@ const WorkflowStepper = ({ workflowStatus, currentStep, totalSteps, ticket }) =>
       } else {
         // Major Unit workflow
         steps.push(
-          { label: 'Coordinator Review', description: 'Initial review and rating' },
+          { label: 'Reviewer Review', description: 'Initial review and rating' },
           { label: 'Head of Unit', description: 'Head of unit processes with evidence' },
           { label: 'Attendee Action', description: 'Attendee attends with evidence' },
           { label: 'Head of Unit Review', description: 'Head of unit reviews and recommends' },
@@ -93,7 +93,7 @@ const WorkflowStepper = ({ workflowStatus, currentStep, totalSteps, ticket }) =>
     } else {
       // Default workflow for unrated complaints
       steps.push(
-        { label: 'Coordinator Review', description: 'Awaiting coordinator rating' },
+        { label: 'Reviewer Review', description: 'Awaiting reviewer rating' },
         { label: 'Processing', description: 'Will be determined after rating' }
       );
     }
@@ -101,7 +101,12 @@ const WorkflowStepper = ({ workflowStatus, currentStep, totalSteps, ticket }) =>
     return steps;
   };
 
-  const steps = renderWorkflowSteps();
+  const steps = [
+    { label: 'Reviewer Review', description: 'Initial review and rating' },
+    { label: 'Head of Unit', description: 'Unit review and processing' },
+    { label: 'Attendee', description: 'Final processing and resolution' },
+    { label: 'Head of Unit', description: 'Final review and closure' }
+  ];
 
   return (
     <Box sx={{ maxWidth: 400 }}>
@@ -149,7 +154,7 @@ const WorkflowStepper = ({ workflowStatus, currentStep, totalSteps, ticket }) =>
           <strong>Current Status:</strong> {ticket?.status || 'Open'}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          <strong>Assigned to:</strong> {ticket?.assigned_to_role || 'Coordinator'}
+          <strong>Assigned to:</strong> {ticket?.assigned_to_role || 'Reviewer'}
         </Typography>
         {ticket?.complaint_type && (
           <Typography variant="body2" color="text.secondary">

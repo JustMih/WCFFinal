@@ -5,9 +5,10 @@ import { FormControl, InputLabel, Select } from '@mui/material';
 import { Avatar, Paper } from "@mui/material";
 
 // React Icons
-import { FaEye } from "react-icons/fa";
+import { FaEye, FaPlus } from "react-icons/fa";
 import { FiSettings } from "react-icons/fi";
 import { MdOutlineSupportAgent, MdImportExport } from "react-icons/md";
+import { FaSearch } from "react-icons/fa";
 
 // MUI Components
 import {
@@ -22,50 +23,24 @@ import {
   Tooltip,
   Typography,
   TextField,
-  MenuItem
+  MenuItem,
+  CircularProgress
 } from "@mui/material";
+import ChatIcon from '@mui/icons-material/Chat';
 
 // Custom Components
-import ColumnSelector from "../../../../components/colums-select/ColumnSelector";
+// import ColumnSelector from "../../../../components/colums-select/ColumnSelector";
 import TicketFilters from "../../../../components/ticket/TicketFilters";
-import TicketDetailsModal from "../../../../components/TicketDetailsModal";
+import TicketDetailsModal from "../../../../components/ticket/TicketDetailsModal";
+import AdvancedTicketCreateModal from "../../../../components/ticket/AdvancedTicketCreateModal";
+import Pagination from "../../../../components/Pagination";
+import TableControls from "../../../../components/TableControls";
 
 // Config
 import { baseURL } from "../../../../config";
 
 // Styles
 import "./crm-focal-person-dashboard.css";
-
-function AssignmentFlowChat({ assignmentHistory }) {
-  return (
-    <Box sx={{ maxWidth: 400, ml: "auto" }}>
-      <Typography variant="h6" sx={{ color: "#3f51b5", mb: 2 }}>
-        Assignment Flow
-      </Typography>
-      {assignmentHistory.map((a, idx) => (
-        <Box key={idx} sx={{ display: "flex", mb: 2, alignItems: "flex-start" }}>
-          <Avatar sx={{ bgcolor: "#1976d2", mr: 2 }}>
-            {a.assigned_to_name ? a.assigned_to_name[0] : "?"}
-          </Avatar>
-          <Paper elevation={2} sx={{ p: 2, bgcolor: "#f5f5f5", flex: 1 }}>
-            <Typography sx={{ fontWeight: "bold" }}>
-              {a.assigned_to_name || "Unknown"}{" "}
-              <span style={{ color: "#888", fontWeight: "normal" }}>
-                ({a.assigned_to_role || "N/A"})
-              </span>
-            </Typography>
-            <Typography variant="body2" sx={{ color: "#1976d2" }}>
-              {a.reason || <span style={{ color: "#888" }}>No reason provided</span>}
-            </Typography>
-            <Typography variant="caption" sx={{ color: "#888" }}>
-              {a.created_at ? new Date(a.created_at).toLocaleString() : ""}
-            </Typography>
-          </Paper>
-        </Box>
-      ))}
-    </Box>
-  );
-}
 
 const Card = ({ title, data, color, icon }) => (
   <div className="crm-card">
@@ -89,10 +64,15 @@ export default function FocalPersonDashboard() {
   const [tickets, setTickets] = useState([]);
   const [userId, setUserId] = useState("");
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
-  const [activeColumns, setActiveColumns] = useState([]);
+  const [activeColumns, setActiveColumns] = useState([
+    "ticket_id",
+    "fullName",
+    "phone_number",
+    "region",
+    "status"
+  ]);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
@@ -108,6 +88,9 @@ export default function FocalPersonDashboard() {
     status: "",
     priority: "",
     category: "",
+    region: "",
+    district: "",
+    ticketId: "",
     startDate: null,
     endDate: null
   });
@@ -119,6 +102,16 @@ export default function FocalPersonDashboard() {
   const [assignLoading, setAssignLoading] = useState(false);
   const [selectedAction, setSelectedAction] = useState("");
   const [assignmentHistory, setAssignmentHistory] = useState([]);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+
+  // State for AdvancedTicketCreateModal
+  const [showAdvancedTicketModal, setShowAdvancedTicketModal] = useState(false);
+  const [ticketPhoneNumber, setTicketPhoneNumber] = useState("");
+  const [phoneSearch, setPhoneSearch] = useState("");
+  const [existingTicketsModal, setExistingTicketsModal] = useState(false);
+  const [newTicketConfirmationModal, setNewTicketConfirmationModal] = useState(false);
+  const [foundTickets, setFoundTickets] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   // Dashboard Stats
   const [newTickets, setNewTickets] = useState({
@@ -145,9 +138,10 @@ export default function FocalPersonDashboard() {
   useEffect(() => {
     if (activeColumns.length === 0) {
       setActiveColumns([
-        "id",
+        "ticket_id",
         "fullName",
         "phone_number",
+        "region",
         "status",
         "subject",
         "category",
@@ -370,6 +364,12 @@ export default function FocalPersonDashboard() {
     } catch (e) {
       setAssignmentHistory([]);
     }
+    
+    // Also trigger phone search to populate ticket history (like in agent dashboard)
+    const searchValue = ticket.phone_number || ticket.nida_number;
+    if (searchValue) {
+      handlePhoneSearch(searchValue, ticket);
+    }
   };
 
   const closeModal = () => {
@@ -393,12 +393,26 @@ export default function FocalPersonDashboard() {
       (!searchValue ||
         ticket.phone_number?.toLowerCase().includes(searchValue) ||
         ticket.nida_number?.toLowerCase().includes(searchValue) ||
-        fullName.includes(searchValue)) &&
-      (!filterStatus || ticket.status === filterStatus);
+        fullName.includes(searchValue) ||
+        (ticket.ticket_id || "").toLowerCase().includes(searchValue) ||
+        (ticket.id || "").toLowerCase().includes(searchValue)) &&
+      (!filters.status || ticket.status === filters.status);
 
     // Apply advanced filters
     if (filters.category) {
       matches = matches && ticket.category === filters.category;
+    }
+    if (filters.region) {
+      matches = matches && ticket.region === filters.region;
+    }
+    if (filters.district) {
+      matches = matches && ticket.district === filters.district;
+    }
+    if (filters.ticketId) {
+      matches = matches && (
+        (ticket.ticket_id && ticket.ticket_id.toLowerCase().includes(filters.ticketId.toLowerCase())) ||
+        (ticket.id && ticket.id.toLowerCase().includes(filters.ticketId.toLowerCase()))
+      );
     }
     if (filters.startDate) {
       matches =
@@ -415,6 +429,10 @@ export default function FocalPersonDashboard() {
   console.log("Filtered tickets:", filteredTickets);
 
   const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage + 1;
+  const endIndex = Math.min(currentPage * itemsPerPage, filteredTickets.length);
+  const totalItems = filteredTickets.length;
+  
   const paginatedTickets = filteredTickets.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -521,18 +539,106 @@ export default function FocalPersonDashboard() {
   ];
 
   const role = localStorage.getItem("role");
+  // const getDashboardTitle = () => {
+  //   if (role === "focal-person") return "Focal Person Dashboard";
+  //   if (role === "claim-focal-person") return "Claim Focal Person Dashboard";
+  //   if (role === "compliance-focal-person") return "Compliance Focal Person Dashboard";
+  //   if (role === "head-of-unit") return "Head of Unit Dashboard";
+  //   if (role === "director-general") return "Director General Dashboard";
+  //   return "Dashboard";
+  // };
+
   const getDashboardTitle = () => {
-    if (role === "focal-person") return "Focal Person Dashboard";
-    if (role === "claim-focal-person") return "Claim Focal Person Dashboard";
-    if (role === "compliance-focal-person") return "Compliance Focal Person Dashboard";
-    if (role === "head-of-unit") return "Head of Unit Dashboard";
-    if (role === "director-general") return "Director General Dashboard";
+    if (role === "focal-person") return "CC Dashboard";
+    if (role === "claim-focal-person") return "CC Dashboard";
+    if (role === "compliance-focal-person") return "CC Dashboard";
+    if (role === "head-of-unit") return "CC Dashboard";
+    if (role === "director-general") return "CC Dashboard";
     return "Dashboard";
+  };
+
+
+  const handlePhoneSearch = async (searchValue, selectedTicketFromTable = null) => {
+    try {
+      setIsLoading(true);
+      // Search by phone number (this endpoint also searches by NIDA number)
+      const response = await fetch(
+        `${baseURL}/ticket/search-by-phone/${searchValue}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`
+          }
+        }
+      );
+      const data = await response.json();
+      
+      if (data.found) {
+        setFoundTickets(data.tickets);
+        if (selectedTicketFromTable) {
+          setSelectedTicket(selectedTicketFromTable);
+          setShowDetailsModal(true);
+        } else {
+          setExistingTicketsModal(true);
+        }
+      } else {
+        setNewTicketConfirmationModal(true);
+      }
+    } catch (error) {
+      console.error("Error searching tickets:", error);
+      setSnackbar({
+        open: true,
+        message: "Error searching tickets",
+        severity: "error"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleNewTicketConfirmation = (confirmed) => {
+    if (confirmed) {
+      // Set the phone number for the AdvancedTicketCreateModal
+      setTicketPhoneNumber(phoneSearch);
+      setShowAdvancedTicketModal(true);
+    }
+    setNewTicketConfirmationModal(false);
   };
 
   return (
     <div className="focal-person-dashboard-container">
       <h2 className="title">{getDashboardTitle()}</h2>
+
+      {/* Full-width Phone/NIDA Search Section */}
+      <div
+        style={{
+          display: "flex",
+          gap: "10px",
+          marginBottom: "1rem",
+          alignItems: "center",
+        }}
+      >
+        <input
+          className="crm-search-input"
+          type="text"
+          placeholder="Search by phone or NIDA..."
+          value={phoneSearch}
+          onChange={(e) => setPhoneSearch(e.target.value)}
+          onKeyPress={(e) => {
+            if (e.key === "Enter") handlePhoneSearch(phoneSearch);
+          }}
+          style={{ flex: 1 }}
+        />
+        <button
+          className="search-btn"
+          onClick={() => handlePhoneSearch(phoneSearch)}
+          aria-label="Search"
+        >
+          <FaSearch />
+        </button>
+        <button className="add-user-button" onClick={() => setShowAdvancedTicketModal(true)}>
+          <FaPlus /> New Ticket
+        </button>
+      </div>
 
       {/* Cards */}
       <div className="crm-dashboard">
@@ -566,81 +672,64 @@ export default function FocalPersonDashboard() {
         </div>
       </div>
 
-      <TicketFilters
-        onFilterChange={handleFilterChange}
-        initialFilters={filters}
-      />
-
       {/* Table Section */}
-      <div style={{ overflowX: "auto", width: "100%" }}>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            marginBottom: "16px"
-          }}
-        >
-          <h2>Inquiry Tickets</h2>
-          <Tooltip title="Columns Settings" arrow>
-            <IconButton onClick={() => setIsColumnModalOpen(true)}>
-              <FiSettings size={20} />
-            </IconButton>
-          </Tooltip>
-        </div>
-
-        <div className="controls">
-          <div>
-            <label style={{ marginRight: "8px" }}>
-              <strong>Show:</strong>
-            </label>
-            <select
-              className="filter-select"
-              value={itemsPerPage}
-              onChange={(e) => {
-                setItemsPerPage(parseInt(e.target.value));
-                setCurrentPage(1);
-              }}
-            >
-              {[5, 10, 25, 50, 100].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
+      <div className="user-table-container">
+        <div style={{ 
+          display: "flex", 
+          justifyContent: "space-between", 
+          alignItems: "center",
+          marginBottom: "1rem"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
+            <h3 className="title">Focal Person Tickets List</h3>
+            {/* The New Ticket button is now in the search section */}
           </div>
-          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-            <input
-              className="search-input"
-              type="text"
-              placeholder="Search by phone or NIDA..."
-              value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setCurrentPage(1);
-              }}
+          
+          <div style={{ 
+            display: "flex", 
+            alignItems: "center", 
+            gap: "10px"
+          }}>
+            <TicketFilters
+              onFilterChange={handleFilterChange}
+              initialFilters={filters}
+              compact={true}
             />
-            <select
-              className="filter-select"
-              value={filterStatus}
-              onChange={(e) => {
-                setFilterStatus(e.target.value);
-                setCurrentPage(1);
-              }}
-            >
-              <option value="">All Status</option>
-              <option value="Open">Open</option>
-              <option value="Closed">Closed</option>
-            </select>
           </div>
         </div>
+        
+        <div style={{ overflowX: "auto", width: "100%" }}>
 
-        <table className="user-table">
+          <TableControls
+            itemsPerPage={itemsPerPage}
+            onItemsPerPageChange={(e) => {
+              const value = e.target.value;
+              setItemsPerPage(
+                value === "All" ? filteredTickets.length : parseInt(value)
+              );
+              setCurrentPage(1);
+            }}
+            search={search}
+            onSearchChange={(e) => setSearch(e.target.value)}
+            filterStatus={filters.status}
+            onFilterStatusChange={(e) => setFilters({ ...filters, status: e.target.value })}
+            filterRegion={filters.region}
+            onFilterRegionChange={(e) => setFilters({ ...filters, region: e.target.value })}
+            filterDistrict={filters.district}
+            onFilterDistrictChange={(e) => setFilters({ ...filters, district: e.target.value })}
+            activeColumns={activeColumns}
+            onColumnsChange={setActiveColumns}
+            tableData={filteredTickets}
+            tableTitle="Focal Person Tickets"
+          />
+
+          <table className="user-table">
           <thead>
             <tr>
-              {activeColumns.includes("id") && <th>#</th>}
+              {activeColumns.includes("ticket_id") && <th>Ticket ID</th>}
               {activeColumns.includes("fullName") && <th>Full Name</th>}
               {activeColumns.includes("phone_number") && <th>Phone</th>}
+              {activeColumns.includes("region") && <th>Region</th>}
               {activeColumns.includes("status") && <th>Status</th>}
               {activeColumns.includes("subject") && <th>Subject</th>}
               {activeColumns.includes("category") && <th>Category</th>}
@@ -655,8 +744,8 @@ export default function FocalPersonDashboard() {
             {paginatedTickets.length > 0 ? (
               paginatedTickets.map((ticket, i) => (
                 <tr key={ticket.id}>
-                  {activeColumns.includes("id") && (
-                    <td>{(currentPage - 1) * itemsPerPage + i + 1}</td>
+                  {activeColumns.includes("ticket_id") && (
+                    <td>{ticket.ticket_id || ticket.id}</td>
                   )}
                   {activeColumns.includes("fullName") && (
                     <td>
@@ -675,6 +764,9 @@ export default function FocalPersonDashboard() {
                   )}
                   {activeColumns.includes("phone_number") && (
                     <td>{ticket.phone_number || "N/A"}</td>
+                  )}
+                  {activeColumns.includes("region") && (
+                    <td>{ticket.region || "N/A"}</td>
                   )}
                   {activeColumns.includes("status") && (
                     <td>
@@ -716,19 +808,14 @@ export default function FocalPersonDashboard() {
                     </td>
                   )}
                   <td>
-                    {!["agent", "coordinator", "attendee"].includes(role) && (
                     <Tooltip title="View Details">
                       <button
                         className="view-ticket-details-btn"
-                          onClick={() => {
-                            setSelectedTicket(ticket);
-                            setIsModalOpen(true);
-                          }}
+                        onClick={() => openModal(ticket)}
                       >
                         <FaEye />
                       </button>
                     </Tooltip>
-                    )}
                   </td>
                 </tr>
               ))
@@ -745,46 +832,32 @@ export default function FocalPersonDashboard() {
           </tbody>
         </table>
 
-        <div style={{ marginTop: "16px", textAlign: "center" }}>
-          <Button
-            variant="outlined"
-            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-            sx={{ marginRight: 1 }}
-          >
-            Previous
-          </Button>
-          <span>
-            Page {currentPage} of {totalPages}
-          </span>
-          <Button
-            variant="outlined"
-            onClick={() =>
-              setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-            }
-            disabled={currentPage === totalPages}
-            sx={{ marginLeft: 1 }}
-          >
-            Next
-          </Button>
-        </div>
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={totalItems}
+          startIndex={startIndex}
+          endIndex={endIndex}
+          onPageChange={setCurrentPage}
+        />
       </div>
+    </div>
 
       {/* Ticket Details Modal */}
       <TicketDetailsModal
-  open={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
+        open={showDetailsModal}
+        onClose={() => setShowDetailsModal(false)}
         selectedTicket={selectedTicket}
         assignmentHistory={assignmentHistory}
         setSnackbar={setSnackbar}
         refreshTickets={fetchTickets}
+        refreshDashboardCounts={() => fetchDashboardCounts(userId)}
       />
 
       {/* Column Selector */}
-      <ColumnSelector
-        open={isColumnModalOpen}
-        onClose={() => setIsColumnModalOpen(false)}
-        data={tickets}
+      {/* This block is now redundant as ColumnSelectorDropdown is moved */}
+      {/* <ColumnSelectorDropdown
+        selectedColumns={activeColumns}
         onColumnsChange={(selectedColumns) => {
           if (selectedColumns.length === 0) {
             setActiveColumns([
@@ -801,17 +874,195 @@ export default function FocalPersonDashboard() {
             setActiveColumns(selectedColumns);
           }
         }}
-      />
+        size="small"
+      /> */}
 
       {/* Snackbar */}
       <Snackbar
         open={snackbar.open}
-        autoHideDuration={4000}
+        autoHideDuration={6000}
         onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
       >
-        <Alert severity={snackbar.severity}>{snackbar.message}</Alert>
+        <Alert 
+          severity={snackbar.severity}
+          onClose={handleSnackbarClose}
+          sx={{ 
+            minWidth: '300px',
+            fontSize: '14px',
+            fontWeight: snackbar.severity === 'success' ? 'bold' : 'normal'
+          }}
+        >
+          {snackbar.message}
+        </Alert>
       </Snackbar>
+
+      {/* Advanced Ticket Create Modal */}
+      <AdvancedTicketCreateModal
+        open={showAdvancedTicketModal}
+        onClose={() => setShowAdvancedTicketModal(false)}
+        initialPhoneNumber={ticketPhoneNumber}
+        functionData={[]}
+      />
+
+      {/* Existing Tickets Modal */}
+      <Modal
+        open={existingTicketsModal}
+        onClose={() => setExistingTicketsModal(false)}
+      >
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: { xs: "90%", sm: 600 },
+            maxHeight: "80vh",
+            overflowY: "auto",
+            bgcolor: "background.paper",
+            boxShadow: 24,
+            borderRadius: 2,
+            p: 3,
+          }}
+        >
+          <Typography variant="h6" component="h2" gutterBottom>
+            Existing Tickets for {phoneSearch}
+          </Typography>
+          <Divider sx={{ mb: 2 }} />
+
+          {foundTickets.map((ticket) => (
+            <Box
+              key={ticket.id}
+              sx={{ mb: 2, p: 2, border: "1px solid #eee", borderRadius: 1 }}
+            >
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="subtitle1">
+                  Ticket ID: {ticket.ticket_id}
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography
+                    sx={{
+                      px: 1.5,
+                      py: 0.5,
+                      borderRadius: '12px',
+                      color: 'white',
+                      background:
+                        ticket.status === 'Closed'
+                          ? '#757575'
+                          : ticket.status === 'Open'
+                          ? '#2e7d32'
+                          : '#1976d2',
+                      fontSize: '0.75rem',
+                      fontWeight: 500
+                    }}
+                  >
+                    {ticket.status || "Escalated"}
+                  </Typography>
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      // handleOpenJustificationHistory(ticket);
+                    }}
+                    sx={{
+                      color: '#1976d2',
+                      '&:hover': {
+                        backgroundColor: 'rgba(25, 118, 210, 0.1)'
+                      }
+                    }}
+                     title="View Ticket Updates"
+                  >
+                    <ChatIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              </Box>
+              <Typography>
+                Created: {new Date(ticket.created_at).toLocaleDateString()}
+              </Typography>
+              <Button
+                variant="contained"
+                size="small"
+                onClick={() => {
+                  setExistingTicketsModal(false);
+                  openModal(ticket);
+                }}
+                sx={{ mt: 1 }}
+              >
+                View Details
+              </Button>
+            </Box>
+          ))}
+
+          <Box
+            sx={{ mt: 2, display: "flex", justifyContent: "flex-end", gap: 1 }}
+          >
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => {
+                setExistingTicketsModal(false);
+                setNewTicketConfirmationModal(true);
+              }}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <CircularProgress size={24} color="inherit" />
+              ) : (
+                "Create Ticket"
+              )}
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => setExistingTicketsModal(false)}
+            >
+              Close
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
+
+      {/* New Ticket Confirmation Modal */}
+      <Modal
+        open={newTicketConfirmationModal}
+        onClose={() => setNewTicketConfirmationModal(false)}
+      >
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: { xs: "90%", sm: 400 },
+            bgcolor: "background.paper",
+            boxShadow: 24,
+            borderRadius: 2,
+            p: 3,
+          }}
+        >
+          <Typography variant="h6" component="h2" gutterBottom>
+            No Existing Tickets Found
+          </Typography>
+          <Typography sx={{ mb: 2 }}>
+            Would you like to create a new ticket for {phoneSearch}?
+          </Typography>
+          <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={() => handleNewTicketConfirmation(true)}
+            >
+              Yes, Create Ticket
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => handleNewTicketConfirmation(false)}
+            >
+              No, Cancel
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
+
     </div>
   );
 }

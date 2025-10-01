@@ -5,6 +5,7 @@ import CallCenterSidebar from "../../components/side-bar/side-bar-call-center/Ca
 import CRMSidebar from "../../components/side-bar/side-bar-crm/CRMSidebar";
 import CallCenterDashboard from "../call-center-pages/call-center-dashboard/callCenterDashboard";
 import Dashboard2 from "../call-center-pages/call-center-dashboard/Dashboard2";
+import RTDashboard from "../call-center-pages/call-center-dashboard/RTDashboard";
 import CRMDashboard from "../crm-pages/crm-dashboard/CRMDashboard";
 import CRMNotificationTickets from "../crm-pages/crm-notifications/notifications";
 import CRMAssignedTickets from "../crm-pages/crm-tickets/assigned";
@@ -14,7 +15,7 @@ import CRMCarriedForawardTickets from "../crm-pages/crm-tickets/carried-forward"
 import CRMOverdueTickets from "../crm-pages/crm-tickets/overdue";
 import CRMClosedTickets from "../crm-pages/crm-tickets/closed";
 import CRMTotalTickets from "../crm-pages/crm-tickets/total";
-import CRMCoordinatorTickets from "../crm-pages/crm-coordinator-tickets/crm-coordinator-tickets";
+import CRMReviewerTickets from "../crm-pages/crm-reviewer-tickets/crm-reviewer-tickets";
 import CRMFocalPersonTickets from "../crm-pages/crm-focal-person-tickets/crm-focal-person-tickets";
 import CallCenterUsers from "../call-center-pages/call-center-users/CallCenterUsers";
 import CallCenterAgents from "../call-center-pages/call-center-agents/CallCenterAgents";
@@ -40,8 +41,8 @@ import RecordedAudio from "../call-center-pages/cal-center-ivr/RecordedAudio";
 import Message from "../call-center-pages/call-center-social-message/CallCenterSocialMessage";
 import IvrCardsPage from "../call-center-pages/cal-center-ivr/IvrCardsPage";
 import DTMFStats from "../call-center-pages/cal-center-ivr/DTMFStats";
-
-
+import VoiceNoteReport from "../call-center-pages/call-center-report/voice-note-report";
+import InstagramPage from "../instagram/InstagramPage";
 
 export default function Dashboard() {
   const [isDarkMode, setDarkMode] = useState(false);
@@ -66,13 +67,13 @@ export default function Dashboard() {
         setActiveSystem("call-center");
       } else if (
         role === "attendee" ||
-        role === "coordinator" ||
+        role === "reviewer" ||
         role === "head-of-unit" ||
         role === "manager" ||
-        role === "supervisor" ||
+        // role === "supervisor" ||
         role === "director-general" ||
         role === "director" ||
-        role === "admin" ||
+        // role === "admin" ||
         role === "super-admin" ||
         role === "focal-person" ||
         role === "claim-focal-person" ||
@@ -125,6 +126,10 @@ export default function Dashboard() {
                   element={<PrivateRoute element={<Dashboard2 />} />}
                 />
                 <Route
+                path="/rtdashboard"
+                element={<PrivateRoute element={<RTDashboard />} />}
+              />
+                <Route
                   path="/agents"
                   element={<PrivateRoute element={<CallCenterAgents />} />}
                 />
@@ -176,6 +181,14 @@ export default function Dashboard() {
                   }
                 />
                 <Route
+                  path="/voice-notes-report"
+                  element={<VoiceNoteReport />}
+                />
+                <Route
+                  path="/voice-note-report"
+                  element={<VoiceNoteReport />}
+                />
+                <Route
                   path="/recorded-sounds"
                   element={<PrivateRoute element={<RecordedSounds />} />}
                 />
@@ -184,7 +197,7 @@ export default function Dashboard() {
                 <Route path="/ivr-emegency" element={<EmegencyManager />} />
 
                 <Route path="/voice-notes" element={<VoiceNotesReport />} />
-                <Route path="/cdr-reports" element={<CDRReports />} />
+                <Route path="/cdr-reports" element={<VoiceNoteReport />} />
                 <Route path="/ivr-interactions" element={<IVRInteractions />} />
                 <Route path="/livestream" element={<Livestream />} />
                 <Route path="/recorded-audio" element={<RecordedAudio />} />
@@ -193,6 +206,10 @@ export default function Dashboard() {
                 <Route
                   path="/social-message"
                   element={<PrivateRoute element={<Message />} />}
+                />
+                <Route
+                  path="/instagram"
+                  element={<PrivateRoute element={<InstagramPage />} />}
                 />
               </>
             )}
@@ -232,7 +249,7 @@ export default function Dashboard() {
                   element={<PrivateRoute element={<CRMClosedTickets />} />}
                 />
                 <Route
-                  path="/ticket/overdue"
+                  path="/ticket/escalated"
                   element={<PrivateRoute element={<CRMOverdueTickets />} />}
                 />
                 <Route
@@ -240,12 +257,16 @@ export default function Dashboard() {
                   element={<PrivateRoute element={<CRMTotalTickets />} />}
                 />
                 <Route
-                  path="/coordinator/:status"
-                  element={<PrivateRoute element={<CRMCoordinatorTickets />} />}
+                  path="/reviewer/:status"
+                  element={<PrivateRoute element={<CRMReviewerTickets />} />}
                 />
                 <Route
                   path="/focal-person/:status"
                   element={<PrivateRoute element={<CRMFocalPersonTickets />} />}
+                />
+                <Route
+                  path="/instagram"
+                  element={<PrivateRoute element={<InstagramPage />} />}
                 />
               </>
             )}

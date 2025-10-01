@@ -309,3 +309,15 @@ select {
   font-size: 0.75rem;
   margin-top: 4px;
 }
+
+/* Reduce table cell padding for a more compact look */
+.user-table th, .user-table td {
+  padding: 4px 6px !important;
+}
+
+/* Make filter/search controls more compact */
+.user-table-container > div[style*="display: flex"] {
+  gap: 6px !important;
+  /* margin-bottom: 0.5rem !important; */
+  margin-bottom: 0.5rem !important;
+}

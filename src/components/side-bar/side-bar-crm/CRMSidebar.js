@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import { RxDashboard } from "react-icons/rx";
-import logo from "../../../asserts/images/logo.png";
 import { MdOutlineSupportAgent, MdEmail } from "react-icons/md";
-import { FaChevronUp, FaChevronDown } from "react-icons/fa";
+import { FaChevronUp, FaChevronDown, FaInstagram } from "react-icons/fa";
 import { baseURL } from "../../../config";
 import "./crmSidebar.css";
-import { IconButton, Badge } from "@mui/material";
+
+// MUI Components - Individual imports for better tree shaking
+import IconButton from "@mui/material/IconButton";
+import Badge from "@mui/material/Badge";
 
 export default function CRMSidebar({ isSidebarOpen }) {
   const [isAgentsOpen, setIsAgentsOpen] = useState(false);
@@ -52,7 +54,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
     if (role === "claim-focal-person") return "Claim Focal Person Dashboard";
     if (role === "compliance-focal-person") return "Compliance Focal Person Dashboard";
     if (role === "head-of-unit") return "Head of Unit Dashboard";
-    if (role === "coordinator") return "Coordinator Dashboard";
+    if (role === "reviewer") return "Reviewer Dashboard";
     if (role === "agent" || role === "attendee") return "Agent Dashboard";
     return "Dashboard";
   };
@@ -86,8 +88,8 @@ export default function CRMSidebar({ isSidebarOpen }) {
     try {
       // Use different endpoints based on role
       let url;
-      if (role === "coordinator") {
-        url = `${baseURL}/coordinator/dashboard-counts/${userId}`;
+      if (role === "reviewer") {
+        url = `${baseURL}/reviewer/dashboard-counts/${userId}`;
       } else if (['focal-person', 'claim-focal-person', 'compliance-focal-person'].includes(role)) {
         // url = `${baseURL}/focal-person/dashboard-counts`;
         url = `${baseURL}/ticket/dashboard-counts/${userId}`;
@@ -114,6 +116,14 @@ export default function CRMSidebar({ isSidebarOpen }) {
       stats.inProgress = inProgressAssignments;
       setTicketStats(stats);
       setFetchError(null);
+      // Debug: Log the updated ticketStats
+      console.log('Updated Sidebar ticketStats:', stats);
+      console.log('Updated channeledTickets:', stats.channeledTickets);
+      console.log('Updated ticketStatus:', stats.ticketStatus);
+      console.log('Updated newTickets:', stats.newTickets);
+      console.log('New Tickets Total:', stats.newTickets?.Total);
+      console.log('New Tickets Count:', stats.newTickets?.["New Tickets"]);
+      console.log('Escalated Tickets Count:', stats.newTickets?.["Escalated Tickets"]);
     } catch (error) {
       setFetchError(error.message);
     }
@@ -155,11 +165,9 @@ export default function CRMSidebar({ isSidebarOpen }) {
 
   return (
     <aside className={`crm-sidebar ${isSidebarOpen ? "open" : "closed"}`}>
-      {isSidebarOpen && (
-        <img src={logo} alt="Avatar" className="crm-sidebar-logo" />
-      )}
+      {/* Logo moved to Navbar */}
       <ul>
-        {(
+         {(
           role === "agent" ||
           role === "attendee" ||
           role === "head-of-unit" ||
@@ -220,6 +228,20 @@ export default function CRMSidebar({ isSidebarOpen }) {
                 </div>
               </NavLink>
 
+              <NavLink
+                to="/instagram"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <FaInstagram className="menu-icon" color="#E4405F" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">Instagram Management</span>
+                  )}
+                </div>
+              </NavLink>
+
               <div
                 className={`menu-item ${
                   window.location.pathname.startsWith("/ticket")
@@ -227,7 +249,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                     : ""
                 }`}
                 onClick={toggleAgentsDropdown}
-                style={{ cursor: "pointer", padding: "12px 20px" }}
+                style={{ cursor: "pointer", padding: "11px 11px", textDecoration: "none" }}
               >
                 <MdOutlineSupportAgent className="menu-icon" />
                 {isSidebarOpen && (
@@ -255,47 +277,34 @@ export default function CRMSidebar({ isSidebarOpen }) {
                     {openSection === "agentTickets" && (
                       <div className="section-items">
                         {[
-                          
                           {
-                            label: "Assigned Tickets",
+                            label: "Assigned",
                             to: "/ticket/assigned",
-                            // value: ticketStats.assigned,
+                            value: ticketStats.assigned || 0,
                             icon: "📋"
                           },
                           {
                             label: "In Progress",
                             to: "/ticket/in-progress",
-                            // value: ticketStats.inProgress,
+                            value: ticketStats.inProgress || 0,
                             icon: "⏳"
                           },
-                          // {
-                          //   label: "In Progress",
-                          //   to: "/ticket/in-progress",
-                          //   value: ticketStats.inProgress,
-                          //   icon: "⏳"
-                          // },
-                          // {
-                          //   label: "Carried Forward",
-                          //   to: "/ticket/carried-forward",
-                          //   value: ticketStats.carriedForward,
-                          //   icon: "↪️"
-                          // },
                           {
-                            label: "Closed Tickets",
-                            to: "/ticket/closed",
-                            // value: ticketStats.closed,
-                            icon: "🔒"
-                          },
-                          {
-                            label: "Overdue",
-                            to: "/ticket/overdue",
-                            // value: ticketStats.overdue,
+                            label: "Escalated",
+                            to: "/ticket/escalated",
+                            value: ticketStats.escalated || ticketStats.overdue || 0,
                             icon: "⚠️"
                           },
                           {
-                            label: "Total Tickets",
+                            label: "Closed",
+                            to: "/ticket/closed",
+                            value: ticketStats.closedByAgent || 0,
+                            icon: "🔒"
+                          },
+                          {
+                            label: "Total Opened by Me",
                             to: "/ticket/all",
-                            // value: ticketStats.total,
+                            value: ticketStats.totalCreatedByMe || 0,
                             icon: "📊"
                           }
                         ].map((item, idx) => (
@@ -310,7 +319,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                             style={{ padding: "12px 20px" }}
                           >
                             <div className="metric-row">
-                              <span className="metric-icon">{item.icon}</span>
+                              <span className="crm-metric-icon">{item.icon}</span>
                               <span className="metric-label">{item.label}</span>
                               <span className="metric-value">{item.value}</span>
                             </div>
@@ -331,8 +340,9 @@ export default function CRMSidebar({ isSidebarOpen }) {
             </li>
           </>
         )}
+
         
-        {role === "coordinator" && (
+        {role === "reviewer" && (
           <>
             <li>
               <NavLink
@@ -379,7 +389,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                 </div>
               </NavLink>
               <NavLink
-                to="/coordinator/ticket"
+                                  to="/reviewer/ticket"
                 className={({ isActive }) =>
                   isActive ? "menu-item active-link" : "menu-item"
                 }
@@ -396,7 +406,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
               </NavLink>
 
               {isSidebarOpen && isAgentsOpen && (
-                <div className="dropdown-menu submenu coordinator-menu">
+                <div className="dropdown-menu submenu reviewer-menu">
                   <div className="menu-section">
                     <div
                       className={`section-header ${
@@ -414,13 +424,13 @@ export default function CRMSidebar({ isSidebarOpen }) {
                         {[
                           {
                             label: "New Tickets",
-                            to: `/coordinator/new`,
+                            to: `/reviewer/new`,
                             value: ticketStats.newTickets?.["New Tickets"] || 0,
                             icon: "🆕"
                           },
                           {
                             label: "Escalated",
-                            to: `/coordinator/escalated`,
+                            to: `/reviewer/escalated`,
                             value:
                               ticketStats.newTickets?.["Escalated Tickets"] ||
                               0,
@@ -438,7 +448,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                             style={{ padding: "12px 20px" }}
                           >
                             <div className="metric-row">
-                              <span className="metric-icon">{item.icon}</span>
+                              <span className="crm-metric-icon">{item.icon}</span>
                               <span className="metric-label">{item.label}</span>
                               <span className="metric-value">{item.value}</span>
                             </div>
@@ -467,21 +477,21 @@ export default function CRMSidebar({ isSidebarOpen }) {
                         {[
                           {
                             label: "Complaints",
-                            to: "/coordinator/complaints",
+                            to: "/reviewer/complaints",
                             value:
                               ticketStats.convertedTickets?.Complaints || 0,
                             icon: "📋"
                           },
                           {
                             label: "Suggestions",
-                            to: "/coordinator/suggestions",
+                            to: "/reviewer/suggestions",
                             value:
                               ticketStats.convertedTickets?.Suggestions || 0,
                             icon: "💡"
                           },
                           {
                             label: "Compliments",
-                            to: "/coordinator/complements",
+                            to: "/reviewer/complements",
                             value:
                               ticketStats.convertedTickets?.Compliments || 0,
                             icon: "⭐"
@@ -498,7 +508,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                             style={{ padding: "12px 20px" }}
                           >
                             <div className="metric-row">
-                              <span className="metric-icon">{item.icon}</span>
+                              <span className="crm-metric-icon">{item.icon}</span>
                               <span className="metric-label">{item.label}</span>
                               <span className="metric-value">{item.value}</span>
                             </div>
@@ -527,14 +537,14 @@ export default function CRMSidebar({ isSidebarOpen }) {
                         {[
                           {
                             label: "Directorate",
-                            to: "/coordinator/directorate",
+                            to: "/reviewer/directorate",
                             value:
                               ticketStats.channeledTickets?.Directorate || 0,
                             icon: "🏢"
                           },
                           {
                             label: "Units",
-                            to: "/coordinator/units",
+                            to: "/reviewer/units",
                             value: ticketStats.channeledTickets?.Units || 0,
                             icon: "👥"
                           }
@@ -550,7 +560,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                             style={{ padding: "12px 20px" }}
                           >
                             <div className="metric-row">
-                              <span className="metric-icon">{item.icon}</span>
+                              <span className="crm-metric-icon">{item.icon}</span>
                               <span className="metric-label">{item.label}</span>
                               <span className="metric-value">{item.value}</span>
                             </div>
@@ -569,8 +579,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                     >
                       <span className="section-title">Ticket Status</span>
                       <span className="section-count">
-                        {/* {(ticketStats.ticketStatus?.["On Progress"] || 0) + (ticketStats.ticketStatus?.Closed || 0)} */}
-                        {ticketStats.ticketStatus?.Closed || 0}
+                        {(ticketStats.ticketStatus?.["On Progress"] || 0) + (ticketStats.ticketStatus?.Closed || 0)}
                       </span>
                     </div>
                     {openSection === "ticketStatus" && (
@@ -578,14 +587,14 @@ export default function CRMSidebar({ isSidebarOpen }) {
                         {[
                           // {
                           //   label: "On Progress",
-                          //   to: "/coordinator/on-progress",
+                          //   to: "/reviewer/on-progress",
                           //   value:
                           //     ticketStats.ticketStatus?.["On Progress"] || 0,
                           //   icon: "⏳"
                           // },
                           {
                             label: "Closed",
-                            to: `/coordinator/closed`,
+                            to: `/reviewer/closed`,
                             value: ticketStats.ticketStatus?.Closed || 0,
                             icon: "🔒"
                           }
@@ -601,7 +610,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                             style={{ padding: "12px 20px" }}
                           >
                             <div className="metric-row">
-                              <span className="metric-icon">{item.icon}</span>
+                              <span className="crm-metric-icon">{item.icon}</span>
                               <span className="metric-label">{item.label}</span>
                               <span className="metric-value">{item.value}</span>
                             </div>

@@ -37,6 +37,7 @@ const CallQueueCard = () => {
       setQueueData(data);
 
       const callingCalls = data.filter((call) => call.status === "calling");
+      console.log("Calling Calls:", callingCalls);
       setCalling(callingCalls);
 
     } catch (err) {
@@ -58,7 +59,7 @@ const CallQueueCard = () => {
 
   useEffect(() => {
     fetchQueueData();
-    const interval = setInterval(fetchQueueData, 10000);
+    const interval = setInterval(fetchQueueData, 5000);
     return () => clearInterval(interval);
   }, []);
 
@@ -85,7 +86,7 @@ const CallQueueCard = () => {
   return (
     <div className="queue-monitoring-section">
       <h4>Call Queue Monitoring</h4>
-      <div className="queue-stats">
+      {/* <div className="queue-stats">
         <div className="queue-stat-card">
           <div className="queue-stat-icon">
             <FaUsers />
@@ -111,11 +112,11 @@ const CallQueueCard = () => {
             <FaExclamationTriangle />
           </div>
           <div className="queue-stat-info">
-            <span className="queue-stat-value">{queueData.priorityCalls}</span>
+            <span className="queue-stat-value">1</span>
             <span className="queue-stat-label">Priority Calls</span>
           </div>
         </div>
-      </div>
+      </div> */}
       <div className="table-responsive">
         <table className="waiting-calls-table">
           <thead>
@@ -125,7 +126,7 @@ const CallQueueCard = () => {
               <th>Status</th>
               <th>Duration</th>
               <th>Call Type</th>
-              <th>Action</th>
+              {/* <th>Action</th> */}
             </tr>
           </thead>
           <tbody>
@@ -150,7 +151,7 @@ const CallQueueCard = () => {
                   </td>
                   <td>
                     <span
-                      className={`priority-badge ${call.priority.toLowerCase()}`}
+                      // className={`priority-badge ${call.priority.toLowerCase()}`}
                     >
                       {call.estimated_wait_time}
                     </span>

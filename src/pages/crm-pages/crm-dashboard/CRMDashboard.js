@@ -1,6 +1,6 @@
 import React from 'react'
 import AgentDashboard from "../crm-dashboard/crm-agent-dashboard/crm-agent-dashboard"
-import CoordinatorDashboard from "../crm-dashboard/crm-coordinator-dashboard/crm-coordinator-dashboard"
+import ReviewerDashboard from "../crm-dashboard/crm-reviewer-dashboard/crm-reviewer-dashboard"
 import FocalPersonDashboard from "./crm-focal-person-dashboard/crm-focal-person-dashboard"
 import HeadsDashboard from "./crm-heads-dashboard/crm-heads-dashboard"
 
@@ -12,16 +12,19 @@ export default function CRMDashboard() {
   }
    return (
      <>
+       {role === "reviewer" && <ReviewerDashboard />}
        {(role === "agent") && (<AgentDashboard /> )}
-       {role === "coordinator" && <CoordinatorDashboard />}
        {role === "attendee" && <AgentDashboard />}
-       {role === "focal-person" && <FocalPersonDashboard />}
-       {role === "claim-focal-person" && <HeadsDashboard />}
-       {role === "compliance-focal-person" && <HeadsDashboard />}
-       {role === "head-of-unit" && <HeadsDashboard />}
-       {role === "director-general" && <HeadsDashboard />}
-       {role === "manager" && <HeadsDashboard />}
-       {role === "supervisor" && <HeadsDashboard />}
+       {role === "focal-person" && <AgentDashboard />}
+       {role === "claim-focal-person" && <AgentDashboard />}
+       {role === "compliance-focal-person" && <AgentDashboard />}
+       {role === "head-of-unit" && <AgentDashboard />}
+       {role === "director" && <AgentDashboard />}
+       {role === "director-general" && <AgentDashboard />}
+       {role === "manager" && <AgentDashboard />}
+       {role === "supervisor" && <AgentDashboard />}
+       {role === "super-admin" && <AgentDashboard />}
+       {/* {role === "super-admin" && <HeadsDashboard />} */}
      </>
    );
 }

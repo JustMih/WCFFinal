@@ -8,11 +8,12 @@ import {
   FaInstagram,
   FaFacebook,
   FaWhatsapp,
+  FaTelegram,
+  FaComments,
 } from "react-icons/fa6";
 import { TiFlowSwitch } from "react-icons/ti";
 import { GiVrHeadset } from "react-icons/gi";
 import { BsChatRightTextFill } from "react-icons/bs";
-import logo from "../../../asserts/images/logo.png";
 import "./callCenterSidebar.css";
 import { baseURL } from "../../../config";
 import { Collapse, List, ListItemButton, Badge } from "@mui/material";
@@ -22,7 +23,9 @@ export default function CallCenterSidebar({
   instagramUnreadCount = 0,
 }) {
   const [openSocial, setOpenSocial] = useState(false);
+  const [openInstagram, setOpenInstagram] = useState(false);
   const toggleSocialMenu = () => setOpenSocial((prev) => !prev);
+  const toggleInstagramMenu = () => setOpenInstagram((prev) => !prev);
 
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -55,10 +58,8 @@ export default function CallCenterSidebar({
     <aside
       className={`call-center-sidebar ${isSidebarOpen ? "open" : "closed"}`}
     >
-      {isSidebarOpen && (
-        <img src={logo} alt="Avatar" className="sidebar-logo" />
-      )}
-
+      {/* Logo moved to Navbar */}
+      
       <ul>
         <li>
           {(role === "admin" || role === "super-admin") && (
@@ -202,11 +203,8 @@ export default function CallCenterSidebar({
               >
                 <div className="menu-item">
                   <MdOutlineAudiotrack className="menu-icon" />
-                  {isSidebarOpen && <span className="menu-text">IVR Reports</span>}
-                
+                  {isSidebarOpen && <span className="menu-text">CDR Reports</span>}
                 </div>
-                                
-               
               </NavLink>
               <NavLink
                 to="/ivr-interactions"
@@ -377,25 +375,39 @@ export default function CallCenterSidebar({
                     <Badge
                       badgeContent={unreadMessagesCount}
                       color="error"
-                      sx={{ marginLeft: 1,}}
+                      sx={{ marginLeft: 1 }}
                     />
                   )}
                 </div>
               </NavLink>
 
-              {/* Social Notifications Toggle */}
-              {/* <ListItemButton
-                onClick={toggleSocialMenu}
-                className={openSocial ? "active-link" : "menu-item"}
-                sx={{ padding: 0 }}
+              <NavLink
+                to="/voice-notes-report"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
               >
                 <div className="menu-item">
                   <BsChatRightTextFill className="menu-icon" />
                   {isSidebarOpen && (
-                    <span className="menu-text">Social Notifications</span>
+                    <span className="menu-text">Voice Notes Report</span>
                   )}
                 </div>
-              </ListItemButton> */}
+              </NavLink>
+
+            
+
+              {/* Social Notifications Toggle */}
+              <div 
+                onClick={toggleSocialMenu} 
+                className={`menu-item top-level-menu ${openSocial ? "active-link" : ""}`}
+                style={{ cursor: 'pointer' }}
+              >
+                <BsChatRightTextFill className="menu-icon" />
+                {isSidebarOpen && (
+                  <span className="menu-text">Social Notifications</span>
+                )}
+              </div> 
 
               {/* Dropdown */}
               <Collapse in={openSocial} timeout="auto" unmountOnExit>
@@ -404,22 +416,93 @@ export default function CallCenterSidebar({
                   disablePadding
                   sx={{ marginLeft: "1rem" }}
                 >
+                  {/* Instagram Toggle */}
+                  <div
+                    onClick={toggleInstagramMenu}
+                    className={`menu-item ${openInstagram ? "active-link" : ""}`}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <Badge
+                      badgeContent={instagramUnreadCount}
+                      color="error"
+                      sx={{ marginRight: 1 }}
+                    >
+                      <FaInstagram className="menu-icon" color="#E1306C" />
+                    </Badge>
+                    {isSidebarOpen && (
+                      <span className="menu-text">Instagram</span>
+                    )}
+                  </div>
+
+                  {/* Instagram Sub-menu */}
+                  <Collapse in={openInstagram} timeout="auto" unmountOnExit>
+                    <List
+                      component="div"
+                      disablePadding
+                      className="instagram-sub-menu"
+                      sx={{ marginLeft: "2rem" }}
+                    >
+                      <NavLink
+                        to="/social-message?tab=dashboard"
+                        className={({ isActive }) =>
+                          isActive ? "menu-item active-link" : "menu-item"
+                        }
+                      >
+                        <div className="menu-item">
+                          <RxDashboard className="menu-icon" color="#667eea" />
+                          {isSidebarOpen && (
+                            <span className="menu-text">Dashboard</span>
+                          )}
+                        </div>
+                      </NavLink>
+
+                      <NavLink
+                        to="/social-message?tab=message"
+                        className={({ isActive }) =>
+                          isActive ? "menu-item active-link" : "menu-item"
+                        }
+                      >
+                        <div className="menu-item">
+                          <FaTelegram className="menu-icon" color="#667eea" />
+                          {isSidebarOpen && (
+                            <span className="menu-text">Messages</span>
+                          )}
+                        </div>
+                      </NavLink>
+
+                      <NavLink
+                        to="/social-message?tab=comment"
+                        className={({ isActive }) =>
+                          isActive ? "menu-item active-link" : "menu-item"
+                        }
+                      >
+                        <div className="menu-item">
+                          <FaComments className="menu-icon" color="#667eea" />
+                          {isSidebarOpen && (
+                            <span className="menu-text">Comments</span>
+                          )}
+                          {instagramUnreadCount > 0 && (
+                            <Badge
+                              badgeContent={instagramUnreadCount}
+                              color="error"
+                              sx={{ marginLeft: 1 }}
+                            />
+                          )}
+                        </div>
+                      </NavLink>
+                    </List>
+                  </Collapse>
+
                   <NavLink
-                    to="/social-message"
+                    to="/instagram"
                     className={({ isActive }) =>
                       isActive ? "menu-item active-link" : "menu-item"
                     }
                   >
                     <div className="menu-item">
-                      <Badge
-                        badgeContent={instagramUnreadCount}
-                        color="error"
-                        sx={{ marginRight: 1 }}
-                      >
-                        <FaInstagram className="menu-icon" color="#E1306C" />
-                      </Badge>
+                      <FaInstagram className="menu-icon" color="#E4405F" />
                       {isSidebarOpen && (
-                        <span className="menu-text">Instagram</span>
+                        <span className="menu-text">Instagram Management</span>
                       )}
                     </div>
                   </NavLink>

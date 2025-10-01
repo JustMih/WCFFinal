@@ -117,3 +117,65 @@
     gap: 10px;
   }
 } 
+
+/* Table layout */
+.performance-table-container {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.performance-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.performance-table thead th {
+  text-align: left;
+  font-size: 0.9rem;
+  color: #666;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.performance-table tbody td {
+  padding: 12px 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.performance-table tbody tr:hover {
+  background: #f8f9fa;
+}
+
+.metric-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.metric-title {
+  font-size: 0.95rem;
+  color: #333;
+  font-weight: 500;
+}
+
+.value-individual {
+  font-weight: 600;
+  color: #1976d2;
+}
+
+.value-team {
+  font-weight: 600;
+  color: #666;
+}
+
+@media (max-width: 768px) {
+  .performance-table thead th,
+  .performance-table tbody td {
+    padding: 10px 12px;
+  }
+
+  .metric-title {
+    font-size: 0.9rem;
+  }
+} 

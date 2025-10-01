@@ -8,29 +8,37 @@ import { FaEye, FaPlus, FaSearch } from "react-icons/fa";
 import { FaUsersLine } from "react-icons/fa6";
 import { GrLineChart } from "react-icons/gr";
 import { FiSettings } from "react-icons/fi";
-import {
-  Alert,
-  Box,
-  Button,
-  Divider,
-  Grid,
-  IconButton,
-  Modal,
-  Snackbar,
-  TextField,
-  Tooltip,
-  Typography,
-  Autocomplete,
-  CircularProgress
-} from "@mui/material";
+
+// MUI Components - Individual imports for better tree shaking
+import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
+import Button from "@mui/material/Button";
+import Divider from "@mui/material/Divider";
+import Grid from "@mui/material/Grid";
+import IconButton from "@mui/material/IconButton";
+import Modal from "@mui/material/Modal";
+import Snackbar from "@mui/material/Snackbar";
+import TextField from "@mui/material/TextField";
+import Tooltip from "@mui/material/Tooltip";
+import Typography from "@mui/material/Typography";
+import Autocomplete from "@mui/material/Autocomplete";
+import CircularProgress from "@mui/material/CircularProgress";
+import Avatar from "@mui/material/Avatar";
+import Paper from "@mui/material/Paper";
+import Dialog from "@mui/material/Dialog";
+import DialogTitle from "@mui/material/DialogTitle";
+import DialogContent from "@mui/material/DialogContent";
+
 import { styled } from "@mui/material/styles";
-import ColumnSelector from "../../../../components/colums-select/ColumnSelector";
+import ChatIcon from '@mui/icons-material/Chat';
 import { baseURL } from "../../../../config";
-import { getDomainCredentials } from "../../../../utils/credentials";
 import "./crm-agent-dashboard.css";
-import TicketActions from "../../../../components/ticket/TicketActions";
 import TicketFilters from "../../../../components/ticket/TicketFilters";
-import TicketDetailsModal from "../../../../components/ticket/TicketDetailsModal";
+import AdvancedTicketCreateModal from "../../../../components/ticket/AdvancedTicketCreateModal";
+import Pagination from "../../../../components/Pagination";
+import TableControls from "../../../../components/TableControls";
+import PhoneSearchSection from "../../../../components/shared/PhoneSearchSection";
+import TicketUpdates from "../../../../components/ticket/TicketUpdates";
 import axios from "axios";
 
 // Add styled components for better typeahead styling
@@ -80,26 +88,40 @@ const AgentCRM = () => {
   // State for form data
   const [formData, setFormData] = useState({
     firstName: "",
-    middleName: "", // Add middle name
+    middleName: "",
     lastName: "",
     phoneNumber: "",
     nidaNumber: "",
     requester: "",
     institution: "",
+    employerName: "",
     region: "",
     district: "",
-    channel: "",
     category: "",
-    inquiry_type: "", // <-- Add this line
-    functionId: "",
+    channel: "",
+    subject: "",
+    subSection: "",
+    section: "",
     description: "",
-    status: "Open",
-    // New fields for representative
-    requesterName: "",
-    requesterPhoneNumber: "",
-    requesterEmail: "",
-    requesterAddress: "",
-    relationshipToEmployee: ""
+    representativeName: "",
+    representativePhone: "",
+    representativeEmail: "",
+    representativeNida: "",
+    // Allocated user fields from search response
+    allocated_user_username: "",
+    allocated_user_name: "",
+    allocated_user_id: "",
+    // Claim information
+    claimNumber: "",
+    subject: "",
+    description: "",
+    category: "",
+    priority: "",
+    employerName: "", // Add employer name field
+    employerSearch: "", // Add employer search field
+    // Dependents from search response
+    dependents: [],
+    // Removed inquiry_type - tickets will go directly to focal person
   });
 
   // State for form errors
@@ -114,6 +136,10 @@ const AgentCRM = () => {
 
   // State for ticket creation modal
   const [showModal, setShowModal] = useState(false);
+
+  // State for AdvancedTicketCreateModal
+  const [showAdvancedTicketModal, setShowAdvancedTicketModal] = useState(false);
+  const [ticketPhoneNumber, setTicketPhoneNumber] = useState("");
 
   // State for ticket details modal
   const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -140,19 +166,15 @@ const AgentCRM = () => {
 
   // State for filters and pagination
   const [search, setSearch] = useState("");
-  const [filterStatus, setFilterStatus] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
   const [columnModalOpen, setColumnModalOpen] = useState(false);
   const [activeColumns, setActiveColumns] = useState([
-    "id",
+    "ticket_id",
     "fullName",
     "phone_number",
-    "status",
-    "subject",
-    "category",
-    "assigned_to_role",
-    "created_at"
+    "region",
+    "status"
   ]);
 
   // State for snackbar
@@ -162,21 +184,25 @@ const AgentCRM = () => {
     severity: "info"
   });
 
+  const [isLoading, setIsLoading] = useState(false);
   // State for card dashboard
   const [agentData, setAgentData] = useState({
     agentActivity: {
-      "Open Tickets": 0,
-      "In Progress": 0,
-      "Closed Tickets": 0,
-      Overdue: 0,
-      Total: 0
+      // "Open Tickets": 0,
+      // "Closed Tickets": 0,
+      "Total Opened by Me": 0, // <-- Added here
+      "Closed by Me": 0,
+      Escalated: 0,
+      // Total: 0
     },
     ticketQueue: {
-      "New Tickets": 0,
+      // "New Tickets": 0,
       Assigned: 0,
-      "In/Hour": 0,
+      "In Progress": 0, // <-- Move here
+      Escalated: 0,
+      // "In/Hour": 0,
       "Resolved/Hour": 0,
-      Total: 0
+      // Total: 0
     },
     ticketWait: {
       "Longest Wait": "00:00",
@@ -206,17 +232,18 @@ const AgentCRM = () => {
   const [filters, setFilters] = useState({
     search: "",
     nidaSearch: "",
+    status: "",
     priority: "",
     category: "",
+    region: "",
+    district: "",
+    ticketId: "",
     startDate: null,
     endDate: null
   });
 
   // Add new state for phone search
   const [phoneSearch, setPhoneSearch] = useState("");
-  const [existingTicketsModal, setExistingTicketsModal] = useState(false);
-  const [newTicketConfirmationModal, setNewTicketConfirmationModal] =
-    useState(false);
   const [foundTickets, setFoundTickets] = useState([]);
 
   // Add submitAction state to control ticket status
@@ -240,6 +267,13 @@ const AgentCRM = () => {
   const [inputValue, setInputValue] = useState("");
   const [open, setOpen] = useState(false);
 
+  // Add state for employer search autocomplete
+  const [employerSearchSuggestions, setEmployerSearchSuggestions] = useState([]);
+  const [isEmployerSearching, setIsEmployerSearching] = useState(false);
+  const [employerSearchOpen, setEmployerSearchOpen] = useState(false);
+  const [employerSearchInputValue, setEmployerSearchInputValue] = useState("");
+  const employerSearchTimeoutRef = useRef(null);
+
   // Add state for employer details
   const [employerDetails, setEmployerDetails] = useState(null);
 
@@ -260,6 +294,26 @@ const AgentCRM = () => {
 
   // Add new state for ticket history search
   const [historySearch, setHistorySearch] = useState("");
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [comments, setComments] = useState("");
+
+  // Add new state variables for enhanced search functionality
+  const [selectedEmployer, setSelectedEmployer] = useState(null);
+  const [employerSearchQuery, setEmployerSearchQuery] = useState("");
+  const [employerSearchResults, setEmployerSearchResults] = useState([]);
+  const [employeeSearchQuery, setEmployeeSearchQuery] = useState("");
+  const [employeeSearchResults, setEmployeeSearchResults] = useState([]);
+  const [isEmployeeSearching, setIsEmployeeSearching] = useState(false);
+  const [searchStep, setSearchStep] = useState("employer"); // "employer" or "employee"
+  const [formSearchType, setFormSearchType] = useState(""); // "employer" or "employee" - for form layout
+  const [searchCompleted, setSearchCompleted] = useState(false); // Track if search is completed
+
+  // --- Justification History State ---
+  const [isJustificationModalOpen, setIsJustificationModalOpen] = useState(false);
+  const [selectedTicketForJustification, setSelectedTicketForJustification] = useState(null);
+  const [assignmentHistory, setAssignmentHistory] = useState([]);
+  // --- End Justification History State ---
 
   // Handler to search institutions
   const handleInstitutionSearch = async (query) => {
@@ -294,13 +348,17 @@ const AgentCRM = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        console.log("Fetching function data from:", `${baseURL}/section/functions-data`);
         const res = await fetch(`${baseURL}/section/functions-data`, {
           headers: {
             Authorization: `Bearer ${token}`
           }
         });
+        console.log("Function data response status:", res.status);
         const json = await res.json();
+        console.log("Function data response:", json);
         setFunctionData(json.data || []);
+        console.log("Function data set to:", json.data || []);
       } catch (err) {
         console.error("Fetch error:", err);
       }
@@ -375,18 +433,20 @@ const AgentCRM = () => {
   const updateAgentDataFromStats = (ticketStats) => {
     setAgentData({
       agentActivity: {
-        "Open Tickets": ticketStats.open || 0,
-        "In Progress": ticketStats.inProgress || 0,
-        "Closed Tickets": ticketStats.closed || 0,
-        Overdue: ticketStats.overdue || 0,
-        Total: ticketStats.total || 0
+        // "Open Tickets": ticketStats.open || 0,
+        // "Closed Tickets": ticketStats.closed || 0,
+        "Total Opened by Me": ticketStats.totalCreatedByMe || 0, // <-- Added here
+        "Closed by Me": ticketStats.closedByAgent || 0,
+        // Total: ticketStats.total || 0
       },
       ticketQueue: {
-        "New Tickets": ticketStats.newTickets || 0,
+        // "New Tickets": ticketStats.newTickets || 0,
         Assigned: ticketStats.assigned || 0,
-        "In/Hour": ticketStats.inHour || 0,
-        "Resolved/Hour": ticketStats.resolvedHour || 0,
-        Total: ticketStats.total || 0
+        "In Progress": ticketStats.inProgress || 0, // <-- Move here
+        Escalated: ticketStats.escalated || 0,
+        // "In/Hour": ticketStats.inHour || 0,
+        // "Resolved/Hour": ticketStats.resolvedHour || 0,
+        // Total: ticketStats.total || 0
       },
       ticketWait: {
         "Longest Wait": ticketStats.longestWait || "00:00",
@@ -497,17 +557,16 @@ const AgentCRM = () => {
   // Handle form submission
   const handleSubmit = async (e, action = "create") => {
     e.preventDefault();
+    setIsLoading(true);
 
     const requiredFields = {
       phoneNumber: "Phone Number",
-      nidaNumber: "NIDA Number",
       requester: "Requester",
       institution: "Institution",
       region: "Region",
       district: "District",
       channel: "Channel",
       category: "Category",
-      ...(formData.category === "Inquiry" && { inquiry_type: "Inquiry Type" }),
       functionId: "Subject",
       description: "Description"
     };
@@ -521,7 +580,6 @@ const AgentCRM = () => {
 
     // Conditionally add employer-specific fields to required fields
     if (formData.requester === "Employer") {
-      requiredFields.nidaNumber = "Employer Registration Number / TIN";
       requiredFields.institution = "Employer Name";
       requiredFields.phoneNumber = "Employer Phone";
     }
@@ -565,31 +623,25 @@ const AgentCRM = () => {
         }
       }
 
+      // Debug: Log formData before creating ticketData
+      console.log("🔍 FormData before creating ticketData:", formData);
+      console.log("🔍 Dependents in formData:", formData.dependents);
+
       // --- Allocated User Logic ---
+      // Routing Rules:
+      // 1. If searched details has a claim number → Send to checklist user shown in details
+      // 2. If no claim number and it's an inquiry → Send to focal person of the selected section/unit
+      // 3. Otherwise → Fallback to institution's allocated staff
       let employerAllocatedStaffUsername = "";
-      if (
-        selectedSuggestion &&
-        selectedSuggestion.claimId &&
-        selectedSuggestion.allocated_user_username
-      ) {
-        // If employee has claim number, use allocated user from claim
-        employerAllocatedStaffUsername =
-          selectedSuggestion.allocated_user_username;
-      } else if (
-        (!selectedSuggestion || !selectedSuggestion.claimId) &&
-        formData.category === "Inquiry" &&
-        selectedInstitution &&
-        selectedInstitution.allocated_staff_username
-      ) {
-        // If no claim and Inquiry, use allocated user from institution
-        employerAllocatedStaffUsername =
-          selectedInstitution.allocated_staff_username;
+
+      if (selectedSuggestion && selectedSuggestion.allocated_user_username) {
+        // Use allocated user from employee search response
+        employerAllocatedStaffUsername = selectedSuggestion.allocated_user_username;
+        console.log("Routing: Using allocated user from employee search:", employerAllocatedStaffUsername);
       } else {
-        // Fallback to previous logic if any
-        employerAllocatedStaffUsername =
-          selectedInstitution?.allocated_staff_username ||
-          formData.employerAllocatedStaffUsername ||
-          "";
+        // No allocated user found, will be assigned by backend logic
+        employerAllocatedStaffUsername = "";
+        console.log("Routing: No allocated user found, will be assigned by backend");
       }
 
       const ticketData = {
@@ -601,8 +653,26 @@ const AgentCRM = () => {
         responsible_unit_name: parentSection ? parentSection.name : "",
         status: action === "closed" ? "Closed" : "Open",
         employerAllocatedStaffUsername,
-        shouldClose: action === "closed"
+        shouldClose: action === "closed",
+        // Add claim number for routing decision
+        claimId: selectedSuggestion?.claimId || null,
+        // Add routing information for backend
+        hasClaim: Boolean(selectedSuggestion?.claimId),
+        isInquiry: formData.category === "Inquiry",
+        // Add allocated user details for routing
+        allocated_user_id: selectedSuggestion?.allocated_user_id || null,
+        allocated_user_name: selectedSuggestion?.allocated_user || null,
+        allocated_user_username: selectedSuggestion?.allocated_user_username || null,
+        // Add employer information from search
+        employer: formData.employer || selectedSuggestion?.employer || "",
+        employerName: formData.employerName || "",
+        // Add dependents field explicitly
+        dependents: formData.dependents || []
       };
+
+      // Debug: Log final ticketData being sent
+      console.log("🚀 Final ticketData being sent to backend:", ticketData);
+      console.log("🚀 Dependents in ticketData:", ticketData.dependents);
 
       // Add employer-specific fields if requester is Employer
       if (formData.requester === "Employer") {
@@ -612,12 +682,16 @@ const AgentCRM = () => {
         ticketData.employerPhone = formData.phoneNumber;
         ticketData.employerEmail = formData.employerEmail || ""; // Add employerEmail to formData in frontend if available
         ticketData.employerStatus = formData.employerStatus || ""; // Add employerStatus to formData in frontend if available
-        ticketData.employerAllocatedStaffId =
-          formData.employerAllocatedStaffId || ""; // Add allocatedStaffId to formData in frontend if available
-        ticketData.employerAllocatedStaffName =
-          formData.employerAllocatedStaffName || ""; // Add allocatedStaffName to formData in frontend if available
-        ticketData.employerAllocatedStaffUsername =
-          formData.employerAllocatedStaffUsername || ""; // Add allocatedStaffUsername to formData in frontend if available
+        // Removed employer allocated user fields - only using employee search allocated user
+      }
+
+      // Map representative fields to backend field names if requester is Representative
+      if (formData.requester === "Representative") {
+        ticketData.representative_name = formData.requesterName;
+        ticketData.representative_phone = formData.requesterPhoneNumber;
+        ticketData.representative_email = formData.requesterEmail;
+        ticketData.representative_address = formData.requesterAddress;
+        ticketData.representative_relationship = formData.relationshipToEmployee;
       }
 
       const response = await fetch(`${baseURL}/ticket/create-ticket`, {
@@ -629,7 +703,11 @@ const AgentCRM = () => {
         body: JSON.stringify(ticketData)
       });
 
+      console.log("🌐 API Response Status:", response.status);
+      console.log("🌐 API Response Headers:", response.headers);
+
       const data = await response.json();
+      console.log("🌐 API Response Data:", data);
 
       if (response.ok) {
         setModal({
@@ -639,28 +717,27 @@ const AgentCRM = () => {
         });
         setShowModal(false);
         setFormData({
-          firstName: "",
-          middleName: "", // Reset middle name
-          lastName: "",
-          phoneNumber: "",
-          nidaNumber: "",
-          requester: "",
-          institution: "",
-          region: "",
-          district: "",
-          channel: "",
-          category: "",
-          inquiry_type: "", // Reset inquiry_type
-          functionId: "",
+          subject: "",
           description: "",
-          status: "Open",
+          category: "",
+          priority: "",
+          employer: "", // Reset employer field
+          employerName: "", // Reset employer name field
+          employerSearch: "", // Reset employer search field
           // Reset representative fields
           requesterName: "",
           requesterPhoneNumber: "",
           requesterEmail: "",
           requesterAddress: "",
-          relationshipToEmployee: ""
+          relationshipToEmployee: "",
+          // Reset dependents
+          dependents: []
         });
+        
+        // Reset employer search autocomplete state
+        setEmployerSearchInputValue("");
+        setEmployerSearchSuggestions([]);
+        setEmployerSearchOpen(false);
         fetchCustomerTickets();
       } else {
         setModal({
@@ -670,12 +747,18 @@ const AgentCRM = () => {
         });
       }
     } catch (error) {
-      console.error("Error creating ticket:", error);
+      console.error("❌ Error creating ticket:", error);
+      console.error("❌ Error details:", {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
       setModal({
         isOpen: true,
         type: "error",
-        message: `Network error. Please try again later.`
+        message: `Network error. Please try again later. Error: ${error.message}`
       });
+      setIsLoading(false);
     }
   };
 
@@ -690,28 +773,53 @@ const AgentCRM = () => {
   const openDetailsModal = (ticket) => {
     setSelectedTicket(ticket);
     setShowDetailsModal(true);
+    
+    // Fetch ticket comments and attachments
     fetchTicketComments(ticket.id);
     fetchTicketAttachments(ticket.id);
+    
+    // Phone search is now handled by the PhoneSearchSection component
   };
 
   const getFilteredTickets = () => {
     return customerTickets.filter((ticket) => {
-      // Search by phone or NIDA (from table controls)
+      // Search by name, phone, NIDA, or institution (from table controls)
       const s = search.trim().toLowerCase();
+      const fullName = `${ticket.first_name || ""} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim().toLowerCase();
+      const institutionName = (ticket.institution && typeof ticket.institution === 'object' ? ticket.institution.name : ticket.institution || "").toLowerCase();
+      
       const matchesSearch =
         !s ||
         ticket.phone_number?.toLowerCase().includes(s) ||
         ticket.nida_number?.toLowerCase().includes(s) ||
-        ticket.firstName?.toLowerCase().includes(s) ||
-        ticket.lastName?.toLowerCase().includes(s);
-      // Status (from table controls)
-      const matchesStatus = !filterStatus || ticket.status === filterStatus;
+        fullName.includes(s) ||
+        institutionName.includes(s) ||
+        ticket.first_name?.toLowerCase().includes(s) ||
+        ticket.last_name?.toLowerCase().includes(s) ||
+        ticket.middle_name?.toLowerCase().includes(s) ||
+        ticket.ticket_id?.toLowerCase().includes(s) ||
+        
+        ticket.id?.toLowerCase().includes(s);
+      
+      // Status (from TicketFilters)
+      const matchesStatus = !filters.status || ticket.status === filters.status;
       // Priority (from TicketFilters)
       const matchesPriority =
         !filters.priority || ticket.priority === filters.priority;
       // Category (from TicketFilters)
       const matchesCategory =
         !filters.category || ticket.category === filters.category;
+      // Region (from TicketFilters)
+      const matchesRegion =
+        !filters.region || ticket.region === filters.region;
+      // District (from TicketFilters)
+      const matchesDistrict =
+        !filters.district || ticket.district === filters.district;
+      // Ticket ID (from TicketFilters)
+      const matchesTicketId =
+        !filters.ticketId || 
+        (ticket.ticket_id && ticket.ticket_id.toLowerCase().includes(filters.ticketId.toLowerCase())) ||
+        (ticket.id && ticket.id.toLowerCase().includes(filters.ticketId.toLowerCase()));
       // Date range (from TicketFilters)
       let matchesDate = true;
       if (filters.startDate) {
@@ -729,6 +837,9 @@ const AgentCRM = () => {
         matchesStatus &&
         matchesPriority &&
         matchesCategory &&
+        matchesRegion &&
+        matchesDistrict &&
+        matchesTicketId &&
         matchesDate
       );
     });
@@ -736,6 +847,9 @@ const AgentCRM = () => {
 
   const filteredTickets = getFilteredTickets();
   const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage + 1;
+  const endIndex = Math.min(currentPage * itemsPerPage, filteredTickets.length);
+  const totalItems = filteredTickets.length;
   const paginatedTickets = filteredTickets.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage
@@ -743,9 +857,10 @@ const AgentCRM = () => {
 
   const renderTableHeader = () => (
     <tr>
-      {activeColumns.includes("id") && <th>#</th>}
+      {activeColumns.includes("ticket_id") && <th>Ticket ID</th>}
       {activeColumns.includes("fullName") && <th>Full Name</th>}
       {activeColumns.includes("phone_number") && <th>Phone</th>}
+      {activeColumns.includes("region") && <th>Region</th>}
       {activeColumns.includes("status") && <th>Status</th>}
       {activeColumns.includes("subject") && <th>Subject</th>}
       {activeColumns.includes("category") && <th>Category</th>}
@@ -757,8 +872,8 @@ const AgentCRM = () => {
 
   const renderTableRow = (ticket, index) => (
     <tr key={ticket.id}>
-      {activeColumns.includes("id") && (
-        <td>{(currentPage - 1) * itemsPerPage + index + 1}</td>
+      {activeColumns.includes("ticket_id") && (
+        <td>{ticket.ticket_id || ticket.id}</td>
       )}
       {activeColumns.includes("fullName") && (
         <td>
@@ -770,6 +885,7 @@ const AgentCRM = () => {
         </td>
       )}
       {activeColumns.includes("phone_number") && <td>{ticket.phone_number}</td>}
+      {activeColumns.includes("region") && <td>{ticket.region || "N/A"}</td>}
       {activeColumns.includes("status") && (
         <td>{ticket.status || "Escalated"}</td>
       )}
@@ -795,8 +911,8 @@ const AgentCRM = () => {
       <td>
         <button
           className="view-ticket-details-btn"
-          title="View"
-          onClick={() => handleDetailsClick(ticket)}
+          onClick={() => openDetailsModal(ticket)}
+          title="View Details"
         >
           <FaEye />
         </button>
@@ -1066,114 +1182,13 @@ const AgentCRM = () => {
 
   // Add function to handle filter changes
   const handleFilterChange = (newFilters) => {
-    const { status, ...rest } = newFilters;
-    setFilters(rest);
+    setFilters(newFilters);
     setCurrentPage(1);
   };
 
-  // Update handlePhoneSearch to accept a selectedTicketFromTable parameter
-  const handlePhoneSearch = async (
-    searchValue,
-    selectedTicketFromTable = null
-  ) => {
-    try {
-      // Try phone number search first
-      let response = await fetch(
-        `${baseURL}/ticket/search-by-phone/${searchValue}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
-      let data = await response.json();
-      if (data.found) {
-        setFoundTickets(data.tickets);
-        if (selectedTicketFromTable) {
-          setSelectedTicket(selectedTicketFromTable);
-          setShowDetailsModal(true);
-        } else {
-          setExistingTicketsModal(true);
-        }
-        return;
-      }
-      // If not found, try NIDA number search (if you have such an endpoint)
-      response = await fetch(
-        `${baseURL}/ticket/search-by-nida/${searchValue}`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-      );
-      data = await response.json();
-      if (data.found) {
-        setFoundTickets(data.tickets);
-        if (selectedTicketFromTable) {
-          setSelectedTicket(selectedTicketFromTable);
-          setShowDetailsModal(true);
-        } else {
-          setExistingTicketsModal(true);
-        }
-      } else {
-        setNewTicketConfirmationModal(true);
-      }
-    } catch (error) {
-      console.error("Error searching tickets:", error);
-      setSnackbar({
-        open: true,
-        message: "Error searching tickets",
-        severity: "error"
-      });
-    }
-  };
 
-  // Add handler for Details button in ticket table
-  const handleDetailsClick = (ticket) => {
-    const searchValue = ticket.phone_number || ticket.nida_number;
-    handlePhoneSearch(searchValue, ticket);
-  };
 
-  // Update: Pre-fill form with previous ticket details if available
-  const handleNewTicketConfirmation = (confirmed) => {
-    if (confirmed) {
-      // If there are previous tickets, use the most recent one to pre-fill
-      if (foundTickets && foundTickets.length > 0) {
-        const prev = foundTickets[0]; // most recent ticket
-        setFormData({
-          firstName: prev.first_name || "",
-          middleName: prev.middle_name || "", // Add middle name
-          lastName: prev.last_name || "",
-          phoneNumber: prev.phone_number || phoneSearch,
-          nidaNumber: prev.nida_number || "",
-          requester: prev.requester || "",
-          institution: prev.institution || "",
-          region: prev.region || "",
-          district: prev.district || "",
-          channel: prev.channel || "",
-          category: prev.category || "",
-          inquiry_type: prev.inquiry_type || "", // Add inquiry_type
-          functionId: prev.function_id || "",
-          description: "",
-          status: "Open",
-          // New fields for representative
-          requesterName: prev.requesterName || "",
-          requesterPhoneNumber: prev.requesterPhoneNumber || "",
-          requesterEmail: prev.requesterEmail || "",
-          requesterAddress: prev.requesterAddress || "",
-          relationshipToEmployee: prev.relationshipToEmployee || ""
-        });
-      } else {
-        // fallback: just pre-fill phone number
-        setFormData((prev) => ({
-          ...prev,
-          phoneNumber: phoneSearch
-        }));
-      }
-      setShowModal(true);
-    }
-    setNewTicketConfirmationModal(false);
-  };
+
 
   // Add the search function
   const handleMemberSearch = async () => {
@@ -1240,22 +1255,10 @@ const AgentCRM = () => {
       // Fill form data
       setFormData((prev) => ({
         ...prev,
-        firstName: firstName || "",
-        middleName: rest.length > 2 ? rest.slice(1, -1).join(" ") : "", // Extract middle name
-        lastName: lastName || "",
-        memberNo: memberInfo.memberno?.toString() || "",
-        requester: searchType === "employee" ? "Employee" : "Employer",
-        institution: employerName || prev.institution,
-        phoneNumber: prev.phoneNumber,
-        nidaNumber: prev.nidaNumber,
-        region: prev.region,
-        district: prev.district,
-        channel: prev.channel,
-        category: prev.category,
-        inquiry_type: prev.inquiry_type || "", // Add inquiry_type
-        functionId: prev.functionId,
-        description: prev.description,
-        status: prev.status,
+        subject: prev.subject || "",
+        description: prev.description || "",
+        category: prev.category || "",
+        priority: prev.priority || "",
         // New fields for representative
         requesterName: prev.requesterName || "",
         requesterPhoneNumber: prev.requesterPhoneNumber || "",
@@ -1282,6 +1285,9 @@ const AgentCRM = () => {
   // Update the debouncedSearch function to handle phone numbers
   const debouncedSearch = useCallback(
     async (searchText) => {
+      console.log("debouncedSearch called with:", searchText);
+      console.log("searchType:", searchType, "searchBy:", searchBy);
+      
       if (!searchText || searchText.length < 1) {
         setSearchSuggestions([]);
         return;
@@ -1289,6 +1295,15 @@ const AgentCRM = () => {
 
       setIsSearching(true);
       try {
+        const payload = {
+          type: searchType,
+          name: searchText,
+          employer_registration_number:
+            searchBy === "wcf_number" ? searchText : ""
+        };
+        
+        console.log("API payload:", payload);
+        
         const response = await fetch(
           "https://demomspapi.wcf.go.tz/api/v1/search/details",
           {
@@ -1298,20 +1313,25 @@ const AgentCRM = () => {
               Accept: "application/json"
             },
             mode: "cors",
-            body: JSON.stringify({
-              type: searchType,
-              name: searchText,
-              employer_registration_number:
-                searchBy === "wcf_number" ? searchText : ""
-            })
+            body: JSON.stringify(payload)
           }
         );
 
         const data = await response.json();
+        console.log("API response:", data);
 
         if (response.ok && data.results?.length) {
+          console.log("Found results:", data.results.length);
           const suggestions = data.results.map((result) => {
-            const originalName = result.name || "";
+            // Extract employee data and dependents from the result
+            const employeeData = result.employee || result;
+            const dependents = result.dependents || [];
+            
+            console.log("Processing result:", result); // Debug: Log each result
+            console.log("Employee data:", employeeData); // Debug: Log employee data
+            console.log("Dependents:", dependents); // Debug: Log dependents
+            
+            const originalName = employeeData.name || "";
             // Parse the original name into components
             const numberMatch = originalName.match(/^(\d+\.)\s*/);
             const numberPrefix = numberMatch ? numberMatch[1] : "";
@@ -1339,12 +1359,12 @@ const AgentCRM = () => {
             }
 
             // Also check if phone number is directly available in the result
-            if (!phoneNumber && result.phone) {
-              phoneNumber = result.phone;
+            if (!phoneNumber && employeeData.phone) {
+              phoneNumber = employeeData.phone;
             }
 
             return {
-              id: result.memberno,
+              id: employeeData.memberno,
               numberPrefix,
               originalName,
               displayName: `${numberPrefix} ${cleanName}${
@@ -1357,16 +1377,22 @@ const AgentCRM = () => {
               cleanName,
               employerName,
               phoneNumber,
-              memberNo: result.memberno,
-              type: result.type,
-              status: result.status,
-              rawData: result
+              memberNo: employeeData.memberno,
+              type: employeeData.type,
+              status: employeeData.status,
+              employer: employeeData.employer || "", // Add employer field from API response
+              dependents: dependents, // Add dependents at top level
+              rawData: result, // Preserve the original result structure
+              // Spread employee data to top level for easy access
+              ...employeeData
             };
           });
 
+          console.log("Processed suggestions:", suggestions);
           setSearchSuggestions(suggestions);
           setOpen(true);
         } else {
+          console.log("No results found or API error");
           setSearchSuggestions([]);
         }
       } catch (error) {
@@ -1389,16 +1415,27 @@ const AgentCRM = () => {
       return;
     }
 
+    // Dependents are now at the top level of the suggestion
+    const dependents = suggestion.dependents || [];
+    console.log("Dependents from suggestion:", dependents); // Debug: Log dependents
+
     // Get the raw data which contains the claim number and user details
     const rawData = suggestion.rawData || suggestion;
     console.log("Raw Data:", rawData);
 
-    // Extract institution name from display name (text between brackets)
-    const institutionMatch =
-      suggestion.displayName?.match(/—\s*\((.*?)\)/) ||
-      suggestion.originalName?.match(/—\s*\((.*?)\)/) ||
-      suggestion.name?.match(/—\s*\((.*?)\)/);
-    const institutionName = institutionMatch ? institutionMatch[1].trim() : "";
+    // Use employer field from API response if available, otherwise extract from display name
+    let institutionName = "";
+    if (searchType === "employee" && suggestion.employer) {
+      // Use employer field from API response
+      institutionName = suggestion.employer;
+    } else {
+      // Fallback: Extract institution name from display name (text between brackets)
+      const institutionMatch =
+        suggestion.displayName?.match(/—\s*\((.*?)\)/) ||
+        suggestion.originalName?.match(/—\s*\((.*?)\)/) ||
+        suggestion.name?.match(/—\s*\((.*?)\)/);
+      institutionName = institutionMatch ? institutionMatch[1].trim() : "";
+    }
 
     // Set the selected suggestion with claim information
     const selectedWithClaim = {
@@ -1413,6 +1450,11 @@ const AgentCRM = () => {
 
     setSelectedSuggestion(selectedWithClaim);
 
+    // Log employer information
+    if (suggestion.employer) {
+      console.log("Employer from API response:", suggestion.employer);
+    }
+
     // Set the input value to the full name
     setInputValue(suggestion.cleanName || suggestion.name || "");
     setSearchQuery(suggestion.cleanName || suggestion.name || "");
@@ -1424,22 +1466,28 @@ const AgentCRM = () => {
     if (searchType === "employee") {
       updatedFormData = {
         ...updatedFormData,
-        firstName: rawData.firstname || "",
-        middleName: rawData.middlename || "",
-        lastName: rawData.lastname || "",
-        nidaNumber: rawData.nin || "",
-        phoneNumber: rawData.phoneNumber || "",
-        institution: institutionName // Set the extracted institution name
+        subject: rawData.subject || "",
+        description: rawData.description || "",
+        category: rawData.category || "",
+        priority: rawData.priority || "",
+        nidaNumber: suggestion.nin || "",
+        phoneNumber: suggestion.employee_phone || suggestion.phoneNumber || "",
+        institution: institutionName, // Use employer field from API response
+        employer: suggestion.employer || "", // Add employer field to form data
+        employerName: suggestion.employer || "", // Populate employer name field
+        dependents: dependents, // Use dependents from the flattened structure
       };
     } else if (searchType === "employer") {
       updatedFormData = {
         ...updatedFormData,
-        firstName: "", // Clear employee-specific fields
-        middleName: "",
-        lastName: "",
-        nidaNumber: rawData.tin || "", // Use TIN for employer's NIDA/identifier
-        phoneNumber: rawData.phone || "",
-        institution: rawData.name || "" // Employer's name goes to institution
+        subject: "", // Clear employee-specific fields
+        description: "",
+        category: "",
+        priority: "",
+        nidaNumber: suggestion.tin || "", // Use TIN for employer's NIDA/identifier
+        phoneNumber: suggestion.phone || "",
+        institution: suggestion.name || "", // Employer's name goes to institution
+        dependents: dependents, // Use dependents from the flattened structure
       };
     }
 
@@ -1451,7 +1499,6 @@ const AgentCRM = () => {
       district: updatedFormData.district || formData.district,
       channel: updatedFormData.channel || formData.channel,
       category: updatedFormData.category || formData.category,
-      inquiry_type: updatedFormData.inquiry_type || formData.inquiry_type || "",
       functionId: updatedFormData.functionId || formData.functionId,
       description: updatedFormData.description || formData.description,
       status: updatedFormData.status || formData.status,
@@ -1472,6 +1519,13 @@ const AgentCRM = () => {
         ""
     };
     console.log("Updated Form Data:", updatedFormData);
+
+    // Log if dependents were found
+    if (updatedFormData.dependents && updatedFormData.dependents.length > 0) {
+      console.log("✅ Dependents successfully populated:", updatedFormData.dependents);
+    } else {
+      console.log("❌ No dependents found in the search response");
+    }
 
     setFormData(updatedFormData);
 
@@ -1524,6 +1578,7 @@ const AgentCRM = () => {
 
   // Update handleInputChange for more immediate response
   const handleInputChange = (event, newValue, reason) => {
+    console.log("handleInputChange called:", { newValue, reason });
     setInputValue(newValue);
 
     if (searchTimeoutRef.current) {
@@ -1537,104 +1592,11 @@ const AgentCRM = () => {
 
     // Reduced timeout for more immediate response
     searchTimeoutRef.current = setTimeout(() => {
+      console.log("Calling debouncedSearch with:", newValue);
       debouncedSearch(newValue);
     }, 150); // Reduced from 300ms to 150ms for faster response
   };
 
-  // Update the Autocomplete component
-  <StyledAutocomplete
-    value={selectedSuggestion}
-    onChange={(event, newValue) => handleSuggestionSelected(event, newValue)}
-    inputValue={inputValue}
-    onInputChange={handleInputChange}
-    options={searchSuggestions}
-    getOptionLabel={(option) => option.displayName || ""}
-    open={open}
-    onOpen={() => setOpen(true)}
-    onClose={() => setOpen(false)}
-    loading={isSearching}
-    loadingText={
-      <div
-        style={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "10px"
-        }}
-      >
-        <CircularProgress size={20} />
-        <span>Searching...</span>
-      </div>
-    }
-    noOptionsText={
-      inputValue.length < 1
-        ? "Start typing to search"
-        : "No matching records found"
-    }
-    renderOption={(props, option) => (
-      <li {...props}>
-        <SuggestionItem>
-          <div className="suggestion-name">
-            <span style={{ color: "#666" }}>{option.numberPrefix}</span>{" "}
-            {highlightMatch(option.cleanName, inputValue)}
-            {option.employerName && (
-              <>
-                {" — ("}
-                <span style={{ color: "#666" }}>
-                  {highlightMatch(option.employerName, inputValue)}
-                </span>
-                {")"}
-              </>
-            )}
-          </div>
-          <div className="suggestion-details">
-            Member No: {option.memberNo}
-            {option.type && ` • Type: ${option.type}`}
-            {option.status && ` • Status: ${option.status}`}
-          </div>
-        </SuggestionItem>
-      </li>
-    )}
-    renderInput={(params) => (
-      <TextField
-        {...params}
-        placeholder={
-          searchBy === "name" ? "Start typing name..." : "Enter WCF number..."
-        }
-        InputProps={{
-          ...params.InputProps,
-          endAdornment: (
-            <>
-              {isSearching && <CircularProgress color="inherit" size={20} />}
-              {params.InputProps.endAdornment}
-            </>
-          )
-        }}
-        sx={{
-          "& .MuiOutlinedInput-root": {
-            "& fieldset": {
-              borderColor: "#e0e0e0"
-            },
-            "&:hover fieldset": {
-              borderColor: "#1976d2"
-            },
-            "&.Mui-focused fieldset": {
-              borderColor: "#1976d2"
-            }
-          }
-        }}
-      />
-    )}
-    filterOptions={(x) => x}
-    freeSolo={false}
-    autoComplete
-    includeInputInList
-    blurOnSelect
-    clearOnBlur={false}
-    selectOnFocus
-    handleHomeEndKeys
-    style={{ width: "100%" }}
-  />;
 
   // Highlight matching text in suggestions
   function escapeRegExp(string) {
@@ -1771,6 +1733,566 @@ const AgentCRM = () => {
     }
   }, [creationFoundTickets]);
 
+  // Add debounced employer search function for autocomplete
+  const debouncedEmployerSearch = useCallback(
+    async (searchText) => {
+      if (!searchText || searchText.length < 1) {
+        setEmployerSearchSuggestions([]);
+        return;
+      }
+
+      setIsEmployerSearching(true);
+      try {
+        const response = await fetch(
+          "https://demomspapi.wcf.go.tz/api/v1/search/details",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Accept: "application/json"
+            },
+            mode: "cors",
+            body: JSON.stringify({
+              type: "employer",
+              name: searchText,
+              employer_registration_number: ""
+            })
+          }
+        );
+
+        const data = await response.json();
+
+        if (response.ok && data.results?.length) {
+          const suggestions = data.results.map((result) => ({
+            id: result.id || result.tin,
+            name: result.name || "",
+            tin: result.tin || "",
+            phone: result.phone || "",
+            email: result.email || "",
+            status: result.employer_status || "",
+            displayName: result.name || "",
+            rawData: result
+          }));
+
+          setEmployerSearchSuggestions(suggestions);
+          setEmployerSearchOpen(true);
+        } else {
+          setEmployerSearchSuggestions([]);
+        }
+      } catch (error) {
+        console.error("Employer search suggestion error:", error);
+        setEmployerSearchSuggestions([]);
+      } finally {
+        setIsEmployerSearching(false);
+      }
+    },
+    []
+  );
+
+  // Add function to handle employer search
+  const handleEmployerSearch = async (searchQuery) => {
+    if (!searchQuery || searchQuery.trim() === "") {
+      setEmployerSearchResults([]);
+      return;
+    }
+
+    setIsEmployerSearching(true);
+    try {
+      const response = await fetch(
+        "https://demomspapi.wcf.go.tz/api/v1/search/details",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json"
+          },
+          body: JSON.stringify({
+            type: "employer",
+            name: searchQuery.trim(),
+            employer_registration_number: ""
+          })
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok && data.results?.length > 0) {
+        setEmployerSearchResults(data.results);
+      } else {
+        setEmployerSearchResults([]);
+      }
+    } catch (error) {
+      console.error("Error searching for employers:", error);
+      setSnackbar({
+        open: true,
+        message: "Error searching for employers",
+        severity: "error"
+      });
+      setEmployerSearchResults([]);
+    } finally {
+      setIsEmployerSearching(false);
+    }
+  };
+
+  // Add handler for employer search input changes
+  const handleEmployerSearchInputChange = (event, newValue, reason) => {
+    setEmployerSearchInputValue(newValue);
+
+    if (employerSearchTimeoutRef.current) {
+      clearTimeout(employerSearchTimeoutRef.current);
+    }
+
+    if (reason === "reset" || reason === "clear") {
+      setEmployerSearchSuggestions([]);
+      return;
+    }
+
+    // Debounced search for employer suggestions
+    employerSearchTimeoutRef.current = setTimeout(() => {
+      debouncedEmployerSearch(newValue);
+    }, 150);
+  };
+
+  // Add handler for employer suggestion selection
+  const handleEmployerSuggestionSelected = (event, suggestion) => {
+    if (!suggestion) {
+      setEmployerSearchInputValue("");
+      return;
+    }
+
+    setEmployerSearchInputValue(suggestion.name || "");
+    setEmployerSearchOpen(false);
+
+    // Update form data with selected employer
+    setFormData(prev => ({
+      ...prev,
+      employerName: suggestion.name || "",
+      institution: suggestion.name || ""
+    }));
+
+    setSnackbar({
+      open: true,
+      message: `Employer selected: ${suggestion.name}`,
+      severity: "success"
+    });
+  };
+
+  // Enhanced search functions for two-step search process
+  const handleEmployerSelection = (employer) => {
+    setSelectedEmployer(employer);
+    setEmployerSearchQuery(employer.name || "");
+    setEmployerSearchResults([]);
+    
+    // Update form data with selected employer
+    setFormData(prev => ({
+      ...prev,
+      employerName: employer.name || "",
+      institution: employer.name || "",
+      nidaNumber: employer.tin || "",
+      phoneNumber: employer.phone || ""
+    }));
+
+    // If this is an employer search (not employee search), mark as completed
+    if (formSearchType === "employer" || searchStep === "employer") {
+      setFormSearchType("employer");
+      setSearchCompleted(true);
+      setSearchStep("employer");
+    } else {
+      // If this is part of employee search, move to employee search step
+      setSearchStep("employee");
+    }
+
+    setSnackbar({
+      open: true,
+      message: (formSearchType === "employer" || searchStep === "employer")
+        ? `Employer selected: ${employer.name}. Employer details filled.`
+        : `Employer selected: ${employer.name}. Now search for employees.`,
+      severity: "success"
+    });
+  };
+
+  const handleEmployeeSearch = async (searchQuery) => {
+    if (!searchQuery || searchQuery.trim() === "" || !selectedEmployer) {
+      setEmployeeSearchResults([]);
+      return;
+    }
+
+    setIsEmployeeSearching(true);
+    try {
+      const response = await fetch(
+        "https://demomspapi.wcf.go.tz/api/v1/search/details",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json"
+          },
+          body: JSON.stringify({
+            type: "employee",
+            employer: selectedEmployer.name || "",
+            name: searchQuery.trim(),
+            employer_registration_number: ""
+          })
+        }
+      );
+
+      const data = await response.json();
+
+      if (response.ok && data.results?.length > 0) {
+        setEmployeeSearchResults(data.results);
+      } else {
+        setEmployeeSearchResults([]);
+      }
+    } catch (error) {
+      console.error("Error searching for employees:", error);
+      setSnackbar({
+        open: true,
+        message: "Error searching for employees",
+        severity: "error"
+      });
+      setEmployeeSearchResults([]);
+    } finally {
+      setIsEmployeeSearching(false);
+    }
+  };
+
+  const handleEmployeeSelection = (employee) => {
+    console.log("handleEmployeeSelection called with:", employee); // Debug log
+    
+    // Extract employee information from the API response
+    const employeeData = employee.employee || employee;
+    
+    // Extract dependents from the correct level (same level as employee, not inside employee)
+    const dependents = employee.dependents || [];
+    console.log("Dependents extracted:", dependents); // Debug log
+    
+    // Parse the name to extract first, middle, and last names
+    const fullName = employeeData.name || "";
+    const nameWithoutEmployer = fullName.split("—")[0].trim();
+    const nameParts = nameWithoutEmployer.split(" ");
+    
+    const firstName = nameParts[0] || "";
+    const middleName = nameParts.length > 2 ? nameParts.slice(1, -1).join(" ") : "";
+    const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : "";
+
+    // Update form data with employee information including allocated user and claim
+    setFormData(prev => ({
+      ...prev,
+      firstName: firstName,
+      middleName: middleName,
+      lastName: lastName,
+      phoneNumber: employeeData.employee_phone || "",
+      nidaNumber: employeeData.nin || "",
+      institution: selectedEmployer.name || "",
+      employerName: selectedEmployer.name || "",
+      // Store allocated user information from search response
+      allocated_user_username: employeeData.allocated_user_username || "",
+      allocated_user_name: employeeData.allocated_user || "",
+      allocated_user_id: employeeData.allocated_user_id || "",
+      // Store claim information
+      claimNumber: employeeData.claim_number || "",
+      // Store dependents from search response (correctly extracted)
+      dependents: dependents
+    }));
+
+    // Set selected suggestion for claim button display
+    setSelectedSuggestion(employeeData);
+
+    setEmployeeSearchQuery(nameWithoutEmployer);
+    setEmployeeSearchResults([]);
+    setSearchStep("employer"); // Reset to employer search for next search
+    setSearchCompleted(true); // Mark search as completed for employee search
+
+    setSnackbar({
+      open: true,
+      message: `Employee selected: ${nameWithoutEmployer}. Employee details filled.`,
+      severity: "success"
+    });
+  };
+
+  const resetSearch = () => {
+    setSelectedEmployer(null);
+    setEmployerSearchQuery("");
+    setEmployerSearchResults([]);
+    setEmployeeSearchQuery("");
+    setEmployeeSearchResults([]);
+    setSearchStep("employer");
+    setFormSearchType(""); // Reset search type
+    setSearchCompleted(false); // Reset search completed status
+    
+    // Clear institution details panel
+    setSelectedInstitution(null);
+    
+    // Clear all form fields
+    setFormData({
+      firstName: "",
+      middleName: "",
+      lastName: "",
+      phoneNumber: "",
+      nidaNumber: "",
+      requester: "",
+      institution: "",
+      employerName: "",
+      region: "",
+      district: "",
+      category: "",
+      channel: "",
+      subject: "",
+      subSection: "",
+      section: "",
+      description: "",
+      representativeName: "",
+      representativePhone: "",
+      representativeEmail: "",
+      representativeNida: "",
+      // Clear allocated user fields
+      allocated_user_username: "",
+      allocated_user_name: "",
+      allocated_user_id: "",
+      // Clear claim information
+      claimNumber: "",
+      // Clear dependents
+      dependents: []
+    });
+    
+    // Clear form errors
+    setFormErrors({});
+    
+    // Clear selected suggestion
+    setSelectedSuggestion(null);
+  };
+
+  // Handler for search type changes from EnhancedSearchForm
+  const handleSearchTypeChange = (newSearchType) => {
+    setFormSearchType(newSearchType);
+  };
+
+  // --- Justification History Functions ---
+  const handleOpenJustificationHistory = async (ticket) => {
+    console.log("Opening justification history for ticket:", ticket);
+    try {
+      const token = localStorage.getItem("authToken");
+      console.log("Token:", token ? "Present" : "Missing");
+      console.log("API URL:", `${baseURL}/ticket/${ticket.id}/assignments`);
+      
+      const response = await fetch(`${baseURL}/ticket/${ticket.id}/assignments`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      console.log("Response status:", response.status);
+      
+      if (response.ok) {
+        const history = await response.json();
+        console.log("Assignment history:", history);
+        console.log("History length:", history.length);
+        console.log("History structure:", JSON.stringify(history, null, 2));
+        
+        setAssignmentHistory(history);
+        setSelectedTicketForJustification(ticket);
+        setIsJustificationModalOpen(true);
+        console.log("Modal should be open now");
+      } else {
+        console.error("Failed to fetch assignment history");
+        const errorText = await response.text();
+        console.error("Error response:", errorText);
+        // Even if API fails, still open modal with empty history
+        setAssignmentHistory([]);
+        setSelectedTicketForJustification(ticket);
+        setIsJustificationModalOpen(true);
+      }
+    } catch (error) {
+      console.error("Error fetching assignment history:", error);
+      // Even if there's an error, still open modal with empty history
+      setAssignmentHistory([]);
+      setSelectedTicketForJustification(ticket);
+      setIsJustificationModalOpen(true);
+    }
+  };
+
+  const handleCloseJustificationModal = () => {
+    setIsJustificationModalOpen(false);
+    setSelectedTicketForJustification(null);
+    setAssignmentHistory([]);
+  };
+  // --- End Justification History Functions ---
+
+  // Add helper functions for justification history
+  const getCreatorName = (selectedTicket) =>
+    selectedTicket.created_by ||
+    (selectedTicket.creator && selectedTicket.creator.name) ||
+    `${selectedTicket.first_name || ""} ${selectedTicket.last_name || ""}`.trim() ||
+    "N/A";
+
+  // Utility function to format time difference in human-readable format
+  const formatTimeDifference = (dateString) => {
+    if (!dateString) return '';
+    
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffInMs = now - date;
+    
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+    
+    if (diffInMinutes < 1) {
+      return 'Just now';
+    } else if (diffInMinutes < 60) {
+      return `${diffInMinutes}min`;
+    } else if (diffInHours < 24) {
+      return `${diffInHours}h`;
+    } else if (diffInDays < 7) {
+      return `${diffInDays}d`;
+    } else {
+      const diffInWeeks = Math.floor(diffInDays / 7);
+      if (diffInWeeks < 4) {
+        return `${diffInWeeks}w`;
+      } else {
+        const diffInMonths = Math.floor(diffInDays / 30);
+        return `${diffInMonths}m`;
+      }
+    }
+  };
+
+  function AssignmentFlowChat({ assignmentHistory = [], selectedTicket }) {
+    const creatorStep = selectedTicket
+      ? {
+          assigned_to_name: getCreatorName(selectedTicket),
+          assigned_to_role: 'Creator',
+          reason: selectedTicket.description,
+          created_at: selectedTicket.created_at,
+        }
+      : null;
+    // Always add all assignments as steps, even if assignee is same as creator
+    const steps = creatorStep ? [creatorStep, ...assignmentHistory] : assignmentHistory;
+    
+    // Helper function to get aging status color
+    const getAgingStatusColor = (status) => {
+      switch (status) {
+        case 'On Time':
+          return '#4caf50'; // Green
+        case 'Warning':
+          return '#ff9800'; // Orange
+        case 'Overdue':
+          return '#f44336'; // Red
+        case 'Critical':
+          return '#d32f2f'; // Dark Red
+        default:
+          return '#757575'; // Gray
+      }
+    };
+
+    return (
+      <Box sx={{ maxWidth: 500 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, justifyContent: 'space-between' }}>
+          {/* <Typography sx={{ color: "#3f51b5", wordBreak: 'break-word', whiteSpace: 'pre-line' }}>
+            Ticket History
+          </Typography> */}
+        </Box>
+        <Divider sx={{ mb: 2 }} />
+        {steps.map((a, idx) => {
+          let message;
+          if (idx === 0) {
+            message = selectedTicket.description
+              ? `Created the ticket\nDescription: ${selectedTicket.description}`
+              : 'Created the ticket';
+          } else {
+            const prevUser = steps[idx - 1]?.assigned_to_name || 'Previous User';
+            if (selectedTicket.status === "Closed" && idx === steps.length - 1) {
+              if (a.reason && selectedTicket.resolution_details) {
+                message = `Message from ${prevUser}: ${a.reason}\nResolution: ${selectedTicket.resolution_details}`;
+              } else if (a.reason) {
+                message = `Message from ${prevUser}: ${a.reason}`;
+              } else if (selectedTicket.resolution_details) {
+                message = `Resolution: ${selectedTicket.resolution_details}`;
+              } else {
+                message = `Message from ${prevUser}: No message`;
+              }
+            } else {
+              // Build message with workflow details
+              let baseMessage = `Message from ${prevUser}: ${a.reason || 'No message'}`;
+              
+              // Add workflow-specific details
+              if (a.workflow_step) {
+                baseMessage += `\n\nWorkflow Step: ${a.workflow_step}`;
+              }
+              
+              if (a.coordinator_notes) {
+                baseMessage += `\n\nReviewer Notes: ${a.coordinator_notes}`;
+              }
+              
+              if (a.dg_notes) {
+                baseMessage += `\n\nDG Notes: ${a.dg_notes}`;
+              }
+              
+              // Show current resolution details from the ticket
+              if (selectedTicket.resolution_details) {
+                baseMessage += `\n\nResolution Details: ${selectedTicket.resolution_details}`;
+              }
+              
+              message = baseMessage;
+            }
+          }
+          
+          // Display aging information for non-creator steps
+          const showAging = idx > 0 && a.aging_formatted;
+          
+          return (
+            <Box key={idx} sx={{ display: "flex", mb: 2, alignItems: "flex-start" }}>
+              <Avatar sx={{ bgcolor: idx === 0 ? "#43a047" : "#1976d2", mr: 2 }}>
+                {a.assigned_to_name ? a.assigned_to_name[0] : "?"}
+              </Avatar>
+              <Paper elevation={2} sx={{ p: 2, bgcolor: idx === 0 ? "#e8f5e9" : "#f5f5f5", flex: 1 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                  <Typography sx={{ fontWeight: "bold" }}>
+                    {a.assigned_to_name || a.assigned_to_id || 'Unknown'} {" "}
+                    <span style={{ color: "#888", fontWeight: "normal" }}>
+                      ({a.assigned_to_role || "N/A"})
+                    </span>
+                  </Typography>
+                  {showAging && (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', ml: 1 }}>
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          color: getAgingStatusColor(a.aging_status),
+                          fontWeight: 'bold',
+                          fontSize: '0.7rem'
+                        }}
+                      >
+                        {a.aging_status}
+                      </Typography>
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          color: '#666',
+                          fontSize: '0.7rem'
+                        }}
+                      >
+                        {a.aging_formatted}
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+                <Typography variant="body2" sx={{ color: idx === 0 ? "#43a047" : "#1976d2", wordBreak: 'break-word', whiteSpace: 'pre-line', overflowWrap: 'break-word' }}>
+                  {message}
+                </Typography>
+                <Typography variant="caption" sx={{ color: "#888" }}>
+                  {a.created_at ? new Date(a.created_at).toLocaleString() : ""}
+                  {a.created_at && (
+                    <span style={{ color: "#666", marginLeft: 8 }}>
+                      ({formatTimeDifference(a.created_at)} ago)
+                    </span>
+                  )}
+                </Typography>
+              </Paper>
+            </Box>
+          );
+        })}
+      </Box>
+    );
+  }
+
   if (loading) {
     return (
       <div className="p-6">
@@ -1788,190 +2310,56 @@ const AgentCRM = () => {
   }
 
   return (
-    <div className="main--content">
-      <h3 className="title">CRM Dashboard</h3>
+    <div className="user-table-container">
+       <h3 className="title">
+          CC Dashboard
+        </h3>
 
-      {/* <div
-        style={{
-          display: "flex",
-          justifyContent: "flex-end",
-          marginBottom: "1rem"
+      {/* Shared Phone Search Section */}
+      <PhoneSearchSection
+        onSearch={(searchValue, foundTickets) => {
+          setFoundTickets(foundTickets);
+          // The PhoneSearchSection component handles the modal internally
         }}
-      >
-        <button className="add-user-button" onClick={() => setShowModal(true)}>
-          <FaPlus /> New Ticket
-        </button>
-      </div> */}
-      {/* Full-width Phone/NIDA Search Section */}
-      <div
-        style={{
-          display: "flex",
-          gap: "10px",
-          marginBottom: "1rem",
-          alignItems: "center"
+        onNewTicket={(searchValue) => {
+          setTicketPhoneNumber(searchValue);
+          setShowAdvancedTicketModal(true);
         }}
-      >
-        <input
-          className="crm-search-input"
-          type="text"
-          placeholder="Search by phone or NIDA..."
-          value={phoneSearch}
-          onChange={(e) => setPhoneSearch(e.target.value)}
-          onKeyPress={(e) => {
-            if (e.key === "Enter") handlePhoneSearch(phoneSearch);
-          }}
-          style={{ flex: 1 }}
-        />
-        <button
-          className="search-btn"
-          onClick={() => handlePhoneSearch(phoneSearch)}
-          aria-label="Search"
-        >
-          <FaSearch />
-        </button>
-        <button className="add-user-button" onClick={() => setShowModal(true)}>
-          <FaPlus /> New Ticket
-        </button>
-      </div>
+        onViewTicketDetails={(ticket) => {
+          setSelectedTicket(ticket);
+          setShowDetailsModal(true);
+        }}
+        onShowAdvancedModal={setShowAdvancedTicketModal}
+        phoneSearch={phoneSearch}
+        setPhoneSearch={setPhoneSearch}
+        snackbar={snackbar}
+        setSnackbar={setSnackbar}
+      />
 
-      {/* Existing Tickets Modal */}
-      <Modal
-        open={existingTicketsModal}
-        onClose={() => setExistingTicketsModal(false)}
-      >
-        <Box
-          sx={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: { xs: "90%", sm: 600 },
-            maxHeight: "80vh",
-            overflowY: "auto",
-            bgcolor: "background.paper",
-            boxShadow: 24,
-            borderRadius: 2,
-            p: 3
-          }}
-        >
-          <Typography variant="h6" component="h2" gutterBottom>
-            Existing Tickets for {phoneSearch}
-          </Typography>
-          <Divider sx={{ mb: 2 }} />
 
-          {foundTickets.map((ticket) => (
-            <Box
-              key={ticket.id}
-              sx={{ mb: 2, p: 2, border: "1px solid #eee", borderRadius: 1 }}
-            >
-              <Typography variant="subtitle1">
-                Ticket ID: {ticket.ticket_id}
-              </Typography>
-              <Typography>Status: {ticket.status || "Escalated"}</Typography>
-              <Typography>
-                Created: {new Date(ticket.created_at).toLocaleDateString()}
-              </Typography>
-              <Button
-                variant="contained"
-                size="small"
-                onClick={() => {
-                  setExistingTicketsModal(false);
-                  openDetailsModal(ticket);
-                }}
-                sx={{ mt: 1 }}
-              >
-                View Details
-              </Button>
-            </Box>
-          ))}
-
-          <Box
-            sx={{ mt: 2, display: "flex", justifyContent: "flex-end", gap: 1 }}
-          >
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={() => {
-                setExistingTicketsModal(false);
-                setNewTicketConfirmationModal(true);
-              }}
-            >
-              Create New Ticket
-            </Button>
-            <Button
-              variant="outlined"
-              onClick={() => setExistingTicketsModal(false)}
-            >
-              Close
-            </Button>
-          </Box>
-        </Box>
-      </Modal>
-
-      {/* New Ticket Confirmation Modal */}
-      <Modal
-        open={newTicketConfirmationModal}
-        onClose={() => setNewTicketConfirmationModal(false)}
-      >
-        <Box
-          sx={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: { xs: "90%", sm: 400 },
-            bgcolor: "background.paper",
-            boxShadow: 24,
-            borderRadius: 2,
-            p: 3
-          }}
-        >
-          <Typography variant="h6" component="h2" gutterBottom>
-            No Existing Tickets Found
-          </Typography>
-          <Typography sx={{ mb: 2 }}>
-            Would you like to create a new ticket for {phoneSearch}?
-          </Typography>
-          <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={() => handleNewTicketConfirmation(true)}
-            >
-              Yes, Create Ticket
-            </Button>
-            <Button
-              variant="outlined"
-              onClick={() => handleNewTicketConfirmation(false)}
-            >
-              No, Cancel
-            </Button>
-          </Box>
-        </Box>
-      </Modal>
 
       {/* Card Dashboard Section */}
       <div className="crm-dashboard">
+        <div className="crm-cards-container">
+        <Card
+            title="Agent Performance"
+            data={agentData.ticketQueue}
+            color={role === "agent" ? "#D6E4C7" : "#97c5f0"}
+            icon={<GrLineChart fontSize={32} />}
+          />
+          <Card
+            title="Escalated Metrics"
+            data={agentData.ticketWait}
+            color={role === "agent" ? "#C2E2E5" : "#b6d7a8"}
+            icon={<MdDisabledVisible fontSize={32} />}
+          />
+        </div>
         <div className="crm-cards-container">
           <Card
             title="Team Activity"
             data={agentData.agentActivity}
             color={role === "agent" ? "#BCE8BE" : "#ffe599"}
             icon={<FaUsersLine fontSize={32} />}
-          />
-          <Card
-            title="Agent Performance"
-            data={agentData.ticketQueue}
-            color={role === "agent" ? "#D6E4C7" : "#97c5f0"}
-            icon={<GrLineChart fontSize={32} />}
-          />
-        </div>
-        <div className="crm-cards-container">
-          <Card
-            title="Overdue Metrics"
-            data={agentData.ticketWait}
-            color={role === "agent" ? "#C2E2E5" : "#b6d7a8"}
-            icon={<MdDisabledVisible fontSize={32} />}
           />
           <Card
             title="Resolution Metrics"
@@ -1982,127 +2370,100 @@ const AgentCRM = () => {
         </div>
       </div>
 
-      {/* Add TicketFilters component */}
-      <TicketFilters
-        onFilterChange={handleFilterChange}
-        initialFilters={filters}
-      />
-
       {/* Ticket Table Section */}
       <div className="user-table-container">
-        <div className="ticket-table-container">
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: "16px"
-            }}
-          >
-            <h2>All Customer Tickets</h2>
-            <Tooltip title="Columns Settings and Export" arrow>
-              <IconButton onClick={() => setColumnModalOpen(true)}>
-                <FiSettings size={20} />
-              </IconButton>
-            </Tooltip>
-          </div>
-
-          <div className="controls">
-            <div>
-              <label style={{ marginRight: "8px" }}>
-                <strong>Show:</strong>
-              </label>
-              <select
-                className="filter-select"
-                value={itemsPerPage}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setItemsPerPage(
-                    value === "All" ? filteredTickets.length : parseInt(value)
-                  );
-                  setCurrentPage(1);
+        <div style={{ display: "flex", gap: "20px", width: "100%" }}>
+          {/* Left: Ticket Table */}
+          <div style={{ flex: 2, minWidth: 0 }}>
+            <div className="ticket-table-container">
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  marginBottom: "16px"
                 }}
               >
-                {[5, 10, 25, 50, 100].map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-                <option value="All">All</option>
-              </select>
-            </div>
-            <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-              <input
-                className="crm-search-input"
-                type="text"
-                placeholder="Search by phone or NIDA..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
+                <h2>All Customer Tickets</h2>
+                
+                <div style={{ 
+                  display: "flex", 
+                  alignItems: "center", 
+                  gap: "10px"
+                }}>
+                  <TicketFilters 
+                    onFilterChange={handleFilterChange} 
+                    initialFilters={filters}
+                    compact={true}
+                  />
+                </div>
+              </div>
+
+             
+        <TableControls
+          itemsPerPage={itemsPerPage}
+          onItemsPerPageChange={(e) => {
+            const value = e.target.value;
+            setItemsPerPage(
+              value === "All" ? filteredTickets.length : parseInt(value)
+            );
+            setCurrentPage(1);
+          }}
+          search={search}
+          onSearchChange={(e) => setSearch(e.target.value)}
+          filterStatus={filters.status || ""}
+          onFilterStatusChange={(e) => {
+            const newFilters = { ...filters, status: e.target.value };
+            setFilters(newFilters);
+            setCurrentPage(1);
+          }}
+          filterRegion={filters.region || ""}
+          onFilterRegionChange={(e) => {
+            const newFilters = { ...filters, region: e.target.value };
+            setFilters(newFilters);
+            setCurrentPage(1);
+          }}
+          filterDistrict={filters.district || ""}
+          onFilterDistrictChange={(e) => {
+            const newFilters = { ...filters, district: e.target.value };
+            setFilters(newFilters);
+            setCurrentPage(1);
+          }}
+          activeColumns={activeColumns}
+          onColumnsChange={setActiveColumns}
+          tableData={filteredTickets}
+          tableTitle="Customer Tickets"
+        />
+
+              <table className="user-table">
+                <thead>{renderTableHeader()}</thead>
+                <tbody>
+                  {paginatedTickets.length > 0 ? (
+                    paginatedTickets.map((ticket, i) => renderTableRow(ticket, i))
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan={activeColumns.length + 1}
+                        style={{ textAlign: "center", color: "red" }}
+                      >
+                        No ticket found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                startIndex={startIndex}
+                endIndex={endIndex}
+                onPageChange={setCurrentPage}
               />
-              <select
-                className="filter-select"
-                value={filterStatus}
-                onChange={(e) => setFilterStatus(e.target.value)}
-              >
-                <option value="">All</option>
-                <option value="Open">Open</option>
-                <option value="Assigned">Assigned</option>
-                <option value="Closed">Closed</option>
-              </select>
             </div>
           </div>
 
-          <table className="user-table">
-            <thead>{renderTableHeader()}</thead>
-            <tbody>
-              {paginatedTickets.length > 0 ? (
-                paginatedTickets.map((ticket, i) => renderTableRow(ticket, i))
-              ) : (
-                <tr>
-                  <td
-                    colSpan={activeColumns.length + 1}
-                    style={{ textAlign: "center", color: "red" }}
-                  >
-                    No ticket found.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-
-          {/* Pagination */}
-          <div
-            className="pagination"
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "16px",
-              margin: "16px 0"
-            }}
-          >
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-              disabled={currentPage === 1}
-            >
-              Previous
-            </Button>
-            <span style={{ fontWeight: 500, fontSize: "1rem" }}>
-              Page {currentPage} of {totalPages}
-            </span>
-            <Button
-              variant="outlined"
-              size="small"
-              onClick={() =>
-                setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-              }
-              disabled={currentPage === totalPages}
-            >
-              Next
-            </Button>
-          </div>
         </div>
       </div>
 
@@ -2112,14 +2473,14 @@ const AgentCRM = () => {
           sx={{
             display: "flex",
             flexDirection: "row",
-            width: 1050,
+            width: 1200,
             maxWidth: "98vw",
             minHeight: 500,
             maxHeight: "90vh",
             bgcolor: "background.paper",
             boxShadow: 24,
             borderRadius: 2,
-            p: 0
+            p: 0,
           }}
         >
           {/* Left: Ticket Details */}
@@ -2130,9 +2491,11 @@ const AgentCRM = () => {
               borderRight: "1px solid #eee",
               overflowY: "auto",
               minWidth: 0,
-              maxHeight: "90vh"
+              maxHeight: "90vh",
             }}
           >
+
+            
             {selectedTicket && (
               <>
                 <Typography
@@ -2142,12 +2505,38 @@ const AgentCRM = () => {
                   Ticket Details
                 </Typography>
                 <Divider sx={{ mb: 2 }} />
+                
+                {/* Representative Details Section */}
+                {(["Representative", "Employer"].includes(selectedTicket.requester)) && selectedTicket.representative_name && (
+                  <Box sx={{ mt: 3, mb: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 2, border: '1px solid #e0e0e0' }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2, color: '#1976d2' }}>
+                      Representative Details
+                    </Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                      <div>
+                        <Typography variant="body2"><strong>Name:</strong> {selectedTicket.representative_name || 'N/A'}</Typography>
+                      </div>
+                      <div>
+                        <Typography variant="body2"><strong>Phone:</strong> {selectedTicket.representative_phone || 'N/A'}</Typography>
+                      </div>
+                      <div>
+                        <Typography variant="body2"><strong>Email:</strong> {selectedTicket.representative_email || 'N/A'}</Typography>
+                      </div>
+                      <div>
+                        <Typography variant="body2"><strong>Address:</strong> {selectedTicket.representative_address || 'N/A'}</Typography>
+                      </div>
+                      <div>
+                        <Typography variant="body2"><strong>Relationship to Employee:</strong> {selectedTicket.representative_relationship || 'N/A'}</Typography>
+                      </div>
+                    </Box>
+                  </Box>
+                )}
                 <div
                   style={{
                     display: "grid",
                     gridTemplateColumns: "repeat(2, 1fr)",
                     gap: "16px",
-                    width: "100%"
+                    width: "100%",
                   }}
                 >
                   {[
@@ -2159,8 +2548,8 @@ const AgentCRM = () => {
                             "Full Name",
                             selectedTicket.first_name +
                               " " +
-                              selectedTicket.last_name || "N/A"
-                          ]
+                              selectedTicket.last_name || "N/A",
+                          ],
                           // ["Last Name", selectedTicket.last_name || "N/A"]
                         ]),
                     ["Ticket Number", selectedTicket.ticket_id || "N/A"],
@@ -2173,17 +2562,17 @@ const AgentCRM = () => {
                     ["Subject", selectedTicket.subject || "N/A"],
                     [
                       "Created By",
-                      selectedTicket?.creator?.name
-                        ? `${selectedTicket.creator.name}${
+                      selectedTicket?.creator?.full_name
+                        ? `${selectedTicket.creator.full_name}${
                             selectedTicket.role
                               ? ` (${selectedTicket.role})`
                               : ""
                           }`
-                        : "N/A"
+                        : "N/A",
                     ],
                     // Always show Assigned To and Assigned Role
-                    ["Assigned To", selectedTicket?.assignee?.name || "N/A"],
-                    ["Assigned Role", selectedTicket.assigned_to_role || "N/A"]
+                    ["Assigned To", selectedTicket?.assignee?.full_name || "N/A"],
+                    ["Assigned Role", selectedTicket.assigned_to_role || "N/A"],
                   ].map(([label, value], index) => (
                     <div
                       key={`left-${index}`}
@@ -2199,7 +2588,7 @@ const AgentCRM = () => {
                           label === "Sub-section" ||
                           label === "Subject"
                             ? "2px solid #e0e0e0"
-                            : "none"
+                            : "none",
                       }}
                     >
                       <strong
@@ -2211,7 +2600,7 @@ const AgentCRM = () => {
                             label === "Subject"
                               ? "#1976d2"
                               : "#555",
-                          fontSize: "0.9rem"
+                          fontSize: "0.9rem",
                         }}
                       >
                         {label}:
@@ -2227,7 +2616,7 @@ const AgentCRM = () => {
                             label === "Sub-section" ||
                             label === "Subject"
                               ? "#1976d2"
-                              : "inherit"
+                              : "inherit",
                         }}
                       >
                         {value}
@@ -2246,11 +2635,11 @@ const AgentCRM = () => {
                               ? "green"
                               : selectedTicket.status === "Closed"
                               ? "gray"
-                              : "blue"
+                              : "blue",
                         }}
                       >
                         {selectedTicket.status || "Escalated" || "N/A"}
-                      </span>
+                      </span>,
                     ],
                     ["NIDA", selectedTicket.nida_number || "N/A"],
                     ["Institution", selectedTicket.institution || "N/A"],
@@ -2265,11 +2654,11 @@ const AgentCRM = () => {
                               ? "red"
                               : selectedTicket.complaint_type === "Minor"
                               ? "orange"
-                              : "inherit"
+                              : "inherit",
                         }}
                       >
                         {selectedTicket.complaint_type || "Unrated"}
-                      </span>
+                      </span>,
                     ],
                     // ["Assigned To", selectedTicket?.assignee?.name || "N/A"],
                     // ["Assigned Role", selectedTicket.assigned_to_role || "N/A"],
@@ -2284,11 +2673,11 @@ const AgentCRM = () => {
                               year: "numeric",
                               hour: "numeric",
                               minute: "2-digit",
-                              hour12: true
+                              hour12: true,
                             }
                           )
-                        : "N/A"
-                    ]
+                        : "N/A",
+                    ],
                   ].map(([label, value], index) => (
                     <div
                       key={`right-${index}`}
@@ -2298,14 +2687,14 @@ const AgentCRM = () => {
                         borderRadius: "8px",
                         display: "flex",
                         alignItems: "center",
-                        boxShadow: "0 1px 3px rgba(0,0,0,0.1)"
+                        boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
                       }}
                     >
                       <strong
                         style={{
                           minWidth: "120px",
                           color: "#555",
-                          fontSize: "0.9rem"
+                          fontSize: "0.9rem",
                         }}
                       >
                         {label}:
@@ -2315,7 +2704,7 @@ const AgentCRM = () => {
                           flex: 1,
                           overflow: "hidden",
                           textOverflow: "ellipsis",
-                          fontSize: "0.9rem"
+                          fontSize: "0.9rem",
                         }}
                       >
                         {value}
@@ -2334,14 +2723,14 @@ const AgentCRM = () => {
                     display: "flex",
                     alignItems: "flex-start",
                     boxShadow: "0 1px 3px rgba(0,0,0,0.1)",
-                    marginTop: "16px"
+                    marginTop: "16px",
                   }}
                 >
                   <strong
                     style={{
                       minWidth: "120px",
                       color: "#555",
-                      fontSize: "0.9rem"
+                      fontSize: "0.9rem",
                     }}
                   >
                     Description:
@@ -2352,22 +2741,150 @@ const AgentCRM = () => {
                       overflow: "hidden",
                       textOverflow: "ellipsis",
                       fontSize: "0.9rem",
-                      lineHeight: "1.5"
+                      lineHeight: "1.5",
                     }}
                   >
                     {selectedTicket.description || "N/A"}
                   </span>
                 </div>
 
+                {/* Dependents Section */}
+                {selectedTicket.dependents && selectedTicket.dependents.trim() !== "" && (
+                  <Box sx={{ mt: 3, mb: 2, p: 2, bgcolor: '#f8f9fa', borderRadius: 2, border: '1px solid #e9ecef' }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold', mb: 2, color: '#1976d2', display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <span style={{ fontSize: '1.2rem' }}>👥</span>
+                      Dependents
+                    </Typography>
+                    
+                    {/* Parse comma-separated dependents string to array */}
+                    {(() => {
+                      const dependentsArray = selectedTicket.dependents.split(',').map(dep => dep.trim()).filter(dep => dep);
+                      return (
+                        <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+                          {dependentsArray.map((dependent, index) => (
+                            <div
+                              key={index}
+                              style={{
+                                padding: "12px",
+                                backgroundColor: "#ffffff",
+                                borderRadius: "6px",
+                                border: "1px solid #dee2e6",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "12px"
+                              }}
+                            >
+                              <div
+                                style={{
+                                  width: "32px",
+                                  height: "32px",
+                                  borderRadius: "50%",
+                                  backgroundColor: "#e3f2fd",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  color: "#1976d2",
+                                  fontWeight: "bold",
+                                  fontSize: "0.875rem"
+                                }}
+                              >
+                                {index + 1}
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <Typography
+                                  variant="subtitle2"
+                                  style={{ fontWeight: "600", color: "#2c3e50" }}
+                                >
+                                  {dependent}
+                                </Typography>
+                                <Typography
+                                  variant="caption"
+                                  style={{ color: "#6c757d" }}
+                                >
+                                  Dependent #{index + 1}
+                                </Typography>
+                              </div>
+                              <div
+                                style={{
+                                  padding: "4px 8px",
+                                  backgroundColor: "#e8f5e9",
+                                  borderRadius: "12px",
+                                  border: "1px solid #c8e6c9"
+                                }}
+                              >
+                                <Typography
+                                  variant="caption"
+                                  style={{ color: "#2e7d32", fontWeight: "500" }}
+                                >
+                                  Active
+                                </Typography>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </Box>
+                )}
+
                 <Box sx={{ mt: 3, textAlign: "right" }}>
                   <Button
                     variant="contained"
-                    color="secondary"
+                    color="success"
                     sx={{ mr: 2 }}
-                    onClick={() => setShowNotifyModal(true)}
+                    onClick={() => {
+                      // Populate form with current ticket data
+                      setFormData({
+                        firstName: selectedTicket.first_name || "",
+                        middleName: selectedTicket.middle_name || "",
+                        lastName: selectedTicket.last_name || "",
+                        phoneNumber: selectedTicket.phone_number || "",
+                        nidaNumber: selectedTicket.nida_number || "",
+                        requester: selectedTicket.requester || "",
+                        institution: selectedTicket.institution || "",
+                        employerName: selectedTicket.employer_name || "",
+                        region: selectedTicket.region || "",
+                        district: selectedTicket.district || "",
+                        category: selectedTicket.category || "",
+                        channel: selectedTicket.channel || "",
+                        subject: selectedTicket.subject || "",
+                        subSection: selectedTicket.sub_section || "",
+                        section: selectedTicket.section || "",
+                        description: selectedTicket.description || "",
+                        representativeName: selectedTicket.representative_name || "",
+                        representativePhone: selectedTicket.representative_phone || "",
+                        representativeEmail: selectedTicket.representative_email || "",
+                        representativeNida: selectedTicket.representative_nida || ""
+                      });
+                      
+                      // Set search type based on requester
+                      if (selectedTicket.requester === "Employer") {
+                        setFormSearchType("employer");
+                      } else if (selectedTicket.requester === "Employee") {
+                        setFormSearchType("employee");
+                      }
+                      
+                      // Mark search as completed to show form fields
+                      setSearchCompleted(true);
+                      
+                      // Close details modal and open ticket creation modal
+                      setShowDetailsModal(false);
+                      setTicketPhoneNumber(selectedTicket.phone_number || "");
+                      setShowAdvancedTicketModal(true);
+                    }}
                   >
-                    Notify User
+                    New Ticket
                   </Button>
+                  {selectedTicket.status !== "Closed" && (
+                    <Button
+                      variant="contained"
+                      color="secondary"
+                      sx={{ mr: 2 }}
+                      onClick={() => setShowNotifyModal(true)}
+                    >
+                      Notify User
+                    </Button>
+                  )}
                   <Button
                     variant="contained"
                     color="primary"
@@ -2387,7 +2904,7 @@ const AgentCRM = () => {
               overflowY: "auto",
               minWidth: 350,
               maxWidth: 420,
-              maxHeight: "90vh"
+              maxHeight: "90vh",
             }}
           >
             {/* Add search input for ticket history */}
@@ -2402,7 +2919,7 @@ const AgentCRM = () => {
                   padding: "8px",
                   borderRadius: "4px",
                   border: "1px solid #ccc",
-                  fontSize: "0.95em"
+                  fontSize: "0.95em",
                 }}
               />
             </div>
@@ -2456,15 +2973,15 @@ const AgentCRM = () => {
                       gap: 1,
                       "&:hover": {
                         boxShadow: "0 4px 8px rgba(0,0,0,0.1)",
-                        borderColor: "#1976d2"
-                      }
+                        borderColor: "#1976d2",
+                      },
                     }}
                   >
                     <Box
                       sx={{
                         display: "flex",
                         justifyContent: "space-between",
-                        alignItems: "center"
+                        alignItems: "center",
                       }}
                     >
                       <Typography
@@ -2473,24 +2990,42 @@ const AgentCRM = () => {
                       >
                         {ticket.ticket_id}
                       </Typography>
-                      <Typography
-                        sx={{
-                          px: 1.5,
-                          py: 0.5,
-                          borderRadius: "12px",
-                          color: "white",
-                          background:
-                            ticket.status === "Closed"
-                              ? "#757575"
-                              : ticket.status === "Open"
-                              ? "#2e7d32"
-                              : "#1976d2",
-                          fontSize: "0.75rem",
-                          fontWeight: 500
-                        }}
-                      >
-                        {ticket.status}
-                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography
+                          sx={{
+                            px: 1.5,
+                            py: 0.5,
+                            borderRadius: "12px",
+                            color: "white",
+                            background:
+                              ticket.status === "Closed"
+                                ? "#757575"
+                                : ticket.status === "Open"
+                                ? "#2e7d32"
+                                : "#1976d2",
+                            fontSize: "0.75rem",
+                            fontWeight: 500
+                          }}
+                        >
+                          {ticket.status}
+                        </Typography>
+                        <IconButton
+                          size="small"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenJustificationHistory(ticket);
+                          }}
+                          sx={{
+                            color: '#1976d2',
+                            '&:hover': {
+                              backgroundColor: 'rgba(25, 118, 210, 0.1)'
+                            }
+                          }}
+                          title="View Recomendation History"
+                        >
+                          <ChatIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
                     </Box>
                     <Box sx={{ mt: 1 }}>
                       <Typography
@@ -2514,7 +3049,7 @@ const AgentCRM = () => {
                           WebkitLineClamp: 2,
                           WebkitBoxOrient: "vertical",
                           overflow: "hidden",
-                          textOverflow: "ellipsis"
+                          textOverflow: "ellipsis",
                         }}
                       >
                         Description: {ticket.description}
@@ -2539,41 +3074,52 @@ const AgentCRM = () => {
                   fontWeight: 500,
                   boxShadow: "0 2px 4px rgba(25,118,210,0.2)",
                   "&:hover": {
-                    boxShadow: "0 4px 8px rgba(25,118,210,0.3)"
-                  }
+                    boxShadow: "0 4px 8px rgba(25,118,210,0.3)",
+                  },
                 }}
                 onClick={() => {
                   let prev = selectedTicket;
                   if (!prev && foundTickets && foundTickets.length > 0)
                     prev = foundTickets[0];
                   if (prev) {
+                    // Populate form with all ticket data
                     setFormData({
                       firstName: prev.first_name || "",
-                      middleName: prev.middle_name || "", // Add middle name
+                      middleName: prev.middle_name || "",
                       lastName: prev.last_name || "",
-                      phoneNumber: prev.phone_number || phoneSearch,
+                      phoneNumber: prev.phone_number || "",
                       nidaNumber: prev.nida_number || "",
                       requester: prev.requester || "",
                       institution: prev.institution || "",
+                      employerName: prev.employer_name || "",
                       region: prev.region || "",
                       district: prev.district || "",
-                      channel: prev.channel || "",
                       category: prev.category || "",
-                      inquiry_type: prev.inquiry_type || "", // Add inquiry_type
-                      functionId: prev.function_id || "",
-                      description: "",
-                      status: "Open",
-                      // New fields for representative
-                      requesterName: prev.requesterName || "",
-                      requesterPhoneNumber: prev.requesterPhoneNumber || "",
-                      requesterEmail: prev.requesterEmail || "",
-                      requesterAddress: prev.requesterAddress || "",
-                      relationshipToEmployee: prev.relationshipToEmployee || ""
+                      channel: prev.channel || "",
+                      subject: prev.subject || "",
+                      subSection: prev.sub_section || "",
+                      section: prev.section || "",
+                      description: prev.description || "",
+                      representativeName: prev.representative_name || "",
+                      representativePhone: prev.representative_phone || "",
+                      representativeEmail: prev.representative_email || "",
+                      representativeNida: prev.representative_nida || ""
                     });
+                    
+                    // Set search type based on requester
+                    if (prev.requester === "Employer") {
+                      setFormSearchType("employer");
+                    } else if (prev.requester === "Employee") {
+                      setFormSearchType("employee");
+                    }
+                    
+                    // Mark search as completed to show form fields
+                    setSearchCompleted(true);
                   } else {
+                    // If no ticket data, just set phone number from search
                     setFormData((prev) => ({
                       ...prev,
-                      phoneNumber: phoneSearch
+                      phoneNumber: phoneSearch,
                     }));
                   }
                   setShowModal(true);
@@ -2597,7 +3143,7 @@ const AgentCRM = () => {
             minWidth: 350,
             maxWidth: 400,
             mx: "auto",
-            mt: "15vh"
+            mt: "15vh",
           }}
         >
           <Typography variant="h6" gutterBottom>
@@ -2620,15 +3166,15 @@ const AgentCRM = () => {
                   method: "POST",
                   headers: {
                     "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`
+                    Authorization: `Bearer ${token}`,
                   },
                   body: JSON.stringify({
                     ticket_id: selectedTicket.id,
                     category: selectedTicket.category, // or another user ID
                     message: notifyMessage,
                     channel: selectedTicket.channel,
-                    subject: selectedTicket.functionData?.name
-                  })
+                    subject: selectedTicket.functionData?.name,
+                  }),
                 });
                 const data = await res.json();
                 setShowNotifyModal(false);
@@ -2636,13 +3182,13 @@ const AgentCRM = () => {
                   setSnackbar({
                     open: true,
                     message: "Notification sent and saved!",
-                    severity: "success"
+                    severity: "success",
                   });
                 } else {
                   setSnackbar({
                     open: true,
                     message: data.message || "Failed to save notification.",
-                    severity: "error"
+                    severity: "error",
                   });
                 }
               } catch (error) {
@@ -2650,7 +3196,7 @@ const AgentCRM = () => {
                 setSnackbar({
                   open: true,
                   message: "Network error: " + error.message,
-                  severity: "error"
+                  severity: "error",
                 });
               }
             }}
@@ -2661,1102 +3207,198 @@ const AgentCRM = () => {
         </Box>
       </Modal>
 
-      {/* Ticket Creation Modal */}
-      <Modal open={showModal} onClose={() => setShowModal(false)}>
-        <Box
-          sx={{
-            display: "flex",
-            flexDirection: "row",
-            width: 1050,
-            maxWidth: "98vw",
-            minHeight: 500,
-            maxHeight: "90vh",
-            bgcolor: "background.paper",
-            boxShadow: 24,
-            borderRadius: 2,
-            p: 0
+      {/* Ticket Creation Modal - Replaced with AdvancedTicketCreateModal */}
+      {/* Old modal removed - now using the improved AdvancedTicketCreateModal component */}
+
+      {/* Employer/Institution Details */}
+      {selectedInstitution && (
+        <div
+          style={{
+            flex: 1,
+            background: "#e3f2fd",
+            borderRadius: "8px",
+            padding: "16px",
+            minWidth: 0,
+            marginBottom: 16,
           }}
         >
-          <Box
-            sx={{
-              flex: 2,
-              p: 4,
-              borderRight: "1px solid #eee",
-              overflowY: "auto",
-              minWidth: 0,
-              maxHeight: "90vh"
+          <h4 style={{ color: "#1976d2", marginBottom: 12 }}>
+            Institution Details
+          </h4>
+          <div>
+            <strong>Name:</strong> {selectedInstitution.name}
+          </div>
+          <div>
+            <strong>TIN:</strong> {selectedInstitution.tin}
+          </div>
+          <div>
+            <strong>Phone:</strong> {selectedInstitution.phone}
+          </div>
+          <div>
+            <strong>Email:</strong> {selectedInstitution.email}
+          </div>
+          <div>
+            <strong>Status:</strong> {selectedInstitution.employer_status}
+          </div>
+          <div>
+            <strong>Allocated User Name:</strong>{" "}
+            {selectedInstitution.allocated_staff_name}
+          </div>
+          <div>
+            <strong>Allocated Username:</strong>{" "}
+            {selectedInstitution.allocated_staff_username}
+          </div>
+          {/* All details shown for reference - only name used for submission, allocated user from employee search used for assignment */}
+        </div>
+      )}
+      {/* Ticket history for entered phone number */}
+      {formData.phoneNumber && (
+        <div
+          style={{
+            marginTop: 8,
+            background: "#f8f9fa",
+            borderRadius: 8,
+            padding: 0,
+            minHeight: 60,
+          }}
+        >
+          <h4
+            style={{
+              color: "#1976d2",
+              margin: "16px 0 8px 0",
+              paddingLeft: 16,
             }}
           >
-            <div className="modal-form-container">
-              <h2 className="modal-title">New Ticket</h2>
-
-              {/* Search Section */}
-              <div
-                className="search-section"
-                style={{
-                  marginBottom: "20px",
-                  padding: "15px",
-                  backgroundColor: "#f5f5f5",
-                  borderRadius: "8px"
+            Ticket History for {formData.phoneNumber}
+          </h4>
+          {creationTicketsLoading ? (
+            <div style={{ textAlign: "center", padding: 12 }}>
+              <CircularProgress size={22} />
+            </div>
+          ) : creationFoundTickets.length > 0 ? (
+            creationFoundTickets.map((ticket) => (
+              <Box
+                key={ticket.id}
+                onClick={() => setCreationActiveTicketId(ticket.id)}
+                sx={{
+                  mb: 2,
+                  p: 2,
+                  borderRadius: 2,
+                  bgcolor:
+                    creationActiveTicketId === ticket.id
+                      ? "#e3f2fd"
+                      : "#fff",
+                  cursor: "pointer",
+                  border:
+                    creationActiveTicketId === ticket.id
+                      ? "2px solid #1976d2"
+                      : "1px solid #e0e0e0",
+                  boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 1,
+                  transition: "box-shadow 0.2s, border-color 0.2s",
+                  "&:hover": {
+                    boxShadow: "0 4px 8px rgba(25,118,210,0.1)",
+                    borderColor: "#1976d2",
+                  },
                 }}
               >
-                <div style={{ marginBottom: "15px" }}>
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "8px",
-                      fontWeight: "bold"
-                    }}
-                  >
-                    Search Type:
-                  </label>
-                  <select
-                    value={searchType}
-                    onChange={(e) => {
-                      setSearchType(e.target.value);
-                      setSearchSuggestions([]);
-                      setSelectedSuggestion(null);
-                      setSearchQuery("");
-                    }}
-                    style={{
-                      width: "100%",
-                      padding: "8px",
-                      borderRadius: "4px",
-                      border: "1px solid #ddd"
-                    }}
-                  >
-                    <option value="employee">Employee</option>
-                    <option value="employer">Employer</option>
-                  </select>
-                </div>
-
-                <div style={{ marginBottom: "15px" }}>
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "8px",
-                      fontWeight: "bold"
-                    }}
-                  >
-                    Search By:
-                  </label>
-                  <select
-                    value={searchBy}
-                    onChange={(e) => {
-                      setSearchBy(e.target.value);
-                      setSearchSuggestions([]);
-                      setSelectedSuggestion(null);
-                      setSearchQuery("");
-                    }}
-                    style={{
-                      width: "100%",
-                      padding: "8px",
-                      borderRadius: "4px",
-                      border: "1px solid #ddd"
-                    }}
-                  >
-                    <option value="name">Name</option>
-                    <option value="wcf_number">WCF Number</option>
-                  </select>
-                </div>
-
-                <div style={{ marginBottom: "15px" }}>
-                  <label
-                    style={{
-                      display: "block",
-                      marginBottom: "8px",
-                      fontWeight: "bold"
-                    }}
-                  >
-                    {searchBy === "name" ? "Enter Name" : "Enter WCF Number"}:
-                  </label>
-                  <StyledAutocomplete
-                    value={selectedSuggestion}
-                    onChange={(event, newValue) =>
-                      handleSuggestionSelected(event, newValue)
-                    }
-                    inputValue={inputValue}
-                    onInputChange={handleInputChange}
-                    options={searchSuggestions}
-                    getOptionLabel={(option) => option.displayName || ""}
-                    open={open}
-                    onOpen={() => setOpen(true)}
-                    onClose={() => setOpen(false)}
-                    loading={isSearching}
-                    loadingText={
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          gap: "10px"
-                        }}
-                      >
-                        <CircularProgress size={20} />
-                        <span>Searching...</span>
-                      </div>
-                    }
-                    noOptionsText={
-                      inputValue.length < 1
-                        ? "Start typing to search"
-                        : "No matching records found"
-                    }
-                    renderOption={(props, option) => (
-                      <li {...props}>
-                        <SuggestionItem>
-                          <div className="suggestion-name">
-                            <span style={{ color: "#666" }}>
-                              {option.numberPrefix}
-                            </span>{" "}
-                            {highlightMatch(option.cleanName, inputValue)}
-                            {option.employerName && (
-                              <>
-                                {" — ("}
-                                <span style={{ color: "#666" }}>
-                                  {highlightMatch(
-                                    option.employerName,
-                                    inputValue
-                                  )}
-                                </span>
-                                {")"}
-                              </>
-                            )}
-                          </div>
-                          <div className="suggestion-details">
-                            Member No: {option.memberNo}
-                            {option.type && ` • Type: ${option.type}`}
-                            {option.status && ` • Status: ${option.status}`}
-                          </div>
-                        </SuggestionItem>
-                      </li>
-                    )}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        placeholder={
-                          searchBy === "name"
-                            ? "Start typing name..."
-                            : "Enter WCF number..."
-                        }
-                        InputProps={{
-                          ...params.InputProps,
-                          endAdornment: (
-                            <>
-                              {isSearching && (
-                                <CircularProgress color="inherit" size={20} />
-                              )}
-                              {params.InputProps.endAdornment}
-                            </>
-                          )
-                        }}
-                        sx={{
-                          "& .MuiOutlinedInput-root": {
-                            "& fieldset": {
-                              borderColor: "#e0e0e0"
-                            },
-                            "&:hover fieldset": {
-                              borderColor: "#1976d2"
-                            },
-                            "&.Mui-focused fieldset": {
-                              borderColor: "#1976d2"
-                            }
-                          }
-                        }}
-                      />
-                    )}
-                    filterOptions={(x) => x}
-                    freeSolo={false}
-                    autoComplete
-                    includeInputInList
-                    blurOnSelect
-                    clearOnBlur={false}
-                    selectOnFocus
-                    handleHomeEndKeys
-                    style={{ width: "100%" }}
-                  />
-                </div>
-              </div>
-
-              {/* Update the claim status section */}
-              {searchType === "employee" && selectedSuggestion && (
-                <div
-                  style={{
-                    marginTop: "10px",
-                    padding: "10px",
-                    backgroundColor: "#f5f5f5",
-                    borderRadius: "8px",
+                <Box
+                  sx={{
                     display: "flex",
                     justifyContent: "space-between",
-                    alignItems: "center"
+                    alignItems: "center",
                   }}
                 >
-                  <div>
-                    <Typography
-                      variant="subtitle2"
-                      style={{ fontWeight: "bold" }}
-                    >
-                      {selectedSuggestion.claimId ? (
-                        <>
-                          Claim Number:{" "}
-                          <span style={{ color: "#1976d2" }}>
-                            {selectedSuggestion.claimId}
-                          </span>
-                        </>
-                      ) : (
-                        "No Active Claim"
-                      )}
-                    </Typography>
-                  </div>
-                  <Button
-  variant="contained"
-  color="primary"
-  disabled={!selectedSuggestion?.claimId}
-  onClick={async () => {
-    console.log("Clicked claim:", selectedSuggestion.claimId);
-
-    const credentials = {
-      username: "rehema.said", // Laravel expects 'username'
-      password: "TTCL@2026"
-    };
-
-    const getCookie = (name) => {
-      const match = document.cookie.match(
-        new RegExp("(^| )" + name + "=([^;]+)")
-      );
-      return match ? decodeURIComponent(match[2]) : null;
-    };
-
-    try {
-      // Step 1: Get CSRF cookie
-      const csrfResponse = await fetch("http://localhost:8000/sanctum/csrf-cookie", {
-        credentials: "include"
-      });
-
-      if (!csrfResponse.ok) {
-        throw new Error("Failed to fetch CSRF cookie");
-      }
-
-      // Step 2: Read the XSRF-TOKEN cookie
-      const csrfToken = getCookie("XSRF-TOKEN");
-
-      if (!csrfToken) {
-        setSnackbar({
-          open: true,
-          message: "CSRF token missing. Login cannot proceed.",
-          severity: "error"
-        });
-        return;
-      }
-
-      // Step 3: Send login request
-      const loginResponse = await fetch("http://localhost:8000/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          "X-XSRF-TOKEN": csrfToken
-        },
-        credentials: "include",
-        body: JSON.stringify(credentials)
-      });
-
-      if (loginResponse.ok || loginResponse.redirected) {
-        // Step 4: Open the dashboard in a new tab
-        const dashboardUrl = "http://localhost:8000/dashboard";
-        window.open(dashboardUrl, "_blank");
-      } else {
-        const errorText = await loginResponse.text();
-        let errorMsg = "Login failed.";
-        try {
-          const json = JSON.parse(errorText);
-          errorMsg = json.message || json.error || errorMsg;
-        } catch {
-          errorMsg = errorText;
-        }
-
-        setSnackbar({
-          open: true,
-          message: errorMsg,
-          severity: "error"
-        });
-      }
-    } catch (error) {
-      setSnackbar({
-        open: true,
-        message: error.message || "Unexpected error during login",
-        severity: "error"
-      });
-    }
-  }}
->
-  View Claim
-</Button>
-
-
-                </div>
-              )}
-
-              {/* Existing form fields */}
-              {searchType !== "employer" && (
-                <div className="modal-form-row">
-                  <div className="modal-form-group" style={{ flex: 1 }}>
-                    <label style={{ fontSize: "0.875rem" }}>First Name:</label>
-                    <input
-                      name="firstName"
-                      value={formData.firstName}
-                      onChange={handleChange}
-                      placeholder="Enter first name"
-                      style={{
-                        height: "32px",
-                        fontSize: "0.875rem",
-                        padding: "4px 8px",
-                        border: formErrors.firstName
-                          ? "1px solid red"
-                          : "1px solid #ccc"
-                      }}
-                    />
-                    {formErrors.firstName && (
-                      <span style={{ color: "red", fontSize: "0.75rem" }}>
-                        {formErrors.firstName}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="modal-form-group" style={{ flex: 1 }}>
-                    <label style={{ fontSize: "0.875rem" }}>
-                      Middle Name (Optional):
-                    </label>
-                    <input
-                      name="middleName"
-                      value={formData.middleName}
-                      onChange={handleChange}
-                      placeholder="Enter middle name"
-                      style={{
-                        height: "32px",
-                        fontSize: "0.875rem",
-                        padding: "4px 8px",
-                        border: "1px solid #ccc"
-                      }}
-                    />
-                  </div>
-
-                  <div className="modal-form-group" style={{ flex: 1 }}>
-                    <label style={{ fontSize: "0.875rem" }}>
-                      Last Name
-                      {formData.requester === "Employer" ? " (Optional)" : ""}:
-                    </label>
-                    <input
-                      name="lastName"
-                      value={formData.lastName}
-                      onChange={handleChange}
-                      placeholder="Enter last name"
-                      style={{
-                        height: "32px",
-                        fontSize: "0.875rem",
-                        padding: "4px 8px",
-                        border:
-                          formErrors.lastName &&
-                          formData.requester !== "Employer"
-                            ? "1px solid red"
-                            : "1px solid #ccc"
-                      }}
-                    />
-                    {formErrors.lastName &&
-                      formData.requester !== "Employer" && (
-                        <span style={{ color: "red", fontSize: "0.75rem" }}>
-                          {formErrors.lastName}
-                        </span>
-                      )}
-                  </div>
-                </div>
-              )}
-
-              {/* Phone & NIDA */}
-              <div className="modal-form-row">
-                <div className="modal-form-group">
-                  <label style={{ fontSize: "0.875rem" }}>Phone Number:</label>
-                  <input
-                    type="tel"
-                    name="phoneNumber"
-                    value={formData.phoneNumber}
-                    onChange={handleChange}
-                    placeholder="Enter phone number"
-                    style={{
-                      height: "32px",
-                      fontSize: "0.875rem",
-                      padding: "4px 8px",
-                      border: formErrors.phoneNumber
-                        ? "1px solid red"
-                        : "1px solid #ccc"
-                    }}
-                  />
-                  {formErrors.phoneNumber && (
-                    <span style={{ color: "red", fontSize: "0.75rem" }}>
-                      {formErrors.phoneNumber}
-                    </span>
-                  )}
-                </div>
-
-                <div className="modal-form-group">
-                  <label style={{ fontSize: "0.875rem" }}>
-                    {formData.requester === "Employer"
-                      ? "TIN:"
-                      : "National Identification Number:"}
-                  </label>
-                  <input
-                    name="nidaNumber"
-                    value={formData.nidaNumber}
-                    onChange={handleChange}
-                    placeholder={
-                      formData.requester === "Employer"
-                        ? "Enter TIN number"
-                        : "Enter NIN number"
-                    }
-                    style={{
-                      height: "32px",
-                      fontSize: "0.875rem",
-                      padding: "4px 8px",
-                      border: formErrors.nidaNumber
-                        ? "1px solid red"
-                        : "1px solid #ccc"
-                    }}
-                  />
-                  {formErrors.nidaNumber && (
-                    <span style={{ color: "red", fontSize: "0.75rem" }}>
-                      {formErrors.nidaNumber}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Requester & Institution */}
-              <div className="modal-form-row">
-                <div className="modal-form-group">
-                  <label style={{ fontSize: "0.875rem" }}>Requester:</label>
-                  <select
-                    name="requester"
-                    value={formData.requester}
-                    onChange={handleChange}
-                    style={{
-                      height: "32px",
-                      fontSize: "0.875rem",
-                      padding: "4px 8px",
-                      width: "100%",
-                      border: formErrors.requester
-                        ? "1px solid red"
-                        : "1px solid #ccc"
-                    }}
-                  >
-                    <option value="">Select..</option>
-                    <option value="Employee">Employee</option>
-                    <option value="Employer">Employer</option>
-                    <option value="Pensioners">Pensioners</option>
-                    <option value="Stakeholders">Stakeholders</option>
-                    <option value="Representative">Representative</option>
-                  </select>
-                  {formErrors.requester && (
-                    <span style={{ color: "red", fontSize: "0.75rem" }}>
-                      {formErrors.requester}
-                    </span>
-                  )}
-                </div>
-
-                <div className="modal-form-group">
-                  <label style={{ fontSize: "0.875rem" }}>Institution:</label>
-                  <input
-                    name="institution"
-                    value={formData.institution}
-                    onChange={handleChange}
-                    placeholder="Enter Institution"
-                    style={{
-                      height: "32px",
-                      fontSize: "0.875rem",
-                      padding: "4px 8px",
-                      border: formErrors.institution
-                        ? "1px solid red"
-                        : "1px solid #ccc"
-                    }}
-                  />
-                  {formErrors.institution && (
-                    <span style={{ color: "red", fontSize: "0.75rem" }}>
-                      {formErrors.institution}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* New fields for Representative if selected */}
-              {formData.requester === "Representative" && (
-                <>
                   <Typography
-                    variant="h6"
-                    sx={{ mt: 3, mb: 1, fontWeight: "bold" }}
+                    variant="subtitle1"
+                    sx={{ fontWeight: 600, color: "#1976d2" }}
                   >
-                    Representative Details
+                    {ticket.ticket_id}
                   </Typography>
-                  <div className="modal-form-row">
-                    <div className="modal-form-group">
-                      <label style={{ fontSize: "0.875rem" }}>
-                        Representative Name:
-                      </label>
-                      <input
-                        name="requesterName"
-                        value={formData.requesterName}
-                        onChange={handleChange}
-                        placeholder="Enter representative's name"
-                        style={{
-                          height: "32px",
-                          fontSize: "0.875rem",
-                          padding: "4px 8px",
-                          border: formErrors.requesterName
-                            ? "1px solid red"
-                            : "1px solid #ccc"
-                        }}
-                      />
-                      {formErrors.requesterName && (
-                        <span style={{ color: "red", fontSize: "0.75rem" }}>
-                          {formErrors.requesterName}
-                        </span>
-                      )}
-                    </div>
-                    <div className="modal-form-group">
-                      <label style={{ fontSize: "0.875rem" }}>
-                        Representative Phone Number:
-                      </label>
-                      <input
-                        type="tel"
-                        name="requesterPhoneNumber"
-                        value={formData.requesterPhoneNumber}
-                        onChange={handleChange}
-                        placeholder="Enter representative's phone number"
-                        style={{
-                          height: "32px",
-                          fontSize: "0.875rem",
-                          padding: "4px 8px",
-                          border: formErrors.requesterPhoneNumber
-                            ? "1px solid red"
-                            : "1px solid #ccc"
-                        }}
-                      />
-                      {formErrors.requesterPhoneNumber && (
-                        <span style={{ color: "red", fontSize: "0.75rem" }}>
-                          {formErrors.requesterPhoneNumber}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="modal-form-row">
-                    <div className="modal-form-group">
-                      <label style={{ fontSize: "0.875rem" }}>
-                        Representative Email (Optional):
-                      </label>
-                      <input
-                        type="email"
-                        name="requesterEmail"
-                        value={formData.requesterEmail}
-                        onChange={handleChange}
-                        placeholder="Enter representative's email"
-                        style={{
-                          height: "32px",
-                          fontSize: "0.875rem",
-                          padding: "4px 8px",
-                          border: "1px solid #ccc"
-                        }}
-                      />
-                    </div>
-                    <div className="modal-form-group">
-                      <label style={{ fontSize: "0.875rem" }}>
-                        Representative Address (Optional):
-                      </label>
-                      <input
-                        name="requesterAddress"
-                        value={formData.requesterAddress}
-                        onChange={handleChange}
-                        placeholder="Enter representative's address"
-                        style={{
-                          height: "32px",
-                          fontSize: "0.875rem",
-                          padding: "4px 8px",
-                          border: "1px solid #ccc"
-                        }}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="modal-form-row">
-                    <div className="modal-form-group">
-                      <label style={{ fontSize: "0.875rem" }}>
-                        Relationship to Employee/Employee:
-                      </label>
-                      <input
-                        name="relationshipToEmployee"
-                        value={formData.relationshipToEmployee}
-                        onChange={handleChange}
-                        placeholder="e.g., Parent, Spouse, Child"
-                        style={{
-                          height: "32px",
-                          fontSize: "0.875rem",
-                          padding: "4px 8px",
-                          border: formErrors.relationshipToEmployee
-                            ? "1px solid red"
-                            : "1px solid #ccc"
-                        }}
-                      />
-                      {formErrors.relationshipToEmployee && (
-                        <span style={{ color: "red", fontSize: "0.75rem" }}>
-                          {formErrors.relationshipToEmployee}
-                        </span>
-                      )}
-                    </div>
-                    <div className="modal-form-group"></div>{" "}
-                    {/* Empty for alignment */}
-                  </div>
-                </>
-              )}
-
-              {/* Region & District */}
-              <div className="modal-form-row">
-                <div className="modal-form-group">
-                  <label style={{ fontSize: "0.875rem" }}>Region:</label>
-                  <input
-                    name="region"
-                    value={formData.region}
-                    onChange={handleChange}
-                    placeholder="Enter region"
-                    style={{
-                      height: "32px",
-                      fontSize: "0.875rem",
-                      padding: "4px 8px",
-                      border: formErrors.region
-                        ? "1px solid red"
-                        : "1px solid #ccc"
-                    }}
-                  />
-                  {formErrors.region && (
-                    <span style={{ color: "red", fontSize: "0.75rem" }}>
-                      {formErrors.region}
-                    </span>
-                  )}
-                </div>
-
-                <div className="modal-form-group">
-                  <label style={{ fontSize: "0.875rem" }}>District:</label>
-                  <input
-                    name="district"
-                    value={formData.district}
-                    onChange={handleChange}
-                    placeholder="Enter district"
-                    style={{
-                      height: "32px",
-                      fontSize: "0.875rem",
-                      padding: "4px 8px",
-                      border: formErrors.district
-                        ? "1px solid red"
-                        : "1px solid #ccc"
-                    }}
-                  />
-                  {formErrors.district && (
-                    <span style={{ color: "red", fontSize: "0.75rem" }}>
-                      {formErrors.district}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Category & Channel */}
-              <div className="modal-form-row">
-                <div className="modal-form-group" style={{ flex: 1 }}>
-                  <label style={{ fontSize: "0.875rem" }}>Category:</label>
-                  <select
-                    name="category"
-                    value={formData.category}
-                    onChange={handleChange}
-                    style={{
-                      height: "32px",
-                      fontSize: "0.875rem",
-                      padding: "4px 8px",
-                      width: "100%",
-                      border: formErrors.category
-                        ? "1px solid red"
-                        : "1px solid #ccc"
-                    }}
-                  >
-                    <option value="">Select Category</option>
-                    <option value="Inquiry">Inquiry</option>
-                    <option value="Complaint">Complaint</option>
-                    <option value="Suggestion">Suggestion</option>
-                    <option value="Compliment">Compliment</option>
-                  </select>
-                  {formErrors.category && (
-                    <span style={{ color: "red", fontSize: "0.75rem" }}>
-                      {formErrors.category}
-                    </span>
-                  )}
-                </div>
-
-                <div className="modal-form-group" style={{ flex: 1 }}>
-                  <label style={{ fontSize: "0.875rem" }}>Channel:</label>
-                  <select
-                    name="channel"
-                    value={formData.channel}
-                    onChange={handleChange}
-                    style={{
-                      height: "32px",
-                      fontSize: "0.875rem",
-                      padding: "4px 8px",
-                      width: "100%",
-                      border: formErrors.channel
-                        ? "1px solid red"
-                        : "1px solid #ccc"
-                    }}
-                  >
-                    <option value="">Select Channel</option>
-                    <option value="Call">Call</option>
-                    <option value="Email">Email</option>
-                  </select>
-                  {formErrors.channel && (
-                    <span style={{ color: "red", fontSize: "0.75rem" }}>
-                      {formErrors.channel}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Inquiry Type */}
-              {formData.category === "Inquiry" && (
-                <div className="modal-form-group" style={{ flex: 1 }}>
-                  <label style={{ fontSize: "0.875rem" }}>Inquiry Type:</label>
-                  <select
-                    name="inquiry_type"
-                    value={formData.inquiry_type || ""}
-                    onChange={handleChange}
-                    style={{
-                      height: "32px",
-                      fontSize: "0.875rem",
-                      padding: "4px 8px",
-                      width: "100%",
-                      border: formErrors.inquiry_type
-                        ? "1px solid red"
-                        : "1px solid #ccc"
-                    }}
-                  >
-                    <option value="">Select Inquiry Type</option>
-                    <option value="Claims">Claims</option>
-                    <option value="Compliance">Compliance</option>
-                  </select>
-                  {formErrors.inquiry_type && (
-                    <span style={{ color: "red", fontSize: "0.75rem" }}>
-                      {formErrors.inquiry_type}
-                    </span>
-                  )}
-                </div>
-              )}
-
-              {/* Subject, Sub-section, Section */}
-              <div className="modal-form-row">
-                <div className="modal-form-group" style={{ flex: 1 }}>
-                  <label style={{ fontSize: "0.875rem" }}>Subject:</label>
-                  <select
-                    name="functionId"
-                    value={formData.functionId}
-                    onChange={handleChange}
-                    style={{
-                      height: "32px",
-                      fontSize: "0.875rem",
-                      padding: "4px 8px",
-                      width: "100%",
-                      border: formErrors.functionId
-                        ? "1px solid red"
-                        : "1px solid #ccc"
-                    }}
-                  >
-                    <option value="">Select Subject</option>
-                    {functionData.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                  </select>
-                  {formErrors.functionId && (
-                    <span style={{ color: "red", fontSize: "0.75rem" }}>
-                      {formErrors.functionId}
-                    </span>
-                  )}
-                </div>
-
-                <div className="modal-form-group">
-                  <label style={{ fontSize: "0.875rem" }}>Sub-section:</label>
-                  <input
-                    value={selectedFunction}
-                    readOnly
-                    style={{
-                      height: "32px",
-                      fontSize: "0.875rem",
-                      padding: "4px 8px",
-                      backgroundColor: "#f5f5f5"
-                    }}
-                  />
-                </div>
-
-                <div className="modal-form-group">
-                  <label style={{ fontSize: "0.875rem" }}>Section:</label>
-                  <input
-                    value={selectedSection || "Unit"}
-                    readOnly
-                    style={{
-                      height: "32px",
-                      fontSize: "0.875rem",
-                      padding: "4px 8px",
-                      backgroundColor: "#f5f5f5"
-                    }}
-                  />
-                </div>
-              </div>
-
-              {/* Description */}
-              <div className="modal-form-group">
-                <label style={{ fontSize: "0.875rem" }}>Description:</label>
-                <textarea
-                  rows="2"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  placeholder="Detailed descriptions.."
-                  style={{
-                    fontSize: "0.875rem",
-                    padding: "8px",
-                    resize: "vertical",
-                    border: formErrors.description
-                      ? "1px solid red"
-                      : "1px solid #ccc"
-                  }}
-                />
-                {formErrors.description && (
-                  <span style={{ color: "red", fontSize: "0.75rem" }}>
-                    {formErrors.description}
-                  </span>
-                )}
-              </div>
-
-              {/* Submit */}
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  gap: "10px",
-                  marginTop: "1.5rem"
-                }}
-              >
-                <button
-                  className="cancel-btn"
-                  onClick={() => setShowModal(false)}
-                >
-                  Cancel
-                </button>
-                <button className="submit-btn" onClick={(e) => handleSubmit(e)}>
-                  Submit to Backoffice
-                </button>
-                <button
-                  className="close-btn"
-                  style={{ background: "gray", color: "white" }}
-                  onClick={(e) => handleSubmit(e, "closed")}
-                >
-                  Close Ticket
-                </button>
-              </div>
-            </div>
-          </Box>
-          <Box
-            sx={{
-              flex: 1,
-              p: 4,
-              overflowY: "auto",
-              minWidth: 350,
-              maxWidth: 420,
-              maxHeight: "90vh"
-            }}
-          >
-            {/* Employer/Institution Details */}
-            {selectedInstitution && (
-              <div
-                style={{
-                  flex: 1,
-                  background: "#e3f2fd",
-                  borderRadius: "8px",
-                  padding: "16px",
-                  minWidth: 0,
-                  marginBottom: 16
-                }}
-              >
-                <h4 style={{ color: "#1976d2", marginBottom: 12 }}>
-                  Institution Details
-                </h4>
-                <div>
-                  <strong>Name:</strong> {selectedInstitution.name}
-                </div>
-                <div>
-                  <strong>TIN:</strong> {selectedInstitution.tin}
-                </div>
-                <div>
-                  <strong>Phone:</strong> {selectedInstitution.phone}
-                </div>
-                <div>
-                  <strong>Email:</strong> {selectedInstitution.email}
-                </div>
-                <div>
-                  <strong>Status:</strong> {selectedInstitution.employer_status}
-                </div>
-                <div>
-                  <strong>Allocated User Name:</strong>{" "}
-                  {selectedInstitution.allocated_staff_name}
-                </div>
-                <div>
-                  <strong>Allocated Username:</strong>{" "}
-                  {selectedInstitution.allocated_staff_username}
-                </div>
-              </div>
-            )}
-            {/* Ticket history for entered phone number */}
-            {formData.phoneNumber && (
-              <div
-                style={{
-                  marginTop: 8,
-                  background: "#f8f9fa",
-                  borderRadius: 8,
-                  padding: 0,
-                  minHeight: 60
-                }}
-              >
-                <h4
-                  style={{
-                    color: "#1976d2",
-                    margin: "16px 0 8px 0",
-                    paddingLeft: 16
-                  }}
-                >
-                  Ticket History for {formData.phoneNumber}
-                </h4>
-                {creationTicketsLoading ? (
-                  <div style={{ textAlign: "center", padding: 12 }}>
-                    <CircularProgress size={22} />
-                  </div>
-                ) : creationFoundTickets.length > 0 ? (
-                  creationFoundTickets.map((ticket) => (
-                    <Box
-                      key={ticket.id}
-                      onClick={() => setCreationActiveTicketId(ticket.id)}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography
                       sx={{
-                        mb: 2,
-                        p: 2,
-                        borderRadius: 2,
-                        bgcolor:
-                          creationActiveTicketId === ticket.id
-                            ? "#e3f2fd"
-                            : "#fff",
-                        cursor: "pointer",
-                        border:
-                          creationActiveTicketId === ticket.id
-                            ? "2px solid #1976d2"
-                            : "1px solid #e0e0e0",
-                        boxShadow: "0 2px 4px rgba(0,0,0,0.05)",
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 1,
-                        transition: "box-shadow 0.2s, border-color 0.2s",
-                        "&:hover": {
-                          boxShadow: "0 4px 8px rgba(25,118,210,0.1)",
-                          borderColor: "#1976d2"
+                        px: 1.5,
+                        py: 0.5,
+                        borderRadius: "12px",
+                        color: "white",
+                        background:
+                          ticket.status === "Closed"
+                            ? "#757575"
+                            : ticket.status === "Open"
+                            ? "#2e7d32"
+                            : "#1976d2",
+                        fontSize: "0.75rem",
+                        fontWeight: 500
+                      }}
+                    >
+                      {ticket.status}
+                    </Typography>
+                    <IconButton
+                      size="small"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenJustificationHistory(ticket);
+                      }}
+                      sx={{
+                        color: '#1976d2',
+                        '&:hover': {
+                          backgroundColor: 'rgba(25, 118, 210, 0.1)'
                         }
                       }}
+                      title="View Recomendation History"
                     >
-                      <Box
-                        sx={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center"
-                        }}
-                      >
-                        <Typography
-                          variant="subtitle1"
-                          sx={{ fontWeight: 600, color: "#1976d2" }}
-                        >
-                          {ticket.ticket_id}
-                        </Typography>
-                        <Typography
-                          sx={{
-                            px: 1.5,
-                            py: 0.5,
-                            borderRadius: "12px",
-                            color: "white",
-                            background:
-                              ticket.status === "Closed"
-                                ? "#757575"
-                                : ticket.status === "Open"
-                                ? "#2e7d32"
-                                : "#1976d2",
-                            fontSize: "0.75rem",
-                            fontWeight: 500
-                          }}
-                        >
-                          {ticket.status}
-                        </Typography>
-                      </Box>
-                      <Box sx={{ mt: 1 }}>
-                        <Typography
-                          variant="body2"
-                          sx={{ color: "#666", mb: 0.5 }}
-                        >
-                          Created:{" "}
-                          {new Date(ticket.created_at).toLocaleDateString()}
-                        </Typography>
-                        <Typography
-                          variant="subtitle2"
-                          sx={{ fontWeight: 500, color: "#333", mb: 1 }}
-                        >
-                          Subject: {ticket.subject}
-                        </Typography>
-                        <Typography
-                          variant="body2"
-                          sx={{
-                            color: "#666",
-                            display: "-webkit-box",
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: "vertical",
-                            overflow: "hidden",
-                            textOverflow: "ellipsis"
-                          }}
-                        >
-                          Description: {ticket.description}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  ))
-                ) : (
-                  <div
-                    style={{
-                      color: "#888",
-                      fontSize: "0.95em",
-                      textAlign: "center",
-                      padding: 16
+                      <ChatIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                </Box>
+                <Box sx={{ mt: 1 }}>
+                  <Typography
+                    variant="body2"
+                    sx={{ color: "#666", mb: 0.5 }}
+                  >
+                    Created:{" "}
+                    {new Date(ticket.created_at).toLocaleDateString()}
+                  </Typography>
+                  <Typography
+                    variant="subtitle2"
+                    sx={{ fontWeight: 500, color: "#333", mb: 1 }}
+                  >
+                    Subject: {ticket.subject}
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: "#666",
+                      display: "-webkit-box",
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: "vertical",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
                     }}
                   >
-                    No previous tickets found for this number.
-                  </div>
-                )}
-              </div>
-            )}
-          </Box>
-        </Box>
-      </Modal>
+                    Description: {ticket.description}
+                  </Typography>
+                </Box>
+              </Box>
+            ))
+          ) : (
+            <div
+              style={{
+                color: "#888",
+                fontSize: "0.95em",
+                textAlign: "center",
+                padding: 16,
+              }}
+            >
+              No previous tickets found for this number.
+            </div>
+          )}
+        </div>
+      )}
 
-      {/* Column Selector Modal */}
-      <ColumnSelector
-        open={columnModalOpen}
-        onClose={() => setColumnModalOpen(false)}
-        data={getFilteredTickets()}
-        onColumnsChange={setActiveColumns}
-      />
 
       {/* Snackbar */}
       <Snackbar
@@ -3782,164 +3424,62 @@ const AgentCRM = () => {
           </div>
         </div>
       )}
-
-      {/* In the modal JSX, just below the Institution input field */}
-      {formData.requester === "Employee" && employerDetails && (
-        <div
-          style={{
-            margin: "10px 0",
-            padding: "10px",
-            background: "#e3f2fd",
-            borderRadius: "6px"
-          }}
-        >
-          <div>
-            <strong>Allocated User Name:</strong>{" "}
-            {employerDetails.allocated_staff_name
-              ? employerDetails.allocated_staff_name
-              : JSON.stringify(employerDetails)}
-          </div>
-          <div>
-            <strong>Allocated Username:</strong>{" "}
-            {employerDetails.allocated_staff_username
-              ? employerDetails.allocated_staff_username
-              : JSON.stringify(employerDetails)}
-          </div>
-        </div>
-      )}
-
-      {/* In the modal JSX, above the Institution input field */}
-      {/* <Autocomplete
-        value={selectedInstitution}
-        onChange={(event, newValue) => {
-          setSelectedInstitution(newValue);
-          if (newValue) {
-            setFormData((prev) => ({
-              ...prev,
-              institution: newValue.name || "",
-              employerTin: newValue.tin || "",
-              phoneNumber: newValue.phone || "",
-              employerEmail: newValue.email || "",
-              employerAllocatedStaffName: newValue.allocated_staff_name || "",
-              employerAllocatedStaffUsername:
-                newValue.allocated_staff_username || ""
-            }));
-          }
-        }}
-        inputValue={institutionSearch}
-        onInputChange={(event, newInputValue) => {
-          setInstitutionSearch(newInputValue);
-          handleInstitutionSearch(newInputValue);
-        }}
-        options={institutionSuggestions}
-        getOptionLabel={(option) => option.name || ""}
-        renderInput={(params) => (
-          <TextField
-            {...params}
-            label="Search Institution"
-            placeholder="Type institution name..."
-          />
-        )}
-        style={{ marginBottom: 16 }}
-      />
-
-      {selectedInstitution && (
-        <div
-          style={{
-            margin: "10px 0",
-            padding: "10px",
-            background: "#e3f2fd",
-            borderRadius: "6px"
-          }}
-        >
-          <div>
-            <strong>Allocated User Name:</strong>{" "}
-            {selectedInstitution.allocated_staff_name || "N/A"}
-          </div>
-          <div>
-            <strong>Allocated Username:</strong>{" "}
-            {selectedInstitution.allocated_staff_username || "N/A"}
-          </div>
-          <div>
-            <strong>TIN:</strong> {selectedInstitution.tin || "N/A"}
-          </div>
-          <div>
-            <strong>Phone:</strong> {selectedInstitution.phone || "N/A"}
-          </div>
-          <div>
-            <strong>Email:</strong> {selectedInstitution.email || "N/A"}
-          </div>
-        </div>
-      )}
-
-      {selectedInstitution && (
-        <Button
-          variant="outlined"
-          style={{ marginBottom: 8 }}
-          onClick={() => setShowInstitutionModal(true)}
-        >
-          View Institution Details
-        </Button>
-      )} */}
-
-      {/* Add the side modal for institution details */}
-      {/* <Modal
-        open={showInstitutionModal}
-        onClose={() => setShowInstitutionModal(false)}
+      
+      {/* Justification History Modal */}
+      <Modal
+        open={isJustificationModalOpen}
+        onClose={handleCloseJustificationModal}
       >
         <Box
           sx={{
-            position: "fixed",
-            right: 0,
-            top: 0,
-            height: "100vh",
-            width: 400,
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: { xs: "90%", sm: 600 },
+            maxHeight: "80vh",
+            overflowY: "auto",
             bgcolor: "background.paper",
             boxShadow: 24,
-            p: 4,
-            overflowY: "auto"
+            borderRadius: 2,
+            p: 3
           }}
         >
-          <Typography variant="h6" gutterBottom>
-            Institution Details
+          <Typography variant="h6" component="h2" gutterBottom>
+            View Updates
           </Typography>
-          {selectedInstitution && (
-            <>
-              <div>
-                <strong>Name:</strong> {selectedInstitution.name}
-              </div>
-              <div>
-                <strong>TIN:</strong> {selectedInstitution.tin}
-              </div>
-              <div>
-                <strong>Phone:</strong> {selectedInstitution.phone}
-              </div>
-              <div>
-                <strong>Email:</strong> {selectedInstitution.email}
-              </div>
-              <div>
-                <strong>Status:</strong> {selectedInstitution.employer_status}
-              </div>
-              <div>
-                <strong>Allocated User Name:</strong>{" "}
-                {selectedInstitution.allocated_staff_name}
-              </div>
-              <div>
-                <strong>Allocated Username:</strong>{" "}
-                {selectedInstitution.allocated_staff_username}
-              </div>
-            </>
-          )}
-          <Button
-            variant="contained"
-            color="primary"
-            sx={{ mt: 2 }}
-            onClick={() => setShowInstitutionModal(false)}
+          <Divider sx={{ mb: 2 }} />
+          <Box>
+            <TicketUpdates 
+              ticketId={selectedTicketForJustification?.id}
+              currentUserId={localStorage.getItem('userId')}
+              canAddUpdates={selectedTicketForJustification?.status !== 'Closed' && selectedTicketForJustification?.status !== 'Attended and Recommended'}
+              isAssigned={selectedTicketForJustification?.assigned_to_id === localStorage.getItem('userId')}
+            />
+          </Box>
+          <Box
+            sx={{ mt: 2, display: "flex", justifyContent: "flex-end", gap: 1 }}
           >
-            Close
-          </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleCloseJustificationModal}
+            >
+              Close
+            </Button>
+          </Box>
         </Box>
-      </Modal> */}
+      </Modal>
+
+      {/* Advanced Ticket Create Modal */}
+      <AdvancedTicketCreateModal
+        open={showAdvancedTicketModal}
+        onClose={() => setShowAdvancedTicketModal(false)}
+        onOpen={() => setShowAdvancedTicketModal(true)}
+        initialPhoneNumber={ticketPhoneNumber}
+        functionData={functionData}
+      />
+
     </div>
   );
 };

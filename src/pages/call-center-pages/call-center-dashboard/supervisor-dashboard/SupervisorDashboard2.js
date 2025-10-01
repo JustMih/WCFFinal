@@ -427,7 +427,7 @@ export default function SupervisorDashboard2() {
     <div className="call-center-agent-container">
       <div className="dashboard-header">
         <h3 className="call-center-agent-title">Supervisor Dashboard 2</h3>
-        <div className="notification-bell-container">
+        {/* <div className="notification-bell-container">
           <button 
             className="notification-bell-btn"
             onClick={() => setShowAlerts(!showAlerts)}
@@ -489,7 +489,7 @@ export default function SupervisorDashboard2() {
               </div>
             </div>
           )}
-        </div>
+        </div> */}
       </div>
 
       {/* Queue Monitoring Section */}
