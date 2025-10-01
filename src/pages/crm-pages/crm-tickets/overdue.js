@@ -1,43 +1,26 @@
 import React, { useState, useEffect } from "react";
-import { FaEye, FaPlus } from "react-icons/fa";
-import { FiSettings } from "react-icons/fi";
+import { FaEye } from "react-icons/fa";
 import {
   Alert,
   Box,
-  Button,
-  Divider,
-  Grid,
-  IconButton,
-  Modal,
   Snackbar,
   Tooltip,
   Typography,
-  TextField,
-  Avatar,
-  Paper,
 } from "@mui/material";
 import { baseURL } from "../../../config";
 import "./ticket.css";
-import ChatIcon from '@mui/icons-material/Chat';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
 import TicketDetailsModal from '../../../components/TicketDetailsModal';
 import Pagination from '../../../components/Pagination';
 import TableControls from "../../../components/TableControls";
 import TicketFilters from '../../../components/ticket/TicketFilters';
 
 export default function Crm() {
-  const [agentTickets, setAgentTickets] = useState([]);
-  const [agentTicketsError, setAgentTicketsError] = useState(null);
   const [userId, setUserId] = useState("");
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(5);
-  const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
-  const [comments, setComments] = useState("");
   const [modal, setModal] = useState({ isOpen: false, type: "", message: "" });
   const [activeColumns, setActiveColumns] = useState([
     "ticket_id",
