@@ -27,6 +27,6 @@ server.js
 src/config.js
 
 
-.env
+#.env
 localhost+1-key.pem
 localhost+1.pem
