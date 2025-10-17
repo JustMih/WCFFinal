@@ -302,9 +302,9 @@ export default function AgentsDashboard() {
   const sipPassword = localStorage.getItem("sipPassword");
 
   const sipConfig = {
-    uri: UserAgent.makeURI(`sip:${extension}@192.168.1.170`),
+    uri: UserAgent.makeURI(`sip:${extension}@10.52.0.19`),
     transportOptions: {
-      server: "wss://192.168.1.170:8089/ws",
+      server: "wss://10.52.0.19:8089/ws",
     },
     authorizationUsername: extension,
     authorizationPassword: sipPassword,
@@ -578,7 +578,7 @@ export default function AgentsDashboard() {
   const handleAttendedTransferDial = () => {
     if (!userAgent || !transferTarget) return;
 
-    const targetURI = UserAgent.makeURI(`sip:${transferTarget}@192.168.1.170`);
+    const targetURI = UserAgent.makeURI(`sip:${transferTarget}@10.52.0.19`);
     if (!targetURI) {
       console.error("Invalid transfer target URI");
       return;
@@ -750,7 +750,7 @@ export default function AgentsDashboard() {
       console.log(`📞 Formatted number: ${number} → ${formattedNumber}`);
     }
 
-    const target = `sip:${formattedNumber}@192.168.1.170`;
+    const target = `sip:${formattedNumber}@10.52.0.19`;
     const targetURI = UserAgent.makeURI(target);
 
     if (!targetURI) {
@@ -835,7 +835,7 @@ export default function AgentsDashboard() {
   const handleDial = () => {
     if (!userAgent || !phoneNumber) return;
 
-    const target = `sip:${phoneNumber}@192.168.1.170`;
+    const target = `sip:${phoneNumber}@10.52.0.19`;
     const targetURI = UserAgent.makeURI(target);
     if (!targetURI) return;
 
@@ -913,7 +913,7 @@ export default function AgentsDashboard() {
 
       // Step 3: Proceed with the transfer if the target is valid
       const targetURI = UserAgent.makeURI(
-        `sip:${transferTarget}@192.168.1.170`
+        `sip:${transferTarget}@10.52.0.19`
       );
       if (!targetURI) {
         console.error("Invalid transfer target URI");

@@ -1436,9 +1436,18 @@ export default function TicketDetailsModal({
             ? data.data
             : [];
 
-          // Restrict list to same unit/section as logged-in user (for all roles)
+          // Filter attendees based on user role
+          const currentUserRole = localStorage.getItem("role") || "";
           const currentUnit = (localStorage.getItem("unit_section") || "").toString().toLowerCase();
+          const currentReportTo = (localStorage.getItem("report_to") || "").toString().toLowerCase();
+          
           const filtered = raw.filter(a => {
+            // For focal persons, head-of-unit, and manager, backend already filters by report_to/designation, so just return all attendees
+            if (currentUserRole === "focal-person" || currentUserRole === "head-of-unit" || currentUserRole === "manager") {
+              return true;
+            }
+            
+            // For other roles, filter by unit_section
             const attendeeUnit = (a.unit_section || a.unitSection || "").toString().toLowerCase();
             return currentUnit && attendeeUnit && attendeeUnit === currentUnit;
           });

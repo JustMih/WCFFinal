@@ -503,16 +503,15 @@ export default function FocalPersonDashboard() {
   console.log("All available attendees (before filtering):", attendees);
 
   const filteredAttendees = attendees.filter((a) => {
-    const attendeeUnit = (a.unit_section || "").trim().toLowerCase();
     const attendeeRole = (a.role || "").toLowerCase();
     
-    const matches = allowedRoles.includes(attendeeRole) &&
-                    attendeeUnit &&
-                    attendeeUnit === currentUserUnitSection;
+    // For focal persons, we don't need additional filtering since backend already filters by report_to
+    // Just filter by allowed roles
+    const matches = allowedRoles.includes(attendeeRole);
 
     // DEBUGGING: Log each attendee and the comparison result
     console.log(
-      `Comparing: Attendee Unit: "${attendeeUnit}" | Current User Unit: "${currentUserUnitSection}" | Attendee Role: "${attendeeRole}" | Matches: ${matches}`
+      `Comparing: Attendee Role: "${attendeeRole}" | Matches: ${matches}`
     );
 
     return matches;

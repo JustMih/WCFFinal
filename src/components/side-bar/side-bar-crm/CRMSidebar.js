@@ -227,7 +227,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                   )}
                 </div>
               </NavLink>
-
+{/* 
               <NavLink
                 to="/instagram"
                 className={({ isActive }) =>
@@ -240,7 +240,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                     <span className="menu-text">Instagram Management</span>
                   )}
                 </div>
-              </NavLink>
+              </NavLink> */}
 
               <div
                 className={`menu-item ${

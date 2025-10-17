@@ -9,7 +9,7 @@ const Livestream = () => {
   const [calls, setCalls] = useState([]);
 
   useEffect(() => {
-    const socket = io("http://192.168.1.170:5070", { transports: ["websocket"] });
+    const socket = io("https://10.52.0.19", { transports: ["websocket"] });
   
     socket.on("connect", () => {
       console.log("✅ Connected to socket:", socket.id);
