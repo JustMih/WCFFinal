@@ -94,7 +94,7 @@ export default function AgentsDashboard() {
   const [functionData, setFunctionData] = useState([]);
   const [showTicketModal, setShowTicketModal] = useState(false);
   const [ticketPhoneNumber, setTicketPhoneNumber] = useState("");
-  
+
   // Ticket form data preservation
   const [ticketFormData, setTicketFormData] = useState({});
   const [ticketType, setTicketType] = useState(null); // 'employer' or 'employee'
@@ -122,30 +122,48 @@ export default function AgentsDashboard() {
     if (!extension || !sipPassword) return null;
     return {
       uri: UserAgent.makeURI(`sip:${extension}@${SIP_DOMAIN}`),
-      transportOptions: { server: `wss://${SIP_DOMAIN}:8089/ws` },
+      transportOptions: {
+        server: `wss://${SIP_DOMAIN}:8089/ws`,
+        keepAliveInterval: 30, // Keep WebSocket alive
+        connectionTimeout: 10000, // Prevent timeout issues
+      },
       authorizationUsername: extension,
       authorizationPassword: sipPassword,
+      traceSip: true, // Enable SIP.js logging
       sessionDescriptionHandlerFactoryOptions: {
         constraints: { audio: true, video: false },
-        // Use TURN for external callers behind NATs/firewalls
+        codecs: ['PCMU', 'opus'], // Match Asterisk: PCMU prioritized
         peerConnectionConfiguration: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
-            // TODO: replace with your TURN server details
-            // { urls: ['turn:turn.example.com:3478','turns:turn.example.com:5349'], username: 'user', credential: 'pass' },
+            { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' }
           ],
+          iceTransportPolicy: 'all', // Allow host candidates
+          rtcpMuxPolicy: 'require', // Required for Asterisk WebRTC
+          bundlePolicy: 'balanced', // Improve compatibility
+          iceGatheringTimeout: 500, // Increased for reliable STUN response
+          // iceCandidateFilter: (candidate) => candidate.type === 'host' || candidate.type === 'srflx', // Prefer UDP candidates
         },
       },
+      hackIpInContact: true, // Force private IP in Contact header
+      register: true, // Ensure registration with Asterisk
+      log: {
+        level: 'debug', // Detailed logging
+        builtinEnabled: true,
+      },
+      // Additional WebRTC tweaks
+      allowLegacyNotifications: true, // For PJSIP compatibility
+      hackViaReceived: true, // Ensure correct IP in Via header
     };
   }, [extension, sipPassword]);
 
   // ---------- Helpers ----------
   const iconStyle = (bgColor) => ({ backgroundColor: bgColor, padding: 10, borderRadius: "50%", color: "white" });
-  
+
   // Test function for debugging incoming calls
   const testIncomingCall = () => {
     console.log("Testing incoming call...");
-    
+
     // Clean up any existing states first
     if (session) {
       setSession(null);
@@ -156,9 +174,9 @@ export default function AgentsDashboard() {
     setPhoneStatus("Idle");
     stopCallTimer();
     stopRingtone();
-    
+
     setLastIncomingNumber("123456789");
-    
+
     // Create a mock SIP invitation object for testing
     const mockInvitation = {
       test: true,
@@ -178,17 +196,17 @@ export default function AgentsDashboard() {
         }
       }
     };
-    
+
     setIncomingCall(mockInvitation);
     setShowPhonePopup(true);
     setPhoneStatus("Ringing");
-    
+
     // Test ringtone
     ringAudio.loop = true;
     ringAudio.volume = 0.7;
-    ringAudio.play().catch(() => {});
+    ringAudio.play().catch(() => { });
   };
-  
+
   const formatDuration = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -279,7 +297,7 @@ export default function AgentsDashboard() {
     if (number) fetchUserByPhoneNumber(number);
 
     ringAudio.loop = true; ringAudio.volume = 0.7;
-    ringAudio.play().catch(() => {});
+    ringAudio.play().catch(() => { });
 
     invitation.stateChange.addListener((state) => {
       if (state === SessionState.Terminated) {
@@ -312,19 +330,32 @@ export default function AgentsDashboard() {
       setPhoneStatus("Not configured");
       return;
     }
+  
     const ua = new UserAgent(sipConfig);
     const registerer = new Registerer(ua);
-
-    // set delegate BEFORE start to handle early INVITEs
-    ua.delegate = { onInvite: handleIncomingInvite };
-
+  
+    // Handle incoming calls
+    ua.delegate = {
+      onInvite: (incomingSession) => {
+        console.log("Incoming call", incomingSession);
+        
+        handleIncomingInvite(incomingSession);
+      }
+    };
+  
     setUserAgent(ua);
-
+  
     ua
       .start()
-      .then(() => { registerer.register(); setPhoneStatus("Idle"); })
-      .catch((error) => { console.error("UA failed to start:", error); setPhoneStatus("Connection Failed"); });
-
+      .then(() => {
+        registerer.register();
+        setPhoneStatus("Idle");
+      })
+      .catch((error) => {
+        console.error("UA failed to start:", error);
+        setPhoneStatus("Connection Failed");
+      });
+  
     return () => {
       registerer.unregister().catch(console.error);
       ua.stop();
@@ -332,7 +363,7 @@ export default function AgentsDashboard() {
       stopCallTimer();
     };
   }, [sipConfig]);
-
+  
   // ---------- Fetch function data (ticket modal) ----------
   useEffect(() => {
     (async () => {
@@ -482,19 +513,19 @@ export default function AgentsDashboard() {
   // Modal swap functionality
   const swapToTicketModal = () => {
     if (showTicketModal) return; // Already open
-    
+
     console.log("=== SWAP TO TICKET MODAL ===");
     console.log("Current showTicketModal:", showTicketModal);
     console.log("Current showPhonePopup:", showPhonePopup);
     console.log("Current phoneStatus:", phoneStatus);
-    
+
     // Close phone popup and open ticket modal
     setShowPhonePopup(false);
     setShowTicketModal(true);
     setIsTicketModalOpen(true);
-    
+
     console.log("After setting showTicketModal to true and closing phone popup");
-    
+
     // Preserve current call context in ticket form data
     if (phoneStatus === "In Call" || phoneStatus === "Ringing") {
       setTicketFormData(prev => ({
@@ -510,7 +541,7 @@ export default function AgentsDashboard() {
 
   const swapToPhoneModal = () => {
     if (showPhonePopup) return; // Already open
-    
+
     console.log("Swapping to phone modal, closing ticket modal");
     setShowTicketModal(false);
     setIsTicketModalOpen(false);
@@ -521,13 +552,13 @@ export default function AgentsDashboard() {
     console.log("=== CLOSE TICKET MODAL CALLED ===");
     console.log("Current showTicketModal:", showTicketModal);
     console.log("Current isTicketModalOpen:", isTicketModalOpen);
-    
+
     setShowTicketModal(false);
     setIsTicketModalOpen(false);
-    
+
     console.log("After setting to false - showTicketModal:", false);
     console.log("After setting to false - isTicketModalOpen:", false);
-    
+
     // Form data is preserved in state for next time
     // Phone modal remains open in background
   };
@@ -555,17 +586,17 @@ export default function AgentsDashboard() {
   // Function to handle opening ticket modal
   const openTicketModal = (type = null) => {
     console.log("Opening ticket modal with type:", type);
-    
+
     // If type is provided, set it
     if (type) {
       handleTicketTypeSelect(type);
     }
-    
+
     // If we have preserved data and type, use that
     if (Object.keys(ticketFormData).length > 0 && ticketType && !type) {
       console.log("Using preserved ticket type:", ticketType);
     }
-    
+
     setShowTicketModal(true);
     setIsTicketModalOpen(true);
   };
@@ -574,13 +605,13 @@ export default function AgentsDashboard() {
   const handleTicketTypeSelect = (type) => {
     console.log("Ticket type selected:", type);
     setTicketType(type);
-    
+
     // Clear previous form data when switching types
     if (ticketType && ticketType !== type) {
       console.log("Switching ticket type - clearing previous form data");
       setTicketFormData({});
     }
-    
+
     // Set initial form data based on type
     const initialData = {
       ticketType: type,
@@ -589,7 +620,7 @@ export default function AgentsDashboard() {
       callDuration: callDuration,
       timestamp: new Date().toISOString()
     };
-    
+
     setTicketFormData(initialData);
     console.log("Initial form data set for type:", type, initialData);
   };
@@ -638,7 +669,7 @@ export default function AgentsDashboard() {
     const el = remoteAudioRef.current;
     if (el && el.setSinkId) {
       const deviceId = isSpeakerOn ? 'communications' : 'default';
-      el.setSinkId(deviceId).then(() => setIsSpeakerOn(!isSpeakerOn)).catch(() => {});
+      el.setSinkId(deviceId).then(() => setIsSpeakerOn(!isSpeakerOn)).catch(() => { });
     }
   };
   const toggleHold = () => {
@@ -656,94 +687,98 @@ export default function AgentsDashboard() {
   };
 
   const attachMediaStream = (sipSession) => {
-    const pc = sipSession.sessionDescriptionHandler.peerConnection;
+    if (!sipSession) return;
 
-    // Attach any already-present remote tracks
-    const existing = new MediaStream();
-    pc.getReceivers().forEach((r) => { if (r.track) existing.addTrack(r.track); });
-    if (remoteAudioRef.current) {
-      remoteAudioRef.current.srcObject = existing;
-      // remoteAudioRef.current.play().catch(() => {});
+    const pc = sipSession.sessionDescriptionHandler.peerConnection;
+    if (!pc) {
+      console.warn("No peer connection found on session");
+      return;
     }
 
-    // React to future tracks (common for external/PSTN calls)
+    const remoteElement = remoteAudioRef.current;
+    if (!remoteElement) {
+      console.warn("No remote audio element found");
+      return;
+    }
+
+    // Prepare a MediaStream for existing tracks
+    const existing = new MediaStream();
+    pc.getReceivers().forEach((r) => {
+      if (r.track) existing.addTrack(r.track);
+    });
+
+    // Attach any pre-existing tracks
+    if (existing.getTracks().length > 0) {
+      remoteElement.srcObject = existing;
+      remoteElement.play().catch((err) => console.warn("Autoplay blocked:", err));
+    }
+
+    // Handle future incoming tracks
     pc.ontrack = (event) => {
-      const stream = event.streams && event.streams[0] ? event.streams[0] : new MediaStream([event.track]);
-      if (remoteAudioRef.current) {
-        remoteAudioRef.current.srcObject = stream;
-        // remoteAudioRef.current.play().catch(() => {});
-      }
+      console.log("Received remote track:", event.track.kind);
+      const stream = event.streams?.[0] || new MediaStream([event.track]);
+      remoteElement.srcObject = stream;
+      remoteElement.play().catch((err) => console.warn("Autoplay blocked:", err));
     };
   };
 
   const handleAcceptCall = () => {
     if (!incomingCall) return;
+  
     clearTimeout(autoRejectTimerRef.current);
-    
-    // Check if this is a test call or real SIP invitation
-    if (incomingCall.test) {
-      console.log("Accepting test call...");
-      // Handle test call acceptance
-      wasAnsweredRef.current = true;
-      setSession(incomingCall);
-      setIncomingCall(null);
-      setPhoneStatus("In Call");
-      stopRingtone();
-      startCallTimer();
-      
-      // Set ticket phone number, close phone popup, and open ticket modal
-      setTicketPhoneNumber(lastIncomingNumber || "");
-      setShowPhonePopup(false); // Close phone popup
-      openTicketModal('employer'); // Default to employer ticket for test calls
-      console.log("Phone popup closed and ticket modal opened for test call:", lastIncomingNumber);
-      
-      // Simulate call state changes for test
-      setTimeout(() => {
-        console.log("Test call established");
-        setPhoneStatus("In Call");
-      }, 1000);
-      
-      return;
-    }
-    
-    // Handle real SIP invitation
-    incomingCall
-      .accept({
-        sessionDescriptionHandlerOptions: {
-          constraints: { audio: true, video: false },
-        },
-      })
+    stopRingtone();
+  
+    console.log("Accepting call...");
+  
+    incomingCall.accept()
       .then(() => {
+        // Mark call answered
         wasAnsweredRef.current = true;
+  
+        // Attach remote audio
+        attachMediaStream(incomingCall);
+  
+        // Set session state
         setSession(incomingCall);
         setIncomingCall(null);
         setPhoneStatus("In Call");
-        stopRingtone();
         startCallTimer();
-        
-        // Set ticket phone number, close phone popup, and open ticket modal
+  
+        // Open ticket modal automatically
         setTicketPhoneNumber(lastIncomingNumber || "");
-        setShowPhonePopup(false); // Close phone popup
-        openTicketModal('employer'); // Default to employer ticket for incoming calls
-        console.log("Phone popup closed and ticket modal opened for incoming call:", lastIncomingNumber);
-
+        setShowTicketModal(true);
+        setIsTicketModalOpen(true);
+  
+        // Optionally hide phone popup (recommended)
+        setShowPhonePopup(false);
+  
+        // Listen for call end
         incomingCall.stateChange.addListener((state) => {
-          if (state === SessionState.Established) attachMediaStream(incomingCall);
+          console.log("Call state:", state);
+  
           if (state === SessionState.Terminated) {
             setPhoneStatus("Idle");
             setSession(null);
-            if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
             stopCallTimer();
+            if (remoteAudioRef.current) {
+              remoteAudioRef.current.srcObject = null;
+            }
           }
         });
+  
       })
-      .catch((error) => { console.error("Failed to accept call:", error); setPhoneStatus("Idle"); setShowPhonePopup(false); });
+      .catch((error) => {
+        console.error("Accept failed:", error);
+        setPhoneStatus("Idle");
+        setIncomingCall(null);
+        setShowPhonePopup(false);
+      });
   };
-
+  
   const handleRejectCall = () => {
     if (!incomingCall) return;
     clearTimeout(autoRejectTimerRef.current);
-    
+
     // Check if this is a test call or real SIP invitation
     if (incomingCall.test) {
       console.log("Rejecting test call...");
@@ -755,7 +790,7 @@ export default function AgentsDashboard() {
       stopRingtone();
       return;
     }
-    
+
     // Handle real SIP invitation
     incomingCall.reject().catch(console.error);
     addMissedCall(lastIncomingNumber);
@@ -816,7 +851,7 @@ export default function AgentsDashboard() {
     const inviter = new Inviter(userAgent, targetURI, {
       sessionDescriptionHandlerOptions: {
         constraints: { audio: true, video: false },
-        
+
       },
     });
 
@@ -842,7 +877,7 @@ export default function AgentsDashboard() {
     const inviter = new Inviter(userAgent, targetURI, {
       sessionDescriptionHandlerOptions: {
         constraints: { audio: true, video: false },
-        
+
       },
     });
 
@@ -927,7 +962,7 @@ export default function AgentsDashboard() {
   return (
     <div className="p-6">
       {/* hidden remote audio for WebRTC (needed esp. on iOS/Safari) */}
-      <audio ref={remoteAudioRef} autoPlay playsInline style={{ display: 'none' }} />
+      <audio ref={remoteAudioRef} autoPlay playsInline style={{ opacity: 0, width: 1, height: 1 }} />
       <div className="agent-body">
         <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
           <h3>Agent</h3>
@@ -954,14 +989,14 @@ export default function AgentsDashboard() {
           {/* Test button for debugging incoming calls */}
           {process.env.NODE_ENV === 'development' && (
             <Tooltip title="Test Incoming Call" arrow>
-              <button 
+              <button
                 onClick={testIncomingCall}
-                style={{ 
-                  background: '#ff9800', 
-                  color: 'white', 
-                  border: 'none', 
-                  padding: '8px 12px', 
-                  borderRadius: '4px', 
+                style={{
+                  background: '#ff9800',
+                  color: 'white',
+                  border: 'none',
+                  padding: '8px 12px',
+                  borderRadius: '4px',
                   cursor: 'pointer',
                   fontSize: '12px'
                 }}
@@ -1052,7 +1087,7 @@ export default function AgentsDashboard() {
                   <span className="duration-time">{formatDuration(callDuration)}</span>
                 </div>
                 {/* Swap to Ticket Modal Button */}
-                <button 
+                <button
                   className="swap-to-ticket-btn"
                   onClick={swapToTicketModal}
                   title="Switch to Ticket Form"
@@ -1107,20 +1142,20 @@ export default function AgentsDashboard() {
                       onChange={(e) => setPhoneNumber(e.target.value)}
                     />
                   </div>
-                  
+
                   {showKeypad && (
                     <div className="keypad-grid">
-                      {["1","2","3","4","5","6","7","8","9","*","0","#"].map((digit) => (
-                        <button 
-                          key={digit} 
-                          className="keypad-btn" 
+                      {["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"].map((digit) => (
+                        <button
+                          key={digit}
+                          className="keypad-btn"
                           onClick={() => setPhoneNumber((prev) => prev + digit)}
                         >
                           {digit}
                         </button>
                       ))}
-                      <button 
-                        className="keypad-btn backspace-btn" 
+                      <button
+                        className="keypad-btn backspace-btn"
                         onClick={() => setPhoneNumber((prev) => prev.slice(0, -1))}
                         style={{ gridColumn: "span 3" }}
                       >
@@ -1147,10 +1182,10 @@ export default function AgentsDashboard() {
                       setTransferTarget(u?.extension || "");
                     }}
                     renderInput={(params) => (
-                      <TextField 
-                        {...params} 
-                        label="Select online agent/supervisor" 
-                        variant="outlined" 
+                      <TextField
+                        {...params}
+                        label="Select online agent/supervisor"
+                        variant="outlined"
                         size="small"
                         className="transfer-input"
                       />
@@ -1171,7 +1206,7 @@ export default function AgentsDashboard() {
               {/* Control Buttons */}
               <div className="phone-controls">
                 <div className="control-row">
-                  <button 
+                  <button
                     className={`control-btn ${isMuted ? 'active' : ''}`}
                     onClick={toggleMute}
                     title={isMuted ? "Unmute" : "Mute"}
@@ -1179,8 +1214,8 @@ export default function AgentsDashboard() {
                     <BsFillMicMuteFill />
                     <span>{isMuted ? "Unmute" : "Mute"}</span>
                   </button>
-                  
-                  <button 
+
+                  <button
                     className={`control-btn ${isSpeakerOn ? 'active' : ''}`}
                     onClick={toggleSpeaker}
                     title={isSpeakerOn ? "Speaker On" : "Speaker Off"}
@@ -1188,8 +1223,8 @@ export default function AgentsDashboard() {
                     <HiMiniSpeakerWave />
                     <span>Speaker</span>
                   </button>
-                  
-                  <button 
+
+                  <button
                     className={`control-btn ${isOnHold ? 'active' : ''}`}
                     onClick={toggleHold}
                     title={isOnHold ? "Resume" : "Hold"}
@@ -1198,9 +1233,9 @@ export default function AgentsDashboard() {
                     <span>{isOnHold ? "Resume" : "Hold"}</span>
                   </button>
                 </div>
-                
+
                 <div className="control-row">
-                  <button 
+                  <button
                     className="control-btn keypad-toggle"
                     onClick={() => setShowKeypad((p) => !p)}
                     title={showKeypad ? "Hide Keypad" : "Show Keypad"}
@@ -1208,9 +1243,9 @@ export default function AgentsDashboard() {
                     <IoKeypadOutline />
                     <span>Keypad</span>
                   </button>
-                  
+
                   {phoneStatus !== "In Call" && phoneStatus !== "Ringing" && (
-                    <button 
+                    <button
                       className="control-btn dial-btn"
                       onClick={handleDial}
                       disabled={phoneStatus === "Dialing" || phoneStatus === "Ringing"}
@@ -1219,8 +1254,8 @@ export default function AgentsDashboard() {
                       <span>Dial</span>
                     </button>
                   )}
-                  
-                  <button 
+
+                  <button
                     className="control-btn end-call-btn"
                     onClick={handleEndCall}
                     title="End Call"
@@ -1270,9 +1305,9 @@ export default function AgentsDashboard() {
       </Button>
 
       {/* Create Employer Ticket Button */}
-      <Button 
-        variant="contained" 
-        color="primary" 
+      <Button
+        variant="contained"
+        color="primary"
         onClick={() => openTicketModal('employer')}
         style={{ marginLeft: '10px' }}
         title="Create ticket for employer"
@@ -1281,9 +1316,9 @@ export default function AgentsDashboard() {
       </Button>
 
       {/* Create Employee Ticket Button */}
-      <Button 
-        variant="contained" 
-        color="primary" 
+      <Button
+        variant="contained"
+        color="primary"
         onClick={() => openTicketModal('employee')}
         style={{ marginLeft: '10px' }}
         title="Create ticket for employee"
@@ -1293,11 +1328,11 @@ export default function AgentsDashboard() {
 
       {/* Ticket modal with custom wrapper for better control */}
       <div style={{ position: 'relative' }}>
-        <AdvancedTicketCreateModal 
-          open={showTicketModal} 
-          onClose={closeTicketModal} 
+        <AdvancedTicketCreateModal
+          open={showTicketModal}
+          onClose={closeTicketModal}
           onOpen={openTicketModal}
-          initialPhoneNumber={ticketPhoneNumber} 
+          initialPhoneNumber={ticketPhoneNumber}
           functionData={functionData}
         />
       </div>
