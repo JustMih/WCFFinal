@@ -778,19 +778,6 @@ export default function AgentsDashboard() {
   const handleRejectCall = () => {
     if (!incomingCall) return;
     clearTimeout(autoRejectTimerRef.current);
-
-    // Check if this is a test call or real SIP invitation
-    if (incomingCall.test) {
-      console.log("Rejecting test call...");
-      // Handle test call rejection
-      addMissedCall(lastIncomingNumber);
-      setIncomingCall(null);
-      setShowPhonePopup(false);
-      setPhoneStatus("Idle");
-      stopRingtone();
-      return;
-    }
-
     // Handle real SIP invitation
     incomingCall.reject().catch(console.error);
     addMissedCall(lastIncomingNumber);
@@ -802,46 +789,31 @@ export default function AgentsDashboard() {
 
   const handleEndCall = () => {
     if (session) {
-      if (session.test) {
-        console.log("Ending test call...");
-        // Handle test call ending
-        setSession(null);
-        setPhoneStatus("Idle");
-        stopCallTimer();
-        setShowPhonePopup(false);
-        setIncomingCall(null);
-        setShowTicketModal(false);
-      } else {
-        // Handle real SIP call ending
-        session.bye().catch(console.error);
-        setSession(null);
-        setPhoneStatus("Idle");
-        if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
-        stopRingtone();
-        stopCallTimer();
-        setShowPhonePopup(false);
-        setIncomingCall(null);
-      }
+      // End active SIP call
+      session.bye().catch(console.error);
+  
+      setSession(null);
+      setPhoneStatus("Idle");
+      if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
+  
+      stopRingtone();
+      stopCallTimer();
+      setShowPhonePopup(false);
+      setIncomingCall(null);
+  
     } else if (incomingCall) {
-      if (incomingCall.test) {
-        console.log("Ending test incoming call...");
-        // Handle test incoming call ending
-        setIncomingCall(null);
-        setPhoneStatus("Idle");
-        stopRingtone();
-        stopCallTimer();
-        setShowPhonePopup(false);
-      } else {
-        // Handle real SIP incoming call ending
-        incomingCall.reject().catch(console.error);
-        setIncomingCall(null);
-        setPhoneStatus("Idle");
-        stopRingtone();
-        stopCallTimer();
-        setShowPhonePopup(false);
-      }
+      // End incoming SIP call (reject)
+      incomingCall.reject().catch(console.error);
+  
+      setIncomingCall(null);
+      setPhoneStatus("Idle");
+  
+      stopRingtone();
+      stopCallTimer();
+      setShowPhonePopup(false);
     }
   };
+  
 
   const handleDial = () => {
     if (!userAgent || !phoneNumber) return;
@@ -986,25 +958,6 @@ export default function AgentsDashboard() {
               )}
             </div>
           </Tooltip>
-          {/* Test button for debugging incoming calls */}
-          {process.env.NODE_ENV === 'development' && (
-            <Tooltip title="Test Incoming Call" arrow>
-              <button
-                onClick={testIncomingCall}
-                style={{
-                  background: '#ff9800',
-                  color: 'white',
-                  border: 'none',
-                  padding: '8px 12px',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '12px'
-                }}
-              >
-                Test Call
-              </button>
-            </Tooltip>
-          )}
         </div>
 
         <div className="phone-navbar">
