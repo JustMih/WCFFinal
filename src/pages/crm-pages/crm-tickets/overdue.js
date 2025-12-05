@@ -1,27 +1,14 @@
 import React, { useState, useEffect } from "react";
-import { FaEye, FaPlus } from "react-icons/fa";
-import { FiSettings } from "react-icons/fi";
+import { FaEye } from "react-icons/fa";
 import {
   Alert,
   Box,
-  Button,
-  Divider,
-  Grid,
-  IconButton,
-  Modal,
   Snackbar,
   Tooltip,
   Typography,
-  TextField,
-  Avatar,
-  Paper,
 } from "@mui/material";
 import { baseURL } from "../../../config";
 import "./ticket.css";
-import ChatIcon from '@mui/icons-material/Chat';
-import Dialog from '@mui/material/Dialog';
-import DialogTitle from '@mui/material/DialogTitle';
-import DialogContent from '@mui/material/DialogContent';
 import TicketDetailsModal from '../../../components/TicketDetailsModal';
 import Pagination from '../../../components/Pagination';
 import TableControls from "../../../components/TableControls";
