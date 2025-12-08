@@ -3212,7 +3212,7 @@ const AgentCRM = () => {
       {/* Old modal removed - now using the improved AdvancedTicketCreateModal component */}
 
       {/* Employer/Institution Details */}
-      {selectedInstitution && (
+      {/* {selectedInstitution && (
         <div
           style={{
             flex: 1,
@@ -3249,11 +3249,10 @@ const AgentCRM = () => {
             <strong>Allocated Username:</strong>{" "}
             {selectedInstitution.allocated_staff_username}
           </div>
-          {/* All details shown for reference - only name used for submission, allocated user from employee search used for assignment */}
         </div>
-      )}
+      )} */}
       {/* Ticket history for entered phone number */}
-      {formData.phoneNumber && (
+      {/* {formData.phoneNumber && (
         <div
           style={{
             marginTop: 8,
@@ -3398,7 +3397,7 @@ const AgentCRM = () => {
             </div>
           )}
         </div>
-      )}
+      )} */}
 
 
       {/* Snackbar */}
