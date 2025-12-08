@@ -207,12 +207,12 @@
   line-height: 1.2;
 }
 
-.metric-value {
+.metric-value-crm {
   background-color: #f5f5f5;
   padding: 0px 4px;
   border-radius: 8px;
   font-size: 0.7rem;
-  font-weight: 500;
+  font-weight: 700;
   line-height: 1.2;
 }
 
@@ -220,7 +220,7 @@
   background-color: rgba(25, 118, 210, 0.12);
 }
 
-.dropdown-item.active-link .metric-value {
+.dropdown-item.active-link .metric-value-crm {
   background-color: #1976d2;
   color: white;
 }
