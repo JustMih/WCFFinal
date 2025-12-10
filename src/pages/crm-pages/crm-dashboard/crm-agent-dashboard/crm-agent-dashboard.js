@@ -2164,8 +2164,30 @@ const AgentCRM = () => {
           created_at: selectedTicket.created_at,
         }
       : null;
+    
+    // Filter out duplicate assignments - keep only the most recent assignment for each person/role combination
+    // This prevents showing the same person multiple times in the workflow history
+    // BUT: Always keep reassignments as they show important workflow transitions
+    const assignmentMap = new Map();
+    
+    // First pass: collect all assignments, keeping only the most recent for each person/role
+    assignmentHistory.forEach((assignment) => {
+      const key = `${assignment.assigned_to_id}_${assignment.assigned_to_role}`;
+      const existing = assignmentMap.get(key);
+      const isReassignment = assignment.action && assignment.action.toLowerCase().includes('reassign');
+      
+      // Always keep reassignments, or if no existing record, or if this is more recent
+      if (!existing || isReassignment || new Date(assignment.created_at) > new Date(existing.created_at)) {
+        assignmentMap.set(key, assignment);
+      }
+    });
+    
+    // Convert back to array and sort by created_at to maintain chronological order
+    const filteredHistory = Array.from(assignmentMap.values())
+      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    
     // Always add all assignments as steps, even if assignee is same as creator
-    const steps = creatorStep ? [creatorStep, ...assignmentHistory] : assignmentHistory;
+    const steps = creatorStep ? [creatorStep, ...filteredHistory] : filteredHistory;
     
     // Helper function to get aging status color
     const getAgingStatusColor = (status) => {
@@ -2211,7 +2233,35 @@ const AgentCRM = () => {
               }
             } else {
               // Build message with workflow details
-              let baseMessage = `Message from ${prevUser}: ${a.reason || 'No message'}`;
+              let baseMessage;
+              
+              // Check if the NEXT step is a reassignment (meaning current person is being reassigned FROM)
+              const nextStep = steps[idx + 1];
+              const isBeingReassignedFrom = nextStep && 
+                nextStep.action && 
+                nextStep.action.toLowerCase().includes('reassign') &&
+                nextStep.assigned_to_id !== a.assigned_to_id;
+              
+              // Handle reassignment differently
+              if (a.action && a.action.toLowerCase().includes('reassign')) {
+                // This person was reassigned TO - show the reassignment message
+                // Include the reason from the previous assignment (the person being reassigned FROM)
+                const currentUser = a.assigned_to_name || 'Unknown';
+                baseMessage = `Reassigned from ${prevUser} to ${currentUser}`;
+                // Use reason from current reassignment, or fallback to previous assignment's reason
+                // The reason from the person being reassigned FROM should be shown here
+                const reassignmentReason = a.reason || steps[idx - 1]?.reason;
+                if (reassignmentReason) {
+                  baseMessage += `\nReason: ${reassignmentReason}`;
+                }
+              } else if (isBeingReassignedFrom) {
+                // This person is being reassigned FROM - show only status, no message
+                // The message/reason will be shown with the reassignment TO entry
+                baseMessage = `Reassigned`;
+              } else {
+                // Regular assignment - show message from previous user
+                baseMessage = `Message from ${prevUser}: ${a.reason || 'No message'}`;
+              }
               
               // Add workflow-specific details
               if (a.workflow_step) {
