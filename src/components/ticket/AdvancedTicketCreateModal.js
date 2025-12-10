@@ -2087,6 +2087,29 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                     </Typography>
                   </div>
 
+                  {/* View Profile button for employer - similar to search listing */}
+                  {(registrationType === "employer" || (formData.institution && (selectedEmployer || selectedInstitution))) && (
+                    <div style={{ marginTop: "10px", marginBottom: "15px" }}>
+                      <ClaimRedirectButton
+                        notificationReportId={
+                          (selectedEmployer?.registration_number) || 
+                          (selectedInstitution?.registration_number) || 
+                          ""
+                        }
+                        buttonText={`View Profile - ${selectedEmployer?.name || selectedInstitution?.name || formData.institution}`}
+                        searchType="employer"
+                        isEmployerSearch={true}
+                        employerData={selectedEmployer || selectedInstitution}
+                        onSuccess={(data) => {
+                          console.log('Employer profile redirect successful:', data);
+                        }}
+                        onError={(error) => {
+                          console.error('Employer profile redirect failed:', error);
+                        }}
+                      />
+                    </div>
+                  )}
+
                   {/* Update the claim status section */}
                   {formSearchType === "employee" && selectedEmployee && (
                     <div

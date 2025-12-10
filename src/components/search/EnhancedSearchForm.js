@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CircularProgress } from '@mui/material';
-import ClaimRedirectButton from "../ticket/ClaimRedirectButton.jsx";
 
 const EnhancedSearchForm = ({ 
   onEmployerSelect, 
@@ -381,25 +380,6 @@ const EnhancedSearchForm = ({
                       {employer.phone && ` • Phone: ${employer.phone}`}
                     </div>
                   </div>
-                  
-                  {/* Profile button for this employer */}
-                  {employer.registration_number && (
-                    <div style={{ marginTop: "8px" }}>
-                      <ClaimRedirectButton
-                        notificationReportId={employer.registration_number} // Pass registration_number for API call
-                        buttonText={`View ${employer.name} Profile`}
-                        searchType="employer"
-                        isEmployerSearch={true}
-                        employerData={employer} // Pass the employer data directly
-                        onSuccess={(data) => {
-                          console.log('Employer profile redirect successful:', data);
-                        }}
-                        onError={(error) => {
-                          console.error('Employer profile redirect failed:', error);
-                        }}
-                      />
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
