@@ -376,11 +376,11 @@ export default function Crm() {
           search={search}
           onSearchChange={(e) => setSearch(e.target.value)}
           filterStatus={filters.status}
-          onFilterStatusChange={(e) => setFilters({ ...filters, status: e.target.value })}
+          onFilterStatusChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
           filterRegion={filters.region}
-          onFilterRegionChange={(e) => setFilters({ ...filters, region: e.target.value })}
+          onFilterRegionChange={(e) => setFilters(prev => ({ ...prev, region: e.target.value, district: "" }))}
           filterDistrict={filters.district}
-          onFilterDistrictChange={(e) => setFilters({ ...filters, district: e.target.value })}
+          onFilterDistrictChange={(e) => setFilters(prev => ({ ...prev, district: e.target.value }))}
           activeColumns={activeColumns}
           onColumnsChange={setActiveColumns}
           tableData={filteredTickets}

@@ -262,24 +262,26 @@ const TableControls = ({
     { value: "kigoma", label: "Kigoma" },
     { value: "kilimanjaro", label: "Kilimanjaro" },
     { value: "lindi", label: "Lindi" },
-    { value: "manyara", label: "Manyara" },
-    { value: "mara", label: "Mara" },
-    { value: "mbeya", label: "Mbeya" },
-    { value: "morogoro", label: "Morogoro" },
-    { value: "mtwara", label: "Mtwara" },
-    { value: "mwanza", label: "Mwanza" },
-    { value: "njombe", label: "Njombe" },
-    { value: "pwani", label: "Pwani" },
-    { value: "rukwa", label: "Rukwa" },
-    { value: "ruvuma", label: "Ruvuma" },
-    { value: "shinyanga", label: "Shinyanga" },
-    { value: "simiyu", label: "Simiyu" },
-    { value: "singida", label: "Singida" },
-    { value: "songwe", label: "Songwe" },
-    { value: "tabora", label: "Tabora" },
-    { value: "tanga", label: "Tanga" },
-    { value: "zanzibar-urban", label: "Zanzibar Urban" },
-    { value: "zanzibar-rural", label: "Zanzibar Rural" }
+    { value: "Manyara", label: "Manyara" },
+    { value: "Mara", label: "Mara" },
+    { value: "Mbeya", label: "Mbeya" },
+    { value: "Morogoro", label: "Morogoro" },
+    { value: "Mtwara", label: "Mtwara" },
+    { value: "Mwanza", label: "Mwanza" },
+    { value: "Njombe", label: "Njombe" },
+    { value: "Pemba North", label: "Pemba North" },
+    { value: "Pemba South", label: "Pemba South" },
+    { value: "Pwani", label: "Pwani" },
+    { value: "Rukwa", label: "Rukwa" },
+    { value: "Ruvuma", label: "Ruvuma" },
+    { value: "Shinyanga", label: "Shinyanga" },
+    { value: "Simiyu", label: "Simiyu" },
+    { value: "Singida", label: "Singida" },
+    { value: "Songwe", label: "Songwe" },
+    { value: "Tabora", label: "Tabora" },
+    { value: "Tanga", label: "Tanga" },
+    { value: "Unguja North", label: "Unguja North" },
+    { value: "Unguja South", label: "Unguja South" }
   ],
   activeColumns: initialActiveColumns,
   onColumnsChange,
@@ -302,14 +304,34 @@ const TableControls = ({
     }
   }, [initialActiveColumns]);
 
+  // Debug: Log filterRegion changes and find matching option
+  useEffect(() => {
+    console.log("filterRegion prop changed to:", filterRegion, "Type:", typeof filterRegion);
+    if (filterRegion && regionOptions) {
+      const matchingOption = regionOptions.find(opt => {
+        const optValue = String(opt.value || "");
+        const filterValue = String(filterRegion || "");
+        return optValue === filterValue;
+      });
+      console.log("Matching option found:", matchingOption);
+      if (!matchingOption && filterRegion !== "") {
+        console.log("No matching option found! Available values:", regionOptions.map(opt => opt.value));
+      }
+    }
+  }, [filterRegion, regionOptions]);
+
   // Handle region change and reset district
   const handleRegionChange = (e) => {
-    const newRegion = e.target.value;
-    onFilterRegionChange(e);
-    // Reset district when region changes
-    if (onFilterDistrictChange) {
-      onFilterDistrictChange({ target: { value: "" } });
+    const selectedValue = e.target.value;
+    console.log("Region selected:", selectedValue); // Debug log
+    // Ensure we pass the event properly with the correct value
+    // The region change handler now handles district reset internally
+    if (onFilterRegionChange) {
+      // Pass the event directly - React synthetic events work correctly
+      onFilterRegionChange(e);
     }
+    // Note: District reset is now handled in the parent component's onFilterRegionChange handler
+    // to avoid race conditions with state updates
   };
 
   // Get available districts for the selected region
@@ -750,11 +772,22 @@ const TableControls = ({
             lineHeight: "1"
           }}
         >
-          {regionOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
+          {regionOptions && regionOptions.length > 0 ? (
+            regionOptions.map((option) => {
+              const optionValue = String(option.value || "");
+              const currentValue = String(filterRegion || "");
+              return (
+                <option 
+                  key={optionValue || option.label} 
+                  value={optionValue}
+                >
+                  {option.label}
+                </option>
+              );
+            })
+          ) : (
+            <option value="">No regions available</option>
+          )}
         </select>
         
         <Tooltip 

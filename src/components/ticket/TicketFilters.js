@@ -317,16 +317,16 @@ const TicketFilters = ({ onFilterChange, initialFilters, compact = false }) => {
                   >
                     <MenuItem value="" sx={{ fontSize: '0.75rem' }}>All Regions</MenuItem>
                     <MenuItem value="HQ" sx={{ fontSize: '0.75rem' }}>HQ</MenuItem>
-                    <MenuItem value="Arusha" sx={{ fontSize: '0.75rem' }}>Arusha</MenuItem>
-                    <MenuItem value="Dar es Salaam" sx={{ fontSize: '0.75rem' }}>Dar es Salaam</MenuItem>
-                    <MenuItem value="Dodoma" sx={{ fontSize: '0.75rem' }}>Dodoma</MenuItem>
-                    <MenuItem value="Geita" sx={{ fontSize: '0.75rem' }}>Geita</MenuItem>
-                    <MenuItem value="Iringa" sx={{ fontSize: '0.75rem' }}>Iringa</MenuItem>
-                    <MenuItem value="Kagera" sx={{ fontSize: '0.75rem' }}>Kagera</MenuItem>
-                    <MenuItem value="Katavi" sx={{ fontSize: '0.75rem' }}>Katavi</MenuItem>
-                    <MenuItem value="Kigoma" sx={{ fontSize: '0.75rem' }}>Kigoma</MenuItem>
-                    <MenuItem value="Kilimanjaro" sx={{ fontSize: '0.75rem' }}>Kilimanjaro</MenuItem>
-                    <MenuItem value="Lindi" sx={{ fontSize: '0.75rem' }}>Lindi</MenuItem>
+                    <MenuItem value="arusha" sx={{ fontSize: '0.75rem' }}>Arusha</MenuItem>
+                    <MenuItem value="dar-es-salaam" sx={{ fontSize: '0.75rem' }}>Dar es Salaam</MenuItem>
+                    <MenuItem value="dodoma" sx={{ fontSize: '0.75rem' }}>Dodoma</MenuItem>
+                    <MenuItem value="geita" sx={{ fontSize: '0.75rem' }}>Geita</MenuItem>
+                    <MenuItem value="iringa" sx={{ fontSize: '0.75rem' }}>Iringa</MenuItem>
+                    <MenuItem value="kagera" sx={{ fontSize: '0.75rem' }}>Kagera</MenuItem>
+                    <MenuItem value="katavi" sx={{ fontSize: '0.75rem' }}>Katavi</MenuItem>
+                    <MenuItem value="kigoma" sx={{ fontSize: '0.75rem' }}>Kigoma</MenuItem>
+                    <MenuItem value="kilimanjaro" sx={{ fontSize: '0.75rem' }}>Kilimanjaro</MenuItem>
+                    <MenuItem value="lindi" sx={{ fontSize: '0.75rem' }}>Lindi</MenuItem>
                     <MenuItem value="Manyara" sx={{ fontSize: '0.75rem' }}>Manyara</MenuItem>
                     <MenuItem value="Mara" sx={{ fontSize: '0.75rem' }}>Mara</MenuItem>
                     <MenuItem value="Mbeya" sx={{ fontSize: '0.75rem' }}>Mbeya</MenuItem>
@@ -653,34 +653,34 @@ const TicketFilters = ({ onFilterChange, initialFilters, compact = false }) => {
               >
                 <MenuItem value="">All Regions</MenuItem>
                 <MenuItem value="HQ">HQ</MenuItem>
-                <MenuItem value="Arusha">Arusha</MenuItem>
-                <MenuItem value="Dar es Salaam">Dar es Salaam</MenuItem>
-                <MenuItem value="Dodoma">Dodoma</MenuItem>
-                <MenuItem value="Geita">Geita</MenuItem>
-                <MenuItem value="Iringa">Iringa</MenuItem>
-                <MenuItem value="Kagera">Kagera</MenuItem>
-                <MenuItem value="Katavi">Katavi</MenuItem>
-                <MenuItem value="Kigoma">Kigoma</MenuItem>
-                <MenuItem value="Kilimanjaro">Kilimanjaro</MenuItem>
-                <MenuItem value="Lindi">Lindi</MenuItem>
-                <MenuItem value="Manyara">Manyara</MenuItem>
-                <MenuItem value="Mara">Mara</MenuItem>
-                <MenuItem value="Mbeya">Mbeya</MenuItem>
-                <MenuItem value="Morogoro">Morogoro</MenuItem>
-                <MenuItem value="Mtwara">Mtwara</MenuItem>
-                <MenuItem value="Mwanza">Mwanza</MenuItem>
-                <MenuItem value="Njombe">Njombe</MenuItem>
-                <MenuItem value="Pemba North">Pemba North</MenuItem>
-                <MenuItem value="Pemba South">Pemba South</MenuItem>
-                <MenuItem value="Pwani">Pwani</MenuItem>
-                <MenuItem value="Rukwa">Rukwa</MenuItem>
-                <MenuItem value="Ruvuma">Ruvuma</MenuItem>
-                <MenuItem value="Shinyanga">Shinyanga</MenuItem>
-                <MenuItem value="Simiyu">Simiyu</MenuItem>
-                <MenuItem value="Singida">Singida</MenuItem>
-                <MenuItem value="Songwe">Songwe</MenuItem>
-                <MenuItem value="Tabora">Tabora</MenuItem>
-                <MenuItem value="Tanga">Tanga</MenuItem>
+                <MenuItem value="arusha">Arusha</MenuItem>
+                <MenuItem value="dar-es-salaam">Dar es Salaam</MenuItem>
+                <MenuItem value="dodoma">Dodoma</MenuItem>
+                <MenuItem value="geita">Geita</MenuItem>
+                <MenuItem value="iringa">Iringa</MenuItem>
+                <MenuItem value="kagera">Kagera</MenuItem>
+                <MenuItem value="katavi">Katavi</MenuItem>
+                <MenuItem value="kigoma">Kigoma</MenuItem>
+                <MenuItem value="kilimanjaro">Kilimanjaro</MenuItem>
+                <MenuItem value="lindi">Lindi</MenuItem>
+                <MenuItem value="manyara">Manyara</MenuItem>
+                <MenuItem value="mara">Mara</MenuItem>
+                <MenuItem value="mbeya">Mbeya</MenuItem>
+                <MenuItem value="morogoro">Morogoro</MenuItem>
+                <MenuItem value="mtwara">Mtwara</MenuItem>
+                <MenuItem value="mwanza">Mwanza</MenuItem>
+                <MenuItem value="njombe">Njombe</MenuItem>
+                <MenuItem value="pwani">Pwani</MenuItem>
+                <MenuItem value="rukwa">Rukwa</MenuItem>
+                <MenuItem value="ruvuma">Ruvuma</MenuItem>
+                <MenuItem value="shinyanga">Shinyanga</MenuItem>
+                <MenuItem value="simiyu">Simiyu</MenuItem>
+                <MenuItem value="singida">Singida</MenuItem>
+                <MenuItem value="songwe">Songwe</MenuItem>
+                <MenuItem value="tabora">Tabora</MenuItem>
+                <MenuItem value="tanga">Tanga</MenuItem>
+                <MenuItem value="zanzibar-urban">Zanzibar Urban</MenuItem>
+                <MenuItem value="zanzibar-rural">Zanzibar Rural</MenuItem>
                 <MenuItem value="Unguja North">Unguja North</MenuItem>
                 <MenuItem value="Unguja South">Unguja South</MenuItem>
               </TextField>

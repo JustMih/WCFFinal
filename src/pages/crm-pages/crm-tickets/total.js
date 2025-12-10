@@ -418,7 +418,7 @@ export default function Crm() {
           filterStatus={filters.status}
           onFilterStatusChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
           filterRegion={filters.region}
-          onFilterRegionChange={(e) => setFilters(prev => ({ ...prev, region: e.target.value }))}
+          onFilterRegionChange={(e) => setFilters(prev => ({ ...prev, region: e.target.value, district: "" }))}
           filterDistrict={filters.district}
           onFilterDistrictChange={(e) => setFilters(prev => ({ ...prev, district: e.target.value }))}
           startDate={filters.startDate}

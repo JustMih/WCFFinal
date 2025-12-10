@@ -810,12 +810,33 @@ const AgentCRM = () => {
       // Category (from TicketFilters)
       const matchesCategory =
         !filters.category || ticket.category === filters.category;
-      // Region (from TicketFilters)
-      const matchesRegion =
-        !filters.region || ticket.region === filters.region;
-      // District (from TicketFilters)
+      // Region (from TicketFilters or TableControls) - normalize for comparison
+      const normalizeRegion = (region) => {
+        if (!region || region === "") return "";
+        // Convert to lowercase, trim, and normalize spaces/hyphens
+        return String(region).toLowerCase().trim().replace(/\s+/g, "-").replace(/-+/g, "-");
+      };
+      // If no region filter is set, show all tickets
+      // If region filter is set, only show tickets that match (case-insensitive, normalized)
+      let matchesRegion = true;
+      if (filters.region && filters.region !== "") {
+        if (!ticket.region) {
+          matchesRegion = false; // If filter is set but ticket has no region, exclude it
+        } else {
+          const normalizedTicketRegion = normalizeRegion(ticket.region);
+          const normalizedFilterRegion = normalizeRegion(filters.region);
+          matchesRegion = normalizedTicketRegion === normalizedFilterRegion;
+        }
+      }
+      // District (from TicketFilters or TableControls) - normalize for comparison
+      const normalizeDistrict = (district) => {
+        if (!district) return "";
+        return district.toLowerCase().trim().replace(/\s+/g, "-");
+      };
       const matchesDistrict =
-        !filters.district || ticket.district === filters.district;
+        !filters.district || 
+        filters.district === "" ||
+        normalizeDistrict(ticket.district) === normalizeDistrict(filters.district);
       // Ticket ID (from TicketFilters)
       const matchesTicketId =
         !filters.ticketId || 
@@ -1183,6 +1204,8 @@ const AgentCRM = () => {
 
   // Add function to handle filter changes
   const handleFilterChange = (newFilters) => {
+    console.log("handleFilterChange called with:", JSON.stringify(newFilters)); // Debug log
+    console.log("Current filters before handleFilterChange:", JSON.stringify(filters)); // Debug log
     setFilters(newFilters);
     setCurrentPage(1);
   };
@@ -2470,8 +2493,15 @@ const AgentCRM = () => {
           }}
           filterRegion={filters.region || ""}
           onFilterRegionChange={(e) => {
-            const newFilters = { ...filters, region: e.target.value };
-            setFilters(newFilters);
+            const selectedRegion = e.target.value;
+            console.log("Setting region filter to:", selectedRegion); // Debug log
+            console.log("Current filters before update:", JSON.stringify(filters)); // Debug log
+            // Use functional update to ensure we're using the latest state
+            setFilters(prevFilters => {
+              const updatedFilters = { ...prevFilters, region: selectedRegion };
+              console.log("Updated filters:", JSON.stringify(updatedFilters)); // Debug log
+              return updatedFilters;
+            });
             setCurrentPage(1);
           }}
           filterDistrict={filters.district || ""}
