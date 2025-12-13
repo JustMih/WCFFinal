@@ -863,6 +863,11 @@ export default function TicketDetailsModal({
   const [complaintSeverity, setComplaintSeverity] = useState("minor");
   const [agentReverseLoading, setAgentReverseLoading] = useState(false);
 
+  // Manager Send to Director modal state
+  const [isSendToDirectorModalOpen, setIsSendToDirectorModalOpen] = useState(false);
+  const [directorRecommendation, setDirectorRecommendation] = useState("");
+  const [sendToDirectorLoading, setSendToDirectorLoading] = useState(false);
+
   // Additional loading states for other handlers
   const [attendLoading, setAttendLoading] = useState(false);
   const [dgApprovalLoading, setDgApprovalLoading] = useState(false);
@@ -1442,8 +1447,8 @@ export default function TicketDetailsModal({
           const currentReportTo = (localStorage.getItem("report_to") || "").toString().toLowerCase();
           
           const filtered = raw.filter(a => {
-            // For focal persons, head-of-unit, and manager, backend already filters by report_to/designation, so just return all attendees
-            if (currentUserRole === "focal-person" || currentUserRole === "head-of-unit" || currentUserRole === "manager") {
+            // For focal persons, head-of-unit, manager, and director, backend already filters by report_to/designation, so just return all attendees
+            if (currentUserRole === "focal-person" || currentUserRole === "head-of-unit" || currentUserRole === "manager" || currentUserRole === "director") {
               return true;
             }
             
@@ -2335,7 +2340,10 @@ export default function TicketDetailsModal({
                       </>
                     )}
 
-                    {/* Show Forward to DG button for Major complaints assigned to Head of Unit with Reversed status */}
+                    {/* Show Forward to DG button for Major complaints:
+                        1. Head of Unit with Reversed status (from Manager) - ORIGINAL
+                        2. Director with Attended and Recommended/Reversed status (from Manager in Directorate) - NEW
+                    */}
                     {(() => {
                       const isComplaint = selectedTicket.category === "Complaint";
                       const isMajor = selectedTicket.complaint_type === "Major";
@@ -2345,6 +2353,49 @@ export default function TicketDetailsModal({
                       const hasAssignmentHistory = assignmentHistory && assignmentHistory.length > 0;
                       const previousWasManager = hasAssignmentHistory && assignmentHistory[assignmentHistory.length - 1]?.assigned_by_role === "manager";
                       
+                      // ORIGINAL CONDITION - Keep this as is
+                      const originalCondition = isComplaint && isMajor && isReversed && isHeadOfUnit && isAssignedToUser && previousWasManager;
+                      
+                      // NEW CONDITIONS FOR DIRECTOR - Add these without removing original
+                      const isDirectorate = selectedTicket.responsible_unit_name?.toLowerCase().includes("directorate");
+                      const isAttendedAndRecommended = selectedTicket.status === "Attended and Recommended";
+                      const isDirector = selectedTicket.assigned_to_role === "director" && userRole === "director";
+                      
+                      // Check assignment history for Director case
+                      let cameFromManager = false;
+                      if (hasAssignmentHistory) {
+                        const mostRecent = assignmentHistory[assignmentHistory.length - 1];
+                        cameFromManager = mostRecent?.assigned_by_role === "manager";
+                        
+                        // Also check if any assignment in history was from manager to director
+                        if (!cameFromManager) {
+                          cameFromManager = assignmentHistory.some(assignment => 
+                            assignment.assigned_by_role === "manager" && 
+                            assignment.assigned_to_role === "director"
+                          );
+                        }
+                      }
+                      
+                      // NEW: Director case with Attended and Recommended or Reversed status
+                      const directorCondition1 = isComplaint && isMajor && isDirectorate &&
+                                                (isAttendedAndRecommended || isReversed) &&
+                                                isDirector &&
+                                                isAssignedToUser &&
+                                                cameFromManager;
+                      
+                      // NEW: Director case with Attended and Recommended (more flexible - no manager check)
+                      const directorCondition2 = isComplaint && isMajor && isDirectorate &&
+                                                isAttendedAndRecommended &&
+                                                isDirector &&
+                                                isAssignedToUser;
+                      
+                      // NEW: Director case - even simpler check (just Director + Major + Directorate + status)
+                      const directorCondition3 = isComplaint && isMajor && isDirectorate &&
+                                                (isAttendedAndRecommended || isReversed) &&
+                                                userRole === "director" &&
+                                                selectedTicket.assigned_to_role === "director" &&
+                                                isAssignedToUser;
+                      
                       console.log('DEBUG Forward to DG button conditions:', {
                         isComplaint,
                         isMajor,
@@ -2353,6 +2404,13 @@ export default function TicketDetailsModal({
                         isAssignedToUser,
                         hasAssignmentHistory,
                         previousWasManager,
+                        isDirectorate,
+                        isAttendedAndRecommended,
+                        isDirector,
+                        cameFromManager,
+                        originalCondition,
+                        directorCondition1,
+                        directorCondition2,
                         assignmentHistory: assignmentHistory?.map(h => ({ 
                           assigned_by_role: h.assigned_by_role, 
                           assigned_to_role: h.assigned_to_role,
@@ -2368,7 +2426,8 @@ export default function TicketDetailsModal({
                         }
                       });
                       
-                      return isComplaint && isMajor && isReversed && isHeadOfUnit && isAssignedToUser && previousWasManager;
+                      // Return original condition OR new director conditions
+                      return originalCondition || directorCondition1 || directorCondition2 || directorCondition3;
                     })() ? (
                       <>
                         <Button
@@ -2563,6 +2622,23 @@ export default function TicketDetailsModal({
                   !["agent", "reviewer", "attendee", "director-general"].includes(localStorage.getItem("role"))) && 
                  selectedTicket?.assigned_to_id === localStorage.getItem("userId") && selectedTicket.status !== "Closed" && (
                   <>
+                    {/* Show Forward to DG button for Director with Major Complaint Directorate */}
+                    {userRole === "director" && 
+                     selectedTicket?.category === "Complaint" && 
+                     selectedTicket?.complaint_type === "Major" &&
+                     selectedTicket?.responsible_unit_name?.toLowerCase().includes("directorate") &&
+                     (selectedTicket?.status === "Attended and Recommended" || selectedTicket?.status === "Reversed") && (
+                      <Button
+                        variant="contained"
+                        color="warning"
+                        sx={{ mr: 1 }}
+                        onClick={handleForwardToDG}
+                        disabled={forwardToDGLoading}
+                      >
+                        {forwardToDGLoading ? "Forwarding..." : "Forward to Director General"}
+                      </Button>
+                    )}
+                    
                     <Button
                       variant="contained"
                       color="warning"
@@ -2611,6 +2687,23 @@ export default function TicketDetailsModal({
                     disabled={agentReverseLoading}
                   >
                     Reverse with Recommendation
+                  </Button>
+                )}
+
+                {/* Manager Send to Director button - when receiving from Attendee in Major Complaint Directorate */}
+                {userRole === "manager" && 
+                 selectedTicket?.assigned_to_id === localStorage.getItem("userId") &&
+                 selectedTicket?.complaint_type === "Major" &&
+                 selectedTicket?.responsible_unit_name?.toLowerCase().includes("directorate") &&
+                 selectedTicket?.status !== "Closed" && (
+                  <Button
+                    variant="contained"
+                    color="success"
+                    sx={{ mr: 1 }}
+                    onClick={() => setIsSendToDirectorModalOpen(true)}
+                    disabled={sendToDirectorLoading}
+                  >
+                    Send to Director
                   </Button>
                 )}
                       {/* General Cancel button for all users except reviewers */}
@@ -2733,6 +2826,107 @@ export default function TicketDetailsModal({
               <Button
                 variant="outlined"
                 onClick={() => setIsAttendDialogOpen(false)}
+                sx={{ ml: 1 }}
+              >
+                Cancel
+              </Button>
+            </Box>
+          </Box>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manager Send to Director Dialog */}
+      <Dialog open={isSendToDirectorModalOpen} onClose={() => setIsSendToDirectorModalOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Send to Director - Recommendation</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Recommendation Details:
+              </Typography>
+              <TextField
+                multiline
+                rows={4}
+                value={directorRecommendation}
+                onChange={e => setDirectorRecommendation(e.target.value)}
+                fullWidth
+                placeholder="Enter recommendation details for Director..."
+                required
+              />
+            </Box>
+
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Attachment (Optional):
+              </Typography>
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+                onChange={e => setAttachment(e.target.files[0])}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  fontSize: "0.9rem",
+                  borderRadius: "4px",
+                  border: "1px solid #ccc"
+                }}
+              />
+              {attachment && (
+                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
+                  File selected: {attachment.name}
+                </Typography>
+              )}
+            </Box>
+
+            <Box sx={{ mt: 2, textAlign: "right" }}>
+              <Button
+                variant="contained"
+                color="success"
+                onClick={async () => {
+                  setSendToDirectorLoading(true);
+                  try {
+                    const token = localStorage.getItem("authToken");
+                    const formData = new FormData();
+                    formData.append("userId", localStorage.getItem("userId"));
+                    formData.append("recommendation", directorRecommendation);
+                    
+                    if (attachment) {
+                      formData.append("attachment", attachment);
+                    }
+
+                    const response = await fetch(`${baseURL}/ticket/${selectedTicket.id}/manager-send-to-director`, {
+                      method: "POST",
+                      headers: {
+                        "Authorization": `Bearer ${token}`
+                      },
+                      body: formData
+                    });
+
+                    const data = await response.json();
+                    if (!response.ok) {
+                      showSnackbar(data.message || "Failed to send to Director", "error");
+                      return;
+                    }
+
+                    showSnackbar(data.message || "Ticket sent to Director successfully", "success");
+                    setDirectorRecommendation("");
+                    setAttachment(null);
+                    setIsSendToDirectorModalOpen(false);
+                    refreshTickets && refreshTickets();
+                    onClose && onClose();
+                  } catch (error) {
+                    showSnackbar(`Error: ${error.message}`, "error");
+                  } finally {
+                    setSendToDirectorLoading(false);
+                  }
+                }}
+                disabled={!directorRecommendation.trim() || sendToDirectorLoading}
+              >
+                {sendToDirectorLoading ? "Sending..." : "Send to Director"}
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={() => setIsSendToDirectorModalOpen(false)}
                 sx={{ ml: 1 }}
               >
                 Cancel
