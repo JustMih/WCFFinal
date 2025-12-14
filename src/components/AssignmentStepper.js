@@ -318,19 +318,51 @@ export default function AssignmentStepper({ assignmentHistory, selectedTicket })
                 <Typography variant="body2" color="text.secondary">
                   {a.action} - {formattedDate} {aging}
                 </Typography>
-                {a.attachment_path ? (
-                  <Typography
-                    variant="body2"
-                    sx={{ color: '#28a745', fontStyle: 'italic', cursor: 'pointer', textDecoration: 'underline' }}
-                    onClick={() => openAttachmentFile(a.attachment_path)}
-                  >
-                    Download attachment
-                  </Typography>
-                ) : (
-                  <Typography variant="body2" sx={{ color: '#28a745', fontStyle: 'italic' }}>
-                    No attachment
-                  </Typography>
-                )}
+                {/* Only show attachment if this is not a reversal action, or find attachment from previous work assignment */}
+                {(() => {
+                  // If this is a reversal, check previous assignments for attachment (the person who did the work)
+                  if (a.action && a.action.toLowerCase().includes('reverse')) {
+                    // Find the previous assignment that has an attachment (the person who did the work)
+                    const previousWorkAssignment = steps.slice(0, idx).reverse().find(step => 
+                      step.attachment_path && 
+                      step.action !== 'Reversed' && 
+                      step.action !== 'Reassigned'
+                    );
+                    if (previousWorkAssignment) {
+                      return (
+                        <Typography
+                          variant="body2"
+                          sx={{ color: '#28a745', fontStyle: 'italic', cursor: 'pointer', textDecoration: 'underline' }}
+                          onClick={() => openAttachmentFile(previousWorkAssignment.attachment_path)}
+                        >
+                          Download attachment (from {previousWorkAssignment.assigned_to_name})
+                        </Typography>
+                      );
+                    }
+                    return (
+                      <Typography variant="body2" sx={{ color: '#28a745', fontStyle: 'italic' }}>
+                        No attachment
+                      </Typography>
+                    );
+                  }
+                  // For non-reversal actions, show attachment normally
+                  if (a.attachment_path) {
+                    return (
+                      <Typography
+                        variant="body2"
+                        sx={{ color: '#28a745', fontStyle: 'italic', cursor: 'pointer', textDecoration: 'underline' }}
+                        onClick={() => openAttachmentFile(a.attachment_path)}
+                      >
+                        Download attachment
+                      </Typography>
+                    );
+                  }
+                  return (
+                    <Typography variant="body2" sx={{ color: '#28a745', fontStyle: 'italic' }}>
+                      No attachment
+                    </Typography>
+                  );
+                })()}
               </Box>
               <IconButton
                 size="small"

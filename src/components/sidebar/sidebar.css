@@ -1,0 +1,100 @@
+.sidebar {
+  background-color: var(--sidebar-color);
+  width: 240px;
+  transition: width 0.3s ease;
+  overflow: hidden;
+}
+
+.sidebar.closed {
+  width: 60px;
+}
+
+.logo {
+  height: 40px;
+  display: block;
+  margin: 10px auto; /* Centers the logo */
+  transition: opacity 0.3s ease;
+}
+
+.sidebar.closed .logo {
+  opacity: 0;
+  visibility: hidden;
+  height: 0;
+}
+
+
+.sidebar ul {
+  list-style: none;
+  padding: 0;
+}
+
+.sidebar li {
+  padding: 5px;
+  cursor: pointer;
+}
+
+.menu-item {
+  display: flex;
+  padding: 3px;
+  margin: 5px;
+  border-radius: 10px;
+  text-decoration: none;
+  align-items: center;
+}
+
+.menu-icon {
+  font-size: 1.2rem;
+  color: var(--active-color);
+  margin-right: 10px;
+}
+
+.sidebar.closed .menu-icon {
+  margin-right: 0;
+}
+
+.menu-text {
+  font-size: 0.8rem;
+  font-family: var(--font-family);
+  color: var(--active-color);
+}
+
+.menu-item:hover {
+  background-color: var(--hover-color);
+  border-radius: 10px;
+}
+
+.active-link {
+  background-color: var(--hover-color);
+  color: black;
+  font-weight: semi-bold;
+}
+
+.sidebar.closed .menu-text {
+  display: none;
+}
+
+/* Sidebar CSS */
+.sub-menu {
+  list-style-type: none;
+  padding-left: 20px;
+}
+
+.sub-menu-item {
+  display: flex;
+  padding: 5px;
+  margin-bottom: 5px;
+  border-radius: 10px;
+  text-decoration: none;
+  align-items: center;
+}
+
+.sub-menu-item:hover {
+  background-color: #f4f4f4;
+}
+
+.sub-menu-text {
+  font-size: 14px;
+  color: #333;
+}
+
+

@@ -43,6 +43,7 @@ export default function Crm() {
   const [modal, setModal] = useState({ isOpen: false, type: "", message: "" });
   const [activeColumns, setActiveColumns] = useState([
     "ticket_id",
+    "createdAt",
     "fullName",
     "phone_number",
     "region",
@@ -415,6 +416,7 @@ export default function Crm() {
   const renderTableHeader = () => (
     <tr>
       {activeColumns.includes("ticket_id") && <th>Ticket ID</th>}
+      {activeColumns.includes("createdAt") && <th>Created At</th>}
       {activeColumns.includes("fullName") && <th>Full Name</th>}
       {activeColumns.includes("phone_number") && <th>Phone</th>}
       {activeColumns.includes("region") && <th>Region</th>}
@@ -422,7 +424,6 @@ export default function Crm() {
       {activeColumns.includes("subject") && <th>Subject</th>}
       {activeColumns.includes("category") && <th>Category</th>}
       {activeColumns.includes("assigned_to_role") && <th>Assigned Role</th>}
-      {activeColumns.includes("createdAt") && <th>Created At</th>}
       <th>Actions</th>
     </tr>
   );
@@ -431,6 +432,19 @@ export default function Crm() {
     <tr key={ticket.id || index}>
       {activeColumns.includes("ticket_id") && (
         <td>{ticket.ticket_id || ticket.id}</td>
+      )}
+      {activeColumns.includes("createdAt") && (
+        <td>
+          {ticket.created_at
+            ? new Date(ticket.created_at).toLocaleString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : "N/A"}
+        </td>
       )}
       {activeColumns.includes("fullName") && (
         <td>
@@ -485,7 +499,6 @@ export default function Crm() {
                 year: "numeric",
                 hour: "2-digit",
                 minute: "2-digit",
-                hour12: true
               })
             : "N/A"}
         </td>

@@ -683,6 +683,18 @@ export default function Navbar({
                 <span style={{ color: '#333', fontWeight: '500' }}>
                   {ticketDetailsData.ticket.ticket_id || 'N/A'}
                 </span>
+                <span style={{ color: '#666' }}>Reporter Name:</span>
+                <span style={{ color: '#333', fontWeight: '500' }}>
+                  {(() => {
+                    const t = ticketDetailsData.ticket || {};
+                    const fullName = `${t.first_name || ''} ${t.middle_name || ''} ${t.last_name || ''}`.trim();
+                    return fullName || t.institution || t.requester || 'N/A';
+                  })()}
+                </span>
+                <span style={{ color: '#666' }}>Ticket Category:</span>
+                <span style={{ color: '#333', fontWeight: '500' }}>
+                  {ticketDetailsData.ticket.category || 'N/A'}
+                </span>
                 <span style={{ color: '#666' }}>Ticket Description:</span>
                 <span style={{ color: '#333', fontWeight: '500' }}>
                   {ticketDetailsData.ticket.description || 'N/A'}

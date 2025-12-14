@@ -513,17 +513,30 @@ export default function FocalPersonDashboard() {
   console.log("All available attendees (before filtering):", attendees);
 
   const filteredAttendees = attendees.filter((a) => {
-    const attendeeUnit = (a.unit_section || "").trim().toLowerCase();
     const attendeeRole = (a.role || "").toLowerCase();
     
-    const matches = allowedRoles.includes(attendeeRole) &&
-                    attendeeUnit &&
-                    attendeeUnit === currentUserUnitSection;
-
-    // DEBUGGING: Log each attendee and the comparison result
-    console.log(
-      `Comparing: Attendee Unit: "${attendeeUnit}" | Current User Unit: "${currentUserUnitSection}" | Attendee Role: "${attendeeRole}" | Matches: ${matches}`
-    );
+    // For head-of-unit, backend already filters by designation-based report_to, so just filter by allowed roles
+    // For other roles, continue with unit_section filtering
+    const currentUserRole = localStorage.getItem("role") || "";
+    
+    let matches;
+    if (currentUserRole === "head-of-unit" || currentUserRole === "manager") {
+      // Backend already handles the filtering for head-of-unit and manager based on designation/report_to
+      matches = allowedRoles.includes(attendeeRole);
+      console.log(
+        `${currentUserRole} filtering: Attendee Role: "${attendeeRole}" | Matches: ${matches}`
+      );
+    } else {
+      // For other roles, use unit_section filtering
+      const attendeeUnit = (a.unit_section || "").trim().toLowerCase();
+      matches = allowedRoles.includes(attendeeRole) &&
+                attendeeUnit &&
+                attendeeUnit === currentUserUnitSection;
+      
+      console.log(
+        `Other role filtering: Attendee Unit: "${attendeeUnit}" | Current User Unit: "${currentUserUnitSection}" | Attendee Role: "${attendeeRole}" | Matches: ${matches}`
+      );
+    }
 
     return matches;
   });

@@ -171,6 +171,7 @@ const AgentCRM = () => {
   const [columnModalOpen, setColumnModalOpen] = useState(false);
   const [activeColumns, setActiveColumns] = useState([
     "ticket_id",
+    "created_at",
     "fullName",
     "phone_number",
     "region",
@@ -809,12 +810,33 @@ const AgentCRM = () => {
       // Category (from TicketFilters)
       const matchesCategory =
         !filters.category || ticket.category === filters.category;
-      // Region (from TicketFilters)
-      const matchesRegion =
-        !filters.region || ticket.region === filters.region;
-      // District (from TicketFilters)
+      // Region (from TicketFilters or TableControls) - normalize for comparison
+      const normalizeRegion = (region) => {
+        if (!region || region === "") return "";
+        // Convert to lowercase, trim, and normalize spaces/hyphens
+        return String(region).toLowerCase().trim().replace(/\s+/g, "-").replace(/-+/g, "-");
+      };
+      // If no region filter is set, show all tickets
+      // If region filter is set, only show tickets that match (case-insensitive, normalized)
+      let matchesRegion = true;
+      if (filters.region && filters.region !== "") {
+        if (!ticket.region) {
+          matchesRegion = false; // If filter is set but ticket has no region, exclude it
+        } else {
+          const normalizedTicketRegion = normalizeRegion(ticket.region);
+          const normalizedFilterRegion = normalizeRegion(filters.region);
+          matchesRegion = normalizedTicketRegion === normalizedFilterRegion;
+        }
+      }
+      // District (from TicketFilters or TableControls) - normalize for comparison
+      const normalizeDistrict = (district) => {
+        if (!district) return "";
+        return district.toLowerCase().trim().replace(/\s+/g, "-");
+      };
       const matchesDistrict =
-        !filters.district || ticket.district === filters.district;
+        !filters.district || 
+        filters.district === "" ||
+        normalizeDistrict(ticket.district) === normalizeDistrict(filters.district);
       // Ticket ID (from TicketFilters)
       const matchesTicketId =
         !filters.ticketId || 
@@ -858,6 +880,7 @@ const AgentCRM = () => {
   const renderTableHeader = () => (
     <tr>
       {activeColumns.includes("ticket_id") && <th>Ticket ID</th>}
+      {activeColumns.includes("created_at") && <th>Created At</th>}
       {activeColumns.includes("fullName") && <th>Full Name</th>}
       {activeColumns.includes("phone_number") && <th>Phone</th>}
       {activeColumns.includes("region") && <th>Region</th>}
@@ -865,7 +888,6 @@ const AgentCRM = () => {
       {activeColumns.includes("subject") && <th>Subject</th>}
       {activeColumns.includes("category") && <th>Category</th>}
       {activeColumns.includes("assigned_to_role") && <th>Assigned Role</th>}
-      {activeColumns.includes("created_at") && <th>Created At</th>}
       <th>Actions</th>
     </tr>
   );
@@ -874,6 +896,18 @@ const AgentCRM = () => {
     <tr key={ticket.id}>
       {activeColumns.includes("ticket_id") && (
         <td>{ticket.ticket_id || ticket.id}</td>
+      )}
+      {activeColumns.includes("created_at") && (
+        <td>
+          {new Date(ticket.created_at).toLocaleString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true
+          })}
+        </td>
       )}
       {activeColumns.includes("fullName") && (
         <td>
@@ -895,18 +929,6 @@ const AgentCRM = () => {
       {activeColumns.includes("category") && <td>{ticket.category}</td>}
       {activeColumns.includes("assigned_to_role") && (
         <td>{ticket.assigned_to_role}</td>
-      )}
-      {activeColumns.includes("created_at") && (
-        <td>
-          {new Date(ticket.created_at).toLocaleString("en-GB", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: true
-          })}
-        </td>
       )}
       <td>
         <button
@@ -1182,6 +1204,8 @@ const AgentCRM = () => {
 
   // Add function to handle filter changes
   const handleFilterChange = (newFilters) => {
+    console.log("handleFilterChange called with:", JSON.stringify(newFilters)); // Debug log
+    console.log("Current filters before handleFilterChange:", JSON.stringify(filters)); // Debug log
     setFilters(newFilters);
     setCurrentPage(1);
   };
@@ -2163,8 +2187,30 @@ const AgentCRM = () => {
           created_at: selectedTicket.created_at,
         }
       : null;
+    
+    // Filter out duplicate assignments - keep only the most recent assignment for each person/role combination
+    // This prevents showing the same person multiple times in the workflow history
+    // BUT: Always keep reassignments as they show important workflow transitions
+    const assignmentMap = new Map();
+    
+    // First pass: collect all assignments, keeping only the most recent for each person/role
+    assignmentHistory.forEach((assignment) => {
+      const key = `${assignment.assigned_to_id}_${assignment.assigned_to_role}`;
+      const existing = assignmentMap.get(key);
+      const isReassignment = assignment.action && assignment.action.toLowerCase().includes('reassign');
+      
+      // Always keep reassignments, or if no existing record, or if this is more recent
+      if (!existing || isReassignment || new Date(assignment.created_at) > new Date(existing.created_at)) {
+        assignmentMap.set(key, assignment);
+      }
+    });
+    
+    // Convert back to array and sort by created_at to maintain chronological order
+    const filteredHistory = Array.from(assignmentMap.values())
+      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    
     // Always add all assignments as steps, even if assignee is same as creator
-    const steps = creatorStep ? [creatorStep, ...assignmentHistory] : assignmentHistory;
+    const steps = creatorStep ? [creatorStep, ...filteredHistory] : filteredHistory;
     
     // Helper function to get aging status color
     const getAgingStatusColor = (status) => {
@@ -2210,7 +2256,35 @@ const AgentCRM = () => {
               }
             } else {
               // Build message with workflow details
-              let baseMessage = `Message from ${prevUser}: ${a.reason || 'No message'}`;
+              let baseMessage;
+              
+              // Check if the NEXT step is a reassignment (meaning current person is being reassigned FROM)
+              const nextStep = steps[idx + 1];
+              const isBeingReassignedFrom = nextStep && 
+                nextStep.action && 
+                nextStep.action.toLowerCase().includes('reassign') &&
+                nextStep.assigned_to_id !== a.assigned_to_id;
+              
+              // Handle reassignment differently
+              if (a.action && a.action.toLowerCase().includes('reassign')) {
+                // This person was reassigned TO - show the reassignment message
+                // Include the reason from the previous assignment (the person being reassigned FROM)
+                const currentUser = a.assigned_to_name || 'Unknown';
+                baseMessage = `Reassigned from ${prevUser} to ${currentUser}`;
+                // Use reason from current reassignment, or fallback to previous assignment's reason
+                // The reason from the person being reassigned FROM should be shown here
+                const reassignmentReason = a.reason || steps[idx - 1]?.reason;
+                if (reassignmentReason) {
+                  baseMessage += `\nReason: ${reassignmentReason}`;
+                }
+              } else if (isBeingReassignedFrom) {
+                // This person is being reassigned FROM - show only status, no message
+                // The message/reason will be shown with the reassignment TO entry
+                baseMessage = `Reassigned`;
+              } else {
+                // Regular assignment - show message from previous user
+                baseMessage = `Message from ${prevUser}: ${a.reason || 'No message'}`;
+              }
               
               // Add workflow-specific details
               if (a.workflow_step) {
@@ -2419,8 +2493,15 @@ const AgentCRM = () => {
           }}
           filterRegion={filters.region || ""}
           onFilterRegionChange={(e) => {
-            const newFilters = { ...filters, region: e.target.value };
-            setFilters(newFilters);
+            const selectedRegion = e.target.value;
+            console.log("Setting region filter to:", selectedRegion); // Debug log
+            console.log("Current filters before update:", JSON.stringify(filters)); // Debug log
+            // Use functional update to ensure we're using the latest state
+            setFilters(prevFilters => {
+              const updatedFilters = { ...prevFilters, region: selectedRegion };
+              console.log("Updated filters:", JSON.stringify(updatedFilters)); // Debug log
+              return updatedFilters;
+            });
             setCurrentPage(1);
           }}
           filterDistrict={filters.district || ""}
@@ -3211,7 +3292,7 @@ const AgentCRM = () => {
       {/* Old modal removed - now using the improved AdvancedTicketCreateModal component */}
 
       {/* Employer/Institution Details */}
-      {selectedInstitution && (
+      {/* {selectedInstitution && (
         <div
           style={{
             flex: 1,
@@ -3248,11 +3329,10 @@ const AgentCRM = () => {
             <strong>Allocated Username:</strong>{" "}
             {selectedInstitution.allocated_staff_username}
           </div>
-          {/* All details shown for reference - only name used for submission, allocated user from employee search used for assignment */}
         </div>
-      )}
+      )} */}
       {/* Ticket history for entered phone number */}
-      {formData.phoneNumber && (
+      {/* {formData.phoneNumber && (
         <div
           style={{
             marginTop: 8,
@@ -3397,7 +3477,7 @@ const AgentCRM = () => {
             </div>
           )}
         </div>
-      )}
+      )} */}
 
 
       {/* Snackbar */}

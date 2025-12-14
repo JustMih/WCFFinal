@@ -1,0 +1,8 @@
+/* chart-line.css */
+.chart-container {
+  background-color: var(--sidebar-color) !important;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 16px;
+}

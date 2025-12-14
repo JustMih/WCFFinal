@@ -13,11 +13,17 @@ export default function TicketReassignModal({ ticket, open, onClose, onSuccess, 
     fetch(fetchAttendeesUrl, { headers: { Authorization: `Bearer ${token}` } })
       .then(res => res.json())
       .then(data => {
-        // Filter by section/unit and exclude current assignee if possible
-        let filtered = data;
-        if (ticket.section) {
-          filtered = filtered.filter(a => a.unit_section === ticket.section);
+        // For focal persons, head-of-unit, and manager, backend already filters by report_to/designation, so no additional filtering needed
+        // For other roles, filter by section/unit
+        const currentUserRole = localStorage.getItem("role") || "";
+        let filtered = data.attendees || data.data || data;
+        
+        if (currentUserRole !== "focal-person" && currentUserRole !== "head-of-unit" && currentUserRole !== "manager") {
+          if (ticket.section) {
+            filtered = filtered.filter(a => a.unit_section === ticket.section);
+          }
         }
+        
         if (ticket.assigned_to_id) {
           filtered = filtered.filter(a => a.id !== ticket.assigned_to_id);
         }

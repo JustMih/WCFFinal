@@ -227,7 +227,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                   )}
                 </div>
               </NavLink>
-
+{/* 
               <NavLink
                 to="/instagram"
                 className={({ isActive }) =>
@@ -240,7 +240,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                     <span className="menu-text">Instagram Management</span>
                   )}
                 </div>
-              </NavLink>
+              </NavLink> */}
 
               <div
                 className={`menu-item ${
@@ -321,7 +321,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                             <div className="metric-row">
                               <span className="crm-metric-icon">{item.icon}</span>
                               <span className="metric-label">{item.label}</span>
-                              <span className="metric-value">{item.value}</span>
+                              <span className="metric-value-crm">{item.value}</span>
                             </div>
                           </NavLink>
                         ))}
@@ -450,7 +450,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                             <div className="metric-row">
                               <span className="crm-metric-icon">{item.icon}</span>
                               <span className="metric-label">{item.label}</span>
-                              <span className="metric-value">{item.value}</span>
+                              <span className="metric-value-crm">{item.value}</span>
                             </div>
                           </NavLink>
                         ))}
@@ -510,7 +510,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                             <div className="metric-row">
                               <span className="crm-metric-icon">{item.icon}</span>
                               <span className="metric-label">{item.label}</span>
-                              <span className="metric-value">{item.value}</span>
+                              <span className="metric-value-crm">{item.value}</span>
                             </div>
                           </NavLink>
                         ))}
@@ -562,7 +562,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                             <div className="metric-row">
                               <span className="crm-metric-icon">{item.icon}</span>
                               <span className="metric-label">{item.label}</span>
-                              <span className="metric-value">{item.value}</span>
+                              <span className="metric-value-crm">{item.value}</span>
                             </div>
                           </NavLink>
                         ))}
@@ -612,7 +612,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                             <div className="metric-row">
                               <span className="crm-metric-icon">{item.icon}</span>
                               <span className="metric-label">{item.label}</span>
-                              <span className="metric-value">{item.value}</span>
+                              <span className="metric-value-crm">{item.value}</span>
                             </div>
                           </NavLink>
                         ))}

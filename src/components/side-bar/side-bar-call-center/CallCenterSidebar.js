@@ -493,19 +493,6 @@ export default function CallCenterSidebar({
                     </List>
                   </Collapse>
 
-                  <NavLink
-                    to="/instagram"
-                    className={({ isActive }) =>
-                      isActive ? "menu-item active-link" : "menu-item"
-                    }
-                  >
-                    <div className="menu-item">
-                      <FaInstagram className="menu-icon" color="#E4405F" />
-                      {isSidebarOpen && (
-                        <span className="menu-text">Instagram Management</span>
-                      )}
-                    </div>
-                  </NavLink>
 
                   <NavLink
                     to="/social-message/facebook"
