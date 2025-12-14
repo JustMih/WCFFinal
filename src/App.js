@@ -1,10 +1,11 @@
-import React from 'react';
+import React from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Login from "./auth/login-page/Login";
 import Dashboard from "./pages/dashboard-page/Dashboard";
-import CrmTicketsAssigned from "./pages/crm-pages/crm-tickets/assigned"
+import PublicDashboard from "./pages/public-dashboard/PublicDashboard";
+import CrmTicketsAssigned from "./pages/crm-pages/crm-tickets/assigned";
 import "./App.css";
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // Create a client
 const queryClient = new QueryClient({
@@ -23,16 +24,14 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <div className="app">
         <Routes>
+          {/* Public routes - must be defined before catch-all */}
+          <Route path="/" element={<PublicDashboard />} />
+          <Route path="/login" element={<Login />} />
           <Route path="/crm-tickets" element={<CrmTicketsAssigned />} />
-        </Routes>
 
-        {role ? (
-          <Dashboard />
-        ) : (
-          <Routes>
-            <Route path="/" element={<Login />} />
-          </Routes>
-        )}
+          {/* Authenticated routes - Dashboard handles all nested routes */}
+          {role && <Route path="/*" element={<Dashboard />} />}
+        </Routes>
       </div>
     </QueryClientProvider>
   );

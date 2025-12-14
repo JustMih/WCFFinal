@@ -59,7 +59,7 @@ export default function CallCenterSidebar({
       className={`call-center-sidebar ${isSidebarOpen ? "open" : "closed"}`}
     >
       {/* Logo moved to Navbar */}
-      
+
       <ul>
         <li>
           {(role === "admin" || role === "super-admin") && (
@@ -99,6 +99,20 @@ export default function CallCenterSidebar({
                 <div className="menu-item">
                   <FaRegUser className="menu-icon" />
                   {isSidebarOpen && <span className="menu-text">Users</span>}
+                </div>
+              </NavLink>
+              {/* Lookup Tables Management - Super Admin Only */}
+              <NavLink
+                to="/lookup-tables"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <FaRegUser className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">Lookup Tables</span>
+                  )}
                 </div>
               </NavLink>
               {/* <NavLink
@@ -395,19 +409,19 @@ export default function CallCenterSidebar({
                 </div>
               </NavLink>
 
-            
-
               {/* Social Notifications Toggle */}
-              <div 
-                onClick={toggleSocialMenu} 
-                className={`menu-item top-level-menu ${openSocial ? "active-link" : ""}`}
-                style={{ cursor: 'pointer' }}
+              <div
+                onClick={toggleSocialMenu}
+                className={`menu-item top-level-menu ${
+                  openSocial ? "active-link" : ""
+                }`}
+                style={{ cursor: "pointer" }}
               >
                 <BsChatRightTextFill className="menu-icon" />
                 {isSidebarOpen && (
                   <span className="menu-text">Social Notifications</span>
                 )}
-              </div> 
+              </div>
 
               {/* Dropdown */}
               <Collapse in={openSocial} timeout="auto" unmountOnExit>
@@ -419,8 +433,10 @@ export default function CallCenterSidebar({
                   {/* Instagram Toggle */}
                   <div
                     onClick={toggleInstagramMenu}
-                    className={`menu-item ${openInstagram ? "active-link" : ""}`}
-                    style={{ cursor: 'pointer' }}
+                    className={`menu-item ${
+                      openInstagram ? "active-link" : ""
+                    }`}
+                    style={{ cursor: "pointer" }}
                   >
                     <Badge
                       badgeContent={instagramUnreadCount}
@@ -492,7 +508,6 @@ export default function CallCenterSidebar({
                       </NavLink>
                     </List>
                   </Collapse>
-
 
                   <NavLink
                     to="/social-message/facebook"
