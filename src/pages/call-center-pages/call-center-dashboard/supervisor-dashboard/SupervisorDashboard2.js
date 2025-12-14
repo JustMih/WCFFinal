@@ -494,9 +494,13 @@ export default function SupervisorDashboard2() {
 
       {/* Queue Monitoring Section */}
       <CallQueueCard />
-
-      {/* SLA Metrics Cards */}
-      <div className="call-center-agent-summary">
+      {/* Live Calls Table */}
+      <div className="live-calls-table-container">
+      <LiveCallsCard />
+      </div>
+         {/* SLA Metrics Cards */}
+         <div className="live-calls-table-container">
+        <div className="call-center-agent-summary">
         <div className="call-center-agent-card">
           <div className="call-center-agent-card-icon">
             <div className="call-center-agent-data">
@@ -538,10 +542,6 @@ export default function SupervisorDashboard2() {
           </div>
         </div>
       </div>
-
-      {/* Live Calls Table */}
-      <div className="live-calls-table-container">
-      <LiveCallsCard />
       </div>
     </div>
   );
