@@ -2618,9 +2618,9 @@ export default function TicketDetailsModal({
                 )}
 
                 {/* Reverse, Assign, and Reassign buttons for focal persons and other roles */}
-                {(["focal-person"].includes(localStorage.getItem("role")) || 
+                {((["focal-person", "head-of-unit", "manager", "director"].includes(localStorage.getItem("role")) || 
                   !["agent", "reviewer", "attendee", "director-general"].includes(localStorage.getItem("role"))) && 
-                 selectedTicket?.assigned_to_id === localStorage.getItem("userId") && selectedTicket.status !== "Closed" && (
+                 selectedTicket?.assigned_to_id === localStorage.getItem("userId") && selectedTicket.status !== "Closed") && (
                   <>
                     {/* Show Forward to DG button for Director with Major Complaint Directorate */}
                     {userRole === "director" && 
