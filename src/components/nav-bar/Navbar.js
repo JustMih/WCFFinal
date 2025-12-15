@@ -105,6 +105,45 @@ export default function Navbar({
     }
   });
 
+  // Mark all notifications as read mutation
+  const markAllAsReadMutation = useMutation({
+    mutationFn: async () => {
+      // Get all unread notifications and mark them as read
+      const unreadNotifications = notificationsData?.notifications?.filter(n => n.status === 'unread') || [];
+      
+      // Mark each unread notification as read
+      const promises = unreadNotifications.map(notif => 
+        fetch(`${baseURL}/notifications/read/${notif.id}`, {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${token}` }
+        })
+      );
+      
+      const responses = await Promise.all(promises);
+      const failed = responses.filter(r => !r.ok);
+      
+      if (failed.length > 0) {
+        throw new Error(`Failed to mark ${failed.length} notification(s) as read`);
+      }
+      
+      return { success: true, count: unreadNotifications.length };
+    },
+    onSuccess: () => {
+      // Invalidate and refetch
+      queryClient.invalidateQueries(['unreadCount', userId]);
+      queryClient.invalidateQueries(['notifications', userId]);
+      // Also refetch the local notifications state
+      if (userId && token) {
+        fetch(`${baseURL}/notifications/user/${userId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+          .then(res => res.json())
+          .then(data => setNotifications(data.notifications || []))
+          .catch(err => console.error("Error refetching notifications:", err));
+      }
+    }
+  });
+
   // Fetch ticket notifications
   const { data: ticketNotificationsData } = useQuery({
     queryKey: ['ticketNotifications', selectedNotification?.ticket_id],
@@ -340,18 +379,23 @@ export default function Navbar({
   const handleNotificationClick = async (notif) => {
     console.log("Notification clicked:", notif);
     try {
-      // Mark notification as read
-      await markAsReadMutation.mutateAsync(notif.id);
-      
-      // Set the selected notification and open the dialog
-      setSelectedNotification(notif);
-      setNotificationDialogOpen(true);
+      // Mark notification as read first
+      if (notif.status === 'unread') {
+        await markAsReadMutation.mutateAsync(notif.id);
+      }
       
       // Close the dropdown
       setNotifDropdownOpen(false);
+      
+      // Set the selected notification and open the dialog (ticket details modal)
+      setSelectedNotification(notif);
+      setNotificationDialogOpen(true);
     } catch (err) {
       console.error("Error in handleNotificationClick:", err, notif);
-      alert("Error processing notification: " + (err?.message || err));
+      // Even if marking as read fails, still try to open the modal
+      setNotifDropdownOpen(false);
+      setSelectedNotification(notif);
+      setNotificationDialogOpen(true);
     }
   };
 
@@ -501,6 +545,37 @@ export default function Navbar({
           </Badge>
           {notifDropdownOpen && (
             <div className="navbar-notification-dropdown">
+              {/* Mark All as Read Button */}
+              {notificationsData?.notifications?.some(n => n.status === 'unread') && (
+                <div style={{
+                  padding: '8px 12px',
+                  borderBottom: '1px solid #e0e0e0',
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  backgroundColor: '#f5f5f5'
+                }}>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      markAllAsReadMutation.mutate();
+                    }}
+                    disabled={markAllAsReadMutation.isLoading}
+                    style={{
+                      background: 'transparent',
+                      border: '1px solid #1976d2',
+                      color: '#1976d2',
+                      padding: '4px 12px',
+                      borderRadius: '4px',
+                      cursor: markAllAsReadMutation.isLoading ? 'not-allowed' : 'pointer',
+                      fontSize: '0.75rem',
+                      fontWeight: '500',
+                      opacity: markAllAsReadMutation.isLoading ? 0.6 : 1
+                    }}
+                  >
+                    {markAllAsReadMutation.isLoading ? 'Marking...' : 'Mark all as read'}
+                  </button>
+                </div>
+              )}
               {!notificationsData?.notifications?.length ? (
                 <div className="notification-empty">No notifications</div>
               ) : (
@@ -646,7 +721,12 @@ export default function Navbar({
                     <div
                       key={notif.id}
                       className={`notification-item ${notif.status === "unread" ? "unread" : " "}`}
-                      style={{ display: 'flex', flexDirection: 'column' }}
+                      style={{ 
+                        display: 'flex', 
+                        flexDirection: 'column',
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => handleNotificationClick(notif)}
                     >
                       {/* Row 1: Assigned at and Date of Assignment */}
                       <div style={{ 
