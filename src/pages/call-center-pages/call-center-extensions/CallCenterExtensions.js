@@ -318,12 +318,12 @@ const CallCenterExtensions = () => {
           <TableBody>
             {usersWithExtensions
               .filter((user) =>
-                user.name.toLowerCase().includes(search.toLowerCase())
+                user.full_name.toLowerCase().includes(search.toLowerCase())
               )
               .map((user) => (
                 <TableRow key={user.id}>
                   <TableCell>{user.extension}</TableCell>
-                  <TableCell>{user.name}</TableCell>
+                  <TableCell>{user.full_name}</TableCell>
                   <TableCell>{user.email}</TableCell>
                   <TableCell>{user.role}</TableCell>
                   <TableCell>{user.status}</TableCell>

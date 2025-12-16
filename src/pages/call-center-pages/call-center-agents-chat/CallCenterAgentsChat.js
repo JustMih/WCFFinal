@@ -10,7 +10,7 @@ import {
 } from "@mui/material";
 import "./CallCenterAgentsChat.css";
 
-const socket = io("http://192.168.1.170:5070");
+const socket = io("http://192.168.21.70:5070");
 
 const CallCenterAgentChat = () => {
   const [message, setMessage] = useState("");
@@ -125,9 +125,9 @@ const CallCenterAgentChat = () => {
                   }`}
                 >
                   <div className="avatar">
-                    {supervisor.name?.charAt(0).toUpperCase()}
+                    {supervisor.full_name?.charAt(0).toUpperCase()}
                   </div>
-                  <div className="supervisor-name">{supervisor.name}</div>
+                  <div className="supervisor-name">{supervisor.full_name}</div>
                 </div>
               ))}
               {!supervisors.length && (
@@ -143,7 +143,7 @@ const CallCenterAgentChat = () => {
           {selectedSupervisor && (
             <div className="chatting-with">
               Chatting with{" "}
-              {supervisors.find((s) => s.id === selectedSupervisor)?.name}
+              {supervisors.find((s) => s.id === selectedSupervisor)?.full_name}
             </div>
           )}
 

@@ -61,7 +61,7 @@ const OnlineAgentsTable = () => {
             {onlineAgents.length > 0 ? (
               onlineAgents.map((user) => (
                 <TableRow key={user.id}>
-                  <TableCell>{user.name}</TableCell>
+                  <TableCell>{user.full_name}</TableCell>
                   <TableCell>{user.extension}</TableCell>
                   <TableCell>
                     <span className={`status-badge ${user.status.toLowerCase()}`}>

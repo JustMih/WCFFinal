@@ -330,21 +330,21 @@ export default function AgentsDashboard() {
       setPhoneStatus("Not configured");
       return;
     }
-  
+
     const ua = new UserAgent(sipConfig);
     const registerer = new Registerer(ua);
-  
+
     // Handle incoming calls
     ua.delegate = {
       onInvite: (incomingSession) => {
         console.log("Incoming call", incomingSession);
-        
+
         handleIncomingInvite(incomingSession);
       }
     };
-  
+
     setUserAgent(ua);
-  
+
     ua
       .start()
       .then(() => {
@@ -355,7 +355,7 @@ export default function AgentsDashboard() {
         console.error("UA failed to start:", error);
         setPhoneStatus("Connection Failed");
       });
-  
+
     return () => {
       registerer.unregister().catch(console.error);
       ua.stop();
@@ -363,7 +363,7 @@ export default function AgentsDashboard() {
       stopCallTimer();
     };
   }, [sipConfig]);
-  
+
   // ---------- Fetch function data (ticket modal) ----------
   useEffect(() => {
     (async () => {
@@ -724,38 +724,38 @@ export default function AgentsDashboard() {
 
   const handleAcceptCall = () => {
     if (!incomingCall) return;
-  
+
     clearTimeout(autoRejectTimerRef.current);
     stopRingtone();
-  
+
     console.log("Accepting call...");
-  
+
     incomingCall.accept()
       .then(() => {
         // Mark call answered
         wasAnsweredRef.current = true;
-  
+
         // Attach remote audio
         attachMediaStream(incomingCall);
-  
+
         // Set session state
         setSession(incomingCall);
         setIncomingCall(null);
         setPhoneStatus("In Call");
         startCallTimer();
-  
+
         // Open ticket modal automatically
         setTicketPhoneNumber(lastIncomingNumber || "");
         setShowTicketModal(true);
         setIsTicketModalOpen(true);
-  
+
         // Optionally hide phone popup (recommended)
         setShowPhonePopup(false);
-  
+
         // Listen for call end
         incomingCall.stateChange.addListener((state) => {
           console.log("Call state:", state);
-  
+
           if (state === SessionState.Terminated) {
             setPhoneStatus("Idle");
             setSession(null);
@@ -765,7 +765,7 @@ export default function AgentsDashboard() {
             }
           }
         });
-  
+
       })
       .catch((error) => {
         console.error("Accept failed:", error);
@@ -774,7 +774,7 @@ export default function AgentsDashboard() {
         setShowPhonePopup(false);
       });
   };
-  
+
   const handleRejectCall = () => {
     if (!incomingCall) return;
     clearTimeout(autoRejectTimerRef.current);
@@ -791,29 +791,29 @@ export default function AgentsDashboard() {
     if (session) {
       // End active SIP call
       session.bye().catch(console.error);
-  
+
       setSession(null);
       setPhoneStatus("Idle");
       if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
-  
+
       stopRingtone();
       stopCallTimer();
       setShowPhonePopup(false);
       setIncomingCall(null);
-  
+
     } else if (incomingCall) {
       // End incoming SIP call (reject)
       incomingCall.reject().catch(console.error);
-  
+
       setIncomingCall(null);
       setPhoneStatus("Idle");
-  
+
       stopRingtone();
       stopCallTimer();
       setShowPhonePopup(false);
     }
   };
-  
+
 
   const handleDial = () => {
     if (!userAgent || !phoneNumber) return;
@@ -976,10 +976,29 @@ export default function AgentsDashboard() {
             </>
           )}
           <Tooltip title="Agent Emergency">
-            <IconButton onClick={handleClick} size="small" sx={{ ml: 2 }} aria-controls={openStatus ? "account-menu" : undefined} aria-haspopup="true" aria-expanded={openStatus ? "true" : undefined}>
-              <Avatar sx={{ width: 32, height: 32 }}>E</Avatar>
+            <IconButton
+              onClick={handleClick}
+              size="medium"
+              sx={{ ml: 2 }}
+              aria-controls={openStatus ? "account-menu" : undefined}
+              aria-haspopup="true"
+              aria-expanded={openStatus ? "true" : undefined}
+            >
+              <Avatar
+                sx={{
+                  width: 48,
+                  height: 40,
+                  bgcolor: 'primary.main',
+                  color: 'white',
+                  fontSize: 10,
+                  fontWeight: 'bold',
+                }}
+              >
+                PAUSE
+              </Avatar>
             </IconButton>
           </Tooltip>
+
         </div>
 
         <div className="dashboard-single-agent-row_two">

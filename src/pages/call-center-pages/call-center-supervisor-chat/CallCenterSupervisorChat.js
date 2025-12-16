@@ -13,7 +13,11 @@ import MenuIcon from "@mui/icons-material/Menu";
 import { baseURL } from "../../../config";
 import "./CallCenterSupervisorChat.css";
 
+<<<<<<< HEAD
+const socket = io("http://192.168.21.70:5070");
+=======
 const socket = io("https://10.52.0.19");
+>>>>>>> bdb7c9218ffe83716cd048a16b9ac29fe756e9e0
 
 const CallCenterSupervisorChat = () => {
   const [messages, setMessages] = useState([]);
@@ -219,11 +223,11 @@ const CallCenterSupervisorChat = () => {
                   }`}
                 >
                   <div className="avatar">
-                    {agent.name?.charAt(0).toUpperCase()}
+                    {agent.full_name?.charAt(0).toUpperCase()}
                   </div>
                   <div className="agent-name-wrapper">
                     <div>
-                      {agent.name}{" "}
+                      {agent.full_name}{" "}
                       {unreadCounts[agent.id] > 0 && (
                         <span className="unread-badge">
                           {unreadCounts[agent.id]}
@@ -240,7 +244,7 @@ const CallCenterSupervisorChat = () => {
         <div className="supervisor-chat-pane">
           {selectedAgent && (
             <div className="chatting-with">
-              Chatting with {agents.find((a) => a.id === selectedAgent)?.name}
+              Chatting with {agents.find((a) => a.id === selectedAgent)?.full_name}
               {typingAgent === selectedAgent && (
                 <span className="typing-indicator"> is typing...</span>
               )}

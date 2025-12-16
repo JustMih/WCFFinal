@@ -43,6 +43,7 @@ import IvrCardsPage from "../call-center-pages/cal-center-ivr/IvrCardsPage";
 import DTMFStats from "../call-center-pages/cal-center-ivr/DTMFStats";
 import VoiceNoteReport from "../call-center-pages/call-center-report/voice-note-report";
 import InstagramPage from "../instagram/InstagramPage";
+import LookupTablesManagement from "../super-admin/LookupTablesManagement";
 
 export default function Dashboard() {
   const [isDarkMode, setDarkMode] = useState(false);
@@ -126,9 +127,9 @@ export default function Dashboard() {
                   element={<PrivateRoute element={<Dashboard2 />} />}
                 />
                 <Route
-                path="/rtdashboard"
-                element={<PrivateRoute element={<RTDashboard />} />}
-              />
+                  path="/rtdashboard"
+                  element={<PrivateRoute element={<RTDashboard />} />}
+                />
                 <Route
                   path="/agents"
                   element={<PrivateRoute element={<CallCenterAgents />} />}
@@ -211,6 +212,15 @@ export default function Dashboard() {
                   path="/instagram"
                   element={<PrivateRoute element={<InstagramPage />} />}
                 />
+                {/* Lookup Tables Management - Super Admin Only */}
+                {(role === "admin" || role === "super-admin") && (
+                  <Route
+                    path="/lookup-tables"
+                    element={
+                      <PrivateRoute element={<LookupTablesManagement />} />
+                    }
+                  />
+                )}
               </>
             )}
 

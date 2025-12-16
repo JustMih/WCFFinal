@@ -34,7 +34,7 @@ export default function AdminAndSuperAdminDashboard() {
       });
       const data = await response.json();
       console.log("Online Users:", data);
-      setOnlineUsers(data || []); // Ensure we set an empty array if no users are online
+      setOnlineUsers(data.onlineUser || []); // Ensure we set an empty array if no users are online
     } catch (error) {
       console.error("Error fetching online users:", error);
       setOnlineUsers([]); // Reset to empty array on error
@@ -431,7 +431,7 @@ export default function AdminAndSuperAdminDashboard() {
                           borderRadius: idx === 0 ? "12px 0 0 0" : undefined,
                         }}
                       >
-                        {activity.name}
+                        {activity.full_name}
                       </td>
                       <td style={{ padding: "12px 12px", border: "none" }}>
                         {activity.status}
