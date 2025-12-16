@@ -2108,8 +2108,13 @@ export default function TicketDetailsModal({
                       <Button 
                         size="small" 
                         onClick={handleOpenTicketUpdates} 
-                        variant="outlined"
+                        variant={unreadUpdatesCount > 0 ? "contained" : "outlined"}
                         startIcon={<ChatIcon />}
+                        style={unreadUpdatesCount > 0 ? {
+                          backgroundColor: '#4caf50',
+                          color: 'white',
+                          borderColor: '#4caf50'
+                        } : {}}
                         sx={{ 
                           textTransform: 'none', 
                           fontSize: '0.875rem',
@@ -2117,14 +2122,17 @@ export default function TicketDetailsModal({
                             backgroundColor: '#4caf50',
                             color: 'white',
                             borderColor: '#4caf50',
-                            borderWidth: '1px',
-                            borderStyle: 'solid',
                             '&:hover': {
                               backgroundColor: '#45a049',
                               borderColor: '#45a049',
+                              color: 'white'
+                            },
+                            '&.MuiButton-contained': {
+                              backgroundColor: '#4caf50',
                               color: 'white',
-                              borderWidth: '1px',
-                              borderStyle: 'solid'
+                              '&:hover': {
+                                backgroundColor: '#45a049'
+                              }
                             }
                           } : {
                             backgroundColor: 'transparent',
