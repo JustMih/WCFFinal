@@ -217,7 +217,7 @@ export default function CRMReviewerTickets() {
       {activeColumns.includes("category") && <th>Category</th>}
       {activeColumns.includes("assigned_to_role") && <th>Assigned Role</th>}
       {activeColumns.includes("createdAt") && <th>Created At</th>}
-      {activeColumns.includes("dateCreatedAt") && <th>Date Created At</th>}
+      {activeColumns.includes("dateCreatedAt") && <th>Created At</th>}
       {activeColumns.includes("categoryType") && <th>Category Type (Major/Minor)</th>}
       <th>Actions</th>
     </tr>

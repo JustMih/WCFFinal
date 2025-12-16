@@ -1173,7 +1173,7 @@ export default function ReviewerDashboard() {
               {activeColumns.includes("phone_number") && <th>Phone</th>}
               {activeColumns.includes("region") && <th>Region</th>}
               {activeColumns.includes("status") && <th>Status</th>}
-              {activeColumns.includes("dateCreatedAt") && <th>Date Created At</th>}
+              {activeColumns.includes("dateCreatedAt") && <th>Created At</th>}
               {activeColumns.includes("categoryType") && <th>Category Type (Major/Minor)</th>}
               <th>Actions</th>
             </tr>
