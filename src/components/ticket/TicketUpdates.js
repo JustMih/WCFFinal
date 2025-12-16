@@ -186,10 +186,28 @@ const TicketUpdates = ({ ticketId, currentUserId, canAddUpdates = true, isAssign
 
   return (
     <Box sx={{ mt: 0 }}>
-      <Typography variant="h6" sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-        <UpdateIcon />
-        Ticket Updates
-      </Typography>
+      {/* Header with Add Button */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <UpdateIcon />
+          Ticket Updates
+        </Typography>
+        {canAddUpdates && isAssigned && !showUpdateForm && (
+          <Button
+            variant="contained"
+            onClick={() => setShowUpdateForm(true)}
+            startIcon={<AddIcon />}
+            sx={{ 
+              textTransform: 'none',
+              borderRadius: 2,
+              px: 2,
+              py: 0.75
+            }}
+          >
+            Add New Update
+          </Button>
+        )}
+      </Box>
 
       {error && (
         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
@@ -203,78 +221,61 @@ const TicketUpdates = ({ ticketId, currentUserId, canAddUpdates = true, isAssign
         </Alert>
       )}
 
-      {/* Add new update section */}
-      {canAddUpdates && isAssigned ? (
-        <Paper sx={{ p: 2, mb: 2 }}>
-          {!showUpdateForm ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+      {/* Add new update form */}
+      {canAddUpdates && isAssigned && showUpdateForm && (
+        <Paper sx={{ p: 2.5, mb: 2, border: '1px solid #e0e0e0', borderRadius: 2 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              fullWidth
+              multiline
+              rows={4}
+              placeholder="Enter your daily progress update..."
+              value={newUpdate}
+              onChange={(e) => setNewUpdate(e.target.value)}
+              variant="outlined"
+              size="small"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 1.5
+                }
+              }}
+            />
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+              <Button
+                variant="outlined"
+                size="medium"
+                onClick={() => {
+                  setShowUpdateForm(false);
+                  setNewUpdate('');
+                }}
+                sx={{ textTransform: 'none', borderRadius: 1.5 }}
+              >
+                Cancel
+              </Button>
               <Button
                 variant="contained"
-                onClick={() => setShowUpdateForm(true)}
-                startIcon={<AddIcon />}
-                sx={{ textTransform: 'none' }}
+                onClick={handleAddUpdate}
+                disabled={!newUpdate.trim() || addingUpdate}
+                startIcon={addingUpdate ? <CircularProgress size={16} color="inherit" /> : <AddIcon />}
+                sx={{ 
+                  textTransform: 'none',
+                  borderRadius: 1.5,
+                  px: 3
+                }}
               >
-                Add New Update
+                {addingUpdate ? 'Adding...' : 'Add Update'}
               </Button>
             </Box>
-          ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={3}
-                  placeholder="Enter your daily progress update..."
-                  value={newUpdate}
-                  onChange={(e) => setNewUpdate(e.target.value)}
-                  variant="outlined"
-                  size="small"
-                />
-                <Button
-                  variant="contained"
-                  onClick={handleAddUpdate}
-                  disabled={!newUpdate.trim() || addingUpdate}
-                  startIcon={addingUpdate ? <CircularProgress size={16} color="inherit" /> : <AddIcon />}
-                  sx={{ minWidth: 'auto', px: 2 }}
-                >
-                  {addingUpdate ? 'Adding...' : 'Add'}
-                </Button>
-              </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => {
-                    setShowUpdateForm(false);
-                    setNewUpdate('');
-                  }}
-                >
-                  Cancel
-                </Button>
-              </Box>
-            </Box>
-          )}
-        </Paper>
-      ) : (canAddUpdates && !isAssigned && updates.length === 0) || (ticketStatus === 'Closed' && !isAssigned && updates.length === 0) ? (
-        <Paper sx={{ p: 3, mb: 2, textAlign: 'center', bgcolor: '#f8f9fa' }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-            <InfoIcon sx={{ fontSize: 48, color: '#6c757d' }} />
-            <Typography variant="h6" color="text.secondary">
-              No Updates Available
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              You are not assigned to this ticket. Only assigned users can add updates.
-            </Typography>
           </Box>
         </Paper>
-      ) : null}
+      )}
 
       {/* Updates list */}
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
           <CircularProgress />
         </Box>
-      ) : updates.length > 0 && (
+      ) : updates.length > 0 ? (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {updates.map((update) => (
             <Card key={update.id} variant="outlined">
@@ -324,6 +325,25 @@ const TicketUpdates = ({ ticketId, currentUserId, canAddUpdates = true, isAssign
             </Card>
           ))}
         </Box>
+      ) : (
+        // Empty state - show different messages based on ticket status and user assignment
+        <Paper sx={{ p: 4, textAlign: 'center', bgcolor: ticketStatus === 'Closed' ? '#f0f7ff' : '#f8f9fa', borderRadius: 2 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+            <InfoIcon sx={{ fontSize: 56, color: ticketStatus === 'Closed' ? '#1976d2' : '#6c757d' }} />
+            <Typography variant="h6" color={ticketStatus === 'Closed' ? 'primary' : 'text.secondary'} sx={{ fontWeight: 'bold' }}>
+              {ticketStatus === 'Closed' 
+                ? 'Ticket Closed' 
+                : 'No Updates Available'}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 400 }}>
+              {ticketStatus === 'Closed' 
+                ? 'This ticket has been closed. No further updates are available. The ticket has been resolved and completed.' 
+                : !isAssigned 
+                  ? 'You are not assigned to this ticket. Only assigned users can add updates.' 
+                  : 'There are no updates for this ticket yet. Updates will appear here once they are added by assigned team members.'}
+            </Typography>
+          </Box>
+        </Paper>
       )}
 
       {/* Edit Dialog */}

@@ -205,6 +205,26 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
         continue;
       }
 
+      // Skip standalone "Closed" actions if there's a previous "Assigned" by the same person
+      // (they will be consolidated below)
+      if (current.action === "Closed" && processedHistory.length > 0) {
+        const prevStep = processedHistory[processedHistory.length - 1];
+        if (prevStep.assigned_to_id === current.assigned_to_id && prevStep.action === "Assigned") {
+          // Consolidate: update previous step to "Closed"
+          prevStep.action = "Closed";
+          prevStep.closed_at = current.created_at;
+          prevStep.isConsolidated = true;
+          // Copy attachment and reason from Closed action if available
+          if (current.attachment_path) {
+            prevStep.attachment_path = current.attachment_path;
+          }
+          if (current.reason) {
+            prevStep.reason = current.reason;
+          }
+          continue; // Skip adding this Closed action separately
+        }
+      }
+
       // Consolidate Assigned+Closed by same person
       if (current.action === "Assigned" && 
           next && 
@@ -214,7 +234,9 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
           ...currentWithoutReason,
           action: "Closed",
           closed_at: next.created_at,
-          isConsolidated: true
+          isConsolidated: true,
+          attachment_path: next.attachment_path || current.attachment_path,
+          reason: next.reason || current.reason || currentWithoutReason.reason
         });
         i++; // Skip the next step since consolidated
       } else {
@@ -584,51 +606,59 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
                 )}
               </Typography>
               
-              {/* Justification */}
-              {a.reason && (
-                <Box sx={{ mt: 1, p: 1.25, bgcolor: '#f8f9fa', borderRadius: 1, border: '1px solid #e9ecef' }}>
-                  <Typography variant="body2" sx={{ color: '#444', fontStyle: 'italic' }}>
-                    <strong>Justification:</strong> {a.reason}
-                  </Typography>
-                </Box>
-              )}
-              
-              {/* Additional workflow details if available */}
-              {(a.workflow_step || a.coordinator_notes || a.dg_notes) && (
-                <Box sx={{ mt: 1, p: 1.5, bgcolor: '#fff3cd', borderRadius: 1, border: '1px solid #ffeaa7' }}>
-                  {a.workflow_step && (
-                    <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 'bold', color: '#856404' }}>
-                      Workflow Step: {a.workflow_step}
-                    </Typography>
+              {/* For Closed actions: show resolution/description, status, and attachment in one consolidated view */}
+              {a.action === "Closed" || (selectedTicket.status === "Closed" && idx === 0) ? (
+                <>
+                  {/* Resolution/Description - use reason from assignment or resolution_details from ticket */}
+                  {(a.reason || (selectedTicket.status === "Closed" && selectedTicket.resolution_details && idx === 0)) && (
+                    <Box sx={{ mt: 1, p: 1.25, bgcolor: '#d4edda', borderRadius: 1, border: '1px solid #c3e6cb' }}>
+                      <Typography variant="body2" sx={{ color: '#155724' }}>
+                        <strong>Resolution:</strong> {a.reason || (selectedTicket.status === "Closed" && selectedTicket.resolution_details && idx === 0 ? selectedTicket.resolution_details : '')}
+                      </Typography>
+                    </Box>
                   )}
-                  {a.coordinator_notes && (
-                    <Typography variant="body2" sx={{ mb: 0.5, color: '#856404' }}>
-                      <strong>Reviewer Notes:</strong> {a.coordinator_notes}
-                    </Typography>
+                  
+                  {/* Status */}
+                  {selectedTicket.status === "Closed" && (
+                    <Box sx={{ mt: 1, p: 1, bgcolor: '#f8f9fa', borderRadius: 1, border: '1px solid #e9ecef' }}>
+                      <Typography variant="body2" sx={{ color: '#444' }}>
+                        <strong>Status:</strong> Closed
+                      </Typography>
+                    </Box>
                   )}
-                  {a.dg_notes && (
-                    <Typography variant="body2" sx={{ color: '#856404' }}>
-                      <strong>DG Notes:</strong> {a.dg_notes}
-                    </Typography>
+                </>
+              ) : (
+                <>
+                  {/* Justification for non-closed actions */}
+                  {a.reason && (
+                    <Box sx={{ mt: 1, p: 1.25, bgcolor: '#f8f9fa', borderRadius: 1, border: '1px solid #e9ecef' }}>
+                      <Typography variant="body2" sx={{ color: '#444', fontStyle: 'italic' }}>
+                        <strong>Justification:</strong> {a.reason}
+                      </Typography>
+                    </Box>
                   )}
-                </Box>
-              )}
-              
-              {/* Resolution details for closed tickets */}
-              {selectedTicket.status === "Closed" && selectedTicket.resolution_details && idx === 0 && (
-                <Typography 
-                  variant="body2" 
-                  sx={{ 
-                    mt: 1, 
-                    p: 1.5, 
-                    bgcolor: '#d4edda', 
-                    borderRadius: 1, 
-                    border: '1px solid #c3e6cb',
-                    color: '#155724'
-                  }}
-                >
-                  <strong>Resolution:</strong> {selectedTicket.resolution_details}
-                </Typography>
+                  
+                  {/* Additional workflow details if available */}
+                  {(a.workflow_step || a.coordinator_notes || a.dg_notes) && (
+                    <Box sx={{ mt: 1, p: 1.5, bgcolor: '#fff3cd', borderRadius: 1, border: '1px solid #ffeaa7' }}>
+                      {a.workflow_step && (
+                        <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 'bold', color: '#856404' }}>
+                          Workflow Step: {a.workflow_step}
+                        </Typography>
+                      )}
+                      {a.coordinator_notes && (
+                        <Typography variant="body2" sx={{ mb: 0.5, color: '#856404' }}>
+                          <strong>Reviewer Notes:</strong> {a.coordinator_notes}
+                        </Typography>
+                      )}
+                      {a.dg_notes && (
+                        <Typography variant="body2" sx={{ color: '#856404' }}>
+                          <strong>DG Notes:</strong> {a.dg_notes}
+                        </Typography>
+                      )}
+                    </Box>
+                  )}
+                </>
               )}
               
               {/* Attachment/Evidence link if present, else show 'No attachment' */}
