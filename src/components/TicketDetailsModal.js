@@ -199,6 +199,12 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
       const currentWithoutReason = { ...current };
       delete currentWithoutReason.reason;
 
+      // Skip "Rated" actions - ignore them completely, only show "Assigned"
+      if (current.action === "Rated") {
+        // Skip this step entirely - don't add it to processedHistory
+        continue;
+      }
+
       // Consolidate Assigned+Closed by same person
       if (current.action === "Assigned" && 
           next && 
@@ -220,9 +226,13 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
     steps.push(...processedHistory);
   }
 
-  // Add reviewer step if applicable (do not block assignment history)
-  if (isWithReviewer) {
-    // Add reviewer step for open complaints/compliments/suggestions
+  // Check if assignment history already has a reviewer assignment
+  const hasReviewerInHistory = Array.isArray(assignmentHistory) && assignmentHistory.length > 0 &&
+    assignmentHistory.some(a => a.assigned_to_role === "Reviewer" || a.assigned_to_role === "reviewer");
+
+  // Add reviewer step only if applicable and not already in assignment history
+  if (isWithReviewer && !hasReviewerInHistory) {
+    // Add reviewer step for open complaints/compliments/suggestions only if not in history
     steps.push({
       assigned_to_name: "Reviewer",
       assigned_to_role: "Reviewer",
@@ -250,8 +260,8 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
 
   // Determine current step index for descending order
   let currentAssigneeIdx = 0;
-  if (isWithReviewer) {
-    // If ticket is with reviewer, the reviewer step is current (will be index 0 in reversed array)
+  if (isWithReviewer && !hasReviewerInHistory) {
+    // If ticket is with reviewer and not in history, the reviewer step is current (will be index 0 in reversed array)
     currentAssigneeIdx = 0;
   } else if (
     selectedTicket.status === "Open" &&
@@ -276,7 +286,8 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
         // Determine if this is the first step (most recent) and ticket is closed
         const isFirstStep = idx === 0;
         const isClosed = selectedTicket.status === "Closed" && isFirstStep;
-        const isCurrentWithReviewer = isWithReviewer && idx === 0; // Reviewer step is first in reversed
+        // Check if this is the reviewer step that was added (not from history)
+        const isCurrentWithReviewer = isWithReviewer && !hasReviewerInHistory && idx === 0 && a.action === "Currently with";
 
         // Set color: green for completed, blue for current, gray for pending, green for closed first step
         let color;
@@ -294,11 +305,14 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
         // Check if ticket is closed
         const isTicketClosed = selectedTicket.status === "Closed" || selectedTicket.status === "Resolved";
         
-        // Priority order: Closed > Forwarded > Escalated > Previous to Escalated > Assigned > Current > Completed > Pending
+        // Priority order: Closed > Current > Forwarded > Escalated > Previous to Escalated > Assigned > Completed > Pending
         if (selectedTicket.status === "Closed" || selectedTicket.status === "Resolved" || a.isConsolidated) {
           color = "green"; // Green for all steps when ticket is closed or consolidated closed steps
+        } else if (idx === currentAssigneeIdx && selectedTicket.status !== "Closed") {
+          // Current step should be grey (in progress, not done yet)
+          color = "gray";
         } else if (a.action === "Forwarded") {
-          color = "green"; // Green for forwarded actions
+          color = "green"; // Green for forwarded actions (completed)
         } else if (isCurrentEscalated) {
           // Check if this escalated step was followed by an assignment
           const previousStep = reversedSteps[idx - 1];
@@ -313,12 +327,20 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
           color = "red"; // Red for next step when previous is escalated
         } else if (wasAssignedAndForwarded) {
           color = "green"; // Green for assigned step that was forwarded to another user
+        } else if (a.action === "Assigned" && (a.assigned_to_role === "Reviewer" || a.assigned_to_role === "reviewer")) {
+          // If assigned to reviewer and ticket is still open, it's gray (in progress)
+          color = "gray"; // Gray for assigned to reviewer (in progress)
         } else if (a.action === "Assigned") {
-          color = "gray"; // Gray for assigned but still open
-        } else if (a.action === "Currently with" || a.assigned_to_role === "Reviewer") {
-          color = "gray"; // Gray for currently with and reviewer
+          // Check if this is the current step
+          if (idx === currentAssigneeIdx && selectedTicket.status !== "Closed") {
+            color = "gray"; // Gray for current active step (in progress, not done yet)
+          } else {
+            color = "gray"; // Gray for assigned but still open
+          }
+        } else if (a.action === "Currently with" || (a.assigned_to_role === "Reviewer" && a.action !== "Assigned")) {
+          color = "gray"; // Gray for currently with and reviewer (only if not assigned)
         } else if (idx === currentAssigneeIdx && selectedTicket.status !== "Closed") {
-          color = "blue"; // Blue for current active step
+          color = "gray"; // Gray for current active step (in progress, not done yet)
         } else if (idx > currentAssigneeIdx || selectedTicket.status === "Closed") {
           color = "green"; // Green for completed steps or when ticket is closed
         } else {
