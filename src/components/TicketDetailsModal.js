@@ -21,6 +21,7 @@ import Chip from "@mui/material/Chip";
 import Alert from "@mui/material/Alert";
 import CloseIcon from '@mui/icons-material/Close';
 import Autocomplete from "@mui/material/Autocomplete";
+import Badge from "@mui/material/Badge";
 
 import ChatIcon from '@mui/icons-material/Chat';
 import Download from '@mui/icons-material/Download';
@@ -888,6 +889,7 @@ export default function TicketDetailsModal({
 
   // Ticket Updates toggle state
   const [showTicketUpdates, setShowTicketUpdates] = useState(false);
+  const [unreadUpdatesCount, setUnreadUpdatesCount] = useState(0);
   
   // Reversed ticket editing states
   const [isEditReversedTicketDialogOpen, setIsEditReversedTicketDialogOpen] = useState(false);
@@ -940,6 +942,80 @@ export default function TicketDetailsModal({
       setSelectedRating(selectedTicket.complaint_type || "");
     }
   }, [selectedTicket]);
+
+  // Fetch unread updates count when ticket opens
+  useEffect(() => {
+    const fetchUnreadUpdatesCount = async () => {
+      if (!selectedTicket?.id || !open) {
+        setUnreadUpdatesCount(0);
+        return;
+      }
+
+      try {
+        const token = localStorage.getItem('authToken');
+        // Use the new unread count endpoint
+        const response = await fetch(`${baseURL}/ticket-updates/ticket/${selectedTicket.id}/unread-count`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const unreadCount = data.data?.unreadCount || 0;
+          
+          console.log('DEBUG: Unread updates count:', unreadCount);
+          setUnreadUpdatesCount(unreadCount);
+        } else {
+          console.error('Failed to fetch unread count:', response.status);
+          setUnreadUpdatesCount(0);
+        }
+      } catch (error) {
+        console.error('Error fetching unread updates count:', error);
+        setUnreadUpdatesCount(0);
+      }
+    };
+
+    fetchUnreadUpdatesCount();
+  }, [selectedTicket?.id, open]);
+
+  // Mark updates as read when updates dialog is opened
+  const handleOpenTicketUpdates = () => {
+    setIsFlowModalOpen(true);
+    // Mark all updates as read when dialog opens
+    if (selectedTicket?.id && unreadUpdatesCount > 0) {
+      markUpdatesAsRead();
+    }
+  };
+
+  // Function to mark all updates as read
+  const markUpdatesAsRead = async () => {
+    if (!selectedTicket?.id) return;
+
+    try {
+      const token = localStorage.getItem('authToken');
+      // Use the new mark all as read endpoint
+      const response = await fetch(`${baseURL}/ticket-updates/ticket/${selectedTicket.id}/mark-all-as-read`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Marked', data.data?.count || 0, 'updates as read');
+        // Reset unread count
+        setUnreadUpdatesCount(0);
+      } else {
+        console.error('Failed to mark updates as read:', response.status);
+      }
+    } catch (error) {
+      console.error('Error marking updates as read:', error);
+    }
+  };
 
   const showAttendButton =
     selectedTicket &&
@@ -2013,15 +2089,53 @@ export default function TicketDetailsModal({
                     Ticket History
                   </Typography>
                   <Box sx={{ display: 'flex', justifyContent: 'flex-end', flex: 1 }}>
-                    <Button 
-                      size="small" 
-                      onClick={() => setIsFlowModalOpen(true)} 
-                      variant="outlined"
-                      startIcon={<ChatIcon />}
-                      sx={{ textTransform: 'none', fontSize: '0.875rem' }}
+                    <Badge 
+                      badgeContent={unreadUpdatesCount > 0 ? unreadUpdatesCount : 0} 
+                      color="error"
+                      invisible={unreadUpdatesCount === 0}
+                      sx={{
+                        '& .MuiBadge-badge': {
+                          right: -3,
+                          top: -3,
+                          minWidth: '18px',
+                          height: '18px',
+                          fontSize: '0.7rem',
+                          fontWeight: 'bold',
+                          padding: '0 4px'
+                        }
+                      }}
                     >
-                      Ticket Updates
-                    </Button>
+                      <Button 
+                        size="small" 
+                        onClick={handleOpenTicketUpdates} 
+                        variant="outlined"
+                        startIcon={<ChatIcon />}
+                        sx={{ 
+                          textTransform: 'none', 
+                          fontSize: '0.875rem',
+                          ...(unreadUpdatesCount > 0 ? {
+                            backgroundColor: '#4caf50',
+                            color: 'white',
+                            borderColor: '#4caf50',
+                            borderWidth: '1px',
+                            borderStyle: 'solid',
+                            '&:hover': {
+                              backgroundColor: '#45a049',
+                              borderColor: '#45a049',
+                              color: 'white',
+                              borderWidth: '1px',
+                              borderStyle: 'solid'
+                            }
+                          } : {
+                            backgroundColor: 'transparent',
+                            color: 'inherit',
+                            borderColor: 'inherit'
+                          })
+                        }}
+                      >
+                        Ticket Updates {unreadUpdatesCount > 0 ? `(${unreadUpdatesCount})` : ''}
+                      </Button>
+                    </Badge>
                   </Box>
                 </Box>
                 <Divider sx={{ mb: 2 }} />

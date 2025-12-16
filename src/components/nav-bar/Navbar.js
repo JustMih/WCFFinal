@@ -111,36 +111,63 @@ export default function Navbar({
       // Get all unread notifications and mark them as read
       const unreadNotifications = notificationsData?.notifications?.filter(n => n.status === 'unread') || [];
       
-      // Mark each unread notification as read
+      if (unreadNotifications.length === 0) {
+        return { success: true, count: 0 };
+      }
+      
+      // Mark each unread notification as read using the existing endpoint
       const promises = unreadNotifications.map(notif => 
         fetch(`${baseURL}/notifications/read/${notif.id}`, {
           method: "PATCH",
           headers: { Authorization: `Bearer ${token}` }
+        }).then(async (response) => {
+          if (!response.ok) {
+            const error = await response.json().catch(() => ({ message: 'Failed to mark notification as read' }));
+            throw new Error(error.message || `Failed to mark notification ${notif.id} as read`);
+          }
+          return response.json();
         })
       );
       
-      const responses = await Promise.all(promises);
-      const failed = responses.filter(r => !r.ok);
-      
-      if (failed.length > 0) {
-        throw new Error(`Failed to mark ${failed.length} notification(s) as read`);
+      try {
+        await Promise.all(promises);
+        return { success: true, count: unreadNotifications.length };
+      } catch (error) {
+        console.error("Error marking notifications as read:", error);
+        throw error;
       }
-      
-      return { success: true, count: unreadNotifications.length };
     },
-    onSuccess: () => {
-      // Invalidate and refetch
+    onSuccess: (data) => {
+      console.log(`Successfully marked ${data.count} notification(s) as read`);
+      // Invalidate and refetch all notification-related queries
       queryClient.invalidateQueries(['unreadCount', userId]);
       queryClient.invalidateQueries(['notifications', userId]);
-      // Also refetch the local notifications state
+      // Update local state immediately for better UX
+      if (notificationsData?.notifications) {
+        const updatedNotifications = notificationsData.notifications.map(notif => 
+          notif.status === 'unread' ? { ...notif, status: 'read' } : notif
+        );
+        // Update the query cache directly for instant UI update
+        queryClient.setQueryData(['notifications', userId], { notifications: updatedNotifications });
+      }
+      // Also update the local notifications state
       if (userId && token) {
         fetch(`${baseURL}/notifications/user/${userId}`, {
           headers: { Authorization: `Bearer ${token}` }
         })
           .then(res => res.json())
-          .then(data => setNotifications(data.notifications || []))
+          .then(data => {
+            setNotifications(data.notifications || []);
+            // Update unread count
+            const unreadCount = (data.notifications || []).filter(n => n.status === 'unread').length;
+            queryClient.setQueryData(['unreadCount', userId], { unreadCount });
+          })
           .catch(err => console.error("Error refetching notifications:", err));
       }
+    },
+    onError: (error) => {
+      console.error("Failed to mark all notifications as read:", error);
+      alert(`Error: ${error.message || 'Failed to mark all notifications as read'}`);
     }
   });
 
