@@ -259,6 +259,7 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
   }
 
   // Determine current step index for descending order
+  // Current step should be the most recent assignment/reassignment (first in reversed array, index 0)
   let currentAssigneeIdx = 0;
   if (isWithReviewer && !hasReviewerInHistory) {
     // If ticket is with reviewer and not in history, the reviewer step is current (will be index 0 in reversed array)
@@ -269,10 +270,19 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
   ) {
     currentAssigneeIdx = steps.length - 1; // Last step in original array (first in reversed)
   } else {
-    const idx = steps.findIndex(
-      a => a.assigned_to_id && selectedTicket.assigned_to_id && a.assigned_to_id === selectedTicket.assigned_to_id
-    );
-    currentAssigneeIdx = idx !== -1 ? (steps.length - 1 - idx) : 0; // Convert to reversed index
+    // Find the most recent assignment or reassignment action
+    // The most recent step (last in original array, first in reversed) should be current
+    // Check if the last step (which will be first in reversed) is an assignment/reassignment
+    const lastStep = steps[steps.length - 1];
+    if (lastStep && (lastStep.action === "Assigned" || lastStep.action === "Reassigned")) {
+      currentAssigneeIdx = 0; // First in reversed array (most recent)
+    } else {
+      // Fallback: find by assigned_to_id
+      const idx = steps.findIndex(
+        a => a.assigned_to_id && selectedTicket.assigned_to_id && a.assigned_to_id === selectedTicket.assigned_to_id
+      );
+      currentAssigneeIdx = idx !== -1 ? (steps.length - 1 - idx) : 0; // Convert to reversed index
+    }
   }
 
   // Create reversed steps array for display
