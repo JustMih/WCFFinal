@@ -88,7 +88,7 @@
 }
 
 .alerts-popup::before {
-  content: '';
+  content: "";
   position: absolute;
   top: -8px;
   right: 20px;
@@ -173,7 +173,23 @@
   gap: 10px;
 }
 
+.donut-charts-container {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+}
+
 .chart-card {
+  width: 30%;
+  height: auto;
+  overflow-x: hidden;
+  background-color: #fff;
+  padding: 10px;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.chart-card-bar{
   width: 48%;
   height: 400px;
   overflow-x: hidden;
@@ -181,6 +197,11 @@
   padding: 10px;
   border-radius: 8px;
   box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.donut-charts-container .chart-card {
+  width: 80%;
+  height: auto;
 }
 
 .live-calls-table-container {
@@ -603,11 +624,11 @@
   .queue-stats {
     grid-template-columns: 1fr;
   }
-  
+
   .queue-stat-card {
     padding: 10px;
   }
-  
+
   .dropped-calls-section,
   .lost-calls-section {
     padding: 10px;
@@ -1057,6 +1078,12 @@
   }
 }
 
+@media (max-width: 1200px) {
+  .donut-charts-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 @media (max-width: 768px) {
   .live-calls-header {
     flex-direction: column;
@@ -1079,6 +1106,18 @@
   .export-btn {
     width: 100%;
     justify-content: center;
+  }
+
+  .donut-charts-container {
+    grid-template-columns: 1fr;
+  }
+
+  .charts-container {
+    flex-direction: column;
+  }
+
+  .charts-container .chart-card {
+    width: 100%;
   }
 }
 
@@ -1752,7 +1791,7 @@
   .quality-tools-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .recording-playback-card,
   .evaluation-templates-card,
   .quality-trends-card,
@@ -1889,7 +1928,7 @@
 }
 
 .notification-dropdown::before {
-  content: '';
+  content: "";
   position: absolute;
   top: -8px;
   right: 20px;
@@ -1924,7 +1963,7 @@
   padding: 12px 16px;
   border-bottom: 1px solid #f0f0f0;
   display: flex;
-  gap: 12px;
+  gap: px;
   transition: background-color 0.3s ease;
 }
 

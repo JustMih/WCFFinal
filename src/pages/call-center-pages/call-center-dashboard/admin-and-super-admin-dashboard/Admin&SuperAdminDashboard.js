@@ -1,12 +1,7 @@
-import React, {useEffect, useState} from "react";
+import React, { useEffect, useState } from "react";
 import { MdOutlineSupportAgent, MdOutlinePendingActions } from "react-icons/md";
 import { Pie, Doughnut } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  ArcElement,
-  Tooltip,
-  Legend,
-} from "chart.js";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 import { baseURL } from "../../../../config";
 import "./admin&superAdmin.css";
 import { useNavigate } from "react-router-dom";
@@ -39,7 +34,7 @@ export default function AdminAndSuperAdminDashboard() {
       console.error("Error fetching online users:", error);
       setOnlineUsers([]); // Reset to empty array on error
     }
-  }
+  };
 
   // State for recent user activities
   const [recentActivities, setRecentActivities] = useState([
@@ -67,16 +62,16 @@ export default function AdminAndSuperAdminDashboard() {
         endpoint = "manager";
         break;
       case "director-general":
-        endpoint = "director-general"
+        endpoint = "director-general";
         break;
       case "focal-person":
-        endpoint = "focal-person"
+        endpoint = "focal-person";
         break;
       case "head-of-unit":
-        endpoint = "head-of-unit"
+        endpoint = "head-of-unit";
         break;
       case "coordinator":
-        endpoint = "coordinator"
+        endpoint = "coordinator";
         break;
       case "attendee":
         endpoint = "attendee";
@@ -90,17 +85,15 @@ export default function AdminAndSuperAdminDashboard() {
         {
           method: "GET",
           headers: {
-            'content-type': "application/json",
-            'Authorization': `Bearer ${authToken}`,
+            "content-type": "application/json",
+            Authorization: `Bearer ${authToken}`,
           },
         }
       );
-      const data = await response.json()
+      const data = await response.json();
       console.log(data);
-    } catch (error) {
-      
-    }
-  }
+    } catch (error) {}
+  };
   const fetchPendingRequests = async () => {
     // Placeholder for fetching pending requests/approvals
     // You can replace this with a real API call later
@@ -108,7 +101,7 @@ export default function AdminAndSuperAdminDashboard() {
       // Example: const response = await fetch(`${baseURL}/pending-requests`, { headers: { 'Authorization': `Bearer ${authToken}` } });
       // const data = await response.json();
       // console.log(data);
-      console.log('Fetching pending requests...');
+      console.log("Fetching pending requests...");
     } catch (error) {
       console.error(error);
     }
@@ -132,13 +125,15 @@ export default function AdminAndSuperAdminDashboard() {
             {
               method: "GET",
               headers: {
-                'content-type': "application/json",
-                'Authorization': `Bearer ${authToken}`,
+                "content-type": "application/json",
+                Authorization: `Bearer ${authToken}`,
               },
             }
           );
           const data = await response.json();
-          counts[role.key] = Array.isArray(data) ? data.length : (data.count || 0);
+          counts[role.key] = Array.isArray(data)
+            ? data.length
+            : data.count || 0;
         } catch (error) {
           counts[role.key] = 0;
         }
@@ -146,23 +141,24 @@ export default function AdminAndSuperAdminDashboard() {
       // Fetch all users
       let totalUsers = 0;
       try {
-        const response = await fetch(
-          `${baseURL}/users/`,
-          {
-            method: "GET",
-            headers: {
-              'content-type': "application/json",
-              'Authorization': `Bearer ${authToken}`,
-            },
-          }
-        );
+        const response = await fetch(`${baseURL}/users/`, {
+          method: "GET",
+          headers: {
+            "content-type": "application/json",
+            Authorization: `Bearer ${authToken}`,
+          },
+        });
         const data = await response.json();
-        totalUsers = Array.isArray(data) ? data.length : (data.count || 0);
+        totalUsers = Array.isArray(data) ? data.length : data.count || 0;
       } catch (error) {
         totalUsers = 0;
       }
       // Calculate other users
-      counts.otherUsers = totalUsers - (counts.agents || 0) - (counts.supervisors || 0) - (counts.admins || 0);
+      counts.otherUsers =
+        totalUsers -
+        (counts.agents || 0) -
+        (counts.supervisors || 0) -
+        (counts.admins || 0);
       setUserCounts(counts);
     };
     fetchCounts();
@@ -191,13 +187,13 @@ export default function AdminAndSuperAdminDashboard() {
     datasets: [
       {
         label: "User Distribution",
-        data: [userCounts.agents, userCounts.supervisors, userCounts.admins, userCounts.otherUsers],
-        backgroundColor: [
-          "#36A2EB",
-          "#FF6384",
-          "#FFCD56",
-          "#4BC0C0"
+        data: [
+          userCounts.agents,
+          userCounts.supervisors,
+          userCounts.admins,
+          userCounts.otherUsers,
         ],
+        backgroundColor: ["#36A2EB", "#FF6384", "#FFCD56", "#4BC0C0"],
         borderWidth: 1,
       },
     ],
@@ -206,11 +202,15 @@ export default function AdminAndSuperAdminDashboard() {
   // Only show the five most recent activities and filter for allowed statuses
   const allowedStatuses = ["Online", "Offline", "Awaiting Admin"];
   const displayedActivities = recentActivities
-    .filter(activity => allowedStatuses.includes(activity.status))
+    .filter((activity) => allowedStatuses.includes(activity.status))
     .slice(0, 5);
 
   // Calculate total users
-  const totalUsers = userCounts.agents + userCounts.supervisors + userCounts.admins + userCounts.otherUsers;
+  const totalUsers =
+    userCounts.agents +
+    userCounts.supervisors +
+    userCounts.admins +
+    userCounts.otherUsers;
 
   return (
     <div className="admin-container">
@@ -318,7 +318,31 @@ export default function AdminAndSuperAdminDashboard() {
               data={userPieData}
               options={{
                 responsive: true,
-                plugins: { legend: { position: "right" } },
+                maintainAspectRatio: true,
+                plugins: {
+                  legend: {
+                    position: "right",
+                    labels: {
+                      padding: 15,
+                      usePointStyle: true,
+                    },
+                  },
+                  tooltip: {
+                    callbacks: {
+                      label: function (context) {
+                        const label = context.label || "";
+                        const value = context.parsed || 0;
+                        const total = context.dataset.data.reduce(
+                          (a, b) => a + b,
+                          0
+                        );
+                        const percentage =
+                          total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                        return `${label}: ${value} (${percentage}%)`;
+                      },
+                    },
+                  },
+                },
               }}
             />
           </div>

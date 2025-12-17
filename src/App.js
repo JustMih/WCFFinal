@@ -25,8 +25,9 @@ function App() {
       <div className="app">
         <Routes>
           {/* Public routes - must be defined before catch-all */}
-          <Route path="/" element={<PublicDashboard />} />
+          <Route path="/" element={<Login />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/public-dashboard" element={<PublicDashboard />} />
           <Route path="/crm-tickets" element={<CrmTicketsAssigned />} />
 
           {/* Authenticated routes - Dashboard handles all nested routes */}

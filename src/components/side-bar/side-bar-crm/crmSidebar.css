@@ -128,7 +128,7 @@
   background-color: rgba(0, 0, 0, 0.05);
 }
 
-.section-title {
+.crm-section-title {
   font-weight: 600;
   color: #1976d2;
   font-size: 0.85rem;
@@ -137,13 +137,13 @@
   gap: 4px;
 }
 
-.section-title::after {
+.crm-section-title::after {
   content: '▼';
   font-size: 0.7rem;
   transition: transform 0.2s ease;
 }
 
-.section-header.collapsed .section-title::after {
+.section-header.collapsed .crm-section-title::after {
   transform: rotate(-90deg);
 }
 

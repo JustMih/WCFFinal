@@ -21,6 +21,7 @@ import Chip from "@mui/material/Chip";
 import Alert from "@mui/material/Alert";
 import CloseIcon from '@mui/icons-material/Close';
 import Autocomplete from "@mui/material/Autocomplete";
+import Badge from "@mui/material/Badge";
 
 import ChatIcon from '@mui/icons-material/Chat';
 import Download from '@mui/icons-material/Download';
@@ -198,6 +199,32 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
       const currentWithoutReason = { ...current };
       delete currentWithoutReason.reason;
 
+      // Skip "Rated" actions - ignore them completely, only show "Assigned"
+      if (current.action === "Rated") {
+        // Skip this step entirely - don't add it to processedHistory
+        continue;
+      }
+
+      // Skip standalone "Closed" actions if there's a previous "Assigned" by the same person
+      // (they will be consolidated below)
+      if (current.action === "Closed" && processedHistory.length > 0) {
+        const prevStep = processedHistory[processedHistory.length - 1];
+        if (prevStep.assigned_to_id === current.assigned_to_id && prevStep.action === "Assigned") {
+          // Consolidate: update previous step to "Closed"
+          prevStep.action = "Closed";
+          prevStep.closed_at = current.created_at;
+          prevStep.isConsolidated = true;
+          // Copy attachment and reason from Closed action if available
+          if (current.attachment_path) {
+            prevStep.attachment_path = current.attachment_path;
+          }
+          if (current.reason) {
+            prevStep.reason = current.reason;
+          }
+          continue; // Skip adding this Closed action separately
+        }
+      }
+
       // Consolidate Assigned+Closed by same person
       if (current.action === "Assigned" && 
           next && 
@@ -207,7 +234,9 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
           ...currentWithoutReason,
           action: "Closed",
           closed_at: next.created_at,
-          isConsolidated: true
+          isConsolidated: true,
+          attachment_path: next.attachment_path || current.attachment_path,
+          reason: next.reason || current.reason || currentWithoutReason.reason
         });
         i++; // Skip the next step since consolidated
       } else {
@@ -219,9 +248,13 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
     steps.push(...processedHistory);
   }
 
-  // Add reviewer step if applicable (do not block assignment history)
-  if (isWithReviewer) {
-    // Add reviewer step for open complaints/compliments/suggestions
+  // Check if assignment history already has a reviewer assignment
+  const hasReviewerInHistory = Array.isArray(assignmentHistory) && assignmentHistory.length > 0 &&
+    assignmentHistory.some(a => a.assigned_to_role === "Reviewer" || a.assigned_to_role === "reviewer");
+
+  // Add reviewer step only if applicable and not already in assignment history
+  if (isWithReviewer && !hasReviewerInHistory) {
+    // Add reviewer step for open complaints/compliments/suggestions only if not in history
     steps.push({
       assigned_to_name: "Reviewer",
       assigned_to_role: "Reviewer",
@@ -248,9 +281,10 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
   }
 
   // Determine current step index for descending order
+  // Current step should be the most recent assignment/reassignment (first in reversed array, index 0)
   let currentAssigneeIdx = 0;
-  if (isWithReviewer) {
-    // If ticket is with reviewer, the reviewer step is current (will be index 0 in reversed array)
+  if (isWithReviewer && !hasReviewerInHistory) {
+    // If ticket is with reviewer and not in history, the reviewer step is current (will be index 0 in reversed array)
     currentAssigneeIdx = 0;
   } else if (
     selectedTicket.status === "Open" &&
@@ -258,10 +292,19 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
   ) {
     currentAssigneeIdx = steps.length - 1; // Last step in original array (first in reversed)
   } else {
-    const idx = steps.findIndex(
-      a => a.assigned_to_id && selectedTicket.assigned_to_id && a.assigned_to_id === selectedTicket.assigned_to_id
-    );
-    currentAssigneeIdx = idx !== -1 ? (steps.length - 1 - idx) : 0; // Convert to reversed index
+    // Find the most recent assignment or reassignment action
+    // The most recent step (last in original array, first in reversed) should be current
+    // Check if the last step (which will be first in reversed) is an assignment/reassignment
+    const lastStep = steps[steps.length - 1];
+    if (lastStep && (lastStep.action === "Assigned" || lastStep.action === "Reassigned")) {
+      currentAssigneeIdx = 0; // First in reversed array (most recent)
+    } else {
+      // Fallback: find by assigned_to_id
+      const idx = steps.findIndex(
+        a => a.assigned_to_id && selectedTicket.assigned_to_id && a.assigned_to_id === selectedTicket.assigned_to_id
+      );
+      currentAssigneeIdx = idx !== -1 ? (steps.length - 1 - idx) : 0; // Convert to reversed index
+    }
   }
 
   // Create reversed steps array for display
@@ -275,7 +318,8 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
         // Determine if this is the first step (most recent) and ticket is closed
         const isFirstStep = idx === 0;
         const isClosed = selectedTicket.status === "Closed" && isFirstStep;
-        const isCurrentWithReviewer = isWithReviewer && idx === 0; // Reviewer step is first in reversed
+        // Check if this is the reviewer step that was added (not from history)
+        const isCurrentWithReviewer = isWithReviewer && !hasReviewerInHistory && idx === 0 && a.action === "Currently with";
 
         // Set color: green for completed, blue for current, gray for pending, green for closed first step
         let color;
@@ -293,11 +337,14 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
         // Check if ticket is closed
         const isTicketClosed = selectedTicket.status === "Closed" || selectedTicket.status === "Resolved";
         
-        // Priority order: Closed > Forwarded > Escalated > Previous to Escalated > Assigned > Current > Completed > Pending
+        // Priority order: Closed > Current > Forwarded > Escalated > Previous to Escalated > Assigned > Completed > Pending
         if (selectedTicket.status === "Closed" || selectedTicket.status === "Resolved" || a.isConsolidated) {
           color = "green"; // Green for all steps when ticket is closed or consolidated closed steps
+        } else if (idx === currentAssigneeIdx && selectedTicket.status !== "Closed") {
+          // Current step should be grey (in progress, not done yet)
+          color = "gray";
         } else if (a.action === "Forwarded") {
-          color = "green"; // Green for forwarded actions
+          color = "green"; // Green for forwarded actions (completed)
         } else if (isCurrentEscalated) {
           // Check if this escalated step was followed by an assignment
           const previousStep = reversedSteps[idx - 1];
@@ -312,12 +359,20 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
           color = "red"; // Red for next step when previous is escalated
         } else if (wasAssignedAndForwarded) {
           color = "green"; // Green for assigned step that was forwarded to another user
+        } else if (a.action === "Assigned" && (a.assigned_to_role === "Reviewer" || a.assigned_to_role === "reviewer")) {
+          // If assigned to reviewer and ticket is still open, it's gray (in progress)
+          color = "gray"; // Gray for assigned to reviewer (in progress)
         } else if (a.action === "Assigned") {
-          color = "gray"; // Gray for assigned but still open
-        } else if (a.action === "Currently with" || a.assigned_to_role === "Reviewer") {
-          color = "gray"; // Gray for currently with and reviewer
+          // Check if this is the current step
+          if (idx === currentAssigneeIdx && selectedTicket.status !== "Closed") {
+            color = "gray"; // Gray for current active step (in progress, not done yet)
+          } else {
+            color = "gray"; // Gray for assigned but still open
+          }
+        } else if (a.action === "Currently with" || (a.assigned_to_role === "Reviewer" && a.action !== "Assigned")) {
+          color = "gray"; // Gray for currently with and reviewer (only if not assigned)
         } else if (idx === currentAssigneeIdx && selectedTicket.status !== "Closed") {
-          color = "blue"; // Blue for current active step
+          color = "gray"; // Gray for current active step (in progress, not done yet)
         } else if (idx > currentAssigneeIdx || selectedTicket.status === "Closed") {
           color = "green"; // Green for completed steps or when ticket is closed
         } else {
@@ -551,51 +606,59 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
                 )}
               </Typography>
               
-              {/* Justification */}
-              {a.reason && (
-                <Box sx={{ mt: 1, p: 1.25, bgcolor: '#f8f9fa', borderRadius: 1, border: '1px solid #e9ecef' }}>
-                  <Typography variant="body2" sx={{ color: '#444', fontStyle: 'italic' }}>
-                    <strong>Justification:</strong> {a.reason}
-                  </Typography>
-                </Box>
-              )}
-              
-              {/* Additional workflow details if available */}
-              {(a.workflow_step || a.coordinator_notes || a.dg_notes) && (
-                <Box sx={{ mt: 1, p: 1.5, bgcolor: '#fff3cd', borderRadius: 1, border: '1px solid #ffeaa7' }}>
-                  {a.workflow_step && (
-                    <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 'bold', color: '#856404' }}>
-                      Workflow Step: {a.workflow_step}
-                    </Typography>
+              {/* For Closed actions: show resolution/description, status, and attachment in one consolidated view */}
+              {a.action === "Closed" || (selectedTicket.status === "Closed" && idx === 0) ? (
+                <>
+                  {/* Resolution/Description - use reason from assignment or resolution_details from ticket */}
+                  {(a.reason || (selectedTicket.status === "Closed" && selectedTicket.resolution_details && idx === 0)) && (
+                    <Box sx={{ mt: 1, p: 1.25, bgcolor: '#d4edda', borderRadius: 1, border: '1px solid #c3e6cb' }}>
+                      <Typography variant="body2" sx={{ color: '#155724' }}>
+                        <strong>Resolution:</strong> {a.reason || (selectedTicket.status === "Closed" && selectedTicket.resolution_details && idx === 0 ? selectedTicket.resolution_details : '')}
+                      </Typography>
+                    </Box>
                   )}
-                  {a.coordinator_notes && (
-                    <Typography variant="body2" sx={{ mb: 0.5, color: '#856404' }}>
-                      <strong>Reviewer Notes:</strong> {a.coordinator_notes}
-                    </Typography>
+                  
+                  {/* Status */}
+                  {selectedTicket.status === "Closed" && (
+                    <Box sx={{ mt: 1, p: 1, bgcolor: '#f8f9fa', borderRadius: 1, border: '1px solid #e9ecef' }}>
+                      <Typography variant="body2" sx={{ color: '#444' }}>
+                        <strong>Status:</strong> Closed
+                      </Typography>
+                    </Box>
                   )}
-                  {a.dg_notes && (
-                    <Typography variant="body2" sx={{ color: '#856404' }}>
-                      <strong>DG Notes:</strong> {a.dg_notes}
-                    </Typography>
+                </>
+              ) : (
+                <>
+                  {/* Justification for non-closed actions */}
+                  {a.reason && (
+                    <Box sx={{ mt: 1, p: 1.25, bgcolor: '#f8f9fa', borderRadius: 1, border: '1px solid #e9ecef' }}>
+                      <Typography variant="body2" sx={{ color: '#444', fontStyle: 'italic' }}>
+                        <strong>Justification:</strong> {a.reason}
+                      </Typography>
+                    </Box>
                   )}
-                </Box>
-              )}
-              
-              {/* Resolution details for closed tickets */}
-              {selectedTicket.status === "Closed" && selectedTicket.resolution_details && idx === 0 && (
-                <Typography 
-                  variant="body2" 
-                  sx={{ 
-                    mt: 1, 
-                    p: 1.5, 
-                    bgcolor: '#d4edda', 
-                    borderRadius: 1, 
-                    border: '1px solid #c3e6cb',
-                    color: '#155724'
-                  }}
-                >
-                  <strong>Resolution:</strong> {selectedTicket.resolution_details}
-                </Typography>
+                  
+                  {/* Additional workflow details if available */}
+                  {(a.workflow_step || a.coordinator_notes || a.dg_notes) && (
+                    <Box sx={{ mt: 1, p: 1.5, bgcolor: '#fff3cd', borderRadius: 1, border: '1px solid #ffeaa7' }}>
+                      {a.workflow_step && (
+                        <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 'bold', color: '#856404' }}>
+                          Workflow Step: {a.workflow_step}
+                        </Typography>
+                      )}
+                      {a.coordinator_notes && (
+                        <Typography variant="body2" sx={{ mb: 0.5, color: '#856404' }}>
+                          <strong>Reviewer Notes:</strong> {a.coordinator_notes}
+                        </Typography>
+                      )}
+                      {a.dg_notes && (
+                        <Typography variant="body2" sx={{ color: '#856404' }}>
+                          <strong>DG Notes:</strong> {a.dg_notes}
+                        </Typography>
+                      )}
+                    </Box>
+                  )}
+                </>
               )}
               
               {/* Attachment/Evidence link if present, else show 'No attachment' */}
@@ -888,6 +951,7 @@ export default function TicketDetailsModal({
 
   // Ticket Updates toggle state
   const [showTicketUpdates, setShowTicketUpdates] = useState(false);
+  const [unreadUpdatesCount, setUnreadUpdatesCount] = useState(0);
   
   // Reversed ticket editing states
   const [isEditReversedTicketDialogOpen, setIsEditReversedTicketDialogOpen] = useState(false);
@@ -940,6 +1004,80 @@ export default function TicketDetailsModal({
       setSelectedRating(selectedTicket.complaint_type || "");
     }
   }, [selectedTicket]);
+
+  // Fetch unread updates count when ticket opens
+  useEffect(() => {
+    const fetchUnreadUpdatesCount = async () => {
+      if (!selectedTicket?.id || !open) {
+        setUnreadUpdatesCount(0);
+        return;
+      }
+
+      try {
+        const token = localStorage.getItem('authToken');
+        // Use the new unread count endpoint
+        const response = await fetch(`${baseURL}/ticket-updates/ticket/${selectedTicket.id}/unread-count`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const unreadCount = data.data?.unreadCount || 0;
+          
+          console.log('DEBUG: Unread updates count:', unreadCount);
+          setUnreadUpdatesCount(unreadCount);
+        } else {
+          console.error('Failed to fetch unread count:', response.status);
+          setUnreadUpdatesCount(0);
+        }
+      } catch (error) {
+        console.error('Error fetching unread updates count:', error);
+        setUnreadUpdatesCount(0);
+      }
+    };
+
+    fetchUnreadUpdatesCount();
+  }, [selectedTicket?.id, open]);
+
+  // Mark updates as read when updates dialog is opened
+  const handleOpenTicketUpdates = () => {
+    setIsFlowModalOpen(true);
+    // Mark all updates as read when dialog opens
+    if (selectedTicket?.id && unreadUpdatesCount > 0) {
+      markUpdatesAsRead();
+    }
+  };
+
+  // Function to mark all updates as read
+  const markUpdatesAsRead = async () => {
+    if (!selectedTicket?.id) return;
+
+    try {
+      const token = localStorage.getItem('authToken');
+      // Use the new mark all as read endpoint
+      const response = await fetch(`${baseURL}/ticket-updates/ticket/${selectedTicket.id}/mark-all-as-read`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Marked', data.data?.count || 0, 'updates as read');
+        // Reset unread count
+        setUnreadUpdatesCount(0);
+      } else {
+        console.error('Failed to mark updates as read:', response.status);
+      }
+    } catch (error) {
+      console.error('Error marking updates as read:', error);
+    }
+  };
 
   const showAttendButton =
     selectedTicket &&
@@ -2013,15 +2151,61 @@ export default function TicketDetailsModal({
                     Ticket History
                   </Typography>
                   <Box sx={{ display: 'flex', justifyContent: 'flex-end', flex: 1 }}>
-                    <Button 
-                      size="small" 
-                      onClick={() => setIsFlowModalOpen(true)} 
-                      variant="outlined"
-                      startIcon={<ChatIcon />}
-                      sx={{ textTransform: 'none', fontSize: '0.875rem' }}
+                    <Badge 
+                      badgeContent={unreadUpdatesCount > 0 ? unreadUpdatesCount : 0} 
+                      color="error"
+                      invisible={unreadUpdatesCount === 0}
+                      sx={{
+                        '& .MuiBadge-badge': {
+                          right: -3,
+                          top: -3,
+                          minWidth: '18px',
+                          height: '18px',
+                          fontSize: '0.7rem',
+                          fontWeight: 'bold',
+                          padding: '0 4px'
+                        }
+                      }}
                     >
-                      Ticket Updates
-                    </Button>
+                      <Button 
+                        size="small" 
+                        onClick={handleOpenTicketUpdates} 
+                        variant={unreadUpdatesCount > 0 ? "contained" : "outlined"}
+                        startIcon={<ChatIcon />}
+                        style={unreadUpdatesCount > 0 ? {
+                          backgroundColor: '#4caf50',
+                          color: 'white',
+                          borderColor: '#4caf50'
+                        } : {}}
+                        sx={{ 
+                          textTransform: 'none', 
+                          fontSize: '0.875rem',
+                          ...(unreadUpdatesCount > 0 ? {
+                            backgroundColor: '#4caf50',
+                            color: 'white',
+                            borderColor: '#4caf50',
+                            '&:hover': {
+                              backgroundColor: '#45a049',
+                              borderColor: '#45a049',
+                              color: 'white'
+                            },
+                            '&.MuiButton-contained': {
+                              backgroundColor: '#4caf50',
+                              color: 'white',
+                              '&:hover': {
+                                backgroundColor: '#45a049'
+                              }
+                            }
+                          } : {
+                            backgroundColor: 'transparent',
+                            color: 'inherit',
+                            borderColor: 'inherit'
+                          })
+                        }}
+                      >
+                        Ticket Updates {unreadUpdatesCount > 0 ? `(${unreadUpdatesCount})` : ''}
+                      </Button>
+                    </Badge>
                   </Box>
                 </Box>
                 <Divider sx={{ mb: 2 }} />
@@ -2618,9 +2802,9 @@ export default function TicketDetailsModal({
                 )}
 
                 {/* Reverse, Assign, and Reassign buttons for focal persons and other roles */}
-                {(["focal-person"].includes(localStorage.getItem("role")) || 
+                {((["focal-person", "head-of-unit", "manager", "director"].includes(localStorage.getItem("role")) || 
                   !["agent", "reviewer", "attendee", "director-general"].includes(localStorage.getItem("role"))) && 
-                 selectedTicket?.assigned_to_id === localStorage.getItem("userId") && selectedTicket.status !== "Closed" && (
+                 selectedTicket?.assigned_to_id === localStorage.getItem("userId") && selectedTicket.status !== "Closed") && (
                   <>
                     {/* Show Forward to DG button for Director with Major Complaint Directorate */}
                     {userRole === "director" && 

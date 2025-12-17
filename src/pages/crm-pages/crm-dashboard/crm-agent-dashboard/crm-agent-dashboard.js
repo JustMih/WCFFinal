@@ -254,6 +254,12 @@ const AgentCRM = () => {
   const [showNotifyModal, setShowNotifyModal] = useState(false);
   const [notifyMessage, setNotifyMessage] = useState("");
 
+  // Attend dialog state
+  const [isAttendDialogOpen, setIsAttendDialogOpen] = useState(false);
+  const [resolutionDetails, setResolutionDetails] = useState("");
+  const [attendAttachment, setAttendAttachment] = useState(null);
+  const [attendLoading, setAttendLoading] = useState(false);
+
   // Add new state for search
   const [searchType, setSearchType] = useState("employee"); // 'employee' or 'employer'
   const [searchQuery, setSearchQuery] = useState("");
@@ -1208,6 +1214,170 @@ const AgentCRM = () => {
     console.log("Current filters before handleFilterChange:", JSON.stringify(filters)); // Debug log
     setFilters(newFilters);
     setCurrentPage(1);
+  };
+
+  // Handle Attend function
+  const handleAttend = async () => {
+    setAttendLoading(true);
+    try {
+      console.log('DEBUG handleAttend:', {
+        role,
+        complaintType: selectedTicket?.complaint_type,
+        isManager: role === "manager",
+        isMajor: selectedTicket?.complaint_type === "Major",
+        selectedTicketId: selectedTicket?.id,
+        selectedTicketStatus: selectedTicket?.status,
+        selectedTicketCategory: selectedTicket?.category
+      });
+
+      // Special handling for managers - always use manager route
+      if (role === "manager") {
+        console.log('DEBUG: Using manager attend API for manager role');
+        const response = await fetch(`${baseURL}/ticket/${selectedTicket.id}/manager-attend-major`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            userId: userId,
+            recommendation: resolutionDetails,
+            evidence_url: attendAttachment ? `${baseURL}/ticket/attachment/${attendAttachment.name}` : null,
+            responsible_unit_name: selectedTicket.responsible_unit_name || localStorage.getItem("unit_section")
+          })
+        });
+        
+        if (!response.ok) {
+          let errorMessage = 'Failed to submit recommendation';
+          try {
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+              const error = await response.json();
+              errorMessage = error.message || error.error || errorMessage;
+            } else {
+              const errorText = await response.text();
+              errorMessage = errorText || errorMessage;
+            }
+          } catch (parseError) {
+            console.error('Error parsing error response:', parseError);
+            errorMessage = `Server error: ${response.status} ${response.statusText}`;
+          }
+          setSnackbar({ open: true, message: errorMessage, severity: 'error' });
+          return;
+        }
+        
+        // Parse success response
+        try {
+          const data = await response.json();
+          setSnackbar({ open: true, message: data.message || 'Recommendation submitted! Ticket sent to Head of Unit for review.', severity: 'success' });
+        } catch (parseError) {
+          setSnackbar({ open: true, message: 'Recommendation submitted! Ticket sent to Head of Unit for review.', severity: 'success' });
+        }
+        setIsAttendDialogOpen(false);
+        fetchCustomerTickets(); // Refresh tickets
+        return;
+      }
+      
+      console.log('DEBUG: Using default workflow API - not a manager');
+      
+      // For Inquiry tickets: use close endpoint (anyone can close inquiry tickets)
+      if (selectedTicket?.category === "Inquiry" || selectedTicket?.category === "inquiry") {
+        console.log('DEBUG: Using close endpoint for Inquiry ticket');
+        
+        // Create FormData for file upload
+        const formData = new FormData();
+        formData.append('resolution_details', resolutionDetails);
+        formData.append('userId', userId);
+        formData.append('resolution_type', 'Resolved');
+        if (attendAttachment) {
+          formData.append('attachment', attendAttachment);
+        }
+        
+        const response = await fetch(`${baseURL}/ticket/${selectedTicket.id}/close`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+            // Don't set Content-Type, let browser set it with boundary for FormData
+          },
+          body: formData
+        });
+        
+        if (!response.ok) {
+          let errorMessage = 'Failed to close ticket';
+          try {
+            const contentType = response.headers.get('content-type');
+            if (contentType && contentType.includes('application/json')) {
+              const error = await response.json();
+              errorMessage = error.message || error.error || errorMessage;
+            } else {
+              const errorText = await response.text();
+              errorMessage = errorText || errorMessage;
+            }
+          } catch (parseError) {
+            console.error('Error parsing error response:', parseError);
+            errorMessage = `Server error: ${response.status} ${response.statusText}`;
+          }
+          setSnackbar({ open: true, message: errorMessage, severity: 'error' });
+          return;
+        }
+        
+        // Parse success response
+        try {
+          const data = await response.json();
+          setSnackbar({ open: true, message: data.message || 'Ticket closed successfully! Supervisor has been notified.', severity: 'success' });
+        } catch (parseError) {
+          setSnackbar({ open: true, message: 'Ticket closed successfully! Supervisor has been notified.', severity: 'success' });
+        }
+        setIsAttendDialogOpen(false);
+        fetchCustomerTickets(); // Refresh tickets
+        return;
+      }
+      
+      // Default workflow for other tickets - use recommend endpoint
+      const response = await fetch(`${baseURL}/workflow/ticket/${selectedTicket.id}/recommend`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          recommendation_notes: resolutionDetails,
+          evidence_url: attendAttachment ? `${baseURL}/ticket/attachment/${attendAttachment.name}` : null
+        })
+      });
+      if (!response.ok) {
+        let errorMessage = 'Failed to submit recommendation';
+        try {
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const error = await response.json();
+            errorMessage = error.message || error.error || errorMessage;
+          } else {
+            const errorText = await response.text();
+            errorMessage = errorText || errorMessage;
+          }
+        } catch (parseError) {
+          console.error('Error parsing error response:', parseError);
+          errorMessage = `Server error: ${response.status} ${response.statusText}`;
+        }
+        setSnackbar({ open: true, message: errorMessage, severity: 'error' });
+        return;
+      }
+      
+      // Parse success response
+      try {
+        const data = await response.json();
+        setSnackbar({ open: true, message: data.message || 'Recommendation submitted! The Head of Unit will review it next.', severity: 'success' });
+      } catch (parseError) {
+        setSnackbar({ open: true, message: 'Recommendation submitted! The Head of Unit will review it next.', severity: 'success' });
+      }
+      setIsAttendDialogOpen(false);
+      fetchCustomerTickets(); // Refresh tickets
+    } catch (err) {
+      setSnackbar({ open: true, message: 'Network error: ' + err.message, severity: 'error' });
+    } finally {
+      setAttendLoading(false);
+    }
   };
 
 
@@ -2956,7 +3126,8 @@ const AgentCRM = () => {
                   >
                     New Ticket
                   </Button>
-                  {selectedTicket.status !== "Closed" && (
+                  {/* Show "Notify User" button only for agent role */}
+                  {selectedTicket.status !== "Closed" && role === "agent" && (
                     <Button
                       variant="contained"
                       color="secondary"
@@ -2964,6 +3135,35 @@ const AgentCRM = () => {
                       onClick={() => setShowNotifyModal(true)}
                     >
                       Notify User
+                    </Button>
+                  )}
+                  {/* Show "Attend" button for other roles if ticket is assigned to them */}
+                  {selectedTicket.status !== "Closed" && 
+                   role !== "agent" &&
+                   selectedTicket.assigned_to_id &&
+                   String(selectedTicket.assigned_to_id) === String(userId) &&
+                   (role === "attendee" || 
+                    role === "focal-person" || 
+                    role === "claim-focal-person" || 
+                    role === "compliance-focal-person" || 
+                    role === "head-of-unit" || 
+                    role === "supervisor" || 
+                    role === "manager" ||
+                    role === "super-admin" ||
+                    role === "reviewer") &&
+                   role !== "director-general" &&
+                   (role === "manager" || !selectedTicket.complaint_type) && (
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      sx={{ mr: 2 }}
+                      onClick={() => {
+                        setResolutionDetails("");
+                        setAttendAttachment(null);
+                        setIsAttendDialogOpen(true);
+                      }}
+                    >
+                      Attend
                     </Button>
                   )}
                   <Button
@@ -3479,6 +3679,84 @@ const AgentCRM = () => {
         </div>
       )} */}
 
+
+      {/* Attend/Resolve Dialog */}
+      <Dialog open={isAttendDialogOpen} onClose={() => setIsAttendDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {role === "manager" && selectedTicket?.complaint_type === "Major" 
+            ? "Attend - Submit Recommendation" 
+            : "Enter Resolution Details"}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                {role === "manager" && selectedTicket?.complaint_type === "Major" 
+                  ? "Recommendation Details:" 
+                  : "Resolution Details:"}
+              </Typography>
+              <TextField
+                multiline
+                rows={4}
+                value={resolutionDetails}
+                onChange={e => setResolutionDetails(e.target.value)}
+                fullWidth
+                placeholder={
+                  role === "manager" && selectedTicket?.complaint_type === "Major"
+                    ? "Enter recommendation details..."
+                    : "Enter resolution details..."
+                }
+              />
+            </Box>
+
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Attachment (Optional):
+              </Typography>
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+                onChange={e => setAttendAttachment(e.target.files[0])}
+                style={{
+                  width: "100%",
+                  padding: "8px 12px",
+                  fontSize: "0.9rem",
+                  borderRadius: "4px",
+                  border: "1px solid #ccc"
+                }}
+              />
+              {attendAttachment && (
+                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
+                  File selected: {attendAttachment.name}
+                </Typography>
+              )}
+            </Box>
+
+            <Box sx={{ mt: 2, textAlign: "right" }}>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleAttend}
+                disabled={!resolutionDetails.trim() || attendLoading}
+              >
+                {attendLoading 
+                  ? "Submitting..." 
+                  : (role === "manager" && selectedTicket?.complaint_type === "Major" 
+                    ? "Submit Recommendation" 
+                    : "Submit")
+                }
+              </Button>
+              <Button
+                variant="outlined"
+                onClick={() => setIsAttendDialogOpen(false)}
+                sx={{ ml: 1 }}
+              >
+                Cancel
+              </Button>
+            </Box>
+          </Box>
+        </DialogContent>
+      </Dialog>
 
       {/* Snackbar */}
       <Snackbar

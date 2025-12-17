@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import { RxDashboard } from "react-icons/rx";
 import { MdOutlineSupportAgent, MdEmail } from "react-icons/md";
-import { FaChevronUp, FaChevronDown, FaInstagram } from "react-icons/fa";
+import { FaInstagram } from "react-icons/fa";
 import { baseURL } from "../../../config";
 import "./crmSidebar.css";
 
@@ -11,8 +11,6 @@ import IconButton from "@mui/material/IconButton";
 import Badge from "@mui/material/Badge";
 
 export default function CRMSidebar({ isSidebarOpen }) {
-  const [isAgentsOpen, setIsAgentsOpen] = useState(false);
-  const [openSection, setOpenSection] = useState(null);
   const [ticketStats, setTicketStats] = useState({
     total: 0,
     open: 0,
@@ -129,16 +127,6 @@ export default function CRMSidebar({ isSidebarOpen }) {
     }
   };
 
-  const toggleAgentsDropdown = () => {
-    if (!isAgentsOpen) {
-      fetchTicketCounts();
-    }
-    setIsAgentsOpen((prev) => !prev);
-  };
-
-  const toggleSection = (section) => {
-    setOpenSection(openSection === section ? null : section);
-  };
 
   useEffect(() => {
     fetchTicketCounts();
@@ -248,85 +236,76 @@ export default function CRMSidebar({ isSidebarOpen }) {
                     ? "active-link"
                     : ""
                 }`}
-                onClick={toggleAgentsDropdown}
-                style={{ cursor: "pointer", padding: "11px 11px", textDecoration: "none" }}
+                style={{ padding: "11px 11px", textDecoration: "none" }}
               >
                 <MdOutlineSupportAgent className="menu-icon" />
                 {isSidebarOpen && (
                   <span className="menu-text">
-                    Ticket Management{" "}
-                    {isAgentsOpen ? <FaChevronUp /> : <FaChevronDown />}
+                    Ticket Management
                   </span>
                 )}
               </div>
 
-              {isSidebarOpen && isAgentsOpen && (
+              {isSidebarOpen && (
                 <div className="dropdown-menu submenu">
                   <div className="menu-section">
-                    <div
-                      className={`section-header ${
-                        openSection === "agentTickets" ? "" : "collapsed"
-                      }`}
-                      onClick={() => toggleSection("agentTickets")}
-                    >
-                      <span className="section-title">Ticket Overview</span>
+                    <div className="section-header">
+                      <span className="crm-section-title">Ticket Overview</span>
                       {/* <span className="section-count">
                         {ticketStats.total || 0}
                       </span> */}
                     </div>
-                    {openSection === "agentTickets" && (
-                      <div className="section-items">
-                        {[
-                          {
-                            label: "Assigned",
-                            to: "/ticket/assigned",
-                            value: ticketStats.assigned || 0,
-                            icon: "📋"
-                          },
-                          {
-                            label: "In Progress",
-                            to: "/ticket/in-progress",
-                            value: ticketStats.inProgress || 0,
-                            icon: "⏳"
-                          },
-                          {
-                            label: "Escalated",
-                            to: "/ticket/escalated",
-                            value: ticketStats.escalated || ticketStats.overdue || 0,
-                            icon: "⚠️"
-                          },
-                          {
-                            label: "Closed",
-                            to: "/ticket/closed",
-                            value: ticketStats.closedByAgent || 0,
-                            icon: "🔒"
-                          },
-                          {
-                            label: "Total Opened by Me",
-                            to: "/ticket/all",
-                            value: ticketStats.totalCreatedByMe || 0,
-                            icon: "📊"
+                    <div className="section-items">
+                      {[
+                        {
+                          label: "Assigned",
+                          to: "/ticket/assigned",
+                          value: ticketStats.assigned || 0,
+                          icon: "📋"
+                        },
+                        {
+                          label: "In Progress",
+                          to: "/ticket/in-progress",
+                          value: ticketStats.inProgress || 0,
+                          icon: "⏳"
+                        },
+                        {
+                          label: "Escalated",
+                          to: "/ticket/escalated",
+                          value: ticketStats.escalated || ticketStats.overdue || 0,
+                          icon: "⚠️"
+                        },
+                        {
+                          label: "Closed",
+                          to: "/ticket/closed",
+                          value: ticketStats.closedByAgent || 0,
+                          icon: "🔒"
+                        },
+                        {
+                          label: "Total Opened by Me",
+                          to: "/ticket/all",
+                          value: ticketStats.totalCreatedByMe || 0,
+                          icon: "📊"
+                        }
+                      ].map((item, idx) => (
+                        <NavLink
+                          key={idx}
+                          to={item.to}
+                          className={({ isActive }) =>
+                            isActive
+                              ? "dropdown-item active-link"
+                              : "dropdown-item"
                           }
-                        ].map((item, idx) => (
-                          <NavLink
-                            key={idx}
-                            to={item.to}
-                            className={({ isActive }) =>
-                              isActive
-                                ? "dropdown-item active-link"
-                                : "dropdown-item"
-                            }
-                            style={{ padding: "12px 20px" }}
-                          >
-                            <div className="metric-row">
-                              <span className="crm-metric-icon">{item.icon}</span>
-                              <span className="metric-label">{item.label}</span>
-                              <span className="metric-value-crm">{item.value}</span>
-                            </div>
-                          </NavLink>
-                        ))}
-                      </div>
-                    )}
+                          style={{ padding: "12px 20px" }}
+                        >
+                          <div className="metric-row">
+                            <span className="crm-metric-icon">{item.icon}</span>
+                            <span className="metric-label">{item.label}</span>
+                            <span className="metric-value-crm">{item.value}</span>
+                          </div>
+                        </NavLink>
+                      ))}
+                    </div>
                   </div>
                   {fetchError && (
                     <div className="section error-message">
@@ -388,236 +367,207 @@ export default function CRMSidebar({ isSidebarOpen }) {
                   )}
                 </div>
               </NavLink>
-              <NavLink
-                                  to="/reviewer/ticket"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-                onClick={toggleAgentsDropdown}
-                style={{ cursor: "pointer", padding: "11px 11px", textDecoration: "none" }}
+              <div
+                className={`menu-item ${
+                  window.location.pathname.startsWith("/reviewer")
+                    ? "active-link"
+                    : ""
+                }`}
+                style={{ padding: "11px 11px", textDecoration: "none" }}
               >
                 <MdOutlineSupportAgent className="menu-icon" />
                 {isSidebarOpen && (
                   <span className="menu-text">
-                    Ticket Management{" "}
-                    {isAgentsOpen ? <FaChevronUp /> : <FaChevronDown />}
+                    Ticket Management
                   </span>
                 )}
-              </NavLink>
+              </div>
 
-              {isSidebarOpen && isAgentsOpen && (
+              {isSidebarOpen && (
                 <div className="dropdown-menu submenu reviewer-menu">
                   <div className="menu-section">
-                    <div
-                      className={`section-header ${
-                        openSection === "newTickets" ? "" : "collapsed"
-                      }`}
-                      onClick={() => toggleSection("newTickets")}
-                    >
-                      <span className="section-title">New Tickets</span>
+                    <div className="section-header">
+                      <span className="crm-section-title">New Tickets</span>
                       <span className="section-count">
                         {ticketStats.newTickets?.Total || 0}
                       </span>
                     </div>
-                    {openSection === "newTickets" && (
-                      <div className="section-items">
-                        {[
-                          {
-                            label: "New Tickets",
-                            to: `/reviewer/new`,
-                            value: ticketStats.newTickets?.["New Tickets"] || 0,
-                            icon: "🆕"
-                          },
-                          {
-                            label: "Escalated",
-                            to: `/reviewer/escalated`,
-                            value:
-                              ticketStats.newTickets?.["Escalated Tickets"] ||
-                              0,
-                            icon: "⚠️"
+                    <div className="section-items">
+                      {[
+                        {
+                          label: "New Tickets",
+                          to: `/reviewer/new`,
+                          value: ticketStats.newTickets?.["New Tickets"] || 0,
+                          icon: "🆕"
+                        },
+                        {
+                          label: "Escalated",
+                          to: `/reviewer/escalated`,
+                          value:
+                            ticketStats.newTickets?.["Escalated Tickets"] ||
+                            0,
+                          icon: "⚠️"
+                        }
+                      ].map((item, idx) => (
+                        <NavLink
+                          key={idx}
+                          to={item.to}
+                          className={({ isActive }) =>
+                            isActive
+                              ? "dropdown-item active-link"
+                              : "dropdown-item"
                           }
-                        ].map((item, idx) => (
-                          <NavLink
-                            key={idx}
-                            to={item.to}
-                            className={({ isActive }) =>
-                              isActive
-                                ? "dropdown-item active-link"
-                                : "dropdown-item"
-                            }
-                            style={{ padding: "12px 20px" }}
-                          >
-                            <div className="metric-row">
-                              <span className="crm-metric-icon">{item.icon}</span>
-                              <span className="metric-label">{item.label}</span>
-                              <span className="metric-value-crm">{item.value}</span>
-                            </div>
-                          </NavLink>
-                        ))}
-                      </div>
-                    )}
+                          style={{ padding: "12px 20px" }}
+                        >
+                          <div className="metric-row">
+                            <span className="crm-metric-icon">{item.icon}</span>
+                            <span className="metric-label">{item.label}</span>
+                            <span className="metric-value-crm">{item.value}</span>
+                          </div>
+                        </NavLink>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="menu-section">
-                    <div
-                      className={`section-header ${
-                        openSection === "convertedTickets" ? "" : "collapsed"
-                      }`}
-                      onClick={() => toggleSection("convertedTickets")}
-                    >
-                      <span className="section-title">Tickets Category</span>
+                    <div className="section-header">
+                      <span className="crm-section-title">Tickets Category</span>
                       <span className="section-count">
                         {Object.values(
                           ticketStats.convertedTickets || {}
                         ).reduce((a, b) => a + b, 0)}
                       </span>
                     </div>
-                    {openSection === "convertedTickets" && (
-                      <div className="section-items">
-                        {[
-                          {
-                            label: "Complaints",
-                            to: "/reviewer/complaints",
-                            value:
-                              ticketStats.convertedTickets?.Complaints || 0,
-                            icon: "📋"
-                          },
-                          {
-                            label: "Suggestions",
-                            to: "/reviewer/suggestions",
-                            value:
-                              ticketStats.convertedTickets?.Suggestions || 0,
-                            icon: "💡"
-                          },
-                          {
-                            label: "Compliments",
-                            to: "/reviewer/complements",
-                            value:
-                              ticketStats.convertedTickets?.Compliments || 0,
-                            icon: "⭐"
+                    <div className="section-items">
+                      {[
+                        {
+                          label: "Complaints",
+                          to: "/reviewer/complaints",
+                          value:
+                            ticketStats.convertedTickets?.Complaints || 0,
+                          icon: "📋"
+                        },
+                        {
+                          label: "Suggestions",
+                          to: "/reviewer/suggestions",
+                          value:
+                            ticketStats.convertedTickets?.Suggestions || 0,
+                          icon: "💡"
+                        },
+                        {
+                          label: "Compliments",
+                          to: "/reviewer/complements",
+                          value:
+                            ticketStats.convertedTickets?.Compliments || 0,
+                          icon: "⭐"
+                        }
+                      ].map((item, idx) => (
+                        <NavLink
+                          key={idx}
+                          to={item.to}
+                          className={({ isActive }) =>
+                            isActive
+                              ? "dropdown-item active-link"
+                              : "dropdown-item"
                           }
-                        ].map((item, idx) => (
-                          <NavLink
-                            key={idx}
-                            to={item.to}
-                            className={({ isActive }) =>
-                              isActive
-                                ? "dropdown-item active-link"
-                                : "dropdown-item"
-                            }
-                            style={{ padding: "12px 20px" }}
-                          >
-                            <div className="metric-row">
-                              <span className="crm-metric-icon">{item.icon}</span>
-                              <span className="metric-label">{item.label}</span>
-                              <span className="metric-value-crm">{item.value}</span>
-                            </div>
-                          </NavLink>
-                        ))}
-                      </div>
-                    )}
+                          style={{ padding: "12px 20px" }}
+                        >
+                          <div className="metric-row">
+                            <span className="crm-metric-icon">{item.icon}</span>
+                            <span className="metric-label">{item.label}</span>
+                            <span className="metric-value-crm">{item.value}</span>
+                          </div>
+                        </NavLink>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="menu-section">
-                    <div
-                      className={`section-header ${
-                        openSection === "channeledTickets" ? "" : "collapsed"
-                      }`}
-                      onClick={() => toggleSection("channeledTickets")}
-                    >
-                      <span className="section-title">Channeled Tickets</span>
+                    <div className="section-header">
+                      <span className="crm-section-title">Channeled Tickets</span>
                       <span className="section-count">
                         {Object.values(
                           ticketStats.channeledTickets || {}
                         ).reduce((a, b) => a + b, 0)}
                       </span>
                     </div>
-                    {openSection === "channeledTickets" && (
-                      <div className="section-items">
-                        {[
-                          {
-                            label: "Directorate",
-                            to: "/reviewer/directorate",
-                            value:
-                              ticketStats.channeledTickets?.Directorate || 0,
-                            icon: "🏢"
-                          },
-                          {
-                            label: "Units",
-                            to: "/reviewer/units",
-                            value: ticketStats.channeledTickets?.Units || 0,
-                            icon: "👥"
+                    <div className="section-items">
+                      {[
+                        {
+                          label: "Directorate",
+                          to: "/reviewer/directorate",
+                          value:
+                            ticketStats.channeledTickets?.Directorate || 0,
+                          icon: "🏢"
+                        },
+                        {
+                          label: "Units",
+                          to: "/reviewer/units",
+                          value: ticketStats.channeledTickets?.Units || 0,
+                          icon: "👥"
+                        }
+                      ].map((item, idx) => (
+                        <NavLink
+                          key={idx}
+                          to={item.to}
+                          className={({ isActive }) =>
+                            isActive
+                              ? "dropdown-item active-link"
+                              : "dropdown-item"
                           }
-                        ].map((item, idx) => (
-                          <NavLink
-                            key={idx}
-                            to={item.to}
-                            className={({ isActive }) =>
-                              isActive
-                                ? "dropdown-item active-link"
-                                : "dropdown-item"
-                            }
-                            style={{ padding: "12px 20px" }}
-                          >
-                            <div className="metric-row">
-                              <span className="crm-metric-icon">{item.icon}</span>
-                              <span className="metric-label">{item.label}</span>
-                              <span className="metric-value-crm">{item.value}</span>
-                            </div>
-                          </NavLink>
-                        ))}
-                      </div>
-                    )}
+                          style={{ padding: "12px 20px" }}
+                        >
+                          <div className="metric-row">
+                            <span className="crm-metric-icon">{item.icon}</span>
+                            <span className="metric-label">{item.label}</span>
+                            <span className="metric-value-crm">{item.value}</span>
+                          </div>
+                        </NavLink>
+                      ))}
+                    </div>
                   </div>
 
                   <div className="menu-section">
-                    <div
-                      className={`section-header ${
-                        openSection === "ticketStatus" ? "" : "collapsed"
-                      }`}
-                      onClick={() => toggleSection("ticketStatus")}
-                    >
-                      <span className="section-title">Ticket Status</span>
+                    <div className="section-header">
+                      <span className="crm-section-title">Ticket Status</span>
                       <span className="section-count">
                         {(ticketStats.ticketStatus?.["On Progress"] || 0) + (ticketStats.ticketStatus?.Closed || 0)}
                       </span>
                     </div>
-                    {openSection === "ticketStatus" && (
-                      <div className="section-items">
-                        {[
-                          // {
-                          //   label: "On Progress",
-                          //   to: "/reviewer/on-progress",
-                          //   value:
-                          //     ticketStats.ticketStatus?.["On Progress"] || 0,
-                          //   icon: "⏳"
-                          // },
-                          {
-                            label: "Closed",
-                            to: `/reviewer/closed`,
-                            value: ticketStats.ticketStatus?.Closed || 0,
-                            icon: "🔒"
+                    <div className="section-items">
+                      {[
+                        // {
+                        //   label: "On Progress",
+                        //   to: "/reviewer/on-progress",
+                        //   value:
+                        //     ticketStats.ticketStatus?.["On Progress"] || 0,
+                        //   icon: "⏳"
+                        // },
+                        {
+                          label: "Closed",
+                          to: `/reviewer/closed`,
+                          value: ticketStats.ticketStatus?.Closed || 0,
+                          icon: "🔒"
+                        }
+                      ].map((item, idx) => (
+                        <NavLink
+                          key={idx}
+                          to={item.to}
+                          className={({ isActive }) =>
+                            isActive
+                              ? "dropdown-item active-link"
+                              : "dropdown-item"
                           }
-                        ].map((item, idx) => (
-                          <NavLink
-                            key={idx}
-                            to={item.to}
-                            className={({ isActive }) =>
-                              isActive
-                                ? "dropdown-item active-link"
-                                : "dropdown-item"
-                            }
-                            style={{ padding: "12px 20px" }}
-                          >
-                            <div className="metric-row">
-                              <span className="crm-metric-icon">{item.icon}</span>
-                              <span className="metric-label">{item.label}</span>
-                              <span className="metric-value-crm">{item.value}</span>
-                            </div>
-                          </NavLink>
-                        ))}
-                      </div>
-                    )}
+                          style={{ padding: "12px 20px" }}
+                        >
+                          <div className="metric-row">
+                            <span className="crm-metric-icon">{item.icon}</span>
+                            <span className="metric-label">{item.label}</span>
+                            <span className="metric-value-crm">{item.value}</span>
+                          </div>
+                        </NavLink>
+                      ))}
+                    </div>
                   </div>
 
                   {fetchError && (

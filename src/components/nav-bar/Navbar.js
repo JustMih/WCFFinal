@@ -105,6 +105,72 @@ export default function Navbar({
     }
   });
 
+  // Mark all notifications as read mutation
+  const markAllAsReadMutation = useMutation({
+    mutationFn: async () => {
+      // Get all unread notifications and mark them as read
+      const unreadNotifications = notificationsData?.notifications?.filter(n => n.status === 'unread') || [];
+      
+      if (unreadNotifications.length === 0) {
+        return { success: true, count: 0 };
+      }
+      
+      // Mark each unread notification as read using the existing endpoint
+      const promises = unreadNotifications.map(notif => 
+        fetch(`${baseURL}/notifications/read/${notif.id}`, {
+          method: "PATCH",
+          headers: { Authorization: `Bearer ${token}` }
+        }).then(async (response) => {
+          if (!response.ok) {
+            const error = await response.json().catch(() => ({ message: 'Failed to mark notification as read' }));
+            throw new Error(error.message || `Failed to mark notification ${notif.id} as read`);
+          }
+          return response.json();
+        })
+      );
+      
+      try {
+        await Promise.all(promises);
+        return { success: true, count: unreadNotifications.length };
+      } catch (error) {
+        console.error("Error marking notifications as read:", error);
+        throw error;
+      }
+    },
+    onSuccess: (data) => {
+      console.log(`Successfully marked ${data.count} notification(s) as read`);
+      // Invalidate and refetch all notification-related queries
+      queryClient.invalidateQueries(['unreadCount', userId]);
+      queryClient.invalidateQueries(['notifications', userId]);
+      // Update local state immediately for better UX
+      if (notificationsData?.notifications) {
+        const updatedNotifications = notificationsData.notifications.map(notif => 
+          notif.status === 'unread' ? { ...notif, status: 'read' } : notif
+        );
+        // Update the query cache directly for instant UI update
+        queryClient.setQueryData(['notifications', userId], { notifications: updatedNotifications });
+      }
+      // Also update the local notifications state
+      if (userId && token) {
+        fetch(`${baseURL}/notifications/user/${userId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+          .then(res => res.json())
+          .then(data => {
+            setNotifications(data.notifications || []);
+            // Update unread count
+            const unreadCount = (data.notifications || []).filter(n => n.status === 'unread').length;
+            queryClient.setQueryData(['unreadCount', userId], { unreadCount });
+          })
+          .catch(err => console.error("Error refetching notifications:", err));
+      }
+    },
+    onError: (error) => {
+      console.error("Failed to mark all notifications as read:", error);
+      alert(`Error: ${error.message || 'Failed to mark all notifications as read'}`);
+    }
+  });
+
   // Fetch ticket notifications
   const { data: ticketNotificationsData } = useQuery({
     queryKey: ['ticketNotifications', selectedNotification?.ticket_id],
@@ -340,18 +406,23 @@ export default function Navbar({
   const handleNotificationClick = async (notif) => {
     console.log("Notification clicked:", notif);
     try {
-      // Mark notification as read
-      await markAsReadMutation.mutateAsync(notif.id);
-      
-      // Set the selected notification and open the dialog
-      setSelectedNotification(notif);
-      setNotificationDialogOpen(true);
+      // Mark notification as read first
+      if (notif.status === 'unread') {
+        await markAsReadMutation.mutateAsync(notif.id);
+      }
       
       // Close the dropdown
       setNotifDropdownOpen(false);
+      
+      // Set the selected notification and open the dialog (ticket details modal)
+      setSelectedNotification(notif);
+      setNotificationDialogOpen(true);
     } catch (err) {
       console.error("Error in handleNotificationClick:", err, notif);
-      alert("Error processing notification: " + (err?.message || err));
+      // Even if marking as read fails, still try to open the modal
+      setNotifDropdownOpen(false);
+      setSelectedNotification(notif);
+      setNotificationDialogOpen(true);
     }
   };
 
@@ -501,26 +572,348 @@ export default function Navbar({
           </Badge>
           {notifDropdownOpen && (
             <div className="navbar-notification-dropdown">
+              {/* Mark All as Read Button */}
+              {notificationsData?.notifications?.some(n => n.status === 'unread') && (
+                <div style={{
+                  padding: '8px 12px',
+                  borderBottom: '1px solid #e0e0e0',
+                  display: 'flex',
+                  justifyContent: 'flex-end',
+                  backgroundColor: '#f5f5f5'
+                }}>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      markAllAsReadMutation.mutate();
+                    }}
+                    disabled={markAllAsReadMutation.isLoading}
+                    style={{
+                      background: 'transparent',
+                      border: '1px solid #1976d2',
+                      color: '#1976d2',
+                      padding: '4px 12px',
+                      borderRadius: '4px',
+                      cursor: markAllAsReadMutation.isLoading ? 'not-allowed' : 'pointer',
+                      fontSize: '0.75rem',
+                      fontWeight: '500',
+                      opacity: markAllAsReadMutation.isLoading ? 0.6 : 1
+                    }}
+                  >
+                    {markAllAsReadMutation.isLoading ? 'Marking...' : 'Mark all as read'}
+                  </button>
+                </div>
+              )}
               {!notificationsData?.notifications?.length ? (
                 <div className="notification-empty">No notifications</div>
               ) : (
-                notificationsData.notifications.map((notif) => (
-                  <div
-                    key={notif.id}
-                    className={`notification-item ${notif.status === "unread" ? "unread" : " "}`}
-                  >
+                notificationsData.notifications.map((notif) => {
+                  // Extract ticket ID from message if available, or use ticket_id from notification
+                  // Try multiple patterns: "ID: WCF-CC-708934", "(WCF-CC-708934)", or direct ticket_id
+                  let ticketId = 'N/A';
+                  let cleanedMessage = notif.message || '';
+                  let subjectFromMessage = '';
+                  
+                  if (notif.ticket_id) {
+                    // If ticket_id is a UUID, try to get the actual ticket number from ticket object
+                    ticketId = notif.ticket?.ticket_id || notif.ticket_id;
+                  }
+                  
+                  // Extract subject from message (part after colon)
+                  // Example: "New Inquiry ticket assigned to you: Pension Payment" -> "Pension Payment"
+                  if (notif.message) {
+                    const colonIndex = notif.message.indexOf(':');
+                    if (colonIndex !== -1 && colonIndex < notif.message.length - 1) {
+                      subjectFromMessage = notif.message.substring(colonIndex + 1).trim();
+                      // Remove ticket ID patterns from subject if present
+                      if (ticketId !== 'N/A') {
+                        const escapedTicketId = ticketId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        subjectFromMessage = subjectFromMessage
+                          .replace(new RegExp(`\\b${escapedTicketId}\\b`, 'gi'), '')
+                          .replace(/\(ID:\s*[A-Z0-9-]+\)/gi, '')
+                          .replace(/\([A-Z0-9-]+\)/g, '')
+                          .trim();
+                      }
+                      // Also remove the subject from cleanedMessage so it doesn't appear in the message row
+                      if (subjectFromMessage) {
+                        cleanedMessage = cleanedMessage.replace(new RegExp(`:\\s*${subjectFromMessage.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'gi'), '').trim();
+                      }
+                    }
+                  }
+                  
+                  // Always try to extract ticket ID from message and clean it
+                  if (notif.message) {
+                    // Try to extract from message - check multiple patterns
+                    const idPatterns = [
+                      /ID:\s*([A-Z0-9-]+)/i,
+                      /\(ID:\s*([A-Z0-9-]+)\)/i,
+                      /\(([A-Z0-9-]+)\)/,
+                      /(WCF-[A-Z0-9-]+)/i
+                    ];
+                    
+                    let extractedId = null;
+                    for (const pattern of idPatterns) {
+                      const match = notif.message.match(pattern);
+                      if (match) {
+                        extractedId = match[1] || match[0];
+                        // Check if it looks like a ticket ID (WCF- pattern or similar)
+                        if (extractedId.match(/^WCF-[A-Z0-9-]+$/i) || extractedId.match(/^[A-Z]{2,4}-[A-Z]{2}-[0-9]+$/i)) {
+                          ticketId = extractedId;
+                          break;
+                        }
+                      }
+                    }
+                    
+                    // Clean message - remove ticket ID patterns more aggressively
+                    cleanedMessage = notif.message;
+                    
+                    if (ticketId !== 'N/A' && ticketId !== null && ticketId !== undefined) {
+                      // Escape special regex characters in ticket ID
+                      const escapedTicketId = ticketId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                      
+                      // Remove patterns with ticket ID
+                      cleanedMessage = cleanedMessage
+                        // Remove (ID: WCF-CC-708934) pattern
+                        .replace(/\(ID:\s*[A-Z0-9-]+\)/gi, '')
+                        // Remove (WCF-CC-708934) pattern - be more specific
+                        .replace(new RegExp(`\\(${escapedTicketId}\\)`, 'gi'), '')
+                        // Remove ID: WCF-CC-708934 pattern (with or without parentheses)
+                        .replace(new RegExp(`ID:\\s*${escapedTicketId}`, 'gi'), '')
+                        // Remove standalone ticket ID (word boundary)
+                        .replace(new RegExp(`\\b${escapedTicketId}\\b`, 'gi'), '')
+                        // Remove any remaining (WCF-CC-XXXXX) patterns
+                        .replace(/\(WCF-[A-Z0-9-]+\)/gi, '')
+                        // Remove any WCF- pattern at end of line or before punctuation
+                        .replace(/WCF-[A-Z0-9-]+(?=\s|$|\)|,|\.)/gi, '')
+                        // Clean up extra spaces and colons
+                        .replace(/\s+/g, ' ')
+                        .replace(/\s*:\s*/g, ': ')
+                        .replace(/\s*\(\s*/g, '')
+                        .replace(/\s*\)\s*/g, '')
+                        .replace(/\s*,\s*/g, '')
+                        .trim();
+                    }
+                  }
+                  
+                  // Format notification date - try multiple date fields
+                  const dateValue = notif.created_at || notif.createdAt || notif.date;
+                  const notificationDate = dateValue 
+                    ? new Date(dateValue).toLocaleString("en-GB", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: true
+                      })
+                    : 'N/A';
+                  
+                  // Format assignment date - try multiple fields
+                  // Use notification created_at as fallback since notifications are created when tickets are assigned
+                  const assignmentDateValue = notif.ticket?.assigned_at || 
+                                            notif.ticket?.updated_at ||
+                                            notif.assigned_at ||
+                                            notif.assignment_date ||
+                                            notif.created_at ||  // Fallback to notification creation date
+                                            notif.createdAt;     // Alternative field name
+                  const assignmentDate = assignmentDateValue 
+                    ? new Date(assignmentDateValue).toLocaleString("en-GB", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: true
+                      })
+                    : null;
+                  
+                  // Format ticket created date - try multiple sources
+                  const ticketCreatedDateValue = notif.ticket?.created_at || 
+                                                notif.ticket?.createdAt ||
+                                                notif.ticket?.date_created ||
+                                                notif.ticket?.createdAt ||
+                                                notif.created_at ||  // Fallback to notification created_at if ticket not available
+                                                notif.createdAt;
+                  const ticketCreatedDate = ticketCreatedDateValue 
+                    ? new Date(ticketCreatedDateValue).toLocaleString("en-GB", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: true
+                      })
+                    : null;
+                  
+                  return (
                     <div
-                      className="notification-message"
-                      style={{ cursor: "pointer" }}
+                      key={notif.id}
+                      className={`notification-item ${notif.status === "unread" ? "unread" : " "}`}
+                      style={{ 
+                        display: 'flex', 
+                        flexDirection: 'column',
+                        cursor: 'pointer'
+                      }}
                       onClick={() => handleNotificationClick(notif)}
                     >
-                      {notif.message}
+                      {/* Row 1: Assigned at and Date of Assignment */}
+                      <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center',
+                        marginBottom: '4px',
+                        fontSize: '0.7rem',
+                        color: '#666',
+                        width: '100%'
+                      }}>
+                        <span style={{ 
+                          fontSize: '0.7rem',
+                          color: '#666',
+                          fontWeight: '500',
+                          minWidth: '80px'
+                        }}>
+                          Assigned at:
+                        </span>
+                        <span style={{ 
+                          fontSize: '0.7rem',
+                          color: '#666',
+                          whiteSpace: 'nowrap',
+                          textAlign: 'right'
+                        }}>
+                          {assignmentDate || notificationDate}
+                        </span>
+                      </div>
+                      
+                      {/* Row 2: Created at (Ticket Creation Date) */}
+                      <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center',
+                        marginBottom: '4px',
+                        fontSize: '0.7rem',
+                        color: '#666',
+                        width: '100%'
+                      }}>
+                        <span style={{ 
+                          fontSize: '0.7rem',
+                          color: '#666',
+                          fontWeight: '500',
+                          minWidth: '80px'
+                        }}>
+                          Created at:
+                        </span>
+                        <span style={{ 
+                          fontSize: '0.7rem',
+                          color: '#666',
+                          whiteSpace: 'nowrap',
+                          textAlign: 'right'
+                        }}>
+                          {ticketCreatedDate || notificationDate || 'N/A'}
+                        </span>
+                      </div>
+                      
+                      {/* Row 3: Ticket Number */}
+                      {ticketId !== 'N/A' && (
+                        <div style={{ 
+                          display: 'flex', 
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginBottom: '4px',
+                          fontSize: '0.7rem',
+                          color: '#666',
+                          width: '100%'
+                        }}>
+                          <span style={{ 
+                            fontSize: '0.7rem',
+                            color: '#666',
+                            fontWeight: '500',
+                            minWidth: '80px'
+                          }}>
+                            Ticket Number:
+                          </span>
+                          <span style={{ 
+                            backgroundColor: '#e3f2fd',
+                            padding: '4px 10px',
+                            borderRadius: '4px',
+                            color: '#1976d2',
+                            fontWeight: '600',
+                            fontSize: '0.7rem',
+                            whiteSpace: 'nowrap',
+                            textAlign: 'right'
+                          }}>
+                            {ticketId}
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* Row 4: Subject (from message) - Aligned right like dates */}
+                      {(subjectFromMessage || notif.ticket?.subject || notif.subject) && (
+                        <div style={{ 
+                          display: 'flex', 
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginBottom: '4px',
+                          fontSize: '0.7rem',
+                          color: '#666',
+                          width: '100%'
+                        }}>
+                          <span style={{ 
+                            fontSize: '0.7rem',
+                            color: '#666',
+                            fontWeight: '500',
+                            minWidth: '80px'
+                          }}>
+                            Subject:
+                          </span>
+                          <span style={{ 
+                            fontSize: '0.7rem',
+                            color: '#333',
+                            fontWeight: '500',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            textAlign: 'right',
+                            maxWidth: '60%'
+                          }}>
+                            {subjectFromMessage || notif.ticket?.subject || notif.subject}
+                          </span>
+                        </div>
+                      )}
+                      {/* Row 5: Category */}
+                      {(notif.category || notif.ticket?.category || notif.type) && (
+                        <div style={{ 
+                          display: 'flex', 
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          marginBottom: '4px',
+                          fontSize: '0.7rem',
+                          color: '#666',
+                          width: '100%'
+                        }}>
+                          <span style={{ 
+                            fontSize: '0.7rem',
+                            color: '#666',
+                            fontWeight: '500',
+                            minWidth: '80px'
+                          }}>
+                            Category:
+                          </span>
+                          <span style={{ 
+                            fontSize: '0.7rem',
+                            color: '#1976d2',
+                            fontWeight: '500',
+                            backgroundColor: '#e3f2fd',
+                            padding: '2px 8px',
+                            borderRadius: '4px',
+                            whiteSpace: 'nowrap',
+                            textAlign: 'right'
+                          }}>
+                            {notif.category || notif.ticket?.category || notif.type}
+                          </span>
+                        </div>
+                      )}
                     </div>
-                    <div className="notification-type">
-                      {notif.category || notif.type}
-                    </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           )}
