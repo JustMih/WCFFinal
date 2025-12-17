@@ -94,7 +94,7 @@ export default function PublicDashboard() {
 
     // Setup Socket.IO for real-time updates
     // Extract base URL from baseURL (e.g., http://127.0.0.1:5070/api -> http://127.0.0.1:5070)
-    const socketUrl = baseURL.replace(/\/api$/, "") || "http://127.0.0.1:5070";
+    const socketUrl = baseURL.replace(/\/api$/, "") || "https://192.168.21.70";
     const socket = io(socketUrl, {
       transports: ["websocket", "polling"],
       reconnection: true,
@@ -273,14 +273,14 @@ export default function PublicDashboard() {
             })}
           </div>
         </div>
-        <Button
+        {/* <Button
           variant="contained"
           color="primary"
           onClick={() => navigate("/login")}
           className="public-login-button"
         >
           Login
-        </Button>
+        </Button> */}
       </div>
 
       {/* Stats Cards */}

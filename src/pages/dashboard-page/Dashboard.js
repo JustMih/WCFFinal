@@ -42,8 +42,10 @@ import Message from "../call-center-pages/call-center-social-message/CallCenterS
 import IvrCardsPage from "../call-center-pages/cal-center-ivr/IvrCardsPage";
 import DTMFStats from "../call-center-pages/cal-center-ivr/DTMFStats";
 import VoiceNoteReport from "../call-center-pages/call-center-report/voice-note-report";
+import ComprehensiveReports from "../call-center-pages/call-center-report/ComprehensiveReports";
 import InstagramPage from "../instagram/InstagramPage";
 import LookupTablesManagement from "../super-admin/LookupTablesManagement";
+import PublicDashboard from "../public-dashboard/PublicDashboard";
 
 export default function Dashboard() {
   const [isDarkMode, setDarkMode] = useState(false);
@@ -123,6 +125,10 @@ export default function Dashboard() {
                   element={<PrivateRoute element={<CallCenterDashboard />} />}
                 />
                 <Route
+                  path="/public-dashboard"
+                  element={<PrivateRoute element={<PublicDashboard />} />}
+                />
+                <Route
                   path="/dashboard2"
                   element={<PrivateRoute element={<Dashboard2 />} />}
                 />
@@ -183,11 +189,11 @@ export default function Dashboard() {
                 />
                 <Route
                   path="/voice-notes-report"
-                  element={<VoiceNoteReport />}
+                  element={<ComprehensiveReports />}
                 />
                 <Route
                   path="/voice-note-report"
-                  element={<VoiceNoteReport />}
+                  element={<ComprehensiveReports />}
                 />
                 <Route
                   path="/recorded-sounds"

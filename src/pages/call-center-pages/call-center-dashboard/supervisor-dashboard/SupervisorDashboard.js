@@ -860,17 +860,6 @@ export default function SupervisorDashboard() {
         </div>
       </div>
 
-      <div className="charts-container">
-        <div className="chart-card">
-          <h4>Call Counts by Disposition</h4>
-          <Bar data={barData} options={{ responsive: true }} />
-        </div>
-        <div className="chart-card">
-          <h4>Call Distribution</h4>
-          <Pie data={pieData} options={{ responsive: true }} />
-        </div>
-      </div>
-
       {/* Donut Charts for Card Summaries */}
       <div className="donut-charts-container" style={{ marginTop: "20px" }}>
         <div className="chart-card">
@@ -963,7 +952,18 @@ export default function SupervisorDashboard() {
             }}
           />
         </div>
+        <div className="chart-card">
+          <h4>Call Distribution</h4>
+          <Pie data={pieData} options={{ responsive: true }} />
+        </div>
       </div>
+
+      {/* <div className="charts-container">
+        <div className="chart-card-bar">
+          <h4>Call Counts by Disposition</h4>
+          <Bar data={barData} options={{ responsive: true }} />
+        </div>
+      </div> */}
 
       {/* Softphone popup */}
       {showPhonePopup && (

@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import { RxDashboard } from "react-icons/rx";
-import { MdOutlineSupportAgent, MdOutlineAudiotrack } from "react-icons/md";
+import {
+  MdOutlineSupportAgent,
+  MdOutlineAudiotrack,
+  MdPublic,
+} from "react-icons/md";
 import { TbActivityHeartbeat, TbLogs } from "react-icons/tb";
 import {
   FaRegUser,
@@ -74,6 +78,19 @@ export default function CallCenterSidebar({
                   <RxDashboard className="menu-icon" />
                   {isSidebarOpen && (
                     <span className="menu-text">Admin Dashboard</span>
+                  )}
+                </div>
+              </NavLink>
+              <NavLink
+                to="/public-dashboard"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <MdPublic className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">Live Dashboard</span>
                   )}
                 </div>
               </NavLink>
@@ -395,6 +412,20 @@ export default function CallCenterSidebar({
                 </div>
               </NavLink>
 
+              {/* Social Notifications Toggle */}
+              <div
+                onClick={toggleSocialMenu}
+                className={`menu-item top-level-menu ${
+                  openSocial ? "active-link" : ""
+                }`}
+                style={{ cursor: "pointer" }}
+              >
+                <BsChatRightTextFill className="menu-icon" />
+                {isSidebarOpen && (
+                  <span className="menu-text">Social Notifications</span>
+                )}
+              </div>
+
               <NavLink
                 to="/voice-notes-report"
                 className={({ isActive }) =>
@@ -403,9 +434,7 @@ export default function CallCenterSidebar({
               >
                 <div className="menu-item">
                   <BsChatRightTextFill className="menu-icon" />
-                  {isSidebarOpen && (
-                    <span className="menu-text">Voice Notes Report</span>
-                  )}
+                  {isSidebarOpen && <span className="menu-text">Report</span>}
                 </div>
               </NavLink>
 
