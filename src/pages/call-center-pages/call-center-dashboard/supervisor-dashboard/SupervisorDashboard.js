@@ -362,11 +362,29 @@ export default function SupervisorDashboard() {
             </div>
           </>
         )}
-        <Tooltip title="Status Menu">
-          <IconButton onClick={handleClick} size="small" sx={{ ml: 2 }} aria-controls={openStatus ? "account-menu" : undefined} aria-haspopup="true" aria-expanded={openStatus ? "true" : undefined}>
-            <Avatar sx={{ width: 32, height: 32 }}>E</Avatar>
-          </IconButton>
-        </Tooltip>
+       <Tooltip title="Agent Emergency">
+            <IconButton
+              onClick={handleClick}
+              size="medium"
+              sx={{ ml: 2 }}
+              aria-controls={openStatus ? "account-menu" : undefined}
+              aria-haspopup="true"
+              aria-expanded={openStatus ? "true" : undefined}
+            >
+              <Avatar
+                sx={{
+                  width: 48,
+                  height: 40,
+                  bgcolor: 'primary.main',
+                  color: 'white',
+                  fontSize: 10,
+                  fontWeight: 'bold',
+                }}
+              >
+                PAUSE
+              </Avatar>
+            </IconButton>
+          </Tooltip>
       </div>
 
       {/* Status menu */}
