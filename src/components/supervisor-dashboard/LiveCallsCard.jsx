@@ -23,9 +23,12 @@ export default function LiveCallsCard({
   const handleListen = async (callId) => {
     console.log(`Listening to call ${callId}`);
     try {
-      const response = await fetch(`${baseURL}/livestream/live-calls/${callId}/listen`, {
-        method: "POST",
-      });
+      const response = await fetch(
+        `${baseURL}/livestream/live-calls/${callId}/listen`,
+        {
+          method: "POST",
+        }
+      );
       const data = await response.json();
       console.log(data.message);
     } catch (error) {
@@ -36,9 +39,12 @@ export default function LiveCallsCard({
   const handleIntervene = async (callId) => {
     console.log(`Intervening in call ${callId}`);
     try {
-      const response = await fetch(`${baseURL}/livestream/live-calls/${callId}/intervene`, {
-        method: "POST",
-      });
+      const response = await fetch(
+        `${baseURL}/livestream/live-calls/${callId}/intervene`,
+        {
+          method: "POST",
+        }
+      );
       const data = await response.json();
       console.log(data.message);
     } catch (error) {
@@ -49,9 +55,12 @@ export default function LiveCallsCard({
   const handleWhisper = async (callId) => {
     console.log(`Whispering to call ${callId}`);
     try {
-      const response = await fetch(`${baseURL}/livestream/live-calls/${callId}/whisper`, {
-        method: "POST",
-      });
+      const response = await fetch(
+        `${baseURL}/livestream/live-calls/${callId}/whisper`,
+        {
+          method: "POST",
+        }
+      );
       const data = await response.json();
       console.log(data.message);
     } catch (error) {
@@ -143,6 +152,7 @@ export default function LiveCallsCard({
             <tr>
               <th>Source</th>
               <th>Destination</th>
+              <th>Agent</th>
               <th>Status</th>
               <th>Duration</th>
               <th>Call Type</th>
@@ -152,9 +162,20 @@ export default function LiveCallsCard({
           <tbody>
             {active.length > 0 ? (
               active.map((call) => (
-                <tr key={call.id}>
+                <tr key={call.id || call.linkedid}>
                   <td className="agent-name">{call.caller}</td>
                   <td className="customer-number">{call.callee}</td>
+                  <td className="agent-name">
+                    {call.agent ? (
+                      <span style={{ fontWeight: 500, color: "#1976d2" }}>
+                        {call.agent}
+                      </span>
+                    ) : (
+                      <span style={{ color: "#999", fontStyle: "italic" }}>
+                        Not assigned
+                      </span>
+                    )}
+                  </td>
                   <td>
                     <span
                       className={`status-badge ${
@@ -178,24 +199,32 @@ export default function LiveCallsCard({
                     <div className="action-buttons">
                       <button
                         className="action-button listen"
-                        onClick={() => handleListen(call.id)}
-                        disabled={call.status === "COMPLETED"}
+                        onClick={() => handleListen(call.id || call.linkedid)}
+                        disabled={
+                          call.status === "COMPLETED" || call.status === "ended"
+                        }
                         title="Listen"
                       >
                         <FaHeadphones />
                       </button>
                       <button
                         className="action-button intervene"
-                        onClick={() => handleIntervene(call.id)}
-                        disabled={call.status === "COMPLETED"}
+                        onClick={() =>
+                          handleIntervene(call.id || call.linkedid)
+                        }
+                        disabled={
+                          call.status === "COMPLETED" || call.status === "ended"
+                        }
                         title="Intervene"
                       >
                         <FaUserShield />
                       </button>
                       <button
                         className="action-button whisper"
-                        onClick={() => handleWhisper(call.id)}
-                        disabled={call.status === "COMPLETED"}
+                        onClick={() => handleWhisper(call.id || call.linkedid)}
+                        disabled={
+                          call.status === "COMPLETED" || call.status === "ended"
+                        }
                         title="Whisper"
                       >
                         <FaComments />
@@ -206,7 +235,7 @@ export default function LiveCallsCard({
               ))
             ) : (
               <tr>
-                <td colSpan="8" className="no-data">
+                <td colSpan="7" className="no-data">
                   No live calls available.
                 </td>
               </tr>

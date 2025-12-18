@@ -1,0 +1,33 @@
+.call-history-card {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.call-history-card .MuiTabs-root {
+  background-color: #f5f5f5;
+}
+
+.call-history-card .MuiTab-root {
+  text-transform: none;
+  font-weight: 500;
+  min-height: 48px;
+}
+
+.call-history-card .MuiTab-root svg {
+  margin-right: 4px;
+}
+
+.call-history-card .MuiTableContainer-root {
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.call-history-card .MuiTableRow-root:hover {
+  background-color: #f5f5f5;
+}
+
+.call-history-card .MuiTableCell-root {
+  padding: 12px 16px;
+}
