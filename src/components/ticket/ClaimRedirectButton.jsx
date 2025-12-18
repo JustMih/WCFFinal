@@ -348,14 +348,15 @@ const ClaimRedirectButton = ({
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    whiteSpace: "nowrap",
+    whiteSpace: style?.whiteSpace || "nowrap", // Allow style prop to override whiteSpace
     ...style
   };
 
   const profileButtonStyle = {
     ...defaultStyle,
     backgroundColor: "#28a745", // Green color for profile button
-    marginLeft: "8px"
+    marginLeft: "8px",
+    ...style // Apply custom style prop to override defaults
   };
 
   const containerStyle = {
@@ -409,16 +410,16 @@ const ClaimRedirectButton = ({
           registrationNumber = result.registration_number;
         }
         
-                 return (
-           <button
-             key={`profile-${index}-${employerName}`}
-             onClick={() => handleViewProfile(registrationNumber)}
-             className={className}
-             style={profileButtonStyle}
-           >
-             {isEmployerSearch ? `View Profile - ${employerName}` : `View ${employerName} Profile`}
-           </button>
-         );
+        //          return (
+        //    <button
+        //      key={`profile-${index}-${employerName}`}
+        //      onClick={() => handleViewProfile(registrationNumber)}
+        //      className={className}
+        //      style={profileButtonStyle}
+        //    >
+        //      {isEmployerSearch ? `View Profile - ${employerName}` : `View ${employerName} Profile`}
+        //    </button>
+        //  );
       })}
       
              {/* Show profile button for employerData if no resultsWithRegistration */}
@@ -455,26 +456,26 @@ const ClaimRedirectButton = ({
        )}
        
        {/* Show profile button for employerData even when there's no claim but we have employer data */}
-       {employerData && employerData.registration_number && !notificationReportId && !responseData && (
+       {/* {employerData && employerData.registration_number && !notificationReportId && !responseData && (
          <button
            onClick={() => handleViewProfile(employerData.registration_number)}
            className={className}
            style={profileButtonStyle}
          >
-           {`View ${employerData.name} Profile`}
+           {isEmployerSearch ? `View Profile - ${employerData.name}` : `View ${employerData.name} Profile`}
          </button>
-       )}
+       )} */}
        
        {/* Show profile button for employerData when there's no claim but we have employer data (alternative condition) */}
-       {employerData && employerData.registration_number && !notificationReportId && (
+       {/* {employerData && employerData.registration_number && !notificationReportId && (
          <button
            onClick={() => handleViewProfile(employerData.registration_number)}
            className={className}
            style={profileButtonStyle}
          >
-           {`View ${employerData.name} Profile`}
+           {isEmployerSearch ? `View Profile - ${employerData.name}` : `View ${employerData.name} Profile`}
          </button>
-       )}
+       )} */}
     </div>
   );
 };

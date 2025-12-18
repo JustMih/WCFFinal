@@ -44,6 +44,7 @@ import DTMFStats from "../call-center-pages/cal-center-ivr/DTMFStats";
 import VoiceNoteReport from "../call-center-pages/call-center-report/voice-note-report";
 import InstagramPage from "../instagram/InstagramPage";
 import LookupTablesManagement from "../super-admin/LookupTablesManagement";
+import MappingManagement from "../super-admin/MappingManagement";
 
 export default function Dashboard() {
   const [isDarkMode, setDarkMode] = useState(false);
@@ -218,6 +219,15 @@ export default function Dashboard() {
                     path="/lookup-tables"
                     element={
                       <PrivateRoute element={<LookupTablesManagement />} />
+                    }
+                  />
+                )}
+                {/* Mapping Management - Super Admin Only */}
+                {role === "super-admin" && (
+                  <Route
+                    path="/mapping"
+                    element={
+                      <PrivateRoute element={<MappingManagement />} />
                     }
                   />
                 )}

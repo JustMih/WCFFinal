@@ -24,6 +24,7 @@ import Autocomplete from "@mui/material/Autocomplete";
 import Badge from "@mui/material/Badge";
 
 import ChatIcon from '@mui/icons-material/Chat';
+import BarChartIcon from '@mui/icons-material/BarChart';
 import Download from '@mui/icons-material/Download';
 import AttachFile from '@mui/icons-material/AttachFile';
 import { baseURL } from "../config";
@@ -182,6 +183,7 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
       const next = assignmentHistory[i + 1];
 
       // Move current.reason to the previous step (actor)
+      // BUT: Don't move attachment_path - keep it with the action that actually has it
       if (current.reason) {
         // Determine the previous step record to attach the reason to
         if (processedHistory.length > 0) {
@@ -195,9 +197,15 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
         }
       }
       
+      // IMPORTANT: Don't move attachment_path to previous step - keep it with the action that has it
+      // This ensures attachment stays with the user who actually uploaded it
+      
       // Escalation handling is covered by generic shift above. Keep the step but without duplicating the reason
+      // IMPORTANT: Keep attachment_path with the action that has it - don't copy it from other actions
       const currentWithoutReason = { ...current };
       delete currentWithoutReason.reason;
+      // Ensure attachment_path stays with the action that actually has it
+      // Don't copy attachment_path from previous or next actions
 
       // Skip "Rated" actions - ignore them completely, only show "Assigned"
       if (current.action === "Rated") {
@@ -214,10 +222,10 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
           prevStep.action = "Closed";
           prevStep.closed_at = current.created_at;
           prevStep.isConsolidated = true;
-          // Copy attachment and reason from Closed action if available
-          if (current.attachment_path) {
-            prevStep.attachment_path = current.attachment_path;
-          }
+          // DON'T copy attachment from Closed action - keep it with the action that has it
+          // Only use attachment from prevStep if it already has one
+          // This ensures attachment stays with the user who actually uploaded it
+          // Do NOT copy: if (current.attachment_path && !prevStep.attachment_path) { prevStep.attachment_path = current.attachment_path; }
           if (current.reason) {
             prevStep.reason = current.reason;
           }
@@ -235,11 +243,14 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
           action: "Closed",
           closed_at: next.created_at,
           isConsolidated: true,
-          attachment_path: next.attachment_path || current.attachment_path,
+          // ONLY use attachment from current (Assigned) action - don't copy from next (Closed) action
+          // This ensures attachment stays with the user who actually uploaded it during Assigned action
+          attachment_path: current.attachment_path, // Only use current, don't fallback to next
           reason: next.reason || current.reason || currentWithoutReason.reason
         });
         i++; // Skip the next step since consolidated
       } else {
+        // For all other cases, keep attachment_path with the action that has it
         processedHistory.push(currentWithoutReason);
       }
     }
@@ -292,11 +303,11 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
   ) {
     currentAssigneeIdx = steps.length - 1; // Last step in original array (first in reversed)
   } else {
-    // Find the most recent assignment or reassignment action
+    // Find the most recent assignment, reassignment, reversed, or forwarded action
     // The most recent step (last in original array, first in reversed) should be current
-    // Check if the last step (which will be first in reversed) is an assignment/reassignment
+    // Check if the last step (which will be first in reversed) is an assignment/reassignment/reversed/forwarded
     const lastStep = steps[steps.length - 1];
-    if (lastStep && (lastStep.action === "Assigned" || lastStep.action === "Reassigned")) {
+    if (lastStep && (lastStep.action === "Assigned" || lastStep.action === "Reassigned" || lastStep.action === "Reversed" || lastStep.action === "Forwarded")) {
       currentAssigneeIdx = 0; // First in reversed array (most recent)
     } else {
       // Fallback: find by assigned_to_id
@@ -633,7 +644,7 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
                   {a.reason && (
                     <Box sx={{ mt: 1, p: 1.25, bgcolor: '#f8f9fa', borderRadius: 1, border: '1px solid #e9ecef' }}>
                       <Typography variant="body2" sx={{ color: '#444', fontStyle: 'italic' }}>
-                        <strong>Justification:</strong> {a.reason}
+                        <strong>Description:</strong> {a.reason}
                       </Typography>
                     </Box>
                   )}
@@ -947,11 +958,17 @@ export default function TicketDetailsModal({
   const [reviewerNotes, setReviewerNotes] = useState("");
   const [editedResolution, setEditedResolution] = useState("");
   const [dgNotes, setDgNotes] = useState("");
-  const [dgApproved, setDgApproved] = useState(true);
 
   // Ticket Updates toggle state
   const [showTicketUpdates, setShowTicketUpdates] = useState(false);
   const [unreadUpdatesCount, setUnreadUpdatesCount] = useState(0);
+  
+  // Ticket Charts (Messages) state
+  const [showTicketCharts, setShowTicketCharts] = useState(false);
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const [ticketMessages, setTicketMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [sendingMessage, setSendingMessage] = useState(false);
   
   // Reversed ticket editing states
   const [isEditReversedTicketDialogOpen, setIsEditReversedTicketDialogOpen] = useState(false);
@@ -1040,7 +1057,32 @@ export default function TicketDetailsModal({
     };
 
     fetchUnreadUpdatesCount();
+    fetchUnreadMessagesCount();
+    
+    // Set up interval to refresh unread messages count every 30 seconds
+    const intervalId = setInterval(() => {
+      if (open && selectedTicket?.id) {
+        fetchUnreadMessagesCount();
+      }
+    }, 30000);
+    
+    return () => clearInterval(intervalId);
   }, [selectedTicket?.id, open]);
+
+  // Auto-refresh messages when modal is open
+  useEffect(() => {
+    if (!showTicketCharts || !selectedTicket?.id) return;
+
+    // Fetch messages immediately when modal opens
+    fetchTicketMessages();
+
+    // Set up interval to refresh messages every 5 seconds when modal is open
+    const messagesIntervalId = setInterval(() => {
+      fetchTicketMessages();
+    }, 5000);
+
+    return () => clearInterval(messagesIntervalId);
+  }, [showTicketCharts, selectedTicket?.id]);
 
   // Mark updates as read when updates dialog is opened
   const handleOpenTicketUpdates = () => {
@@ -1048,6 +1090,147 @@ export default function TicketDetailsModal({
     // Mark all updates as read when dialog opens
     if (selectedTicket?.id && unreadUpdatesCount > 0) {
       markUpdatesAsRead();
+    }
+  };
+
+  // Handle opening Ticket Charts modal
+  const handleOpenTicketCharts = () => {
+    setShowTicketCharts(true);
+    // Fetch messages when opening
+    fetchTicketMessages();
+    // Mark all messages as read when dialog opens
+    if (selectedTicket?.id && unreadMessagesCount > 0) {
+      markMessagesAsRead();
+    }
+  };
+
+  // Fetch ticket messages
+  const fetchTicketMessages = async () => {
+    if (!selectedTicket?.id) return;
+
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${baseURL}/ticket-charts/ticket/${selectedTicket.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const messages = data.data || data.messages || [];
+        setTicketMessages(messages);
+        // Auto-scroll to bottom after messages are loaded
+        setTimeout(() => {
+          const container = document.getElementById('messages-container');
+          if (container) {
+            container.scrollTop = container.scrollHeight;
+          }
+        }, 100);
+      } else {
+        console.error('Failed to fetch messages:', response.status);
+        setTicketMessages([]);
+      }
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+      setTicketMessages([]);
+    }
+  };
+
+  // Send new message
+  const handleSendMessage = async () => {
+    if (!newMessage.trim() || !selectedTicket?.id || sendingMessage) return;
+
+    setSendingMessage(true);
+    try {
+      const token = localStorage.getItem('authToken');
+      const userId = localStorage.getItem('userId');
+      const response = await fetch(`${baseURL}/ticket-charts/ticket/${selectedTicket.id}`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          message: newMessage.trim(),
+          user_id: userId
+        })
+      });
+
+      if (response.ok) {
+        setNewMessage("");
+        // Refresh messages
+        await fetchTicketMessages();
+        // Refresh unread count
+        await fetchUnreadMessagesCount();
+        // Auto-scroll to bottom after sending
+        setTimeout(() => {
+          const container = document.getElementById('messages-container');
+          if (container) {
+            container.scrollTop = container.scrollHeight;
+          }
+        }, 100);
+      } else {
+        const error = await response.json();
+        showSnackbar(error.message || 'Failed to send message', 'error');
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+      showSnackbar('Error sending message', 'error');
+    } finally {
+      setSendingMessage(false);
+    }
+  };
+
+  // Mark messages as read
+  const markMessagesAsRead = async () => {
+    if (!selectedTicket?.id) return;
+
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${baseURL}/ticket-charts/ticket/${selectedTicket.id}/mark-all-as-read`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        setUnreadMessagesCount(0);
+      }
+    } catch (error) {
+      console.error('Error marking messages as read:', error);
+    }
+  };
+
+  // Fetch unread messages count
+  const fetchUnreadMessagesCount = async () => {
+    if (!selectedTicket?.id || !open) {
+      setUnreadMessagesCount(0);
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${baseURL}/ticket-charts/ticket/${selectedTicket.id}/unread-count`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const unreadCount = data.data?.unreadCount || data.unreadCount || 0;
+        setUnreadMessagesCount(unreadCount);
+      } else {
+        setUnreadMessagesCount(0);
+      }
+    } catch (error) {
+      console.error('Error fetching unread messages count:', error);
+      setUnreadMessagesCount(0);
     }
   };
 
@@ -1097,7 +1280,9 @@ export default function TicketDetailsModal({
     // Exclude these roles
     userRole !== "director-general" &&
     // For non-managers, only allow if ticket is not rated
-    (userRole === "manager" || !selectedTicket.complaint_type);
+    (userRole === "manager" || !selectedTicket.complaint_type) &&
+    // For managers, hide attend button if priority is "Major" or "Minor"
+    !(userRole === "manager" && (selectedTicket.complaint_type === "Major" || selectedTicket.complaint_type === "Minor"));
 
   // Reviewer-specific conditions
     const showReviewerActions =
@@ -1209,52 +1394,49 @@ export default function TicketDetailsModal({
   // Director General approval dialog handler
   const handleDGApprovalDialog = () => {
     setDgNotes("");
-    setDgApproved(true);
     setIsDGApprovalDialogOpen(true);
   };
 
-  // Director General approval handler
-  const handleDGApproval = async () => {
+  // Director General close ticket handler
+  const handleDGCloseTicket = async () => {
+    if (!dgNotes || !dgNotes.trim()) {
+      setSnackbarState({open: true, message: 'Please provide justification before closing the ticket', severity: 'warning'});
+      return;
+    }
+
     setDgApprovalLoading(true);
     try {
       const token = localStorage.getItem("authToken");
+      const formData = new FormData();
+      formData.append("status", "Closed");
+      formData.append("resolution_details", dgNotes.trim());
+      formData.append("date_of_resolution", new Date().toISOString());
+      formData.append("userId", userId);
       
-      let endpoint;
-      let payload = {
-        userId,
-        dg_notes: dgNotes
-      };
-      
-      if (dgApproved) {
-        // Approve and forward to reviewer
-        endpoint = `${baseURL}/ticket/${selectedTicket.id}/approve-and-forward`;
-      } else {
-        // Reverse and assign to reviewer
-        endpoint = `${baseURL}/ticket/${selectedTicket.id}/reverse-and-assign`;
-      }
-
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify(payload)
-      });
+      const response = await fetch(
+        `${baseURL}/ticket/${selectedTicket.id}/close`,
+        {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${token}`
+            // Do NOT set Content-Type; browser will set it for FormData
+          },
+          body: formData
+        }
+      );
 
       if (response.ok) {
         setIsDGApprovalDialogOpen(false);
         onClose();
         refreshTickets();
-        const action = dgApproved ? 'forwarded' : 'reversed and assigned';
-        setSnackbarState({open: true, message: `Ticket ${action} to reviewer by Director General`, severity: 'success'});
+        setSnackbarState({open: true, message: 'Ticket closed successfully by Director General', severity: 'success'});
       } else {
-        const data = await response.json();
-        setSnackbarState({open: true, message: data.message || 'Failed to process DG action', severity: 'error'});
+        const errorData = await response.json();
+        setSnackbarState({open: true, message: errorData.message || 'Failed to close ticket', severity: 'error'});
       }
     } catch (error) {
-      console.error("Error in DG approval:", error);
-      setSnackbarState({open: true, message: 'Error processing DG action', severity: 'error'});
+      console.error("Error closing ticket:", error);
+      setSnackbarState({open: true, message: 'Error closing ticket: ' + error.message, severity: 'error'});
     } finally {
       setDgApprovalLoading(false);
     }
@@ -2150,7 +2332,64 @@ export default function TicketDetailsModal({
                   <Typography variant="h6" sx={{ color: "#3f51b5", flexGrow: 1 }}>
                     Ticket History
                   </Typography>
-                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', flex: 1 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', flex: 1, gap: 1 }}>
+                    {/* Ticket Charts Button */}
+                    <Badge 
+                      badgeContent={unreadMessagesCount > 0 ? unreadMessagesCount : 0} 
+                      color="error"
+                      invisible={unreadMessagesCount === 0}
+                      sx={{
+                        '& .MuiBadge-badge': {
+                          right: -3,
+                          top: -3,
+                          minWidth: '18px',
+                          height: '18px',
+                          fontSize: '0.7rem',
+                          fontWeight: 'bold',
+                          padding: '0 4px'
+                        }
+                      }}
+                    >
+                      <Button 
+                        size="small" 
+                        onClick={handleOpenTicketCharts} 
+                        variant={unreadMessagesCount > 0 ? "contained" : "outlined"}
+                        startIcon={<BarChartIcon />}
+                        style={unreadMessagesCount > 0 ? {
+                          backgroundColor: '#4caf50',
+                          color: 'white',
+                          borderColor: '#4caf50'
+                        } : {}}
+                        sx={{ 
+                          textTransform: 'none', 
+                          fontSize: '0.875rem',
+                          ...(unreadMessagesCount > 0 ? {
+                            backgroundColor: '#4caf50',
+                            color: 'white',
+                            borderColor: '#4caf50',
+                            '&:hover': {
+                              backgroundColor: '#45a049',
+                              borderColor: '#45a049',
+                              color: 'white'
+                            },
+                            '&.MuiButton-contained': {
+                              backgroundColor: '#4caf50',
+                              color: 'white',
+                              '&:hover': {
+                                backgroundColor: '#45a049'
+                              }
+                            }
+                          } : {
+                            backgroundColor: 'transparent',
+                            color: 'inherit',
+                            borderColor: 'inherit'
+                          })
+                        }}
+                      >
+                        Ticket Charts {unreadMessagesCount > 0 ? `(${unreadMessagesCount})` : ''}
+                      </Button>
+                    </Badge>
+                    {/* Ticket Updates Button */}
                     <Badge 
                       badgeContent={unreadUpdatesCount > 0 ? unreadUpdatesCount : 0} 
                       color="error"
@@ -2772,13 +3011,13 @@ export default function TicketDetailsModal({
                 {userRole === "director-general" && 
                  selectedTicket?.assigned_to_id === userId && (
                   <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2, justifyContent: "flex-end" }}>
-                    {/* Forward (Approve) to Reviewer */}
+                    {/* Close Ticket */}
                     <Button
                       variant="contained"
                       color="success"
                       onClick={handleDGApprovalDialog}
                     >
-                      Forward
+                      Close ticket
                     </Button>
                     
                     {/* Reverse (Assign) to Reviewer */}
@@ -2874,11 +3113,9 @@ export default function TicketDetailsModal({
                   </Button>
                 )}
 
-                {/* Manager Send to Director button - when receiving from Attendee in Major Complaint Directorate */}
+                {/* Manager Send to Director button - visible for all complaints (Major and Minor) */}
                 {userRole === "manager" && 
                  selectedTicket?.assigned_to_id === localStorage.getItem("userId") &&
-                 selectedTicket?.complaint_type === "Major" &&
-                 selectedTicket?.responsible_unit_name?.toLowerCase().includes("directorate") &&
                  selectedTicket?.status !== "Closed" && (
                   <Button
                     variant="contained"
@@ -2890,8 +3127,8 @@ export default function TicketDetailsModal({
                     Send to Director
                   </Button>
                 )}
-                      {/* General Cancel button for all users except reviewers */}
-      {userRole !== "reviewer" && (
+                      {/* General Cancel button for all users except reviewers and director-general */}
+      {userRole !== "reviewer" && userRole !== "director-general" && (
                   <Button variant="outlined" onClick={onClose}>
                     Cancel
                   </Button>
@@ -3729,69 +3966,39 @@ export default function TicketDetailsModal({
         </DialogContent>
       </Dialog>
 
-      {/* DG Approval Dialog */}
+      {/* DG Close Ticket Dialog */}
       <Dialog open={isDGApprovalDialogOpen} onClose={() => setIsDGApprovalDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>
-          {selectedTicket?.category === "Complaint" && selectedTicket?.complaint_type === "Major" 
-            ? "Director General Approval - Major Complaint"
-            : "Director General Review - Reversed Ticket"
-          }
+          Close Ticket - Director General
         </DialogTitle>
         <DialogContent>
-          {/* Show reviewer notes for reversed tickets */}
-          {selectedTicket?.coordinator_notes && (
-            <Box sx={{ mb: 2, p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
-              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
-                Reviewer Notes:
-              </Typography>
-              <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
-                {selectedTicket.coordinator_notes}
-              </Typography>
-            </Box>
-          )}
-          
-          <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
-            DG Notes (required):
+          <Typography variant="body2" sx={{ mb: 2, fontWeight: "bold" }}>
+            Justification (required):
           </Typography>
           <TextField
             multiline
-            rows={3}
+            rows={4}
             value={dgNotes}
             onChange={e => setDgNotes(e.target.value)}
             fullWidth
-            sx={{ mt: 2 }}
-            placeholder={
-              selectedTicket?.category === "Complaint" && selectedTicket?.complaint_type === "Major"
-                ? "Add your approval notes..."
-                : "Add your review notes..."
-            }
+            placeholder="Provide justification for closing this ticket..."
             required
-          />
-          <Typography variant="body2" sx={{ mt: 2, fontWeight: "bold" }}>
-            DG Decision:
-          </Typography>
-          <Select
-            value={dgApproved ? "Forward" : "Reverse"}
-            onChange={e => setDgApproved(e.target.value === "Forward")}
-            fullWidth
             sx={{ mb: 2 }}
-          >
-            <MenuItem value="Forward">Forward</MenuItem>
-            <MenuItem value="Reverse">Reverse</MenuItem>
-          </Select>
+          />
           <Box sx={{ mt: 2, textAlign: "right" }}>
             <Button
               variant="contained"
               color="success"
-              onClick={handleDGApproval}
-              disabled={dgApprovalLoading}
+              onClick={handleDGCloseTicket}
+              disabled={dgApprovalLoading || !dgNotes || !dgNotes.trim()}
             >
-              {dgApprovalLoading ? "Processing..." : (dgApproved ? "Forward" : "Reverse")}
+              {dgApprovalLoading ? "Closing..." : "Close Ticket"}
             </Button>
             <Button
               variant="outlined"
               onClick={() => setIsDGApprovalDialogOpen(false)}
               sx={{ ml: 1 }}
+              disabled={dgApprovalLoading}
             >
               Cancel
             </Button>
@@ -4067,6 +4274,138 @@ export default function TicketDetailsModal({
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* Ticket Charts Modal */}
+      <Dialog 
+        open={showTicketCharts} 
+        onClose={() => {
+          setShowTicketCharts(false);
+          setNewMessage("");
+        }} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            height: '80vh',
+            maxHeight: '80vh',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden'
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center', 
+          borderBottom: '1px solid #e0e0e0',
+          flexShrink: 0
+        }}>
+          <Typography variant="h6">Ticket Charts - Messages</Typography>
+          <IconButton onClick={() => {
+            setShowTicketCharts(false);
+            setNewMessage("");
+          }} size="small">
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ 
+          display: 'flex', 
+          flexDirection: 'column', 
+          p: 0, 
+          flex: 1, 
+          overflow: 'hidden',
+          minHeight: 0
+        }}>
+          {/* Messages List */}
+          <Box 
+            sx={{ 
+              flex: 1, 
+              overflowY: 'auto', 
+              p: 2, 
+              minHeight: 0
+            }}
+            id="messages-container"
+          >
+            {ticketMessages.length === 0 ? (
+              <Alert severity="info" sx={{ mt: 2 }}>No messages yet. Start the conversation!</Alert>
+            ) : (
+              ticketMessages.map((message, index) => {
+                const currentUserId = localStorage.getItem('userId');
+                const isOwnMessage = message.user_id === currentUserId;
+                return (
+                  <Box
+                    key={message.id || index}
+                    sx={{
+                      mb: 2,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: isOwnMessage ? 'flex-end' : 'flex-start'
+                    }}
+                  >
+                    <Paper
+                      sx={{
+                        p: 1.5,
+                        maxWidth: '70%',
+                        backgroundColor: isOwnMessage ? '#e3f2fd' : '#f5f5f5',
+                        borderRadius: 2
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ display: 'block', mb: 0.5, fontWeight: 'bold' }}>
+                        {message.user_name || message.full_name || 'Unknown User'}
+                      </Typography>
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                        {message.message}
+                      </Typography>
+                      <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}>
+                        {new Date(message.created_at).toLocaleString()}
+                      </Typography>
+                    </Paper>
+                  </Box>
+                );
+              })
+            )}
+          </Box>
+          
+          {/* Message Input - Always visible at bottom */}
+          <Box sx={{ 
+            p: 2, 
+            borderTop: '1px solid #e0e0e0', 
+            backgroundColor: '#fafafa',
+            flexShrink: 0
+          }}>
+            <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
+              <TextField
+                fullWidth
+                multiline
+                rows={2}
+                placeholder="Type your message..."
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
+                    e.preventDefault();
+                    handleSendMessage();
+                  }
+                }}
+                size="small"
+                disabled={sendingMessage}
+              />
+              <Button
+                variant="contained"
+                onClick={handleSendMessage}
+                disabled={!newMessage.trim() || sendingMessage}
+                sx={{ 
+                  alignSelf: 'flex-end',
+                  minWidth: '80px'
+                }}
+              >
+                {sendingMessage ? 'Sending...' : 'Send'}
+              </Button>
+            </Box>
+          </Box>
+        </DialogContent>
+      </Dialog>
     </>
   );
 } 

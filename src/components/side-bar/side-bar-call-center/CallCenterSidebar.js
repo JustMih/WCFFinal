@@ -14,6 +14,7 @@ import {
 import { TiFlowSwitch } from "react-icons/ti";
 import { GiVrHeadset } from "react-icons/gi";
 import { BsChatRightTextFill } from "react-icons/bs";
+import { HiOutlineMap } from "react-icons/hi2";
 import "./callCenterSidebar.css";
 import { baseURL } from "../../../config";
 import { Collapse, List, ListItemButton, Badge } from "@mui/material";
@@ -115,6 +116,22 @@ export default function CallCenterSidebar({
                   )}
                 </div>
               </NavLink>
+              {/* Mapping Management - Super Admin Only */}
+              {role === "super-admin" && (
+                <NavLink
+                  to="/mapping"
+                  className={({ isActive }) =>
+                    isActive ? "menu-item active-link" : "menu-item"
+                  }
+                >
+                  <div className="menu-item">
+                    <HiOutlineMap className="menu-icon" />
+                    {isSidebarOpen && (
+                      <span className="menu-text">Mapping</span>
+                    )}
+                  </div>
+                </NavLink>
+              )}
               {/* <NavLink
                 to="/ivr"
                 className={({ isActive }) =>

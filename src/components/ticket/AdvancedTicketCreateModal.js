@@ -765,6 +765,10 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
     // Extract employee information from the API response
     const employeeData = employee.employee || employee;
     
+    // Extract claims data for allocated_user information (new format)
+    const claims = employee.claims || [];
+    const firstClaim = claims.length > 0 ? claims[0] : null;
+    
     // Parse the name to extract first, middle, and last names
     const fullName = employeeData.name || "";
     const nameWithoutEmployer = fullName.split("—")[0].trim();
@@ -792,21 +796,36 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
       // ALWAYS preserve the call phone number - never overwrite it with search results
       phoneNumber: prev.phoneNumber || callPhoneNumber || "",
       // Preserve the institution name from the selected employer
-      institution: selectedEmployer ? selectedEmployer.name : (employeeData.institution || employeeData.employerName || ""),
+      institution: selectedEmployer ? selectedEmployer.name : (employeeData.institution || employeeData.employerName || employeeData.employer_name || ""),
       requester: "Employee",
-      // Store allocated user information from search response
-      allocated_user_username: employeeData.allocated_user_username || "",
-      allocated_user_name: employeeData.allocated_user || "",
-      allocated_user_id: employeeData.allocated_user_id || "",
-      // Store claim information
-      claimNumber: employeeData.claim_number || "",
-      notification_report_id: employeeData.notification_report_id || "",
+      // Store allocated user information from search response (check claims first for new format)
+      // Use first claim for initial assignment, but store all claims
+      allocated_user_username: firstClaim?.allocated_user_username || employeeData.allocated_user_username || "",
+      allocated_user_name: firstClaim?.allocated_user || employeeData.allocated_user || "",
+      allocated_user_id: firstClaim?.allocated_user_id || employeeData.allocated_user_id || "",
+      // Store claim information (use first claim for form, but store all claims)
+      claimNumber: firstClaim?.claim_number || employeeData.claim_number || "",
+      notification_report_id: firstClaim?.notification_report_id || employeeData.notification_report_id || "",
+      // Store all claims as array for future use
+      allClaims: claims.length > 0 ? claims : (employeeData.allClaims || []),
       // Store dependents information
       dependents: employee.dependents || employeeData.dependents || []
     }));
 
-    // Set selected suggestion for claim button display
-    setSelectedSuggestion(employeeData);
+    // Set selected suggestion for claim button display (include all claims info)
+    const suggestionData = {
+      ...employeeData,
+      claims: claims, // Store all claims
+      allocated_user: firstClaim?.allocated_user || employeeData.allocated_user || null,
+      allocated_user_id: firstClaim?.allocated_user_id || employeeData.allocated_user_id || null,
+      allocated_user_username: firstClaim?.allocated_user_username || employeeData.allocated_user_username || null,
+      claim_number: firstClaim?.claim_number || employeeData.claim_number || null,
+      notification_report_id: firstClaim?.notification_report_id || employeeData.notification_report_id || null,
+      hasClaim: claims.length > 0 || Boolean(employeeData.claim_number),
+      claimId: firstClaim?.claim_number || employeeData.claim_number || null,
+      claimsCount: claims.length
+    };
+    setSelectedSuggestion(suggestionData);
 
     // Show success message
     setModal({
@@ -964,8 +983,18 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
 
       const data = await response.json();
 
-      if (response.ok && data.results?.length > 0) {
-        setSearchResults(data.results);
+      // Handle both old format (data.results) and new format (direct array)
+      let searchResults = [];
+      if (Array.isArray(data)) {
+        // New format: response is directly an array
+        searchResults = data;
+      } else if (data.results && Array.isArray(data.results)) {
+        // Old format: response has results property
+        searchResults = data.results;
+      }
+
+      if (response.ok && searchResults.length > 0) {
+        setSearchResults(searchResults);
         // If results found, show them for selection
         setShowUserNotFound(false);
         setShowRegistrationOptions(false);
@@ -1317,20 +1346,39 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
       const data = await response.json();
       console.log("Search API Response:", data); // Debug: Log the full response
       
+      // Handle both old format (data.results) and new format (direct array)
+      let results = [];
+      if (Array.isArray(data)) {
+        // New format: response is directly an array
+        results = data;
+      } else if (data.results && Array.isArray(data.results)) {
+        // Old format: response has results property
+        results = data.results;
+      }
+      
       // Process the results to flatten the structure and preserve dependents
-      const results = data.results || [];
       const suggestionsWithDependents = results.map(result => {
         // Extract employee data and dependents from the result
         const employeeData = result.employee || result;
         const dependents = result.dependents || [];
         
+        // Extract claims data for allocated_user information
+        const claims = result.claims || [];
+        const firstClaim = claims.length > 0 ? claims[0] : null;
+        
         console.log("Processing result:", result); // Debug: Log each result
         console.log("Employee data:", employeeData); // Debug: Log employee data
         console.log("Dependents:", dependents); // Debug: Log dependents
+        console.log("Claims:", claims); // Debug: Log claims
         
         return {
           ...employeeData, // Spread employee data to top level
           dependents: dependents, // Add dependents at top level
+          allocated_user: firstClaim?.allocated_user || null,
+          allocated_user_id: firstClaim?.allocated_user_id || null,
+          allocated_user_username: firstClaim?.allocated_user_username || null,
+          claim_number: firstClaim?.claim_number || null,
+          notification_report_id: firstClaim?.notification_report_id || null,
           rawData: result // Preserve the original result structure
         };
       });
@@ -2087,30 +2135,8 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                     </Typography>
                   </div>
 
-                  {/* View Profile button for employer - similar to search listing */}
-                  {(registrationType === "employer" || (formData.institution && (selectedEmployer || selectedInstitution))) && (
-                    <div style={{ marginTop: "10px", marginBottom: "15px" }}>
-                      <ClaimRedirectButton
-                        notificationReportId={
-                          (selectedEmployer?.registration_number) || 
-                          (selectedInstitution?.registration_number) || 
-                          ""
-                        }
-                        buttonText={`View Profile - ${selectedEmployer?.name || selectedInstitution?.name || formData.institution}`}
-                        searchType="employer"
-                        isEmployerSearch={true}
-                        employerData={selectedEmployer || selectedInstitution}
-                        onSuccess={(data) => {
-                          console.log('Employer profile redirect successful:', data);
-                        }}
-                        onError={(error) => {
-                          console.error('Employer profile redirect failed:', error);
-                        }}
-                      />
-                    </div>
-                  )}
 
-                  {/* Update the claim status section */}
+                  {/* Update the claim status section - for employee */}
                   {formSearchType === "employee" && selectedEmployee && (
                     <div
                       style={{
@@ -2125,57 +2151,219 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                       {/* Claim Number and Button Row */}
                       <div style={{
                         display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
+                        flexDirection: "column",
                         marginBottom: formData.dependents && formData.dependents.length > 0 ? "12px" : "0"
                       }}>
-                        <div>
+                        <div style={{ marginBottom: "8px" }}>
                           <Typography
                             variant="subtitle2"
-                            style={{ fontWeight: "bold" }}
+                            style={{ fontWeight: "bold", marginBottom: "8px" }}
                           >
-                            {formData.claimNumber ? (
+                            {formData.allClaims && formData.allClaims.length > 0 ? (
+                              <>
+                                {formData.allClaims.length === 1 ? (
+                                  <>
+                                    Claim Number:{" "}
+                                    <span style={{ color: "#1976d2" }}>
+                                      {formData.allClaims[0].claim_number || formData.claimNumber}
+                                    </span>
+                                    {/* Show small button when there's a claim */}
+                                    {(selectedEmployer || selectedInstitution || formData.institution) && (
+                                      <div style={{ marginTop: "8px" }}>
+                                        <ClaimRedirectButton
+                                          notificationReportId={
+                                            (selectedEmployer?.registration_number) || 
+                                            (selectedInstitution?.registration_number) || 
+                                            ""
+                                          }
+                                          buttonText="View Employer Profile"
+                                          searchType="employer"
+                                          isEmployerSearch={true}
+                                          employerData={selectedEmployer || selectedInstitution}
+                                          openMode="new-tab"
+                                          openEarlyNewTab={true}
+                                          style={{
+                                            padding: "4px 8px",
+                                            fontSize: "12px",
+                                            minHeight: "28px"
+                                          }}
+                                          onSuccess={(data) => {
+                                            console.log('Employer profile redirect successful:', data);
+                                          }}
+                                          onError={(error) => {
+                                            console.error('Employer profile redirect failed:', error);
+                                          }}
+                                        />
+                                      </div>
+                                    )}
+                                  </>
+                                ) : (
+                                  <>
+                                    Claims ({formData.allClaims.length}):
+                                  </>
+                                )}
+                              </>
+                            ) : formData.claimNumber ? (
                               <>
                                 Claim Number:{" "}
                                 <span style={{ color: "#1976d2" }}>
                                   {formData.claimNumber}
                                 </span>
-                                {/* {formData.notification_report_id && (
-                                  <>
-                                    <br />
-                                    Notification ID:{" "}
-                                    <span style={{ color: "#28a745" }}>
-                                      {formData.notification_report_id}
-                                    </span>
-                                  </>
-                                )} */}
+                                {/* Show small button when there's a claim */}
+                                {(selectedEmployer || selectedInstitution || formData.institution) && (
+                                  <div style={{ marginTop: "8px" }}>
+                                    <ClaimRedirectButton
+                                      notificationReportId={
+                                        (selectedEmployer?.registration_number) || 
+                                        (selectedInstitution?.registration_number) || 
+                                        ""
+                                      }
+                                      buttonText="View Employer Profile"
+                                      searchType="employer"
+                                      isEmployerSearch={true}
+                                      employerData={selectedEmployer || selectedInstitution}
+                                      openMode="new-tab"
+                                      openEarlyNewTab={true}
+                                      style={{
+                                        padding: "4px 8px",
+                                        fontSize: "12px",
+                                        minHeight: "28px"
+                                      }}
+                                      onSuccess={(data) => {
+                                        console.log('Employer profile redirect successful:', data);
+                                      }}
+                                      onError={(error) => {
+                                        console.error('Employer profile redirect failed:', error);
+                                      }}
+                                    />
+                                  </div>
+                                )}
                               </>
                             ) : (
-                              "No Active Claim"
+                              <>
+                                No Active Claim
+                                {/* Show button for both employer and employee if no claim */}
+                                {(() => {
+                                  // Check for employer data from various sources
+                                  const hasEmployerData = selectedEmployer || selectedInstitution || formData.institution || 
+                                    (selectedEmployee?.employee?.employer_name) || 
+                                    (formSearchType === "employer" && formData.institution);
+                                  
+                                  const employerRegistrationNumber = selectedEmployer?.registration_number || 
+                                    selectedInstitution?.registration_number || 
+                                    "";
+                                  
+                                  const employerData = selectedEmployer || selectedInstitution;
+                                  
+                                  console.log("No Active Claim - Checking for employer data:", {
+                                    hasEmployerData,
+                                    selectedEmployer,
+                                    selectedInstitution,
+                                    formDataInstitution: formData.institution,
+                                    selectedEmployeeEmployer: selectedEmployee?.employee?.employer_name,
+                                    formSearchType
+                                  });
+                                  
+                                  return hasEmployerData ? (
+                                    <div style={{ marginTop: "8px" }}>
+                                      <ClaimRedirectButton
+                                        notificationReportId={employerRegistrationNumber}
+                                        buttonText="View Employer Profile"
+                                        searchType="employer"
+                                        isEmployerSearch={true}
+                                        employerData={employerData}
+                                        openMode="new-tab"
+                                        openEarlyNewTab={true}
+                                        onSuccess={(data) => {
+                                          console.log('Employer profile redirect successful:', data);
+                                        }}
+                                        onError={(error) => {
+                                          console.error('Employer profile redirect failed:', error);
+                                        }}
+                                      />
+                                    </div>
+                                  ) : null;
+                                })()}
+                              </>
                             )}
                           </Typography>
+                          
+                          {/* Display all claims if multiple */}
+                          {formData.allClaims && formData.allClaims.length > 1 && (
+                            <div style={{ marginTop: "8px" }}>
+                              {formData.allClaims.map((claim, index) => (
+                                <div
+                                  key={index}
+                                  style={{
+                                    display: "flex",
+                                    justifyContent: "space-between",
+                                    alignItems: "center",
+                                    padding: "8px 12px",
+                                    marginBottom: "8px",
+                                    backgroundColor: "#f5f5f5",
+                                    borderRadius: "4px",
+                                    border: "1px solid #e0e0e0"
+                                  }}
+                                >
+                                  <div>
+                                    <Typography
+                                      variant="body2"
+                                      style={{ color: "#1976d2", fontWeight: "500" }}
+                                    >
+                                      {claim.claim_number || `Claim ${index + 1}`}
+                                    </Typography>
+                                    {claim.incident_stage && (
+                                      <Typography
+                                        variant="caption"
+                                        style={{ color: "#666", display: "block", marginTop: "2px" }}
+                                      >
+                                        Status: {claim.incident_stage}
+                                      </Typography>
+                                    )}
+                                  </div>
+                                  {claim.notification_report_id && (
+                                    <ClaimRedirectButton
+                                      notificationReportId={claim.notification_report_id}
+                                      employerId={formData.employerId || ''}
+                                      buttonText="View Claim"
+                                      searchType="claim"
+                                      isEmployerSearch={false}
+                                      employerData={selectedEmployer}
+                                      openMode="new-tab"
+                                      openEarlyNewTab={true}
+                                      onSuccess={(data) => {
+                                        console.log('Claim redirect successful:', data);
+                                      }}
+                                    />
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                         
-                        {/* Claim Button with Login Redirect */}
-                        {formData.notification_report_id && (
-                          <ClaimRedirectButton
-                            notificationReportId={formData.notification_report_id}
-                            employerId={formData.employerId || ''}
-                            buttonText="View Claim in MAC"
-                            searchType="claim" // Explicitly set as claim search, but will show employer profiles if found
-                            isEmployerSearch={false} // This is for employee/claim search
-                            employerData={selectedEmployer} // Pass employer data for profile button
-                            openMode="new-tab"
-                            openEarlyNewTab={true}
-                            onSuccess={(data) => {
-                              console.log('Claim redirect successful:', data);
-                              // You can add additional success handling here
-                            }}
-                            onError={(error) => {
-                              console.error('Claim redirect failed:', error);
-                              // You can add additional error handling here
-                            }}
-                          />
+                        {/* Claim Button with Login Redirect - Show for single claim or first claim */}
+                        {formData.notification_report_id && (!formData.allClaims || formData.allClaims.length === 1) && (
+                          <div style={{ alignSelf: "flex-end" }}>
+                            <ClaimRedirectButton
+                              notificationReportId={formData.notification_report_id}
+                              employerId={formData.employerId || ''}
+                              buttonText="View Claim in MAC"
+                              searchType="claim" // Explicitly set as claim search, but will show employer profiles if found
+                              isEmployerSearch={false} // This is for employee/claim search
+                              employerData={selectedEmployer} // Pass employer data for profile button
+                              openMode="new-tab"
+                              openEarlyNewTab={true}
+                              onSuccess={(data) => {
+                                console.log('Claim redirect successful:', data);
+                                // You can add additional success handling here
+                              }}
+                              onError={(error) => {
+                                console.error('Claim redirect failed:', error);
+                                // You can add additional error handling here
+                              }}
+                            />
+                          </div>
                         )}
                       </div>
 
@@ -2219,6 +2407,144 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                           </div>
                         </div>
                       )}
+                      </div>
+                  )}
+
+                  {/* Update the claim status section - for employer */}
+                  {(formSearchType === "employer" || registrationType === "employer") && (selectedEmployer || selectedInstitution || formData.institution) && (
+                    <div
+                      style={{
+                        marginTop: "10px",
+                        marginBottom: "12px",
+                        padding: "15px",
+                        backgroundColor: "#f8f9fa",
+                        borderRadius: "8px",
+                        border: "1px solid #e9ecef"
+                      }}
+                    >
+                      {/* Claim Number and Button Row */}
+                      <div style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        marginBottom: formData.dependents && formData.dependents.length > 0 ? "12px" : "0"
+                      }}>
+                        <div style={{ marginBottom: "8px" }}>
+                          <Typography
+                            variant="subtitle2"
+                            style={{ fontWeight: "bold", marginBottom: "8px" }}
+                          >
+                            {formData.allClaims && formData.allClaims.length > 0 ? (
+                              <>
+                                {formData.allClaims.length === 1 ? (
+                                  <>
+                                    Claim Number:{" "}
+                                    <span style={{ color: "#1976d2" }}>
+                                      {formData.allClaims[0].claim_number || formData.claimNumber}
+                                    </span>
+                                    {/* Show small button when there's a claim */}
+                                    {(selectedEmployer || selectedInstitution || formData.institution) && (
+                                      <div style={{ marginTop: "8px" }}>
+                                        <ClaimRedirectButton
+                                          notificationReportId={
+                                            (selectedEmployer?.registration_number) || 
+                                            (selectedInstitution?.registration_number) || 
+                                            ""
+                                          }
+                                          buttonText="View Employer Profile"
+                                          searchType="employer"
+                                          isEmployerSearch={true}
+                                          employerData={selectedEmployer || selectedInstitution}
+                                          openMode="new-tab"
+                                          openEarlyNewTab={true}
+                                          style={{
+                                            padding: "4px 8px",
+                                            fontSize: "12px",
+                                            minHeight: "28px"
+                                          }}
+                                          onSuccess={(data) => {
+                                            console.log('Employer profile redirect successful:', data);
+                                          }}
+                                          onError={(error) => {
+                                            console.error('Employer profile redirect failed:', error);
+                                          }}
+                                        />
+                                      </div>
+                                    )}
+                                  </>
+                                ) : (
+                                  <>
+                                    Claims ({formData.allClaims.length}):
+                                  </>
+                                )}
+                              </>
+                            ) : formData.claimNumber ? (
+                              <>
+                                Claim Number:{" "}
+                                <span style={{ color: "#1976d2" }}>
+                                  {formData.claimNumber}
+                                </span>
+                                {/* Show small button when there's a claim */}
+                                {(selectedEmployer || selectedInstitution || formData.institution) && (
+                                  <div style={{ marginTop: "8px" }}>
+                                    <ClaimRedirectButton
+                                      notificationReportId={
+                                        (selectedEmployer?.registration_number) || 
+                                        (selectedInstitution?.registration_number) || 
+                                        ""
+                                      }
+                                      buttonText="View Employer Profile"
+                                      searchType="employer"
+                                      isEmployerSearch={true}
+                                      employerData={selectedEmployer || selectedInstitution}
+                                      openMode="new-tab"
+                                      openEarlyNewTab={true}
+                                      style={{
+                                        padding: "4px 8px",
+                                        fontSize: "12px",
+                                        minHeight: "28px"
+                                      }}
+                                      onSuccess={(data) => {
+                                        console.log('Employer profile redirect successful:', data);
+                                      }}
+                                      onError={(error) => {
+                                        console.error('Employer profile redirect failed:', error);
+                                      }}
+                                    />
+                                  </div>
+                                )}
+                              </>
+                            ) : (
+                              <>
+                                No Active Claim
+                                {/* Show button for employer if no claim */}
+                                {(selectedEmployer || selectedInstitution || formData.institution) && (
+                                  <div style={{ marginTop: "8px" }}>
+                                    <ClaimRedirectButton
+                                      notificationReportId={
+                                        (selectedEmployer?.registration_number) || 
+                                        (selectedInstitution?.registration_number) || 
+                                        ""
+                                      }
+                                      buttonText="View Employer Profile"
+                                      searchType="employer"
+                                      isEmployerSearch={true}
+                                      employerData={selectedEmployer || selectedInstitution}
+                                      openMode="new-tab"
+                                      openEarlyNewTab={true}
+                                      onSuccess={(data) => {
+                                        console.log('Employer profile redirect successful:', data);
+                                      }}
+                                      onError={(error) => {
+                                        console.error('Employer profile redirect failed:', error);
+                                      }}
+                                    />
+                                  </div>
+                                )}
+                              </>
+                            )}
+                          </Typography>
+                        </div>
+                      </div>
                     </div>
                   )}
 
@@ -2973,7 +3299,15 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                               <strong>Employee Name:</strong> {`${formData.firstName} ${formData.middleName} ${formData.lastName}`.trim()}
                             </div>
                             <div>
-                              <strong>Claim Number:</strong> {formData.claimNumber || "No active claim"}
+                              <strong>Claim Number:</strong>{" "}
+                              {formData.allClaims && formData.allClaims.length > 1 ? (
+                                <span>
+                                  {formData.allClaims.length} claims:{" "}
+                                  {formData.allClaims.map((c, i) => c.claim_number || `Claim ${i + 1}`).join(", ")}
+                                </span>
+                              ) : (
+                                formData.claimNumber || formData.allClaims?.[0]?.claim_number || "No active claim"
+                              )}
                             </div>
                           </>
                         )}
