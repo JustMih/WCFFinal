@@ -401,7 +401,7 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
         // Set who closed
         let closedBy = "";
         if (isClosed) {
-          closedBy = a.assigned_to_name || "N/A";
+          closedBy = a.assigned_to_name || a.assignedTo?.full_name || a.user?.full_name || a.assigned_to_id || "N/A";
         }
 
         return (
@@ -425,7 +425,7 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
             <Box sx={{ flex: 1 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
                 <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-                  {a.assigned_to_name} ({a.assigned_to_role})
+                  {a.assigned_to_name || a.assignedTo?.full_name || a.user?.full_name || a.assigned_to_id || "Unknown"} ({a.assigned_to_role || a.assignedTo?.role || a.user?.role || "N/A"})
                 </Typography>
                 {/* Show aging for all assignments except creator, calculating active time for each */}
                 {a.created_at && (
