@@ -904,6 +904,9 @@ export default function TicketDetailsModal({
   // Initialize PermissionManager for permission checking
   const permissionManager = new PermissionManager(userRole, userUnitSection);
   
+  // State for all sections (directorates and units) from mapping
+  const [allSectionsList, setAllSectionsList] = useState([]);
+  
   const [isAttendDialogOpen, setIsAttendDialogOpen] = useState(false);
   const [resolutionDetails, setResolutionDetails] = useState("");
   const [attachment, setAttachment] = useState(null);
@@ -1015,12 +1018,58 @@ export default function TicketDetailsModal({
     return userRole === "focal-person" || userRole === "manager";
   };
 
+  // Function to check if ticket came from a manager (most recent assignment was to a manager)
+  const cameFromManager = () => {
+    if (!assignmentHistory || !Array.isArray(assignmentHistory) || assignmentHistory.length === 0) {
+      return false;
+    }
+    
+    // Get the most recent assignment (last in array)
+    const mostRecentAssignment = assignmentHistory[assignmentHistory.length - 1];
+    
+    // Check if the most recent assignment was to a manager
+    return mostRecentAssignment?.assigned_to_role === "manager" || 
+           mostRecentAssignment?.assigned_to_role === "Manager";
+  };
+
   // Initialize selectedRating when modal opens
   useEffect(() => {
     if (selectedTicket) {
       setSelectedRating(selectedTicket.complaint_type || "");
     }
   }, [selectedTicket]);
+
+  // Fetch all sections (directorates and units) from units-data and functions
+  useEffect(() => {
+    const fetchAllSections = async () => {
+      try {
+        const token = localStorage.getItem("authToken");
+        
+        // Fetch from units-data endpoint (now includes units from functions)
+        const sectionsResponse = await fetch(`${baseURL}/section/units-data`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        if (sectionsResponse.ok) {
+          const sectionsData = await sectionsResponse.json();
+          // Get sections from units-data (includes directorates and units from functions)
+          const allSections = sectionsData.data || [];
+          console.log("DEBUG: Sections from units-data:", allSections.length, allSections.map(s => s.name));
+          
+          setAllSectionsList(allSections);
+        } else {
+          console.error("Failed to fetch sections from units-data");
+        }
+      } catch (error) {
+        console.error("Error fetching sections from mapping:", error);
+      }
+    };
+    
+    // Fetch sections when modal opens (for reviewer role)
+    if (open && userRole === "reviewer") {
+      fetchAllSections();
+    }
+  }, [open, userRole]);
 
   // Fetch unread updates count when ticket opens
   useEffect(() => {
@@ -1276,13 +1325,21 @@ export default function TicketDetailsModal({
      userRole === "head-of-unit" || 
      userRole === "supervisor" || 
      userRole === "manager" ||
+     userRole === "director" ||
      userRole === "reviewer") &&
     // Exclude these roles
     userRole !== "director-general" &&
-    // For non-managers, only allow if ticket is not rated
-    (userRole === "manager" || !selectedTicket.complaint_type) &&
-    // For managers, hide attend button if priority is "Major" or "Minor"
-    !(userRole === "manager" && (selectedTicket.complaint_type === "Major" || selectedTicket.complaint_type === "Minor"));
+    (
+      // For director: show attend button for Minor status
+      (userRole === "director" && selectedTicket.complaint_type === "Minor") ||
+      // For non-directors: existing logic
+      (userRole !== "director" && (
+        // For non-managers, only allow if ticket is not rated
+        (userRole === "manager" || !selectedTicket.complaint_type) &&
+        // For managers, hide attend button if priority is "Major" or "Minor"
+        !(userRole === "manager" && (selectedTicket.complaint_type === "Major" || selectedTicket.complaint_type === "Minor"))
+      ))
+    );
 
   // Reviewer-specific conditions
     const showReviewerActions =
@@ -2925,12 +2982,19 @@ export default function TicketDetailsModal({
                                 {selectedTicket.section} 
                               </option>
                             )}
-                            {/* Extract unique section names from functionData */}
-                            {units && units.length > 0 ? (
-                              [...new Set(units.map(item => item.function?.section?.name).filter(Boolean))].map((sectionName) => (
-                                <option key={sectionName} value={sectionName}>{sectionName}</option>
+                            {/* Show all sections (directorates and units) from mapping */}
+                            {allSectionsList && allSectionsList.length > 0 ? (
+                              allSectionsList.map((section) => (
+                                <option key={section.id} value={section.name}>{section.name}</option>
                               ))
-                            ) : null}
+                            ) : (
+                              /* Fallback to sections from functionData if mapping not loaded */
+                              units && units.length > 0 ? (
+                                [...new Set(units.map(item => item.function?.section?.name).filter(Boolean))].map((sectionName) => (
+                                  <option key={sectionName} value={sectionName}>{sectionName}</option>
+                                ))
+                              ) : null
+                            )}
                           </select>
                           <Button
                             size="small"
