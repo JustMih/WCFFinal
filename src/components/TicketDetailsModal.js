@@ -915,6 +915,7 @@ export default function TicketDetailsModal({
   const [resolutionType, setResolutionType] = useState("");
   const [isReviewerCloseDialogOpen, setIsReviewerCloseDialogOpen] = useState(false);
   const [selectedRating, setSelectedRating] = useState("");
+  const [ratingComment, setRatingComment] = useState("");
 
   // Reverse modal state
   const [isReverseModalOpen, setIsReverseModalOpen] = useState(false);
@@ -1311,6 +1312,17 @@ export default function TicketDetailsModal({
     }
   };
 
+  // Check if ticket came from head of unit (for attendee to see buttons)
+  const hasAssignmentHistory = assignmentHistory && assignmentHistory.length > 0;
+  const cameFromHeadOfUnit = hasAssignmentHistory && 
+    assignmentHistory.some(assignment => 
+      assignment.assigned_by_role === "head-of-unit" || 
+      assignment.assigned_to_role === "head-of-unit"
+    );
+  const isFromHeadOfUnit = cameFromHeadOfUnit || 
+    (selectedTicket?.responsible_unit_name && 
+     !selectedTicket.responsible_unit_name.toLowerCase().includes("directorate"));
+
   const showAttendButton =
     selectedTicket &&
     selectedTicket.status !== "Closed" &&
@@ -1332,8 +1344,13 @@ export default function TicketDetailsModal({
     (
       // For director: show attend button for Minor status
       (userRole === "director" && selectedTicket.complaint_type === "Minor") ||
-      // For non-directors: existing logic
-      (userRole !== "director" && (
+      // For attendee: show attend button for Minor/Major complaints from head of unit (like directorate)
+      (userRole === "attendee" && 
+       selectedTicket.category === "Complaint" && 
+       (selectedTicket.complaint_type === "Minor" || selectedTicket.complaint_type === "Major") &&
+       isFromHeadOfUnit) ||
+      // For non-directors and non-attendees: existing logic
+      (userRole !== "director" && userRole !== "attendee" && (
         // For non-managers, only allow if ticket is not rated
         (userRole === "manager" || !selectedTicket.complaint_type) &&
         // For managers, hide attend button if priority is "Major" or "Minor"
@@ -2092,6 +2109,16 @@ export default function TicketDetailsModal({
       return;
     }
 
+    // Validate comment/description is required when rating and forwarding
+    if (effectiveUnitName && (isProvidingRating || isAlreadyRated) && !ratingComment.trim()) {
+      setSnackbarState({
+        open: true,
+        message: "Please provide a comment/description before forwarding the ticket.",
+        severity: "warning"
+      });
+      return;
+    }
+
     setConvertOrForwardLoading(true);
     try {
       // Prepare the payload to match backend expectations
@@ -2100,7 +2127,8 @@ export default function TicketDetailsModal({
         userId,
         responsible_unit_name: effectiveUnitName || undefined,
         category: category || undefined,
-        complaintType: selectedRating || currentTicket?.complaint_type || undefined
+        complaintType: selectedRating || currentTicket?.complaint_type || undefined,
+        ratingComment: ratingComment.trim() || undefined
       };
 
       const response = await fetch(`${baseURL}/reviewer/${ticketId}/convert-or-forward-ticket`, {
@@ -2131,8 +2159,9 @@ export default function TicketDetailsModal({
           delete newState[ticketId];
           return newState;
         });
-        // Clear selected rating after successful update
+        // Clear selected rating and comment after successful update
         setSelectedRating("");
+        setRatingComment("");
         // Hide modal after successful forward/convert
         onClose && onClose();
       } else {
@@ -2767,7 +2796,18 @@ export default function TicketDetailsModal({
                   <Button 
                     variant="contained" 
                     color="primary" 
-                    onClick={handleReviewerClose} 
+                    onClick={() => {
+                      // For attendee with Minor/Major complaints from head of unit, open attend dialog
+                      if (userRole === "attendee" && 
+                          selectedTicket.category === "Complaint" && 
+                          (selectedTicket.complaint_type === "Minor" || selectedTicket.complaint_type === "Major") &&
+                          isFromHeadOfUnit) {
+                        setIsAttendDialogOpen(true);
+                      } else {
+                        // For others, use existing logic
+                        handleReviewerClose();
+                      }
+                    }}
                     sx={{ mr: 1 }}
                     disabled={attendLoading}
                   >
@@ -2794,28 +2834,50 @@ export default function TicketDetailsModal({
                     {/* Show rating selection only if ticket is not returned and not already rated */}
                     {!(selectedTicket.status === "Returned" || selectedTicket.complaint_type) && (
                       <>
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                          <Typography variant="body2" sx={{ fontWeight: "bold", fontSize: "0.8rem" }}>
-                            Complaint Category:
-                          </Typography>
-                          <select
-                            style={{
-                              padding: "4px 8px",
-                              fontSize: "0.8rem",
-                              height: "32px",
-                              borderRadius: "4px",
-                              border: "1px solid #ccc"
-                            }}
-                            value={selectedRating}
-                            onChange={(e) => {
-                              setSelectedRating(e.target.value);
-                            }}
-                            disabled={ratingLoading}
-                          >
-                            <option value="">Select Category</option>
-                            <option value="Minor">Minor</option>
-                            <option value="Major">Major</option>
-                          </select>
+                        <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mb: 2 }}>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            <Typography variant="body2" sx={{ fontWeight: "bold", fontSize: "0.8rem" }}>
+                              Complaint Category:
+                            </Typography>
+                            <select
+                              style={{
+                                padding: "4px 8px",
+                                fontSize: "0.8rem",
+                                height: "32px",
+                                borderRadius: "4px",
+                                border: "1px solid #ccc"
+                              }}
+                              value={selectedRating}
+                              onChange={(e) => {
+                                setSelectedRating(e.target.value);
+                              }}
+                              disabled={ratingLoading}
+                            >
+                              <option value="">Select Category</option>
+                              <option value="Minor">Minor</option>
+                              <option value="Major">Major</option>
+                            </select>
+                          </Box>
+                          {/* Comment/Description field - required when rating and forwarding */}
+                          {selectedRating && ["Minor", "Major"].includes(selectedRating) && (
+                            <Box>
+                              <Typography variant="body2" sx={{ fontWeight: "bold", fontSize: "0.8rem", mb: 0.5 }}>
+                                Comment/Description <span style={{ color: "red" }}>*</span>:
+                              </Typography>
+                              <TextField
+                                multiline
+                                rows={3}
+                                fullWidth
+                                value={ratingComment}
+                                onChange={(e) => setRatingComment(e.target.value)}
+                                placeholder="Please provide a comment/description before forwarding..."
+                                size="small"
+                                required
+                                error={!ratingComment.trim() && selectedRating && forwardUnit[selectedTicket.id]}
+                                helperText={!ratingComment.trim() && selectedRating && forwardUnit[selectedTicket.id] ? "Comment is required before forwarding" : ""}
+                              />
+                            </Box>
+                          )}
                         </Box>
                       </>
                     )}
@@ -3000,14 +3062,19 @@ export default function TicketDetailsModal({
                             size="small"
                             variant="contained"
                             onClick={() => handleConvertOrForward(selectedTicket.id)}
-                            disabled={!selectedRating || !["Minor", "Major"].includes(selectedRating) || convertOrForwardLoading}
-                            title={!selectedRating || !["Minor", "Major"].includes(selectedRating) ? "Please select a rating (Minor or Major) from the 'Complaint Category' dropdown above" : "Submit rating and forward ticket together"}
+                            disabled={!selectedRating || !["Minor", "Major"].includes(selectedRating) || !ratingComment.trim() || convertOrForwardLoading}
+                            title={!selectedRating || !["Minor", "Major"].includes(selectedRating) ? "Please select a rating (Minor or Major) from the 'Complaint Category' dropdown above" : !ratingComment.trim() ? "Please provide a comment/description before forwarding" : "Submit rating and forward ticket together"}
                           >
                             {convertOrForwardLoading ? "Processing..." : "Forward"}
                           </Button>
                           {(!selectedRating || !["Minor", "Major"].includes(selectedRating)) && (
                             <Typography variant="caption" color="warning.main" sx={{ fontSize: "0.7rem" }}>
                               Rating required
+                            </Typography>
+                          )}
+                          {selectedRating && ["Minor", "Major"].includes(selectedRating) && !ratingComment.trim() && (
+                            <Typography variant="caption" color="error.main" sx={{ fontSize: "0.7rem" }}>
+                              Comment required
                             </Typography>
                           )}
                           {selectedTicket.section && !forwardUnit[selectedTicket.id] && (

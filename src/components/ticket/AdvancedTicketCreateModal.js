@@ -15,6 +15,8 @@ import IconButton from "@mui/material/IconButton";
 import Avatar from "@mui/material/Avatar";
 import Paper from "@mui/material/Paper";
 import Divider from "@mui/material/Divider";
+import Snackbar from "@mui/material/Snackbar";
+import Alert from "@mui/material/Alert";
 
 import { styled } from "@mui/material/styles";
 import ChatIcon from '@mui/icons-material/Chat';
@@ -634,6 +636,23 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
   // --- Ticket Updates Modal State ---
   const [isTicketUpdatesModalOpen, setIsTicketUpdatesModalOpen] = useState(false);
   const [selectedTicketForUpdates, setSelectedTicketForUpdates] = useState(null);
+
+  // --- Notify User Modal State ---
+  const [showNotifyModal, setShowNotifyModal] = useState(false);
+  const [notifyMessage, setNotifyMessage] = useState("");
+  const [selectedTicketForNotify, setSelectedTicketForNotify] = useState(null);
+  const [notifyLoading, setNotifyLoading] = useState(false);
+  
+  // State for snackbar
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: "",
+    severity: "info"
+  });
+
+  const handleSnackbarClose = () => {
+    setSnackbar({ ...snackbar, open: false });
+  };
 
   // --- Ticket Updates Functions ---
   const handleOpenTicketUpdates = (ticket) => {
@@ -3360,47 +3379,81 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                             }
                           }}
                         >
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#1976d2' }}>
-                              {ticket.ticket_id}
+                          {/* Buttons row - at the top */}
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap', mb: 1.5, justifyContent: 'flex-end' }}>
+                            <Typography
+                              sx={{
+                                px: 1.5,
+                                py: 0.5,
+                                borderRadius: '12px',
+                                color: 'white',
+                                background:
+                                  ticket.status === 'Closed'
+                                    ? '#757575'
+                                    : ticket.status === 'Open'
+                                    ? '#2e7d32'
+                                    : '#1976d2',
+                                fontSize: '0.75rem',
+                                fontWeight: 500
+                              }}
+                            >
+                              {ticket.status}
                             </Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                              <Typography
-                                sx={{
-                                  px: 1.5,
-                                  py: 0.5,
-                                  borderRadius: '12px',
-                                  color: 'white',
-                                  background:
-                                    ticket.status === 'Closed'
-                                      ? '#757575'
-                                      : ticket.status === 'Open'
-                                      ? '#2e7d32'
-                                      : '#1976d2',
-                                  fontSize: '0.75rem',
-                                  fontWeight: 500
-                                }}
-                              >
-                                {ticket.status}
-                              </Typography>
-                              <IconButton
+                            <IconButton
+                              size="small"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenTicketUpdates(ticket);
+                              }}
+                              sx={{
+                                color: '#1976d2',
+                                width: 32,
+                                height: 32,
+                                '&:hover': {
+                                  backgroundColor: 'rgba(25, 118, 210, 0.1)'
+                                }
+                              }}
+                              title="View Ticket Updates"
+                            >
+                              <ChatIcon fontSize="small" />
+                            </IconButton>
+                            {/* Show "Notify User" button only for agent role and non-closed tickets */}
+                            {ticket.status !== "Closed" && localStorage.getItem("role") === "agent" && (
+                              <Button
+                                variant="contained"
+                                color="secondary"
                                 size="small"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  handleOpenTicketUpdates(ticket);
+                                  setSelectedTicketForNotify(ticket);
+                                  setNotifyMessage("");
+                                  setShowNotifyModal(true);
                                 }}
                                 sx={{
-                                  color: '#1976d2',
+                                  minWidth: 'auto',
+                                  height: 32,
+                                  fontSize: '0.7rem',
+                                  py: 0.25,
+                                  px: 1.25,
+                                  textTransform: 'none',
+                                  borderRadius: '16px',
+                                  boxShadow: 'none',
                                   '&:hover': {
-                                    backgroundColor: 'rgba(25, 118, 210, 0.1)'
+                                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
                                   }
                                 }}
-                                title="View Ticket Updates"
                               >
-                                <ChatIcon fontSize="small" />
-                              </IconButton>
-                            </Box>
+                                Notify
+                              </Button>
+                            )}
                           </Box>
+                          
+                          {/* Ticket ID row - below buttons */}
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#1976d2', mb: 1 }}>
+                            {ticket.ticket_id}
+                          </Typography>
+                          
+                          {/* Ticket details */}
                           <Box sx={{ mt: 1 }}>
                             <Typography variant="body2" sx={{ color: '#666', mb: 0.5 }}>
                               Created: {new Date(ticket.created_at).toLocaleDateString()}
@@ -3642,6 +3695,120 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
           </Box>
         </DialogContent>
       </Dialog>
+
+      {/* Notify User Modal */}
+      <Modal 
+        open={showNotifyModal} 
+        onClose={() => {
+          setShowNotifyModal(false);
+          setNotifyMessage("");
+          setSelectedTicketForNotify(null);
+        }}
+      >
+        <Box
+          sx={{
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: { xs: '90%', sm: 400 },
+            bgcolor: 'background.paper',
+            borderRadius: 2,
+            boxShadow: 24,
+            p: 3,
+            outline: 'none'
+          }}
+        >
+          <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1976d2', mb: 1 }}>
+            Send Notification
+          </Typography>
+          <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary', fontWeight: 500 }}>
+            Ticket: <span style={{ color: '#1976d2' }}>{selectedTicketForNotify?.ticket_id || 'N/A'}</span>
+          </Typography>
+          <TextField
+            label="Message"
+            multiline
+            rows={4}
+            fullWidth
+            value={notifyMessage}
+            onChange={(e) => setNotifyMessage(e.target.value)}
+            placeholder="Enter notification message..."
+            sx={{ mb: 2 }}
+            required
+          />
+          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', mt: 2 }}>
+            <Button
+              variant="outlined"
+              onClick={() => {
+                setShowNotifyModal(false);
+                setNotifyMessage("");
+                setSelectedTicketForNotify(null);
+              }}
+              disabled={notifyLoading}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={async () => {
+                if (!selectedTicketForNotify || !notifyMessage.trim()) return;
+                
+                setNotifyLoading(true);
+                try {
+                  const token = localStorage.getItem("authToken");
+                  const res = await fetch(`${baseURL}/notifications/notify`, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                      ticket_id: selectedTicketForNotify.id,
+                      category: selectedTicketForNotify.category,
+                      message: notifyMessage,
+                      channel: selectedTicketForNotify.channel || "In-System",
+                      subject: selectedTicketForNotify.subject || selectedTicketForNotify.ticket_id,
+                    }),
+                  });
+                  const data = await res.json();
+                  
+                  if (res.ok && data.notification) {
+                    // Show success message using modal state
+                    setModal({
+                      isOpen: true,
+                      type: "success",
+                      message: "Notification sent and saved!"
+                    });
+                    setShowNotifyModal(false);
+                    setNotifyMessage("");
+                    setSelectedTicketForNotify(null);
+                  } else {
+                    // Show error message using modal state
+                    setModal({
+                      isOpen: true,
+                      type: "error",
+                      message: data.message || "Failed to save notification."
+                    });
+                  }
+                } catch (error) {
+                  // Show error message using modal state
+                  setModal({
+                    isOpen: true,
+                    type: "error",
+                    message: "Network error: " + error.message
+                  });
+                } finally {
+                  setNotifyLoading(false);
+                }
+              }}
+              disabled={!notifyMessage.trim() || notifyLoading}
+            >
+              {notifyLoading ? "Sending..." : "Send"}
+            </Button>
+          </Box>
+        </Box>
+      </Modal>
     </>
   );
 }
