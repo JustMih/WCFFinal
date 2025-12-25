@@ -132,13 +132,43 @@ const EnhancedSearchForm = ({
       );
 
       const data = await response.json();
+      console.log("Employee search response:", data); // Debug log
+      console.log("Response status:", response.status, "Response ok:", response.ok);
 
-      if (response.ok && data.results?.length > 0) {
-        setEmployeeSearchResults(data.results);
+      // Handle both old format (data.results) and new format (direct array)
+      let employeeResults = [];
+      if (Array.isArray(data)) {
+        // New format: response is directly an array
+        employeeResults = data;
+        console.log("✅ Using new format (direct array), found", employeeResults.length, "results");
+      } else if (data && data.results && Array.isArray(data.results)) {
+        // Old format: response has results property
+        employeeResults = data.results;
+        console.log("✅ Using old format (data.results), found", employeeResults.length, "results");
+      } else if (data && typeof data === 'object' && !Array.isArray(data)) {
+        // Check if data itself might be a single result object
+        console.log("⚠️ Response is object but not array, checking structure:", data);
+        if (data.employee) {
+          // Single result object
+          employeeResults = [data];
+          console.log("✅ Found single result object, converted to array");
+        }
+      } else {
+        console.log("❌ Unknown response format:", data, "Type:", typeof data);
+      }
+
+      console.log("Processed employee results:", employeeResults);
+      console.log("Employee results length:", employeeResults.length);
+
+      // Check if we have results regardless of response.ok (some APIs return 200 with empty array)
+      if (employeeResults.length > 0) {
+        setEmployeeSearchResults(employeeResults);
         setEmployeeNoResults(false);
+        console.log("✅ Employee results set successfully, count:", employeeResults.length);
       } else {
         setEmployeeSearchResults([]);
         setEmployeeNoResults(true);
+        console.log("❌ No employee results found, response.ok:", response.ok, "results length:", employeeResults.length);
         // Call onUserNotFound when no employee results found
         if (onUserNotFound) {
           onUserNotFound(searchQuery, "employee");
@@ -510,6 +540,7 @@ const EnhancedSearchForm = ({
                 const employee = result.employee || result;
                 const fullName = employee.name || "";
                 const nameWithoutEmployer = fullName.split("—")[0].trim();
+                const claims = result.claims || [];
                 
                 return (
                   <div
@@ -531,9 +562,13 @@ const EnhancedSearchForm = ({
                       {employee.nin && ` • NIN: ${employee.nin}`}
                       {employee.employee_phone && ` • Phone: ${employee.employee_phone}`}
                     </div>
-                    {employee.claim_number && (
+                    {claims.length > 0 && (
                       <div style={{ fontSize: "12px", color: "#1976d2", marginTop: "2px" }}>
-                        Claim: {employee.claim_number}
+                        {claims.length === 1 ? (
+                          `Claim: ${claims[0].claim_number || "N/A"}`
+                        ) : (
+                          `Claims: ${claims.length} (${claims.map(c => c.claim_number || "N/A").join(", ")})`
+                        )}
                       </div>
                     )}
                   </div>

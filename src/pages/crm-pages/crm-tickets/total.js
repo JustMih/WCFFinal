@@ -177,10 +177,12 @@ export default function Crm() {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
-      setAssignmentHistory(data);
+      // Backend returns array directly, keep it as array for AssignmentStepper
+      setAssignmentHistory(Array.isArray(data) ? data : (data.assignments || []));
       setIsModalOpen(true);
     } catch (e) {
-      setAssignmentHistory([]);
+      console.error("Error fetching assignment history:", e);
+      setAssignmentHistory({ assignments: [] });
       setIsModalOpen(true);
     }
   };
@@ -464,7 +466,7 @@ export default function Crm() {
         open={isModalOpen}
         onClose={closeModal}
         selectedTicket={selectedTicket}
-        assignmentHistory={assignmentHistory.assignments || []}
+        assignmentHistory={Array.isArray(assignmentHistory) ? assignmentHistory : (assignmentHistory?.assignments || [])}
         refreshTickets={fetchAgentTickets}
         refreshDashboardCounts={() => {}} // This page doesn't have dashboard counts, so pass empty function
       />

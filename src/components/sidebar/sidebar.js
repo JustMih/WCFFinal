@@ -7,6 +7,7 @@ import { TiFlowSwitch } from "react-icons/ti";
 // import { MdOutlineSupportAgent } from "react-icons/md";
 import { BiSolidVideoRecording } from "react-icons/bi";
 import { MdOutlineSupportAgent, MdEmail } from "react-icons/md";
+import { HiOutlineMap } from "react-icons/hi2";
 import logo from "../../image/wcf_logo.png";
 import "./sidebar.css";
 
@@ -98,6 +99,17 @@ const Sidebar = ({ isSidebarOpen }) => {
                 <div className="menu-item">
                   <FaRegUser className="menu-icon" />
                   {isSidebarOpen && <span className="menu-text">Users</span>}
+                </div>
+              </NavLink>
+              <NavLink
+                to="/mapping"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <HiOutlineMap className="menu-icon" />
+                  {isSidebarOpen && <span className="menu-text">Mapping</span>}
                 </div>
               </NavLink>
             </>

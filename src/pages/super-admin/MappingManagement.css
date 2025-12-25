@@ -1,0 +1,31 @@
+.mapping-management {
+  width: 100%;
+  min-height: 100vh;
+  padding: 24px;
+}
+
+.mapping-header {
+  margin-bottom: 24px;
+  padding: 24px;
+}
+
+.mapping-tabs {
+  margin-top: 24px;
+}
+
+.mapping-accordion {
+  margin-bottom: 16px;
+}
+
+.mapping-card {
+  margin-bottom: 16px;
+}
+
+.mapping-chip {
+  margin-left: 8px;
+}
+
+.mapping-grid {
+  margin-top: 16px;
+}
+

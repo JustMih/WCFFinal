@@ -45,6 +45,7 @@ import VoiceNoteReport from "../call-center-pages/call-center-report/voice-note-
 import ComprehensiveReports from "../call-center-pages/call-center-report/ComprehensiveReports";
 import InstagramPage from "../instagram/InstagramPage";
 import LookupTablesManagement from "../super-admin/LookupTablesManagement";
+import MappingManagement from "../super-admin/MappingManagement";
 import PublicDashboard from "../public-dashboard/PublicDashboard";
 
 export default function Dashboard() {
@@ -224,6 +225,15 @@ export default function Dashboard() {
                     path="/lookup-tables"
                     element={
                       <PrivateRoute element={<LookupTablesManagement />} />
+                    }
+                  />
+                )}
+                {/* Mapping Management - Super Admin Only */}
+                {role === "super-admin" && (
+                  <Route
+                    path="/mapping"
+                    element={
+                      <PrivateRoute element={<MappingManagement />} />
                     }
                   />
                 )}

@@ -15,12 +15,7 @@ import { BsFillMicMuteFill } from "react-icons/bs";
 import { GiExplosiveMeeting, GiTrafficLightsReadyToGo } from "react-icons/gi";
 import { TbEmergencyBed } from "react-icons/tb";
 import { FiPhoneOff, FiPhoneCall, FiPhoneIncoming } from "react-icons/fi";
-import {
-  UserAgent,
-  Inviter,
-  Registerer,
-  SessionState,
-} from "sip.js";
+import { UserAgent, Inviter, Registerer, SessionState } from "sip.js";
 import {
   TextField,
   Button,
@@ -49,6 +44,7 @@ import OnlineSupervisorsTable from "../../../../components/agent-dashboard/Onlin
 import AgentPerformanceScore from "../../../../components/agent-dashboard/AgentPerformanceScore";
 import AdvancedTicketCreateModal from "../../../../components/ticket/AdvancedTicketCreateModal";
 import VoiceNotesReport from "../../cal-center-ivr/VoiceNotesReport";
+import CallHistoryCard from "../../../../components/agent-dashboard/CallHistoryCard";
 
 export default function AgentsDashboard() {
   // --------- Core phone state ---------
@@ -76,7 +72,10 @@ export default function AgentsDashboard() {
   const openStatus = Boolean(anchorEl);
   const [agentStatus, setAgentStatus] = useState("ready");
   const [timeRemaining, setTimeRemaining] = useState(0);
-  const [userDefinedTimes, setUserDefinedTimes] = useState({ attendingMeeting: 0, emergency: 0 });
+  const [userDefinedTimes, setUserDefinedTimes] = useState({
+    attendingMeeting: 0,
+    emergency: 0,
+  });
 
   // --------- Timers (separate refs!) ---------
   const callTimerRef = useRef(null);
@@ -132,15 +131,19 @@ export default function AgentsDashboard() {
       traceSip: true, // Enable SIP.js logging
       sessionDescriptionHandlerFactoryOptions: {
         constraints: { audio: true, video: false },
-        codecs: ['PCMU', 'opus'], // Match Asterisk: PCMU prioritized
+        codecs: ["PCMU", "opus"], // Match Asterisk: PCMU prioritized
         peerConnectionConfiguration: {
           iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
-            { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' }
+            { urls: "stun:stun.l.google.com:19302" },
+            {
+              urls: "turn:openrelay.metered.ca:80",
+              username: "openrelayproject",
+              credential: "openrelayproject",
+            },
           ],
-          iceTransportPolicy: 'all', // Allow host candidates
-          rtcpMuxPolicy: 'require', // Required for Asterisk WebRTC
-          bundlePolicy: 'balanced', // Improve compatibility
+          iceTransportPolicy: "all", // Allow host candidates
+          rtcpMuxPolicy: "require", // Required for Asterisk WebRTC
+          bundlePolicy: "balanced", // Improve compatibility
           iceGatheringTimeout: 500, // Increased for reliable STUN response
           // iceCandidateFilter: (candidate) => candidate.type === 'host' || candidate.type === 'srflx', // Prefer UDP candidates
         },
@@ -148,7 +151,7 @@ export default function AgentsDashboard() {
       hackIpInContact: true, // Force private IP in Contact header
       register: true, // Ensure registration with Asterisk
       log: {
-        level: 'debug', // Detailed logging
+        level: "debug", // Detailed logging
         builtinEnabled: true,
       },
       // Additional WebRTC tweaks
@@ -158,7 +161,12 @@ export default function AgentsDashboard() {
   }, [extension, sipPassword]);
 
   // ---------- Helpers ----------
-  const iconStyle = (bgColor) => ({ backgroundColor: bgColor, padding: 10, borderRadius: "50%", color: "white" });
+  const iconStyle = (bgColor) => ({
+    backgroundColor: bgColor,
+    padding: 10,
+    borderRadius: "50%",
+    color: "white",
+  });
 
   // Test function for debugging incoming calls
   const testIncomingCall = () => {
@@ -193,8 +201,8 @@ export default function AgentsDashboard() {
           console.log("Mock state listener added");
           // Simulate call state changes
           setTimeout(() => callback(SessionState.Established), 1000);
-        }
-      }
+        },
+      },
     };
 
     setIncomingCall(mockInvitation);
@@ -204,7 +212,7 @@ export default function AgentsDashboard() {
     // Test ringtone
     ringAudio.loop = true;
     ringAudio.volume = 0.7;
-    ringAudio.play().catch(() => { });
+    ringAudio.play().catch(() => {});
   };
 
   const formatDuration = (seconds) => {
@@ -212,7 +220,9 @@ export default function AgentsDashboard() {
     const secs = seconds % 60;
     const hrs = Math.floor(mins / 60);
     const pad = (n) => String(n).padStart(2, "0");
-    return hrs > 0 ? `${pad(hrs)}:${pad(mins % 60)}:${pad(secs)}` : `${pad(mins)}:${pad(secs)}`;
+    return hrs > 0
+      ? `${pad(hrs)}:${pad(mins % 60)}:${pad(secs)}`
+      : `${pad(mins)}:${pad(secs)}`;
   };
   const formatRemainingTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -222,13 +232,20 @@ export default function AgentsDashboard() {
   };
   const mapActivityToTimerKey = (activity) => {
     switch ((activity || "").toLowerCase()) {
-      case "breakfast": return "breakfast";
-      case "lunch": return "lunch";
-      case "short call": return "shortCall";
-      case "follow-up of customer inquiries": return "followUp";
-      case "attending meeting": return "attendingMeeting";
-      case "emergency": return "emergency";
-      default: return null; // covers "ready" and unknowns
+      case "breakfast":
+        return "breakfast";
+      case "lunch":
+        return "lunch";
+      case "short call":
+        return "shortCall";
+      case "follow-up of customer inquiries":
+        return "followUp";
+      case "attending meeting":
+        return "attendingMeeting";
+      case "emergency":
+        return "emergency";
+      default:
+        return null; // covers "ready" and unknowns
     }
   };
   const timeIntervals = {
@@ -247,12 +264,18 @@ export default function AgentsDashboard() {
   };
 
   // ---------- Ringtone ----------
-  const stopRingtone = () => { ringAudio.pause(); ringAudio.currentTime = 0; };
+  const stopRingtone = () => {
+    ringAudio.pause();
+    ringAudio.currentTime = 0;
+  };
 
   // ---------- Timers ----------
   const startCallTimer = () => {
     stopCallTimer();
-    callTimerRef.current = setInterval(() => setCallDuration((p) => p + 1), 1000);
+    callTimerRef.current = setInterval(
+      () => setCallDuration((p) => p + 1),
+      1000
+    );
   };
   const stopCallTimer = () => {
     if (callTimerRef.current) clearInterval(callTimerRef.current);
@@ -268,7 +291,11 @@ export default function AgentsDashboard() {
     setTimeRemaining(limit);
     statusTimerRef.current = setInterval(() => {
       setTimeRemaining((t) => {
-        if (t <= 1) { alert(`You have exceeded your ${activity} time limit.`); stopStatusTimer(); return 0; }
+        if (t <= 1) {
+          alert(`You have exceeded your ${activity} time limit.`);
+          stopStatusTimer();
+          return 0;
+        }
         return t - 1;
       });
     }, 1000);
@@ -280,7 +307,10 @@ export default function AgentsDashboard() {
   };
 
   useEffect(() => {
-    return () => { stopCallTimer(); stopStatusTimer(); };
+    return () => {
+      stopCallTimer();
+      stopStatusTimer();
+    };
   }, []);
 
   // ---------- SIP: incoming ----------
@@ -296,8 +326,9 @@ export default function AgentsDashboard() {
     // Pre-fetch user info by phone
     if (number) fetchUserByPhoneNumber(number);
 
-    ringAudio.loop = true; ringAudio.volume = 0.7;
-    ringAudio.play().catch(() => { });
+    ringAudio.loop = true;
+    ringAudio.volume = 0.7;
+    ringAudio.play().catch(() => {});
 
     invitation.stateChange.addListener((state) => {
       if (state === SessionState.Terminated) {
@@ -340,13 +371,12 @@ export default function AgentsDashboard() {
         console.log("Incoming call", incomingSession);
 
         handleIncomingInvite(incomingSession);
-      }
+      },
     };
 
     setUserAgent(ua);
 
-    ua
-      .start()
+    ua.start()
       .then(() => {
         registerer.register();
         setPhoneStatus("Idle");
@@ -369,15 +399,21 @@ export default function AgentsDashboard() {
     (async () => {
       try {
         const token = localStorage.getItem("authToken");
-        const res = await fetch(`${baseURL}/section/functions-data`, { headers: { Authorization: `Bearer ${token}` } });
+        const res = await fetch(`${baseURL}/section/functions-data`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         const json = await res.json();
         setFunctionData(json.data || []);
-      } catch (err) { console.error("Fetch functionData error:", err); }
+      } catch (err) {
+        console.error("Fetch functionData error:", err);
+      }
     })();
   }, []);
 
   // ---------- Online users (for transfer options) ----------
-  useEffect(() => { if (showPhonePopup) fetchOnlineUsers(); }, [showPhonePopup]);
+  useEffect(() => {
+    if (showPhonePopup) fetchOnlineUsers();
+  }, [showPhonePopup]);
   const fetchOnlineUsers = async () => {
     try {
       const headers = {
@@ -388,10 +424,14 @@ export default function AgentsDashboard() {
       // Fetch agents and supervisors from their own endpoints
       const [agentsRes, supervisorsRes] = await Promise.all([
         fetch(`${baseURL}/users/agents-online`, { method: "GET", headers }),
-        fetch(`${baseURL}/users/supervisors-online`, { method: "GET", headers }),
+        fetch(`${baseURL}/users/supervisors-online`, {
+          method: "GET",
+          headers,
+        }),
       ]);
 
-      if (!agentsRes.ok && !supervisorsRes.ok) throw new Error("Failed to fetch online users");
+      if (!agentsRes.ok && !supervisorsRes.ok)
+        throw new Error("Failed to fetch online users");
 
       const [agentsPayload, supervisorsPayload] = await Promise.all([
         agentsRes.ok ? agentsRes.json() : Promise.resolve([]),
@@ -408,8 +448,14 @@ export default function AgentsDashboard() {
         return [];
       };
 
-      const agents = extractUsers(agentsPayload).map((u) => ({ ...u, role: u.role || "agent" }));
-      const supervisors = extractUsers(supervisorsPayload).map((u) => ({ ...u, role: u.role || "supervisor" }));
+      const agents = extractUsers(agentsPayload).map((u) => ({
+        ...u,
+        role: u.role || "agent",
+      }));
+      const supervisors = extractUsers(supervisorsPayload).map((u) => ({
+        ...u,
+        role: u.role || "supervisor",
+      }));
 
       // Only keep entries that have an extension or username (for display/transfer)
       const selfExt = String(localStorage.getItem("extension") || "");
@@ -421,7 +467,9 @@ export default function AgentsDashboard() {
           const uExt = String(u.extension || "");
           const uId = String((u.id ?? u.userId ?? u._id) || "");
           const uName = String(u.username || u.name || "");
-          return uExt !== selfExt && uId !== selfUserId && uName !== selfUsername;
+          return (
+            uExt !== selfExt && uId !== selfUserId && uName !== selfUsername
+          );
         });
       setOnlineUsers(combined);
       return combined;
@@ -436,15 +484,24 @@ export default function AgentsDashboard() {
     const fetchVoiceNotes = async () => {
       try {
         const agentId = localStorage.getItem("userId");
-        const response = await fetch(`${baseURL}/voice-notes?agentId=${agentId}`, {
-          method: "GET",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("authToken")}` },
-        });
+        const response = await fetch(
+          `${baseURL}/voice-notes?agentId=${agentId}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+            },
+          }
+        );
         if (!response.ok) throw new Error("Failed to fetch voice notes");
         const data = await response.json();
         const notes = data.voiceNotes || [];
-        const storedPlayed = JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
-        const unplayedCount = notes.filter((note) => !storedPlayed[note.id]).length;
+        const storedPlayed =
+          JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
+        const unplayedCount = notes.filter(
+          (note) => !storedPlayed[note.id]
+        ).length;
         setVoiceNotes(notes);
         setUnplayedVoiceNotes(unplayedCount);
       } catch (error) {
@@ -453,13 +510,17 @@ export default function AgentsDashboard() {
       }
     };
     fetchVoiceNotes();
-    const handleStorage = (e) => { if (e.key === "playedVoiceNotes") fetchVoiceNotes(); };
+    const handleStorage = (e) => {
+      if (e.key === "playedVoiceNotes") fetchVoiceNotes();
+    };
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
   // ---------- Missed calls ----------
-  useEffect(() => { fetchMissedCallsFromBackend(); }, []);
+  useEffect(() => {
+    fetchMissedCallsFromBackend();
+  }, []);
   const addMissedCall = (raw) => {
     const agentId = localStorage.getItem("extension");
     if (!raw || raw.trim() === "") return;
@@ -471,20 +532,36 @@ export default function AgentsDashboard() {
 
     fetch(`${baseURL}/missed-calls`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("authToken")}` },
-      body: JSON.stringify({ caller: formattedCaller, time: time.toISOString(), agentId }),
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+      },
+      body: JSON.stringify({
+        caller: formattedCaller,
+        time: time.toISOString(),
+        agentId,
+      }),
     }).catch((err) => console.error("Failed to post missed call:", err));
   };
   const fetchMissedCallsFromBackend = async () => {
     try {
       const ext = localStorage.getItem("extension");
-      const response = await fetch(`${baseURL}/missed-calls?agentId=${ext}&status=pending`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("authToken")}` },
-      });
+      const response = await fetch(
+        `${baseURL}/missed-calls?agentId=${ext}&status=pending`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          },
+        }
+      );
       if (!response.ok) throw new Error("Failed to fetch missed calls");
       const data = await response.json();
-      const formatted = (data || []).map((call) => ({ ...call, time: new Date(call.time) }));
+      const formatted = (data || []).map((call) => ({
+        ...call,
+        time: new Date(call.time),
+      }));
       setMissedCalls(formatted);
       localStorage.setItem("missedCalls", JSON.stringify(formatted));
     } catch (error) {
@@ -495,8 +572,16 @@ export default function AgentsDashboard() {
   // ---------- MAC: fetch user by phone ----------
   const fetchUserByPhoneNumber = async (phone) => {
     try {
-      const response = await fetch(`${baseURL}/mac-system/search-by-phone-number?phone_number=${encodeURIComponent(phone)}`);
-      if (!response.ok) { setUserData(null); setShowUserForm(false); return; }
+      const response = await fetch(
+        `${baseURL}/mac-system/search-by-phone-number?phone_number=${encodeURIComponent(
+          phone
+        )}`
+      );
+      if (!response.ok) {
+        setUserData(null);
+        setShowUserForm(false);
+        return;
+      }
       const data = await response.json();
       setUserData(data);
       setShowUserForm(true);
@@ -524,16 +609,18 @@ export default function AgentsDashboard() {
     setShowTicketModal(true);
     setIsTicketModalOpen(true);
 
-    console.log("After setting showTicketModal to true and closing phone popup");
+    console.log(
+      "After setting showTicketModal to true and closing phone popup"
+    );
 
     // Preserve current call context in ticket form data
     if (phoneStatus === "In Call" || phoneStatus === "Ringing") {
-      setTicketFormData(prev => ({
+      setTicketFormData((prev) => ({
         ...prev,
         phoneNumber: lastIncomingNumber || phoneNumber,
         callStatus: phoneStatus,
         callDuration: callDuration,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
       }));
       console.log("Call context preserved in ticket form data");
     }
@@ -552,6 +639,7 @@ export default function AgentsDashboard() {
     console.log("=== CLOSE TICKET MODAL CALLED ===");
     console.log("Current showTicketModal:", showTicketModal);
     console.log("Current isTicketModalOpen:", isTicketModalOpen);
+    console.log("Current phoneStatus:", phoneStatus);
 
     setShowTicketModal(false);
     setIsTicketModalOpen(false);
@@ -560,7 +648,8 @@ export default function AgentsDashboard() {
     console.log("After setting to false - isTicketModalOpen:", false);
 
     // Form data is preserved in state for next time
-    // Phone modal remains open in background
+    // If there's an active call, the call status banner will show
+    // Phone modal remains open in background if call is active
   };
 
   // Function to handle ticket modal cancellation
@@ -618,7 +707,7 @@ export default function AgentsDashboard() {
       phoneNumber: lastIncomingNumber || phoneNumber,
       callStatus: phoneStatus,
       callDuration: callDuration,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     };
 
     setTicketFormData(initialData);
@@ -637,7 +726,7 @@ export default function AgentsDashboard() {
   // Keyboard shortcut to close ticket modal (Escape key)
   useEffect(() => {
     const handleKeyDown = (event) => {
-      if (event.key === 'Escape' && showTicketModal) {
+      if (event.key === "Escape" && showTicketModal) {
         console.log("Escape key pressed - closing ticket modal");
         event.preventDefault();
         closeTicketModal();
@@ -645,12 +734,12 @@ export default function AgentsDashboard() {
     };
 
     if (showTicketModal) {
-      document.addEventListener('keydown', handleKeyDown);
+      document.addEventListener("keydown", handleKeyDown);
       console.log("Escape key listener added");
     }
 
     return () => {
-      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener("keydown", handleKeyDown);
       console.log("Escape key listener removed");
     };
   }, [showTicketModal]);
@@ -668,21 +757,31 @@ export default function AgentsDashboard() {
   const toggleSpeaker = () => {
     const el = remoteAudioRef.current;
     if (el && el.setSinkId) {
-      const deviceId = isSpeakerOn ? 'communications' : 'default';
-      el.setSinkId(deviceId).then(() => setIsSpeakerOn(!isSpeakerOn)).catch(() => { });
+      const deviceId = isSpeakerOn ? "communications" : "default";
+      el.setSinkId(deviceId)
+        .then(() => setIsSpeakerOn(!isSpeakerOn))
+        .catch(() => {});
     }
   };
   const toggleHold = () => {
     if (!session) return;
     const pc = session.sessionDescriptionHandler.peerConnection;
     const senders = pc.getSenders();
-    if (isOnHold) senders.forEach((s) => { if (s.track && s.track.kind === "audio") s.track.enabled = true; });
-    else senders.forEach((s) => { if (s.track && s.track.kind === "audio") s.track.enabled = false; });
+    if (isOnHold)
+      senders.forEach((s) => {
+        if (s.track && s.track.kind === "audio") s.track.enabled = true;
+      });
+    else
+      senders.forEach((s) => {
+        if (s.track && s.track.kind === "audio") s.track.enabled = false;
+      });
     setIsOnHold(!isOnHold);
   };
   const sendDTMF = (digit) => {
     if (!session?.sessionDescriptionHandler) return;
-    const sender = session.sessionDescriptionHandler.peerConnection.getSenders().find((s) => s.dtmf);
+    const sender = session.sessionDescriptionHandler.peerConnection
+      .getSenders()
+      .find((s) => s.dtmf);
     if (sender?.dtmf) sender.dtmf.insertDTMF(digit);
   };
 
@@ -710,7 +809,9 @@ export default function AgentsDashboard() {
     // Attach any pre-existing tracks
     if (existing.getTracks().length > 0) {
       remoteElement.srcObject = existing;
-      remoteElement.play().catch((err) => console.warn("Autoplay blocked:", err));
+      remoteElement
+        .play()
+        .catch((err) => console.warn("Autoplay blocked:", err));
     }
 
     // Handle future incoming tracks
@@ -718,7 +819,9 @@ export default function AgentsDashboard() {
       console.log("Received remote track:", event.track.kind);
       const stream = event.streams?.[0] || new MediaStream([event.track]);
       remoteElement.srcObject = stream;
-      remoteElement.play().catch((err) => console.warn("Autoplay blocked:", err));
+      remoteElement
+        .play()
+        .catch((err) => console.warn("Autoplay blocked:", err));
     };
   };
 
@@ -730,7 +833,8 @@ export default function AgentsDashboard() {
 
     console.log("Accepting call...");
 
-    incomingCall.accept()
+    incomingCall
+      .accept()
       .then(() => {
         // Mark call answered
         wasAnsweredRef.current = true;
@@ -743,6 +847,17 @@ export default function AgentsDashboard() {
         setIncomingCall(null);
         setPhoneStatus("In Call");
         startCallTimer();
+
+        // Store call state in localStorage for persistence
+        localStorage.setItem(
+          "activeCallState",
+          JSON.stringify({
+            phoneStatus: "In Call",
+            phoneNumber: lastIncomingNumber || "",
+            callStartTime: new Date().toISOString(),
+            hasActiveCall: true,
+          })
+        );
 
         // Open ticket modal automatically
         setTicketPhoneNumber(lastIncomingNumber || "");
@@ -760,18 +875,20 @@ export default function AgentsDashboard() {
             setPhoneStatus("Idle");
             setSession(null);
             stopCallTimer();
+            // Clear call state from localStorage
+            localStorage.removeItem("activeCallState");
             if (remoteAudioRef.current) {
               remoteAudioRef.current.srcObject = null;
             }
           }
         });
-
       })
       .catch((error) => {
         console.error("Accept failed:", error);
         setPhoneStatus("Idle");
         setIncomingCall(null);
         setShowPhonePopup(false);
+        localStorage.removeItem("activeCallState");
       });
   };
 
@@ -794,26 +911,28 @@ export default function AgentsDashboard() {
 
       setSession(null);
       setPhoneStatus("Idle");
+      // Clear call state from localStorage
+      localStorage.removeItem("activeCallState");
       if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
 
       stopRingtone();
       stopCallTimer();
       setShowPhonePopup(false);
       setIncomingCall(null);
-
     } else if (incomingCall) {
       // End incoming SIP call (reject)
       incomingCall.reject().catch(console.error);
 
       setIncomingCall(null);
       setPhoneStatus("Idle");
+      // Clear call state from localStorage
+      localStorage.removeItem("activeCallState");
 
       stopRingtone();
       stopCallTimer();
       setShowPhonePopup(false);
     }
   };
-
 
   const handleDial = () => {
     if (!userAgent || !phoneNumber) return;
@@ -823,33 +942,6 @@ export default function AgentsDashboard() {
     const inviter = new Inviter(userAgent, targetURI, {
       sessionDescriptionHandlerOptions: {
         constraints: { audio: true, video: false },
-
-      },
-    });
-
-    setSession(inviter);
-    inviter
-      .invite()
-      .then(() => {
-        setPhoneStatus("Dialing");
-        inviter.stateChange.addListener((state) => {
-          if (state === SessionState.Established) { attachMediaStream(inviter); setPhoneStatus("In Call"); startCallTimer(); }
-          if (state === SessionState.Terminated) { setPhoneStatus("Idle"); setSession(null); if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null; stopCallTimer(); }
-        });
-      })
-      .catch((error) => { console.error("Call failed:", error); setPhoneStatus("Call Failed"); });
-  };
-
-  const handleRedial = (number, missedCallId = null) => {
-    if (!userAgent || !number) return;
-    const formatted = number.startsWith("+255") ? `0${number.substring(4)}` : number;
-    const targetURI = UserAgent.makeURI(`sip:${formatted}@${SIP_DOMAIN}`);
-    if (!targetURI) return;
-
-    const inviter = new Inviter(userAgent, targetURI, {
-      sessionDescriptionHandlerOptions: {
-        constraints: { audio: true, video: false },
-
       },
     });
 
@@ -863,21 +955,104 @@ export default function AgentsDashboard() {
             attachMediaStream(inviter);
             setPhoneStatus("In Call");
             startCallTimer();
+            // Store call state in localStorage for persistence
+            localStorage.setItem(
+              "activeCallState",
+              JSON.stringify({
+                phoneStatus: "In Call",
+                phoneNumber: phoneNumber || "",
+                callStartTime: new Date().toISOString(),
+                hasActiveCall: true,
+              })
+            );
+          }
+          if (state === SessionState.Terminated) {
+            setPhoneStatus("Idle");
+            setSession(null);
+            // Clear call state from localStorage
+            localStorage.removeItem("activeCallState");
+            if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
+            stopCallTimer();
+          }
+        });
+      })
+      .catch((error) => {
+        console.error("Call failed:", error);
+        setPhoneStatus("Call Failed");
+      });
+  };
+
+  const handleRedial = (number, missedCallId = null) => {
+    if (!userAgent || !number) return;
+    const formatted = number.startsWith("+255")
+      ? `0${number.substring(4)}`
+      : number;
+    const targetURI = UserAgent.makeURI(`sip:${formatted}@${SIP_DOMAIN}`);
+    if (!targetURI) return;
+
+    const inviter = new Inviter(userAgent, targetURI, {
+      sessionDescriptionHandlerOptions: {
+        constraints: { audio: true, video: false },
+      },
+    });
+
+    setSession(inviter);
+    inviter
+      .invite()
+      .then(() => {
+        setPhoneStatus("Dialing");
+        inviter.stateChange.addListener((state) => {
+          if (state === SessionState.Established) {
+            attachMediaStream(inviter);
+            setPhoneStatus("In Call");
+            startCallTimer();
+            // Store call state in localStorage for persistence
+            localStorage.setItem(
+              "activeCallState",
+              JSON.stringify({
+                phoneStatus: "In Call",
+                phoneNumber: formatted || "",
+                callStartTime: new Date().toISOString(),
+                hasActiveCall: true,
+              })
+            );
             if (missedCallId) {
               fetch(`${baseURL}/missed-calls/${missedCallId}/status`, {
                 method: "PUT",
-                headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("authToken")}` },
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+                },
                 body: JSON.stringify({ status: "called_back" }),
               })
-                .then((res) => { if (!res.ok) throw new Error("Failed to update status"); return res.json(); })
-                .then(() => setMissedCalls((prev) => prev.filter((c) => c.id !== missedCallId)))
-                .catch((err) => console.error("Failed to update missed call status:", err));
+                .then((res) => {
+                  if (!res.ok) throw new Error("Failed to update status");
+                  return res.json();
+                })
+                .then(() =>
+                  setMissedCalls((prev) =>
+                    prev.filter((c) => c.id !== missedCallId)
+                  )
+                )
+                .catch((err) =>
+                  console.error("Failed to update missed call status:", err)
+                );
             }
           }
-          if (state === SessionState.Terminated) { setPhoneStatus("Idle"); setSession(null); if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null; stopCallTimer(); }
+          if (state === SessionState.Terminated) {
+            setPhoneStatus("Idle");
+            setSession(null);
+            // Clear call state from localStorage
+            localStorage.removeItem("activeCallState");
+            if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
+            stopCallTimer();
+          }
         });
       })
-      .catch((error) => { console.error("Redial invite failed:", error); setPhoneStatus("Call Failed"); });
+      .catch((error) => {
+        console.error("Redial invite failed:", error);
+        setPhoneStatus("Call Failed");
+      });
   };
 
   // ---------- BLIND TRANSFER ONLY ----------
@@ -889,7 +1064,9 @@ export default function AgentsDashboard() {
     }
     // Enforce ONLINE only (agents or supervisors)
     const isAllowed = onlineUsers.some(
-      (u) => (u.role === "agent" || u.role === "supervisor") && String(u.extension) === target
+      (u) =>
+        (u.role === "agent" || u.role === "supervisor") &&
+        String(u.extension) === target
     );
     if (!isAllowed) {
       showAlert("Target is not currently online", "error");
@@ -897,7 +1074,10 @@ export default function AgentsDashboard() {
     }
     try {
       const targetURI = UserAgent.makeURI(`sip:${target}@${SIP_DOMAIN}`);
-      if (!targetURI) { showAlert("Invalid transfer target", "error"); return; }
+      if (!targetURI) {
+        showAlert("Invalid transfer target", "error");
+        return;
+      }
 
       await session.refer(targetURI);
       showAlert(`Call transferred to ${target}`, "success");
@@ -921,38 +1101,182 @@ export default function AgentsDashboard() {
     else stopStatusTimer();
 
     // Translate to backend online/offline
-    const statusToUpdate = (activity || "").toLowerCase() === "ready" ? "online" : "offline";
+    const statusToUpdate =
+      (activity || "").toLowerCase() === "ready" ? "online" : "offline";
     try {
       await fetch(`${baseURL}/users/status/${localStorage.getItem("userId")}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("authToken")}` },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        },
         body: JSON.stringify({ status: statusToUpdate }),
       });
-    } catch (err) { console.error("Failed to update status:", err); }
+    } catch (err) {
+      console.error("Failed to update status:", err);
+    }
   };
+
+  // Check for active call state on mount and when phoneStatus changes
+  useEffect(() => {
+    const activeCallState = localStorage.getItem("activeCallState");
+    if (activeCallState && phoneStatus === "Idle" && !session) {
+      try {
+        const callState = JSON.parse(activeCallState);
+        if (callState.hasActiveCall && callState.phoneStatus === "In Call") {
+          // Restore call state if session exists but state was lost
+          // This handles page refresh scenarios
+          console.log("Restoring active call state from localStorage");
+        }
+      } catch (e) {
+        console.error("Error parsing active call state:", e);
+      }
+    }
+  }, [phoneStatus, session]);
+
+  // Clear call state when call ends
+  useEffect(() => {
+    if (phoneStatus === "Idle" && !session) {
+      localStorage.removeItem("activeCallState");
+    }
+  }, [phoneStatus, session]);
+
+  // Determine if there's an active call
+  const hasActiveCall = phoneStatus === "In Call" && session !== null;
 
   return (
     <div className="p-6">
       {/* hidden remote audio for WebRTC (needed esp. on iOS/Safari) */}
-      <audio ref={remoteAudioRef} autoPlay playsInline style={{ opacity: 0, width: 1, height: 1 }} />
+      <audio
+        ref={remoteAudioRef}
+        autoPlay
+        playsInline
+        style={{ opacity: 0, width: 1, height: 1 }}
+      />
+
+      {/* Call Status Banner - Shows when on a call even if ticket modal is closed */}
+      {hasActiveCall && !showTicketModal && (
+        <div
+          style={{
+            position: "sticky",
+            top: 0,
+            zIndex: 1000,
+            backgroundColor: "#4caf50",
+            color: "white",
+            padding: "12px 20px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
+            marginBottom: "16px",
+            borderRadius: "8px",
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <FiPhoneCall style={{ fontSize: "20px" }} />
+            <div>
+              <div style={{ fontWeight: "bold", fontSize: "16px" }}>
+                Call in Progress
+              </div>
+              <div style={{ fontSize: "14px", opacity: 0.9 }}>
+                {ticketPhoneNumber ||
+                  lastIncomingNumber ||
+                  phoneNumber ||
+                  "Unknown"}{" "}
+                • Duration: {formatDuration(callDuration)}
+              </div>
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: "8px" }}>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => {
+                setShowTicketModal(true);
+                setIsTicketModalOpen(true);
+              }}
+              sx={{
+                backgroundColor: "white",
+                color: "#4caf50",
+                "&:hover": {
+                  backgroundColor: "#f5f5f5",
+                },
+              }}
+            >
+              📝 Return to Ticket
+            </Button>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={handleEndCall}
+              sx={{
+                backgroundColor: "#f44336",
+                color: "white",
+                "&:hover": {
+                  backgroundColor: "#d32f2f",
+                },
+              }}
+            >
+              End Call
+            </Button>
+          </div>
+        </div>
+      )}
+
       <div className="agent-body">
         <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
           <h3>Agent</h3>
           <Tooltip title="View Missed Calls" arrow>
-            <div style={{ position: "relative", cursor: "pointer" }} onClick={() => setMissedOpen(true)}>
+            <div
+              style={{ position: "relative", cursor: "pointer" }}
+              onClick={() => setMissedOpen(true)}
+            >
               <FiPhoneIncoming size={20} />
               {missedCalls.length > 0 && (
-                <span style={{ position: "absolute", top: -5, right: -5, background: "red", color: "white", fontSize: "12px", borderRadius: "50%", width: "18px", height: "18px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span
+                  style={{
+                    position: "absolute",
+                    top: -5,
+                    right: -5,
+                    background: "red",
+                    color: "white",
+                    fontSize: "12px",
+                    borderRadius: "50%",
+                    width: "18px",
+                    height: "18px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
                   {missedCalls.length}
                 </span>
               )}
             </div>
           </Tooltip>
           <Tooltip title="Voice Notes" arrow>
-            <div style={{ position: "relative", cursor: "pointer" }} onClick={() => setShowVoiceNotesModal(true)}>
+            <div
+              style={{ position: "relative", cursor: "pointer" }}
+              onClick={() => setShowVoiceNotesModal(true)}
+            >
               <MdOutlineVoicemail size={22} />
               {unplayedVoiceNotes > 0 && (
-                <span style={{ position: "absolute", top: -5, right: -5, background: "orange", color: "white", fontSize: "12px", borderRadius: "50%", width: "18px", height: "18px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span
+                  style={{
+                    position: "absolute",
+                    top: -5,
+                    right: -5,
+                    background: "orange",
+                    color: "white",
+                    fontSize: "12px",
+                    borderRadius: "50%",
+                    width: "18px",
+                    height: "18px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
                   {unplayedVoiceNotes}
                 </span>
               )}
@@ -963,15 +1287,38 @@ export default function AgentsDashboard() {
         <div className="phone-navbar">
           {agentStatus === "ready" ? (
             <>
-              <MdOutlineLocalPhone className="phone-btn-call" onClick={togglePhonePopup} />
-              <h4 style={{ backgroundColor: "green", color: "white", padding: "7px", borderRadius: "15px" }}>{agentStatus.toUpperCase()}</h4>
+              <MdOutlineLocalPhone
+                className="phone-btn-call"
+                onClick={togglePhonePopup}
+              />
+              <h4
+                style={{
+                  backgroundColor: "green",
+                  color: "white",
+                  padding: "7px",
+                  borderRadius: "15px",
+                }}
+              >
+                {agentStatus.toUpperCase()}
+              </h4>
             </>
           ) : (
             <>
               <FiPhoneOff className="out-phone-btn-call" />
               <div>
-                <h4 style={{ backgroundColor: "red", color: "white", padding: "7px", borderRadius: "15px" }}>{agentStatus.toUpperCase()}</h4>
-                <span style={{ color: "black", marginLeft: "10px" }}>Time Remaining: {formatRemainingTime(timeRemaining)}</span>
+                <h4
+                  style={{
+                    backgroundColor: "red",
+                    color: "white",
+                    padding: "7px",
+                    borderRadius: "15px",
+                  }}
+                >
+                  {agentStatus.toUpperCase()}
+                </h4>
+                <span style={{ color: "black", marginLeft: "10px" }}>
+                  Time Remaining: {formatRemainingTime(timeRemaining)}
+                </span>
               </div>
             </>
           )}
@@ -988,20 +1335,26 @@ export default function AgentsDashboard() {
                 sx={{
                   width: 48,
                   height: 40,
-                  bgcolor: 'primary.main',
-                  color: 'white',
+                  bgcolor: "primary.main",
+                  color: "white",
                   fontSize: 10,
-                  fontWeight: 'bold',
+                  fontWeight: "bold",
                 }}
               >
                 PAUSE
               </Avatar>
             </IconButton>
           </Tooltip>
-
         </div>
 
         <div className="dashboard-single-agent-row_two">
+          <CallHistoryCard
+            onCallBack={(phoneNumber) => {
+              setShowPhonePopup(true);
+              setPhoneNumber(phoneNumber);
+              handleRedial(phoneNumber);
+            }}
+          />
           <CallQueueCard />
         </div>
 
@@ -1020,16 +1373,84 @@ export default function AgentsDashboard() {
       </div>
 
       {/* Status menu */}
-      <Menu anchorEl={anchorEl} id="account-menu" open={openStatus} onClose={handleClose} onClick={handleClose}
-        slotProps={{ paper: { elevation: 0, sx: { overflow: "visible", filter: "drop-shadow(0px 2px 8px rgba(0,0,0,0.32))", mt: 1.5, "& .MuiAvatar-root": { width: 32, height: 32, ml: -0.5, mr: 1 }, "&::before": { content: '""', display: "block", position: "absolute", top: 0, right: 14, width: 10, height: 10, bgcolor: "background.paper", transform: "translateY(-50%) rotate(45deg)", zIndex: 0 } } } }}
-        transformOrigin={{ horizontal: "right", vertical: "top" }} anchorOrigin={{ horizontal: "right", vertical: "bottom" }}>
-        <MenuItem onClick={() => handleAgentEmergency("ready")}><ListItemIcon><GiTrafficLightsReadyToGo fontSize="large" /></ListItemIcon>Ready</MenuItem>
-        <MenuItem onClick={() => handleAgentEmergency("breakfast")}><ListItemIcon><MdOutlineFreeBreakfast fontSize="large" /></ListItemIcon>Breakfast</MenuItem>
-        <MenuItem onClick={() => handleAgentEmergency("lunch")}><ListItemIcon><MdOutlineLunchDining fontSize="large" /></ListItemIcon>Lunch</MenuItem>
-        <MenuItem onClick={() => handleAgentEmergency("attending meeting")}><ListItemIcon><GiExplosiveMeeting fontSize="large" /></ListItemIcon>Attending Meeting</MenuItem>
-        <MenuItem onClick={() => handleAgentEmergency("short call")}><ListItemIcon><MdWifiCalling2 fontSize="large" /></ListItemIcon>Short Call</MenuItem>
-        <MenuItem onClick={() => handleAgentEmergency("emergency")}><ListItemIcon><TbEmergencyBed fontSize="large" /></ListItemIcon>Emergency</MenuItem>
-        <MenuItem onClick={() => handleAgentEmergency("follow-up of customer inquiries")}><ListItemIcon><MdOutlineFollowTheSigns fontSize="large" /></ListItemIcon>Follow-up of customer inquiries</MenuItem>
+      <Menu
+        anchorEl={anchorEl}
+        id="account-menu"
+        open={openStatus}
+        onClose={handleClose}
+        onClick={handleClose}
+        slotProps={{
+          paper: {
+            elevation: 0,
+            sx: {
+              overflow: "visible",
+              filter: "drop-shadow(0px 2px 8px rgba(0,0,0,0.32))",
+              mt: 1.5,
+              "& .MuiAvatar-root": { width: 32, height: 32, ml: -0.5, mr: 1 },
+              "&::before": {
+                content: '""',
+                display: "block",
+                position: "absolute",
+                top: 0,
+                right: 14,
+                width: 10,
+                height: 10,
+                bgcolor: "background.paper",
+                transform: "translateY(-50%) rotate(45deg)",
+                zIndex: 0,
+              },
+            },
+          },
+        }}
+        transformOrigin={{ horizontal: "right", vertical: "top" }}
+        anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
+      >
+        <MenuItem onClick={() => handleAgentEmergency("ready")}>
+          <ListItemIcon>
+            <GiTrafficLightsReadyToGo fontSize="large" />
+          </ListItemIcon>
+          Ready
+        </MenuItem>
+        <MenuItem onClick={() => handleAgentEmergency("breakfast")}>
+          <ListItemIcon>
+            <MdOutlineFreeBreakfast fontSize="large" />
+          </ListItemIcon>
+          Breakfast
+        </MenuItem>
+        <MenuItem onClick={() => handleAgentEmergency("lunch")}>
+          <ListItemIcon>
+            <MdOutlineLunchDining fontSize="large" />
+          </ListItemIcon>
+          Lunch
+        </MenuItem>
+        <MenuItem onClick={() => handleAgentEmergency("attending meeting")}>
+          <ListItemIcon>
+            <GiExplosiveMeeting fontSize="large" />
+          </ListItemIcon>
+          Attending Meeting
+        </MenuItem>
+        <MenuItem onClick={() => handleAgentEmergency("short call")}>
+          <ListItemIcon>
+            <MdWifiCalling2 fontSize="large" />
+          </ListItemIcon>
+          Short Call
+        </MenuItem>
+        <MenuItem onClick={() => handleAgentEmergency("emergency")}>
+          <ListItemIcon>
+            <TbEmergencyBed fontSize="large" />
+          </ListItemIcon>
+          Emergency
+        </MenuItem>
+        <MenuItem
+          onClick={() =>
+            handleAgentEmergency("follow-up of customer inquiries")
+          }
+        >
+          <ListItemIcon>
+            <MdOutlineFollowTheSigns fontSize="large" />
+          </ListItemIcon>
+          Follow-up of customer inquiries
+        </MenuItem>
       </Menu>
 
       {/* Phone popup */}
@@ -1040,9 +1461,19 @@ export default function AgentsDashboard() {
             <div className="phone-popup-header">
               <div className="phone-popup-title">
                 <MdOutlineLocalPhone className="phone-icon" />
-                <span>{phoneStatus === "In Call" ? "Active Call" : phoneStatus === "Ringing" ? "Incoming Call" : "Phone"}</span>
+                <span>
+                  {phoneStatus === "In Call"
+                    ? "Active Call"
+                    : phoneStatus === "Ringing"
+                    ? "Incoming Call"
+                    : "Phone"}
+                </span>
               </div>
-              <button onClick={togglePhonePopup} className="phone-popup-close" aria-label="Close">
+              <button
+                onClick={togglePhonePopup}
+                className="phone-popup-close"
+                aria-label="Close"
+              >
                 <span>&times;</span>
               </button>
             </div>
@@ -1056,7 +1487,9 @@ export default function AgentsDashboard() {
                 </div>
                 <div className="call-duration">
                   <span className="duration-label">Duration:</span>
-                  <span className="duration-time">{formatDuration(callDuration)}</span>
+                  <span className="duration-time">
+                    {formatDuration(callDuration)}
+                  </span>
                 </div>
                 {/* Swap to Ticket Modal Button */}
                 <button
@@ -1076,27 +1509,40 @@ export default function AgentsDashboard() {
                 <div className="incoming-call-section">
                   <div className="caller-info">
                     <div className="caller-avatar">
-                      <span>{lastIncomingNumber ? lastIncomingNumber.charAt(0) : "?"}</span>
+                      <span>
+                        {lastIncomingNumber
+                          ? lastIncomingNumber.charAt(0)
+                          : "?"}
+                      </span>
                     </div>
                     <div className="caller-details">
-                      <div className="caller-number">{lastIncomingNumber || "Unknown"}</div>
+                      <div className="caller-number">
+                        {lastIncomingNumber || "Unknown"}
+                      </div>
                       <div className="caller-label">Incoming Call</div>
                     </div>
                   </div>
                   <div className="call-actions">
-                    <button className="call-btn accept-btn" onClick={handleAcceptCall}>
+                    <button
+                      className="call-btn accept-btn"
+                      onClick={handleAcceptCall}
+                    >
                       <FiPhoneCall />
                       <span>Answer</span>
                     </button>
-                    <button className="call-btn reject-btn" onClick={handleRejectCall}>
+                    <button
+                      className="call-btn reject-btn"
+                      onClick={handleRejectCall}
+                    >
                       <FiPhoneOff />
                       <span>Decline</span>
                     </button>
                   </div>
                   {/* Note: Ticket modal opens automatically when answering call */}
                   <div className="call-instruction">
-                    <small style={{ color: '#6c757d', fontStyle: 'italic' }}>
-                      💡 Ticket form will open automatically when you answer the call
+                    <small style={{ color: "#6c757d", fontStyle: "italic" }}>
+                      💡 Ticket form will open automatically when you answer the
+                      call
                     </small>
                   </div>
                 </div>
@@ -1117,7 +1563,20 @@ export default function AgentsDashboard() {
 
                   {showKeypad && (
                     <div className="keypad-grid">
-                      {["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"].map((digit) => (
+                      {[
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "*",
+                        "0",
+                        "#",
+                      ].map((digit) => (
                         <button
                           key={digit}
                           className="keypad-btn"
@@ -1128,7 +1587,9 @@ export default function AgentsDashboard() {
                       ))}
                       <button
                         className="keypad-btn backspace-btn"
-                        onClick={() => setPhoneNumber((prev) => prev.slice(0, -1))}
+                        onClick={() =>
+                          setPhoneNumber((prev) => prev.slice(0, -1))
+                        }
                         style={{ gridColumn: "span 3" }}
                       >
                         <span>⌫</span>
@@ -1147,9 +1608,22 @@ export default function AgentsDashboard() {
                     <span>Transfer Call</span>
                   </div>
                   <Autocomplete
-                    options={onlineUsers.filter((u) => !!u.extension && (u.role === "agent" || u.role === "supervisor") && String(u.extension) !== String(extension))}
-                    getOptionLabel={(u) => (u ? `${u.extension} — ${(u.name || u.username || "User")} (${u.role})` : "")}
-                    isOptionEqualToValue={(a, b) => a?.extension === b?.extension}
+                    options={onlineUsers.filter(
+                      (u) =>
+                        !!u.extension &&
+                        (u.role === "agent" || u.role === "supervisor") &&
+                        String(u.extension) !== String(extension)
+                    )}
+                    getOptionLabel={(u) =>
+                      u
+                        ? `${u.extension} — ${
+                            u.name || u.username || "User"
+                          } (${u.role})`
+                        : ""
+                    }
+                    isOptionEqualToValue={(a, b) =>
+                      a?.extension === b?.extension
+                    }
                     onChange={(_, u) => {
                       setTransferTarget(u?.extension || "");
                     }}
@@ -1179,7 +1653,7 @@ export default function AgentsDashboard() {
               <div className="phone-controls">
                 <div className="control-row">
                   <button
-                    className={`control-btn ${isMuted ? 'active' : ''}`}
+                    className={`control-btn ${isMuted ? "active" : ""}`}
                     onClick={toggleMute}
                     title={isMuted ? "Unmute" : "Mute"}
                   >
@@ -1188,7 +1662,7 @@ export default function AgentsDashboard() {
                   </button>
 
                   <button
-                    className={`control-btn ${isSpeakerOn ? 'active' : ''}`}
+                    className={`control-btn ${isSpeakerOn ? "active" : ""}`}
                     onClick={toggleSpeaker}
                     title={isSpeakerOn ? "Speaker On" : "Speaker Off"}
                   >
@@ -1197,7 +1671,7 @@ export default function AgentsDashboard() {
                   </button>
 
                   <button
-                    className={`control-btn ${isOnHold ? 'active' : ''}`}
+                    className={`control-btn ${isOnHold ? "active" : ""}`}
                     onClick={toggleHold}
                     title={isOnHold ? "Resume" : "Hold"}
                   >
@@ -1220,7 +1694,9 @@ export default function AgentsDashboard() {
                     <button
                       className="control-btn dial-btn"
                       onClick={handleDial}
-                      disabled={phoneStatus === "Dialing" || phoneStatus === "Ringing"}
+                      disabled={
+                        phoneStatus === "Dialing" || phoneStatus === "Ringing"
+                      }
                     >
                       <MdLocalPhone />
                       <span>Dial</span>
@@ -1243,7 +1719,12 @@ export default function AgentsDashboard() {
       )}
 
       {/* Missed calls dialog */}
-      <Dialog open={missedOpen} onClose={() => setMissedOpen(false)} fullWidth maxWidth="xs">
+      <Dialog
+        open={missedOpen}
+        onClose={() => setMissedOpen(false)}
+        fullWidth
+        maxWidth="xs"
+      >
         <DialogTitle>Missed Calls</DialogTitle>
         <DialogContent dividers>
           {missedCalls.length === 0 ? (
@@ -1251,28 +1732,77 @@ export default function AgentsDashboard() {
           ) : (
             <ul style={{ listStyle: "none", padding: 0 }}>
               {[...missedCalls].reverse().map((call, index) => (
-                <li key={index} style={{ marginBottom: 15, borderBottom: "1px solid #ccc", paddingBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <li
+                  key={index}
+                  style={{
+                    marginBottom: 15,
+                    borderBottom: "1px solid #ccc",
+                    paddingBottom: 10,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                  }}
+                >
                   <div>
                     <strong>{call.caller}</strong>
                     <br />
                     <small>{new Date(call.time).toLocaleTimeString()}</small>
                   </div>
-                  <Button variant="contained" color="primary" size="small" onClick={() => { setMissedOpen(false); setShowPhonePopup(true); setPhoneNumber(call.caller); handleRedial(call.caller, call.id); }} startIcon={<FiPhoneCall />}>Call Back</Button>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    size="small"
+                    onClick={() => {
+                      setMissedOpen(false);
+                      setShowPhonePopup(true);
+                      setPhoneNumber(call.caller);
+                      handleRedial(call.caller, call.id);
+                    }}
+                    startIcon={<FiPhoneCall />}
+                  >
+                    Call Back
+                  </Button>
                 </li>
               ))}
             </ul>
           )}
-          <Button onClick={() => { setMissedCalls([]); localStorage.removeItem("missedCalls"); }} fullWidth variant="outlined" color="error" style={{ marginTop: 10 }}>Clear Missed Calls</Button>
+          <Button
+            onClick={() => {
+              setMissedCalls([]);
+              localStorage.removeItem("missedCalls");
+            }}
+            fullWidth
+            variant="outlined"
+            color="error"
+            style={{ marginTop: 10 }}
+          >
+            Clear Missed Calls
+          </Button>
         </DialogContent>
       </Dialog>
 
       {/* Snackbar */}
-      <Snackbar open={snackbarOpen} autoHideDuration={4000} onClose={() => setSnackbarOpen(false)} anchorOrigin={{ vertical: "top", horizontal: "center" }}>
-        <Alert onClose={() => setSnackbarOpen(false)} severity={snackbarSeverity} sx={{ width: "100%" }}>{snackbarMessage}</Alert>
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={4000}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert
+          onClose={() => setSnackbarOpen(false)}
+          severity={snackbarSeverity}
+          sx={{ width: "100%" }}
+        >
+          {snackbarMessage}
+        </Alert>
       </Snackbar>
 
       {/* Create Ticket quick button */}
-      <Button variant="contained" color="primary" onClick={() => openTicketModal()}>
+      <Button
+        variant="contained"
+        color="primary"
+        onClick={() => openTicketModal()}
+      >
         Create Ticket
       </Button>
 
@@ -1280,8 +1810,8 @@ export default function AgentsDashboard() {
       <Button
         variant="contained"
         color="primary"
-        onClick={() => openTicketModal('employer')}
-        style={{ marginLeft: '10px' }}
+        onClick={() => openTicketModal("employer")}
+        style={{ marginLeft: "10px" }}
         title="Create ticket for employer"
       >
         🏢 Employer Ticket
@@ -1291,15 +1821,15 @@ export default function AgentsDashboard() {
       <Button
         variant="contained"
         color="primary"
-        onClick={() => openTicketModal('employee')}
-        style={{ marginLeft: '10px' }}
+        onClick={() => openTicketModal("employee")}
+        style={{ marginLeft: "10px" }}
         title="Create ticket for employee"
       >
         👤 Employee Ticket
       </Button>
 
       {/* Ticket modal with custom wrapper for better control */}
-      <div style={{ position: 'relative' }}>
+      <div style={{ position: "relative" }}>
         <AdvancedTicketCreateModal
           open={showTicketModal}
           onClose={closeTicketModal}
@@ -1310,7 +1840,12 @@ export default function AgentsDashboard() {
       </div>
 
       {/* Voice notes modal */}
-      <Dialog open={showVoiceNotesModal} onClose={() => setShowVoiceNotesModal(false)} fullWidth maxWidth="md">
+      <Dialog
+        open={showVoiceNotesModal}
+        onClose={() => setShowVoiceNotesModal(false)}
+        fullWidth
+        maxWidth="md"
+      >
         <DialogContent>
           <VoiceNotesReport />
         </DialogContent>

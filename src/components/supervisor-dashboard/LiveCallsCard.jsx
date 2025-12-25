@@ -155,6 +155,7 @@ export default function LiveCallsCard({
             <tr>
               <th>Source</th>
               <th>Destination</th>
+              <th>Agent</th>
               <th>Status</th>
               <th>Duration</th>
               <th>Call Type</th>
@@ -167,6 +168,17 @@ export default function LiveCallsCard({
                 <tr key={call.spyCallId || call.id}>
                   <td className="agent-name">{call.caller}</td>
                   <td className="customer-number">{call.callee}</td>
+                  <td className="agent-name">
+                    {call.agent ? (
+                      <span style={{ fontWeight: 500, color: "#1976d2" }}>
+                        {call.agent}
+                      </span>
+                    ) : (
+                      <span style={{ color: "#999", fontStyle: "italic" }}>
+                        Not assigned
+                      </span>
+                    )}
+                  </td>
                   <td>
                     <span className={`status-badge ${call.status?.toLowerCase()}`}>
                       {call.status}

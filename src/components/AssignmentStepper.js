@@ -318,6 +318,18 @@ export default function AssignmentStepper({ assignmentHistory, selectedTicket })
                 <Typography variant="body2" color="text.secondary">
                   {a.action} - {formattedDate} {aging}
                 </Typography>
+                {/* Show reason/description if available */}
+                {a.reason && (
+                  <Box sx={{ mt: 1, p: 1.5, bgcolor: '#f5f5f5', borderRadius: 1, border: '1px solid #e0e0e0' }}>
+                    <Typography variant="caption" sx={{ fontWeight: 'bold', color: '#666', display: 'block', mb: 0.5 }}>
+                      Description:
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#333', fontStyle: 'italic', whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+                      {a.reason}
+                    </Typography>
+                  </Box>
+                )}
+                
                 {/* Only show attachment if this is not a reversal action, or find attachment from previous work assignment */}
                 {(() => {
                   // If this is a reversal, check previous assignments for attachment (the person who did the work)
@@ -332,7 +344,7 @@ export default function AssignmentStepper({ assignmentHistory, selectedTicket })
                       return (
                         <Typography
                           variant="body2"
-                          sx={{ color: '#28a745', fontStyle: 'italic', cursor: 'pointer', textDecoration: 'underline' }}
+                          sx={{ color: '#28a745', fontStyle: 'italic', cursor: 'pointer', textDecoration: 'underline', mt: a.reason ? 1 : 0 }}
                           onClick={() => openAttachmentFile(previousWorkAssignment.attachment_path)}
                         >
                           Download attachment (from {previousWorkAssignment.assigned_to_name})
@@ -340,7 +352,7 @@ export default function AssignmentStepper({ assignmentHistory, selectedTicket })
                       );
                     }
                     return (
-                      <Typography variant="body2" sx={{ color: '#28a745', fontStyle: 'italic' }}>
+                      <Typography variant="body2" sx={{ color: '#28a745', fontStyle: 'italic', mt: a.reason ? 1 : 0 }}>
                         No attachment
                       </Typography>
                     );
@@ -350,7 +362,7 @@ export default function AssignmentStepper({ assignmentHistory, selectedTicket })
                     return (
                       <Typography
                         variant="body2"
-                        sx={{ color: '#28a745', fontStyle: 'italic', cursor: 'pointer', textDecoration: 'underline' }}
+                        sx={{ color: '#28a745', fontStyle: 'italic', cursor: 'pointer', textDecoration: 'underline', mt: a.reason ? 1 : 0 }}
                         onClick={() => openAttachmentFile(a.attachment_path)}
                       >
                         Download attachment
@@ -358,7 +370,7 @@ export default function AssignmentStepper({ assignmentHistory, selectedTicket })
                     );
                   }
                   return (
-                    <Typography variant="body2" sx={{ color: '#28a745', fontStyle: 'italic' }}>
+                    <Typography variant="body2" sx={{ color: '#28a745', fontStyle: 'italic', mt: a.reason ? 1 : 0 }}>
                       No attachment
                     </Typography>
                   );

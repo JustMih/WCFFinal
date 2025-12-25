@@ -253,6 +253,7 @@ const AgentCRM = () => {
   // Notification modal state
   const [showNotifyModal, setShowNotifyModal] = useState(false);
   const [notifyMessage, setNotifyMessage] = useState("");
+  const [notifyLoading, setNotifyLoading] = useState(false);
 
   // Attend dialog state
   const [isAttendDialogOpen, setIsAttendDialogOpen] = useState(false);
@@ -3415,76 +3416,113 @@ const AgentCRM = () => {
       </Modal>
 
       {/* Notification Modal */}
-      <Modal open={showNotifyModal} onClose={() => setShowNotifyModal(false)}>
+      <Modal
+        open={showNotifyModal}
+        onClose={() => {
+          setShowNotifyModal(false);
+          setNotifyMessage("");
+        }}
+      >
         <Box
           sx={{
-            p: 3,
-            bgcolor: "background.paper",
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: { xs: '90%', sm: 400 },
+            bgcolor: 'background.paper',
             borderRadius: 2,
-            minWidth: 350,
-            maxWidth: 400,
-            mx: "auto",
-            mt: "15vh",
+            boxShadow: 24,
+            p: 3,
+            outline: 'none'
           }}
         >
-          <Typography variant="h6" gutterBottom>
+          <Typography variant="h6" gutterBottom sx={{ fontWeight: 600, color: '#1976d2', mb: 1 }}>
             Send Notification
           </Typography>
+          {selectedTicket && (
+            <Typography variant="body2" sx={{ mb: 2, color: 'text.secondary', fontWeight: 500 }}>
+              Ticket: <span style={{ color: '#1976d2' }}>{selectedTicket.ticket_id || 'N/A'}</span>
+            </Typography>
+          )}
           <TextField
             label="Message"
             multiline
-            rows={3}
+            rows={4}
             fullWidth
             value={notifyMessage}
             onChange={(e) => setNotifyMessage(e.target.value)}
+            placeholder="Enter notification message..."
             sx={{ mb: 2 }}
+            required
           />
-          <Button
-            variant="contained"
-            onClick={async () => {
-              try {
-                const res = await fetch(`${baseURL}/notifications/notify`, {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                  },
-                  body: JSON.stringify({
-                    ticket_id: selectedTicket.id,
-                    category: selectedTicket.category, // or another user ID
-                    message: notifyMessage,
-                    channel: selectedTicket.channel,
-                    subject: selectedTicket.functionData?.name,
-                  }),
-                });
-                const data = await res.json();
+          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', mt: 2 }}>
+            <Button
+              variant="outlined"
+              onClick={() => {
                 setShowNotifyModal(false);
-                if (res.ok && data.notification) {
-                  setSnackbar({
-                    open: true,
-                    message: "Notification sent and saved!",
-                    severity: "success",
+                setNotifyMessage("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                if (!selectedTicket || !notifyMessage.trim() || notifyLoading) return;
+                
+                setNotifyLoading(true);
+                try {
+                  const res = await fetch(`${baseURL}/notifications/notify`, {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify({
+                      ticket_id: selectedTicket.id,
+                      category: selectedTicket.category,
+                      message: notifyMessage,
+                      channel: selectedTicket.channel || "In-System",
+                      subject: selectedTicket.subject || selectedTicket.ticket_id,
+                    }),
                   });
-                } else {
-                  setSnackbar({
-                    open: true,
-                    message: data.message || "Failed to save notification.",
-                    severity: "error",
+                  const data = await res.json();
+                  
+                  if (res.ok && data.notification) {
+                    setModal({
+                      isOpen: true,
+                      type: "success",
+                      message: "Notification sent and saved!",
+                    });
+                    setShowNotifyModal(false);
+                    setNotifyMessage("");
+                  } else {
+                    setModal({
+                      isOpen: true,
+                      type: "error",
+                      message: data.message || "Failed to save notification.",
+                    });
+                  }
+                } catch (error) {
+                  setModal({
+                    isOpen: true,
+                    type: "error",
+                    message: "Network error: " + error.message,
                   });
+                } finally {
+                  setNotifyLoading(false);
                 }
-              } catch (error) {
-                setShowNotifyModal(false);
-                setSnackbar({
-                  open: true,
-                  message: "Network error: " + error.message,
-                  severity: "error",
-                });
-              }
-            }}
-            disabled={!notifyMessage.trim()}
-          >
-            Send
-          </Button>
+              }}
+              disabled={!notifyMessage.trim() || notifyLoading}
+            >
+              {notifyLoading ? "Sending..." : "Send"}
+            </Button>
+          </Box>
         </Box>
       </Modal>
 
