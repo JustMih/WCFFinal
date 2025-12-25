@@ -6,7 +6,7 @@ import {
   FaComments,
 } from "react-icons/fa";
 import "./LiveCallsCard.css";
-import { amiURL, baseURL } from "../../config";
+import { baseURL } from "../../config";
 
 export default function LiveCallsCard({
   isLoading,
@@ -20,46 +20,50 @@ export default function LiveCallsCard({
   const [filteredLiveCalls, setFilteredLiveCalls] = useState([]);
   const [active, setActive] = useState([]);
 
-  const handleListen = async (callId) => {
-    console.log(`Listening to call ${callId}`);
+  /* ================================
+     SPY ACTION HANDLER (NEW)
+     ================================ */
+  const spyAction = async (spyCallId, action) => {
+    console.log(`[SPY] ${action} on`, spyCallId);
+
+    if (!spyCallId) {
+      console.error("[SPY] Missing spyCallId");
+      return;
+    }
+
     try {
-      const response = await fetch(`${baseURL}/livestream/live-calls/${callId}/listen`, {
+      const response = await fetch(`${baseURL}/spy/call-control`, {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          callId: spyCallId,
+          action,
+        }),
       });
+
       const data = await response.json();
-      console.log(data.message);
+      console.log("[SPY] Dial string:", data.dial);
+
+      // TODO: Trigger SIP.js call here
+      // sipCall(data.dial);
+
     } catch (error) {
-      console.error(`Error listening to call ${callId}:`, error);
+      console.error("[SPY] Error:", error);
     }
   };
 
-  const handleIntervene = async (callId) => {
-    console.log(`Intervening in call ${callId}`);
-    try {
-      const response = await fetch(`${baseURL}/livestream/live-calls/${callId}/intervene`, {
-        method: "POST",
-      });
-      const data = await response.json();
-      console.log(data.message);
-    } catch (error) {
-      console.error(`Error intervening in call ${callId}:`, error);
-    }
-  };
+  const handleListen = (spyCallId) => spyAction(spyCallId, "listen");
+  const handleWhisper = (spyCallId) => spyAction(spyCallId, "whisper");
+  const handleIntervene = (spyCallId) => spyAction(spyCallId, "barge");
 
-  const handleWhisper = async (callId) => {
-    console.log(`Whispering to call ${callId}`);
-    try {
-      const response = await fetch(`${baseURL}/livestream/live-calls/${callId}/whisper`, {
-        method: "POST",
-      });
-      const data = await response.json();
-      console.log(data.message);
-    } catch (error) {
-      console.error(`Error whispering to call ${callId}:`, error);
-    }
-  };
-
+  /* ================================
+     HELPERS
+     ================================ */
   const calculateDuration = (callAnsweredTime) => {
+    if (!callAnsweredTime) return "00:00:00";
+
     const callAnsweredDate = new Date(callAnsweredTime);
     const currentDate = new Date();
     const durationInMillis = currentDate - callAnsweredDate;
@@ -72,11 +76,24 @@ export default function LiveCallsCard({
   };
 
   const getCallType = (caller) => {
+    if (!caller) return "unknown";
     if (caller.startsWith("1")) return "outbound";
-    else if (caller.startsWith("+") || caller.startsWith("0")) return "inbound";
+    if (caller.startsWith("+") || caller.startsWith("0")) return "inbound";
     return "unknown";
   };
 
+  const getDurationColorClass = (duration) => {
+    if (!duration) return "";
+    const [, minutes, seconds] = duration.split(":").map(Number);
+    const totalMinutes = minutes + seconds / 60;
+    if (totalMinutes < 2) return "duration-green";
+    if (totalMinutes < 5) return "duration-yellow";
+    return "duration-red";
+  };
+
+  /* ================================
+     FETCH LIVE CALLS
+     ================================ */
   useEffect(() => {
     const fetchLiveCalls = async () => {
       try {
@@ -85,7 +102,7 @@ export default function LiveCallsCard({
         setLiveCalls(data);
         setActive(data.filter((call) => call.status === "active"));
       } catch (error) {
-        console.error("Error fetching live calls data:", error);
+        console.error("Error fetching live calls:", error);
       }
     };
 
@@ -94,30 +111,26 @@ export default function LiveCallsCard({
     return () => clearInterval(intervalId);
   }, []);
 
+  /* ================================
+     SEARCH FILTER
+     ================================ */
   useEffect(() => {
     const safeSearchTerm =
       typeof searchTerm === "string" ? searchTerm.toLowerCase() : "";
     const filtered = liveCalls.filter(
       (call) =>
-        call.id?.toLowerCase?.().includes(safeSearchTerm) ||
-        call.agent?.toLowerCase?.().includes(safeSearchTerm) ||
-        call.customer?.toLowerCase?.().includes(safeSearchTerm) ||
-        call.callType?.toLowerCase?.().includes(safeSearchTerm)
+        call.caller?.toLowerCase().includes(safeSearchTerm) ||
+        call.callee?.toLowerCase().includes(safeSearchTerm) ||
+        call.status?.toLowerCase().includes(safeSearchTerm)
     );
     setFilteredLiveCalls(filtered);
   }, [liveCalls, searchTerm]);
 
   const data = filteredLiveCalls.length > 0 ? filteredLiveCalls : liveCalls;
 
-  const getDurationColorClass = (duration) => {
-    if (!duration) return "";
-    const [minutes, seconds] = String(duration).split(":").map(Number);
-    const totalMinutes = minutes + seconds / 60;
-    if (totalMinutes < 2) return "duration-green";
-    else if (totalMinutes < 5) return "duration-yellow";
-    else return "duration-red";
-  };
-
+  /* ================================
+     RENDER
+     ================================ */
   return (
     <div className="live-calls-table-container">
       <div className="live-calls-header">
@@ -125,18 +138,17 @@ export default function LiveCallsCard({
           Live Calls{" "}
           {isLoading && <span className="loading-indicator">(Loading...)</span>}
         </h4>
-        <div className="live-calls-actions">
-          <div className="search-box">
-            <input
-              type="text"
-              placeholder="Search calls..."
-              value={searchTerm}
-              onChange={onSearch}
-              className="search-input"
-            />
-          </div>
+        <div className="search-box">
+          <input
+            type="text"
+            placeholder="Search calls..."
+            value={searchTerm}
+            onChange={onSearch}
+            className="search-input"
+          />
         </div>
       </div>
+
       <div className="table-responsive">
         <table className="live-calls-table">
           <thead>
@@ -152,16 +164,12 @@ export default function LiveCallsCard({
           <tbody>
             {active.length > 0 ? (
               active.map((call) => (
-                <tr key={call.id}>
+                <tr key={call.spyCallId || call.id}>
                   <td className="agent-name">{call.caller}</td>
                   <td className="customer-number">{call.callee}</td>
                   <td>
-                    <span
-                      className={`status-badge ${
-                        call.status ? call.status.toLowerCase() : ""
-                      }`}
-                    >
-                      {call.status || "N/A"}
+                    <span className={`status-badge ${call.status?.toLowerCase()}`}>
+                      {call.status}
                     </span>
                   </td>
                   <td>
@@ -178,24 +186,24 @@ export default function LiveCallsCard({
                     <div className="action-buttons">
                       <button
                         className="action-button listen"
-                        onClick={() => handleListen(call.id)}
-                        disabled={call.status === "COMPLETED"}
+                        onClick={() => handleListen(call.spyCallId)}
+                        disabled={!call.spyCallId}
                         title="Listen"
                       >
                         <FaHeadphones />
                       </button>
                       <button
                         className="action-button intervene"
-                        onClick={() => handleIntervene(call.id)}
-                        disabled={call.status === "COMPLETED"}
+                        onClick={() => handleIntervene(call.spyCallId)}
+                        disabled={!call.spyCallId}
                         title="Intervene"
                       >
                         <FaUserShield />
                       </button>
                       <button
                         className="action-button whisper"
-                        onClick={() => handleWhisper(call.id)}
-                        disabled={call.status === "COMPLETED"}
+                        onClick={() => handleWhisper(call.spyCallId)}
+                        disabled={!call.spyCallId}
                         title="Whisper"
                       >
                         <FaComments />
@@ -206,7 +214,7 @@ export default function LiveCallsCard({
               ))
             ) : (
               <tr>
-                <td colSpan="8" className="no-data">
+                <td colSpan="6" className="no-data">
                   No live calls available.
                 </td>
               </tr>
