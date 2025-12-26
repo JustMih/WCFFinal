@@ -1851,6 +1851,8 @@ export default function TicketDetailsModal({
         `[${reverseResolutionType}] ${reverseReason}` : 
         reverseReason;
       formData.append("reason", fullReason);
+      // Also send description field for backend to use
+      formData.append("description", reverseReason);
       formData.append("status", "reversing");
       
       if (attachment) {
@@ -2202,7 +2204,9 @@ export default function TicketDetailsModal({
       const fetchAttendees = async () => {
         try {
           const token = localStorage.getItem("authToken");
-          const res = await fetch(`${baseURL}/ticket/admin/attendee`, {
+          // Include ticketId in query params if available (for focal person filtering by sub_section)
+          const ticketIdParam = selectedTicket?.id ? `?ticketId=${selectedTicket.id}` : '';
+          const res = await fetch(`${baseURL}/ticket/admin/attendee${ticketIdParam}`, {
             headers: { "Authorization": `Bearer ${token}` }
           });
           const data = await res.json();
@@ -2218,7 +2222,8 @@ export default function TicketDetailsModal({
           const currentReportTo = (localStorage.getItem("report_to") || "").toString().toLowerCase();
           
           const filtered = raw.filter(a => {
-            // For focal persons, head-of-unit, manager, and director, backend already filters by report_to/designation, so just return all attendees
+            // For focal persons, backend filters by ticket sub_section (if ticketId provided) or report_to
+            // For head-of-unit, manager, and director, backend already filters by report_to/designation
             if (currentUserRole === "focal-person" || currentUserRole === "head-of-unit" || currentUserRole === "manager" || currentUserRole === "director") {
               return true;
             }
@@ -2235,7 +2240,7 @@ export default function TicketDetailsModal({
       };
       fetchAttendees();
     }
-  }, [isAssignModalOpen, isReassignModalOpen]);
+  }, [isAssignModalOpen, isReassignModalOpen, selectedTicket?.id]);
 
   // Clear reassign form when reassign modal opens
   useEffect(() => {
@@ -2678,6 +2683,8 @@ export default function TicketDetailsModal({
       const formData = new FormData();
       formData.append("userId", localStorage.getItem("userId"));
       formData.append("recommendation", agentRecommendation);
+      // Also send description field for backend to use
+      formData.append("description", agentRecommendation);
       
       if (attachment) {
         formData.append("attachment", attachment);
