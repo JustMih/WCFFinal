@@ -3171,6 +3171,46 @@ export default function TicketDetailsModal({
                   </Typography>
                 </div>
 
+                {/* Resolution Details and Closed By - Show only when ticket is closed */}
+                {selectedTicket.status === "Closed" && (
+                  <>
+                    {selectedTicket.resolution_details && (
+                      <div style={{ flex: "1 1 100%", marginTop: "16px" }}>
+                        <Typography sx={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}>
+                          <strong>Resolution Details:</strong>{" "}
+                          {selectedTicket.resolution_details}
+                        </Typography>
+                      </div>
+                    )}
+                    {(() => {
+                      // Get closed by information from assignment history (same logic as history section)
+                      const last = assignmentHistory && assignmentHistory.length > 0
+                        ? assignmentHistory[assignmentHistory.length - 1]
+                        : null;
+                      
+                      const closedByName = last?.assigned_to_name || 
+                                        last?.assignedTo?.full_name || 
+                                        last?.user?.full_name || 
+                                        selectedTicket.attended_by_name ||
+                                        "N/A";
+                      
+                      const closedByRole = last?.assigned_to_role || "N/A";
+                      
+                      return (
+                        <div style={{ flex: "1 1 100%", marginTop: "16px" }}>
+                          <Typography>
+                            <strong>Closed By:</strong>{" "}
+                            {closedByName}{" "}
+                            <span style={{ color: "#888" }}>
+                              ({closedByRole})
+                            </span>
+                          </Typography>
+                        </div>
+                      );
+                    })()}
+                  </>
+                )}
+
               </div>
 
 

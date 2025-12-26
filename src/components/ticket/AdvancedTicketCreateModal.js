@@ -590,6 +590,9 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
   const [creationFoundTickets, setCreationFoundTickets] = useState([]);
   const [creationActiveTicketId, setCreationActiveTicketId] = useState(null);
   const [historySearch, setHistorySearch] = useState("");
+  const [ticketNumberSearch, setTicketNumberSearch] = useState("");
+  const [ticketNumberSearchLoading, setTicketNumberSearchLoading] = useState(false);
+  const [ticketNumberSearchResults, setTicketNumberSearchResults] = useState([]);
   const [submitAction, setSubmitAction] = useState("open");
   const [isLoading, setIsLoading] = useState(false);
   
@@ -1686,6 +1689,42 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
       setRightPartContent("no-history");
     }
   }, [formData.phoneNumber, showRightPart, rightPartContent]);
+
+  // Search ticket by ticket number (ticket_id like WCF-CC-20251226-000002)
+  const handleSearchByTicketNumber = async () => {
+    if (!ticketNumberSearch.trim()) {
+      return;
+    }
+
+    setTicketNumberSearchLoading(true);
+    try {
+      const token = localStorage.getItem("authToken");
+      // Search by ticket_id (the formatted ticket number)
+      const response = await fetch(`${baseURL}/ticket/search-by-ticket-id/${encodeURIComponent(ticketNumberSearch.trim())}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      const data = await response.json();
+      
+      if (data.success && data.ticket) {
+        // Convert single ticket to array format for consistency
+        setTicketNumberSearchResults([data.ticket]);
+        setCreationFoundTickets([data.ticket]);
+        setRightPartContent("ticket-history");
+      } else {
+        setTicketNumberSearchResults([]);
+        setCreationFoundTickets([]);
+        setRightPartContent("no-history");
+      }
+    } catch (error) {
+      console.error("Error searching by ticket number:", error);
+      setTicketNumberSearchResults([]);
+      setCreationFoundTickets([]);
+      setRightPartContent("no-history");
+    } finally {
+      setTicketNumberSearchLoading(false);
+    }
+  };
 
   // Add useEffect to monitor search state and handle not found scenarios
   useEffect(() => {
@@ -3338,8 +3377,39 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                   </div>
                 )}
                 
-                {/* Ticket history for entered phone number */}
-                {formData.phoneNumber && (
+                {/* Search by Ticket Number */}
+                <Box sx={{ mt: 2, mb: 2 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, color: '#1976d2' }}>
+                    Search by Ticket Number
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <TextField
+                      size="small"
+                      fullWidth
+                      placeholder="Enter ticket number (e.g., WCF-CC-20251226-000002)"
+                      value={ticketNumberSearch}
+                      onChange={(e) => setTicketNumberSearch(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          handleSearchByTicketNumber();
+                        }
+                      }}
+                      sx={{ flex: 1 }}
+                    />
+                    <Button
+                      variant="contained"
+                      size="small"
+                      onClick={handleSearchByTicketNumber}
+                      disabled={!ticketNumberSearch.trim() || ticketNumberSearchLoading}
+                      sx={{ minWidth: 100 }}
+                    >
+                      {ticketNumberSearchLoading ? <CircularProgress size={20} /> : 'Search'}
+                    </Button>
+                  </Box>
+                </Box>
+
+                {/* Ticket history for entered phone number or searched ticket number */}
+                {(formData.phoneNumber || ticketNumberSearchResults.length > 0) && (
                   <div
                     style={{
                       marginTop: 8,
@@ -3350,7 +3420,11 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                     }}
                   >
                     <h4 style={{ color: "#1976d2", margin: '16px 0 8px 0', paddingLeft: 16 }}>
-                      Ticket History for {formData.phoneNumber}
+                      {formData.phoneNumber 
+                        ? `Ticket History for ${formData.phoneNumber}`
+                        : ticketNumberSearchResults.length > 0
+                        ? `Ticket: ${ticketNumberSearchResults[0]?.ticket_id || 'Search Result'}`
+                        : 'Ticket History'}
                     </h4>
                     {creationTicketsLoading ? (
                       <div style={{ textAlign: "center", padding: 12 }}>
@@ -3474,12 +3548,48 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                             >
                               Description: {ticket.description}
                             </Typography>
+                            
+                            {/* Resolution Details and Closed By - Show only when ticket is closed */}
+                            {ticket.status === "Closed" && (
+                              <>
+                                {ticket.resolution_details && (
+                                  <Typography
+                                    variant="body2"
+                                    sx={{
+                                      color: '#666',
+                                      mt: 1,
+                                      display: '-webkit-box',
+                                      WebkitLineClamp: 2,
+                                      WebkitBoxOrient: 'vertical',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis'
+                                    }}
+                                  >
+                                    Resolution Details: {ticket.resolution_details}
+                                  </Typography>
+                                )}
+                                {(ticket.attendedBy?.full_name || ticket.attended_by_name || ticket.closed_by_name) && (
+                                  <Typography variant="body2" sx={{ color: '#666', mt: 0.5 }}>
+                                    Closed By: {ticket.attendedBy?.full_name || ticket.attended_by_name || ticket.closed_by_name}
+                                    {(ticket.attendedBy?.role || ticket.attended_by_role) && (
+                                      <span style={{ color: '#999', marginLeft: '4px' }}>
+                                        ({(ticket.attendedBy?.role || ticket.attended_by_role)})
+                                      </span>
+                                    )}
+                                  </Typography>
+                                )}
+                              </>
+                            )}
                           </Box>
                         </Box>
                       ))
                     ) : (
                       <div style={{ color: '#888', fontSize: '0.95em', textAlign: 'center', padding: 16 }}>
-                        No previous tickets found for this number.
+                        {formData.phoneNumber 
+                          ? `No previous tickets found for ${formData.phoneNumber}.`
+                          : ticketNumberSearch.trim()
+                          ? `No ticket found with number: ${ticketNumberSearch}.`
+                          : 'No tickets found.'}
                       </div>
                     )}
                   </div>

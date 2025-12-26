@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import { RxDashboard } from "react-icons/rx";
-import { MdOutlineSupportAgent, MdEmail } from "react-icons/md";
+import { MdOutlineSupportAgent, MdEmail, MdNotifications } from "react-icons/md";
 import { FaInstagram } from "react-icons/fa";
 import { baseURL } from "../../../config";
 import "./crmSidebar.css";
@@ -128,12 +128,12 @@ export default function CRMSidebar({ isSidebarOpen }) {
   };
 
 
-  useEffect(() => {
-    fetchTicketCounts();
+  const fetchNotificationCount = () => {
     const userId = localStorage.getItem("userId");
     const token = localStorage.getItem("authToken");
     if (userId && token) {
-      fetch(`${baseURL}/notifications/notified-tickets-count/${userId}`, {
+      // Use unread count endpoint to count individual notifications
+      fetch(`${baseURL}/notifications/unread-count/${userId}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
         .then(res => {
@@ -143,12 +143,50 @@ export default function CRMSidebar({ isSidebarOpen }) {
           }
           return res.json();
         })
-        .then(data => setNotifiedCount(data.notifiedTicketCount || 0))
+        .then(data => {
+          const count = data.unreadCount || 0;
+          setNotifiedCount(count);
+          // Store in localStorage for cross-component sync
+          localStorage.setItem('notificationCount', count.toString());
+        })
         .catch(err => {
           setNotifiedCount(0); // fallback
-          // Optionally log or show error
+          localStorage.setItem('notificationCount', '0');
         });
     }
+  };
+
+  useEffect(() => {
+    fetchTicketCounts();
+    fetchNotificationCount();
+    
+    // Listen for custom event when modal opens - decrease count immediately
+    const handleNotificationModalOpened = () => {
+      setNotifiedCount(prev => {
+        const newCount = Math.max(0, prev - 1);
+        localStorage.setItem('notificationCount', newCount.toString());
+        return newCount;
+      });
+    };
+    
+    window.addEventListener('notificationModalOpened', handleNotificationModalOpened);
+    
+    // Listen for localStorage changes (for cross-tab sync)
+    const handleStorageChange = (e) => {
+      if (e.key === 'notificationCount') {
+        setNotifiedCount(parseInt(e.newValue || '0', 10));
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Poll for updates every 30 seconds
+    const interval = setInterval(fetchNotificationCount, 30000);
+    
+    return () => {
+      window.removeEventListener('notificationModalOpened', handleNotificationModalOpened);
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
   }, []);
 
   return (
@@ -194,23 +232,24 @@ export default function CRMSidebar({ isSidebarOpen }) {
                 <div className="menu-item">
                   <MdEmail className="menu-icon" />
                   {isSidebarOpen && (
-                    <span className="menu-text" style={{ position: 'relative', display: 'inline-block' }}>
+                    <span className="menu-text" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       Notifications
-                      {/* {notifiedCount > 0 && (
-                        <span style={{
-                          background: 'red',
-                          color: 'white',
-                          borderRadius: '50%',
-                          padding: '2px 7px',
-                          fontSize: '0.75rem',
-                          position: 'absolute',
-                          top: '-8px',
-                          right: '-18px',
-                          minWidth: '20px',
-                          textAlign: 'center',
-                          fontWeight: 'bold',
-                        }}>{notifiedCount}</span>
-                      )} */}
+                      <Badge 
+                        badgeContent={notifiedCount > 0 ? notifiedCount : 0} 
+                        color="error"
+                        max={99}
+                        invisible={notifiedCount === 0}
+                        sx={{
+                          '& .MuiBadge-badge': {
+                            fontSize: '0.7rem',
+                            minWidth: '18px',
+                            height: '18px',
+                            padding: '0 4px'
+                          }
+                        }}
+                      >
+                        <MdNotifications style={{ fontSize: '1rem', color: '#666' }} />
+                      </Badge>
                     </span>
                   )}
                 </div>
@@ -346,23 +385,24 @@ export default function CRMSidebar({ isSidebarOpen }) {
                 <div className="menu-item">
                   <MdEmail className="menu-icon" />
                   {isSidebarOpen && (
-                    <span className="menu-text" style={{ position: 'relative', display: 'inline-block' }}>
+                    <span className="menu-text" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       Notifications
-                      {/* {notifiedCount > 0 && (
-                        <span style={{
-                          background: 'red',
-                          color: 'white',
-                          borderRadius: '50%',
-                          padding: '2px 7px',
-                          fontSize: '0.75rem',
-                          position: 'absolute',
-                          top: '-8px',
-                          right: '-18px',
-                          minWidth: '20px',
-                          textAlign: 'center',
-                          fontWeight: 'bold',
-                        }}>{notifiedCount}</span>
-                      )} */}
+                      <Badge 
+                        badgeContent={notifiedCount > 0 ? notifiedCount : 0} 
+                        color="error"
+                        max={99}
+                        invisible={notifiedCount === 0}
+                        sx={{
+                          '& .MuiBadge-badge': {
+                            fontSize: '0.7rem',
+                            minWidth: '18px',
+                            height: '18px',
+                            padding: '0 4px'
+                          }
+                        }}
+                      >
+                        <MdNotifications style={{ fontSize: '1rem', color: '#666' }} />
+                      </Badge>
                     </span>
                   )}
                 </div>
