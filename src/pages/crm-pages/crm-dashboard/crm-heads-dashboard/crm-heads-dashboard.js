@@ -398,12 +398,14 @@ export default function FocalPersonDashboard() {
     const fullName = `${ticket.first_name || ""} ${ticket.middle_name || ""} ${
       ticket.last_name || ""
     }`.toLowerCase();
+    const representativeName = (ticket.representative_name || "").toLowerCase();
 
     let matches =
       (!searchValue ||
         ticket.phone_number?.toLowerCase().includes(searchValue) ||
         ticket.nida_number?.toLowerCase().includes(searchValue) ||
         fullName.includes(searchValue) ||
+        representativeName.includes(searchValue) ||
         (ticket.ticket_id || "").toLowerCase().includes(searchValue) ||
         (ticket.id || "").toLowerCase().includes(searchValue)) &&
       (!filters.status || ticket.status === filters.status);

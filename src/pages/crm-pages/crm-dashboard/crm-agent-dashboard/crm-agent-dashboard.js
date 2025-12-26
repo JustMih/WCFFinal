@@ -796,6 +796,7 @@ const AgentCRM = () => {
       const s = search.trim().toLowerCase();
       const fullName = `${ticket.first_name || ""} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim().toLowerCase();
       const institutionName = (ticket.institution && typeof ticket.institution === 'object' ? ticket.institution.name : ticket.institution || "").toLowerCase();
+      const representativeName = (ticket.representative_name || "").toLowerCase();
       
       const matchesSearch =
         !s ||
@@ -803,6 +804,7 @@ const AgentCRM = () => {
         ticket.nida_number?.toLowerCase().includes(s) ||
         fullName.includes(s) ||
         institutionName.includes(s) ||
+        representativeName.includes(s) ||
         ticket.first_name?.toLowerCase().includes(s) ||
         ticket.last_name?.toLowerCase().includes(s) ||
         ticket.middle_name?.toLowerCase().includes(s) ||

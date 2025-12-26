@@ -999,6 +999,11 @@ export default function TicketDetailsModal({
     responsible_unit_name: ""
   });
   const [functionData, setFunctionData] = useState([]);
+  const [directoratesAndUnits, setDirectoratesAndUnits] = useState([]); // For Directorate/Unit dropdown
+  const [selectedDirectorateUnit, setSelectedDirectorateUnit] = useState(""); // Selected Directorate/Unit
+  const [availableSections, setAvailableSections] = useState([]); // Sections within selected Directorate/Unit
+  const [selectedSection, setSelectedSection] = useState(""); // Selected Section
+  const [availableSubjects, setAvailableSubjects] = useState([]); // Subjects within selected Section
   
   // Snackbar state
   const [snackbar, setSnackbarState] = useState({ open: false, message: '', severity: 'info' });
@@ -1887,74 +1892,214 @@ export default function TicketDetailsModal({
   // Handle opening the edit reversed ticket dialog
   const handleEditReversedTicket = () => {
     // Initialize form data with current ticket values
+    const currentSection = selectedTicket.section || "";
+    const currentSubSection = selectedTicket.sub_section || "";
+    const currentResponsibleUnit = selectedTicket.responsible_unit_name || "";
+    
     setEditReversedTicketData({
       subject: selectedTicket.subject || "",
-      section: selectedTicket.section || "",
-      sub_section: selectedTicket.sub_section || "",
+      section: currentSection,
+      sub_section: currentSubSection,
       responsible_unit_id: selectedTicket.responsible_unit_id || "",
-      responsible_unit_name: selectedTicket.responsible_unit_name || ""
+      responsible_unit_name: currentResponsibleUnit
     });
+    
+    // Initialize selected directorate/unit and section based on current ticket
+    setSelectedDirectorateUnit(currentResponsibleUnit || currentSection || "");
+    setSelectedSection(currentSubSection || "");
+    
     setIsEditReversedTicketDialogOpen(true);
   };
 
-  // Handle form data changes for reversed ticket editing
+  // Handle Directorate/Unit selection
+  const handleDirectorateUnitChange = (value) => {
+    setSelectedDirectorateUnit(value);
+    setSelectedSection("");
+    setEditReversedTicketData(prev => ({
+      ...prev,
+      section: value,
+      sub_section: "",
+      responsible_unit_id: "",
+      responsible_unit_name: value
+    }));
+    
+    // Find the selected directorate/unit object to check if it's a section or function
+    const selectedItem = directoratesAndUnits.find(item => item.name === value);
+    const isFunction = selectedItem && selectedItem.section_id; // If it has section_id, it's a function (unit)
+    
+    // Filter sections (functions) for the selected directorate/unit
+    if (value && functionData.length > 0) {
+      let sectionsForDirectorate = [];
+      
+      if (isFunction) {
+        // If selected is a unit (function), show functions with same name or id
+        sectionsForDirectorate = functionData
+          .filter(item => {
+            const functionId = item.function?.id;
+            const functionName = item.function?.name || "";
+            return functionId === selectedItem.id || functionName === value;
+          })
+          .map(item => ({
+            id: item.function?.id,
+            name: item.function?.name || "",
+            section: item.function?.section?.name || ""
+          }))
+          .filter((item, index, self) => 
+            item.name && index === self.findIndex(t => t.name === item.name)
+          );
+      } else {
+        // If selected is a directorate (section), show all functions within that section
+        sectionsForDirectorate = functionData
+          .filter(item => {
+            const sectionName = item.function?.section?.name || "";
+            return sectionName === value;
+          })
+          .map(item => ({
+            id: item.function?.id,
+            name: item.function?.name || "",
+            section: item.function?.section?.name || ""
+          }))
+          .filter((item, index, self) => 
+            item.name && index === self.findIndex(t => t.name === item.name)
+          );
+      }
+      
+      setAvailableSections(sectionsForDirectorate);
+      console.log('🔍 Available sections for', value, ':', sectionsForDirectorate);
+    } else {
+      setAvailableSections([]);
+    }
+    setAvailableSubjects([]);
+  };
+
+  // Handle Section selection
+  const handleSectionChange = (value) => {
+    setSelectedSection(value);
+    
+    // Find the selected section object
+    const selectedSectionObj = availableSections.find(s => s.name === value);
+    
+    setEditReversedTicketData(prev => ({
+      ...prev,
+      sub_section: value,
+      responsible_unit_id: selectedSectionObj?.id || "",
+      responsible_unit_name: selectedDirectorateUnit || prev.responsible_unit_name
+    }));
+    
+    // Filter subjects (function data) for the selected section
+    if (value && functionData.length > 0) {
+      const subjectsForSection = functionData
+        .filter(item => {
+          const functionName = item.function?.name || "";
+          return functionName === value;
+        })
+        .map(item => ({
+          id: item.id,
+          name: item.name || "",
+          functionId: item.function?.id
+        }));
+      
+      setAvailableSubjects(subjectsForSection);
+      console.log('🔍 Available subjects for section', value, ':', subjectsForSection);
+    } else {
+      setAvailableSubjects([]);
+    }
+  };
+
+  // Handle Subject selection - Auto-fill Sub-section and Section like in ticket creation
+  const handleSubjectChange = (value) => {
+    if (value && functionData.length > 0) {
+      // Find the selected function data by ID or name
+      const selectedFunctionData = functionData.find((item) => 
+        item.id === value || item.name === value
+      );
+      
+      if (selectedFunctionData) {
+        // Extract function name (sub-section) and section name like in AdvancedTicketCreateModal
+        const functionName = selectedFunctionData.function?.name || 
+                           selectedFunctionData.name || 
+                           selectedFunctionData.function_name || 
+                           "";
+        const sectionName = selectedFunctionData.function?.section?.name || 
+                          selectedFunctionData.section?.name || 
+                          selectedFunctionData.section_name || 
+                          selectedFunctionData.section || 
+                          "";
+        
+        // Get the directorate/unit name (responsible unit)
+        const responsibleUnitName = sectionName || functionName || "";
+        
+        // Update form data
+        setEditReversedTicketData(prev => ({
+          ...prev,
+          subject: selectedFunctionData.name || value,
+          section: sectionName,
+          sub_section: functionName,
+          responsible_unit_id: selectedFunctionData.function?.id || "",
+          responsible_unit_name: responsibleUnitName
+        }));
+        
+        // Also update selected directorate/unit and section for UI consistency
+        if (sectionName) {
+          setSelectedDirectorateUnit(sectionName);
+          // Find and set available sections
+          const sectionsForDirectorate = functionData
+            .filter(item => {
+              const itemSectionName = item.function?.section?.name || "";
+              return itemSectionName === sectionName;
+            })
+            .map(item => ({
+              id: item.function?.id,
+              name: item.function?.name || "",
+              section: item.function?.section?.name || ""
+            }))
+            .filter((item, index, self) => 
+              item.name && index === self.findIndex(t => t.name === item.name)
+            );
+          setAvailableSections(sectionsForDirectorate);
+        }
+        
+        if (functionName) {
+          setSelectedSection(functionName);
+          // Find and set available subjects for this section
+          const subjectsForSection = functionData
+            .filter(item => {
+              const itemFunctionName = item.function?.name || "";
+              return itemFunctionName === functionName;
+            })
+            .map(item => ({
+              id: item.id,
+              name: item.name || "",
+              functionId: item.function?.id
+            }));
+          setAvailableSubjects(subjectsForSection);
+        }
+        
+        console.log('🔍 Selected function data:', selectedFunctionData);
+        console.log('🔍 Function name (sub-section):', functionName);
+        console.log('🔍 Section name:', sectionName);
+      } else {
+        // If not found by ID/name, just set the subject
+        setEditReversedTicketData(prev => ({
+          ...prev,
+          subject: value
+        }));
+      }
+    } else {
+      // If no function data or no value, just set the subject
+      setEditReversedTicketData(prev => ({
+        ...prev,
+        subject: value
+      }));
+    }
+  };
+
+  // Handle form data changes for reversed ticket editing (legacy support)
   const handleEditReversedTicketChange = (field, value) => {
     setEditReversedTicketData(prev => ({
       ...prev,
       [field]: value
     }));
-
-    // Auto-fill sub-section when section is selected
-    if (field === "section") {
-      console.log('🔍 Section changed to:', value);
-      console.log('🔍 Available functionData:', functionData);
-      
-      // Find the first FunctionData that belongs to the selected section
-      const selectedFunctionData = functionData.find((item) => 
-        item.function?.section?.name === value
-      );
-      if (selectedFunctionData) {
-        // Get the function name (sub-section)
-        const functionName = selectedFunctionData.function?.name || 
-                           selectedFunctionData.name || 
-                           selectedFunctionData.function_name || 
-                           "";
-        
-        console.log('Selected function data:', selectedFunctionData);
-        console.log('Function name (for sub-section):', functionName);
-        console.log('Section name:', value);
-        
-        console.log('🔍 Setting fields:');
-        console.log('  - sub_section:', functionName);
-        console.log('  - section:', value);
-        console.log('  - responsible_unit_id:', selectedFunctionData.function?.id);
-        console.log('  - responsible_unit_name:', functionName);
-        
-        setEditReversedTicketData(prev => ({
-          ...prev,
-          [field]: value, // This is the section name
-          sub_section: selectedFunctionData.function?.name || "", // Function name (like "Directorate of Operations") goes in sub-section
-          responsible_unit_id: selectedFunctionData.function?.id || "", // Use Function.id for mapping
-          responsible_unit_name: selectedFunctionData.function?.name || "" // Use Function name as responsible unit
-        }));
-        
-        // Debug: Check what was actually set
-        setTimeout(() => {
-          console.log('🔍 After setting, editReversedTicketData:');
-          console.log('  - sub_section:', editReversedTicketData.sub_section);
-          console.log('  - section:', editReversedTicketData.section);
-        }, 100);
-      } else {
-        console.log('❌ No function data found for section:', value);
-        setEditReversedTicketData(prev => ({
-          ...prev,
-          [field]: value,
-          sub_section: "",
-          responsible_unit_id: "",
-          responsible_unit_name: ""
-        }));
-      }
-    }
   };
 
   // Handle submitting the reversed ticket edit
@@ -1998,46 +2143,56 @@ export default function TicketDetailsModal({
     }
   };
 
-  // Fetch function data for subject dropdown
+  // Fetch directorates/units and function data when modal opens
   useEffect(() => {
     console.log('🔍 useEffect triggered, isEditReversedTicketDialogOpen:', isEditReversedTicketDialogOpen);
     if (isEditReversedTicketDialogOpen) {
-      console.log('🔍 Modal is open, starting to fetch function data...');
-      const fetchFunctionData = async () => {
+      console.log('🔍 Modal is open, starting to fetch data...');
+      
+      const fetchData = async () => {
         try {
           const token = localStorage.getItem("authToken");
-          console.log('🔍 Fetching function data from:', `${baseURL}/section/functions-data`);
-          console.log('🔍 Token present:', !!token);
-          console.log('🔍 Base URL:', baseURL);
           
-          const response = await fetch(`${baseURL}/section/functions-data`, {
+          // Fetch directorates and units
+          const unitsResponse = await fetch(`${baseURL}/section/units-data`, {
             headers: { "Authorization": `Bearer ${token}` }
           });
           
-          console.log('🔍 Response status:', response.status);
-          console.log('🔍 Response ok:', response.ok);
+          if (unitsResponse.ok) {
+            const unitsData = await unitsResponse.json();
+            if (unitsData.data) {
+              setDirectoratesAndUnits(unitsData.data);
+              console.log('✅ Directorates and Units loaded:', unitsData.data);
+            }
+          }
           
-          const data = await response.json();
-          console.log('🔍 Response data:', data);
+          // Fetch function data (for sections and subjects)
+          const functionDataResponse = await fetch(`${baseURL}/section/functions-data`, {
+            headers: { "Authorization": `Bearer ${token}` }
+          });
           
-          if (response.ok && data.data) {
-            setFunctionData(data.data);
-            console.log('✅ Function data loaded:', data.data);
-            
-            // Debug: Check what sections are available
-            const sections = [...new Set(data.data.map(item => item.function?.section?.name).filter(Boolean))];
-            console.log('🔍 Available sections from API:', sections);
-            console.log('🔍 Sample function data item:', data.data[0]);
+          if (functionDataResponse.ok) {
+            const functionDataResult = await functionDataResponse.json();
+            if (functionDataResult.data) {
+              setFunctionData(functionDataResult.data);
+              console.log('✅ Function data loaded:', functionDataResult.data);
+            }
           } else {
-            console.error('❌ Failed to load function data:', data);
+            console.error('❌ Failed to load function data');
           }
         } catch (error) {
-          console.error("❌ Error fetching function data:", error);
+          console.error("❌ Error fetching data:", error);
         }
       };
-      fetchFunctionData();
+      
+      fetchData();
     } else {
-      console.log('🔍 Modal is not open, not fetching function data');
+      // Reset when modal closes
+      setSelectedDirectorateUnit("");
+      setSelectedSection("");
+      setAvailableSections([]);
+      setAvailableSubjects([]);
+      console.log('🔍 Modal is not open, resetting form');
     }
   }, [isEditReversedTicketDialogOpen]);
 
@@ -4450,83 +4605,54 @@ export default function TicketDetailsModal({
       </Dialog>
 
       {/* Edit Reversed Ticket Dialog */}
-      <Dialog open={isEditReversedTicketDialogOpen} onClose={() => setIsEditReversedTicketDialogOpen(false)} maxWidth={false} fullWidth PaperProps={{ sx: { width: '40%' } }}>
+      <Dialog open={isEditReversedTicketDialogOpen} onClose={() => setIsEditReversedTicketDialogOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>
           Edit Reversed Ticket Details
         </DialogTitle>
         <DialogContent>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
-            {/* Section Field */}
+            {/* Subject Field - Auto-fills Sub-section and Section when selected (like ticket creation) */}
             <Box>
               <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
-                Section: <span style={{ color: "red" }}>*</span>
+                Subject: <span style={{ color: "red" }}>*</span>
               </Typography>
-              <select
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  fontSize: "0.9rem",
-                  borderRadius: "4px",
-                  border: "1px solid #ccc"
-                }}
-                value={editReversedTicketData.section}
-                onChange={(e) => handleEditReversedTicketChange("section", e.target.value)}
-              >
-                <option value="">Select Section</option>
-                {functionData && functionData.length > 0 ? (
-                  // Get unique sections and add debug logging
-                  (() => {
-                    const sections = [...new Set(functionData.map(item => item.function?.section?.name).filter(Boolean))];
-                    console.log('🔍 Available sections:', sections);
-                    console.log('🔍 FunctionData structure:', functionData.slice(0, 2)); // Show first 2 items
-                    return sections.map((sectionName) => {
-                      return (
-                        <option key={sectionName} value={sectionName}>
-                          {sectionName}
-                        </option>
-                      );
-                    });
-                  })()
-                ) : (
-                  <option value="" disabled>
-                    {functionData ? 'No sections available' : 'Loading sections...'}
-                  </option>
-                )}
-              </select>
-              {/* Debug info */}
+              {functionData && functionData.length > 0 ? (
+                <select
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    fontSize: "0.9rem",
+                    borderRadius: "4px",
+                    border: "1px solid #ccc"
+                  }}
+                  value={functionData.find(item => item.name === editReversedTicketData.subject)?.id || ""}
+                  onChange={(e) => handleSubjectChange(e.target.value)}
+                >
+                  <option value="">Select Subject</option>
+                  {functionData.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <TextField
+                  fullWidth
+                  value={editReversedTicketData.subject}
+                  onChange={(e) => handleEditReversedTicketChange("subject", e.target.value)}
+                  placeholder="Enter ticket subject..."
+                  size="small"
+                  required
+                />
+              )}
               {functionData && functionData.length === 0 && (
-                <span style={{ color: "orange", fontSize: "0.75rem" }}>
+                <span style={{ color: "orange", fontSize: "0.75rem", display: "block", marginTop: "4px" }}>
                   No function data loaded. Please check if subjects are configured.
                 </span>
               )}
-              {functionData && (
-                <span style={{ color: "blue", fontSize: "0.75rem" }}>
-                  Function data loaded: {functionData.length} items
-                </span>
-              )}
             </Box>
 
-            {/* Section Field */}
-            <Box>
-              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
-                Section:
-              </Typography>
-              <TextField
-                fullWidth
-                value={editReversedTicketData.section}
-                InputProps={{
-                  readOnly: true,
-                  style: {
-                    backgroundColor: "#f5f5f5",
-                    fontSize: "0.875rem"
-                  }
-                }}
-                placeholder="Auto-filled when subject is selected..."
-                size="small"
-              />
-            </Box>
-
-            {/* Sub-section Field */}
+            {/* Sub-section Field - Auto-filled when Subject is selected */}
             <Box>
               <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
                 Sub-section:
@@ -4546,34 +4672,14 @@ export default function TicketDetailsModal({
               />
             </Box>
 
-            {/* Responsible Unit ID */}
-            {/* <Box>
-              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
-                Responsible Unit ID:
-              </Typography>
-              <TextField
-                fullWidth
-                value={editReversedTicketData.responsible_unit_id}
-                InputProps={{
-                  readOnly: true,
-                  style: {
-                    backgroundColor: "#f5f5f5",
-                    fontSize: "0.875rem"
-                  }
-                }}
-                placeholder="Auto-filled when subject is selected..."
-                size="small"
-              />
-            </Box> */}
-
-            {/* Responsible Unit Name */}
+            {/* Section Field - Auto-filled when Subject is selected */}
             <Box>
               <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
-                Responsible Unit Name:
+                Section:
               </Typography>
               <TextField
                 fullWidth
-                value={editReversedTicketData.responsible_unit_name}
+                value={editReversedTicketData.section || "Unit"}
                 InputProps={{
                   readOnly: true,
                   style: {
@@ -4584,6 +4690,23 @@ export default function TicketDetailsModal({
                 placeholder="Auto-filled when subject is selected..."
                 size="small"
               />
+            </Box>
+
+
+            {/* Display Fields (Read-only) */}
+            <Box sx={{ mt: 2, p: 2, bgcolor: "#f5f5f5", borderRadius: 1 }}>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Summary:
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 0.5 }}>
+                <strong>Subject:</strong> {editReversedTicketData.subject || "N/A"}
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 0.5 }}>
+                <strong>Sub-section:</strong> {editReversedTicketData.sub_section || "N/A"}
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 0.5 }}>
+                <strong>Section:</strong> {editReversedTicketData.section || "N/A"}
+              </Typography>
             </Box>
 
             <Box sx={{ mt: 2, textAlign: "right" }}>

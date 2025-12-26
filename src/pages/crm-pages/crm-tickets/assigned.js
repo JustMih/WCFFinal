@@ -216,11 +216,13 @@ export default function Crm() {
     const phone = (ticket.phone_number || "").toLowerCase();
     const nida = (ticket.nida_number || "").toLowerCase();
     const fullName = (ticket.first_name || "") + " " + (ticket.middle_name || "") + " " + (ticket.last_name || "");
+    const representativeName = (ticket.representative_name || "").toLowerCase();
 
     const matchesSearch = !searchValue ||
       ticket.phone_number?.toLowerCase().includes(searchValue) ||
       ticket.nida_number?.toLowerCase().includes(searchValue) ||
       fullName.includes(searchValue) ||
+      representativeName.includes(searchValue) ||
       (ticket.first_name || "").toLowerCase().includes(searchValue) ||
       (ticket.last_name || "").toLowerCase().includes(searchValue) ||
       (ticket.middle_name || "").toLowerCase().includes(searchValue) ||

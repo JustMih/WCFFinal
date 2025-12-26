@@ -252,11 +252,13 @@ export default function Crm() {
     const phone = (ticket.phone_number || "").toLowerCase();
     const nida = (ticket.nida_number || "").toLowerCase();
     const fullName = `${ticket.first_name || ""} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.toLowerCase();
+    const representativeName = (ticket.representative_name || "").toLowerCase();
     
     const matchesSearch = !searchValue ||
       phone.includes(searchValue) || 
       nida.includes(searchValue) ||
       fullName.includes(searchValue) ||
+      representativeName.includes(searchValue) ||
       (ticket.first_name || "").toLowerCase().includes(searchValue) ||
       (ticket.last_name || "").toLowerCase().includes(searchValue) ||
       (ticket.middle_name || "").toLowerCase().includes(searchValue) ||

@@ -720,6 +720,7 @@ export default function ReviewerDashboard() {
       t.middleName || t.middle_name || ""
     } ${t.lastName || t.last_name || ""}`.trim().toLowerCase();
     const institutionName = (t.institution && typeof t.institution === 'object' ? t.institution.name : t.institution || "").toLowerCase();
+    const representativeName = (t.representative_name || "").toLowerCase();
 
     // Debug logging for search
     if (s && (t.phone_number?.toLowerCase().includes(s) || t.nida_number?.toLowerCase().includes(s))) {
@@ -738,6 +739,7 @@ export default function ReviewerDashboard() {
         t.nida_number?.toLowerCase().includes(s) ||
         fullName.includes(s) ||
         institutionName.includes(s) ||
+        representativeName.includes(s) ||
         (t.firstName || t.first_name || "").toLowerCase().includes(s) ||
         (t.lastName || t.last_name || "").toLowerCase().includes(s) ||
         (t.middleName || t.middle_name || "").toLowerCase().includes(s) ||

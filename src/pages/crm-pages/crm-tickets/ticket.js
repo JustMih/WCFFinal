@@ -386,12 +386,14 @@ export default function Crm() {
       ticket.last_name || ""
     }`.trim().toLowerCase();
     const institutionName = (ticket.institution && typeof ticket.institution === 'object' ? ticket.institution.name : ticket.institution || "").toLowerCase();
+    const representativeName = (ticket.representative_name || "").toLowerCase();
     
     const matchesSearch = !searchValue || 
       phone.includes(searchValue) ||
       nida.includes(searchValue) ||
       fullName.includes(searchValue) ||
       institutionName.includes(searchValue) ||
+      representativeName.includes(searchValue) ||
       (ticket.first_name || "").toLowerCase().includes(searchValue) ||
       (ticket.last_name || "").toLowerCase().includes(searchValue) ||
       (ticket.middle_name || "").toLowerCase().includes(searchValue) ||
