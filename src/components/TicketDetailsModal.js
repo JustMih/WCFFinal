@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 // MUI Components - Individual imports for better tree shaking
 import Modal from "@mui/material/Modal";
@@ -22,6 +22,12 @@ import Alert from "@mui/material/Alert";
 import CloseIcon from '@mui/icons-material/Close';
 import Autocomplete from "@mui/material/Autocomplete";
 import Badge from "@mui/material/Badge";
+import Popper from "@mui/material/Popper";
+import List from "@mui/material/List";
+import ListItem from "@mui/material/ListItem";
+import ListItemAvatar from "@mui/material/ListItemAvatar";
+import ListItemText from "@mui/material/ListItemText";
+import ClickAwayListener from "@mui/material/ClickAwayListener";
 
 import ChatIcon from '@mui/icons-material/Chat';
 import BarChartIcon from '@mui/icons-material/BarChart';
@@ -974,6 +980,14 @@ export default function TicketDetailsModal({
   const [newMessage, setNewMessage] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
   
+  // @ Mention states for Ticket Charts
+  const [mentionUsers, setMentionUsers] = useState([]);
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
+  const [mentionAnchorEl, setMentionAnchorEl] = useState(null);
+  const messageTextFieldRef = useRef(null);
+  
   // Reversed ticket editing states
   const [isEditReversedTicketDialogOpen, setIsEditReversedTicketDialogOpen] = useState(false);
   const [editReversedTicketLoading, setEditReversedTicketLoading] = useState(false);
@@ -1148,10 +1162,214 @@ export default function TicketDetailsModal({
     setShowTicketCharts(true);
     // Fetch messages when opening
     fetchTicketMessages();
+    // Fetch mention users
+    if (selectedTicket?.id) {
+      fetchMentionUsers();
+    }
     // Mark all messages as read when dialog opens
     if (selectedTicket?.id && unreadMessagesCount > 0) {
       markMessagesAsRead();
     }
+  };
+
+  // Fetch mention users for Ticket Charts
+  const fetchMentionUsers = async () => {
+    if (!selectedTicket?.id) return;
+    
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${baseURL}/ticket/${selectedTicket.id}/mention-users`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setMentionUsers(data.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching mention users:', error);
+    }
+  };
+
+  // Handle @ mention detection for messages
+  const handleMessageTextChange = (e) => {
+    const value = e.target.value;
+    const cursorPosition = e.target.selectionStart;
+    setNewMessage(value);
+    
+    // Check for @ mention
+    const textBeforeCursor = value.substring(0, cursorPosition);
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+    
+    if (lastAtIndex !== -1) {
+      const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
+      
+      // Check if there's a newline, punctuation, or another @ (meaning mention is complete)
+      if (textAfterAt.includes('\n') || textAfterAt.match(/^[,.!?@]/)) {
+        setShowMentions(false);
+        return;
+      }
+      
+      // Get query after @ (allow spaces for full names)
+      const query = textAfterAt.toLowerCase().trim();
+      setMentionQuery(query);
+      
+      // Show mentions dropdown
+      if (messageTextFieldRef.current) {
+        setMentionAnchorEl(messageTextFieldRef.current);
+      }
+      setShowMentions(true);
+      setSelectedMentionIndex(0);
+    } else {
+      setShowMentions(false);
+    }
+  };
+
+  // Filter mention users based on query
+  const filteredMentionUsers = mentionUsers.filter(user => {
+    if (!mentionQuery) return true;
+    const query = mentionQuery.toLowerCase();
+    return (
+      user.name.toLowerCase().includes(query) ||
+      user.username.toLowerCase().includes(query) ||
+      user.role.toLowerCase().includes(query)
+    );
+  });
+
+  // Handle mention selection for messages
+  const handleMentionSelect = (user) => {
+    const currentText = newMessage;
+    const cursorPosition = messageTextFieldRef.current?.selectionStart || 0;
+    const textBeforeCursor = currentText.substring(0, cursorPosition);
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+    
+    if (lastAtIndex !== -1) {
+      const textBeforeAt = currentText.substring(0, lastAtIndex);
+      const textAfterCursor = currentText.substring(cursorPosition);
+      const mentionText = `@${user.name} `;
+      const newText = textBeforeAt + mentionText + textAfterCursor;
+      
+      setNewMessage(newText);
+      setShowMentions(false);
+      setMentionQuery('');
+      
+      // Set cursor position after mention
+      setTimeout(() => {
+        if (messageTextFieldRef.current) {
+          const newCursorPos = lastAtIndex + mentionText.length;
+          messageTextFieldRef.current.setSelectionRange(newCursorPos, newCursorPos);
+          messageTextFieldRef.current.focus();
+        }
+      }, 0);
+    }
+  };
+
+  // Handle keyboard navigation in mentions for messages
+  const handleMentionKeyDown = (e) => {
+    if (!showMentions || filteredMentionUsers.length === 0) return;
+    
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedMentionIndex(prev => 
+        prev < filteredMentionUsers.length - 1 ? prev + 1 : 0
+      );
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedMentionIndex(prev => 
+        prev > 0 ? prev - 1 : filteredMentionUsers.length - 1
+      );
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
+        // Don't prevent default if it's Enter without shift (will send message)
+        return;
+      }
+      e.preventDefault();
+      if (filteredMentionUsers[selectedMentionIndex]) {
+        handleMentionSelect(filteredMentionUsers[selectedMentionIndex]);
+      }
+    } else if (e.key === 'Escape') {
+      setShowMentions(false);
+    }
+  };
+
+  // Parse text and highlight mentions for messages
+  const parseMentions = (text) => {
+    if (!text) return null;
+    
+    // Regex to match @mentions - exactly two words after @
+    const mentionRegex = /@(\S+\s+\S+)/g;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+    
+    while ((match = mentionRegex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push({
+          type: 'text',
+          content: text.substring(lastIndex, match.index)
+        });
+      }
+      
+      parts.push({
+        type: 'mention',
+        content: match[0],
+        username: match[1]
+      });
+      
+      lastIndex = mentionRegex.lastIndex;
+    }
+    
+    if (lastIndex < text.length) {
+      parts.push({
+        type: 'text',
+        content: text.substring(lastIndex)
+      });
+    }
+    
+    if (parts.length === 0) {
+      return [{ type: 'text', content: text }];
+    }
+    
+    return parts;
+  };
+
+  // Render text with mentions highlighted for messages
+  const renderMessageWithMentions = (text) => {
+    const parts = parseMentions(text);
+    
+    if (!parts || parts.length === 0) {
+      return <span>{text}</span>;
+    }
+    
+    return (
+      <>
+        {parts.map((part, index) => {
+          if (part.type === 'mention') {
+            return (
+              <Box
+                key={index}
+                component="span"
+                sx={{
+                  color: '#1976d2',
+                  fontWeight: 600,
+                  backgroundColor: '#e3f2fd',
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  display: 'inline-block',
+                  margin: '0 2px'
+                }}
+              >
+                {part.content}
+              </Box>
+            );
+          }
+          return <span key={index}>{part.content}</span>;
+        })}
+      </>
+    );
   };
 
   // Fetch ticket messages
@@ -1344,11 +1562,15 @@ export default function TicketDetailsModal({
     (
       // For director: show attend button for Minor status
       (userRole === "director" && selectedTicket.complaint_type === "Minor") ||
-      // For attendee: show attend button for Minor/Major complaints from head of unit (like directorate)
-      (userRole === "attendee" && 
-       selectedTicket.category === "Complaint" && 
-       (selectedTicket.complaint_type === "Minor" || selectedTicket.complaint_type === "Major") &&
-       isFromHeadOfUnit) ||
+      // For attendee: show attend button for:
+      // 1. Minor/Major complaints from head of unit (like directorate)
+      // 2. Normal tickets (Inquiry/other non-complaint categories) assigned from any role (focal-person, etc.)
+      (userRole === "attendee" && (
+        (selectedTicket.category === "Complaint" && 
+         (selectedTicket.complaint_type === "Minor" || selectedTicket.complaint_type === "Major") &&
+         isFromHeadOfUnit) ||
+        (selectedTicket.category !== "Complaint") // Allow normal tickets (Inquiry, etc.)
+      )) ||
       // For non-directors and non-attendees: existing logic
       (userRole !== "director" && userRole !== "attendee" && (
         // For non-managers, only allow if ticket is not rated
@@ -4486,7 +4708,7 @@ export default function TicketDetailsModal({
                         {message.user_name || message.full_name || 'Unknown User'}
                       </Typography>
                       <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                        {message.message}
+                        {renderMessageWithMentions(message.message)}
                       </Typography>
                       <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}>
                         {new Date(message.created_at).toLocaleString()}
@@ -4506,22 +4728,73 @@ export default function TicketDetailsModal({
             flexShrink: 0
           }}>
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
-              <TextField
-                fullWidth
-                multiline
-                rows={2}
-                placeholder="Type your message..."
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }
-                }}
-                size="small"
-                disabled={sendingMessage}
-              />
+              <Box sx={{ position: 'relative', flex: 1 }}>
+                <TextField
+                  inputRef={messageTextFieldRef}
+                  fullWidth
+                  multiline
+                  rows={2}
+                  placeholder="Type your message... Type @ to mention users"
+                  value={newMessage}
+                  onChange={handleMessageTextChange}
+                  onKeyDown={handleMentionKeyDown}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !showMentions) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                  size="small"
+                  disabled={sendingMessage}
+                />
+                {showMentions && filteredMentionUsers.length > 0 && (
+                  <ClickAwayListener onClickAway={() => setShowMentions(false)}>
+                    <Popper
+                      open={showMentions}
+                      anchorEl={mentionAnchorEl}
+                      placement="top-start"
+                      style={{ zIndex: 1300, width: mentionAnchorEl?.offsetWidth || 300 }}
+                    >
+                      <Paper
+                        elevation={4}
+                        sx={{
+                          maxHeight: 200,
+                          overflow: 'auto',
+                          mt: 1,
+                          border: '1px solid #e0e0e0'
+                        }}
+                      >
+                        <List dense>
+                          {filteredMentionUsers.map((user, index) => (
+                            <ListItem
+                              key={user.id}
+                              button
+                              selected={index === selectedMentionIndex}
+                              onClick={() => handleMentionSelect(user)}
+                              sx={{
+                                '&:hover': { backgroundColor: '#f5f5f5' },
+                                '&.Mui-selected': { backgroundColor: '#e3f2fd' }
+                              }}
+                            >
+                              <ListItemAvatar>
+                                <Avatar sx={{ width: 32, height: 32, bgcolor: '#1976d2' }}>
+                                  {user.name.charAt(0).toUpperCase()}
+                                </Avatar>
+                              </ListItemAvatar>
+                              <ListItemText
+                                primary={user.name}
+                                secondary={`${user.role}${user.unit_section ? ` • ${user.unit_section}` : ''}`}
+                                primaryTypographyProps={{ fontSize: '0.875rem' }}
+                                secondaryTypographyProps={{ fontSize: '0.75rem' }}
+                              />
+                            </ListItem>
+                          ))}
+                        </List>
+                      </Paper>
+                    </Popper>
+                  </ClickAwayListener>
+                )}
+              </Box>
               <Button
                 variant="contained"
                 onClick={handleSendMessage}

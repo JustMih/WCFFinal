@@ -2178,13 +2178,13 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                             variant="subtitle2"
                             style={{ fontWeight: "bold", marginBottom: "8px" }}
                           >
-                            {formData.allClaims && formData.allClaims.length > 0 ? (
+                            {formData.allClaims && formData.allClaims.length > 0 && formData.allClaims[0]?.claim_number && formData.allClaims[0].claim_number.trim() && formData.allClaims[0].claim_number.trim().length > 0 ? (
                               <>
                                 {formData.allClaims.length === 1 ? (
                                   <>
-                                    Claim Number:{" "}
+                                    Claim Numbers:{" "}
                                     <span style={{ color: "#1976d2" }}>
-                                      {formData.allClaims[0].claim_number || formData.claimNumber}
+                                      {formData.allClaims[0].claim_number}
                                     </span>
                                     {/* Show small button when there's a claim */}
                                     {(selectedEmployer || selectedInstitution || formData.institution) && (
@@ -2222,7 +2222,7 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                                   </>
                                 )}
                               </>
-                            ) : formData.claimNumber ? (
+                            ) : (formData.claimNumber && formData.claimNumber.trim() && formData.claimNumber.trim().length > 0) ? (
                               <>
                                 Claim Number:{" "}
                                 <span style={{ color: "#1976d2" }}>
@@ -2452,13 +2452,13 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                             variant="subtitle2"
                             style={{ fontWeight: "bold", marginBottom: "8px" }}
                           >
-                            {formData.allClaims && formData.allClaims.length > 0 ? (
+                            {formData.allClaims && formData.allClaims.length > 0 && formData.allClaims[0]?.claim_number && formData.allClaims[0].claim_number.trim() && formData.allClaims[0].claim_number.trim().length > 0 ? (
                               <>
                                 {formData.allClaims.length === 1 ? (
                                   <>
                                     Claim Number:{" "}
                                     <span style={{ color: "#1976d2" }}>
-                                      {formData.allClaims[0].claim_number || formData.claimNumber}
+                                      {formData.allClaims[0].claim_number}
                                     </span>
                                     {/* Show small button when there's a claim */}
                                     {(selectedEmployer || selectedInstitution || formData.institution) && (
@@ -2496,7 +2496,7 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                                   </>
                                 )}
                               </>
-                            ) : formData.claimNumber ? (
+                            ) : (formData.claimNumber && formData.claimNumber.trim() && formData.claimNumber.trim().length > 0) ? (
                               <>
                                 Claim Number:{" "}
                                 <span style={{ color: "#1976d2" }}>

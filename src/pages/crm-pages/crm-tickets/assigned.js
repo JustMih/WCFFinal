@@ -43,7 +43,8 @@ export default function Crm() {
   const [activeColumns, setActiveColumns] = useState([
     "ticket_id",
     "createdAt",
-    "fullName",
+    "employee",
+    "employer",
     "phone_number",
     "region",
     "status"
@@ -251,7 +252,8 @@ export default function Crm() {
     <tr>
       {activeColumns.includes("ticket_id") && <th>Ticket ID</th>}
       {activeColumns.includes("createdAt") && <th>Created At</th>}
-      {activeColumns.includes("fullName") && <th>Full Name</th>}
+      {activeColumns.includes("employee") && <th>Employee</th>}
+      {activeColumns.includes("employer") && <th>Employer</th>}
       {activeColumns.includes("phone_number") && <th>Phone</th>}
       {activeColumns.includes("region") && <th>Region</th>}
       {activeColumns.includes("status") && <th>Status</th>}
@@ -281,16 +283,23 @@ export default function Crm() {
             : "N/A"}
         </td>
       )}
-      {activeColumns.includes("fullName") && (
-     <td>
-     {ticket.first_name && ticket.first_name.trim() !== ""
-       ? `${ticket.first_name} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim()
-       : (typeof ticket.institution === "string"
-           ? ticket.institution
-           : ticket.institution && typeof ticket.institution === "object" && typeof ticket.institution.name === "string"
-             ? ticket.institution.name
-             : "N/A")}
-   </td>
+      {activeColumns.includes("employee") && (
+        <td>
+          {ticket.first_name && ticket.first_name.trim() !== ""
+            ? `${ticket.first_name} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim()
+            : ticket.representative_name && ticket.representative_name.trim() !== ""
+              ? ticket.representative_name
+              : "N/A"}
+        </td>
+      )}
+      {activeColumns.includes("employer") && (
+        <td>
+          {typeof ticket.institution === "string"
+            ? ticket.institution
+            : ticket.institution && typeof ticket.institution === "object" && typeof ticket.institution.name === "string"
+              ? ticket.institution.name
+              : "N/A"}
+        </td>
       )}
       {activeColumns.includes("phone_number") && (
         <td>{ticket.phone_number || "N/A"}</td>
