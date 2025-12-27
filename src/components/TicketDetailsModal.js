@@ -2778,21 +2778,23 @@ export default function TicketDetailsModal({
                 >
                   Ticket Details {selectedTicket.ticket_id ? `#${selectedTicket.ticket_id}` : ""}
                 </Typography>
-                <IconButton
-                  onClick={onClose}
-                  sx={{
-                    position: 'absolute',
-                    right: -8,
-                    top: -8,
-                    bgcolor: 'rgba(0, 0, 0, 0.04)',
-                    '&:hover': {
-                      bgcolor: 'rgba(0, 0, 0, 0.08)',
-                    },
-                  }}
-                  aria-label="close"
-                >
-                  <CloseIcon />
-                </IconButton>
+                <Tooltip title="Close modal">
+                  <IconButton
+                    onClick={onClose}
+                    sx={{
+                      position: 'absolute',
+                      right: -8,
+                      top: -8,
+                      bgcolor: 'rgba(0, 0, 0, 0.04)',
+                      '&:hover': {
+                        bgcolor: 'rgba(0, 0, 0, 0.08)',
+                      },
+                    }}
+                    aria-label="close"
+                  >
+                    <CloseIcon />
+                  </IconButton>
+                </Tooltip>
               </Box>
               <Divider sx={{ mb: 2 }} />
 
@@ -2820,11 +2822,12 @@ export default function TicketDetailsModal({
                         }
                       }}
                     >
-                      <Button 
-                        size="small" 
-                        onClick={handleOpenTicketCharts} 
-                        variant={unreadMessagesCount > 0 ? "contained" : "outlined"}
-                        startIcon={<BarChartIcon />}
+                      <Tooltip title="View ticket charts">
+                        <Button 
+                          size="small" 
+                          onClick={handleOpenTicketCharts} 
+                          variant={unreadMessagesCount > 0 ? "contained" : "outlined"}
+                          startIcon={<BarChartIcon />}
                         style={unreadMessagesCount > 0 ? {
                           backgroundColor: '#4caf50',
                           color: 'white',
@@ -2856,8 +2859,9 @@ export default function TicketDetailsModal({
                           })
                         }}
                       >
-                        Ticket Charts {unreadMessagesCount > 0 ? `(${unreadMessagesCount})` : ''}
-                      </Button>
+                          Ticket Charts {unreadMessagesCount > 0 ? `(${unreadMessagesCount})` : ''}
+                        </Button>
+                      </Tooltip>
                     </Badge>
                     {/* Ticket Updates Button */}
                     <Badge 
@@ -2876,11 +2880,12 @@ export default function TicketDetailsModal({
                         }
                       }}
                     >
-                      <Button 
-                        size="small" 
-                        onClick={handleOpenTicketUpdates} 
-                        variant={unreadUpdatesCount > 0 ? "contained" : "outlined"}
-                        startIcon={<ChatIcon />}
+                      <Tooltip title="View ticket updates and messages">
+                        <Button 
+                          size="small" 
+                          onClick={handleOpenTicketUpdates} 
+                          variant={unreadUpdatesCount > 0 ? "contained" : "outlined"}
+                          startIcon={<ChatIcon />}
                         style={unreadUpdatesCount > 0 ? {
                           backgroundColor: '#4caf50',
                           color: 'white',
@@ -2912,8 +2917,9 @@ export default function TicketDetailsModal({
                           })
                         }}
                       >
-                        Ticket Updates {unreadUpdatesCount > 0 ? `(${unreadUpdatesCount})` : ''}
-                      </Button>
+                          Ticket Updates {unreadUpdatesCount > 0 ? `(${unreadUpdatesCount})` : ''}
+                        </Button>
+                      </Tooltip>
                     </Badge>
                   </Box>
                 </Box>
@@ -3217,39 +3223,43 @@ export default function TicketDetailsModal({
               {/* Action Buttons */}
               <Box sx={{ mt: 2, textAlign: "right" }}>
                 {showAttendButton && userRole !== "reviewer" && (
-                  <Button 
-                    variant="contained" 
-                    color="primary" 
-                    onClick={() => {
-                      // For attendee with Minor/Major complaints from head of unit, open attend dialog
-                      if (userRole === "attendee" && 
-                          selectedTicket.category === "Complaint" && 
-                          (selectedTicket.complaint_type === "Minor" || selectedTicket.complaint_type === "Major") &&
-                          isFromHeadOfUnit) {
-                        setIsAttendDialogOpen(true);
-                      } else {
-                        // For others, use existing logic
-                        handleReviewerClose();
-                      }
-                    }}
-                    sx={{ mr: 1 }}
-                    disabled={attendLoading}
-                  >
-                    {attendLoading ? "Attending..." : "Attend"}
-                  </Button>
+                  <Tooltip title="Attend to this ticket and provide resolution details">
+                    <Button 
+                      variant="contained" 
+                      color="primary" 
+                      onClick={() => {
+                        // For attendee with Minor/Major complaints from head of unit, open attend dialog
+                        if (userRole === "attendee" && 
+                            selectedTicket.category === "Complaint" && 
+                            (selectedTicket.complaint_type === "Minor" || selectedTicket.complaint_type === "Major") &&
+                            isFromHeadOfUnit) {
+                          setIsAttendDialogOpen(true);
+                        } else {
+                          // For others, use existing logic
+                          handleReviewerClose();
+                        }
+                      }}
+                      sx={{ mr: 1 }}
+                      disabled={attendLoading}
+                    >
+                      {attendLoading ? "Attending..." : "Attend"}
+                    </Button>
+                  </Tooltip>
                 )}
 
                 {/* Edit Subject & Section button for reversed tickets */}
                 {selectedTicket?.status === "Reversed" && userRole === "agent" && 
                  selectedTicket?.assigned_to_id === userId && (
-                  <Button
-                    variant="contained"
-                    color="secondary"
-                    onClick={handleEditReversedTicket}
-                    sx={{ mr: 1 }}
-                  >
-                    Edit Subject & Section
-                  </Button>
+                  <Tooltip title="Edit ticket subject and section">
+                    <Button
+                      variant="contained"
+                      color="secondary"
+                      onClick={handleEditReversedTicket}
+                      sx={{ mr: 1 }}
+                    >
+                      Edit Subject & Section
+                    </Button>
+                  </Tooltip>
                 )}
                 
                 {/* Reviewer Actions */}
@@ -3396,28 +3406,34 @@ export default function TicketDetailsModal({
                       return originalCondition || directorCondition1 || directorCondition2 || directorCondition3;
                     })() ? (
                       <>
-                        <Button
-                          variant="contained"
-                          color="warning"
-                          onClick={handleForwardToDG}
-                          disabled={forwardToDGLoading}
-                        >
-                          {forwardToDGLoading ? "Forwarding..." : "Forward to Director General"}
-                        </Button>
-                        <Box sx={{ display: "flex", gap: 1 }}>
+                        <Tooltip title="Forward ticket to Director General for final approval">
                           <Button
                             variant="contained"
-                            color="success"
-                            onClick={handleReviewerClose}
+                            color="warning"
+                            onClick={handleForwardToDG}
+                            disabled={forwardToDGLoading}
                           >
-                            Close ticket
+                            {forwardToDGLoading ? "Forwarding..." : "Forward to Director General"}
                           </Button>
-                          <Button
-                            variant="outlined"
-                            onClick={onClose}
-                          >
-                            Cancel
-                          </Button>
+                        </Tooltip>
+                        <Box sx={{ display: "flex", gap: 1 }}>
+                          <Tooltip title="Close and resolve this ticket">
+                            <Button
+                              variant="contained"
+                              color="success"
+                              onClick={handleReviewerClose}
+                            >
+                              Close ticket
+                            </Button>
+                          </Tooltip>
+                          <Tooltip title="Cancel and close this dialog">
+                            <Button
+                              variant="outlined"
+                              onClick={onClose}
+                            >
+                              Cancel
+                            </Button>
+                          </Tooltip>
                         </Box>
                       </>
                     ) : null}
@@ -3440,14 +3456,16 @@ export default function TicketDetailsModal({
                               <option value="">Convert To</option>
                               <option value="Inquiry">Inquiry</option>
                             </select>
-                            <Button
-                              size="small"
-                              variant="contained"
-                              onClick={() => handleConvertOrForward(selectedTicket.id)}
-                              disabled={convertOrForwardLoading}
-                            >
-                              {convertOrForwardLoading ? "Converting..." : "Convert"}
-                            </Button>
+                            <Tooltip title="Convert this complaint to an inquiry">
+                              <Button
+                                size="small"
+                                variant="contained"
+                                onClick={() => handleConvertOrForward(selectedTicket.id)}
+                                disabled={convertOrForwardLoading}
+                              >
+                                {convertOrForwardLoading ? "Converting..." : "Convert"}
+                              </Button>
+                            </Tooltip>
                           </Box>
                         )}
 
@@ -3482,15 +3500,16 @@ export default function TicketDetailsModal({
                               ) : null
                             )}
                           </select>
-                          <Button
-                            size="small"
-                            variant="contained"
-                            onClick={() => handleConvertOrForward(selectedTicket.id)}
-                            disabled={!selectedRating || !["Minor", "Major"].includes(selectedRating) || !ratingComment.trim() || convertOrForwardLoading}
-                            title={!selectedRating || !["Minor", "Major"].includes(selectedRating) ? "Please select a rating (Minor or Major) from the 'Complaint Category' dropdown above" : !ratingComment.trim() ? "Please provide a comment/description before forwarding" : "Submit rating and forward ticket together"}
-                          >
-                            {convertOrForwardLoading ? "Processing..." : "Forward"}
-                          </Button>
+                          <Tooltip title={!selectedRating || !["Minor", "Major"].includes(selectedRating) ? "Please select a rating (Minor or Major) from the 'Complaint Category' dropdown above" : !ratingComment.trim() ? "Please provide a comment/description before forwarding" : "Forward ticket to selected unit/section"}>
+                            <Button
+                              size="small"
+                              variant="contained"
+                              onClick={() => handleConvertOrForward(selectedTicket.id)}
+                              disabled={!selectedRating || !["Minor", "Major"].includes(selectedRating) || !ratingComment.trim() || convertOrForwardLoading}
+                            >
+                              {convertOrForwardLoading ? "Processing..." : "Forward"}
+                            </Button>
+                          </Tooltip>
                           {(!selectedRating || !["Minor", "Major"].includes(selectedRating)) && (
                             <Typography variant="caption" color="warning.main" sx={{ fontSize: "0.7rem" }}>
                               Rating required
@@ -3515,19 +3534,23 @@ export default function TicketDetailsModal({
                             selectedTicket.responsible_unit_name === "Public Relation Unit" ||
                             forwardUnit[selectedTicket.id]))) && (
                           <Box sx={{ display: "flex", gap: 1 }}>
-                            <Button
-                              variant="contained"
-                              color="success"
-                              onClick={handleReviewerClose}
-                            >
-                              Close ticket
-                            </Button>
-                            <Button
-                              variant="outlined"
-                              onClick={onClose}
-                            >
-                              Cancel
-                            </Button>
+                            <Tooltip title="Close and resolve this ticket">
+                              <Button
+                                variant="contained"
+                                color="success"
+                                onClick={handleReviewerClose}
+                              >
+                                Close ticket
+                              </Button>
+                            </Tooltip>
+                            <Tooltip title="Cancel and close this dialog">
+                              <Button
+                                variant="outlined"
+                                onClick={onClose}
+                              >
+                                Cancel
+                              </Button>
+                            </Tooltip>
                           </Box>
                         )}
                       </>
@@ -3543,19 +3566,23 @@ export default function TicketDetailsModal({
                        (selectedTicket.assigned_to_id === userId || 
                         forwardUnit[selectedTicket.id]))) && (
                       <Box sx={{ display: "flex", gap: 1 }}>
-                        <Button
-                          variant="contained"
-                          color="success"
-                          onClick={handleReviewerClose}
-                        >
-                          Close ticket
-                        </Button>
-                        <Button
-                          variant="outlined"
-                          onClick={onClose}
-                        >
-                          Cancel
-                        </Button>
+                        <Tooltip title="Close and resolve this ticket">
+                          <Button
+                            variant="contained"
+                            color="success"
+                            onClick={handleReviewerClose}
+                          >
+                            Close ticket
+                          </Button>
+                        </Tooltip>
+                        <Tooltip title="Cancel and close this dialog">
+                          <Button
+                            variant="outlined"
+                            onClick={onClose}
+                          >
+                            Cancel
+                          </Button>
+                        </Tooltip>
                       </Box>
                     )}
                   </Box>
@@ -3567,31 +3594,37 @@ export default function TicketDetailsModal({
                  selectedTicket?.assigned_to_id === userId && (
                   <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2, justifyContent: "flex-end" }}>
                     {/* Close Ticket */}
-                    <Button
-                      variant="contained"
-                      color="success"
-                      onClick={handleDGApprovalDialog}
-                    >
-                      Close ticket
-                    </Button>
+                    <Tooltip title="Close and approve this ticket">
+                      <Button
+                        variant="contained"
+                        color="success"
+                        onClick={handleDGApprovalDialog}
+                      >
+                        Close ticket
+                      </Button>
+                    </Tooltip>
                     
                     {/* Reverse (Assign) to Reviewer */}
-                    <Button
-                      variant="contained"
-                      color="warning"
-                      onClick={() => setIsReverseModalOpen(true)}
-                      disabled={isReversing}
-                    >
-                      Reverse
-                    </Button>
+                    <Tooltip title="Reverse ticket back to reviewer for clarification">
+                      <Button
+                        variant="contained"
+                        color="warning"
+                        onClick={() => setIsReverseModalOpen(true)}
+                        disabled={isReversing}
+                      >
+                        Reverse
+                      </Button>
+                    </Tooltip>
                     
                     {/* Close Modal */}
-                    <Button
-                      variant="outlined"
-                      onClick={onClose}
-                    >
-                      Cancel
-                    </Button>
+                    <Tooltip title="Cancel and close this dialog">
+                      <Button
+                        variant="outlined"
+                        onClick={onClose}
+                      >
+                        Cancel
+                      </Button>
+                    </Tooltip>
                   </Box>
                 )}
 
@@ -3606,34 +3639,40 @@ export default function TicketDetailsModal({
                      selectedTicket?.complaint_type === "Major" &&
                      selectedTicket?.responsible_unit_name?.toLowerCase().includes("directorate") &&
                      (selectedTicket?.status === "Attended and Recommended" || selectedTicket?.status === "Reversed") && (
+                      <Tooltip title="Forward ticket to Director General for final approval">
+                        <Button
+                          variant="contained"
+                          color="warning"
+                          sx={{ mr: 1 }}
+                          onClick={handleForwardToDG}
+                          disabled={forwardToDGLoading}
+                        >
+                          {forwardToDGLoading ? "Forwarding..." : "Forward to Director General"}
+                        </Button>
+                      </Tooltip>
+                    )}
+                    
+                    <Tooltip title="Reverse this ticket back to the previous assignee">
                       <Button
                         variant="contained"
                         color="warning"
                         sx={{ mr: 1 }}
-                        onClick={handleForwardToDG}
-                        disabled={forwardToDGLoading}
+                        onClick={() => setIsReverseModalOpen(true)}
+                        disabled={isReversing}
                       >
-                        {forwardToDGLoading ? "Forwarding..." : "Forward to Director General"}
+                        Reverse
                       </Button>
-                    )}
-                    
-                    <Button
-                      variant="contained"
-                      color="warning"
-                      sx={{ mr: 1 }}
-                      onClick={() => setIsReverseModalOpen(true)}
-                      disabled={isReversing}
-                    >
-                      Reverse
-                    </Button>
-                    <Button
-                      variant="contained"
-                      color="info"
-                      sx={{ mr: 1 }}
-                      onClick={() => setIsAssignModalOpen(true)}
-                    >
-                      Assign
-                    </Button>
+                    </Tooltip>
+                    <Tooltip title="Assign this ticket to an attendee">
+                      <Button
+                        variant="contained"
+                        color="info"
+                        sx={{ mr: 1 }}
+                        onClick={() => setIsAssignModalOpen(true)}
+                      >
+                        Assign
+                      </Button>
+                    </Tooltip>
                   </>
                 )}
 
@@ -3642,14 +3681,16 @@ export default function TicketDetailsModal({
                  wasPreviouslyAssigned() && 
                  selectedTicket?.assigned_to_id !== localStorage.getItem("userId") && 
                  selectedTicket.status !== "Closed" && (
-                  <Button
-                    variant="contained"
-                    color="secondary"
-                    sx={{ mr: 1 }}
-                    onClick={() => setIsReassignModalOpen(true)}
-                  >
-                    Reassign
-                  </Button>
+                  <Tooltip title="Reassign this ticket to a different attendee">
+                    <Button
+                      variant="contained"
+                      color="secondary"
+                      sx={{ mr: 1 }}
+                      onClick={() => setIsReassignModalOpen(true)}
+                    >
+                      Reassign
+                    </Button>
+                  </Tooltip>
                 )}
 
                 {/* Agent Reverse button for rated tickets */}
@@ -3657,36 +3698,42 @@ export default function TicketDetailsModal({
                  selectedTicket?.assigned_to_id === localStorage.getItem("userId") &&
                  selectedTicket?.complaint_type && 
                  ["Major", "Minor"].includes(selectedTicket.complaint_type) && (
-                  <Button
-                    variant="contained"
-                    color="warning"
-                    sx={{ mr: 1 }}
-                    onClick={() => setIsAgentReverseModalOpen(true)}
-                    disabled={agentReverseLoading}
-                  >
-                    Reverse with Recommendation
-                  </Button>
+                  <Tooltip title="Reverse this ticket with a recommendation">
+                    <Button
+                      variant="contained"
+                      color="warning"
+                      sx={{ mr: 1 }}
+                      onClick={() => setIsAgentReverseModalOpen(true)}
+                      disabled={agentReverseLoading}
+                    >
+                      Reverse with Recommendation
+                    </Button>
+                  </Tooltip>
                 )}
 
                 {/* Manager Send to Director button - visible for all complaints (Major and Minor) */}
                 {userRole === "manager" && 
                  selectedTicket?.assigned_to_id === localStorage.getItem("userId") &&
                  selectedTicket?.status !== "Closed" && (
-                  <Button
-                    variant="contained"
-                    color="success"
-                    sx={{ mr: 1 }}
-                    onClick={() => setIsSendToDirectorModalOpen(true)}
-                    disabled={sendToDirectorLoading}
-                  >
-                    Send to Director
-                  </Button>
+                  <Tooltip title="Send this ticket to Director for review">
+                    <Button
+                      variant="contained"
+                      color="success"
+                      sx={{ mr: 1 }}
+                      onClick={() => setIsSendToDirectorModalOpen(true)}
+                      disabled={sendToDirectorLoading}
+                    >
+                      Send to Director
+                    </Button>
+                  </Tooltip>
                 )}
                       {/* General Cancel button for all users except reviewers and director-general */}
       {userRole !== "reviewer" && userRole !== "director-general" && (
-                  <Button variant="outlined" onClick={onClose}>
-                    Cancel
-                  </Button>
+                  <Tooltip title="Cancel and close this dialog">
+                    <Button variant="outlined" onClick={onClose}>
+                      Cancel
+                    </Button>
+                  </Tooltip>
                 )}
               </Box>
             </>
@@ -3786,26 +3833,30 @@ export default function TicketDetailsModal({
             </Box>
 
             <Box sx={{ mt: 2, textAlign: "right" }}>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleAttend}
-                disabled={!resolutionDetails.trim() || attendLoading}
-              >
-                {attendLoading 
-                  ? "Submitting..." 
-                  : (userRole === "manager" && selectedTicket?.complaint_type === "Major" 
-                    ? "Submit Recommendation" 
-                    : "Submit")
-                }
-              </Button>
-              <Button
-                variant="outlined"
-                onClick={() => setIsAttendDialogOpen(false)}
-                sx={{ ml: 1 }}
-              >
-                Cancel
-              </Button>
+              <Tooltip title={userRole === "manager" && selectedTicket?.complaint_type === "Major" ? "Submit your recommendation for this ticket" : "Submit your resolution for this ticket"}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleAttend}
+                  disabled={!resolutionDetails.trim() || attendLoading}
+                >
+                  {attendLoading 
+                    ? "Submitting..." 
+                    : (userRole === "manager" && selectedTicket?.complaint_type === "Major" 
+                      ? "Submit Recommendation" 
+                      : "Submit")
+                  }
+                </Button>
+              </Tooltip>
+              <Tooltip title="Cancel and close this dialog">
+                <Button
+                  variant="outlined"
+                  onClick={() => setIsAttendDialogOpen(false)}
+                  sx={{ ml: 1 }}
+                >
+                  Cancel
+                </Button>
+              </Tooltip>
             </Box>
           </Box>
         </DialogContent>
@@ -3978,24 +4029,28 @@ export default function TicketDetailsModal({
             </Box>
 
             <Box sx={{ mt: 2, textAlign: "right" }}>
-              <Button
-                variant="contained"
-                color="success"
-                onClick={handleReviewerCloseSubmit}
-                disabled={!resolutionType || !resolutionDetails.trim() || reviewerCloseLoading}
-              >
-                {reviewerCloseLoading 
-                  ? (userRole === "reviewer" ? "Closing..." : "Submitting...") 
-                  : (userRole === "reviewer" ? "Close Ticket" : "Submit Recommendation")
-                }
-              </Button>
-              <Button
-                variant="outlined"
-                onClick={() => setIsReviewerCloseDialogOpen(false)}
-                sx={{ ml: 1 }}
-              >
-                Cancel
-              </Button>
+              <Tooltip title={userRole === "reviewer" ? "Close and resolve this ticket" : "Submit your recommendation for this ticket"}>
+                <Button
+                  variant="contained"
+                  color="success"
+                  onClick={handleReviewerCloseSubmit}
+                  disabled={!resolutionType || !resolutionDetails.trim() || reviewerCloseLoading}
+                >
+                  {reviewerCloseLoading 
+                    ? (userRole === "reviewer" ? "Closing..." : "Submitting...") 
+                    : (userRole === "reviewer" ? "Close Ticket" : "Submit Recommendation")
+                  }
+                </Button>
+              </Tooltip>
+              <Tooltip title="Cancel and close this dialog">
+                <Button
+                  variant="outlined"
+                  onClick={() => setIsReviewerCloseDialogOpen(false)}
+                  sx={{ ml: 1 }}
+                >
+                  Cancel
+                </Button>
+              </Tooltip>
             </Box>
           </Box>
         </DialogContent>
@@ -4066,27 +4121,31 @@ export default function TicketDetailsModal({
             </Box>
 
             <Box sx={{ mt: 2, textAlign: "right" }}>
-              <Button
-                variant="contained"
-                color="warning"
-                onClick={handleReverse}
-                disabled={isReversing || !reverseResolutionType || !reverseReason.trim()}
-              >
-                {isReversing ? "Reversing..." : "Reverse Ticket"}
-              </Button>
-              <Button
-                variant="outlined"
-                onClick={() => {
-                  setIsReverseModalOpen(false);
-                  setReverseReason("");
-                  setReverseResolutionType("");
-                  setAttachment(null);
-                }}
-                sx={{ ml: 1 }}
-                disabled={isReversing}
-              >
-                Cancel
-              </Button>
+              <Tooltip title="Reverse this ticket back to the previous assignee">
+                <Button
+                  variant="contained"
+                  color="warning"
+                  onClick={handleReverse}
+                  disabled={isReversing || !reverseResolutionType || !reverseReason.trim()}
+                >
+                  {isReversing ? "Reversing..." : "Reverse Ticket"}
+                </Button>
+              </Tooltip>
+              <Tooltip title="Cancel and close this dialog">
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    setIsReverseModalOpen(false);
+                    setReverseReason("");
+                    setReverseResolutionType("");
+                    setAttachment(null);
+                  }}
+                  sx={{ ml: 1 }}
+                  disabled={isReversing}
+                >
+                  Cancel
+                </Button>
+              </Tooltip>
             </Box>
           </Box>
         </DialogContent>
@@ -4189,34 +4248,38 @@ export default function TicketDetailsModal({
           <Divider sx={{ my: 3 }} />
           
           <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1.5 }}>
-            <Button 
-              onClick={() => setIsAssignModalOpen(false)} 
-              disabled={assignLoading}
-              variant="outlined"
-              size="small"
-              sx={{ 
-                px: 2,
-                textTransform: "none",
-                borderColor: "#ccc",
-                color: "#666"
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleAssignTicket}
-              disabled={assignLoading || !selectedAttendee || !assignReason.trim()}
-              size="small"
-              sx={{ 
-                px: 2,
-                textTransform: "none",
-                fontWeight: "medium"
-              }}
-            >
-              {assignLoading ? "Assigning..." : "Assign Ticket"}
-            </Button>
+            <Tooltip title="Cancel and close this dialog">
+              <Button 
+                onClick={() => setIsAssignModalOpen(false)} 
+                disabled={assignLoading}
+                variant="outlined"
+                size="small"
+                sx={{ 
+                  px: 2,
+                  textTransform: "none",
+                  borderColor: "#ccc",
+                  color: "#666"
+                }}
+              >
+                Cancel
+              </Button>
+            </Tooltip>
+            <Tooltip title="Assign this ticket to the selected attendee">
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleAssignTicket}
+                disabled={assignLoading || !selectedAttendee || !assignReason.trim()}
+                size="small"
+                sx={{ 
+                  px: 2,
+                  textTransform: "none",
+                  fontWeight: "medium"
+                }}
+              >
+                {assignLoading ? "Assigning..." : "Assign Ticket"}
+              </Button>
+            </Tooltip>
           </Box>
         </Box>
       </Modal>
@@ -4332,20 +4395,22 @@ export default function TicketDetailsModal({
             >
               Cancel
             </Button>
-            <Button
-              variant="contained"
-              color="secondary"
-              onClick={handleReassignTicket}
-              disabled={reassignLoading || !selectedReassignAttendee || !reassignReason.trim()}
-              size="small"
-              sx={{ 
-                px: 2,
-                textTransform: "none",
-                fontWeight: "medium"
-              }}
-            >
-              {reassignLoading ? "Reassigning..." : "Reassign Ticket"}
-            </Button>
+            <Tooltip title="Reassign this ticket to a different attendee">
+              <Button
+                variant="contained"
+                color="secondary"
+                onClick={handleReassignTicket}
+                disabled={reassignLoading || !selectedReassignAttendee || !reassignReason.trim()}
+                size="small"
+                sx={{ 
+                  px: 2,
+                  textTransform: "none",
+                  fontWeight: "medium"
+                }}
+              >
+                {reassignLoading ? "Reassigning..." : "Reassign Ticket"}
+              </Button>
+            </Tooltip>
           </Box>
         </Box>
       </Modal>
