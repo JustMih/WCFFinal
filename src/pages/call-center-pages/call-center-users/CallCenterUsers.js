@@ -718,13 +718,13 @@ export default function CallCenterUsers() {
                   maxWidth: '380px',
                   fontSize: '14px'
                 }}>ICT Unit</MenuItem>
-                <MenuItem value="actuarial statistics and risk management" sx={{ 
+                <MenuItem value="actuarial services statistics and risk management unit" sx={{ 
                   whiteSpace: 'nowrap', 
                   overflow: 'hidden', 
                   textOverflow: 'ellipsis',
                   maxWidth: '380px',
                   fontSize: '14px'
-                }}>Actuarial Statistics and Risk Management</MenuItem>
+                }}>Actuarial Services Statistics and Risk Management Unit</MenuItem>
                 <MenuItem value="public relation unit" sx={{ 
                   whiteSpace: 'nowrap', 
                   overflow: 'hidden', 

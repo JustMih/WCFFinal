@@ -419,7 +419,7 @@ const Users = () => {
             </Select>
           </FormControl>
           <FormControlLabel
-            control={
+            control={exte
               <Checkbox
                 checked={
                   isEditing ? currentUser.isActive : newUserData.isActive
