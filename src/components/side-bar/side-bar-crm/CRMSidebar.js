@@ -132,8 +132,8 @@ export default function CRMSidebar({ isSidebarOpen }) {
     const userId = localStorage.getItem("userId");
     const token = localStorage.getItem("authToken");
     if (userId && token) {
-      // Use unread count endpoint to count individual notifications
-      fetch(`${baseURL}/notifications/unread-count/${userId}`, {
+      // Use unread tickets count endpoint to count distinct tickets (for sidebar)
+      fetch(`${baseURL}/notifications/unread-tickets-count/${userId}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
         .then(res => {
@@ -144,12 +144,14 @@ export default function CRMSidebar({ isSidebarOpen }) {
           return res.json();
         })
         .then(data => {
-          const count = data.unreadCount || 0;
+          const count = data.unreadTicketsCount || 0;
+          console.log('Sidebar unread tickets count:', count);
           setNotifiedCount(count);
           // Store in localStorage for cross-component sync
           localStorage.setItem('notificationCount', count.toString());
         })
         .catch(err => {
+          console.error('Error fetching sidebar notification count:', err);
           setNotifiedCount(0); // fallback
           localStorage.setItem('notificationCount', '0');
         });

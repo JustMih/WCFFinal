@@ -158,8 +158,12 @@ export default function Navbar({
           .then(res => res.json())
           .then(data => {
             setNotifications(data.notifications || []);
-            // Update unread count
-            const unreadCount = (data.notifications || []).filter(n => n.status === 'unread').length;
+            // Update unread count - count individual notifications with messages
+            const unreadCount = (data.notifications || []).filter(n => 
+              (n.status === 'unread' || n.status === ' ') && 
+              n.comment && 
+              n.comment.trim() !== ''
+            ).length;
             queryClient.setQueryData(['unreadCount', userId], { unreadCount });
           })
           .catch(err => console.error("Error refetching notifications:", err));
@@ -551,24 +555,70 @@ export default function Navbar({
           onClick={() => setNotifDropdownOpen((open) => !open)}
         >
           <Badge
-            badgeContent={unreadCountData?.unreadCount || 0}
+            badgeContent={(() => {
+              // Count individual notifications with messages (not unique tickets)
+              let count = 0;
+              
+              if (notificationsData?.notifications && Array.isArray(notificationsData.notifications)) {
+                // Count all unread notifications (both assigned and with messages)
+                count = notificationsData.notifications.filter(n => {
+                  return n.status === 'unread' || n.status === ' ';
+                }).length;
+                console.log('Navbar - notificationsData:', {
+                  total: notificationsData.notifications.length,
+                  unread: count
+                });
+              }
+              
+              if (count === 0 && unreadCountData?.unreadCount) {
+                count = unreadCountData.unreadCount;
+                console.log('Navbar - Using unreadCountData fallback:', count);
+              }
+              
+              console.log('Navbar - Final badge count:', count);
+              return count;
+            })()}
             color="error"
+            invisible={(() => {
+              let count = 0;
+              if (notificationsData?.notifications && Array.isArray(notificationsData.notifications)) {
+                // Count all unread notifications (both assigned and with messages)
+                count = notificationsData.notifications.filter(n => {
+                  return n.status === 'unread' || n.status === ' ';
+                }).length;
+              }
+              if (count === 0 && unreadCountData?.unreadCount) {
+                count = unreadCountData.unreadCount;
+              }
+              const shouldHide = count === 0;
+              console.log('Navbar - Badge invisible:', shouldHide, 'count:', count);
+              return shouldHide;
+            })()}
             sx={{
               "& .MuiBadge-badge": {
-                backgroundColor: "#ff0000",
-                color: "white",
+                backgroundColor: "#ff0000 !important",
+                color: "white !important",
                 fontWeight: "bold",
-                fontSize: "0.6rem",
-                minWidth: "20px",
-                height: "20px",
-                borderRadius: "10px",
-                top: "2px",
-                right: "10px",
-                zIndex: 1
+                fontSize: "0.65rem",
+                minWidth: "18px",
+                height: "18px",
+                borderRadius: "9px",
+                top: "0px",
+                right: "16px",
+                zIndex: 10,
+                display: "flex !important",
+                alignItems: "center",
+                justifyContent: "center",
+                border: "1px solid white",
+                transform: "translate(50%, -50%)"
               }
             }}
           >
-            <IoMdNotificationsOutline size={24} className="navbar-icon" />
+            <IoMdNotificationsOutline 
+              size={24} 
+              className="navbar-icon" 
+              style={{ color: 'var(--active-color, #7b2cbf)', display: 'block' }}
+            />
           </Badge>
           {notifDropdownOpen && (
             <div className="navbar-notification-dropdown">

@@ -15,6 +15,7 @@ import {
   TextField,
   Avatar,
   Paper,
+  Badge,
 } from "@mui/material";
 // import ColumnSelector from "../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../config";
@@ -572,8 +573,8 @@ export default function Crm() {
                 </Typography>
                 <Typography
                   sx={{
-                    px: 1,
-                    py: 0.25,
+                    px: 0.75,
+                    py: 0.15,
                     borderRadius: '12px',
                     color: 'white',
                     background: notification.status === 'unread' 
@@ -581,12 +582,12 @@ export default function Crm() {
                       : notification.ticket?.status === 'Closed'
                       ? '#757575'
                       : '#4caf50',
-                    fontSize: '0.65rem',
+                    fontSize: '0.25rem',
                     fontWeight: 600,
-                    minWidth: 55,
+                    minWidth: 40,
                     textAlign: 'center',
                     textTransform: 'uppercase',
-                    letterSpacing: '0.3px',
+                    letterSpacing: '0.1px',
                     flexShrink: 0
                   }}
                 >
@@ -841,7 +842,24 @@ export default function Crm() {
     </tr>
   );
 
-  const renderTableRow = (ticket, index) => (
+  // Function to count unread notifications with messages for a specific ticket
+  const getUnreadCountForTicket = (ticketId) => {
+    if (!ticketId || !agentTickets || agentTickets.length === 0) return 0;
+    
+    return agentTickets.filter(notif => {
+      const notifTicketId = notif.ticket?.id || notif.ticket_id || notif.id;
+      const hasMessage = notif.comment && notif.comment.trim() !== '';
+      const isUnread = notif.status === 'unread' || notif.status === ' ';
+      
+      return notifTicketId === ticketId && hasMessage && isUnread;
+    }).length;
+  };
+
+  const renderTableRow = (ticket, index) => {
+    const ticketId = ticket.ticket?.id || ticket.ticket_id || ticket.id;
+    const unreadCount = getUnreadCountForTicket(ticketId);
+    
+    return (
     <tr key={ticket.id || index}>
       {activeColumns.includes("ticket_id") && (
         <td>{ticket.ticket?.ticket_id || ticket.ticket_id || ticket.id}</td>
@@ -903,17 +921,41 @@ export default function Crm() {
       <td>
         <div className="action-buttons">
           <Tooltip title="View Notifications">
-            <button
-              className="view-ticket-details-btn"
-              onClick={() => openModal(ticket)}
+            <Badge 
+              badgeContent={unreadCount > 0 ? unreadCount : 0} 
+              color="error"
+              max={99}
+              invisible={unreadCount === 0}
+              sx={{
+                '& .MuiBadge-badge': {
+                  fontSize: '0.65rem',
+                  minWidth: '16px',
+                  height: '16px',
+                  padding: '0 4px',
+                  top: '0px',
+                  right: '8px',
+                  transform: 'translate(50%, -50%)',
+                  backgroundColor: '#ff0000 !important',
+                  color: 'white !important',
+                  fontWeight: 'bold',
+                  border: '1px solid white'
+                }
+              }}
             >
-              <FaBell />
-            </button>
+              <button
+                className="view-ticket-details-btn"
+                onClick={() => openModal(ticket)}
+                style={{ position: 'relative' }}
+              >
+                <FaBell />
+              </button>
+            </Badge>
           </Tooltip>
         </div>
       </td>
     </tr>
-  );
+    );
+  };
 
   if (loading) {
     return (
