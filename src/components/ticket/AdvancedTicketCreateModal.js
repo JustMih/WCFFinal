@@ -2249,41 +2249,7 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                             {formData.allClaims && formData.allClaims.length > 0 && formData.allClaims[0]?.claim_number && formData.allClaims[0].claim_number.trim() && formData.allClaims[0].claim_number.trim().length > 0 ? (
                               <>
                                 {formData.allClaims.length === 1 ? (
-                                  <>
-                                    Claim Number:{" "}
-                                    <span style={{ color: "#1976d2" }}>
-                                      {formData.allClaims[0].claim_number}
-                                    </span>
-                                    {/* Show small button when there's a claim */}
-                                    {(selectedEmployer || selectedInstitution || formData.institution) && (
-                                      <div style={{ marginTop: "8px" }}>
-                                        <ClaimRedirectButton
-                                          notificationReportId={
-                                            (selectedEmployer?.registration_number) || 
-                                            (selectedInstitution?.registration_number) || 
-                                            ""
-                                          }
-                                          buttonText="View Employer Profile"
-                                          searchType="employer"
-                                          isEmployerSearch={true}
-                                          employerData={selectedEmployer || selectedInstitution}
-                                          openMode="new-tab"
-                                          openEarlyNewTab={true}
-                                          style={{
-                                            padding: "4px 8px",
-                                            fontSize: "12px",
-                                            minHeight: "28px"
-                                          }}
-                                          onSuccess={(data) => {
-                                            console.log('Employer profile redirect successful:', data);
-                                          }}
-                                          onError={(error) => {
-                                            console.error('Employer profile redirect failed:', error);
-                                          }}
-                                        />
-                                      </div>
-                                    )}
-                                  </>
+                                  <>Claim (1):</>
                                 ) : (
                                   <>
                                     Claims ({formData.allClaims.length}):
@@ -2375,8 +2341,8 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                             )}
                           </Typography>
                           
-                          {/* Display all claims if multiple */}
-                          {formData.allClaims && formData.allClaims.length > 1 && (
+                          {/* Display all claims - both single and multiple */}
+                          {formData.allClaims && formData.allClaims.length > 0 && (
                             <div style={{ marginTop: "8px" }}>
                               {formData.allClaims.map((claim, index) => (
                                 <div
@@ -2392,31 +2358,32 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                                     borderRadius: "4px",
                                     border: selectedClaimIndex === index ? "2px solid #1976d2" : "1px solid #e0e0e0",
                                     cursor: "pointer",
-                                    transition: "all 0.2s ease"
+                                    transition: "all 0.2s ease",
+                                    gap: "12px"
                                   }}
                                 >
-                                  <div>
+                                  <div style={{ flex: "1", minWidth: 0, overflow: "hidden" }}>
                                     <Typography
                                       variant="body2"
-                                      style={{ color: "#1976d2", fontWeight: "500" }}
+                                      style={{ color: "#1976d2", fontWeight: "500", wordBreak: "break-word" }}
                                     >
                                       {claim.claim_number || `Claim ${index + 1}`}
                                     </Typography>
                                     {claim.incident_stage && (
                                       <Typography
                                         variant="caption"
-                                        style={{ color: "#666", display: "block", marginTop: "2px" }}
+                                        style={{ color: "#666", display: "block", marginTop: "2px", wordBreak: "break-word" }}
                                       >
                                         Status: {claim.incident_stage}
                                       </Typography>
                                     )}
                                   </div>
-                                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                  <div style={{ display: "flex", gap: "8px", alignItems: "center", flexShrink: 0, whiteSpace: "nowrap" }}>
                                     {claim.notification_report_id && (
                                       <ClaimRedirectButton
                                         notificationReportId={claim.notification_report_id}
                                         employerId={formData.employerId || ''}
-                                        buttonText="View Claim"
+                                        buttonText={formData.allClaims.length === 1 ? "View Claim in MAC" : "View Claim"}
                                         searchType="claim"
                                         isEmployerSearch={false}
                                         employerData={selectedEmployer}
@@ -2455,30 +2422,6 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                             </div>
                           )}
                         </div>
-                        
-                        {/* Claim Button with Login Redirect - Show for single claim or first claim */}
-                        {formData.notification_report_id && (!formData.allClaims || formData.allClaims.length === 1) && (
-                          <div style={{ alignSelf: "flex-end" }}>
-                            <ClaimRedirectButton
-                              notificationReportId={formData.notification_report_id}
-                              employerId={formData.employerId || ''}
-                              buttonText="View Claim in MAC"
-                              searchType="claim" // Explicitly set as claim search, but will show employer profiles if found
-                              isEmployerSearch={false} // This is for employee/claim search
-                              employerData={selectedEmployer} // Pass employer data for profile button
-                              openMode="new-tab"
-                              openEarlyNewTab={true}
-                              onSuccess={(data) => {
-                                console.log('Claim redirect successful:', data);
-                                // You can add additional success handling here
-                              }}
-                              onError={(error) => {
-                                console.error('Claim redirect failed:', error);
-                                // You can add additional error handling here
-                              }}
-                            />
-                          </div>
-                        )}
                       </div>
 
                       {/* Dependents Section */}
@@ -2550,41 +2493,7 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                             {formData.allClaims && formData.allClaims.length > 0 && formData.allClaims[0]?.claim_number && formData.allClaims[0].claim_number.trim() && formData.allClaims[0].claim_number.trim().length > 0 ? (
                               <>
                                 {formData.allClaims.length === 1 ? (
-                                  <>
-                                    Claim Number:{" "}
-                                    <span style={{ color: "#1976d2" }}>
-                                      {formData.allClaims[0].claim_number}
-                                    </span>
-                                    {/* Show small button when there's a claim */}
-                                    {(selectedEmployer || selectedInstitution || formData.institution) && (
-                                      <div style={{ marginTop: "8px" }}>
-                                        <ClaimRedirectButton
-                                          notificationReportId={
-                                            (selectedEmployer?.registration_number) || 
-                                            (selectedInstitution?.registration_number) || 
-                                            ""
-                                          }
-                                          buttonText="View Employer Profile"
-                                          searchType="employer"
-                                          isEmployerSearch={true}
-                                          employerData={selectedEmployer || selectedInstitution}
-                                          openMode="new-tab"
-                                          openEarlyNewTab={true}
-                                          style={{
-                                            padding: "4px 8px",
-                                            fontSize: "12px",
-                                            minHeight: "28px"
-                                          }}
-                                          onSuccess={(data) => {
-                                            console.log('Employer profile redirect successful:', data);
-                                          }}
-                                          onError={(error) => {
-                                            console.error('Employer profile redirect failed:', error);
-                                          }}
-                                        />
-                                      </div>
-                                    )}
-                                  </>
+                                  <>Claim (1):</>
                                 ) : (
                                   <>
                                     Claims ({formData.allClaims.length}):
