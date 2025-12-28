@@ -610,6 +610,7 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
   const [registrationType, setRegistrationType] = useState(""); // "employee" or "employer"
   const [searchResults, setSearchResults] = useState([]);
   const [currentSearchQuery, setCurrentSearchQuery] = useState("");
+  const [selectedClaimIndex, setSelectedClaimIndex] = useState(0); // Track which claim is selected
   
   // --- Right Part Visibility Control ---
   const [showRightPart, setShowRightPart] = useState(true);
@@ -807,6 +808,7 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
     setShowForm(true); // Show form after employee is found
     setShowUserNotFound(false);
     setShowRegistrationOptions(false);
+    setSelectedClaimIndex(0); // Reset to first claim when new employee is selected
     
     // Update form data with employee information while preserving call phone number
     setFormData(prev => ({
@@ -1506,14 +1508,30 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
       // 2. If no claim number and it's an inquiry → Send to focal person of the selected section/unit
       // 3. Otherwise → Fallback to institution's allocated staff
       let employerAllocatedStaffUsername = "";
+      
+      // Get the selected claim based on selectedClaimIndex
+      const selectedClaim = formData.allClaims && formData.allClaims.length > 0 
+        ? formData.allClaims[selectedClaimIndex] 
+        : null;
 
-      if (selectedSuggestion && selectedSuggestion.allocated_user_username) {
-        // Use allocated user from employee search response
+      // Priority: Use selected claim's allocated user, then fallback to selectedSuggestion, then formData
+      if (selectedClaim && selectedClaim.allocated_user_username) {
+        // Use allocated user from the selected claim
+        employerAllocatedStaffUsername = selectedClaim.allocated_user_username;
+      } else if (selectedSuggestion && selectedSuggestion.allocated_user_username) {
+        // Use allocated user from employee search response (fallback)
         employerAllocatedStaffUsername = selectedSuggestion.allocated_user_username;
+      } else if (formData.allocated_user_username) {
+        // Use allocated user from formData (fallback)
+        employerAllocatedStaffUsername = formData.allocated_user_username;
       } else {
         // No allocated user found, will be assigned by backend logic
         employerAllocatedStaffUsername = "";
       }
+
+      // Get claim information from selected claim or fallback
+      const claimId = selectedClaim?.claim_number || selectedSuggestion?.claimId || formData.claimNumber || null;
+      const notificationReportId = selectedClaim?.notification_report_id || formData.notification_report_id || null;
 
       const ticketData = {
         ...formData,
@@ -1525,15 +1543,17 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
         status: action === "closed" ? "Closed" : "Open",
         employerAllocatedStaffUsername,
         shouldClose: action === "closed",
-        // Add claim number for routing decision
-        claimId: selectedSuggestion?.claimId || null,
+        // Add claim number for routing decision (use selected claim)
+        claimId: claimId,
+        claimNumber: selectedClaim?.claim_number || formData.claimNumber || claimId || "",
+        notification_report_id: notificationReportId,
         // Add routing information for backend
-        hasClaim: Boolean(selectedSuggestion?.claimId),
+        hasClaim: Boolean(claimId),
         isInquiry: formData.category === "Inquiry",
-        // Add allocated user details for routing
-        allocated_user_id: selectedSuggestion?.allocated_user_id || null,
-        allocated_user_name: selectedSuggestion?.allocated_user || null,
-        allocated_user_username: selectedSuggestion?.allocated_user_username || null,
+        // Add allocated user details for routing (use selected claim)
+        allocated_user_id: selectedClaim?.allocated_user_id || selectedSuggestion?.allocated_user_id || formData.allocated_user_id || null,
+        allocated_user_name: selectedClaim?.allocated_user || selectedSuggestion?.allocated_user || formData.allocated_user_name || null,
+        allocated_user_username: selectedClaim?.allocated_user_username || selectedSuggestion?.allocated_user_username || formData.allocated_user_username || null,
         // Add employer information from search
         employer: formData.employer || selectedSuggestion?.employer || "",
         employerName: formData.employerName || "",
@@ -1675,20 +1695,29 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
             setRightPartContent("ticket-history");
           } else {
             setCreationFoundTickets([]);
-            setRightPartContent("no-history");
+            // Only set to "no-history" if we don't have selected employee/institution/employer
+            if (!selectedEmployee && !selectedInstitution && !selectedEmployer) {
+              setRightPartContent("no-history");
+            }
           }
         })
         .catch(() => {
           setCreationFoundTickets([]);
-          setRightPartContent("no-history");
+          // Only set to "no-history" if we don't have selected employee/institution
+          if (!selectedEmployee && !selectedInstitution) {
+            setRightPartContent("no-history");
+          }
         })
         .finally(() => setCreationTicketsLoading(false));
     } else if (!normalizedPhone || normalizedPhone.length < 7) {
-      // No phone number, show no history
+      // No phone number, but if we have selected employee/institution/employer, keep showing ticket-history
       setCreationFoundTickets([]);
-      setRightPartContent("no-history");
+      if (!selectedEmployee && !selectedInstitution && !selectedEmployer) {
+        setRightPartContent("no-history");
+      }
+      // If we have selectedEmployee, selectedInstitution, or selectedEmployer, keep rightPartContent as "ticket-history"
     }
-  }, [formData.phoneNumber, showRightPart, rightPartContent]);
+  }, [formData.phoneNumber, showRightPart, rightPartContent, selectedEmployee, selectedInstitution, selectedEmployer]);
 
   // Search ticket by ticket number (ticket_id like WCF-CC-20251226-000002)
   const handleSearchByTicketNumber = async () => {
@@ -2221,7 +2250,7 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                               <>
                                 {formData.allClaims.length === 1 ? (
                                   <>
-                                    Claim Numbers:{" "}
+                                    Claim Number:{" "}
                                     <span style={{ color: "#1976d2" }}>
                                       {formData.allClaims[0].claim_number}
                                     </span>
@@ -2352,15 +2381,18 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                               {formData.allClaims.map((claim, index) => (
                                 <div
                                   key={index}
+                                  onClick={() => setSelectedClaimIndex(index)}
                                   style={{
                                     display: "flex",
                                     justifyContent: "space-between",
                                     alignItems: "center",
                                     padding: "8px 12px",
                                     marginBottom: "8px",
-                                    backgroundColor: "#f5f5f5",
+                                    backgroundColor: selectedClaimIndex === index ? "#e3f2fd" : "#f5f5f5",
                                     borderRadius: "4px",
-                                    border: "1px solid #e0e0e0"
+                                    border: selectedClaimIndex === index ? "2px solid #1976d2" : "1px solid #e0e0e0",
+                                    cursor: "pointer",
+                                    transition: "all 0.2s ease"
                                   }}
                                 >
                                   <div>
@@ -2379,21 +2411,45 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                                       </Typography>
                                     )}
                                   </div>
-                                  {claim.notification_report_id && (
-                                    <ClaimRedirectButton
-                                      notificationReportId={claim.notification_report_id}
-                                      employerId={formData.employerId || ''}
-                                      buttonText="View Claim"
-                                      searchType="claim"
-                                      isEmployerSearch={false}
-                                      employerData={selectedEmployer}
-                                      openMode="new-tab"
-                                      openEarlyNewTab={true}
-                                      onSuccess={(data) => {
-                                        console.log('Claim redirect successful:', data);
-                                      }}
-                                    />
-                                  )}
+                                  <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                                    {claim.notification_report_id && (
+                                      <ClaimRedirectButton
+                                        notificationReportId={claim.notification_report_id}
+                                        employerId={formData.employerId || ''}
+                                        buttonText="View Claim"
+                                        searchType="claim"
+                                        isEmployerSearch={false}
+                                        employerData={selectedEmployer}
+                                        openMode="new-tab"
+                                        openEarlyNewTab={true}
+                                        onSuccess={(data) => {
+                                          console.log('Claim redirect successful:', data);
+                                        }}
+                                      />
+                                    )}
+                                    {(selectedEmployer?.registration_number || selectedInstitution?.registration_number || formData.employerRegistrationNumber) && (
+                                      <ClaimRedirectButton
+                                        notificationReportId={
+                                          selectedEmployer?.registration_number || 
+                                          selectedInstitution?.registration_number || 
+                                          formData.employerRegistrationNumber || 
+                                          ""
+                                        }
+                                        buttonText="View Employer Profile"
+                                        searchType="employer"
+                                        isEmployerSearch={true}
+                                        employerData={selectedEmployer || selectedInstitution}
+                                        openMode="new-tab"
+                                        openEarlyNewTab={true}
+                                        onSuccess={(data) => {
+                                          console.log('Employer profile redirect successful:', data);
+                                        }}
+                                        onError={(error) => {
+                                          console.error('Employer profile redirect failed:', error);
+                                        }}
+                                      />
+                                    )}
+                                  </div>
                                 </div>
                               ))}
                             </div>
@@ -3312,7 +3368,7 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
             {rightPartContent === "ticket-history" && (
               <>
                 {/* Employer/Institution Details */}
-                {(selectedInstitution || (selectedEmployee && formData.allocated_user_name)) && (
+                {(selectedInstitution || selectedEmployee || selectedEmployer) && (
                   <div
                     style={{
                       flex: 1,
@@ -3344,34 +3400,76 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                           <strong>Status:</strong> {selectedInstitution.employer_status}
                         </div>
                         <div>
-                          <strong>Allocated User:</strong>{" "}
-                          {selectedInstitution.allocated_staff_name || "Not assigned"}
+                        <strong>Allocated User:</strong>{" "}
+                        {selectedInstitution.allocated_staff_name || "Not assigned"}
                         </div>
+                        {formData.allClaims && formData.allClaims.length > 0 && (
+                          <div>
+                            <strong>Checklist User:</strong>{" "}
+                            {formData.allClaims[selectedClaimIndex]?.allocated_user_username || "Not assigned"}
+                          </div>
+                        )}
                       </>
                     )}
-                    {selectedEmployee && formData.allocated_user_name && (
+                    {selectedEmployee && (
                       <>
                         {!selectedInstitution && (
                           <>
                             <div>
                               <strong>Employee Name:</strong> {`${formData.firstName} ${formData.middleName} ${formData.lastName}`.trim()}
                             </div>
-                            <div>
-                              <strong>Claim Number:</strong>{" "}
-                              {formData.allClaims && formData.allClaims.length > 1 ? (
-                                <span>
-                                  {formData.allClaims.length} claims:{" "}
-                                  {formData.allClaims.map((c, i) => c.claim_number || `Claim ${i + 1}`).join(", ")}
-                                </span>
-                              ) : (
-                                formData.claimNumber || formData.allClaims?.[0]?.claim_number || "No active claim"
-                              )}
-                            </div>
+                            {(formData.allClaims && formData.allClaims.length > 0 || formData.claimNumber) && (
+                              <div>
+                                <strong>Claim Number:</strong>{" "}
+                                {formData.allClaims && formData.allClaims.length > 1 ? (
+                                  <span>
+                                    {formData.allClaims.length} claims:{" "}
+                                    {formData.allClaims.map((c, i) => c.claim_number || `Claim ${i + 1}`).join(", ")}
+                                  </span>
+                                ) : (
+                                  formData.claimNumber || formData.allClaims?.[0]?.claim_number || "No active claim"
+                                )}
+                              </div>
+                            )}
                           </>
                         )}
+                        {(!formData.allClaims || formData.allClaims.length === 0) && (
+                          <div>
+                            <strong>Checklist User:</strong> {formData.allocated_user_name || "Not assigned"}
+                          </div>
+                        )}
+                      </>
+                    )}
+                    {selectedEmployer && !selectedInstitution && !selectedEmployee && (
+                      <>
                         <div>
-                          <strong>Checklist User:</strong> {formData.allocated_user_name}
+                          <strong>Name:</strong> {selectedEmployer.name || "N/A"}
                         </div>
+                        {selectedEmployer.tin && (
+                          <div>
+                            <strong>TIN:</strong> {selectedEmployer.tin}
+                          </div>
+                        )}
+                        {selectedEmployer.phone && (
+                          <div>
+                            <strong>Phone:</strong> {selectedEmployer.phone}
+                          </div>
+                        )}
+                        {selectedEmployer.email && (
+                          <div>
+                            <strong>Email:</strong> {selectedEmployer.email}
+                          </div>
+                        )}
+                        {selectedEmployer.employer_status && (
+                          <div>
+                            <strong>Status:</strong> {selectedEmployer.employer_status}
+                          </div>
+                        )}
+                        {selectedEmployer.allocated_staff_name && (
+                          <div>
+                            <strong>Allocated User:</strong> {selectedEmployer.allocated_staff_name}
+                          </div>
+                        )}
                       </>
                     )}
                   </div>
