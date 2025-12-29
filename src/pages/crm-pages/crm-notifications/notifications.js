@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { FaEye, FaPlus, FaBell } from "react-icons/fa";
 import { FiSettings } from "react-icons/fi";
 import {
@@ -24,13 +25,16 @@ import ChatIcon from '@mui/icons-material/Chat';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
-import TicketDetailsModal from '../../../components/ticket/TicketDetailsModal';
+import TicketDetailsModal from '../../../components/TicketDetailsModal';
 import Pagination from '../../../components/Pagination';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import TableControls from "../../../components/TableControls";
 import TicketFilters from '../../../components/ticket/TicketFilters';
 
 export default function Crm() {
+  const [searchParams] = useSearchParams();
+  const notificationType = searchParams.get('type'); // 'notified' or 'tagged'
+  
   const [agentTickets, setAgentTickets] = useState([]);
   const [agentTicketsError, setAgentTicketsError] = useState(null);
   const [userId, setUserId] = useState("");
@@ -40,9 +44,11 @@ export default function Crm() {
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+  const [isTicketDetailsModalOpen, setIsTicketDetailsModalOpen] = useState(false);
   const [wasTicketModalOpen, setWasTicketModalOpen] = useState(false); // Track if ticket modal was open before notification modal
   const [originalTicket, setOriginalTicket] = useState(null); // Store original ticket when opening notification modal
   const [selectedTicket, setSelectedTicket] = useState(null);
+  const [assignmentHistory, setAssignmentHistory] = useState([]);
   const [comments, setComments] = useState("");
   const [modal, setModal] = useState({ isOpen: false, type: "", message: "" });
   const [activeColumns, setActiveColumns] = useState([
@@ -160,6 +166,13 @@ export default function Crm() {
     }
   }, [userId]);
 
+  // Debug: Log modal state changes
+  useEffect(() => {
+    if (isTicketDetailsModalOpen) {
+      console.log('TicketDetailsModal should be open:', { isTicketDetailsModalOpen, hasTicket: !!selectedTicket });
+    }
+  }, [isTicketDetailsModalOpen, selectedTicket]);
+
   const fetchAgentTickets = async () => {
     try {
       const token = localStorage.getItem("authToken");
@@ -188,8 +201,21 @@ export default function Crm() {
       const data = await response.json();
       console.log("Fetched tickets (full API response):", data);
       if (data.notifications && Array.isArray(data.notifications)) {
+        console.log(`Total notifications fetched: ${data.notifications.length}`);
         data.notifications.forEach((notif, idx) => {
-          console.log(`Notification #${idx + 1}:`, notif);
+          const messageText = (notif.message || notif.comment || '').toLowerCase();
+          const hasComment = notif.comment && notif.comment !== null && String(notif.comment).trim() !== '';
+          const isTagged = messageText.includes('mentioned you');
+          const isAssigned = messageText.includes('assigned to you') && !isTagged;
+          console.log(`Notification #${idx + 1}:`, {
+            id: notif.id,
+            message: notif.message,
+            comment: notif.comment,
+            hasComment,
+            isTagged,
+            isAssigned,
+            status: notif.status
+          });
           if (notif.ticket) {
             console.log(`Ticket for notification #${idx + 1}:`, notif.ticket);
           }
@@ -262,6 +288,17 @@ export default function Crm() {
 
   const openModal = async (ticket) => {
     // Note: 'ticket' here is actually a notification object with a 'ticket' property
+    console.log('openModal called with:', ticket);
+    
+    // Check if this is a tagged message - check both notification and ticket level
+    // Also check if we're in the tagged view (notificationType === 'tagged')
+    const messageText = (ticket.message || ticket.comment || ticket.ticket?.message || '').toLowerCase();
+    const commentText = (ticket.comment || ticket.ticket?.comment || '').toLowerCase();
+    const isTaggedByContent = messageText.includes('mentioned you') || commentText.includes('@');
+    const isTagged = isTaggedByContent || notificationType === 'tagged';
+    
+    console.log('Tagged check:', { messageText, commentText, isTaggedByContent, notificationType, isTagged });
+    
     // Mark the notification as read if it's unread
     const notificationId = ticket.id; // This is the notification ID
     const notificationStatus = ticket.status;
@@ -281,15 +318,19 @@ export default function Crm() {
           // Update notification status locally
           ticket.status = 'read';
           
-          // Decrease notification count
-          if (notifiedCount > 0) {
+          // Check if this is a tagged message to update tagged count
+          const messageText = (ticket.message || ticket.comment || '').toLowerCase();
+          const isTaggedMsg = messageText.includes('mentioned you');
+          
+          // Decrease notification count (for notified messages)
+          if (!isTaggedMsg && notifiedCount > 0) {
             const newCount = Math.max(0, notifiedCount - 1);
             setNotifiedCount(newCount);
             localStorage.setItem('notificationCount', newCount.toString());
-            
-            // Dispatch custom event to update sidebar
-            window.dispatchEvent(new CustomEvent('notificationModalOpened'));
           }
+          
+          // Dispatch custom event to update sidebar (this will refresh all counts)
+          window.dispatchEvent(new CustomEvent('notificationModalOpened'));
           
           // Update the ticket in agentTickets array
           setAgentTickets(prevTickets => 
@@ -298,19 +339,46 @@ export default function Crm() {
             )
           );
           
-          // Refetch notification count from server to ensure accuracy
+          // Refetch notification counts from server to ensure accuracy
+          // This will update both notified and tagged counts in sidebar
           const userId = localStorage.getItem("userId");
           if (userId && token) {
-            fetch(`${baseURL}/notifications/unread-count/${userId}`, {
+            // Fetch all notifications to recalculate counts
+            fetch(`${baseURL}/notifications/user/${userId}`, {
               headers: { Authorization: `Bearer ${token}` }
             })
               .then(res => res.json())
               .then(data => {
-                const count = data.unreadCount || 0;
-                setNotifiedCount(count);
-                localStorage.setItem('notificationCount', count.toString());
+                const notifications = data.notifications || [];
+                
+                // Recalculate tagged count
+                const taggedCount = notifications.filter(n => {
+                  const msgText = (n.message || '').toLowerCase();
+                  const isUnread = n.status === 'unread' || n.status === ' ';
+                  return msgText.includes('mentioned you') && isUnread;
+                }).length;
+                
+                // Recalculate notified count
+                const notifiedCountNew = notifications.filter(n => {
+                  const hasComment = n.comment !== null && n.comment !== undefined && String(n.comment).trim() !== '';
+                  const msgText = (n.message || '').toLowerCase();
+                  const isTagged = msgText.includes('mentioned you');
+                  const isAssigned = msgText.includes('assigned to you') && !isTagged;
+                  const isUnread = n.status === 'unread' || n.status === ' ';
+                  return hasComment && isUnread && !isTagged && !isAssigned;
+                }).length;
+                
+                // Update counts in localStorage for sidebar sync
+                localStorage.setItem('notificationCount', notifiedCountNew.toString());
+                localStorage.setItem('taggedCount', taggedCount.toString());
+                
+                // Update local state
+                setNotifiedCount(notifiedCountNew);
+                
+                // Trigger sidebar refresh
+                window.dispatchEvent(new CustomEvent('notificationCountUpdated'));
               })
-              .catch(err => console.error('Error fetching updated count:', err));
+              .catch(err => console.error('Error fetching updated counts:', err));
           }
         }
       } catch (error) {
@@ -318,9 +386,107 @@ export default function Crm() {
       }
     }
     
-    setSelectedTicket(ticket);
-    setComments(ticket.comments || "");
-    setIsModalOpen(true);
+    // If it's a tagged message, open ticket details modal (for attending)
+    // Otherwise, open notification modal
+    if (isTagged) {
+      // For tagged messages, fetch full ticket details and assignment history
+      // The ticket object structure: notification has ticket_id, but ticket object might be nested
+      const ticketId = ticket.ticket?.id || ticket.ticket_id || ticket.id;
+      
+      console.log('Opening tagged message modal:', { ticketId, ticket, hasTicketProperty: !!ticket.ticket });
+      
+      try {
+        const token = localStorage.getItem("authToken");
+        
+        // Always fetch the full ticket details to ensure we have complete data
+        let fullTicket = null;
+        const ticketResponse = await fetch(`${baseURL}/ticket/${ticketId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        if (ticketResponse.ok) {
+          const ticketData = await ticketResponse.json();
+          fullTicket = ticketData.ticket || ticketData;
+          console.log('Fetched full ticket:', fullTicket);
+        } else {
+          console.error('Failed to fetch ticket:', ticketResponse.status);
+          // Fallback to using ticket from notification if available
+          fullTicket = ticket.ticket || ticket;
+        }
+        
+        if (!fullTicket) {
+          console.error('No ticket data available');
+          return;
+        }
+        
+        // Fetch assignment history
+        const historyResponse = await fetch(`${baseURL}/ticket/${ticketId}/assignments`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        let assignmentHistoryData = [];
+        if (historyResponse.ok) {
+          const historyData = await historyResponse.json();
+          // Backend returns assignments array directly (like assigned.js uses data directly)
+          // Check if it's an array or an object with assignments property
+          if (Array.isArray(historyData)) {
+            assignmentHistoryData = historyData;
+          } else if (historyData.assignments && Array.isArray(historyData.assignments)) {
+            assignmentHistoryData = historyData.assignments;
+          } else {
+            assignmentHistoryData = [];
+          }
+          
+          console.log('Assignment history fetched:', assignmentHistoryData);
+          
+          // Ensure each assignment has resolved user names (backend should already provide this, but ensure it)
+          assignmentHistoryData = assignmentHistoryData.map(assignment => ({
+            ...assignment,
+            // Use assigned_to_name if available (backend provides this), otherwise try to resolve from assignedTo object
+            assigned_to_name: assignment.assigned_to_name || assignment.assignedTo?.full_name || 'Unknown User',
+            assigned_to_role: assignment.assigned_to_role || assignment.assignedTo?.role || 'N/A'
+          }));
+          
+          console.log('Assignment history after mapping:', assignmentHistoryData);
+        }
+        
+        // Set the ticket (use the full ticket object)
+        console.log('Setting ticket and opening modal:', { fullTicket, ticketId, assignmentHistoryData });
+        
+        // Set all state first
+        setAssignmentHistory(assignmentHistoryData);
+        setSelectedTicket(fullTicket);
+        
+        // Close other modals first
+        setIsModalOpen(false);
+        setIsNotificationModalOpen(false);
+        
+        // Then open the ticket details modal
+        console.log('State being set - isTicketDetailsModalOpen: true');
+        setIsTicketDetailsModalOpen(true);
+        console.log('Modal state set');
+      } catch (error) {
+        console.error('Error fetching ticket details:', error);
+        // Fallback: still open the modal with available data
+        const fallbackTicket = ticket.ticket || ticket;
+        console.log('Using fallback - fallbackTicket:', fallbackTicket);
+        if (fallbackTicket) {
+          setSelectedTicket(fallbackTicket);
+          setAssignmentHistory([]);
+          setIsTicketDetailsModalOpen(true);
+          setIsModalOpen(false);
+          setIsNotificationModalOpen(false);
+        } else {
+          console.error('No ticket data available for fallback');
+        }
+      }
+    } else {
+      // For non-tagged notifications, open notification history modal
+      setSelectedTicket(ticket);
+      setIsNotificationModalOpen(true);
+      setIsModalOpen(false);
+      setIsTicketDetailsModalOpen(false);
+    }
   };
 
   const closeModal = () => {
@@ -762,27 +928,143 @@ export default function Crm() {
     );
   };
 
-  // Group notifications by ticket ID and keep only the latest manual notification per ticket (with comment)
+  // Group notifications by ticket ID and keep only the latest notification per ticket
   const uniqueTickets = [];
   const seenTicketIds = new Set();
+  console.log('Processing agentTickets for uniqueTickets:', agentTickets.length, 'notificationType:', notificationType);
   agentTickets.forEach((notif) => {
     const ticketId = notif.ticket?.id || notif.ticket_id || notif.id;
-    if (notif.comment && notif.comment.trim() !== '' && !seenTicketIds.has(ticketId)) {
+    // Check notification type
+    const messageText = (notif.message || notif.comment || '').toLowerCase();
+    const commentText = (notif.comment || '').toLowerCase();
+    const isTagged = messageText.includes('mentioned you') || commentText.includes('@');
+    // isAssigned means the message says "assigned to you" - this is different from ticket being assigned
+    const isAssignedMessage = messageText.includes('assigned to you') && !isTagged;
+    const hasComment = notif.comment && notif.comment !== null && String(notif.comment).trim() !== '';
+    
+    // Include notifications that are:
+    // 1. Tagged messages (always include)
+    // 2. Notified messages (has comment, not tagged)
+    // Note: We include notified even if they have "assigned to you" message, as long as they have comment
+    const shouldInclude = isTagged || (hasComment && !isTagged);
+    
+    if (!seenTicketIds.has(ticketId) && shouldInclude) {
       uniqueTickets.push(notif);
       seenTicketIds.add(ticketId);
+      if (notificationType === 'notified') {
+        console.log('Added to uniqueTickets (notified):', {
+          ticketId,
+          hasComment,
+          isTagged,
+          isAssignedMessage,
+          shouldInclude,
+          comment: notif.comment
+        });
+      }
     }
   });
+  console.log('Total uniqueTickets after processing:', uniqueTickets.length);
 
-  const manualNotifications = uniqueTickets.filter(
-    notif => notif.comment && notif.comment.trim() !== ''
-  );
+  // Debug: Log all notifications when filtering for tagged
+  if (notificationType === 'tagged') {
+    console.log('Filtering for tagged messages. Total uniqueTickets:', uniqueTickets.length);
+    uniqueTickets.forEach((notif, idx) => {
+      const messageText = (notif.message || notif.comment || '').toLowerCase();
+      const commentText = (notif.comment || '').toLowerCase();
+      const isTagged = messageText.includes('mentioned you') || commentText.includes('@');
+      console.log(`Notification ${idx + 1}:`, {
+        ticketId: notif.ticket?.id || notif.ticket_id || notif.id,
+        message: notif.message,
+        comment: notif.comment,
+        isTagged,
+        messageText,
+        commentText
+      });
+    });
+  }
 
-  const systemNotifications = uniqueTickets.filter(
-    notif => notif.comment || notif.comment.trim() === ''
-  );
+  // Debug: Log all notifications when filtering for notified
+  if (notificationType === 'notified') {
+    console.log('Filtering for notified messages. Total uniqueTickets:', uniqueTickets.length);
+    uniqueTickets.forEach((notif, idx) => {
+      const hasComment = notif.comment && notif.comment !== null && String(notif.comment).trim() !== '';
+      const messageText = (notif.message || notif.comment || '').toLowerCase();
+      const commentText = (notif.comment || '').toLowerCase();
+      const isTagged = messageText.includes('mentioned you') || commentText.includes('@');
+      const isAssignedMessage = messageText.includes('assigned to you') && !isTagged;
+      console.log(`Notification ${idx + 1}:`, {
+        ticketId: notif.ticket?.id || notif.ticket_id || notif.id,
+        message: notif.message,
+        comment: notif.comment,
+        hasComment,
+        isTagged,
+        isAssignedMessage,
+        shouldInclude: hasComment && !isTagged && !isAssignedMessage
+      });
+    });
+  }
 
-  // Use filtered list based on toggle
-  const filteredTickets = (showType === 'manual' ? manualNotifications : systemNotifications).filter((ticket) => {
+  // Filter based on notification type from query parameter
+  let typeFilteredTickets = uniqueTickets;
+  if (notificationType === 'notified') {
+    // Show only "notified" notifications: has comment, not tagged
+    // Note: Include notifications with comments even if they have "assigned to you" in message
+    // The key is that they have a comment field, which makes them "notified" type
+    typeFilteredTickets = uniqueTickets.filter(notif => {
+      const hasComment = notif.comment && notif.comment !== null && String(notif.comment).trim() !== '';
+      const messageText = (notif.message || notif.comment || '').toLowerCase();
+      const commentText = (notif.comment || '').toLowerCase();
+      const isTagged = messageText.includes('mentioned you') || commentText.includes('@');
+      // Include if has comment and not tagged (regardless of "assigned to you" message)
+      const shouldInclude = hasComment && !isTagged;
+      return shouldInclude;
+    });
+    console.log('Notified messages filtered:', typeFilteredTickets.length);
+  } else if (notificationType === 'tagged') {
+    // Show only "tagged" notifications: has "mentioned you" in message or "@" in comment
+    typeFilteredTickets = uniqueTickets.filter(notif => {
+      const messageText = (notif.message || notif.comment || '').toLowerCase();
+      const commentText = (notif.comment || '').toLowerCase();
+      return messageText.includes('mentioned you') || commentText.includes('@');
+    });
+    console.log('Tagged messages filtered:', typeFilteredTickets.length);
+  }
+  // If no type specified, show all notifications (current behavior)
+
+  // When a specific notification type is selected, use that directly
+  // Otherwise, use manual/system filter
+  let filteredTickets;
+  if (notificationType === 'tagged' || notificationType === 'notified') {
+    // For tagged or notified, use the typeFilteredTickets directly
+    filteredTickets = typeFilteredTickets;
+  } else {
+    // For default view, use manual/system filter
+    const manualNotifications = typeFilteredTickets.filter(
+      notif => notif.comment && notif.comment !== null && String(notif.comment).trim() !== ''
+    );
+
+    const systemNotifications = typeFilteredTickets.filter(
+      notif => !notif.comment || notif.comment === null || String(notif.comment).trim() === ''
+    );
+
+    filteredTickets = showType === 'manual' ? manualNotifications : systemNotifications;
+  }
+
+  // Debug: Log filtered tickets before search filter
+  if (notificationType === 'notified') {
+    console.log('Filtered tickets before search filter:', filteredTickets.length);
+    filteredTickets.forEach((ticket, idx) => {
+      const ticketData = ticket.ticket || ticket;
+      console.log(`Filtered ticket ${idx + 1}:`, {
+        ticketId: ticketData.id || ticketData.ticket_id,
+        comment: ticket.comment,
+        message: ticket.message
+      });
+    });
+  }
+
+  // Apply search and other filters
+  filteredTickets = filteredTickets.filter((ticket) => {
     const searchValue = search.toLowerCase();
     const ticketData = ticket.ticket || ticket;
     const phone = (ticketData.phone_number || "").toLowerCase();
@@ -814,8 +1096,25 @@ export default function Crm() {
       endDate.setHours(23, 59, 59, 999);
       if (ticketDate > endDate) matchesDate = false;
     }
-    return matchesSearch && matchesStatus && matchesPriority && matchesCategory && matchesDate;
+    const shouldInclude = matchesSearch && matchesStatus && matchesPriority && matchesCategory && matchesDate;
+    if (notificationType === 'notified' && !shouldInclude) {
+      console.log('Ticket filtered out:', {
+        ticketId: ticketData.id || ticketData.ticket_id,
+        matchesSearch,
+        matchesStatus,
+        matchesPriority,
+        matchesCategory,
+        matchesDate,
+        searchValue,
+        filters
+      });
+    }
+    return shouldInclude;
   });
+
+  if (notificationType === 'notified') {
+    console.log('Final filtered tickets count:', filteredTickets.length);
+  }
 
   const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage + 1;
@@ -848,7 +1147,12 @@ export default function Crm() {
     
     return agentTickets.filter(notif => {
       const notifTicketId = notif.ticket?.id || notif.ticket_id || notif.id;
-      const hasMessage = notif.comment && notif.comment.trim() !== '';
+      const hasComment = notif.comment && notif.comment !== null && String(notif.comment).trim() !== '';
+      const messageText = (notif.message || notif.comment || '').toLowerCase();
+      const commentText = (notif.comment || '').toLowerCase();
+      const isTagged = messageText.includes('mentioned you') || commentText.includes('@');
+      // Include notifications with comment OR tagged messages
+      const hasMessage = hasComment || isTagged;
       const isUnread = notif.status === 'unread' || notif.status === ' ';
       
       return notifTicketId === ticketId && hasMessage && isUnread;
@@ -938,14 +1242,22 @@ export default function Crm() {
                   backgroundColor: '#ff0000 !important',
                   color: 'white !important',
                   fontWeight: 'bold',
-                  border: '1px solid white'
+                  border: '1px solid white',
+                  pointerEvents: 'none' // Don't block clicks on the badge
                 }
               }}
             >
               <button
                 className="view-ticket-details-btn"
-                onClick={() => openModal(ticket)}
-                style={{ position: 'relative' }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('Bell button clicked for ticket:', ticket);
+                  openModal(ticket).catch(err => {
+                    console.error('Error in openModal:', err);
+                  });
+                }}
+                style={{ position: 'relative', cursor: 'pointer', zIndex: 1 }}
               >
                 <FaBell />
               </button>
@@ -973,7 +1285,35 @@ export default function Crm() {
         alignItems: "center",
         marginBottom: "1rem"
       }}>
-        <h3 className="title">Notifications List</h3>
+        <div style={{ display: "flex", alignItems: "center", gap: "26px" }}>
+          <h3 className="title" style={{ margin: 0 }}>Notifications List</h3>
+          {notificationType === 'tagged' && (
+            <Badge 
+              badgeContent="Tagged" 
+              color="primary"
+              sx={{
+                '& .MuiBadge-badge': {
+                  fontSize: '0.7rem',
+                  padding: '4px 8px',
+                  borderRadius: '12px'
+                }
+              }}
+            />
+          )}
+          {notificationType === 'notified' && (
+            <Badge 
+              badgeContent="Notified" 
+              color="error"
+              sx={{
+                '& .MuiBadge-badge': {
+                  fontSize: '0.7rem',
+                  padding: '4px 8px',
+                  borderRadius: '12px'
+                }
+              }}
+            />
+          )}
+        </div>
         
         <div style={{ 
           display: "flex", 
@@ -1436,6 +1776,21 @@ export default function Crm() {
           </Box>
         </Box>
       </Modal>
+
+      {/* Ticket Details Modal for Tagged Messages */}
+      <TicketDetailsModal
+        open={isTicketDetailsModalOpen}
+        onClose={() => {
+          console.log('Closing TicketDetailsModal');
+          setIsTicketDetailsModalOpen(false);
+          setSelectedTicket(null);
+          setAssignmentHistory([]);
+        }}
+        selectedTicket={selectedTicket}
+        assignmentHistory={assignmentHistory}
+        refreshTickets={fetchAgentTickets}
+        refreshDashboardCounts={() => {}}
+      />
 
       {/* Column Selector */}
       {/* Removed ColumnSelectorDropdown */}

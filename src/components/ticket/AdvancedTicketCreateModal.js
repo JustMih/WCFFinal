@@ -3315,7 +3315,13 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                         {formData.allClaims && formData.allClaims.length > 0 && (
                           <div>
                             <strong>Checklist User:</strong>{" "}
-                            {formData.allClaims[selectedClaimIndex]?.allocated_user_username || "Not assigned"}
+                            {formData.allClaims[selectedClaimIndex]?.allocated_user_username 
+                              ? formData.allClaims[selectedClaimIndex].allocated_user_username
+                                  .replace(/\./g, ' ')
+                                  .split(' ')
+                                  .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                                  .join(' ')
+                              : "Not assigned"}
                           </div>
                         )}
                       </>
@@ -3342,9 +3348,30 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                             )}
                           </>
                         )}
-                        {(!formData.allClaims || formData.allClaims.length === 0) && (
+                        {!selectedInstitution && (
                           <div>
-                            <strong>Checklist User:</strong> {formData.allocated_user_name || "Not assigned"}
+                            <strong>Checklist User:</strong>{" "}
+                            {formData.allClaims && formData.allClaims.length > 0
+                              ? (formData.allClaims[selectedClaimIndex]?.allocated_user_username 
+                                  ? formData.allClaims[selectedClaimIndex].allocated_user_username
+                                      .replace(/\./g, ' ')
+                                      .split(' ')
+                                      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                                      .join(' ')
+                                  : (formData.allocated_user_username 
+                                      ? formData.allocated_user_username
+                                          .replace(/\./g, ' ')
+                                          .split(' ')
+                                          .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                                          .join(' ')
+                                      : "Not assigned"))
+                              : (formData.allocated_user_username 
+                                  ? formData.allocated_user_username
+                                      .replace(/\./g, ' ')
+                                      .split(' ')
+                                      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+                                      .join(' ')
+                                  : (formData.allocated_user_name || "Not assigned"))}
                           </div>
                         )}
                       </>
@@ -3385,15 +3412,15 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                 )}
                 
                 {/* Search by Ticket Number */}
-                <Box sx={{ mt: 2, mb: 2 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, color: '#1976d2' }}>
+                <Box sx={{ mt: 1, mb: 1 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5, color: '#1976d2', fontSize: '0.875rem' }}>
                     Search by Ticket Number
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 1 }}>
                     <TextField
                       size="small"
                       fullWidth
-                      placeholder="Enter ticket number (e.g., WCF-CC-20251226-000002)"
+                      placeholder="Enter ticket number (e.g., WC"
                       value={ticketNumberSearch}
                       onChange={(e) => setTicketNumberSearch(e.target.value)}
                       onKeyPress={(e) => {
@@ -3401,16 +3428,25 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                           handleSearchByTicketNumber();
                         }
                       }}
-                      sx={{ flex: 1 }}
+                      sx={{ 
+                        flex: 1,
+                        '& .MuiInputBase-root': {
+                          height: '32px'
+                        }
+                      }}
                     />
                     <Button
                       variant="contained"
                       size="small"
                       onClick={handleSearchByTicketNumber}
                       disabled={!ticketNumberSearch.trim() || ticketNumberSearchLoading}
-                      sx={{ minWidth: 100 }}
+                      sx={{ 
+                        minWidth: 100,
+                        height: '32px',
+                        fontSize: '0.875rem'
+                      }}
                     >
-                      {ticketNumberSearchLoading ? <CircularProgress size={20} /> : 'Search'}
+                      {ticketNumberSearchLoading ? <CircularProgress size={16} /> : 'Search'}
                     </Button>
                   </Box>
                 </Box>

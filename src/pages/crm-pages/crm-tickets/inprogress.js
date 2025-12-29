@@ -71,9 +71,19 @@ export default function Crm() {
     const userId = localStorage.getItem("userId");
     if (userId) {
       setUserId(userId);
+      console.log("user id is:", userId);
     } else {
       setAssignmentsError("User not authenticated. Please log in.");
       setLoading(false);
+    }
+    
+    // Check for ticketId in URL query parameters
+    const urlParams = new URLSearchParams(window.location.search);
+    const ticketIdFromUrl = urlParams.get('ticketId');
+    if (ticketIdFromUrl) {
+      setFilters(prev => ({ ...prev, ticketId: ticketIdFromUrl }));
+      // Store ticketId to open modal after assignments are loaded
+      localStorage.setItem('openTicketId', ticketIdFromUrl);
     }
   }, []);
 
@@ -82,6 +92,136 @@ export default function Crm() {
       fetchInProgressAssignments();
     }
   }, [userId]);
+  
+  // Open ticket modal if ticketId was in URL
+  useEffect(() => {
+    // Check both localStorage and URL parameter
+    const urlParams = new URLSearchParams(window.location.search);
+    const ticketIdFromUrl = urlParams.get('ticketId');
+    const openTicketId = ticketIdFromUrl || localStorage.getItem('openTicketId');
+    
+    console.log("useEffect triggered - openTicketId:", openTicketId, "loading:", loading, "assignments.length:", assignments.length);
+    
+    if (openTicketId && !loading) {
+      // First, try to find in current assignments
+      const assignmentToOpen = assignments.find(a => {
+        const ticket = a.ticket || {};
+        const ticketIdMatch = ticket.ticket_id && ticket.ticket_id.toLowerCase() === openTicketId.toLowerCase();
+        const idMatch = ticket.id && (ticket.id === openTicketId || ticket.id.toLowerCase() === openTicketId.toLowerCase());
+        return ticketIdMatch || idMatch;
+      });
+      
+      if (assignmentToOpen && assignmentToOpen.ticket) {
+        console.log("Found ticket in assignments, opening modal");
+        setSelectedTicket(assignmentToOpen.ticket);
+        // Fetch assignment history before opening modal
+        const fetchHistory = async () => {
+          try {
+            const token = localStorage.getItem("authToken");
+            const res = await fetch(`${baseURL}/ticket/${assignmentToOpen.ticket.id}/assignments`, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await res.json();
+            setAssignmentHistory(data);
+          } catch (e) {
+            setAssignmentHistory([]);
+          }
+        };
+        fetchHistory();
+        setIsModalOpen(true);
+        // Clear the stored ticketId
+        localStorage.removeItem('openTicketId');
+        // Clear URL parameter
+        window.history.replaceState({}, '', window.location.pathname);
+        return;
+      }
+      
+      // If not found in assignments, try to fetch it
+      if (!loading) {
+        console.log("Ticket not found in assignments, fetching from API");
+        // If ticket not found in current assignments and loading is complete, 
+        // try to fetch it using the in-progress endpoint (which includes all relationships)
+        const fetchAndOpenTicket = async () => {
+          try {
+            const token = localStorage.getItem("authToken");
+            const userId = localStorage.getItem("userId");
+            
+            // First try to get it from in-progress tickets endpoint (has all relationships)
+            const inProgressResponse = await fetch(`${baseURL}/ticket/in-progress/${userId}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            
+            if (inProgressResponse.ok) {
+              const inProgressData = await inProgressResponse.json();
+              const tickets = inProgressData.tickets || inProgressData.data || inProgressData;
+              const foundTicket = Array.isArray(tickets) ? tickets.find(t => {
+                const ticketIdMatch = t.ticket_id && t.ticket_id.toLowerCase() === openTicketId.toLowerCase();
+                const idMatch = t.id && (t.id === openTicketId || t.id.toLowerCase() === openTicketId.toLowerCase());
+                return ticketIdMatch || idMatch;
+              }) : null;
+              
+              if (foundTicket) {
+                console.log("Found ticket in in-progress endpoint, opening modal");
+                setSelectedTicket(foundTicket);
+                // Fetch assignment history before opening modal
+                const fetchHistory = async () => {
+                  try {
+                    const token = localStorage.getItem("authToken");
+                    const res = await fetch(`${baseURL}/ticket/${foundTicket.id}/assignments`, {
+                      headers: { Authorization: `Bearer ${token}` }
+                    });
+                    const data = await res.json();
+                    setAssignmentHistory(data);
+                  } catch (e) {
+                    setAssignmentHistory([]);
+                  }
+                };
+                fetchHistory();
+                setIsModalOpen(true);
+                localStorage.removeItem('openTicketId');
+                window.history.replaceState({}, '', window.location.pathname);
+                return;
+              }
+            }
+            
+            // Fallback: try single ticket endpoint
+            const response = await fetch(`${baseURL}/ticket/${openTicketId}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+              const data = await response.json();
+              const ticket = data.ticket || data;
+              if (ticket) {
+                console.log("Found ticket via single ticket endpoint, opening modal");
+                setSelectedTicket(ticket);
+                // Fetch assignment history before opening modal
+                const fetchHistory = async () => {
+                  try {
+                    const token = localStorage.getItem("authToken");
+                    const res = await fetch(`${baseURL}/ticket/${ticket.id}/assignments`, {
+                      headers: { Authorization: `Bearer ${token}` }
+                    });
+                    const data = await res.json();
+                    setAssignmentHistory(data);
+                  } catch (e) {
+                    setAssignmentHistory([]);
+                  }
+                };
+                fetchHistory();
+                setIsModalOpen(true);
+                localStorage.removeItem('openTicketId');
+                window.history.replaceState({}, '', window.location.pathname);
+              }
+            }
+          } catch (err) {
+            console.error("Error fetching ticket:", err);
+            localStorage.removeItem('openTicketId');
+          }
+        };
+        fetchAndOpenTicket();
+      }
+    }
+  }, [assignments, loading]);
 
   const fetchInProgressAssignments = async () => {
     try {

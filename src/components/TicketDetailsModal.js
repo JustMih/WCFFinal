@@ -1039,10 +1039,10 @@ export default function TicketDetailsModal({
     );
   };
 
-  // Function to check if user has reassign permission (focal-person or manager role)
+  // Function to check if user has reassign permission (focal-person, manager, or head-of-unit role)
   const hasReassignPermission = () => {
     const userRole = localStorage.getItem("role");
-    return userRole === "focal-person" || userRole === "manager";
+    return userRole === "focal-person" || userRole === "manager" || userRole === "head-of-unit";
   };
 
   // Function to check if ticket came from a manager (most recent assignment was to a manager)
@@ -1571,20 +1571,18 @@ export default function TicketDetailsModal({
      userRole === "reviewer") &&
     // Exclude these roles
     userRole !== "director-general" &&
+    // Hide attend button for attendee/agent if complaint_type is Minor or Major
+    !((userRole === "attendee" || userRole === "agent") && 
+      (selectedTicket.complaint_type === "Minor" || selectedTicket.complaint_type === "Major")) &&
     (
       // For director: show attend button for Minor status
       (userRole === "director" && selectedTicket.complaint_type === "Minor") ||
-      // For attendee: show attend button for:
-      // 1. Minor/Major complaints from head of unit (like directorate)
-      // 2. Normal tickets (Inquiry/other non-complaint categories) assigned from any role (focal-person, etc.)
-      (userRole === "attendee" && (
-        (selectedTicket.category === "Complaint" && 
-         (selectedTicket.complaint_type === "Minor" || selectedTicket.complaint_type === "Major") &&
-         isFromHeadOfUnit) ||
-        (selectedTicket.category !== "Complaint") // Allow normal tickets (Inquiry, etc.)
-      )) ||
-      // For non-directors and non-attendees: existing logic
-      (userRole !== "director" && userRole !== "attendee" && (
+      // For attendee: show attend button for normal tickets (Inquiry/other non-complaint categories)
+      (userRole === "attendee" && selectedTicket.category !== "Complaint") ||
+      // For agent: show attend button for normal tickets (Inquiry/other non-complaint categories)
+      (userRole === "agent" && selectedTicket.category !== "Complaint") ||
+      // For non-directors, non-attendees, and non-agents: existing logic
+      (userRole !== "director" && userRole !== "attendee" && userRole !== "agent" && (
         // For non-managers, only allow if ticket is not rated
         (userRole === "manager" || !selectedTicket.complaint_type) &&
         // For managers, hide attend button if priority is "Major" or "Minor"
