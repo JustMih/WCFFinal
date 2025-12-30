@@ -2246,7 +2246,14 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                             variant="subtitle2"
                             style={{ fontWeight: "bold", marginBottom: "8px" }}
                           >
-                            {formData.allClaims && formData.allClaims.length > 0 && formData.allClaims[0]?.claim_number && formData.allClaims[0].claim_number.trim() && formData.allClaims[0].claim_number.trim().length > 0 ? (
+                            {formData.allClaims && formData.allClaims.length > 0 && 
+                             formData.allClaims.some(claim => {
+                               // Check if claim has valid claim_number (non-empty string)
+                               const hasValidClaimNumber = claim.claim_number && typeof claim.claim_number === 'string' && claim.claim_number.trim().length > 0;
+                               // Check if claim has notification_report_id (number or non-empty string)
+                               const hasNotificationReportId = claim.notification_report_id != null && claim.notification_report_id !== '' && claim.notification_report_id !== 0;
+                               return hasValidClaimNumber || hasNotificationReportId;
+                             }) ? (
                               <>
                                 {formData.allClaims.length === 1 ? (
                                   <>Claim (1):</>
@@ -2346,10 +2353,18 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                           {/* Display all claims - both single and multiple */}
                           {/* Only show claims if they have valid claim_number (not empty) or notification_report_id */}
                           {formData.allClaims && formData.allClaims.length > 0 && 
-                           formData.allClaims.some(claim => (claim.claim_number && claim.claim_number.trim()) || claim.notification_report_id) && (
+                           formData.allClaims.some(claim => {
+                             const hasValidClaimNumber = claim.claim_number && typeof claim.claim_number === 'string' && claim.claim_number.trim().length > 0;
+                             const hasNotificationReportId = claim.notification_report_id != null && claim.notification_report_id !== '' && claim.notification_report_id !== 0;
+                             return hasValidClaimNumber || hasNotificationReportId;
+                           }) && (
                             <div style={{ marginTop: "8px" }}>
                               {formData.allClaims
-                                .filter(claim => (claim.claim_number && claim.claim_number.trim()) || claim.notification_report_id) // Filter out invalid/empty claims
+                                .filter(claim => {
+                                  const hasValidClaimNumber = claim.claim_number && typeof claim.claim_number === 'string' && claim.claim_number.trim().length > 0;
+                                  const hasNotificationReportId = claim.notification_report_id != null && claim.notification_report_id !== '' && claim.notification_report_id !== 0;
+                                  return hasValidClaimNumber || hasNotificationReportId;
+                                }) // Filter out invalid/empty claims
                                 .map((claim, index) => (
                                 <div
                                   key={index}
@@ -2373,7 +2388,9 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                                       variant="body2"
                                       style={{ color: "#1976d2", fontWeight: "500", wordBreak: "break-word" }}
                                     >
-                                      {claim.claim_number || `Claim ${index + 1}`}
+                                      {claim.claim_number && claim.claim_number.trim() 
+                                        ? claim.claim_number 
+                                        : "No Claim Number"}
                                     </Typography>
                                     {claim.incident_stage && (
                                       <Typography
@@ -2496,7 +2513,14 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                             variant="subtitle2"
                             style={{ fontWeight: "bold", marginBottom: "8px" }}
                           >
-                            {formData.allClaims && formData.allClaims.length > 0 && formData.allClaims[0]?.claim_number && formData.allClaims[0].claim_number.trim() && formData.allClaims[0].claim_number.trim().length > 0 ? (
+                            {formData.allClaims && formData.allClaims.length > 0 && 
+                             formData.allClaims.some(claim => {
+                               // Check if claim has valid claim_number (non-empty string)
+                               const hasValidClaimNumber = claim.claim_number && typeof claim.claim_number === 'string' && claim.claim_number.trim().length > 0;
+                               // Check if claim has notification_report_id (number or non-empty string)
+                               const hasNotificationReportId = claim.notification_report_id != null && claim.notification_report_id !== '' && claim.notification_report_id !== 0;
+                               return hasValidClaimNumber || hasNotificationReportId;
+                             }) ? (
                               <>
                                 {formData.allClaims.length === 1 ? (
                                   <>Claim (1):</>
@@ -3344,7 +3368,7 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                                 {formData.allClaims && formData.allClaims.length > 1 ? (
                                   <span>
                                     {formData.allClaims.length} claims:{" "}
-                                    {formData.allClaims.map((c, i) => c.claim_number || `Claim ${i + 1}`).join(", ")}
+                                    {formData.allClaims.map((c, i) => (c.claim_number && c.claim_number.trim()) ? c.claim_number : "No Claim Number").join(", ")}
                                   </span>
                                 ) : (
                                   formData.claimNumber || formData.allClaims?.[0]?.claim_number || "No active claim"
