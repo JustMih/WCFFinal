@@ -32,8 +32,15 @@ import TableControls from "../../../components/TableControls";
 import TicketFilters from '../../../components/ticket/TicketFilters';
 
 export default function Crm() {
-  const [searchParams] = useSearchParams();
-  const notificationType = searchParams.get('type'); // 'notified' or 'tagged'
+  const [searchParams, setSearchParams] = useSearchParams();
+  const notificationType = searchParams.get('type') || 'notified'; // Default to 'notified'
+  
+  // Set default type parameter if missing
+  useEffect(() => {
+    if (!searchParams.get('type')) {
+      setSearchParams({ type: 'notified' }, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
   
   const [agentTickets, setAgentTickets] = useState([]);
   const [agentTicketsError, setAgentTicketsError] = useState(null);

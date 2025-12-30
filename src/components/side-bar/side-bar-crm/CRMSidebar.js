@@ -9,6 +9,7 @@ import "./crmSidebar.css";
 // MUI Components - Individual imports for better tree shaking
 import IconButton from "@mui/material/IconButton";
 import Badge from "@mui/material/Badge";
+import Tooltip from "@mui/material/Tooltip";
 
 export default function CRMSidebar({ isSidebarOpen }) {
   const navigate = useNavigate();
@@ -258,7 +259,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
               </NavLink>
 
               <NavLink
-                to="/notifications"
+                to="/notifications?type=notified"
                 className={({ isActive }) =>
                   isActive ? "menu-item active-link" : "menu-item"
                 }
@@ -276,25 +277,27 @@ export default function CRMSidebar({ isSidebarOpen }) {
                         }}
                         style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                       >
-                        <Badge 
-                          badgeContent={notifiedCount > 0 ? notifiedCount : 0} 
-                          color="error"
-                          max={99}
-                          invisible={notifiedCount === 0}
-                          sx={{
-                            '& .MuiBadge-badge': {
-                              fontSize: '0.7rem',
-                              minWidth: '18px',
-                              height: '18px',
-                              padding: '0 4px',
-                              cursor: 'pointer'
-                            }
-                          }}
-                        >
-                          <MdNotifications 
-                            style={{ fontSize: '1rem', color: '#666', cursor: 'pointer' }}
-                          />
-                        </Badge>
+                        <Tooltip title="Notified" arrow>
+                          <Badge 
+                            badgeContent={notifiedCount > 0 ? notifiedCount : 0} 
+                            color="error"
+                            max={99}
+                            invisible={notifiedCount === 0}
+                            sx={{
+                              '& .MuiBadge-badge': {
+                                fontSize: '0.7rem',
+                                minWidth: '18px',
+                                height: '18px',
+                                padding: '0 4px',
+                                cursor: 'pointer'
+                              }
+                            }}
+                          >
+                            <MdNotifications 
+                              style={{ fontSize: '1rem', color: '#666', cursor: 'pointer' }}
+                            />
+                          </Badge>
+                        </Tooltip>
                       </span>
                       <span
                         onClick={(e) => {
@@ -304,25 +307,27 @@ export default function CRMSidebar({ isSidebarOpen }) {
                         }}
                         style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                       >
-                        <Badge 
-                          badgeContent={taggedCount > 0 ? taggedCount : 0} 
-                          color="primary"
-                          max={99}
-                          invisible={taggedCount === 0}
-                          sx={{
-                            '& .MuiBadge-badge': {
-                              fontSize: '0.7rem',
-                              minWidth: '18px',
-                              height: '18px',
-                              padding: '0 4px',
-                              cursor: 'pointer'
-                            }
-                          }}
-                        >
-                          <MdMessage 
-                            style={{ fontSize: '1rem', color: '#666', cursor: 'pointer' }}
-                          />
-                        </Badge>
+                        <Tooltip title="Tagged" arrow>
+                          <Badge 
+                            badgeContent={taggedCount > 0 ? taggedCount : 0} 
+                            color="primary"
+                            max={99}
+                            invisible={taggedCount === 0}
+                            sx={{
+                              '& .MuiBadge-badge': {
+                                fontSize: '0.7rem',
+                                minWidth: '18px',
+                                height: '18px',
+                                padding: '0 4px',
+                                cursor: 'pointer'
+                              }
+                            }}
+                          >
+                            <MdMessage 
+                              style={{ fontSize: '1rem', color: '#666', cursor: 'pointer' }}
+                            />
+                          </Badge>
+                        </Tooltip>
                       </span>
                     </span>
                   )}
@@ -451,7 +456,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                 </div>
               </NavLink>
               <NavLink
-                to="/notifications"
+                to="/notifications?type=notified"
                 className={({ isActive }) =>
                   isActive ? "menu-item active-link" : "menu-item"
                 }
@@ -469,25 +474,27 @@ export default function CRMSidebar({ isSidebarOpen }) {
                         }}
                         style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                       >
-                        <Badge 
-                          badgeContent={notifiedCount > 0 ? notifiedCount : 0} 
-                          color="error"
-                          max={99}
-                          invisible={notifiedCount === 0}
-                          sx={{
-                            '& .MuiBadge-badge': {
-                              fontSize: '0.7rem',
-                              minWidth: '18px',
-                              height: '18px',
-                              padding: '0 4px',
-                              cursor: 'pointer'
-                            }
-                          }}
-                        >
-                          <MdNotifications 
-                            style={{ fontSize: '1rem', color: '#666', cursor: 'pointer' }}
-                          />
-                        </Badge>
+                        <Tooltip title="Notified" arrow>
+                          <Badge 
+                            badgeContent={notifiedCount > 0 ? notifiedCount : 0} 
+                            color="error"
+                            max={99}
+                            invisible={notifiedCount === 0}
+                            sx={{
+                              '& .MuiBadge-badge': {
+                                fontSize: '0.7rem',
+                                minWidth: '18px',
+                                height: '18px',
+                                padding: '0 4px',
+                                cursor: 'pointer'
+                              }
+                            }}
+                          >
+                            <MdNotifications 
+                              style={{ fontSize: '1rem', color: '#666', cursor: 'pointer' }}
+                            />
+                          </Badge>
+                        </Tooltip>
                       </span>
                       <span
                         onClick={(e) => {
@@ -497,25 +504,27 @@ export default function CRMSidebar({ isSidebarOpen }) {
                         }}
                         style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                       >
-                        <Badge 
-                          badgeContent={taggedCount > 0 ? taggedCount : 0} 
-                          color="primary"
-                          max={99}
-                          invisible={taggedCount === 0}
-                          sx={{
-                            '& .MuiBadge-badge': {
-                              fontSize: '0.7rem',
-                              minWidth: '18px',
-                              height: '18px',
-                              padding: '0 4px',
-                              cursor: 'pointer'
-                            }
-                          }}
-                        >
-                          <MdMessage 
-                            style={{ fontSize: '1rem', color: '#666', cursor: 'pointer' }}
-                          />
-                        </Badge>
+                        <Tooltip title="Tagged" arrow>
+                          <Badge 
+                            badgeContent={taggedCount > 0 ? taggedCount : 0} 
+                            color="primary"
+                            max={99}
+                            invisible={taggedCount === 0}
+                            sx={{
+                              '& .MuiBadge-badge': {
+                                fontSize: '0.7rem',
+                                minWidth: '18px',
+                                height: '18px',
+                                padding: '0 4px',
+                                cursor: 'pointer'
+                              }
+                            }}
+                          >
+                            <MdMessage 
+                              style={{ fontSize: '1rem', color: '#666', cursor: 'pointer' }}
+                            />
+                          </Badge>
+                        </Tooltip>
                       </span>
                     </span>
                   )}
