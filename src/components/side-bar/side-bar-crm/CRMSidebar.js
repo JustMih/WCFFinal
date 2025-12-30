@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { RxDashboard } from "react-icons/rx";
-import { MdOutlineSupportAgent, MdEmail, MdNotifications, MdMessage } from "react-icons/md";
+import { MdOutlineSupportAgent, MdEmail, MdNotifications, MdMessage, MdChat } from "react-icons/md";
 import { FaInstagram } from "react-icons/fa";
 import { baseURL } from "../../../config";
 import "./crmSidebar.css";
@@ -47,6 +47,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
   const [fetchError, setFetchError] = useState(null);
   const [notifiedCount, setNotifiedCount] = useState(0);
   const [taggedCount, setTaggedCount] = useState(0);
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
 
   const role = localStorage.getItem("role");
 
@@ -181,9 +182,39 @@ export default function CRMSidebar({ isSidebarOpen }) {
     }
   };
 
+  const fetchChatUnreadCount = () => {
+    const userId = localStorage.getItem("userId");
+    const token = localStorage.getItem("authToken");
+    if (userId && token) {
+      fetch(`${baseURL}/users/unread-messages/${userId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+        .then(res => {
+          if (!res.ok) throw new Error("Failed to fetch unread messages");
+          return res.json();
+        })
+        .then(data => {
+          const count = data.unreadCount || 0;
+          setChatUnreadCount(count);
+          localStorage.setItem('chatUnreadCount', count.toString());
+        })
+        .catch(err => {
+          console.error('Error fetching chat unread count:', err);
+          setChatUnreadCount(0);
+          localStorage.setItem('chatUnreadCount', '0');
+        });
+    }
+  };
+
   useEffect(() => {
     fetchTicketCounts();
     fetchNotificationCount();
+    fetchChatUnreadCount();
+    
+    // Set up interval to refresh chat unread count every 30 seconds
+    const chatInterval = setInterval(() => {
+      fetchChatUnreadCount();
+    }, 30000);
     
     // Listen for custom event when modal opens - decrease count immediately
     const handleNotificationModalOpened = () => {
@@ -204,6 +235,9 @@ export default function CRMSidebar({ isSidebarOpen }) {
       if (e.key === 'taggedCount') {
         setTaggedCount(parseInt(e.newValue || '0', 10));
       }
+      if (e.key === 'chatUnreadCount') {
+        setChatUnreadCount(parseInt(e.newValue || '0', 10));
+      }
     };
     window.addEventListener('storage', handleStorageChange);
     
@@ -211,15 +245,23 @@ export default function CRMSidebar({ isSidebarOpen }) {
     const handleNotificationCountUpdated = () => {
       fetchNotificationCount();
     };
+    
+    // Listen for chat unread count update event
+    const handleChatUnreadCountUpdated = () => {
+      fetchChatUnreadCount();
+    };
     window.addEventListener('notificationCountUpdated', handleNotificationCountUpdated);
+    window.addEventListener('chatUnreadCountUpdated', handleChatUnreadCountUpdated);
     
     // Poll for updates every 30 seconds
     const interval = setInterval(fetchNotificationCount, 30000);
     
     return () => {
+      clearInterval(chatInterval);
       window.removeEventListener('notificationModalOpened', handleNotificationModalOpened);
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('notificationCountUpdated', handleNotificationCountUpdated);
+      window.removeEventListener('chatUnreadCountUpdated', handleChatUnreadCountUpdated);
       clearInterval(interval);
     };
   }, []);
@@ -347,6 +389,33 @@ export default function CRMSidebar({ isSidebarOpen }) {
                   )}
                 </div>
               </NavLink> */}
+
+              <NavLink
+                to="/crm-chat"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <MdChat className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      Chat Room
+                      <Tooltip title="Unread Messages" arrow>
+                        <Badge 
+                          badgeContent={chatUnreadCount > 0 ? chatUnreadCount : 0} 
+                          color="error" 
+                          max={99} 
+                          invisible={chatUnreadCount === 0}
+                          sx={{ '& .MuiBadge-badge': { cursor: 'pointer' } }}
+                        >
+                          <MdNotifications style={{ fontSize: '1rem', color: '#666', cursor: 'pointer' }} />
+                        </Badge>
+                      </Tooltip>
+                    </span>
+                  )}
+                </div>
+              </NavLink>
 
               <div
                 className={`menu-item ${

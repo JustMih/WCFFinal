@@ -17,6 +17,7 @@ import CRMClosedTickets from "../crm-pages/crm-tickets/closed";
 import CRMTotalTickets from "../crm-pages/crm-tickets/total";
 import CRMReviewerTickets from "../crm-pages/crm-reviewer-tickets/crm-reviewer-tickets";
 import CRMFocalPersonTickets from "../crm-pages/crm-focal-person-tickets/crm-focal-person-tickets";
+import CRMChat from "../crm-pages/crm-chat/CRMChat";
 import CallCenterUsers from "../call-center-pages/call-center-users/CallCenterUsers";
 import CallCenterAgents from "../call-center-pages/call-center-agents/CallCenterAgents";
 import CallCenterExtensions from "../call-center-pages/call-center-extensions/CallCenterExtensions";
@@ -289,6 +290,10 @@ export default function Dashboard() {
                 <Route
                   path="/focal-person/:status"
                   element={<PrivateRoute element={<CRMFocalPersonTickets />} />}
+                />
+                <Route
+                  path="/crm-chat"
+                  element={<PrivateRoute element={<CRMChat />} />}
                 />
                 <Route
                   path="/instagram"
