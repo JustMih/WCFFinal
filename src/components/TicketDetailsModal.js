@@ -951,7 +951,7 @@ export default function TicketDetailsModal({
   // Agent reverse inquiry modal state
   const [isAgentReverseModalOpen, setIsAgentReverseModalOpen] = useState(false);
   const [agentRecommendation, setAgentRecommendation] = useState("");
-  const [complaintSeverity, setComplaintSeverity] = useState("minor");
+  const [complaintSeverity, setComplaintSeverity] = useState(""); // Empty to match "Select Resolution Type" option
   const [agentReverseLoading, setAgentReverseLoading] = useState(false);
 
   // Manager Send to Director modal state
@@ -1581,8 +1581,10 @@ export default function TicketDetailsModal({
       (userRole === "attendee" && selectedTicket.category !== "Complaint") ||
       // For agent: show attend button for normal tickets (Inquiry/other non-complaint categories)
       (userRole === "agent" && selectedTicket.category !== "Complaint") ||
-      // For non-directors, non-attendees, and non-agents: existing logic
-      (userRole !== "director" && userRole !== "attendee" && userRole !== "agent" && (
+      // For head-of-unit: always show attend button (can attend all tickets)
+      (userRole === "head-of-unit") ||
+      // For non-directors, non-attendees, non-agents, and non-head-of-unit: existing logic
+      (userRole !== "director" && userRole !== "attendee" && userRole !== "agent" && userRole !== "head-of-unit" && (
         // For non-managers, only allow if ticket is not rated
         (userRole === "manager" || !selectedTicket.complaint_type) &&
         // For managers, hide attend button if priority is "Major" or "Minor"
@@ -2693,15 +2695,22 @@ export default function TicketDetailsModal({
       const token = localStorage.getItem("authToken");
       const formData = new FormData();
       formData.append("userId", localStorage.getItem("userId"));
-      formData.append("recommendation", agentRecommendation);
+      
+      // Use resolution details as reason, with resolution type prefix (same as handleReverse)
+      const fullReason = complaintSeverity ? 
+        `[${complaintSeverity}] ${agentRecommendation}` : 
+        agentRecommendation;
+      formData.append("reason", fullReason);
       // Also send description field for backend to use
       formData.append("description", agentRecommendation);
+      formData.append("status", "reversing");
       
       if (attachment) {
         formData.append("attachment", attachment);
       }
 
-      const res = await fetch(`${baseURL}/ticket/${selectedTicket.id}/reverse-complaint`, {
+      // Use the same reverse endpoint as other reverse actions
+      const res = await fetch(`${baseURL}/ticket/${selectedTicket.id}/reverse`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`
@@ -2712,6 +2721,7 @@ export default function TicketDetailsModal({
       
       const data = await res.json();
       if (!res.ok) {
+        setSnackbarState({ open: true, message: data.message || `Failed to reverse complaint: ${res.status}`, severity: "error" });
         setSnackbar && setSnackbar({ 
           open: true, 
           message: `Failed to reverse complaint: ${res.status} ${data.message || ''}`, 
@@ -2720,6 +2730,12 @@ export default function TicketDetailsModal({
         return;
       }
       
+      // Show success message (same as handleReverse)
+      setSnackbarState({ 
+        open: true, 
+        message: data.message || "Complaint reversed with recommendation successfully", 
+        severity: "success" 
+      });
       setSnackbar && setSnackbar({
         open: true,
         message: data.message || "Complaint reversed with recommendation successfully",
@@ -2728,7 +2744,7 @@ export default function TicketDetailsModal({
       
       // Clear form and close modal with a small delay to prevent ResizeObserver error
       setAgentRecommendation("");
-      setComplaintSeverity("minor");
+      setComplaintSeverity(""); // Reset to empty (matches "Select Resolution Type")
       setAttachment(null);
       setIsAgentReverseModalOpen(false);
       
@@ -2738,6 +2754,7 @@ export default function TicketDetailsModal({
         onClose && onClose();
       }, 100);
     } catch (error) {
+      setSnackbarState({ open: true, message: `Reverse error: ${error.message}`, severity: "error" });
       setSnackbar && setSnackbar({ 
         open: true, 
         message: `Reverse error: ${error.message}`, 
