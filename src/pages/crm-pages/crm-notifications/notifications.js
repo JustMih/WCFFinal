@@ -213,7 +213,7 @@ export default function Crm() {
           const messageText = (notif.message || notif.comment || '').toLowerCase();
           const hasComment = notif.comment && notif.comment !== null && String(notif.comment).trim() !== '';
           const isTagged = messageText.includes('mentioned you');
-          const isAssigned = messageText.includes('assigned to you') && !isTagged;
+          const isAssigned = (messageText.includes('assigned to you') || messageText.includes('forwarded to you')) && !isTagged;
           console.log(`Notification #${idx + 1}:`, {
             id: notif.id,
             message: notif.message,
@@ -370,7 +370,7 @@ export default function Crm() {
                   const hasComment = n.comment !== null && n.comment !== undefined && String(n.comment).trim() !== '';
                   const msgText = (n.message || '').toLowerCase();
                   const isTagged = msgText.includes('mentioned you');
-                  const isAssigned = msgText.includes('assigned to you') && !isTagged;
+                  const isAssigned = (msgText.includes('assigned to you') || msgText.includes('forwarded to you')) && !isTagged;
                   const isUnread = n.status === 'unread' || n.status === ' ';
                   return hasComment && isUnread && !isTagged && !isAssigned;
                 }).length;

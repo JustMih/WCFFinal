@@ -422,7 +422,7 @@ export default function Navbar({
       const hasComment = notif.comment !== null && notif.comment !== undefined && String(notif.comment).trim() !== '';
       const messageText = (notif.message || '').toLowerCase();
       const isTaggedMessage = hasComment || messageText.includes('mentioned you');
-      const isAssigned = messageText.includes('assigned to you') && !isTaggedMessage;
+      const isAssigned = (messageText.includes('assigned to you') || messageText.includes('forwarded to you')) && !isTaggedMessage;
       const isNotified = !isTaggedMessage && !isAssigned;
       
       // If it's a "Notified" type, open the modal instead of navigating
@@ -766,7 +766,7 @@ export default function Navbar({
                   const hasComment = n.comment !== null && n.comment !== undefined && String(n.comment).trim() !== '';
                   const messageText = (n.message || '').toLowerCase();
                   const isTagged = messageText.includes('mentioned you'); // Only check message, not comment for tagged
-                  const isAssigned = messageText.includes('assigned to you') && !isTagged;
+                  const isAssigned = (messageText.includes('assigned to you') || messageText.includes('forwarded to you')) && !isTagged;
                   const isUnread = n.status === 'unread' || n.status === ' ';
                   // Notified: has comment, unread status, not tagged (no "mentioned you"), and not assigned
                   return hasComment && isUnread && !isTagged && !isAssigned;
@@ -774,7 +774,8 @@ export default function Navbar({
                 
                 const assignedCountLocal = notificationsData?.notifications?.filter(n => {
                   const messageText = (n.message || '').toLowerCase();
-                  return messageText.includes('assigned to you');
+                  // Include both "assigned to you" and "forwarded to you" as assigned notifications
+                  return messageText.includes('assigned to you') || messageText.includes('forwarded to you');
                 }).length || 0;
                 
                 console.log('Notification counts:', { taggedCount, notifiedCount, assignedCount: assignedCountLocal, total: notificationsData?.notifications?.length });
@@ -791,49 +792,49 @@ export default function Navbar({
                     flexWrap: 'wrap'
                   }}>
                     <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flex: 1 }}>
-                      {taggedCount > 0 && (
-                        <div style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: '4px',
-                          padding: '4px 8px',
-                          backgroundColor: '#e8f5e9',
-                          borderRadius: '4px'
-                        }}>
-                          <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#4caf50' }}>
-                            Tagged: {taggedCount}
-                          </span>
-                        </div>
-                      )}
-                      {notifiedCount > 0 && (
-                        <div style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: '4px',
-                          padding: '4px 8px',
-                          backgroundColor: '#e3f2fd',
-                          borderRadius: '4px'
-                        }}>
-                          <IoMdNotificationsOutline style={{ fontSize: '16px', color: '#2196f3' }} />
-                          <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#2196f3' }}>
-                            Notified: {notifiedCount}
-                          </span>
-                        </div>
-                      )}
-                      {assignedCountLocal > 0 && (
-                        <div style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: '4px',
-                          padding: '4px 8px',
-                          backgroundColor: '#fff3e0',
-                          borderRadius: '4px'
-                        }}>
-                          <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#ff9800' }}>
-                            Assigned: {assignedCountLocal}
-                          </span>
-                        </div>
-                      )}
+                      {/* Always show Tagged badge, even if count is 0 */}
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '4px',
+                        padding: '4px 8px',
+                        backgroundColor: '#e8f5e9',
+                        borderRadius: '4px',
+                        opacity: taggedCount > 0 ? 1 : 0.6
+                      }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#4caf50' }}>
+                          Tagged: {taggedCount}
+                        </span>
+                      </div>
+                      {/* Always show Notified badge, even if count is 0 */}
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '4px',
+                        padding: '4px 8px',
+                        backgroundColor: '#e3f2fd',
+                        borderRadius: '4px',
+                        opacity: notifiedCount > 0 ? 1 : 0.6
+                      }}>
+                        <IoMdNotificationsOutline style={{ fontSize: '16px', color: '#2196f3' }} />
+                        <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#2196f3' }}>
+                          Notified: {notifiedCount}
+                        </span>
+                      </div>
+                      {/* Always show Assigned badge, even if count is 0 */}
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '4px',
+                        padding: '4px 8px',
+                        backgroundColor: '#fff3e0',
+                        borderRadius: '4px',
+                        opacity: assignedCountLocal > 0 ? 1 : 0.6
+                      }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#ff9800' }}>
+                          Assigned: {assignedCountLocal}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 );
@@ -1022,7 +1023,7 @@ export default function Navbar({
                   const isTaggedMessage = messageText.includes('mentioned you');
                   
                   // Assigned: message says "assigned to you" (but not if it's also a tagged message)
-                  const isAssigned = messageText.includes('assigned to you') && !isTaggedMessage;
+                  const isAssigned = (messageText.includes('assigned to you') || messageText.includes('forwarded to you')) && !isTaggedMessage;
                   
                   // Notified: has comment, unread, not tagged, and not assigned
                   const isNotified = hasComment && isUnread && !isTaggedMessage && !isAssigned;

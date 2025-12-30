@@ -423,7 +423,25 @@ const ClaimRedirectButton = ({
       })}
       
              {/* Show profile button for employerData if no resultsWithRegistration */}
-       {employerData && employerData.registration_number && resultsWithRegistration.length === 0 && (
+       {/* For employer searches, always show the button even if no employerData or registration_number */}
+       {isEmployerSearch && resultsWithRegistration.length === 0 && (
+         <button
+           onClick={() => {
+             if (employerData?.registration_number) {
+               handleViewProfile(employerData.registration_number);
+             } else {
+               handleClaimRedirect();
+             }
+           }}
+           className={className}
+           style={employerData?.registration_number ? profileButtonStyle : defaultStyle}
+         >
+           {buttonText}
+         </button>
+       )}
+       
+       {/* Show profile button for employerData with registration_number (for non-employer searches) */}
+       {!isEmployerSearch && employerData && employerData.registration_number && resultsWithRegistration.length === 0 && (
          <button
            onClick={() => handleViewProfile(employerData.registration_number)}
            className={className}
