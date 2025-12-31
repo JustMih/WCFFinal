@@ -1735,22 +1735,14 @@ export default function TicketDetailsModal({
       }
     }
     
-    // Initialize edited resolution with previous assigner's description or current resolution details
-    let initialResolution = previousAssignerDescription || selectedTicket?.resolution_details || "";
+    // Initialize edited resolution with creator's description (ticket's original description)
+    let initialResolution = selectedTicket?.description || selectedTicket?.resolution_details || "";
     
-    // If ticket is reversed and with reviewer, pre-fill with ticket description
-    if (selectedTicket.status === "Reversed" &&
-        userRole === "reviewer" && 
-        selectedTicket.assigned_to_id &&
-        String(selectedTicket.assigned_to_id) === String(userId)) {
-      initialResolution = selectedTicket?.description || selectedTicket?.resolution_details || "";
-    }
+    // Store creator's description and attachment for display in modal
+    setPreviousAssignerDescription(selectedTicket?.description || "");
+    setPreviousAssignerAttachment(selectedTicket?.attachment_path || null);
     
-    // Store previous assigner's description and attachment for display in modal
-    setPreviousAssignerDescription(previousAssignerDescription || selectedTicket?.description || "");
-    setPreviousAssignerAttachment(previousAssignerAttachment || selectedTicket?.attachment_path || null);
-    
-    // Initialize edited previous assigner's description (editable)
+    // Initialize edited creator's description (editable)
     setEditedResolution(initialResolution);
     
     // Initialize director/head-of-unit's own description (separate field)
@@ -2490,9 +2482,9 @@ export default function TicketDetailsModal({
         },
         body: JSON.stringify({
           userId,
-          resolution_details: null, // Not sending edited previous description - it will be forwarded as-is
+          resolution_details: editedResolution.trim(), // Edited creator's description
           own_description: ownDescription.trim(), // Director/Head-of-unit's own description
-          last_attendee_agent_description: (userRole === "director" || userRole === "head-of-unit") ? (lastAttendeeAgentDescription.trim() || null) : null, // Last attendee/agent description (for director and head-of-unit)
+          last_attendee_agent_description: null, // Not used - removed
           assignmentId: selectedTicket.id
         })
       });
@@ -4818,25 +4810,23 @@ export default function TicketDetailsModal({
         <DialogTitle>Forward to Director General</DialogTitle>
         <DialogContent>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
-            {/* Last Attendee/Agent Description (Editable) - For Director and Head-of-Unit */}
-            {(userRole === "director" || userRole === "head-of-unit") && (
-              <Box>
-                <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
-                  Last Attendee/Agent Description (Editable):
-                </Typography>
-                <TextField
-                  multiline
-                  rows={4}
-                  value={lastAttendeeAgentDescription}
-                  onChange={e => setLastAttendeeAgentDescription(e.target.value)}
-                  fullWidth
-                  placeholder="Edit last attendee/agent description..."
-                />
-                <Typography variant="caption" sx={{ color: "#666", mt: 0.5, display: "block" }}>
-                  Edit the last attendee/agent description. This will update the attendee/agent's assignment record.
-                </Typography>
-              </Box>
-            )}
+            {/* Creator's Description (Editable) */}
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Creator's Description (Editable):
+              </Typography>
+              <TextField
+                multiline
+                rows={4}
+                value={editedResolution}
+                onChange={e => setEditedResolution(e.target.value)}
+                fullWidth
+                placeholder="Edit creator's description..."
+              />
+              <Typography variant="caption" sx={{ color: "#666", mt: 0.5, display: "block" }}>
+                Edit the creator's description. This will update the ticket's description.
+              </Typography>
+            </Box>
 
             {/* Director/Head-of-unit's own description */}
             <Box>
@@ -4857,36 +4847,6 @@ export default function TicketDetailsModal({
                   : userRole === "head-of-unit" 
                   ? "This is your (Head of Unit's) own description. This will be saved in your assignment record."
                   : "This is your own description."}
-              </Typography>
-            </Box>
-
-            {/* Read-only previous assigner's description - shown at bottom for reference */}
-            <Box>
-              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
-                {userRole === "director" ? "Manager's Description (Read-only):" : userRole === "head-of-unit" ? "Attendee's Description (Read-only):" : "Previous Description (Read-only):"}
-              </Typography>
-              <TextField
-                multiline
-                rows={3}
-                value={editedResolution}
-                fullWidth
-                InputProps={{
-                  readOnly: true,
-                }}
-                sx={{
-                  '& .MuiInputBase-input': {
-                    backgroundColor: '#f5f5f5',
-                    cursor: 'not-allowed'
-                  }
-                }}
-                placeholder={userRole === "director" ? "Manager's description..." : userRole === "head-of-unit" ? "Attendee's description..." : "Previous description..."}
-              />
-              <Typography variant="caption" sx={{ color: "#666", mt: 0.5, display: "block" }}>
-                {userRole === "director" 
-                  ? "This is the manager's description. It will be forwarded as-is to the next person." 
-                  : userRole === "head-of-unit" 
-                  ? "This is the attendee's description. It will be forwarded as-is to the next person."
-                  : "This is the previous assigner's description."}
               </Typography>
             </Box>
 
