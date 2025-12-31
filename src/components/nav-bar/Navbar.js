@@ -774,8 +774,10 @@ export default function Navbar({
                 
                 const assignedCountLocal = notificationsData?.notifications?.filter(n => {
                   const messageText = (n.message || '').toLowerCase();
+                  const isUnread = n.status === 'unread' || n.status === ' ';
                   // Include both "assigned to you" and "forwarded to you" as assigned notifications
-                  return messageText.includes('assigned to you') || messageText.includes('forwarded to you');
+                  const isAssigned = messageText.includes('assigned to you') || messageText.includes('forwarded to you');
+                  return isAssigned && isUnread;
                 }).length || 0;
                 
                 console.log('Notification counts:', { taggedCount, notifiedCount, assignedCount: assignedCountLocal, total: notificationsData?.notifications?.length });

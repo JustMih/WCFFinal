@@ -975,6 +975,10 @@ export default function TicketDetailsModal({
   const [reviewerNotes, setReviewerNotes] = useState("");
   const [editedResolution, setEditedResolution] = useState("");
   const [dgNotes, setDgNotes] = useState("");
+  const [previousAssignerDescription, setPreviousAssignerDescription] = useState("");
+  const [previousAssignerAttachment, setPreviousAssignerAttachment] = useState(null);
+  const [ownDescription, setOwnDescription] = useState(""); // Director/Head-of-unit's own description
+  const [lastAttendeeAgentDescription, setLastAttendeeAgentDescription] = useState(""); // Last attendee/agent description (for director only)
 
   // Ticket Updates toggle state
   const [showTicketUpdates, setShowTicketUpdates] = useState(false);
@@ -1581,8 +1585,8 @@ export default function TicketDetailsModal({
       (userRole === "attendee" && selectedTicket.category !== "Complaint") ||
       // For agent: show attend button for normal tickets (Inquiry/other non-complaint categories)
       (userRole === "agent" && selectedTicket.category !== "Complaint") ||
-      // For head-of-unit: always show attend button (can attend all tickets)
-      (userRole === "head-of-unit") ||
+      // For head-of-unit: show attend button only for Minor complaints
+      (userRole === "head-of-unit" && selectedTicket.complaint_type === "Minor") ||
       // For non-directors, non-attendees, non-agents, and non-head-of-unit: existing logic
       (userRole !== "director" && userRole !== "attendee" && userRole !== "agent" && userRole !== "head-of-unit" && (
         // For non-managers, only allow if ticket is not rated
@@ -1684,10 +1688,57 @@ export default function TicketDetailsModal({
 
   // Forward to Director General handler
   const handleForwardToDG = () => {
-    // Initialize edited resolution with current resolution details or ticket description
-    let initialResolution = selectedTicket?.resolution_details || "";
+    // Get previous assigner's description/resolution details from assignment history
+    let previousAssignerDescription = "";
+    let previousAssignerAttachment = null;
     
-        // If ticket is reversed and with reviewer, pre-fill with ticket description
+    if (assignmentHistory && Array.isArray(assignmentHistory) && assignmentHistory.length > 0) {
+      // For director: find manager's description (previous assigner)
+      // For head-of-unit: find attendee's description (previous assigner)
+      const currentUserRole = userRole;
+      
+      // Find the most recent assignment where the current user was assigned
+      // Then find the previous assignment (the one that assigned to current user)
+      for (let i = assignmentHistory.length - 1; i >= 0; i--) {
+        const assignment = assignmentHistory[i];
+        
+        // Check if this assignment was to the current user
+        if (assignment.assigned_to_id && String(assignment.assigned_to_id) === String(userId)) {
+          // Find the previous assignment (the one that assigned to current user)
+          if (i > 0) {
+            const previousAssignment = assignmentHistory[i - 1];
+            // Get description from previous assigner's reason or resolution_details
+            previousAssignerDescription = previousAssignment.reason || previousAssignment.resolution_details || "";
+            previousAssignerAttachment = previousAssignment.attachment_path || null;
+          }
+          break;
+        }
+      }
+      
+      // If not found above, try to find by role
+      // For director: look for manager assignment
+      // For head-of-unit: look for attendee assignment
+      if (!previousAssignerDescription) {
+        for (let i = assignmentHistory.length - 1; i >= 0; i--) {
+          const assignment = assignmentHistory[i];
+          
+          if (currentUserRole === "director" && assignment.assigned_by_role === "manager") {
+            previousAssignerDescription = assignment.reason || "";
+            previousAssignerAttachment = assignment.attachment_path || null;
+            break;
+          } else if (currentUserRole === "head-of-unit" && assignment.assigned_by_role === "attendee") {
+            previousAssignerDescription = assignment.reason || "";
+            previousAssignerAttachment = assignment.attachment_path || null;
+            break;
+          }
+        }
+      }
+    }
+    
+    // Initialize edited resolution with previous assigner's description or current resolution details
+    let initialResolution = previousAssignerDescription || selectedTicket?.resolution_details || "";
+    
+    // If ticket is reversed and with reviewer, pre-fill with ticket description
     if (selectedTicket.status === "Reversed" &&
         userRole === "reviewer" && 
         selectedTicket.assigned_to_id &&
@@ -1695,7 +1746,70 @@ export default function TicketDetailsModal({
       initialResolution = selectedTicket?.description || selectedTicket?.resolution_details || "";
     }
     
+    // Store previous assigner's description and attachment for display in modal
+    setPreviousAssignerDescription(previousAssignerDescription || selectedTicket?.description || "");
+    setPreviousAssignerAttachment(previousAssignerAttachment || selectedTicket?.attachment_path || null);
+    
+    // Initialize edited previous assigner's description (editable)
     setEditedResolution(initialResolution);
+    
+    // Initialize director/head-of-unit's own description (separate field)
+    // Get from current user's assignment record if available
+    let ownDesc = "";
+    if (assignmentHistory && Array.isArray(assignmentHistory) && assignmentHistory.length > 0) {
+      for (let i = assignmentHistory.length - 1; i >= 0; i--) {
+        const assignment = assignmentHistory[i];
+        if (assignment.assigned_to_id && String(assignment.assigned_to_id) === String(userId)) {
+          ownDesc = assignment.reason || "";
+          break;
+        }
+      }
+    }
+    setOwnDescription(ownDesc || "");
+    
+    // For director and head-of-unit: find last attendee/agent description
+    // For director: find attendee's description that was sent to the manager (who assigned to director)
+    // For head-of-unit: find attendee's description that was sent to head-of-unit
+    let lastAttendeeAgentDesc = "";
+    if ((userRole === "director" || userRole === "head-of-unit") && assignmentHistory && Array.isArray(assignmentHistory) && assignmentHistory.length > 0) {
+      if (userRole === "director") {
+        // Find the manager who assigned to the director
+        let managerId = null;
+        for (let i = assignmentHistory.length - 1; i >= 0; i--) {
+          const assignment = assignmentHistory[i];
+          if (assignment.assigned_to_id && String(assignment.assigned_to_id) === String(userId) && assignment.assigned_by_role === "manager") {
+            managerId = assignment.assigned_by_id;
+            break;
+          }
+        }
+        
+        // Now find the attendee/agent assignment that was sent to this manager
+        // Look for assignments where attendee/agent assigned TO the manager
+        if (managerId) {
+          for (let i = assignmentHistory.length - 1; i >= 0; i--) {
+            const assignment = assignmentHistory[i];
+            if ((assignment.assigned_by_role === "attendee" || assignment.assigned_by_role === "agent") && 
+                assignment.assigned_to_id && String(assignment.assigned_to_id) === String(managerId)) {
+              lastAttendeeAgentDesc = assignment.reason || "";
+              break;
+            }
+          }
+        }
+      } else if (userRole === "head-of-unit") {
+        // For head-of-unit: find attendee's description that was sent to head-of-unit
+        // Look for assignments where attendee/agent assigned TO the head-of-unit
+        for (let i = assignmentHistory.length - 1; i >= 0; i--) {
+          const assignment = assignmentHistory[i];
+          if ((assignment.assigned_by_role === "attendee" || assignment.assigned_by_role === "agent") &&
+              assignment.assigned_to_id && String(assignment.assigned_to_id) === String(userId)) {
+            lastAttendeeAgentDesc = assignment.reason || "";
+            break;
+          }
+        }
+      }
+    }
+    setLastAttendeeAgentDescription(lastAttendeeAgentDesc || "");
+    
     setIsForwardToDGDialogOpen(true);
   };
 
@@ -2359,14 +2473,15 @@ export default function TicketDetailsModal({
   }, [selectedTicket]);
 
   const handleForwardToDGSubmit = async () => {
-    if (!editedResolution.trim()) {
-      setSnackbarState({ open: true, message: "Please edit the resolution details before forwarding to Director General", severity: "warning" });
+    if (!ownDescription.trim()) {
+      setSnackbarState({ open: true, message: "Please provide your description before forwarding to Director General", severity: "warning" });
       return;
     }
 
     setForwardToDGLoading(true);
     try {
       const token = localStorage.getItem("authToken");
+      
       const response = await fetch(`${baseURL}/ticket/${selectedTicket.id}/forward-to-dg`, {
         method: 'POST',
         headers: {
@@ -2375,7 +2490,9 @@ export default function TicketDetailsModal({
         },
         body: JSON.stringify({
           userId,
-          resolution_details: editedResolution,
+          resolution_details: null, // Not sending edited previous description - it will be forwarded as-is
+          own_description: ownDescription.trim(), // Director/Head-of-unit's own description
+          last_attendee_agent_description: (userRole === "director" || userRole === "head-of-unit") ? (lastAttendeeAgentDescription.trim() || null) : null, // Last attendee/agent description (for director and head-of-unit)
           assignmentId: selectedTicket.id
         })
       });
@@ -2385,6 +2502,8 @@ export default function TicketDetailsModal({
         setSnackbarState({ open: true, message: "Ticket forwarded to Director General successfully!", severity: "success" });
         setIsForwardToDGDialogOpen(false);
         setEditedResolution("");
+        setOwnDescription("");
+        setLastAttendeeAgentDescription("");
         onClose();
         refreshTickets();
       } else {
@@ -2710,6 +2829,7 @@ export default function TicketDetailsModal({
       }
 
       // Use the same reverse endpoint as other reverse actions
+      // Backend now handles reassignment logic (returns to reassigned_by if reassigned)
       const res = await fetch(`${baseURL}/ticket/${selectedTicket.id}/reverse`, {
         method: "POST",
         headers: {
@@ -3813,12 +3933,16 @@ export default function TicketDetailsModal({
                   !["agent", "reviewer", "attendee", "director-general"].includes(localStorage.getItem("role"))) && 
                  selectedTicket?.assigned_to_id === localStorage.getItem("userId") && selectedTicket.status !== "Closed") && (
                   <>
-                    {/* Show Forward to DG button for Director with Major Complaint Directorate */}
-                    {userRole === "director" && 
-                     selectedTicket?.category === "Complaint" && 
-                     selectedTicket?.complaint_type === "Major" &&
-                     selectedTicket?.responsible_unit_name?.toLowerCase().includes("directorate") &&
-                     (selectedTicket?.status === "Attended and Recommended" || selectedTicket?.status === "Reversed") && (
+                    {/* Show Forward to DG button for Director or Head-of-unit with Major Complaint */}
+                    {((userRole === "director" && 
+                       selectedTicket?.category === "Complaint" && 
+                       selectedTicket?.complaint_type === "Major" &&
+                       selectedTicket?.responsible_unit_name?.toLowerCase().includes("directorate") &&
+                       (selectedTicket?.status === "Attended and Recommended" || selectedTicket?.status === "Reversed")) ||
+                      (userRole === "head-of-unit" && 
+                       selectedTicket?.category === "Complaint" && 
+                       selectedTicket?.complaint_type === "Major" &&
+                       selectedTicket?.assigned_to_id === userId)) && (
                       <Tooltip title="Forward ticket to Director General for final approval">
                       <Button
                         variant="contained"
@@ -4694,32 +4818,83 @@ export default function TicketDetailsModal({
         <DialogTitle>Forward to Director General</DialogTitle>
         <DialogContent>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
-            {/* Display the original ticket description (read-only) */}
+            {/* Last Attendee/Agent Description (Editable) - For Director and Head-of-Unit */}
+            {(userRole === "director" || userRole === "head-of-unit") && (
+              <Box>
+                <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                  Last Attendee/Agent Description (Editable):
+                </Typography>
+                <TextField
+                  multiline
+                  rows={4}
+                  value={lastAttendeeAgentDescription}
+                  onChange={e => setLastAttendeeAgentDescription(e.target.value)}
+                  fullWidth
+                  placeholder="Edit last attendee/agent description..."
+                />
+                <Typography variant="caption" sx={{ color: "#666", mt: 0.5, display: "block" }}>
+                  Edit the last attendee/agent description. This will update the attendee/agent's assignment record.
+                </Typography>
+              </Box>
+            )}
+
+            {/* Director/Head-of-unit's own description */}
             <Box>
               <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
-                Original Ticket Description:
+                {userRole === "director" ? "Director's Description:" : userRole === "head-of-unit" ? "Head of Unit's Description:" : "Your Description:"}
               </Typography>
               <TextField
                 multiline
                 rows={4}
-                value={selectedTicket?.description || ""}
+                value={ownDescription}
+                onChange={e => setOwnDescription(e.target.value)}
                 fullWidth
-                disabled
-                sx={{ 
-                  backgroundColor: '#f5f5f5',
-                  '& .MuiInputBase-input.Mui-disabled': {
-                    WebkitTextFillColor: '#000',
-                    color: '#000'
-                  }
-                }}
+                placeholder={userRole === "director" ? "Enter your (Director's) description..." : userRole === "head-of-unit" ? "Enter your (Head of Unit's) description..." : "Enter your description..."}
               />
+              <Typography variant="caption" sx={{ color: "#666", mt: 0.5, display: "block" }}>
+                {userRole === "director" 
+                  ? "This is your (Director's) own description. This will be saved in your assignment record." 
+                  : userRole === "head-of-unit" 
+                  ? "This is your (Head of Unit's) own description. This will be saved in your assignment record."
+                  : "This is your own description."}
+              </Typography>
             </Box>
 
-            {/* Show existing attendee attachment if any */}
-            {selectedTicket?.attachment_path && (
+            {/* Read-only previous assigner's description - shown at bottom for reference */}
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                {userRole === "director" ? "Manager's Description (Read-only):" : userRole === "head-of-unit" ? "Attendee's Description (Read-only):" : "Previous Description (Read-only):"}
+              </Typography>
+              <TextField
+                multiline
+                rows={3}
+                value={editedResolution}
+                fullWidth
+                InputProps={{
+                  readOnly: true,
+                }}
+                sx={{
+                  '& .MuiInputBase-input': {
+                    backgroundColor: '#f5f5f5',
+                    cursor: 'not-allowed'
+                  }
+                }}
+                placeholder={userRole === "director" ? "Manager's description..." : userRole === "head-of-unit" ? "Attendee's description..." : "Previous description..."}
+              />
+              <Typography variant="caption" sx={{ color: "#666", mt: 0.5, display: "block" }}>
+                {userRole === "director" 
+                  ? "This is the manager's description. It will be forwarded as-is to the next person." 
+                  : userRole === "head-of-unit" 
+                  ? "This is the attendee's description. It will be forwarded as-is to the next person."
+                  : "This is the previous assigner's description."}
+              </Typography>
+            </Box>
+
+            {/* Show existing previous assigner's attachment if any */}
+            {(previousAssignerAttachment || selectedTicket?.attachment_path) && (
               <Box>
                 <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
-                  Attendee's Attachment:
+                  {userRole === "director" ? "Manager's Attachment:" : userRole === "head-of-unit" ? "Attendee's Attachment:" : "Attendee's Attachment:"}
                 </Typography>
                 <Typography
                   variant="body2"
@@ -4733,34 +4908,19 @@ export default function TicketDetailsModal({
                     borderRadius: 1,
                     border: '1px solid #dee2e6'
                   }}
-                  onClick={() => handleDownloadAttachment(selectedTicket.attachment_path)}
+                  onClick={() => handleDownloadAttachment(previousAssignerAttachment || selectedTicket.attachment_path)}
                 >
-                  📎 View Attendee's Attachment: {getFileNameFromPath(selectedTicket.attachment_path)}
+                  📎 View {userRole === "director" ? "Manager's" : userRole === "head-of-unit" ? "Attendee's" : "Attendee's"} Attachment: {getFileNameFromPath(previousAssignerAttachment || selectedTicket.attachment_path)}
                 </Typography>
               </Box>
             )}
-
-            {/* Editable attendee resolution details */}
-            <Box>
-              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
-                Resolution Details (Editable):
-              </Typography>
-              <TextField
-                multiline
-                rows={4}
-                value={editedResolution}
-                onChange={e => setEditedResolution(e.target.value)}
-                fullWidth
-                placeholder="Edit the resolution details..."
-              />
-            </Box>
 
             <Box sx={{ mt: 2, textAlign: "right" }}>
               <Button
                 variant="contained"
                 color="primary"
                 onClick={handleForwardToDGSubmit}
-                disabled={!editedResolution.trim()}
+                disabled={!ownDescription.trim()}
               >
                 Forward to Director General
               </Button>
