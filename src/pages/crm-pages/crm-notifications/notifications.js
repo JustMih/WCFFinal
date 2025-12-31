@@ -60,7 +60,9 @@ export default function Crm() {
   const [modal, setModal] = useState({ isOpen: false, type: "", message: "" });
   const [activeColumns, setActiveColumns] = useState([
     "ticket_id",
-    "fullName",
+    "createdAt",
+    "employee",
+    "employer",
     "phone_number",
     "region",
     "status"
@@ -1136,14 +1138,15 @@ export default function Crm() {
   const renderTableHeader = () => (
     <tr>
       {activeColumns.includes("ticket_id") && <th>Ticket ID</th>}
-      {activeColumns.includes("fullName") && <th>Full Name</th>}
+      {activeColumns.includes("createdAt") && <th>Created At</th>}
+      {activeColumns.includes("employee") && <th>Employee</th>}
+      {activeColumns.includes("employer") && <th>Employer</th>}
       {activeColumns.includes("phone_number") && <th>Phone</th>}
       {activeColumns.includes("region") && <th>Region</th>}
       {activeColumns.includes("status") && <th>Status</th>}
       {activeColumns.includes("subject") && <th>Subject</th>}
       {activeColumns.includes("category") && <th>Category</th>}
       {activeColumns.includes("assigned_to_role") && <th>Assigned Role</th>}
-      {activeColumns.includes("createdAt") && <th>Created At</th>}
       <th style={{ textAlign: "center" }}>Actions</th>
     </tr>
   );
@@ -1175,13 +1178,38 @@ export default function Crm() {
       {activeColumns.includes("ticket_id") && (
         <td>{ticket.ticket?.ticket_id || ticket.ticket_id || ticket.id}</td>
       )}
-      {activeColumns.includes("fullName") && (
+      {activeColumns.includes("createdAt") && (
         <td>
-          {ticket.ticket?.first_name
-            ? `${ticket.ticket?.first_name || ""} ${
-                ticket.ticket?.middle_name || ""
-              } ${ticket.ticket?.last_name || ""}`.trim()
-            : ticket.ticket?.institution || "N/A"}
+          {ticket.ticket?.created_at
+            ? new Date(ticket.ticket?.created_at).toLocaleString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true
+              })
+            : "N/A"}
+        </td>
+      )}
+      {activeColumns.includes("employee") && (
+        <td>
+          {ticket.ticket?.first_name && ticket.ticket?.first_name.trim() !== ""
+            ? `${ticket.ticket?.first_name} ${ticket.ticket?.middle_name || ""} ${ticket.ticket?.last_name || ""}`.trim()
+            : ticket.ticket?.representative_name && ticket.ticket?.representative_name.trim() !== ""
+              ? ticket.ticket?.representative_name
+              : "N/A"}
+        </td>
+      )}
+      {activeColumns.includes("employer") && (
+        <td>
+          {typeof ticket.ticket?.institution === "string"
+            ? ticket.ticket?.institution
+            : ticket.ticket?.institution && typeof ticket.ticket?.institution === "object" && typeof ticket.ticket?.institution.name === "string"
+              ? ticket.ticket?.institution.name
+              : ticket.ticket?.employer && typeof ticket.ticket?.employer === "object" && typeof ticket.ticket?.employer.name === "string"
+                ? ticket.ticket?.employer.name
+                : "N/A"}
         </td>
       )}
       {activeColumns.includes("phone_number") && (
@@ -1214,20 +1242,6 @@ export default function Crm() {
       )}
       {activeColumns.includes("assigned_to_role") && (
         <td>{ticket.ticket?.assigned_to_role || "N/A"}</td>
-      )}
-      {activeColumns.includes("createdAt") && (
-        <td>
-          {ticket.ticket?.created_at
-            ? new Date(ticket.ticket?.created_at).toLocaleString("en-GB", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: true
-              })
-            : "N/A"}
-        </td>
       )}
       <td>
         <div className="action-buttons">
