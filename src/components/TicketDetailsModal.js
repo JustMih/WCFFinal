@@ -1746,18 +1746,10 @@ export default function TicketDetailsModal({
     setEditedResolution(initialResolution);
     
     // Initialize director/head-of-unit's own description (separate field)
-    // Get from current user's assignment record if available
-    let ownDesc = "";
-    if (assignmentHistory && Array.isArray(assignmentHistory) && assignmentHistory.length > 0) {
-      for (let i = assignmentHistory.length - 1; i >= 0; i--) {
-        const assignment = assignmentHistory[i];
-        if (assignment.assigned_to_id && String(assignment.assigned_to_id) === String(userId)) {
-          ownDesc = assignment.reason || "";
-          break;
-        }
-      }
-    }
-    setOwnDescription(ownDesc || "");
+    // IMPORTANT: Director's own description should be NEW - do NOT take previous director-general description
+    // Always start with empty - director will write their own new description
+    // Do not pre-fill with any previous assignment, especially not director-general's
+    setOwnDescription("");
     
     // For director and head-of-unit: find last attendee/agent description
     // For director: find attendee's description that was sent to the manager (who assigned to director)
@@ -2464,6 +2456,13 @@ export default function TicketDetailsModal({
     console.log("MODAL selectedTicket", selectedTicket);
   }, [selectedTicket]);
 
+  // Automatically set resolution type to "Reverse" when reverse modal opens
+  useEffect(() => {
+    if (isReverseModalOpen) {
+      setReverseResolutionType("Reverse");
+    }
+  }, [isReverseModalOpen]);
+
   const handleForwardToDGSubmit = async () => {
     if (!ownDescription.trim()) {
       setSnackbarState({ open: true, message: "Please provide your description before forwarding to Director General", severity: "warning" });
@@ -2474,6 +2473,15 @@ export default function TicketDetailsModal({
     try {
       const token = localStorage.getItem("authToken");
       
+      // For director: use current description (not edited) since director can't edit
+      // For manager/head-of-unit: use edited resolution if provided, otherwise current description
+      let resolutionDetails = editedResolution.trim();
+      if (userRole === "director" || !resolutionDetails) {
+        // Director can't edit, so use current description
+        // Or if manager/head-of-unit didn't edit, use current description
+        resolutionDetails = selectedTicket?.description || "";
+      }
+      
       const response = await fetch(`${baseURL}/ticket/${selectedTicket.id}/forward-to-dg`, {
         method: 'POST',
         headers: {
@@ -2482,7 +2490,7 @@ export default function TicketDetailsModal({
         },
         body: JSON.stringify({
           userId,
-          resolution_details: editedResolution.trim(), // Edited creator's description
+          resolution_details: resolutionDetails, // Current description for director, edited for manager/head-of-unit
           own_description: ownDescription.trim(), // Director/Head-of-unit's own description
           last_attendee_agent_description: null, // Not used - removed
           assignmentId: selectedTicket.id
@@ -4016,7 +4024,11 @@ export default function TicketDetailsModal({
                     variant="contained"
                     color="success"
                     sx={{ mr: 1 }}
-                    onClick={() => setIsSendToDirectorModalOpen(true)}
+                    onClick={() => {
+                      // Initialize edited resolution with current ticket description
+                      setEditedResolution(selectedTicket?.description || "");
+                      setIsSendToDirectorModalOpen(true);
+                    }}
                     disabled={sendToDirectorLoading}
                   >
                     Send to Director
@@ -4159,10 +4171,33 @@ export default function TicketDetailsModal({
       </Dialog>
 
       {/* Manager Send to Director Dialog */}
-      <Dialog open={isSendToDirectorModalOpen} onClose={() => setIsSendToDirectorModalOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={isSendToDirectorModalOpen} onClose={() => {
+        setIsSendToDirectorModalOpen(false);
+        setDirectorRecommendation("");
+        setEditedResolution("");
+        setAttachment(null);
+      }} maxWidth="sm" fullWidth>
         <DialogTitle>Send to Director - Recommendation</DialogTitle>
         <DialogContent>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
+            {/* Creator's Description (Editable) - For Manager */}
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Creator's Description (Editable):
+              </Typography>
+              <TextField
+                multiline
+                rows={4}
+                value={editedResolution}
+                onChange={e => setEditedResolution(e.target.value)}
+                fullWidth
+                placeholder="Edit creator's description..."
+              />
+              <Typography variant="caption" sx={{ color: "#666", mt: 0.5, display: "block" }}>
+                Edit the creator's description. This will update the ticket's description.
+              </Typography>
+            </Box>
+
             <Box>
               <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
                 Recommendation Details:
@@ -4212,6 +4247,9 @@ export default function TicketDetailsModal({
                     const formData = new FormData();
                     formData.append("userId", localStorage.getItem("userId"));
                     formData.append("recommendation", directorRecommendation);
+                    // Send edited creator's description if provided, otherwise send current description
+                    const resolutionDetails = editedResolution.trim() || selectedTicket?.description || "";
+                    formData.append("resolution_details", resolutionDetails);
                     
                     if (attachment) {
                       formData.append("attachment", attachment);
@@ -4233,6 +4271,7 @@ export default function TicketDetailsModal({
 
                     showSnackbar(data.message || "Ticket sent to Director successfully", "success");
                     setDirectorRecommendation("");
+                    setEditedResolution("");
                     setAttachment(null);
                     setIsSendToDirectorModalOpen(false);
                     refreshTickets && refreshTickets();
@@ -4361,7 +4400,17 @@ export default function TicketDetailsModal({
       </Dialog>
 
       {/* Reverse Modal */}
-      <Dialog open={isReverseModalOpen} onClose={() => setIsReverseModalOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog 
+        open={isReverseModalOpen} 
+        onClose={() => {
+          setIsReverseModalOpen(false);
+          setReverseReason("");
+          setReverseResolutionType("");
+          setAttachment(null);
+        }} 
+        maxWidth="sm" 
+        fullWidth
+      >
         <DialogTitle>Reverse Ticket - Resolution Details</DialogTitle>
         <DialogContent>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
@@ -4376,15 +4425,13 @@ export default function TicketDetailsModal({
                   fontSize: "0.9rem",
                   borderRadius: "4px",
                   border: "1px solid #ccc",
-                  backgroundColor: "white",
-                  color: "#000"
+                  backgroundColor: "#f5f5f5",
+                  color: "#000",
+                  cursor: "not-allowed"
                 }}
-                value={reverseResolutionType}
-                onChange={(e) => setReverseResolutionType(e.target.value)}
+                value="Reverse"
+                disabled={true}
               >
-                <option value="">Select Resolution Type</option>
-                <option value="Resolved">Resolved</option>
-                <option value="Duplicate">Duplicate</option>
                 <option value="Reverse">Reverse</option>
               </select>
             </Box>
@@ -4432,7 +4479,7 @@ export default function TicketDetailsModal({
                 variant="contained"
                 color="warning"
                 onClick={handleReverse}
-                disabled={isReversing || !reverseResolutionType || !reverseReason.trim()}
+                disabled={isReversing || !reverseReason.trim()}
               >
                 {isReversing ? "Reversing..." : "Reverse Ticket"}
               </Button>
@@ -4810,23 +4857,25 @@ export default function TicketDetailsModal({
         <DialogTitle>Forward to Director General</DialogTitle>
         <DialogContent>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
-            {/* Creator's Description (Editable) */}
-            <Box>
-              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
-                Creator's Description (Editable):
-              </Typography>
-              <TextField
-                multiline
-                rows={4}
-                value={editedResolution}
-                onChange={e => setEditedResolution(e.target.value)}
-                fullWidth
-                placeholder="Edit creator's description..."
-              />
-              <Typography variant="caption" sx={{ color: "#666", mt: 0.5, display: "block" }}>
-                Edit the creator's description. This will update the ticket's description.
-              </Typography>
-            </Box>
+            {/* Creator's Description (Editable) - Only show for manager and head-of-unit, NOT for director */}
+            {(userRole === "manager" || userRole === "head-of-unit") && (
+              <Box>
+                <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                  Creator's Description (Editable):
+                </Typography>
+                <TextField
+                  multiline
+                  rows={4}
+                  value={editedResolution}
+                  onChange={e => setEditedResolution(e.target.value)}
+                  fullWidth
+                  placeholder="Edit creator's description..."
+                />
+                <Typography variant="caption" sx={{ color: "#666", mt: 0.5, display: "block" }}>
+                  Edit the creator's description. This will update the ticket's description.
+                </Typography>
+              </Box>
+            )}
 
             {/* Director/Head-of-unit's own description */}
             <Box>
