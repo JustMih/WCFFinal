@@ -211,16 +211,24 @@ const Users = () => {
     }
 
     try {
+      // Prepare user data without password if it's empty or unchanged
+      const userDataToSend = {
+        ...currentUser,
+        full_name: currentUser.name, // Backend expects full_name
+      };
+      
+      // Only include password if it has been changed (not empty)
+      if (!currentUser.password || currentUser.password.trim() === "") {
+        delete userDataToSend.password;
+      }
+      
       const response = await fetch(`${baseURL}/users/${currentUser.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("authToken")}`,
         },
-        body: JSON.stringify({
-          ...currentUser,
-          full_name: currentUser.name, // Backend expects full_name
-        }),
+        body: JSON.stringify(userDataToSend),
       });
       if (!response.ok) {
         throw new Error("Failed to update user");

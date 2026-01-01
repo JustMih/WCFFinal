@@ -256,6 +256,11 @@ export default function CallCenterUsers() {
             ? currentUser.extension
             : null,
       };
+      
+      // Only include password if it has been changed (not empty)
+      if (!currentUser.password || currentUser.password.trim() === "") {
+        delete userDataToSend.password;
+      }
 
       const response = await fetch(`${baseURL}/users/${currentUser.id}`, {
         method: "PUT",
