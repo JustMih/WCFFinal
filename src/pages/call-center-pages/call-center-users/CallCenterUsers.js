@@ -246,9 +246,10 @@ export default function CallCenterUsers() {
       // Preserve existing unit_section if it exists, otherwise use selectedSection
       const finalUnitSection = currentUser.unit_section || selectedSection || "";
       
-      // Prepare user data - set extension to null if role is not agent or attendee
+      // Prepare user data - explicitly exclude password to prevent accidental updates
+      const { password, ...userDataWithoutPassword } = currentUser;
       const userDataToSend = {
-        ...currentUser,
+        ...userDataWithoutPassword,
         username: generatedUsername,
         unit_section: finalUnitSection, // Always include unit_section
         extension:
@@ -257,9 +258,14 @@ export default function CallCenterUsers() {
             : null,
       };
       
-      // Only include password if it has been changed (not empty)
-      if (!currentUser.password || currentUser.password.trim() === "") {
-        delete userDataToSend.password;
+      // Only include password if it has been explicitly changed (not empty and has meaningful value)
+      // Password should only be sent if user actually entered a new password
+      if (password && 
+          password !== undefined && 
+          password !== null && 
+          String(password).trim() !== "" &&
+          String(password).trim().length > 0) {
+        userDataToSend.password = password;
       }
 
       const response = await fetch(`${baseURL}/users/${currentUser.id}`, {
@@ -483,7 +489,9 @@ export default function CallCenterUsers() {
                   <button
                     className="edit-button"
                     onClick={async () => {
-                      setCurrentUser(user);
+                      // Set current user without password to prevent accidental password updates
+                      const { password, ...userWithoutPassword } = user;
+                      setCurrentUser(userWithoutPassword);
                       
                       // Fetch sections and functions if role is focal-person
                       if (user.role === "focal-person") {

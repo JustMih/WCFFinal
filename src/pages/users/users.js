@@ -211,15 +211,21 @@ const Users = () => {
     }
 
     try {
-      // Prepare user data without password if it's empty or unchanged
+      // Prepare user data - explicitly exclude password to prevent accidental updates
+      const { password, ...userDataWithoutPassword } = currentUser;
       const userDataToSend = {
-        ...currentUser,
+        ...userDataWithoutPassword,
         full_name: currentUser.name, // Backend expects full_name
       };
       
-      // Only include password if it has been changed (not empty)
-      if (!currentUser.password || currentUser.password.trim() === "") {
-        delete userDataToSend.password;
+      // Only include password if it has been explicitly changed (not empty and has meaningful value)
+      // Password should only be sent if user actually entered a new password
+      if (password && 
+          password !== undefined && 
+          password !== null && 
+          String(password).trim() !== "" &&
+          String(password).trim().length > 0) {
+        userDataToSend.password = password;
       }
       
       const response = await fetch(`${baseURL}/users/${currentUser.id}`, {
@@ -424,7 +430,9 @@ const Users = () => {
                   <button
                     className="edit-button"
                     onClick={async () => {
-                      setCurrentUser(user);
+                      // Set current user without password to prevent accidental password updates
+                      const { password, ...userWithoutPassword } = user;
+                      setCurrentUser(userWithoutPassword);
                       
                       // Fetch sections and functions if role is focal-person
                       if (user.role === "focal-person") {
