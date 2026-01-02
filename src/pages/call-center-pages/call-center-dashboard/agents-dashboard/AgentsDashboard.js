@@ -115,7 +115,7 @@ export default function AgentsDashboard() {
   // --------- Config ---------
   const extension = localStorage.getItem("extension");
   const sipPassword = localStorage.getItem("sipPassword");
-  const SIP_DOMAIN = "192.168.21.70"; // unify here (adjust if needed)
+  const SIP_DOMAIN = "10.52.0.19"; // unify here (adjust if needed)
 
   const sipConfig = useMemo(() => {
     if (!extension || !sipPassword) return null;
@@ -865,7 +865,7 @@ export default function AgentsDashboard() {
         setIsTicketModalOpen(true);
 
         // Optionally hide phone popup (recommended)
-        // setShowPhonePopup(false);
+        setShowPhonePopup(false);
 
         // Listen for call end
         incomingCall.stateChange.addListener((state) => {
@@ -987,6 +987,7 @@ export default function AgentsDashboard() {
     const formatted = number.startsWith("+255")
       ? `0${number.substring(4)}`
       : number;
+    console.log("formatted", formatted);
     const targetURI = UserAgent.makeURI(`sip:${formatted}@${SIP_DOMAIN}`);
     if (!targetURI) return;
 
