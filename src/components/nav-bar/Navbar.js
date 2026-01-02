@@ -421,9 +421,28 @@ export default function Navbar({
       // Determine notification type
       const hasComment = notif.comment !== null && notif.comment !== undefined && String(notif.comment).trim() !== '';
       const messageText = (notif.message || '').toLowerCase();
+      const isUnread = notif.status === 'unread' || notif.status === ' ';
       const isTaggedMessage = hasComment || messageText.includes('mentioned you');
-      const isAssigned = (messageText.includes('assigned to you') || messageText.includes('forwarded to you')) && !isTaggedMessage;
-      const isNotified = !isTaggedMessage && !isAssigned;
+      // Use status, recipient_id, and ticket status instead of just text matching
+      const isForCurrentUser = notif.recipient_id === userId;
+      const isReversedTicket = notif.ticket?.status === 'Reversed' || notif.ticket?.status === 'reversed';
+      
+      // Check if it's a reversed notification (ticket is reversed AND message indicates reversal to this user)
+      const isReversedByText = (messageText.includes('reversed back to you') ||
+                               messageText.includes('reversed to you') ||
+                               (messageText.includes('has been reversed') && messageText.includes('to'))) && !isTaggedMessage;
+      const isReversed = isForCurrentUser && isUnread && isReversedTicket && isReversedByText;
+      
+      // Check message text for assignment (excluding reversed messages)
+      // Only check message text - don't use ticket status as it's too broad
+      const isAssignedByText = (messageText.includes('assigned to you') || 
+                               messageText.includes('forwarded to you') ||
+                               messageText.includes('reassigned to you')) && !isTaggedMessage && !isReversed;
+      
+      // Assigned ONLY if: (1) for current user AND (2) unread AND (3) message explicitly indicates assignment AND (4) not reversed
+      // Don't use ticket status as it's too broad - many "Notified" notifications have tickets with "Assigned" status
+      const isAssigned = isForCurrentUser && isUnread && isAssignedByText && !isReversed;
+      const isNotified = !isTaggedMessage && !isAssigned && !isReversed;
       
       // If it's a "Notified" type, open the modal instead of navigating
       if (isNotified) {
@@ -761,26 +780,77 @@ export default function Navbar({
                 }).length || 0;
                 
                 const notifiedCount = notificationsData?.notifications?.filter(n => {
-                  // Notified: has comment (not null), status is unread, not tagged, and not assigned
-                  // This matches the sidebar logic - notifications with messages/comments
+                  // Notified: unread, not tagged, not assigned, and not reversed (with or without comment)
+                  // This matches the display logic - notifications that don't fit other categories
                   const hasComment = n.comment !== null && n.comment !== undefined && String(n.comment).trim() !== '';
                   const messageText = (n.message || '').toLowerCase();
-                  const isTagged = messageText.includes('mentioned you'); // Only check message, not comment for tagged
-                  const isAssigned = (messageText.includes('assigned to you') || messageText.includes('forwarded to you')) && !isTagged;
+                  const isTagged = messageText.includes('mentioned you');
                   const isUnread = n.status === 'unread' || n.status === ' ';
-                  // Notified: has comment, unread status, not tagged (no "mentioned you"), and not assigned
-                  return hasComment && isUnread && !isTagged && !isAssigned;
+                  const isForCurrentUser = n.recipient_id === userId;
+                  
+                  // Check if it's reversed
+                  const isReversedTicket = n.ticket?.status === 'Reversed' || n.ticket?.status === 'reversed';
+                  const isReversedByText = messageText.includes('reversed back to you') ||
+                                          messageText.includes('reversed to you') ||
+                                          (messageText.includes('has been reversed') && messageText.includes('to'));
+                  const isReversed = isForCurrentUser && isUnread && isReversedTicket && isReversedByText;
+                  
+                  // Check if it's assigned (excluding reversed)
+                  // Only check message text - don't use ticket status as it's too broad
+                  const isAssignedByText = (messageText.includes('assigned to you') || 
+                                           messageText.includes('forwarded to you') ||
+                                           messageText.includes('reassigned to you')) && !isTagged && !isReversed;
+                  
+                  // Assigned ONLY if message explicitly indicates assignment (don't use ticket status)
+                  const isAssigned = isForCurrentUser && isUnread && isAssignedByText && !isReversed;
+                  
+                  // Notified: unread, not tagged, not assigned, and not reversed (with or without comment)
+                  // This matches the display logic where isNotified || isNotifiedFallback
+                  return isUnread && !isTagged && !isAssigned && !isReversed;
+                }).length || 0;
+                
+                // Separate reversed and assigned counts
+                const reversedCountLocal = notificationsData?.notifications?.filter(n => {
+                  const isUnread = n.status === 'unread' || n.status === ' ';
+                  const isForCurrentUser = n.recipient_id === userId;
+                  if (!isForCurrentUser || !isUnread) return false;
+                  
+                  const messageText = (n.message || '').toLowerCase();
+                  const isReversedTicket = n.ticket?.status === 'Reversed' || n.ticket?.status === 'reversed';
+                  const isReversedByText = messageText.includes('reversed back to you') ||
+                                          messageText.includes('reversed to you') ||
+                                          (messageText.includes('has been reversed') && messageText.includes('to'));
+                  
+                  return isReversedTicket && isReversedByText;
                 }).length || 0;
                 
                 const assignedCountLocal = notificationsData?.notifications?.filter(n => {
-                  const messageText = (n.message || '').toLowerCase();
+                  // Use status and recipient_id instead of text matching for better reliability
                   const isUnread = n.status === 'unread' || n.status === ' ';
-                  // Include both "assigned to you" and "forwarded to you" as assigned notifications
-                  const isAssigned = messageText.includes('assigned to you') || messageText.includes('forwarded to you');
-                  return isAssigned && isUnread;
+                  const isForCurrentUser = n.recipient_id === userId;
+                  
+                  // Check if notification is for current user and unread
+                  if (!isForCurrentUser || !isUnread) return false;
+                  
+                  // Check message text for assignment indicators (excluding reversed)
+                  const messageText = (n.message || '').toLowerCase();
+                  const isReversedByText = messageText.includes('reversed back to you') ||
+                                          messageText.includes('reversed to you') ||
+                                          (messageText.includes('has been reversed') && messageText.includes('to'));
+                  
+                  // Exclude reversed notifications from assigned count
+                  if (isReversedByText) return false;
+                  
+                  const isAssignedByText = messageText.includes('assigned to you') || 
+                                         messageText.includes('forwarded to you') ||
+                                         messageText.includes('reassigned to you');
+                  
+                  // Assigned ONLY if message explicitly indicates assignment (don't use ticket status - too broad)
+                  // Many "Notified" notifications have tickets with "Assigned" status, so we only check message text
+                  return isAssignedByText;
                 }).length || 0;
                 
-                console.log('Notification counts:', { taggedCount, notifiedCount, assignedCount: assignedCountLocal, total: notificationsData?.notifications?.length });
+                console.log('Notification counts:', { taggedCount, notifiedCount, assignedCount: assignedCountLocal, reversedCount: reversedCountLocal, total: notificationsData?.notifications?.length });
                 
                 return (
                   <div style={{
@@ -821,6 +891,20 @@ export default function Navbar({
                         <IoMdNotificationsOutline style={{ fontSize: '16px', color: '#2196f3' }} />
                         <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#2196f3' }}>
                           Notified: {notifiedCount}
+                        </span>
+                      </div>
+                      {/* Always show Reversed badge, even if count is 0 */}
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '4px',
+                        padding: '4px 8px',
+                        backgroundColor: '#ffebee',
+                        borderRadius: '4px',
+                        opacity: reversedCountLocal > 0 ? 1 : 0.6
+                      }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#f44336' }}>
+                          Reversed: {reversedCountLocal}
                         </span>
                       </div>
                       {/* Always show Assigned badge, even if count is 0 */}
@@ -1024,11 +1108,32 @@ export default function Navbar({
                   // Tagged Message: message says "mentioned you"
                   const isTaggedMessage = messageText.includes('mentioned you');
                   
-                  // Assigned: message says "assigned to you" (but not if it's also a tagged message)
-                  const isAssigned = (messageText.includes('assigned to you') || messageText.includes('forwarded to you')) && !isTaggedMessage;
+                  // Assigned: Use status, recipient_id, and ticket status instead of just text matching
+                  // Check if notification is for current user and unread
+                  const isForCurrentUser = notif.recipient_id === userId;
                   
-                  // Notified: has comment, unread, not tagged, and not assigned
-                  const isNotified = hasComment && isUnread && !isTaggedMessage && !isAssigned;
+                  // Check ticket status if available (more reliable than text matching)
+                  const isReversedTicket = notif.ticket?.status === 'Reversed' || notif.ticket?.status === 'reversed';
+                  
+                  // Check if it's a reversed notification (ticket is reversed AND message indicates reversal to this user)
+                  const isReversedByText = (messageText.includes('reversed back to you') ||
+                                           messageText.includes('reversed to you') ||
+                                           (messageText.includes('has been reversed') && messageText.includes('to'))) && !isTaggedMessage;
+                  const isReversed = isForCurrentUser && isUnread && isReversedTicket && isReversedByText;
+                  
+                  // Check message text for assignment (excluding reversed messages)
+                  // Only check message text - don't use ticket status as it's too broad (many tickets have "Assigned" status)
+                  const isAssignedByText = (messageText.includes('assigned to you') || 
+                                           messageText.includes('forwarded to you') ||
+                                           messageText.includes('reassigned to you')) && !isTaggedMessage && !isReversed;
+                  
+                  // Assigned ONLY if: (1) for current user AND (2) unread AND (3) message explicitly indicates assignment AND (4) not reversed
+                  // Don't use ticket status as it's too broad - many "Notified" notifications have tickets with "Assigned" status
+                  const isAssigned = isForCurrentUser && isUnread && isAssignedByText && !isReversed;
+                  
+                  // Notified: unread, for current user, not tagged, not assigned, and not reversed (with or without comment)
+                  // This matches the count logic - any notification that doesn't fit other categories becomes "Notified"
+                  const isNotified = isForCurrentUser && isUnread && !isTaggedMessage && !isAssigned && !isReversed;
                   
                   let notificationType;
                   let badgeColor;
@@ -1036,15 +1141,18 @@ export default function Navbar({
                   if (isTaggedMessage) {
                     notificationType = 'Tagged Message';
                     badgeColor = '#4caf50'; // Green
+                  } else if (isReversed) {
+                    notificationType = 'Reversed';
+                    badgeColor = '#f44336'; // Red
                   } else if (isAssigned) {
                     notificationType = 'Assigned';
                     badgeColor = '#ff9800'; // Orange
                   } else if (isNotified) {
-                    // Notified: has comment, unread, not tagged, and not assigned
+                    // Notified: unread, for current user, not tagged, not assigned, and not reversed (with or without comment)
                     notificationType = 'Notified';
                     badgeColor = '#2196f3'; // Blue
                   } else {
-                    // Default/Other: no specific type
+                    // Default/Other: no specific type - also show as Notified
                     notificationType = 'Notified';
                     badgeColor = '#2196f3'; // Blue
                   }

@@ -392,11 +392,17 @@ export default function CallCenterUsers() {
     });
   };
 
-  // Enhanced search: search by name, email, role, unit_section, sub_section, designation, report_to
+  // Enhanced search: search by ID, name, email, role, unit_section, sub_section, designation, report_to
+  // We use text-based search instead of ID-only because:
+  // 1. Users don't always know the exact ID
+  // 2. Text search is more user-friendly (search by name, email, role, etc.)
+  // 3. Allows partial matching (e.g., "john" finds "John Doe")
+  // 4. More flexible - can search across multiple fields at once
   const filteredUsers = users.filter((user) => {
     if (!search.trim()) return true;
     
     const searchLower = search.toLowerCase();
+    const userId = String(user.id || "").toLowerCase();
     const name = (user.full_name || "").toLowerCase();
     const email = (user.email || "").toLowerCase();
     const role = (user.role || "").toLowerCase();
@@ -406,6 +412,7 @@ export default function CallCenterUsers() {
     const reportTo = (user.report_to || "").toLowerCase();
     
     return (
+      userId.includes(searchLower) ||
       name.includes(searchLower) ||
       email.includes(searchLower) ||
       role.includes(searchLower) ||
@@ -426,7 +433,7 @@ export default function CallCenterUsers() {
       <div className="controls">
         <input
           type="text"
-          placeholder="Search by name, email, role, section, sub-section..."
+          placeholder="Search by ID, name, email, role, section, sub-section, designation..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="search-input"

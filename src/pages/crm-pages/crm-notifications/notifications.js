@@ -69,6 +69,7 @@ export default function Crm() {
   ]);
   const [loading, setLoading] = useState(true);
   const [notifiedCount, setNotifiedCount] = useState(0);
+  const [taggedCount, setTaggedCount] = useState(0);
   const [showType, setShowType] = useState('manual'); // 'manual' or 'system'
   const [filters, setFilters] = useState({
     search: '',
@@ -124,10 +125,10 @@ export default function Crm() {
     if (userId) {
       setUserId(userId);
       console.log("user id is:", userId);
-      // Fetch unread notifications count (per notification, not per ticket)
+      // Fetch all notifications to calculate both tagged and notified counts
       const token = localStorage.getItem("authToken");
       if (token) {
-        fetch(`${baseURL}/notifications/unread-count/${userId}`, {
+        fetch(`${baseURL}/notifications/user/${userId}`, {
           headers: { Authorization: `Bearer ${token}` }
         })
           .then((res) => {
@@ -142,13 +143,47 @@ export default function Crm() {
             return res.json();
           })
           .then((data) => {
-            const count = data.unreadCount || 0;
-            setNotifiedCount(count);
-            localStorage.setItem('notificationCount', count.toString());
+            const notifications = data.notifications || [];
+            
+            // Calculate tagged count (unread, for current user, has "mentioned you")
+            const tagged = notifications.filter(n => {
+              const msgText = (n.message || '').toLowerCase();
+              const isUnread = n.status === 'unread' || n.status === ' ';
+              const isForCurrentUser = String(n.recipient_id) === String(userId);
+              return msgText.includes('mentioned you') && isUnread && isForCurrentUser;
+            }).length;
+            
+            // Calculate notified count (unread, for current user, not tagged, not assigned, not reversed)
+            const notified = notifications.filter(n => {
+              const isUnread = n.status === 'unread' || n.status === ' ';
+              const isForCurrentUser = String(n.recipient_id) === String(userId);
+              if (!isForCurrentUser || !isUnread) return false;
+              
+              const messageText = (n.message || n.comment || '').toLowerCase();
+              const isTagged = messageText.includes('mentioned you');
+              const isReversedTicket = n.ticket?.status === 'Reversed' || n.ticket?.status === 'reversed';
+              const isReversedByText = messageText.includes('reversed back to you') ||
+                                      messageText.includes('reversed to you') ||
+                                      (messageText.includes('has been reversed') && messageText.includes('to'));
+              const isReversed = isReversedTicket && isReversedByText;
+              const isAssignedByText = (messageText.includes('assigned to you') || 
+                                       messageText.includes('forwarded to you') ||
+                                       messageText.includes('reassigned to you')) && !isTagged && !isReversed;
+              
+              return !isTagged && !isAssignedByText && !isReversed;
+            }).length;
+            
+            setNotifiedCount(notified);
+            setTaggedCount(tagged);
+            localStorage.setItem('notificationCount', notified.toString());
+            localStorage.setItem('taggedCount', tagged.toString());
           })
           .catch((err) => {
-            setNotifiedCount(0); // fallback
+            console.error('Error fetching notification counts:', err);
+            setNotifiedCount(0);
+            setTaggedCount(0);
             localStorage.setItem('notificationCount', '0');
+            localStorage.setItem('taggedCount', '0');
           });
       }
       
@@ -156,6 +191,9 @@ export default function Crm() {
       const handleStorageChange = (e) => {
         if (e.key === 'notificationCount') {
           setNotifiedCount(parseInt(e.newValue || '0', 10));
+        }
+        if (e.key === 'taggedCount') {
+          setTaggedCount(parseInt(e.newValue || '0', 10));
         }
       };
       window.addEventListener('storage', handleStorageChange);
@@ -173,7 +211,7 @@ export default function Crm() {
     if (userId) {
       fetchAgentTickets();
     }
-  }, [userId]);
+  }, [userId, notificationType]); // Also refetch when notificationType changes
 
   // Debug: Log modal state changes
   useEffect(() => {
@@ -216,6 +254,8 @@ export default function Crm() {
           const hasComment = notif.comment && notif.comment !== null && String(notif.comment).trim() !== '';
           const isTagged = messageText.includes('mentioned you');
           const isAssigned = (messageText.includes('assigned to you') || messageText.includes('forwarded to you')) && !isTagged;
+          const isUnread = notif.status === 'unread' || notif.status === ' ';
+          const isForCurrentUser = notif.recipient_id === userId;
           console.log(`Notification #${idx + 1}:`, {
             id: notif.id,
             message: notif.message,
@@ -223,7 +263,11 @@ export default function Crm() {
             hasComment,
             isTagged,
             isAssigned,
-            status: notif.status
+            status: notif.status,
+            recipient_id: notif.recipient_id,
+            userId,
+            isUnread,
+            isForCurrentUser
           });
           if (notif.ticket) {
             console.log(`Ticket for notification #${idx + 1}:`, notif.ticket);
@@ -938,37 +982,80 @@ export default function Crm() {
   };
 
   // Group notifications by ticket ID and keep only the latest notification per ticket
+  // For "notified" type, we'll include all notifications and filter later based on Navbar logic
   const uniqueTickets = [];
   const seenTicketIds = new Set();
-  console.log('Processing agentTickets for uniqueTickets:', agentTickets.length, 'notificationType:', notificationType);
+  console.log('Processing agentTickets for uniqueTickets:', agentTickets.length, 'notificationType:', notificationType, 'userId:', userId);
+  if (agentTickets.length === 0) {
+    console.warn('No agentTickets to process!');
+  }
   agentTickets.forEach((notif) => {
     const ticketId = notif.ticket?.id || notif.ticket_id || notif.id;
-    // Check notification type
-    const messageText = (notif.message || notif.comment || '').toLowerCase();
-    const commentText = (notif.comment || '').toLowerCase();
-    const isTagged = messageText.includes('mentioned you') || commentText.includes('@');
-    // isAssigned means the message says "assigned to you" - this is different from ticket being assigned
-    const isAssignedMessage = messageText.includes('assigned to you') && !isTagged;
-    const hasComment = notif.comment && notif.comment !== null && String(notif.comment).trim() !== '';
     
-    // Include notifications that are:
-    // 1. Tagged messages (always include)
-    // 2. Notified messages (has comment, not tagged)
-    // Note: We include notified even if they have "assigned to you" message, as long as they have comment
-    const shouldInclude = isTagged || (hasComment && !isTagged);
+    if (!ticketId) {
+      console.warn('Notification without ticketId:', notif);
+      return;
+    }
     
-    if (!seenTicketIds.has(ticketId) && shouldInclude) {
-      uniqueTickets.push(notif);
-      seenTicketIds.add(ticketId);
-      if (notificationType === 'notified') {
+    // For "notified" type, include all notifications (filtering happens later)
+    // For other types, use the existing logic
+    if (notificationType === 'notified') {
+      // Include all notifications for "notified" type - filtering will happen in typeFilteredTickets
+      // But only if they're unread and for current user (API already filters by recipient_id, but double-check)
+      const isUnread = notif.status === 'unread' || notif.status === ' ';
+      const isForCurrentUser = String(notif.recipient_id) === String(userId) || notif.recipient_id === userId;
+      
+      if (isForCurrentUser && isUnread && !seenTicketIds.has(ticketId)) {
+        uniqueTickets.push(notif);
+        seenTicketIds.add(ticketId);
         console.log('Added to uniqueTickets (notified):', {
           ticketId,
-          hasComment,
-          isTagged,
-          isAssignedMessage,
-          shouldInclude,
-          comment: notif.comment
+          status: notif.status,
+          recipient_id: notif.recipient_id,
+          userId,
+          message: notif.message?.substring(0, 50)
         });
+      } else {
+        console.log('Skipped notification:', {
+          ticketId,
+          isForCurrentUser,
+          isUnread,
+          alreadySeen: seenTicketIds.has(ticketId)
+        });
+      }
+    } else {
+      // For other types (tagged, etc.), use existing logic
+      // For tagged type, include all tagged notifications (read or unread)
+      // For other types, use the existing logic
+      if (notificationType === 'tagged') {
+        const messageText = (notif.message || notif.comment || '').toLowerCase();
+        const commentText = (notif.comment || '').toLowerCase();
+        const isTagged = messageText.includes('mentioned you') || commentText.includes('@');
+        
+        // Include all tagged notifications (read or unread) for tagged type
+        if (isTagged && !seenTicketIds.has(ticketId)) {
+          uniqueTickets.push(notif);
+          seenTicketIds.add(ticketId);
+          console.log('Added to uniqueTickets (tagged):', {
+            ticketId,
+            status: notif.status,
+            message: notif.message?.substring(0, 50)
+          });
+        }
+      } else {
+        // For other types (default, etc.), use existing logic
+        const messageText = (notif.message || notif.comment || '').toLowerCase();
+        const commentText = (notif.comment || '').toLowerCase();
+        const isTagged = messageText.includes('mentioned you') || commentText.includes('@');
+        const hasComment = notif.comment && notif.comment !== null && String(notif.comment).trim() !== '';
+        
+        // Include notifications that are tagged or have comments
+        const shouldInclude = isTagged || (hasComment && !isTagged);
+        
+        if (!seenTicketIds.has(ticketId) && shouldInclude) {
+          uniqueTickets.push(notif);
+          seenTicketIds.add(ticketId);
+        }
       }
     }
   });
@@ -1016,19 +1103,59 @@ export default function Crm() {
   // Filter based on notification type from query parameter
   let typeFilteredTickets = uniqueTickets;
   if (notificationType === 'notified') {
-    // Show only "notified" notifications: has comment, not tagged
-    // Note: Include notifications with comments even if they have "assigned to you" in message
-    // The key is that they have a comment field, which makes them "notified" type
+    // Show only "notified" notifications: not tagged, not assigned, not reversed
+    // This matches the Navbar logic: unread, for current user, not tagged, not assigned, and not reversed
     typeFilteredTickets = uniqueTickets.filter(notif => {
-      const hasComment = notif.comment && notif.comment !== null && String(notif.comment).trim() !== '';
+      const isUnread = notif.status === 'unread' || notif.status === ' ';
+      // Handle both string and number types for comparison
+      const isForCurrentUser = String(notif.recipient_id) === String(userId) || notif.recipient_id === userId;
+      
+      console.log('Filtering notification:', {
+        id: notif.id,
+        status: notif.status,
+        recipient_id: notif.recipient_id,
+        userId,
+        isUnread,
+        isForCurrentUser,
+        message: notif.message?.substring(0, 50)
+      });
+      
+      if (!isForCurrentUser || !isUnread) {
+        console.log('Excluded: not for current user or not unread', { isForCurrentUser, isUnread });
+        return false;
+      }
+      
       const messageText = (notif.message || notif.comment || '').toLowerCase();
       const commentText = (notif.comment || '').toLowerCase();
+      
+      // Check if it's tagged
       const isTagged = messageText.includes('mentioned you') || commentText.includes('@');
-      // Include if has comment and not tagged (regardless of "assigned to you" message)
-      const shouldInclude = hasComment && !isTagged;
+      
+      // Check if it's reversed
+      const isReversedTicket = notif.ticket?.status === 'Reversed' || notif.ticket?.status === 'reversed';
+      const isReversedByText = messageText.includes('reversed back to you') ||
+                              messageText.includes('reversed to you') ||
+                              (messageText.includes('has been reversed') && messageText.includes('to'));
+      const isReversed = isReversedTicket && isReversedByText;
+      
+      // Check if it's assigned (only by message text, not ticket status)
+      const isAssignedByText = (messageText.includes('assigned to you') || 
+                               messageText.includes('forwarded to you') ||
+                               messageText.includes('reassigned to you')) && !isTagged && !isReversed;
+      
+      // Notified: not tagged, not assigned, and not reversed
+      const shouldInclude = !isTagged && !isAssignedByText && !isReversed;
+      
+      console.log('Filter result:', {
+        isTagged,
+        isReversed,
+        isAssignedByText,
+        shouldInclude
+      });
+      
       return shouldInclude;
     });
-    console.log('Notified messages filtered:', typeFilteredTickets.length);
+    console.log('Notified messages filtered:', typeFilteredTickets.length, 'from', uniqueTickets.length, 'unique tickets');
   } else if (notificationType === 'tagged') {
     // Show only "tagged" notifications: has "mentioned you" in message or "@" in comment
     typeFilteredTickets = uniqueTickets.filter(notif => {
@@ -1152,20 +1279,42 @@ export default function Crm() {
   );
 
   // Function to count unread notifications with messages for a specific ticket
+  // Filter based on notificationType: 'tagged' counts only tagged, 'notified' counts only notified
   const getUnreadCountForTicket = (ticketId) => {
     if (!ticketId || !agentTickets || agentTickets.length === 0) return 0;
     
     return agentTickets.filter(notif => {
       const notifTicketId = notif.ticket?.id || notif.ticket_id || notif.id;
-      const hasComment = notif.comment && notif.comment !== null && String(notif.comment).trim() !== '';
+      if (notifTicketId !== ticketId) return false;
+      
+      const isUnread = notif.status === 'unread' || notif.status === ' ';
+      if (!isUnread) return false;
+      
       const messageText = (notif.message || notif.comment || '').toLowerCase();
       const commentText = (notif.comment || '').toLowerCase();
       const isTagged = messageText.includes('mentioned you') || commentText.includes('@');
-      // Include notifications with comment OR tagged messages
-      const hasMessage = hasComment || isTagged;
-      const isUnread = notif.status === 'unread' || notif.status === ' ';
       
-      return notifTicketId === ticketId && hasMessage && isUnread;
+      // Filter based on notificationType
+      if (notificationType === 'tagged') {
+        // For tagged: only count tagged notifications
+        return isTagged;
+      } else if (notificationType === 'notified') {
+        // For notified: count notifications that are not tagged, not assigned, not reversed
+        const isReversedTicket = notif.ticket?.status === 'Reversed' || notif.ticket?.status === 'reversed';
+        const isReversedByText = messageText.includes('reversed back to you') ||
+                                messageText.includes('reversed to you') ||
+                                (messageText.includes('has been reversed') && messageText.includes('to'));
+        const isReversed = isReversedTicket && isReversedByText;
+        const isAssignedByText = (messageText.includes('assigned to you') || 
+                                 messageText.includes('forwarded to you') ||
+                                 messageText.includes('reassigned to you')) && !isTagged && !isReversed;
+        
+        return !isTagged && !isAssignedByText && !isReversed;
+      } else {
+        // For other types: count all notifications with comments or tagged
+        const hasComment = notif.comment && notif.comment !== null && String(notif.comment).trim() !== '';
+        return hasComment || isTagged;
+      }
     }).length;
   };
 
