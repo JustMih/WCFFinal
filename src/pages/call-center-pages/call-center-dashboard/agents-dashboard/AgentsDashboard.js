@@ -987,6 +987,7 @@ export default function AgentsDashboard() {
     const formatted = number.startsWith("+255")
       ? `0${number.substring(4)}`
       : number;
+    console.log("formatted", formatted);
     const targetURI = UserAgent.makeURI(`sip:${formatted}@${SIP_DOMAIN}`);
     if (!targetURI) return;
 

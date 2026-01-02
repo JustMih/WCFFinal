@@ -362,9 +362,6 @@ export default function CallCenterAgent() {
         </div>
       </div>
 
-      {/* Performance Scorecard Section */}
-      <PerformanceScorecard />
-
       {selectedCategory && (
         <div className="call-center-agent-table-container">
           <h3>
@@ -376,6 +373,7 @@ export default function CallCenterAgent() {
                 <th>Sn</th>
                 <th>Name</th>
                 <th>Email</th>
+                <th>Extension</th>
                 <th>Status</th>
               </tr>
             </thead>
@@ -383,8 +381,9 @@ export default function CallCenterAgent() {
               {selectedCategory.agents.map((agent, index) => (
                 <tr key={agent.id}>
                   <td>{index + 1}</td>
-                  <td>{agent.name}</td>
+                  <td>{agent.full_name}</td>
                   <td>{agent.email}</td>
+                  <td>{agent.extension}</td>
                   <td>
                     <div
                       style={{
@@ -407,6 +406,9 @@ export default function CallCenterAgent() {
           </table>
         </div>
       )}
+
+       {/* Performance Scorecard Section */}
+       <PerformanceScorecard />
     </div>
   );
 }

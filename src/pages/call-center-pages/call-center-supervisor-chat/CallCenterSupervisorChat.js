@@ -13,7 +13,7 @@ import MenuIcon from "@mui/icons-material/Menu";
 import { baseURL } from "../../../config";
 import "./CallCenterSupervisorChat.css";
 
-const socket = io("https://10.52.0.19");
+const socket = io("http://192.168.21.70:5070");
 
 const CallCenterSupervisorChat = () => {
   const [messages, setMessages] = useState([]);
