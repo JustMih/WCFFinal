@@ -170,7 +170,11 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
     }
   }
 
-  // Build steps array
+  // Check if ticket should be with reviewer
+  const isWithReviewer = selectedTicket.status === "Open" && 
+    ["Complaint", "Compliment", "Suggestion"].includes(selectedTicket.category);
+
+  // Build steps array - always include "Created" step
   const steps = [
     {
       assigned_to_name: creatorName,
@@ -181,10 +185,6 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
       reason: selectedTicket.description || undefined
     }
   ];
-
-      // Check if ticket should be with reviewer
-    const isWithReviewer = selectedTicket.status === "Open" && 
-    ["Complaint", "Compliment", "Suggestion"].includes(selectedTicket.category);
 
   // Always include assignment history if available (preserve ALL fields including reason)
   if (Array.isArray(assignmentHistory) && assignmentHistory.length > 0) {
@@ -203,8 +203,9 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
           const prev = processedHistory[processedHistory.length - 1];
           prev.reason = prev.reason ? prev.reason : current.reason;
         } else {
-          // First assignment: attach to creator step
-          if (!steps[0].reason) {
+          // First assignment: attach to creator step (if it exists)
+          // For tickets closed on creation, steps array is empty, so skip this
+          if (steps.length > 0 && steps[0] && !steps[0].reason) {
             steps[0].reason = current.reason;
           }
         }
@@ -226,23 +227,25 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
         continue;
       }
 
-      // Skip standalone "Closed" actions if there's a previous "Assigned" by the same person
-      // (they will be consolidated below)
-      if (current.action === "Closed" && processedHistory.length > 0) {
-        const prevStep = processedHistory[processedHistory.length - 1];
-        if (prevStep.assigned_to_id === current.assigned_to_id && prevStep.action === "Assigned") {
-          // Consolidate: update previous step to "Closed"
-          prevStep.action = "Closed";
-          prevStep.closed_at = current.created_at;
-          prevStep.isConsolidated = true;
-          // DON'T copy attachment from Closed action - keep it with the action that has it
-          // Only use attachment from prevStep if it already has one
-          // This ensures attachment stays with the user who actually uploaded it
-          // Do NOT copy: if (current.attachment_path && !prevStep.attachment_path) { prevStep.attachment_path = current.attachment_path; }
-          if (current.reason) {
-            prevStep.reason = current.reason;
+      // Skip duplicate "Closed" actions (especially for tickets closed on creation)
+      if (current.action === "Closed") {
+        if (processedHistory.length > 0) {
+          const prevStep = processedHistory[processedHistory.length - 1];
+          // If previous step is also "Closed" by the same person, skip this duplicate
+          if (prevStep.action === "Closed" && prevStep.assigned_to_id === current.assigned_to_id) {
+            continue; // Skip duplicate "Closed" action
           }
-          continue; // Skip adding this Closed action separately
+          // If previous step is "Assigned" by the same person, consolidate
+          if (prevStep.assigned_to_id === current.assigned_to_id && prevStep.action === "Assigned") {
+            // Consolidate: update previous step to "Closed"
+            prevStep.action = "Closed";
+            prevStep.closed_at = current.created_at;
+            prevStep.isConsolidated = true;
+            if (current.reason) {
+              prevStep.reason = current.reason;
+            }
+            continue; // Skip adding this Closed action separately
+          }
         }
       }
 
@@ -1926,19 +1929,21 @@ export default function TicketDetailsModal({
         body: formData
       });
 
-              if (response.ok) {
-          setIsReviewerCloseDialogOpen(false);
-          onClose();
-          refreshTickets();
-          const actionMessage = userRole === "reviewer" ? 'Ticket closed successfully by Reviewer' : 'Ticket attended successfully';
-          showSnackbar(actionMessage, 'success');
-        } else {
-          throw new Error("Failed to process ticket");
-        }
-      } catch (error) {
-        console.error("Error processing action:", error);
-        showSnackbar('Error processing action: ' + error.message, 'error');
-      } finally {
+      if (response.ok) {
+        const data = await response.json();
+        setIsReviewerCloseDialogOpen(false);
+        onClose();
+        refreshTickets();
+        const actionMessage = userRole === "reviewer" ? 'Ticket closed successfully by Reviewer' : 'Ticket attended successfully';
+        showSnackbar(actionMessage, 'success');
+      } else {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to process ticket' }));
+        throw new Error(errorData.message || errorData.error || "Failed to process ticket");
+      }
+    } catch (error) {
+      console.error("Error processing action:", error);
+      showSnackbar('Error processing action: ' + error.message, 'error');
+    } finally {
       setReviewerCloseLoading(false);
     }
   };
