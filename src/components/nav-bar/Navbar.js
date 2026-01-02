@@ -774,39 +774,44 @@ export default function Navbar({
               {/* Notification Type Counts Header */}
               {(() => {
                 const taggedCount = notificationsData?.notifications?.filter(n => {
-                  // Tagged Message: message contains "mentioned you" (regardless of comment)
+                  // Tagged Message: unread, for current user, message contains "mentioned you" or "@" in comment
+                  // Navbar counts ALL notifications (not distinct tickets)
+                  const isUnread = n.status === 'unread' || n.status === ' ';
+                  const isForCurrentUser = n.recipient_id === userId;
+                  if (!isForCurrentUser || !isUnread) return false;
+                  
                   const messageText = (n.message || '').toLowerCase();
-                  return messageText.includes('mentioned you');
+                  const commentText = (n.comment || '').toLowerCase();
+                  return messageText.includes('mentioned you') || commentText.includes('@');
                 }).length || 0;
                 
                 const notifiedCount = notificationsData?.notifications?.filter(n => {
-                  // Notified: unread, not tagged, not assigned, and not reversed (with or without comment)
-                  // This matches the display logic - notifications that don't fit other categories
-                  const hasComment = n.comment !== null && n.comment !== undefined && String(n.comment).trim() !== '';
-                  const messageText = (n.message || '').toLowerCase();
-                  const isTagged = messageText.includes('mentioned you');
+                  // Notified: unread, for current user, not tagged, not assigned, and not reversed
+                  // Navbar counts ALL notifications (not distinct tickets)
                   const isUnread = n.status === 'unread' || n.status === ' ';
                   const isForCurrentUser = n.recipient_id === userId;
+                  if (!isForCurrentUser || !isUnread) return false;
+                  
+                  const messageText = (n.message || n.comment || '').toLowerCase();
+                  const commentText = (n.comment || '').toLowerCase();
+                  
+                  // Check if it's tagged
+                  const isTagged = messageText.includes('mentioned you') || commentText.includes('@');
                   
                   // Check if it's reversed
                   const isReversedTicket = n.ticket?.status === 'Reversed' || n.ticket?.status === 'reversed';
                   const isReversedByText = messageText.includes('reversed back to you') ||
                                           messageText.includes('reversed to you') ||
                                           (messageText.includes('has been reversed') && messageText.includes('to'));
-                  const isReversed = isForCurrentUser && isUnread && isReversedTicket && isReversedByText;
+                  const isReversed = isReversedTicket && isReversedByText;
                   
-                  // Check if it's assigned (excluding reversed)
-                  // Only check message text - don't use ticket status as it's too broad
+                  // Check if it's assigned (only by message text, not ticket status)
                   const isAssignedByText = (messageText.includes('assigned to you') || 
                                            messageText.includes('forwarded to you') ||
                                            messageText.includes('reassigned to you')) && !isTagged && !isReversed;
                   
-                  // Assigned ONLY if message explicitly indicates assignment (don't use ticket status)
-                  const isAssigned = isForCurrentUser && isUnread && isAssignedByText && !isReversed;
-                  
-                  // Notified: unread, not tagged, not assigned, and not reversed (with or without comment)
-                  // This matches the display logic where isNotified || isNotifiedFallback
-                  return isUnread && !isTagged && !isAssigned && !isReversed;
+                  // Notified: not tagged, not assigned, and not reversed
+                  return !isTagged && !isAssignedByText && !isReversed;
                 }).length || 0;
                 
                 // Separate reversed and assigned counts

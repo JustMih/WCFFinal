@@ -150,34 +150,63 @@ export default function CRMSidebar({ isSidebarOpen }) {
         .then(data => {
           const notifications = data.notifications || [];
           
-          // Count tagged messages (unread notifications with "mentioned you" in message)
-          const tagged = notifications.filter(n => {
+          // Count distinct tickets for tagged messages (unread, for current user, has "mentioned you" in message)
+          const taggedTickets = new Set();
+          notifications.forEach(n => {
             const messageText = (n.message || '').toLowerCase();
             const isUnread = n.status === 'unread' || n.status === ' ';
-            return messageText.includes('mentioned you') && isUnread;
-          }).length;
+            const isForCurrentUser = String(n.recipient_id) === String(userId);
+            if (messageText.includes('mentioned you') && isUnread && isForCurrentUser) {
+              const ticketId = n.ticket?.id || n.ticket_id;
+              if (ticketId) taggedTickets.add(ticketId);
+            }
+          });
+          const tagged = taggedTickets.size;
           
-          // Count notified (unread notifications with comment, not tagged, not assigned)
-          const notified = notifications.filter(n => {
-            const hasComment = n.comment !== null && n.comment !== undefined && String(n.comment).trim() !== '';
-            const messageText = (n.message || '').toLowerCase();
-            const isTagged = messageText.includes('mentioned you');
-            const isAssigned = messageText.includes('assigned to you') && !isTagged;
+          // Count distinct tickets for notified (unread, for current user, not tagged, not assigned, not reversed)
+          // This matches the notifications page logic - count distinct tickets
+          const notifiedTickets = new Set();
+          notifications.forEach(n => {
             const isUnread = n.status === 'unread' || n.status === ' ';
-            return hasComment && isUnread && !isTagged && !isAssigned;
-          }).length;
+            const isForCurrentUser = String(n.recipient_id) === String(userId);
+            if (!isForCurrentUser || !isUnread) return;
+            
+            const messageText = (n.message || n.comment || '').toLowerCase();
+            const isTagged = messageText.includes('mentioned you');
+            
+            // Check if it's reversed
+            const isReversedTicket = n.ticket?.status === 'Reversed' || n.ticket?.status === 'reversed';
+            const isReversedByText = messageText.includes('reversed back to you') ||
+                                    messageText.includes('reversed to you') ||
+                                    (messageText.includes('has been reversed') && messageText.includes('to'));
+            const isReversed = isReversedTicket && isReversedByText;
+            
+            // Check if it's assigned (only by message text, not ticket status)
+            const isAssignedByText = (messageText.includes('assigned to you') || 
+                                     messageText.includes('forwarded to you') ||
+                                     messageText.includes('reassigned to you')) && !isTagged && !isReversed;
+            
+            // Notified: not tagged, not assigned, and not reversed
+            if (!isTagged && !isAssignedByText && !isReversed) {
+              const ticketId = n.ticket?.id || n.ticket_id;
+              if (ticketId) notifiedTickets.add(ticketId);
+            }
+          });
+          const notified = notifiedTickets.size;
           
           console.log('Sidebar notification counts:', { tagged, notified });
           setTaggedCount(tagged);
           setNotifiedCount(notified);
           // Store in localStorage for cross-component sync
           localStorage.setItem('notificationCount', notified.toString());
+          localStorage.setItem('taggedCount', tagged.toString());
         })
         .catch(err => {
           console.error('Error fetching sidebar notification count:', err);
           setNotifiedCount(0); // fallback
           setTaggedCount(0);
           localStorage.setItem('notificationCount', '0');
+          localStorage.setItem('taggedCount', '0');
         });
     }
   };

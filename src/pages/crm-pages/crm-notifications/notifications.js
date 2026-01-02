@@ -1001,11 +1001,10 @@ export default function Crm() {
     // For other types, use the existing logic
     if (notificationType === 'notified') {
       // Include all notifications for "notified" type - filtering will happen in typeFilteredTickets
-      // But only if they're unread and for current user (API already filters by recipient_id, but double-check)
-      const isUnread = notif.status === 'unread' || notif.status === ' ';
+      // Include both read and unread - only count reduces, items stay in list
       const isForCurrentUser = String(notif.recipient_id) === String(userId) || notif.recipient_id === userId;
       
-      if (isForCurrentUser && isUnread && !seenTicketIds.has(ticketId)) {
+      if (isForCurrentUser && !seenTicketIds.has(ticketId)) {
         uniqueTickets.push(notif);
         seenTicketIds.add(ticketId);
         console.log('Added to uniqueTickets (notified):', {
@@ -1019,7 +1018,6 @@ export default function Crm() {
         console.log('Skipped notification:', {
           ticketId,
           isForCurrentUser,
-          isUnread,
           alreadySeen: seenTicketIds.has(ticketId)
         });
       }
@@ -1103,25 +1101,13 @@ export default function Crm() {
   // Filter based on notification type from query parameter
   let typeFilteredTickets = uniqueTickets;
   if (notificationType === 'notified') {
-    // Show only "notified" notifications: not tagged, not assigned, not reversed
-    // This matches the Navbar logic: unread, for current user, not tagged, not assigned, and not reversed
+    // Show "notified" notifications: not tagged, not assigned, not reversed
+    // Show both read and unread - only count reduces, items stay in list
     typeFilteredTickets = uniqueTickets.filter(notif => {
-      const isUnread = notif.status === 'unread' || notif.status === ' ';
       // Handle both string and number types for comparison
       const isForCurrentUser = String(notif.recipient_id) === String(userId) || notif.recipient_id === userId;
       
-      console.log('Filtering notification:', {
-        id: notif.id,
-        status: notif.status,
-        recipient_id: notif.recipient_id,
-        userId,
-        isUnread,
-        isForCurrentUser,
-        message: notif.message?.substring(0, 50)
-      });
-      
-      if (!isForCurrentUser || !isUnread) {
-        console.log('Excluded: not for current user or not unread', { isForCurrentUser, isUnread });
+      if (!isForCurrentUser) {
         return false;
       }
       
@@ -1143,15 +1129,8 @@ export default function Crm() {
                                messageText.includes('forwarded to you') ||
                                messageText.includes('reassigned to you')) && !isTagged && !isReversed;
       
-      // Notified: not tagged, not assigned, and not reversed
+      // Notified: not tagged, not assigned, and not reversed (show both read and unread)
       const shouldInclude = !isTagged && !isAssignedByText && !isReversed;
-      
-      console.log('Filter result:', {
-        isTagged,
-        isReversed,
-        isAssignedByText,
-        shouldInclude
-      });
       
       return shouldInclude;
     });
