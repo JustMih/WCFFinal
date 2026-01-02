@@ -158,8 +158,12 @@ export default function Navbar({
           .then(res => res.json())
           .then(data => {
             setNotifications(data.notifications || []);
-            // Update unread count
-            const unreadCount = (data.notifications || []).filter(n => n.status === 'unread').length;
+            // Update unread count - count individual notifications with messages
+            const unreadCount = (data.notifications || []).filter(n => 
+              (n.status === 'unread' || n.status === ' ') && 
+              n.comment && 
+              n.comment.trim() !== ''
+            ).length;
             queryClient.setQueryData(['unreadCount', userId], { unreadCount });
           })
           .catch(err => console.error("Error refetching notifications:", err));
@@ -414,12 +418,159 @@ export default function Navbar({
       // Close the dropdown
       setNotifDropdownOpen(false);
       
-      // Set the selected notification and open the dialog (ticket details modal)
-      setSelectedNotification(notif);
-      setNotificationDialogOpen(true);
+      // Determine notification type
+      const hasComment = notif.comment !== null && notif.comment !== undefined && String(notif.comment).trim() !== '';
+      const messageText = (notif.message || '').toLowerCase();
+      const isUnread = notif.status === 'unread' || notif.status === ' ';
+      const isTaggedMessage = hasComment || messageText.includes('mentioned you');
+      // Use status, recipient_id, and ticket status instead of just text matching
+      const isForCurrentUser = notif.recipient_id === userId;
+      const isReversedTicket = notif.ticket?.status === 'Reversed' || notif.ticket?.status === 'reversed';
+      
+      // Check if it's a reversed notification (ticket is reversed AND message indicates reversal to this user)
+      const isReversedByText = (messageText.includes('reversed back to you') ||
+                               messageText.includes('reversed to you') ||
+                               (messageText.includes('has been reversed') && messageText.includes('to'))) && !isTaggedMessage;
+      const isReversed = isForCurrentUser && isUnread && isReversedTicket && isReversedByText;
+      
+      // Check message text for assignment (excluding reversed messages)
+      // Only check message text - don't use ticket status as it's too broad
+      const isAssignedByText = (messageText.includes('assigned to you') || 
+                               messageText.includes('forwarded to you') ||
+                               messageText.includes('reassigned to you')) && !isTaggedMessage && !isReversed;
+      
+      // Assigned ONLY if: (1) for current user AND (2) unread AND (3) message explicitly indicates assignment AND (4) not reversed
+      // Don't use ticket status as it's too broad - many "Notified" notifications have tickets with "Assigned" status
+      const isAssigned = isForCurrentUser && isUnread && isAssignedByText && !isReversed;
+      const isNotified = !isTaggedMessage && !isAssigned && !isReversed;
+      
+      // If it's a "Notified" type, open the modal instead of navigating
+      if (isNotified) {
+        setSelectedNotification(notif);
+        setNotificationDialogOpen(true);
+        return;
+      }
+      
+      // For "Tagged Message" and "Assigned", navigate to ticket page
+      // Get ticket ID - try multiple sources
+      let ticketId = null;
+      
+      // First, try ticket_id from notification
+      if (notif.ticket_id) {
+        // If it's a UUID, we need to get the actual ticket number
+        if (notif.ticket?.ticket_id) {
+          ticketId = notif.ticket.ticket_id;
+        } else {
+          // If we have ticket_id but no ticket object, fetch it or use the UUID
+          ticketId = notif.ticket_id;
+        }
+      }
+      
+      // If no ticket_id, try to extract from message
+      if (!ticketId && notif.message) {
+        const idPatterns = [
+          /ID:\s*([A-Z0-9-]+)/i,
+          /\(ID:\s*([A-Z0-9-]+)\)/i,
+          /\(([A-Z0-9-]+)\)/,
+          /(WCF-[A-Z0-9-]+)/i
+        ];
+        
+        for (const pattern of idPatterns) {
+          const match = notif.message.match(pattern);
+          if (match) {
+            const extractedId = match[1] || match[0];
+            if (extractedId.match(/^WCF-[A-Z0-9-]+$/i) || extractedId.match(/^[A-Z]{2,4}-[A-Z]{2}-[A-Z0-9-]+$/i)) {
+              ticketId = extractedId;
+              break;
+            }
+          }
+        }
+      }
+      
+      // Navigate to ticket page if we have a ticket ID
+      if (ticketId) {
+        let actualTicketId = ticketId;
+        
+        // If ticketId is a UUID, try to get the actual ticket_id
+        if (ticketId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+          try {
+            const response = await fetch(`${baseURL}/ticket/${ticketId}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+              const ticketData = await response.json();
+              const fetchedTicketId = ticketData.ticket?.ticket_id || ticketData.ticket_id;
+              if (fetchedTicketId) {
+                actualTicketId = fetchedTicketId;
+              }
+            }
+          } catch (err) {
+            console.error("Error fetching ticket:", err);
+          }
+        }
+        
+        // Search in assigned tickets first
+        let foundInAssigned = false;
+        try {
+          const assignedResponse = await fetch(`${baseURL}/ticket/assigned/${userId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (assignedResponse.ok) {
+            const assignedData = await assignedResponse.json();
+            const tickets = assignedData.tickets || assignedData.data || assignedData;
+            if (Array.isArray(tickets)) {
+              const foundTicket = tickets.find(t => {
+                const ticketIdMatch = t.ticket_id && t.ticket_id.toLowerCase() === actualTicketId.toLowerCase();
+                const idMatch = t.id && (t.id === actualTicketId || t.id.toLowerCase() === actualTicketId.toLowerCase());
+                return ticketIdMatch || idMatch;
+              });
+              if (foundTicket) {
+                foundInAssigned = true;
+                window.location.href = `/ticket/assigned?ticketId=${encodeURIComponent(actualTicketId)}`;
+                return;
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Error checking assigned tickets:", err);
+        }
+        
+        // If not found in assigned, search in in-progress tickets
+        if (!foundInAssigned) {
+          try {
+            const inProgressResponse = await fetch(`${baseURL}/ticket/in-progress/${userId}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            if (inProgressResponse.ok) {
+              const inProgressData = await inProgressResponse.json();
+              const tickets = inProgressData.tickets || inProgressData.data || inProgressData;
+              if (Array.isArray(tickets)) {
+                const foundTicket = tickets.find(t => {
+                  const ticketIdMatch = t.ticket_id && t.ticket_id.toLowerCase() === actualTicketId.toLowerCase();
+                  const idMatch = t.id && (t.id === actualTicketId || t.id.toLowerCase() === actualTicketId.toLowerCase());
+                  return ticketIdMatch || idMatch;
+                });
+                if (foundTicket) {
+                  window.location.href = `/ticket/in-progress?ticketId=${encodeURIComponent(actualTicketId)}`;
+                  return;
+                }
+              }
+            }
+          } catch (err) {
+            console.error("Error checking in-progress tickets:", err);
+          }
+        }
+        
+        // If not found in either, default to assigned page
+        window.location.href = `/ticket/assigned?ticketId=${encodeURIComponent(actualTicketId)}`;
+      } else {
+        // If no ticket ID found, open the modal as fallback
+        setSelectedNotification(notif);
+        setNotificationDialogOpen(true);
+      }
     } catch (err) {
       console.error("Error in handleNotificationClick:", err, notif);
-      // Even if marking as read fails, still try to open the modal
+      // Fallback: open modal if navigation fails
       setNotifDropdownOpen(false);
       setSelectedNotification(notif);
       setNotificationDialogOpen(true);
@@ -541,37 +692,239 @@ export default function Navbar({
           {isDarkMode ? <LuSunMoon /> : <MdDarkMode />}
         </button>
         {/* Notification Bell with Dropdown */}
-        <div
-          className="navbar-notification-container"
-          style={{
-            marginRight: "1rem",
-            cursor: "pointer",
-            position: "relative"
-          }}
-          onClick={() => setNotifDropdownOpen((open) => !open)}
-        >
-          <Badge
-            badgeContent={unreadCountData?.unreadCount || 0}
-            color="error"
-            sx={{
-              "& .MuiBadge-badge": {
-                backgroundColor: "#ff0000",
-                color: "white",
-                fontWeight: "bold",
-                fontSize: "0.6rem",
-                minWidth: "20px",
-                height: "20px",
-                borderRadius: "10px",
-                top: "2px",
-                right: "10px",
-                zIndex: 1
-              }
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginRight: "1rem", position: 'relative' }}>
+          {/* Notification Bell */}
+          <div
+            className="navbar-notification-container"
+            style={{
+              cursor: "pointer",
+              position: "relative"
             }}
+            onClick={() => setNotifDropdownOpen((open) => !open)}
           >
-            <IoMdNotificationsOutline size={24} className="navbar-icon" />
-          </Badge>
+            <Badge
+              badgeContent={(() => {
+                // Count individual notifications with messages (not unique tickets)
+                let count = 0;
+                
+                if (notificationsData?.notifications && Array.isArray(notificationsData.notifications)) {
+                  // Count all unread notifications (both assigned and with messages)
+                  count = notificationsData.notifications.filter(n => {
+                    return n.status === 'unread' || n.status === ' ';
+                  }).length;
+                  console.log('Navbar - notificationsData:', {
+                    total: notificationsData.notifications.length,
+                    unread: count
+                  });
+                }
+                
+                if (count === 0 && unreadCountData?.unreadCount) {
+                  count = unreadCountData.unreadCount;
+                  console.log('Navbar - Using unreadCountData fallback:', count);
+                }
+                
+                console.log('Navbar - Final badge count:', count);
+                return count;
+              })()}
+              color="error"
+              invisible={(() => {
+                let count = 0;
+                if (notificationsData?.notifications && Array.isArray(notificationsData.notifications)) {
+                  // Count all unread notifications (both assigned and with messages)
+                  count = notificationsData.notifications.filter(n => {
+                    return n.status === 'unread' || n.status === ' ';
+                  }).length;
+                }
+                if (count === 0 && unreadCountData?.unreadCount) {
+                  count = unreadCountData.unreadCount;
+                }
+                const shouldHide = count === 0;
+                console.log('Navbar - Badge invisible:', shouldHide, 'count:', count);
+                return shouldHide;
+              })()}
+              sx={{
+                "& .MuiBadge-badge": {
+                  backgroundColor: "#ff0000 !important",
+                  color: "white !important",
+                  fontWeight: "bold",
+                  fontSize: "0.65rem",
+                  minWidth: "18px",
+                  height: "18px",
+                  borderRadius: "9px",
+                  top: "0px",
+                  right: "16px",
+                  zIndex: 10,
+                  display: "flex !important",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  border: "1px solid white",
+                  transform: "translate(50%, -50%)"
+                }
+              }}
+            >
+              <IoMdNotificationsOutline 
+                size={24} 
+                className="navbar-icon" 
+                style={{ color: 'var(--active-color, #7b2cbf)', display: 'block' }}
+              />
+            </Badge>
+          </div>
           {notifDropdownOpen && (
             <div className="navbar-notification-dropdown">
+              {/* Notification Type Counts Header */}
+              {(() => {
+                const taggedCount = notificationsData?.notifications?.filter(n => {
+                  // Tagged Message: message contains "mentioned you" (regardless of comment)
+                  const messageText = (n.message || '').toLowerCase();
+                  return messageText.includes('mentioned you');
+                }).length || 0;
+                
+                const notifiedCount = notificationsData?.notifications?.filter(n => {
+                  // Notified: unread, not tagged, not assigned, and not reversed (with or without comment)
+                  // This matches the display logic - notifications that don't fit other categories
+                  const hasComment = n.comment !== null && n.comment !== undefined && String(n.comment).trim() !== '';
+                  const messageText = (n.message || '').toLowerCase();
+                  const isTagged = messageText.includes('mentioned you');
+                  const isUnread = n.status === 'unread' || n.status === ' ';
+                  const isForCurrentUser = n.recipient_id === userId;
+                  
+                  // Check if it's reversed
+                  const isReversedTicket = n.ticket?.status === 'Reversed' || n.ticket?.status === 'reversed';
+                  const isReversedByText = messageText.includes('reversed back to you') ||
+                                          messageText.includes('reversed to you') ||
+                                          (messageText.includes('has been reversed') && messageText.includes('to'));
+                  const isReversed = isForCurrentUser && isUnread && isReversedTicket && isReversedByText;
+                  
+                  // Check if it's assigned (excluding reversed)
+                  // Only check message text - don't use ticket status as it's too broad
+                  const isAssignedByText = (messageText.includes('assigned to you') || 
+                                           messageText.includes('forwarded to you') ||
+                                           messageText.includes('reassigned to you')) && !isTagged && !isReversed;
+                  
+                  // Assigned ONLY if message explicitly indicates assignment (don't use ticket status)
+                  const isAssigned = isForCurrentUser && isUnread && isAssignedByText && !isReversed;
+                  
+                  // Notified: unread, not tagged, not assigned, and not reversed (with or without comment)
+                  // This matches the display logic where isNotified || isNotifiedFallback
+                  return isUnread && !isTagged && !isAssigned && !isReversed;
+                }).length || 0;
+                
+                // Separate reversed and assigned counts
+                const reversedCountLocal = notificationsData?.notifications?.filter(n => {
+                  const isUnread = n.status === 'unread' || n.status === ' ';
+                  const isForCurrentUser = n.recipient_id === userId;
+                  if (!isForCurrentUser || !isUnread) return false;
+                  
+                  const messageText = (n.message || '').toLowerCase();
+                  const isReversedTicket = n.ticket?.status === 'Reversed' || n.ticket?.status === 'reversed';
+                  const isReversedByText = messageText.includes('reversed back to you') ||
+                                          messageText.includes('reversed to you') ||
+                                          (messageText.includes('has been reversed') && messageText.includes('to'));
+                  
+                  return isReversedTicket && isReversedByText;
+                }).length || 0;
+                
+                const assignedCountLocal = notificationsData?.notifications?.filter(n => {
+                  // Use status and recipient_id instead of text matching for better reliability
+                  const isUnread = n.status === 'unread' || n.status === ' ';
+                  const isForCurrentUser = n.recipient_id === userId;
+                  
+                  // Check if notification is for current user and unread
+                  if (!isForCurrentUser || !isUnread) return false;
+                  
+                  // Check message text for assignment indicators (excluding reversed)
+                  const messageText = (n.message || '').toLowerCase();
+                  const isReversedByText = messageText.includes('reversed back to you') ||
+                                          messageText.includes('reversed to you') ||
+                                          (messageText.includes('has been reversed') && messageText.includes('to'));
+                  
+                  // Exclude reversed notifications from assigned count
+                  if (isReversedByText) return false;
+                  
+                  const isAssignedByText = messageText.includes('assigned to you') || 
+                                         messageText.includes('forwarded to you') ||
+                                         messageText.includes('reassigned to you');
+                  
+                  // Assigned ONLY if message explicitly indicates assignment (don't use ticket status - too broad)
+                  // Many "Notified" notifications have tickets with "Assigned" status, so we only check message text
+                  return isAssignedByText;
+                }).length || 0;
+                
+                console.log('Notification counts:', { taggedCount, notifiedCount, assignedCount: assignedCountLocal, reversedCount: reversedCountLocal, total: notificationsData?.notifications?.length });
+                
+                return (
+                  <div style={{
+                    padding: '8px 12px',
+                    borderBottom: '1px solid #e0e0e0',
+                    backgroundColor: '#f5f5f5',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    gap: '12px',
+                    flexWrap: 'wrap'
+                  }}>
+                    <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flex: 1 }}>
+                      {/* Always show Tagged badge, even if count is 0 */}
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '4px',
+                        padding: '4px 8px',
+                        backgroundColor: '#e8f5e9',
+                        borderRadius: '4px',
+                        opacity: taggedCount > 0 ? 1 : 0.6
+                      }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#4caf50' }}>
+                          Tagged: {taggedCount}
+                        </span>
+                      </div>
+                      {/* Always show Notified badge, even if count is 0 */}
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '4px',
+                        padding: '4px 8px',
+                        backgroundColor: '#e3f2fd',
+                        borderRadius: '4px',
+                        opacity: notifiedCount > 0 ? 1 : 0.6
+                      }}>
+                        <IoMdNotificationsOutline style={{ fontSize: '16px', color: '#2196f3' }} />
+                        <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#2196f3' }}>
+                          Notified: {notifiedCount}
+                        </span>
+                      </div>
+                      {/* Always show Reversed badge, even if count is 0 */}
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '4px',
+                        padding: '4px 8px',
+                        backgroundColor: '#ffebee',
+                        borderRadius: '4px',
+                        opacity: reversedCountLocal > 0 ? 1 : 0.6
+                      }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#f44336' }}>
+                          Reversed: {reversedCountLocal}
+                        </span>
+                      </div>
+                      {/* Always show Assigned badge, even if count is 0 */}
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '4px',
+                        padding: '4px 8px',
+                        backgroundColor: '#fff3e0',
+                        borderRadius: '4px',
+                        opacity: assignedCountLocal > 0 ? 1 : 0.6
+                      }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#ff9800' }}>
+                          Assigned: {assignedCountLocal}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
               {/* Mark All as Read Button */}
               {notificationsData?.notifications?.some(n => n.status === 'unread') && (
                 <div style={{
@@ -744,6 +1097,66 @@ export default function Navbar({
                       })
                     : null;
                   
+                  // Determine notification type based on fields:
+                  // 1. Tagged Message: message contains "mentioned you"
+                  // 2. Assigned: message contains "assigned to you" (and not tagged)
+                  // 3. Notified: has comment (not null), status unread, not tagged, and not assigned
+                  const hasComment = notif.comment !== null && notif.comment !== undefined && String(notif.comment).trim() !== '';
+                  const messageText = (notif.message || '').toLowerCase();
+                  const isUnread = notif.status === 'unread' || notif.status === ' ';
+                  
+                  // Tagged Message: message says "mentioned you"
+                  const isTaggedMessage = messageText.includes('mentioned you');
+                  
+                  // Assigned: Use status, recipient_id, and ticket status instead of just text matching
+                  // Check if notification is for current user and unread
+                  const isForCurrentUser = notif.recipient_id === userId;
+                  
+                  // Check ticket status if available (more reliable than text matching)
+                  const isReversedTicket = notif.ticket?.status === 'Reversed' || notif.ticket?.status === 'reversed';
+                  
+                  // Check if it's a reversed notification (ticket is reversed AND message indicates reversal to this user)
+                  const isReversedByText = (messageText.includes('reversed back to you') ||
+                                           messageText.includes('reversed to you') ||
+                                           (messageText.includes('has been reversed') && messageText.includes('to'))) && !isTaggedMessage;
+                  const isReversed = isForCurrentUser && isUnread && isReversedTicket && isReversedByText;
+                  
+                  // Check message text for assignment (excluding reversed messages)
+                  // Only check message text - don't use ticket status as it's too broad (many tickets have "Assigned" status)
+                  const isAssignedByText = (messageText.includes('assigned to you') || 
+                                           messageText.includes('forwarded to you') ||
+                                           messageText.includes('reassigned to you')) && !isTaggedMessage && !isReversed;
+                  
+                  // Assigned ONLY if: (1) for current user AND (2) unread AND (3) message explicitly indicates assignment AND (4) not reversed
+                  // Don't use ticket status as it's too broad - many "Notified" notifications have tickets with "Assigned" status
+                  const isAssigned = isForCurrentUser && isUnread && isAssignedByText && !isReversed;
+                  
+                  // Notified: unread, for current user, not tagged, not assigned, and not reversed (with or without comment)
+                  // This matches the count logic - any notification that doesn't fit other categories becomes "Notified"
+                  const isNotified = isForCurrentUser && isUnread && !isTaggedMessage && !isAssigned && !isReversed;
+                  
+                  let notificationType;
+                  let badgeColor;
+                  
+                  if (isTaggedMessage) {
+                    notificationType = 'Tagged Message';
+                    badgeColor = '#4caf50'; // Green
+                  } else if (isReversed) {
+                    notificationType = 'Reversed';
+                    badgeColor = '#f44336'; // Red
+                  } else if (isAssigned) {
+                    notificationType = 'Assigned';
+                    badgeColor = '#ff9800'; // Orange
+                  } else if (isNotified) {
+                    // Notified: unread, for current user, not tagged, not assigned, and not reversed (with or without comment)
+                    notificationType = 'Notified';
+                    badgeColor = '#2196f3'; // Blue
+                  } else {
+                    // Default/Other: no specific type - also show as Notified
+                    notificationType = 'Notified';
+                    badgeColor = '#2196f3'; // Blue
+                  }
+                  
                   return (
                     <div
                       key={notif.id}
@@ -751,10 +1164,27 @@ export default function Navbar({
                       style={{ 
                         display: 'flex', 
                         flexDirection: 'column',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        position: 'relative'
                       }}
                       onClick={() => handleNotificationClick(notif)}
                     >
+                      {/* Notification Type Badge */}
+                      <div style={{
+                        position: 'absolute',
+                        top: '8px',
+                        right: '8px',
+                        backgroundColor: badgeColor,
+                        color: 'white',
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        fontSize: '0.65rem',
+                        fontWeight: '600',
+                        zIndex: 1
+                      }}>
+                        {notificationType}
+                      </div>
+                      
                       {/* Row 1: Assigned at and Date of Assignment */}
                       <div style={{ 
                         display: 'flex', 

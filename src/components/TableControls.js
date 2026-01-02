@@ -243,7 +243,7 @@ const TableControls = ({
   filterDistrict,
   onFilterDistrictChange,
   showAllOption = true,
-  searchPlaceholder = "Search by name, phone, NIN, ticket number, institution",
+  searchPlaceholder = "Search by name, phone, NIN, ticket number, institution, representative name",
   statusOptions = [
     { value: "", label: "All" },
     { value: "Open", label: "Open" },

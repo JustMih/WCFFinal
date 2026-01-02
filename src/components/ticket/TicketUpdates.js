@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -15,7 +15,14 @@ import {
   DialogActions,
   Alert,
   CircularProgress,
-  Paper
+  Paper,
+  List,
+  ListItem,
+  ListItemAvatar,
+  ListItemText,
+  Avatar,
+  Popper,
+  ClickAwayListener
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -39,6 +46,15 @@ const TicketUpdates = ({ ticketId, currentUserId, canAddUpdates = true, isAssign
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  
+  // @ Mention states
+  const [mentionUsers, setMentionUsers] = useState([]);
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionPosition, setMentionPosition] = useState({ top: 0, left: 0 });
+  const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
+  const [mentionAnchorEl, setMentionAnchorEl] = useState(null);
+  const textFieldRef = useRef(null);
 
 
 
@@ -170,9 +186,141 @@ const TicketUpdates = ({ ticketId, currentUserId, canAddUpdates = true, isAssign
     setShowEditDialog(true);
   };
 
+  // Fetch mention users
+  const fetchMentionUsers = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${baseURL}/ticket/${ticketId}/mention-users`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setMentionUsers(data.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching mention users:', error);
+    }
+  };
+
+  // Handle @ mention detection
+  const handleTextChange = (e, isEdit = false) => {
+    const value = e.target.value;
+    const cursorPosition = e.target.selectionStart;
+    
+    if (isEdit) {
+      setEditText(value);
+    } else {
+      setNewUpdate(value);
+    }
+    
+    // Check for @ mention
+    const textBeforeCursor = value.substring(0, cursorPosition);
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+    
+    if (lastAtIndex !== -1) {
+      const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
+      // Check if there's a space or newline after @ (meaning mention is complete)
+      if (textAfterAt.includes(' ') || textAfterAt.includes('\n')) {
+        setShowMentions(false);
+        return;
+      }
+      
+      // Get query after @
+      const query = textAfterAt.toLowerCase();
+      setMentionQuery(query);
+      
+      // Show mentions dropdown
+      if (textFieldRef.current) {
+        const rect = textFieldRef.current.getBoundingClientRect();
+        setMentionPosition({
+          top: rect.top + rect.height,
+          left: rect.left
+        });
+        setMentionAnchorEl(textFieldRef.current);
+      }
+      setShowMentions(true);
+      setSelectedMentionIndex(0);
+    } else {
+      setShowMentions(false);
+    }
+  };
+
+  // Filter mention users based on query
+  const filteredMentionUsers = mentionUsers.filter(user => {
+    if (!mentionQuery) return true;
+    const query = mentionQuery.toLowerCase();
+    return (
+      user.name.toLowerCase().includes(query) ||
+      user.username.toLowerCase().includes(query) ||
+      user.role.toLowerCase().includes(query)
+    );
+  });
+
+  // Handle mention selection
+  const handleMentionSelect = (user, isEdit = false) => {
+    const currentText = isEdit ? editText : newUpdate;
+    const cursorPosition = isEdit ? textFieldRef.current?.selectionStart || 0 : textFieldRef.current?.selectionStart || 0;
+    const textBeforeCursor = currentText.substring(0, cursorPosition);
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+    
+    if (lastAtIndex !== -1) {
+      const textBeforeAt = currentText.substring(0, lastAtIndex);
+      const textAfterCursor = currentText.substring(cursorPosition);
+      const mentionText = `@${user.name} `;
+      const newText = textBeforeAt + mentionText + textAfterCursor;
+      
+      if (isEdit) {
+        setEditText(newText);
+      } else {
+        setNewUpdate(newText);
+      }
+      
+      setShowMentions(false);
+      setMentionQuery('');
+      
+      // Set cursor position after mention
+      setTimeout(() => {
+        if (textFieldRef.current) {
+          const newCursorPos = lastAtIndex + mentionText.length;
+          textFieldRef.current.setSelectionRange(newCursorPos, newCursorPos);
+          textFieldRef.current.focus();
+        }
+      }, 0);
+    }
+  };
+
+  // Handle keyboard navigation in mentions
+  const handleMentionKeyDown = (e, isEdit = false) => {
+    if (!showMentions || filteredMentionUsers.length === 0) return;
+    
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedMentionIndex(prev => 
+        prev < filteredMentionUsers.length - 1 ? prev + 1 : 0
+      );
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedMentionIndex(prev => 
+        prev > 0 ? prev - 1 : filteredMentionUsers.length - 1
+      );
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      if (filteredMentionUsers[selectedMentionIndex]) {
+        handleMentionSelect(filteredMentionUsers[selectedMentionIndex], isEdit);
+      }
+    } else if (e.key === 'Escape') {
+      setShowMentions(false);
+    }
+  };
+
   useEffect(() => {
     if (ticketId) {
       fetchUpdates();
+      fetchMentionUsers();
     }
   }, [ticketId]);
 
@@ -182,6 +330,88 @@ const TicketUpdates = ({ ticketId, currentUserId, canAddUpdates = true, isAssign
     } catch {
       return dateString;
     }
+  };
+
+  // Parse text and highlight mentions
+  const parseMentions = (text) => {
+    if (!text) return null;
+    
+    // Regex to match @mentions - exactly two words after @
+    // Format: @word1 word2 (stops after second word)
+    const mentionRegex = /@(\S+\s+\S+)/g;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+    
+    while ((match = mentionRegex.exec(text)) !== null) {
+      // Add text before mention
+      if (match.index > lastIndex) {
+        parts.push({
+          type: 'text',
+          content: text.substring(lastIndex, match.index)
+        });
+      }
+      
+      // Add mention with styling
+      parts.push({
+        type: 'mention',
+        content: match[0], // Full match including @
+        username: match[1] // Just the username/name part
+      });
+      
+      lastIndex = mentionRegex.lastIndex;
+    }
+    
+    // Add remaining text
+    if (lastIndex < text.length) {
+      parts.push({
+        type: 'text',
+        content: text.substring(lastIndex)
+      });
+    }
+    
+    // If no mentions found, return original text
+    if (parts.length === 0) {
+      return [{ type: 'text', content: text }];
+    }
+    
+    return parts;
+  };
+
+  // Render text with mentions highlighted
+  const renderTextWithMentions = (text) => {
+    const parts = parseMentions(text);
+    
+    if (!parts || parts.length === 0) {
+      return <Typography variant="body2" sx={{ mb: 1, whiteSpace: 'pre-wrap' }}>{text}</Typography>;
+    }
+    
+    return (
+      <Typography variant="body2" sx={{ mb: 1, whiteSpace: 'pre-wrap' }}>
+        {parts.map((part, index) => {
+          if (part.type === 'mention') {
+            return (
+              <Box
+                key={index}
+                component="span"
+                sx={{
+                  color: '#1976d2', // Blue color for mentions
+                  fontWeight: 600,
+                  backgroundColor: '#e3f2fd', // Light blue background
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  display: 'inline-block',
+                  margin: '0 2px'
+                }}
+              >
+                {part.content}
+              </Box>
+            );
+          }
+          return <span key={index}>{part.content}</span>;
+        })}
+      </Typography>
+    );
   };
 
   return (
@@ -225,21 +455,72 @@ const TicketUpdates = ({ ticketId, currentUserId, canAddUpdates = true, isAssign
       {canAddUpdates && isAssigned && showUpdateForm && (
         <Paper sx={{ p: 2.5, mb: 2, border: '1px solid #e0e0e0', borderRadius: 2 }}>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField
-              fullWidth
-              multiline
-              rows={4}
-              placeholder="Enter your daily progress update..."
-              value={newUpdate}
-              onChange={(e) => setNewUpdate(e.target.value)}
-              variant="outlined"
-              size="small"
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 1.5
-                }
-              }}
-            />
+            <Box sx={{ position: 'relative' }}>
+              <TextField
+                inputRef={textFieldRef}
+                fullWidth
+                multiline
+                rows={4}
+                placeholder="Enter your daily progress update... Type @ to mention users"
+                value={newUpdate}
+                onChange={(e) => handleTextChange(e, false)}
+                onKeyDown={(e) => handleMentionKeyDown(e, false)}
+                variant="outlined"
+                size="small"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 1.5
+                  }
+                }}
+              />
+              {showMentions && filteredMentionUsers.length > 0 && (
+                <ClickAwayListener onClickAway={() => setShowMentions(false)}>
+                  <Popper
+                    open={showMentions}
+                    anchorEl={mentionAnchorEl}
+                    placement="bottom-start"
+                    style={{ zIndex: 1300, width: mentionAnchorEl?.offsetWidth || 300 }}
+                  >
+                    <Paper
+                      elevation={4}
+                      sx={{
+                        maxHeight: 200,
+                        overflow: 'auto',
+                        mt: 1,
+                        border: '1px solid #e0e0e0'
+                      }}
+                    >
+                      <List dense>
+                        {filteredMentionUsers.map((user, index) => (
+                          <ListItem
+                            key={user.id}
+                            button
+                            selected={index === selectedMentionIndex}
+                            onClick={() => handleMentionSelect(user, false)}
+                            sx={{
+                              '&:hover': { backgroundColor: '#f5f5f5' },
+                              '&.Mui-selected': { backgroundColor: '#e3f2fd' }
+                            }}
+                          >
+                            <ListItemAvatar>
+                              <Avatar sx={{ width: 32, height: 32, bgcolor: '#1976d2' }}>
+                                {user.name.charAt(0).toUpperCase()}
+                              </Avatar>
+                            </ListItemAvatar>
+                            <ListItemText
+                              primary={user.name}
+                              secondary={`${user.role}${user.unit_section ? ` • ${user.unit_section}` : ''}`}
+                              primaryTypographyProps={{ fontSize: '0.875rem' }}
+                              secondaryTypographyProps={{ fontSize: '0.75rem' }}
+                            />
+                          </ListItem>
+                        ))}
+                      </List>
+                    </Paper>
+                  </Popper>
+                </ClickAwayListener>
+              )}
+            </Box>
             <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
               <Button
                 variant="outlined"
@@ -298,9 +579,7 @@ const TicketUpdates = ({ ticketId, currentUserId, canAddUpdates = true, isAssign
                   </Typography>
                 </Box>
                 
-                <Typography variant="body2" sx={{ mb: 1, whiteSpace: 'pre-wrap' }}>
-                  {update.update_text}
-                </Typography>
+                {renderTextWithMentions(update.update_text)}
 
                 {/* Action buttons - only show for user's own updates */}
                 {update.user_id === currentUserId && (
@@ -350,16 +629,66 @@ const TicketUpdates = ({ ticketId, currentUserId, canAddUpdates = true, isAssign
       <Dialog open={showEditDialog} onClose={() => setShowEditDialog(false)} maxWidth="sm" fullWidth>
         <DialogTitle>Edit Update</DialogTitle>
         <DialogContent>
-          <TextField
-            fullWidth
-            multiline
-            rows={4}
-            value={editText}
-            onChange={(e) => setEditText(e.target.value)}
-            placeholder="Enter your update..."
-            variant="outlined"
-            sx={{ mt: 1 }}
-          />
+          <Box sx={{ position: 'relative', mt: 1 }}>
+            <TextField
+              inputRef={textFieldRef}
+              fullWidth
+              multiline
+              rows={4}
+              value={editText}
+              onChange={(e) => handleTextChange(e, true)}
+              onKeyDown={(e) => handleMentionKeyDown(e, true)}
+              placeholder="Enter your update... Type @ to mention users"
+              variant="outlined"
+            />
+            {showMentions && filteredMentionUsers.length > 0 && (
+              <ClickAwayListener onClickAway={() => setShowMentions(false)}>
+                <Popper
+                  open={showMentions}
+                  anchorEl={mentionAnchorEl}
+                  placement="bottom-start"
+                  style={{ zIndex: 1300, width: mentionAnchorEl?.offsetWidth || 300 }}
+                >
+                  <Paper
+                    elevation={4}
+                    sx={{
+                      maxHeight: 200,
+                      overflow: 'auto',
+                      mt: 1,
+                      border: '1px solid #e0e0e0'
+                    }}
+                  >
+                    <List dense>
+                      {filteredMentionUsers.map((user, index) => (
+                        <ListItem
+                          key={user.id}
+                          button
+                          selected={index === selectedMentionIndex}
+                          onClick={() => handleMentionSelect(user, true)}
+                          sx={{
+                            '&:hover': { backgroundColor: '#f5f5f5' },
+                            '&.Mui-selected': { backgroundColor: '#e3f2fd' }
+                          }}
+                        >
+                          <ListItemAvatar>
+                            <Avatar sx={{ width: 32, height: 32, bgcolor: '#1976d2' }}>
+                              {user.name.charAt(0).toUpperCase()}
+                            </Avatar>
+                          </ListItemAvatar>
+                          <ListItemText
+                            primary={user.name}
+                            secondary={`${user.role}${user.unit_section ? ` • ${user.unit_section}` : ''}`}
+                            primaryTypographyProps={{ fontSize: '0.875rem' }}
+                            secondaryTypographyProps={{ fontSize: '0.75rem' }}
+                          />
+                        </ListItem>
+                      ))}
+                    </List>
+                  </Paper>
+                </Popper>
+              </ClickAwayListener>
+            )}
+          </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowEditDialog(false)}>Cancel</Button>

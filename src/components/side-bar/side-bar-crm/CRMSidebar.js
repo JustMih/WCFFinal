@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { RxDashboard } from "react-icons/rx";
-import { MdOutlineSupportAgent, MdEmail } from "react-icons/md";
+import { MdOutlineSupportAgent, MdEmail, MdNotifications, MdMessage, MdChat } from "react-icons/md";
 import { FaInstagram } from "react-icons/fa";
 import { baseURL } from "../../../config";
 import "./crmSidebar.css";
@@ -9,8 +9,10 @@ import "./crmSidebar.css";
 // MUI Components - Individual imports for better tree shaking
 import IconButton from "@mui/material/IconButton";
 import Badge from "@mui/material/Badge";
+import Tooltip from "@mui/material/Tooltip";
 
 export default function CRMSidebar({ isSidebarOpen }) {
+  const navigate = useNavigate();
   const [ticketStats, setTicketStats] = useState({
     total: 0,
     open: 0,
@@ -44,6 +46,8 @@ export default function CRMSidebar({ isSidebarOpen }) {
   });
   const [fetchError, setFetchError] = useState(null);
   const [notifiedCount, setNotifiedCount] = useState(0);
+  const [taggedCount, setTaggedCount] = useState(0);
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
 
   const role = localStorage.getItem("role");
 
@@ -128,12 +132,12 @@ export default function CRMSidebar({ isSidebarOpen }) {
   };
 
 
-  useEffect(() => {
-    fetchTicketCounts();
+  const fetchNotificationCount = () => {
     const userId = localStorage.getItem("userId");
     const token = localStorage.getItem("authToken");
     if (userId && token) {
-      fetch(`${baseURL}/notifications/notified-tickets-count/${userId}`, {
+      // Fetch all notifications to calculate counts
+      fetch(`${baseURL}/notifications/user/${userId}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
         .then(res => {
@@ -143,12 +147,123 @@ export default function CRMSidebar({ isSidebarOpen }) {
           }
           return res.json();
         })
-        .then(data => setNotifiedCount(data.notifiedTicketCount || 0))
+        .then(data => {
+          const notifications = data.notifications || [];
+          
+          // Count tagged messages (unread notifications with "mentioned you" in message)
+          const tagged = notifications.filter(n => {
+            const messageText = (n.message || '').toLowerCase();
+            const isUnread = n.status === 'unread' || n.status === ' ';
+            return messageText.includes('mentioned you') && isUnread;
+          }).length;
+          
+          // Count notified (unread notifications with comment, not tagged, not assigned)
+          const notified = notifications.filter(n => {
+            const hasComment = n.comment !== null && n.comment !== undefined && String(n.comment).trim() !== '';
+            const messageText = (n.message || '').toLowerCase();
+            const isTagged = messageText.includes('mentioned you');
+            const isAssigned = messageText.includes('assigned to you') && !isTagged;
+            const isUnread = n.status === 'unread' || n.status === ' ';
+            return hasComment && isUnread && !isTagged && !isAssigned;
+          }).length;
+          
+          console.log('Sidebar notification counts:', { tagged, notified });
+          setTaggedCount(tagged);
+          setNotifiedCount(notified);
+          // Store in localStorage for cross-component sync
+          localStorage.setItem('notificationCount', notified.toString());
+        })
         .catch(err => {
+          console.error('Error fetching sidebar notification count:', err);
           setNotifiedCount(0); // fallback
-          // Optionally log or show error
+          setTaggedCount(0);
+          localStorage.setItem('notificationCount', '0');
         });
     }
+  };
+
+  const fetchChatUnreadCount = () => {
+    const userId = localStorage.getItem("userId");
+    const token = localStorage.getItem("authToken");
+    if (userId && token) {
+      fetch(`${baseURL}/users/unread-messages/${userId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      })
+        .then(res => {
+          if (!res.ok) throw new Error("Failed to fetch unread messages");
+          return res.json();
+        })
+        .then(data => {
+          const count = data.unreadCount || 0;
+          setChatUnreadCount(count);
+          localStorage.setItem('chatUnreadCount', count.toString());
+        })
+        .catch(err => {
+          console.error('Error fetching chat unread count:', err);
+          setChatUnreadCount(0);
+          localStorage.setItem('chatUnreadCount', '0');
+        });
+    }
+  };
+
+  useEffect(() => {
+    fetchTicketCounts();
+    fetchNotificationCount();
+    fetchChatUnreadCount();
+    
+    // Set up interval to refresh chat unread count every 30 seconds
+    const chatInterval = setInterval(() => {
+      fetchChatUnreadCount();
+    }, 30000);
+    
+    // Listen for custom event when modal opens - decrease count immediately
+    const handleNotificationModalOpened = () => {
+      setNotifiedCount(prev => {
+        const newCount = Math.max(0, prev - 1);
+        localStorage.setItem('notificationCount', newCount.toString());
+        return newCount;
+      });
+    };
+    
+    window.addEventListener('notificationModalOpened', handleNotificationModalOpened);
+    
+    // Listen for localStorage changes (for cross-tab sync)
+    const handleStorageChange = (e) => {
+      if (e.key === 'notificationCount') {
+        setNotifiedCount(parseInt(e.newValue || '0', 10));
+      }
+      if (e.key === 'taggedCount') {
+        setTaggedCount(parseInt(e.newValue || '0', 10));
+      }
+      if (e.key === 'chatUnreadCount') {
+        setChatUnreadCount(parseInt(e.newValue || '0', 10));
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Listen for notification count update event
+    const handleNotificationCountUpdated = () => {
+      fetchNotificationCount();
+    };
+    
+    // Listen for chat unread count update event
+    const handleChatUnreadCountUpdated = () => {
+      fetchChatUnreadCount();
+    };
+    window.addEventListener('notificationCountUpdated', handleNotificationCountUpdated);
+    window.addEventListener('chatUnreadCountUpdated', handleChatUnreadCountUpdated);
+    
+    // Poll for updates every 30 seconds
+    const interval = setInterval(fetchNotificationCount, 30000);
+    
+    return () => {
+      clearInterval(chatInterval);
+      window.removeEventListener('notificationModalOpened', handleNotificationModalOpened);
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('notificationCountUpdated', handleNotificationCountUpdated);
+      window.removeEventListener('chatUnreadCountUpdated', handleChatUnreadCountUpdated);
+      clearInterval(interval);
+    };
   }, []);
 
   return (
@@ -186,7 +301,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
               </NavLink>
 
               <NavLink
-                to="/notifications"
+                to="/notifications?type=notified"
                 className={({ isActive }) =>
                   isActive ? "menu-item active-link" : "menu-item"
                 }
@@ -194,23 +309,68 @@ export default function CRMSidebar({ isSidebarOpen }) {
                 <div className="menu-item">
                   <MdEmail className="menu-icon" />
                   {isSidebarOpen && (
-                    <span className="menu-text" style={{ position: 'relative', display: 'inline-block' }}>
+                    <span className="menu-text" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       Notifications
-                      {/* {notifiedCount > 0 && (
-                        <span style={{
-                          background: 'red',
-                          color: 'white',
-                          borderRadius: '50%',
-                          padding: '2px 7px',
-                          fontSize: '0.75rem',
-                          position: 'absolute',
-                          top: '-8px',
-                          right: '-18px',
-                          minWidth: '20px',
-                          textAlign: 'center',
-                          fontWeight: 'bold',
-                        }}>{notifiedCount}</span>
-                      )} */}
+                      <span
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          navigate('/notifications?type=notified');
+                        }}
+                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                      >
+                        <Tooltip title="Notified" arrow>
+                          <Badge 
+                            badgeContent={notifiedCount > 0 ? notifiedCount : 0} 
+                            color="error"
+                            max={99}
+                            invisible={notifiedCount === 0}
+                            sx={{
+                              '& .MuiBadge-badge': {
+                                fontSize: '0.7rem',
+                                minWidth: '18px',
+                                height: '18px',
+                                padding: '0 4px',
+                                cursor: 'pointer'
+                              }
+                            }}
+                          >
+                            <MdNotifications 
+                              style={{ fontSize: '1rem', color: '#666', cursor: 'pointer' }}
+                            />
+                          </Badge>
+                        </Tooltip>
+                      </span>
+                      <span
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          navigate('/notifications?type=tagged');
+                        }}
+                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                      >
+                        <Tooltip title="Tagged" arrow>
+                          <Badge 
+                            badgeContent={taggedCount > 0 ? taggedCount : 0} 
+                            color="primary"
+                            max={99}
+                            invisible={taggedCount === 0}
+                            sx={{
+                              '& .MuiBadge-badge': {
+                                fontSize: '0.7rem',
+                                minWidth: '18px',
+                                height: '18px',
+                                padding: '0 4px',
+                                cursor: 'pointer'
+                              }
+                            }}
+                          >
+                            <MdMessage 
+                              style={{ fontSize: '1rem', color: '#666', cursor: 'pointer' }}
+                            />
+                          </Badge>
+                        </Tooltip>
+                      </span>
                     </span>
                   )}
                 </div>
@@ -229,6 +389,33 @@ export default function CRMSidebar({ isSidebarOpen }) {
                   )}
                 </div>
               </NavLink> */}
+
+              <NavLink
+                to="/crm-chat"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <MdChat className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      Chat Room
+                      <Tooltip title="Unread Messages" arrow>
+                        <Badge 
+                          badgeContent={chatUnreadCount > 0 ? chatUnreadCount : 0} 
+                          color="error" 
+                          max={99} 
+                          invisible={chatUnreadCount === 0}
+                          sx={{ '& .MuiBadge-badge': { cursor: 'pointer' } }}
+                        >
+                          <MdNotifications style={{ fontSize: '1rem', color: '#666', cursor: 'pointer' }} />
+                        </Badge>
+                      </Tooltip>
+                    </span>
+                  )}
+                </div>
+              </NavLink>
 
               <div
                 className={`menu-item ${
@@ -338,7 +525,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                 </div>
               </NavLink>
               <NavLink
-                to="/notifications"
+                to="/notifications?type=notified"
                 className={({ isActive }) =>
                   isActive ? "menu-item active-link" : "menu-item"
                 }
@@ -346,23 +533,68 @@ export default function CRMSidebar({ isSidebarOpen }) {
                 <div className="menu-item">
                   <MdEmail className="menu-icon" />
                   {isSidebarOpen && (
-                    <span className="menu-text" style={{ position: 'relative', display: 'inline-block' }}>
+                    <span className="menu-text" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                       Notifications
-                      {/* {notifiedCount > 0 && (
-                        <span style={{
-                          background: 'red',
-                          color: 'white',
-                          borderRadius: '50%',
-                          padding: '2px 7px',
-                          fontSize: '0.75rem',
-                          position: 'absolute',
-                          top: '-8px',
-                          right: '-18px',
-                          minWidth: '20px',
-                          textAlign: 'center',
-                          fontWeight: 'bold',
-                        }}>{notifiedCount}</span>
-                      )} */}
+                      <span
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          navigate('/notifications?type=notified');
+                        }}
+                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                      >
+                        <Tooltip title="Notified" arrow>
+                          <Badge 
+                            badgeContent={notifiedCount > 0 ? notifiedCount : 0} 
+                            color="error"
+                            max={99}
+                            invisible={notifiedCount === 0}
+                            sx={{
+                              '& .MuiBadge-badge': {
+                                fontSize: '0.7rem',
+                                minWidth: '18px',
+                                height: '18px',
+                                padding: '0 4px',
+                                cursor: 'pointer'
+                              }
+                            }}
+                          >
+                            <MdNotifications 
+                              style={{ fontSize: '1rem', color: '#666', cursor: 'pointer' }}
+                            />
+                          </Badge>
+                        </Tooltip>
+                      </span>
+                      <span
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          navigate('/notifications?type=tagged');
+                        }}
+                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                      >
+                        <Tooltip title="Tagged" arrow>
+                          <Badge 
+                            badgeContent={taggedCount > 0 ? taggedCount : 0} 
+                            color="primary"
+                            max={99}
+                            invisible={taggedCount === 0}
+                            sx={{
+                              '& .MuiBadge-badge': {
+                                fontSize: '0.7rem',
+                                minWidth: '18px',
+                                height: '18px',
+                                padding: '0 4px',
+                                cursor: 'pointer'
+                              }
+                            }}
+                          >
+                            <MdMessage 
+                              style={{ fontSize: '1rem', color: '#666', cursor: 'pointer' }}
+                            />
+                          </Badge>
+                        </Tooltip>
+                      </span>
                     </span>
                   )}
                 </div>

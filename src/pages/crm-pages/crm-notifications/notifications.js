@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { FaEye, FaPlus, FaBell } from "react-icons/fa";
 import { FiSettings } from "react-icons/fi";
 import {
@@ -15,6 +16,7 @@ import {
   TextField,
   Avatar,
   Paper,
+  Badge,
 } from "@mui/material";
 // import ColumnSelector from "../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../config";
@@ -23,13 +25,23 @@ import ChatIcon from '@mui/icons-material/Chat';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
-import TicketDetailsModal from '../../../components/ticket/TicketDetailsModal';
+import TicketDetailsModal from '../../../components/TicketDetailsModal';
 import Pagination from '../../../components/Pagination';
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import TableControls from "../../../components/TableControls";
 import TicketFilters from '../../../components/ticket/TicketFilters';
 
 export default function Crm() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const notificationType = searchParams.get('type') || 'notified'; // Default to 'notified'
+  
+  // Set default type parameter if missing
+  useEffect(() => {
+    if (!searchParams.get('type')) {
+      setSearchParams({ type: 'notified' }, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+  
   const [agentTickets, setAgentTickets] = useState([]);
   const [agentTicketsError, setAgentTicketsError] = useState(null);
   const [userId, setUserId] = useState("");
@@ -39,18 +51,25 @@ export default function Crm() {
   const [isColumnModalOpen, setIsColumnModalOpen] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+  const [isTicketDetailsModalOpen, setIsTicketDetailsModalOpen] = useState(false);
+  const [wasTicketModalOpen, setWasTicketModalOpen] = useState(false); // Track if ticket modal was open before notification modal
+  const [originalTicket, setOriginalTicket] = useState(null); // Store original ticket when opening notification modal
   const [selectedTicket, setSelectedTicket] = useState(null);
+  const [assignmentHistory, setAssignmentHistory] = useState([]);
   const [comments, setComments] = useState("");
   const [modal, setModal] = useState({ isOpen: false, type: "", message: "" });
   const [activeColumns, setActiveColumns] = useState([
     "ticket_id",
-    "fullName",
+    "createdAt",
+    "employee",
+    "employer",
     "phone_number",
     "region",
     "status"
   ]);
   const [loading, setLoading] = useState(true);
   const [notifiedCount, setNotifiedCount] = useState(0);
+  const [taggedCount, setTaggedCount] = useState(0);
   const [showType, setShowType] = useState('manual'); // 'manual' or 'system'
   const [filters, setFilters] = useState({
     search: '',
@@ -61,6 +80,8 @@ export default function Crm() {
     startDate: null,
     endDate: null,
   });
+
+  const queryClient = useQueryClient();
 
   // Fetch notifications for the selected ticket and user
   const { data: notificationHistory, isLoading: isLoadingHistory } = useQuery({
@@ -104,10 +125,10 @@ export default function Crm() {
     if (userId) {
       setUserId(userId);
       console.log("user id is:", userId);
-      // Fetch notified tickets count
+      // Fetch all notifications to calculate both tagged and notified counts
       const token = localStorage.getItem("authToken");
       if (token) {
-        fetch(`${baseURL}/notifications/notified-tickets-count/${userId}`, {
+        fetch(`${baseURL}/notifications/user/${userId}`, {
           headers: { Authorization: `Bearer ${token}` }
         })
           .then((res) => {
@@ -121,12 +142,65 @@ export default function Crm() {
             }
             return res.json();
           })
-          .then((data) => setNotifiedCount(data.notifiedTicketCount || 0))
+          .then((data) => {
+            const notifications = data.notifications || [];
+            
+            // Calculate tagged count (unread, for current user, has "mentioned you")
+            const tagged = notifications.filter(n => {
+              const msgText = (n.message || '').toLowerCase();
+              const isUnread = n.status === 'unread' || n.status === ' ';
+              const isForCurrentUser = String(n.recipient_id) === String(userId);
+              return msgText.includes('mentioned you') && isUnread && isForCurrentUser;
+            }).length;
+            
+            // Calculate notified count (unread, for current user, not tagged, not assigned, not reversed)
+            const notified = notifications.filter(n => {
+              const isUnread = n.status === 'unread' || n.status === ' ';
+              const isForCurrentUser = String(n.recipient_id) === String(userId);
+              if (!isForCurrentUser || !isUnread) return false;
+              
+              const messageText = (n.message || n.comment || '').toLowerCase();
+              const isTagged = messageText.includes('mentioned you');
+              const isReversedTicket = n.ticket?.status === 'Reversed' || n.ticket?.status === 'reversed';
+              const isReversedByText = messageText.includes('reversed back to you') ||
+                                      messageText.includes('reversed to you') ||
+                                      (messageText.includes('has been reversed') && messageText.includes('to'));
+              const isReversed = isReversedTicket && isReversedByText;
+              const isAssignedByText = (messageText.includes('assigned to you') || 
+                                       messageText.includes('forwarded to you') ||
+                                       messageText.includes('reassigned to you')) && !isTagged && !isReversed;
+              
+              return !isTagged && !isAssignedByText && !isReversed;
+            }).length;
+            
+            setNotifiedCount(notified);
+            setTaggedCount(tagged);
+            localStorage.setItem('notificationCount', notified.toString());
+            localStorage.setItem('taggedCount', tagged.toString());
+          })
           .catch((err) => {
-            setNotifiedCount(0); // fallback
-            // Optionally log or show error
+            console.error('Error fetching notification counts:', err);
+            setNotifiedCount(0);
+            setTaggedCount(0);
+            localStorage.setItem('notificationCount', '0');
+            localStorage.setItem('taggedCount', '0');
           });
       }
+      
+      // Listen for localStorage changes (for cross-tab sync)
+      const handleStorageChange = (e) => {
+        if (e.key === 'notificationCount') {
+          setNotifiedCount(parseInt(e.newValue || '0', 10));
+        }
+        if (e.key === 'taggedCount') {
+          setTaggedCount(parseInt(e.newValue || '0', 10));
+        }
+      };
+      window.addEventListener('storage', handleStorageChange);
+      
+      return () => {
+        window.removeEventListener('storage', handleStorageChange);
+      };
     } else {
       setAgentTicketsError("User not authenticated. Please log in.");
       setLoading(false);
@@ -137,7 +211,14 @@ export default function Crm() {
     if (userId) {
       fetchAgentTickets();
     }
-  }, [userId]);
+  }, [userId, notificationType]); // Also refetch when notificationType changes
+
+  // Debug: Log modal state changes
+  useEffect(() => {
+    if (isTicketDetailsModalOpen) {
+      console.log('TicketDetailsModal should be open:', { isTicketDetailsModalOpen, hasTicket: !!selectedTicket });
+    }
+  }, [isTicketDetailsModalOpen, selectedTicket]);
 
   const fetchAgentTickets = async () => {
     try {
@@ -167,8 +248,27 @@ export default function Crm() {
       const data = await response.json();
       console.log("Fetched tickets (full API response):", data);
       if (data.notifications && Array.isArray(data.notifications)) {
+        console.log(`Total notifications fetched: ${data.notifications.length}`);
         data.notifications.forEach((notif, idx) => {
-          console.log(`Notification #${idx + 1}:`, notif);
+          const messageText = (notif.message || notif.comment || '').toLowerCase();
+          const hasComment = notif.comment && notif.comment !== null && String(notif.comment).trim() !== '';
+          const isTagged = messageText.includes('mentioned you');
+          const isAssigned = (messageText.includes('assigned to you') || messageText.includes('forwarded to you')) && !isTagged;
+          const isUnread = notif.status === 'unread' || notif.status === ' ';
+          const isForCurrentUser = notif.recipient_id === userId;
+          console.log(`Notification #${idx + 1}:`, {
+            id: notif.id,
+            message: notif.message,
+            comment: notif.comment,
+            hasComment,
+            isTagged,
+            isAssigned,
+            status: notif.status,
+            recipient_id: notif.recipient_id,
+            userId,
+            isUnread,
+            isForCurrentUser
+          });
           if (notif.ticket) {
             console.log(`Ticket for notification #${idx + 1}:`, notif.ticket);
           }
@@ -239,10 +339,207 @@ export default function Crm() {
     }
   };
 
-  const openModal = (ticket) => {
-    setSelectedTicket(ticket);
-    setComments(ticket.comments || "");
-    setIsModalOpen(true);
+  const openModal = async (ticket) => {
+    // Note: 'ticket' here is actually a notification object with a 'ticket' property
+    console.log('openModal called with:', ticket);
+    
+    // Check if this is a tagged message - check both notification and ticket level
+    // Also check if we're in the tagged view (notificationType === 'tagged')
+    const messageText = (ticket.message || ticket.comment || ticket.ticket?.message || '').toLowerCase();
+    const commentText = (ticket.comment || ticket.ticket?.comment || '').toLowerCase();
+    const isTaggedByContent = messageText.includes('mentioned you') || commentText.includes('@');
+    const isTagged = isTaggedByContent || notificationType === 'tagged';
+    
+    console.log('Tagged check:', { messageText, commentText, isTaggedByContent, notificationType, isTagged });
+    
+    // Mark the notification as read if it's unread
+    const notificationId = ticket.id; // This is the notification ID
+    const notificationStatus = ticket.status;
+    
+    if (notificationId && notificationStatus === 'unread') {
+      try {
+        const token = localStorage.getItem("authToken");
+        const response = await fetch(`${baseURL}/notifications/read/${notificationId}`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          // Update notification status locally
+          ticket.status = 'read';
+          
+          // Check if this is a tagged message to update tagged count
+          const messageText = (ticket.message || ticket.comment || '').toLowerCase();
+          const isTaggedMsg = messageText.includes('mentioned you');
+          
+          // Decrease notification count (for notified messages)
+          if (!isTaggedMsg && notifiedCount > 0) {
+            const newCount = Math.max(0, notifiedCount - 1);
+            setNotifiedCount(newCount);
+            localStorage.setItem('notificationCount', newCount.toString());
+          }
+          
+          // Dispatch custom event to update sidebar (this will refresh all counts)
+          window.dispatchEvent(new CustomEvent('notificationModalOpened'));
+          
+          // Update the ticket in agentTickets array
+          setAgentTickets(prevTickets => 
+            prevTickets.map(t => 
+              t.id === notificationId ? { ...t, status: 'read' } : t
+            )
+          );
+          
+          // Refetch notification counts from server to ensure accuracy
+          // This will update both notified and tagged counts in sidebar
+          const userId = localStorage.getItem("userId");
+          if (userId && token) {
+            // Fetch all notifications to recalculate counts
+            fetch(`${baseURL}/notifications/user/${userId}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            })
+              .then(res => res.json())
+              .then(data => {
+                const notifications = data.notifications || [];
+                
+                // Recalculate tagged count
+                const taggedCount = notifications.filter(n => {
+                  const msgText = (n.message || '').toLowerCase();
+                  const isUnread = n.status === 'unread' || n.status === ' ';
+                  return msgText.includes('mentioned you') && isUnread;
+                }).length;
+                
+                // Recalculate notified count
+                const notifiedCountNew = notifications.filter(n => {
+                  const hasComment = n.comment !== null && n.comment !== undefined && String(n.comment).trim() !== '';
+                  const msgText = (n.message || '').toLowerCase();
+                  const isTagged = msgText.includes('mentioned you');
+                  const isAssigned = (msgText.includes('assigned to you') || msgText.includes('forwarded to you')) && !isTagged;
+                  const isUnread = n.status === 'unread' || n.status === ' ';
+                  return hasComment && isUnread && !isTagged && !isAssigned;
+                }).length;
+                
+                // Update counts in localStorage for sidebar sync
+                localStorage.setItem('notificationCount', notifiedCountNew.toString());
+                localStorage.setItem('taggedCount', taggedCount.toString());
+                
+                // Update local state
+                setNotifiedCount(notifiedCountNew);
+                
+                // Trigger sidebar refresh
+                window.dispatchEvent(new CustomEvent('notificationCountUpdated'));
+              })
+              .catch(err => console.error('Error fetching updated counts:', err));
+          }
+        }
+      } catch (error) {
+        console.error('Error marking notification as read:', error);
+      }
+    }
+    
+    // If it's a tagged message, open ticket details modal (for attending)
+    // Otherwise, open notification modal
+    if (isTagged) {
+      // For tagged messages, fetch full ticket details and assignment history
+      // The ticket object structure: notification has ticket_id, but ticket object might be nested
+      const ticketId = ticket.ticket?.id || ticket.ticket_id || ticket.id;
+      
+      console.log('Opening tagged message modal:', { ticketId, ticket, hasTicketProperty: !!ticket.ticket });
+      
+      try {
+        const token = localStorage.getItem("authToken");
+        
+        // Always fetch the full ticket details to ensure we have complete data
+        let fullTicket = null;
+        const ticketResponse = await fetch(`${baseURL}/ticket/${ticketId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        if (ticketResponse.ok) {
+          const ticketData = await ticketResponse.json();
+          fullTicket = ticketData.ticket || ticketData;
+          console.log('Fetched full ticket:', fullTicket);
+        } else {
+          console.error('Failed to fetch ticket:', ticketResponse.status);
+          // Fallback to using ticket from notification if available
+          fullTicket = ticket.ticket || ticket;
+        }
+        
+        if (!fullTicket) {
+          console.error('No ticket data available');
+          return;
+        }
+        
+        // Fetch assignment history
+        const historyResponse = await fetch(`${baseURL}/ticket/${ticketId}/assignments`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        let assignmentHistoryData = [];
+        if (historyResponse.ok) {
+          const historyData = await historyResponse.json();
+          // Backend returns assignments array directly (like assigned.js uses data directly)
+          // Check if it's an array or an object with assignments property
+          if (Array.isArray(historyData)) {
+            assignmentHistoryData = historyData;
+          } else if (historyData.assignments && Array.isArray(historyData.assignments)) {
+            assignmentHistoryData = historyData.assignments;
+          } else {
+            assignmentHistoryData = [];
+          }
+          
+          console.log('Assignment history fetched:', assignmentHistoryData);
+          
+          // Ensure each assignment has resolved user names (backend should already provide this, but ensure it)
+          assignmentHistoryData = assignmentHistoryData.map(assignment => ({
+            ...assignment,
+            // Use assigned_to_name if available (backend provides this), otherwise try to resolve from assignedTo object
+            assigned_to_name: assignment.assigned_to_name || assignment.assignedTo?.full_name || 'Unknown User',
+            assigned_to_role: assignment.assigned_to_role || assignment.assignedTo?.role || 'N/A'
+          }));
+          
+          console.log('Assignment history after mapping:', assignmentHistoryData);
+        }
+        
+        // Set the ticket (use the full ticket object)
+        console.log('Setting ticket and opening modal:', { fullTicket, ticketId, assignmentHistoryData });
+        
+        // Set all state first
+        setAssignmentHistory(assignmentHistoryData);
+        setSelectedTicket(fullTicket);
+        
+        // Close other modals first
+        setIsModalOpen(false);
+        setIsNotificationModalOpen(false);
+        
+        // Then open the ticket details modal
+        console.log('State being set - isTicketDetailsModalOpen: true');
+        setIsTicketDetailsModalOpen(true);
+        console.log('Modal state set');
+      } catch (error) {
+        console.error('Error fetching ticket details:', error);
+        // Fallback: still open the modal with available data
+        const fallbackTicket = ticket.ticket || ticket;
+        console.log('Using fallback - fallbackTicket:', fallbackTicket);
+        if (fallbackTicket) {
+          setSelectedTicket(fallbackTicket);
+          setAssignmentHistory([]);
+          setIsTicketDetailsModalOpen(true);
+          setIsModalOpen(false);
+          setIsNotificationModalOpen(false);
+        } else {
+          console.error('No ticket data available for fallback');
+        }
+      }
+    } else {
+      // For non-tagged notifications, open notification history modal
+      setSelectedTicket(ticket);
+      setIsNotificationModalOpen(true);
+      setIsModalOpen(false);
+      setIsTicketDetailsModalOpen(false);
+    }
   };
 
   const closeModal = () => {
@@ -257,14 +554,173 @@ export default function Crm() {
     setCurrentPage(1);
   };
 
-  const handleNotificationClick = (ticket) => {
-    setSelectedTicket(ticket);
+  const handleNotificationClick = async (notification) => {
+    // Track if ticket modal was open before opening notification modal
+    if (isModalOpen) {
+      setWasTicketModalOpen(true);
+      setOriginalTicket(selectedTicket); // Store the original ticket
+      setIsModalOpen(false); // Close ticket modal temporarily
+    } else {
+      setWasTicketModalOpen(false);
+      setOriginalTicket(null);
+    }
+    
+    // Mark notification as read if it's unread (before opening modal)
+    const notificationId = notification.id; // This is the notification ID
+    const notificationStatus = notification.status;
+    
+    if (notificationId && notificationStatus === 'unread') {
+      try {
+        const token = localStorage.getItem("authToken");
+        const response = await fetch(`${baseURL}/notifications/read/${notificationId}`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (response.ok) {
+          // Update notification status locally
+          notification.status = 'read';
+          
+          // Decrease notification count
+          if (notifiedCount > 0) {
+            const newCount = Math.max(0, notifiedCount - 1);
+            setNotifiedCount(newCount);
+            localStorage.setItem('notificationCount', newCount.toString());
+            
+            // Dispatch custom event to update sidebar
+            window.dispatchEvent(new CustomEvent('notificationModalOpened'));
+          }
+          
+          // Refetch notification count from server to ensure accuracy
+          const userId = localStorage.getItem("userId");
+          if (userId && token) {
+            fetch(`${baseURL}/notifications/unread-count/${userId}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            })
+              .then(res => res.json())
+              .then(data => {
+                const count = data.unreadCount || 0;
+                setNotifiedCount(count);
+                localStorage.setItem('notificationCount', count.toString());
+              })
+              .catch(err => console.error('Error fetching updated count:', err));
+          }
+        }
+      } catch (error) {
+        console.error('Error marking notification as read:', error);
+      }
+    }
+    
+    // Open the notification modal (this shows notification history for the ticket)
+    setSelectedTicket(notification);
     setIsNotificationModalOpen(true);
   };
 
   const handleNotificationModalClose = () => {
     setIsNotificationModalOpen(false);
-    setSelectedTicket(null);
+    
+    // Return to previous modal (ticket modal) if it was open
+    if (wasTicketModalOpen && originalTicket) {
+      setSelectedTicket(originalTicket); // Restore the original ticket
+      setIsModalOpen(true);
+      setWasTicketModalOpen(false);
+      setOriginalTicket(null);
+    } else {
+      setSelectedTicket(null);
+      setOriginalTicket(null);
+    }
+  };
+
+  // Mark all notifications as read for the current ticket
+  const handleMarkAllAsRead = async () => {
+    if (!selectedTicket || !notificationHistory?.notifications) {
+      return;
+    }
+
+    const token = localStorage.getItem("authToken");
+    const userId = localStorage.getItem("userId");
+    if (!token || !userId) return;
+
+    // Get all unread notifications for this ticket
+    const unreadNotifications = notificationHistory.notifications.filter(
+      (notif) => notif.status === 'unread'
+    );
+
+    if (unreadNotifications.length === 0) {
+      return; // No unread notifications
+    }
+
+    try {
+      // Mark all unread notifications as read
+      const markPromises = unreadNotifications.map((notif) =>
+        fetch(`${baseURL}/notifications/read/${notif.id}`, {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        })
+      );
+
+      const results = await Promise.all(markPromises);
+      const successCount = results.filter((res) => res.ok).length;
+
+      if (successCount > 0) {
+        // Update the React Query cache
+        const ticketId = selectedTicket?.ticket?.id || selectedTicket?.ticket_id || selectedTicket?.id;
+        if (ticketId && userId) {
+          queryClient.setQueryData(
+            ["ticketNotifications", ticketId, userId],
+            (oldData) => {
+              if (!oldData?.notifications) return oldData;
+              return {
+                ...oldData,
+                notifications: oldData.notifications.map((notif) =>
+                  unreadNotifications.some(n => n.id === notif.id)
+                    ? { ...notif, status: 'read' }
+                    : notif
+                )
+              };
+            }
+          );
+        }
+
+        // Update count
+        const newCount = Math.max(0, notifiedCount - successCount);
+        setNotifiedCount(newCount);
+        localStorage.setItem('notificationCount', newCount.toString());
+
+        // Dispatch custom event to update sidebar
+        window.dispatchEvent(new CustomEvent('notificationModalOpened'));
+
+        // Refetch notification count from server to ensure accuracy
+        fetch(`${baseURL}/notifications/unread-count/${userId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        })
+          .then(res => res.json())
+          .then(data => {
+            const count = data.unreadCount || 0;
+            setNotifiedCount(count);
+            localStorage.setItem('notificationCount', count.toString());
+          })
+          .catch(err => console.error('Error fetching updated count:', err));
+
+        // Update agentTickets array
+        setAgentTickets(prevTickets =>
+          prevTickets.map(t => {
+            if (unreadNotifications.some(n => n.id === t.id)) {
+              return { ...t, status: 'read' };
+            }
+            return t;
+          })
+        );
+      }
+    } catch (error) {
+      console.error('Error marking all notifications as read:', error);
+    }
   };
 
   const renderNotificationHistory = () => {
@@ -278,7 +734,7 @@ export default function Crm() {
 
     // Use MUI Box and Typography for consistent style
     return (
-      <div className="notification-list" style={{ padding: 0 }}>
+      <div className="notification-list" style={{ padding: 0, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
         {notificationHistory.notifications.map((notification, index) => {
           const dateStr = notification.created_at
             ? new Date(notification.created_at).toLocaleDateString("en-US")
@@ -286,89 +742,237 @@ export default function Crm() {
           return (
             <Box
               key={index}
+              onClick={() => handleNotificationClick(notification)}
               sx={{
-                mb: 2,
-                p: 2,
-                borderRadius: 2,
+                mb: 1.5,
+                p: 1.5,
+                borderRadius: 1.5,
                 bgcolor: '#fff',
-                border: '2px solid #1976d2',
-                boxShadow: '0 2px 4px rgba(25,118,210,0.08)',
+                border: notification.status === 'unread' ? '1.5px solid #1976d2' : '1px solid #e0e0e0',
+                boxShadow: notification.status === 'unread' 
+                  ? '0 1px 4px rgba(25,118,210,0.12)' 
+                  : '0 1px 2px rgba(0,0,0,0.06)',
                 display: 'flex',
                 flexDirection: 'column',
                 gap: 1,
-                maxWidth: 420,
-                minWidth: 260,
-                margin: '0 auto',
+                width: '100%',
+                maxWidth: '100%',
+                boxSizing: 'border-box',
+                transition: 'all 0.2s ease',
+                cursor: 'pointer',
                 '&:hover': {
-                  boxShadow: '0 4px 8px rgba(25,118,210,0.13)',
-                  borderColor: '#1565c0'
+                  boxShadow: notification.status === 'unread'
+                    ? '0 2px 8px rgba(25,118,210,0.18)'
+                    : '0 2px 4px rgba(0,0,0,0.1)',
+                  borderColor: notification.status === 'unread' ? '#1565c0' : '#bdbdbd'
                 }
               }}
             >
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="subtitle1" sx={{ fontWeight: 600, color: '#1976d2' }}>
+              {/* Header: Ticket ID and Status */}
+              <Box sx={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center',
+                pb: 0.75,
+                borderBottom: '1px solid #e0e0e0'
+              }}>
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    fontWeight: 600, 
+                    color: '#1976d2',
+                    fontSize: '0.8rem',
+                    letterSpacing: '0.2px',
+                    wordBreak: 'break-word',
+                    flex: 1,
+                    mr: 1
+                  }}
+                >
                   {notification.ticket?.ticket_id || 'N/A'}
                 </Typography>
                 <Typography
                   sx={{
-                    px: 1.5,
-                    py: 0.5,
+                    px: 0.75,
+                    py: 0.15,
                     borderRadius: '12px',
                     color: 'white',
-                    background: notification.status === 'Closed' ? '#757575' : '#1976d2',
-                    fontSize: '0.85rem',
-                    fontWeight: 500,
-                    minWidth: 70,
-                    textAlign: 'center'
+                    background: notification.status === 'unread' 
+                      ? '#1976d2' 
+                      : notification.ticket?.status === 'Closed'
+                      ? '#757575'
+                      : '#4caf50',
+                    fontSize: '0.25rem',
+                    fontWeight: 600,
+                    minWidth: 40,
+                    textAlign: 'center',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.1px',
+                    flexShrink: 0
                   }}
                 >
-                  {notification.status.charAt(0).toUpperCase() + notification.status.slice(1)}
+                  {notification.status === 'unread' 
+                    ? 'Unread' 
+                    : notification.ticket?.status || 'Read'}
                 </Typography>
               </Box>
-              <Box sx={{ mt: 1, background: '#f3f7fa', borderRadius: 2, p: 1.5 }}>
-                <Typography variant="body2" sx={{ color: '#666', mb: 0.5 }}>
-                  <strong>Created:</strong>{' '}
-                  {notification.created_at
-                    ? new Date(notification.created_at).toLocaleString("en-GB", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        hour12: true
-                      })
-                    : "N/A"}
-                </Typography>
-                <Typography variant="subtitle2" sx={{ fontWeight: 500, color: '#333', mb: 1 }}>
-                  <strong>Subject:</strong> {notification.ticket?.subject || 'N/A'}
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: '#666',
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    mb: 1
-                  }}
-                >
-                  <strong>Description:</strong> {notification.ticket?.description || 'N/A'}
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: '#666',
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                  }}
-                >
-                  <strong>Message:</strong> {notification.comment || 'N/A'}
-                </Typography>
+
+              {/* Ticket Details */}
+              <Box sx={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: 0.75 
+              }}>
+                {/* Created Date */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                  <Typography variant="caption" sx={{ color: '#999', fontWeight: 600, minWidth: 55, fontSize: '0.7rem' }}>
+                    Created:
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#666', fontSize: '0.7rem' }}>
+                    {notification.created_at
+                      ? new Date(notification.created_at).toLocaleString("en-GB", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: true
+                        })
+                      : "N/A"}
+                  </Typography>
+                </Box>
+
+                {/* Subject */}
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.75 }}>
+                  <Typography variant="caption" sx={{ color: '#999', fontWeight: 600, minWidth: 55, pt: 0.15, fontSize: '0.7rem' }}>
+                    Subject:
+                  </Typography>
+                  <Typography 
+                    variant="caption" 
+                    sx={{ 
+                      fontWeight: 500, 
+                      color: '#333', 
+                      fontSize: '0.75rem',
+                      flex: 1,
+                      wordBreak: 'break-word'
+                    }}
+                  >
+                    {notification.ticket?.subject || 'N/A'}
+                  </Typography>
+                </Box>
+
+                {/* Description */}
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.75 }}>
+                  <Typography variant="caption" sx={{ color: '#999', fontWeight: 600, minWidth: 55, pt: 0.15, fontSize: '0.7rem' }}>
+                    Description:
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: '#666',
+                      fontSize: '0.7rem',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      flex: 1,
+                      lineHeight: 1.4,
+                      wordBreak: 'break-word'
+                    }}
+                  >
+                    {notification.ticket?.description || 'N/A'}
+                  </Typography>
+                </Box>
+
+                {/* Message */}
+                {notification.comment && (
+                  <Box sx={{ 
+                    display: 'flex', 
+                    alignItems: 'flex-start', 
+                    gap: 0.75,
+                    mt: 0.25,
+                    p: 1,
+                    bgcolor: '#f5f5f5',
+                    borderRadius: 1,
+                    borderLeft: '2px solid #1976d2'
+                  }}>
+                    <Typography variant="caption" sx={{ color: '#999', fontWeight: 600, minWidth: 55, pt: 0.15, fontSize: '0.7rem' }}>
+                      Message:
+                    </Typography>
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        color: '#555',
+                        fontSize: '0.7rem',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        flex: 1,
+                        lineHeight: 1.4,
+                        fontStyle: 'italic',
+                        wordBreak: 'break-word'
+                      }}
+                    >
+                      {notification.comment}
+                    </Typography>
+                  </Box>
+                )}
+
+                {/* Resolution Details and Closed By - Show only when ticket is closed */}
+                {notification.ticket?.status === "Closed" && (
+                  <>
+                    {notification.ticket?.resolution_details && (
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'flex-start', 
+                        gap: 0.75,
+                        mt: 0.25,
+                        p: 1,
+                        bgcolor: '#e8f5e9',
+                        borderRadius: 1,
+                        borderLeft: '2px solid #4caf50'
+                      }}>
+                        <Typography variant="caption" sx={{ color: '#666', fontWeight: 600, minWidth: 55, pt: 0.15, fontSize: '0.7rem' }}>
+                          Resolution:
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            color: '#2e7d32',
+                            fontSize: '0.7rem',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            flex: 1,
+                            lineHeight: 1.4,
+                            wordBreak: 'break-word'
+                          }}
+                        >
+                          {notification.ticket.resolution_details}
+                        </Typography>
+                      </Box>
+                    )}
+                    {(notification.ticket?.attendedBy?.full_name || notification.ticket?.attended_by_name) && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mt: 0.25 }}>
+                        <Typography variant="caption" sx={{ color: '#999', fontWeight: 600, minWidth: 55, fontSize: '0.7rem' }}>
+                          Closed By:
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: '#666', fontSize: '0.7rem', wordBreak: 'break-word' }}>
+                          {notification.ticket?.attendedBy?.full_name || notification.ticket?.attended_by_name}
+                          {(notification.ticket?.attendedBy?.role || notification.ticket?.attended_by_role) && (
+                            <span style={{ color: '#999', marginLeft: '4px' }}>
+                              ({(notification.ticket?.attendedBy?.role || notification.ticket?.attended_by_role)})
+                            </span>
+                          )}
+                        </Typography>
+                      </Box>
+                    )}
+                  </>
+                )}
               </Box>
             </Box>
           );
@@ -377,27 +981,226 @@ export default function Crm() {
     );
   };
 
-  // Group notifications by ticket ID and keep only the latest manual notification per ticket (with comment)
+  // Group notifications by ticket ID and keep only the latest notification per ticket
+  // For "notified" type, we'll include all notifications and filter later based on Navbar logic
   const uniqueTickets = [];
   const seenTicketIds = new Set();
+  console.log('Processing agentTickets for uniqueTickets:', agentTickets.length, 'notificationType:', notificationType, 'userId:', userId);
+  if (agentTickets.length === 0) {
+    console.warn('No agentTickets to process!');
+  }
   agentTickets.forEach((notif) => {
     const ticketId = notif.ticket?.id || notif.ticket_id || notif.id;
-    if (notif.comment && notif.comment.trim() !== '' && !seenTicketIds.has(ticketId)) {
-      uniqueTickets.push(notif);
-      seenTicketIds.add(ticketId);
+    
+    if (!ticketId) {
+      console.warn('Notification without ticketId:', notif);
+      return;
+    }
+    
+    // For "notified" type, include all notifications (filtering happens later)
+    // For other types, use the existing logic
+    if (notificationType === 'notified') {
+      // Include all notifications for "notified" type - filtering will happen in typeFilteredTickets
+      // But only if they're unread and for current user (API already filters by recipient_id, but double-check)
+      const isUnread = notif.status === 'unread' || notif.status === ' ';
+      const isForCurrentUser = String(notif.recipient_id) === String(userId) || notif.recipient_id === userId;
+      
+      if (isForCurrentUser && isUnread && !seenTicketIds.has(ticketId)) {
+        uniqueTickets.push(notif);
+        seenTicketIds.add(ticketId);
+        console.log('Added to uniqueTickets (notified):', {
+          ticketId,
+          status: notif.status,
+          recipient_id: notif.recipient_id,
+          userId,
+          message: notif.message?.substring(0, 50)
+        });
+      } else {
+        console.log('Skipped notification:', {
+          ticketId,
+          isForCurrentUser,
+          isUnread,
+          alreadySeen: seenTicketIds.has(ticketId)
+        });
+      }
+    } else {
+      // For other types (tagged, etc.), use existing logic
+      // For tagged type, include all tagged notifications (read or unread)
+      // For other types, use the existing logic
+      if (notificationType === 'tagged') {
+        const messageText = (notif.message || notif.comment || '').toLowerCase();
+        const commentText = (notif.comment || '').toLowerCase();
+        const isTagged = messageText.includes('mentioned you') || commentText.includes('@');
+        
+        // Include all tagged notifications (read or unread) for tagged type
+        if (isTagged && !seenTicketIds.has(ticketId)) {
+          uniqueTickets.push(notif);
+          seenTicketIds.add(ticketId);
+          console.log('Added to uniqueTickets (tagged):', {
+            ticketId,
+            status: notif.status,
+            message: notif.message?.substring(0, 50)
+          });
+        }
+      } else {
+        // For other types (default, etc.), use existing logic
+        const messageText = (notif.message || notif.comment || '').toLowerCase();
+        const commentText = (notif.comment || '').toLowerCase();
+        const isTagged = messageText.includes('mentioned you') || commentText.includes('@');
+        const hasComment = notif.comment && notif.comment !== null && String(notif.comment).trim() !== '';
+        
+        // Include notifications that are tagged or have comments
+        const shouldInclude = isTagged || (hasComment && !isTagged);
+        
+        if (!seenTicketIds.has(ticketId) && shouldInclude) {
+          uniqueTickets.push(notif);
+          seenTicketIds.add(ticketId);
+        }
+      }
     }
   });
+  console.log('Total uniqueTickets after processing:', uniqueTickets.length);
 
-  const manualNotifications = uniqueTickets.filter(
-    notif => notif.comment && notif.comment.trim() !== ''
-  );
+  // Debug: Log all notifications when filtering for tagged
+  if (notificationType === 'tagged') {
+    console.log('Filtering for tagged messages. Total uniqueTickets:', uniqueTickets.length);
+    uniqueTickets.forEach((notif, idx) => {
+      const messageText = (notif.message || notif.comment || '').toLowerCase();
+      const commentText = (notif.comment || '').toLowerCase();
+      const isTagged = messageText.includes('mentioned you') || commentText.includes('@');
+      console.log(`Notification ${idx + 1}:`, {
+        ticketId: notif.ticket?.id || notif.ticket_id || notif.id,
+        message: notif.message,
+        comment: notif.comment,
+        isTagged,
+        messageText,
+        commentText
+      });
+    });
+  }
 
-  const systemNotifications = uniqueTickets.filter(
-    notif => notif.comment || notif.comment.trim() === ''
-  );
+  // Debug: Log all notifications when filtering for notified
+  if (notificationType === 'notified') {
+    console.log('Filtering for notified messages. Total uniqueTickets:', uniqueTickets.length);
+    uniqueTickets.forEach((notif, idx) => {
+      const hasComment = notif.comment && notif.comment !== null && String(notif.comment).trim() !== '';
+      const messageText = (notif.message || notif.comment || '').toLowerCase();
+      const commentText = (notif.comment || '').toLowerCase();
+      const isTagged = messageText.includes('mentioned you') || commentText.includes('@');
+      const isAssignedMessage = messageText.includes('assigned to you') && !isTagged;
+      console.log(`Notification ${idx + 1}:`, {
+        ticketId: notif.ticket?.id || notif.ticket_id || notif.id,
+        message: notif.message,
+        comment: notif.comment,
+        hasComment,
+        isTagged,
+        isAssignedMessage,
+        shouldInclude: hasComment && !isTagged && !isAssignedMessage
+      });
+    });
+  }
 
-  // Use filtered list based on toggle
-  const filteredTickets = (showType === 'manual' ? manualNotifications : systemNotifications).filter((ticket) => {
+  // Filter based on notification type from query parameter
+  let typeFilteredTickets = uniqueTickets;
+  if (notificationType === 'notified') {
+    // Show only "notified" notifications: not tagged, not assigned, not reversed
+    // This matches the Navbar logic: unread, for current user, not tagged, not assigned, and not reversed
+    typeFilteredTickets = uniqueTickets.filter(notif => {
+      const isUnread = notif.status === 'unread' || notif.status === ' ';
+      // Handle both string and number types for comparison
+      const isForCurrentUser = String(notif.recipient_id) === String(userId) || notif.recipient_id === userId;
+      
+      console.log('Filtering notification:', {
+        id: notif.id,
+        status: notif.status,
+        recipient_id: notif.recipient_id,
+        userId,
+        isUnread,
+        isForCurrentUser,
+        message: notif.message?.substring(0, 50)
+      });
+      
+      if (!isForCurrentUser || !isUnread) {
+        console.log('Excluded: not for current user or not unread', { isForCurrentUser, isUnread });
+        return false;
+      }
+      
+      const messageText = (notif.message || notif.comment || '').toLowerCase();
+      const commentText = (notif.comment || '').toLowerCase();
+      
+      // Check if it's tagged
+      const isTagged = messageText.includes('mentioned you') || commentText.includes('@');
+      
+      // Check if it's reversed
+      const isReversedTicket = notif.ticket?.status === 'Reversed' || notif.ticket?.status === 'reversed';
+      const isReversedByText = messageText.includes('reversed back to you') ||
+                              messageText.includes('reversed to you') ||
+                              (messageText.includes('has been reversed') && messageText.includes('to'));
+      const isReversed = isReversedTicket && isReversedByText;
+      
+      // Check if it's assigned (only by message text, not ticket status)
+      const isAssignedByText = (messageText.includes('assigned to you') || 
+                               messageText.includes('forwarded to you') ||
+                               messageText.includes('reassigned to you')) && !isTagged && !isReversed;
+      
+      // Notified: not tagged, not assigned, and not reversed
+      const shouldInclude = !isTagged && !isAssignedByText && !isReversed;
+      
+      console.log('Filter result:', {
+        isTagged,
+        isReversed,
+        isAssignedByText,
+        shouldInclude
+      });
+      
+      return shouldInclude;
+    });
+    console.log('Notified messages filtered:', typeFilteredTickets.length, 'from', uniqueTickets.length, 'unique tickets');
+  } else if (notificationType === 'tagged') {
+    // Show only "tagged" notifications: has "mentioned you" in message or "@" in comment
+    typeFilteredTickets = uniqueTickets.filter(notif => {
+      const messageText = (notif.message || notif.comment || '').toLowerCase();
+      const commentText = (notif.comment || '').toLowerCase();
+      return messageText.includes('mentioned you') || commentText.includes('@');
+    });
+    console.log('Tagged messages filtered:', typeFilteredTickets.length);
+  }
+  // If no type specified, show all notifications (current behavior)
+
+  // When a specific notification type is selected, use that directly
+  // Otherwise, use manual/system filter
+  let filteredTickets;
+  if (notificationType === 'tagged' || notificationType === 'notified') {
+    // For tagged or notified, use the typeFilteredTickets directly
+    filteredTickets = typeFilteredTickets;
+  } else {
+    // For default view, use manual/system filter
+    const manualNotifications = typeFilteredTickets.filter(
+      notif => notif.comment && notif.comment !== null && String(notif.comment).trim() !== ''
+    );
+
+    const systemNotifications = typeFilteredTickets.filter(
+      notif => !notif.comment || notif.comment === null || String(notif.comment).trim() === ''
+    );
+
+    filteredTickets = showType === 'manual' ? manualNotifications : systemNotifications;
+  }
+
+  // Debug: Log filtered tickets before search filter
+  if (notificationType === 'notified') {
+    console.log('Filtered tickets before search filter:', filteredTickets.length);
+    filteredTickets.forEach((ticket, idx) => {
+      const ticketData = ticket.ticket || ticket;
+      console.log(`Filtered ticket ${idx + 1}:`, {
+        ticketId: ticketData.id || ticketData.ticket_id,
+        comment: ticket.comment,
+        message: ticket.message
+      });
+    });
+  }
+
+  // Apply search and other filters
+  filteredTickets = filteredTickets.filter((ticket) => {
     const searchValue = search.toLowerCase();
     const ticketData = ticket.ticket || ticket;
     const phone = (ticketData.phone_number || "").toLowerCase();
@@ -429,8 +1232,25 @@ export default function Crm() {
       endDate.setHours(23, 59, 59, 999);
       if (ticketDate > endDate) matchesDate = false;
     }
-    return matchesSearch && matchesStatus && matchesPriority && matchesCategory && matchesDate;
+    const shouldInclude = matchesSearch && matchesStatus && matchesPriority && matchesCategory && matchesDate;
+    if (notificationType === 'notified' && !shouldInclude) {
+      console.log('Ticket filtered out:', {
+        ticketId: ticketData.id || ticketData.ticket_id,
+        matchesSearch,
+        matchesStatus,
+        matchesPriority,
+        matchesCategory,
+        matchesDate,
+        searchValue,
+        filters
+      });
+    }
+    return shouldInclude;
   });
+
+  if (notificationType === 'notified') {
+    console.log('Final filtered tickets count:', filteredTickets.length);
+  }
 
   const totalPages = Math.ceil(filteredTickets.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage + 1;
@@ -445,30 +1265,100 @@ export default function Crm() {
   const renderTableHeader = () => (
     <tr>
       {activeColumns.includes("ticket_id") && <th>Ticket ID</th>}
-      {activeColumns.includes("fullName") && <th>Full Name</th>}
+      {activeColumns.includes("createdAt") && <th>Created At</th>}
+      {activeColumns.includes("employee") && <th>Employee</th>}
+      {activeColumns.includes("employer") && <th>Employer</th>}
       {activeColumns.includes("phone_number") && <th>Phone</th>}
       {activeColumns.includes("region") && <th>Region</th>}
       {activeColumns.includes("status") && <th>Status</th>}
       {activeColumns.includes("subject") && <th>Subject</th>}
       {activeColumns.includes("category") && <th>Category</th>}
       {activeColumns.includes("assigned_to_role") && <th>Assigned Role</th>}
-      {activeColumns.includes("createdAt") && <th>Created At</th>}
       <th style={{ textAlign: "center" }}>Actions</th>
     </tr>
   );
 
-  const renderTableRow = (ticket, index) => (
+  // Function to count unread notifications with messages for a specific ticket
+  // Filter based on notificationType: 'tagged' counts only tagged, 'notified' counts only notified
+  const getUnreadCountForTicket = (ticketId) => {
+    if (!ticketId || !agentTickets || agentTickets.length === 0) return 0;
+    
+    return agentTickets.filter(notif => {
+      const notifTicketId = notif.ticket?.id || notif.ticket_id || notif.id;
+      if (notifTicketId !== ticketId) return false;
+      
+      const isUnread = notif.status === 'unread' || notif.status === ' ';
+      if (!isUnread) return false;
+      
+      const messageText = (notif.message || notif.comment || '').toLowerCase();
+      const commentText = (notif.comment || '').toLowerCase();
+      const isTagged = messageText.includes('mentioned you') || commentText.includes('@');
+      
+      // Filter based on notificationType
+      if (notificationType === 'tagged') {
+        // For tagged: only count tagged notifications
+        return isTagged;
+      } else if (notificationType === 'notified') {
+        // For notified: count notifications that are not tagged, not assigned, not reversed
+        const isReversedTicket = notif.ticket?.status === 'Reversed' || notif.ticket?.status === 'reversed';
+        const isReversedByText = messageText.includes('reversed back to you') ||
+                                messageText.includes('reversed to you') ||
+                                (messageText.includes('has been reversed') && messageText.includes('to'));
+        const isReversed = isReversedTicket && isReversedByText;
+        const isAssignedByText = (messageText.includes('assigned to you') || 
+                                 messageText.includes('forwarded to you') ||
+                                 messageText.includes('reassigned to you')) && !isTagged && !isReversed;
+        
+        return !isTagged && !isAssignedByText && !isReversed;
+      } else {
+        // For other types: count all notifications with comments or tagged
+        const hasComment = notif.comment && notif.comment !== null && String(notif.comment).trim() !== '';
+        return hasComment || isTagged;
+      }
+    }).length;
+  };
+
+  const renderTableRow = (ticket, index) => {
+    const ticketId = ticket.ticket?.id || ticket.ticket_id || ticket.id;
+    const unreadCount = getUnreadCountForTicket(ticketId);
+    
+    return (
     <tr key={ticket.id || index}>
       {activeColumns.includes("ticket_id") && (
         <td>{ticket.ticket?.ticket_id || ticket.ticket_id || ticket.id}</td>
       )}
-      {activeColumns.includes("fullName") && (
+      {activeColumns.includes("createdAt") && (
         <td>
-          {ticket.ticket?.first_name
-            ? `${ticket.ticket?.first_name || ""} ${
-                ticket.ticket?.middle_name || ""
-              } ${ticket.ticket?.last_name || ""}`.trim()
-            : ticket.ticket?.institution || "N/A"}
+          {ticket.ticket?.created_at
+            ? new Date(ticket.ticket?.created_at).toLocaleString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true
+              })
+            : "N/A"}
+        </td>
+      )}
+      {activeColumns.includes("employee") && (
+        <td>
+          {ticket.ticket?.first_name && ticket.ticket?.first_name.trim() !== ""
+            ? `${ticket.ticket?.first_name} ${ticket.ticket?.middle_name || ""} ${ticket.ticket?.last_name || ""}`.trim()
+            : ticket.ticket?.representative_name && ticket.ticket?.representative_name.trim() !== ""
+              ? ticket.ticket?.representative_name
+              : "N/A"}
+        </td>
+      )}
+      {activeColumns.includes("employer") && (
+        <td>
+          {typeof ticket.ticket?.institution === "string"
+            ? ticket.ticket?.institution
+            : ticket.ticket?.institution && typeof ticket.ticket?.institution === "object" && typeof ticket.ticket?.institution.name === "string"
+              ? ticket.ticket?.institution.name
+              : ticket.ticket?.employer && typeof ticket.ticket?.employer === "object" && typeof ticket.ticket?.employer.name === "string"
+                ? ticket.ticket?.employer.name
+                : "N/A"}
         </td>
       )}
       {activeColumns.includes("phone_number") && (
@@ -502,34 +1392,52 @@ export default function Crm() {
       {activeColumns.includes("assigned_to_role") && (
         <td>{ticket.ticket?.assigned_to_role || "N/A"}</td>
       )}
-      {activeColumns.includes("createdAt") && (
-        <td>
-          {ticket.ticket?.created_at
-            ? new Date(ticket.ticket?.created_at).toLocaleString("en-GB", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: true
-              })
-            : "N/A"}
-        </td>
-      )}
       <td>
         <div className="action-buttons">
           <Tooltip title="View Notifications">
-            <button
-              className="view-ticket-details-btn"
-              onClick={() => openModal(ticket)}
+            <Badge 
+              badgeContent={unreadCount > 0 ? unreadCount : 0} 
+              color="error"
+              max={99}
+              invisible={unreadCount === 0}
+              sx={{
+                '& .MuiBadge-badge': {
+                  fontSize: '0.65rem',
+                  minWidth: '16px',
+                  height: '16px',
+                  padding: '0 4px',
+                  top: '0px',
+                  right: '8px',
+                  transform: 'translate(50%, -50%)',
+                  backgroundColor: '#ff0000 !important',
+                  color: 'white !important',
+                  fontWeight: 'bold',
+                  border: '1px solid white',
+                  pointerEvents: 'none' // Don't block clicks on the badge
+                }
+              }}
             >
-              <FaBell />
-            </button>
+              <button
+                className="view-ticket-details-btn"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  console.log('Bell button clicked for ticket:', ticket);
+                  openModal(ticket).catch(err => {
+                    console.error('Error in openModal:', err);
+                  });
+                }}
+                style={{ position: 'relative', cursor: 'pointer', zIndex: 1 }}
+              >
+                <FaBell />
+              </button>
+            </Badge>
           </Tooltip>
         </div>
       </td>
     </tr>
-  );
+    );
+  };
 
   if (loading) {
     return (
@@ -547,7 +1455,35 @@ export default function Crm() {
         alignItems: "center",
         marginBottom: "1rem"
       }}>
-        <h3 className="title">Notifications List</h3>
+        <div style={{ display: "flex", alignItems: "center", gap: "26px" }}>
+          <h3 className="title" style={{ margin: 0 }}>Notifications List</h3>
+          {notificationType === 'tagged' && (
+            <Badge 
+              badgeContent="Tagged" 
+              color="primary"
+              sx={{
+                '& .MuiBadge-badge': {
+                  fontSize: '0.7rem',
+                  padding: '4px 8px',
+                  borderRadius: '12px'
+                }
+              }}
+            />
+          )}
+          {notificationType === 'notified' && (
+            <Badge 
+              badgeContent="Notified" 
+              color="error"
+              sx={{
+                '& .MuiBadge-badge': {
+                  fontSize: '0.7rem',
+                  padding: '4px 8px',
+                  borderRadius: '12px'
+                }
+              }}
+            />
+          )}
+        </div>
         
         <div style={{ 
           display: "flex", 
@@ -910,16 +1846,18 @@ export default function Crm() {
           <Box
             sx={{
               flex: 1,
-              p: 3,
-              minWidth: 300,
-              maxWidth: 350,
-              overflowY: "auto"
+              p: 2,
+              minWidth: 280,
+              maxWidth: 320,
+              overflowY: "auto",
+              overflowX: "hidden",
+              boxSizing: 'border-box'
             }}
           >
             <Typography
-              variant="h6"
+              variant="subtitle1"
               gutterBottom
-              sx={{ fontWeight: 600, color: "#1976d2" }}
+              sx={{ fontWeight: 600, color: "#1976d2", fontSize: '0.95rem' }}
             >
               Notification History
             </Typography>
@@ -943,17 +1881,19 @@ export default function Crm() {
             transform: "translate(-50%, -50%)",
             width: { xs: "90%", sm: 600 },
             maxHeight: "85vh",
-            overflowY: "auto",
             bgcolor: "background.paper",
             boxShadow: 24,
             borderRadius: 2,
-            p: 3
+            p: 3,
+            display: "flex",
+            flexDirection: "column",
+            overflow: "hidden"
           }}
         >
           <Typography
             id="notification-modal-title"
-            variant="h5"
-            sx={{ fontWeight: "bold", color: "#1976d2", mb: 2 }}
+            variant="h6"
+            sx={{ fontWeight: 600, color: "#1976d2", mb: 2, fontSize: '1.1rem' }}
           >
             Notification History
           </Typography>
@@ -963,18 +1903,64 @@ export default function Crm() {
               color="textSecondary"
               sx={{ mb: 2 }}
             >
-              Ticket #{selectedTicket.ticket_id || "N/A"}
+              Ticket #{selectedTicket.ticket?.ticket_id || selectedTicket.ticket_id || "N/A"}
             </Typography>
           )}
           <Divider sx={{ mb: 2 }} />
-          {renderNotificationHistory()}
-          <Box sx={{ mt: 2, textAlign: "right" }}>
+          <Box sx={{ 
+            flex: 1, 
+            overflowY: "auto", 
+            overflowX: "hidden",
+            minHeight: 0,
+            mb: 2,
+            pr: 0.5,
+            '&::-webkit-scrollbar': {
+              width: '8px',
+            },
+            '&::-webkit-scrollbar-track': {
+              background: '#f1f1f1',
+              borderRadius: '4px',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              background: '#888',
+              borderRadius: '4px',
+            },
+            '&::-webkit-scrollbar-thumb:hover': {
+              background: '#555',
+            }
+          }}>
+            {renderNotificationHistory()}
+          </Box>
+          <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2, flexShrink: 0 }}>
+            <Button 
+              variant="outlined" 
+              color="primary"
+              onClick={handleMarkAllAsRead}
+              disabled={!notificationHistory?.notifications || notificationHistory.notifications.filter(n => n.status === 'unread').length === 0}
+            >
+              Mark All as Read
+            </Button>
             <Button variant="contained" onClick={handleNotificationModalClose}>
               Close
             </Button>
           </Box>
         </Box>
       </Modal>
+
+      {/* Ticket Details Modal for Tagged Messages */}
+      <TicketDetailsModal
+        open={isTicketDetailsModalOpen}
+        onClose={() => {
+          console.log('Closing TicketDetailsModal');
+          setIsTicketDetailsModalOpen(false);
+          setSelectedTicket(null);
+          setAssignmentHistory([]);
+        }}
+        selectedTicket={selectedTicket}
+        assignmentHistory={assignmentHistory}
+        refreshTickets={fetchAgentTickets}
+        refreshDashboardCounts={() => {}}
+      />
 
       {/* Column Selector */}
       {/* Removed ColumnSelectorDropdown */}

@@ -17,7 +17,7 @@ import {
 // import ColumnSelector from "../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../config";
 import "../crm-tickets/ticket.css";
-import TicketActions from "../../../components/ticket/TicketActions";
+import TicketActions from "../../../components/ticket/TicketActions1";
 import TicketReassignModal from '../../../components/ticket/TicketReassignModal';
 import TicketDetailsModal from '../../../components/ticket/TicketDetailsModal';
 import Pagination from "../../../components/Pagination";

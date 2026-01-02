@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 // MUI Components - Individual imports for better tree shaking
 import Modal from "@mui/material/Modal";
@@ -22,11 +22,24 @@ import Alert from "@mui/material/Alert";
 import CloseIcon from '@mui/icons-material/Close';
 import Autocomplete from "@mui/material/Autocomplete";
 import Badge from "@mui/material/Badge";
+import Popper from "@mui/material/Popper";
+import List from "@mui/material/List";
+import ListItem from "@mui/material/ListItem";
+import ListItemAvatar from "@mui/material/ListItemAvatar";
+import ListItemText from "@mui/material/ListItemText";
+import ClickAwayListener from "@mui/material/ClickAwayListener";
+import FormControl from "@mui/material/FormControl";
+import InputLabel from "@mui/material/InputLabel";
+import DialogActions from "@mui/material/DialogActions";
+import InputAdornment from "@mui/material/InputAdornment";
 
 import ChatIcon from '@mui/icons-material/Chat';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import Download from '@mui/icons-material/Download';
 import AttachFile from '@mui/icons-material/AttachFile';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import DescriptionIcon from '@mui/icons-material/Description';
+import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import { baseURL } from "../config";
 import { PermissionManager } from "../utils/permissions";
 import TicketUpdates from './ticket/TicketUpdates';
@@ -938,7 +951,7 @@ export default function TicketDetailsModal({
   // Agent reverse inquiry modal state
   const [isAgentReverseModalOpen, setIsAgentReverseModalOpen] = useState(false);
   const [agentRecommendation, setAgentRecommendation] = useState("");
-  const [complaintSeverity, setComplaintSeverity] = useState("minor");
+  const [complaintSeverity, setComplaintSeverity] = useState(""); // Empty to match "Select Resolution Type" option
   const [agentReverseLoading, setAgentReverseLoading] = useState(false);
 
   // Manager Send to Director modal state
@@ -962,6 +975,10 @@ export default function TicketDetailsModal({
   const [reviewerNotes, setReviewerNotes] = useState("");
   const [editedResolution, setEditedResolution] = useState("");
   const [dgNotes, setDgNotes] = useState("");
+  const [previousAssignerDescription, setPreviousAssignerDescription] = useState("");
+  const [previousAssignerAttachment, setPreviousAssignerAttachment] = useState(null);
+  const [ownDescription, setOwnDescription] = useState(""); // Director/Head-of-unit's own description
+  const [lastAttendeeAgentDescription, setLastAttendeeAgentDescription] = useState(""); // Last attendee/agent description (for director only)
 
   // Ticket Updates toggle state
   const [showTicketUpdates, setShowTicketUpdates] = useState(false);
@@ -974,6 +991,14 @@ export default function TicketDetailsModal({
   const [newMessage, setNewMessage] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
   
+  // @ Mention states for Ticket Charts
+  const [mentionUsers, setMentionUsers] = useState([]);
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [selectedMentionIndex, setSelectedMentionIndex] = useState(0);
+  const [mentionAnchorEl, setMentionAnchorEl] = useState(null);
+  const messageTextFieldRef = useRef(null);
+  
   // Reversed ticket editing states
   const [isEditReversedTicketDialogOpen, setIsEditReversedTicketDialogOpen] = useState(false);
   const [editReversedTicketLoading, setEditReversedTicketLoading] = useState(false);
@@ -985,6 +1010,11 @@ export default function TicketDetailsModal({
     responsible_unit_name: ""
   });
   const [functionData, setFunctionData] = useState([]);
+  const [directoratesAndUnits, setDirectoratesAndUnits] = useState([]); // For Directorate/Unit dropdown
+  const [selectedDirectorateUnit, setSelectedDirectorateUnit] = useState(""); // Selected Directorate/Unit
+  const [availableSections, setAvailableSections] = useState([]); // Sections within selected Directorate/Unit
+  const [selectedSection, setSelectedSection] = useState(""); // Selected Section
+  const [availableSubjects, setAvailableSubjects] = useState([]); // Subjects within selected Section
   
   // Snackbar state
   const [snackbar, setSnackbarState] = useState({ open: false, message: '', severity: 'info' });
@@ -1013,10 +1043,10 @@ export default function TicketDetailsModal({
     );
   };
 
-  // Function to check if user has reassign permission (focal-person or manager role)
+  // Function to check if user has reassign permission (focal-person, manager, or head-of-unit role)
   const hasReassignPermission = () => {
     const userRole = localStorage.getItem("role");
-    return userRole === "focal-person" || userRole === "manager";
+    return userRole === "focal-person" || userRole === "manager" || userRole === "head-of-unit";
   };
 
   // Function to check if ticket came from a manager (most recent assignment was to a manager)
@@ -1148,10 +1178,214 @@ export default function TicketDetailsModal({
     setShowTicketCharts(true);
     // Fetch messages when opening
     fetchTicketMessages();
+    // Fetch mention users
+    if (selectedTicket?.id) {
+      fetchMentionUsers();
+    }
     // Mark all messages as read when dialog opens
     if (selectedTicket?.id && unreadMessagesCount > 0) {
       markMessagesAsRead();
     }
+  };
+
+  // Fetch mention users for Ticket Charts
+  const fetchMentionUsers = async () => {
+    if (!selectedTicket?.id) return;
+    
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`${baseURL}/ticket/${selectedTicket.id}/mention-users`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setMentionUsers(data.data || []);
+      }
+    } catch (error) {
+      console.error('Error fetching mention users:', error);
+    }
+  };
+
+  // Handle @ mention detection for messages
+  const handleMessageTextChange = (e) => {
+    const value = e.target.value;
+    const cursorPosition = e.target.selectionStart;
+    setNewMessage(value);
+    
+    // Check for @ mention
+    const textBeforeCursor = value.substring(0, cursorPosition);
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+    
+    if (lastAtIndex !== -1) {
+      const textAfterAt = textBeforeCursor.substring(lastAtIndex + 1);
+      
+      // Check if there's a newline, punctuation, or another @ (meaning mention is complete)
+      if (textAfterAt.includes('\n') || textAfterAt.match(/^[,.!?@]/)) {
+        setShowMentions(false);
+        return;
+      }
+      
+      // Get query after @ (allow spaces for full names)
+      const query = textAfterAt.toLowerCase().trim();
+      setMentionQuery(query);
+      
+      // Show mentions dropdown
+      if (messageTextFieldRef.current) {
+        setMentionAnchorEl(messageTextFieldRef.current);
+      }
+      setShowMentions(true);
+      setSelectedMentionIndex(0);
+    } else {
+      setShowMentions(false);
+    }
+  };
+
+  // Filter mention users based on query
+  const filteredMentionUsers = mentionUsers.filter(user => {
+    if (!mentionQuery) return true;
+    const query = mentionQuery.toLowerCase();
+    return (
+      user.name.toLowerCase().includes(query) ||
+      user.username.toLowerCase().includes(query) ||
+      user.role.toLowerCase().includes(query)
+    );
+  });
+
+  // Handle mention selection for messages
+  const handleMentionSelect = (user) => {
+    const currentText = newMessage;
+    const cursorPosition = messageTextFieldRef.current?.selectionStart || 0;
+    const textBeforeCursor = currentText.substring(0, cursorPosition);
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@');
+    
+    if (lastAtIndex !== -1) {
+      const textBeforeAt = currentText.substring(0, lastAtIndex);
+      const textAfterCursor = currentText.substring(cursorPosition);
+      const mentionText = `@${user.name} `;
+      const newText = textBeforeAt + mentionText + textAfterCursor;
+      
+      setNewMessage(newText);
+      setShowMentions(false);
+      setMentionQuery('');
+      
+      // Set cursor position after mention
+      setTimeout(() => {
+        if (messageTextFieldRef.current) {
+          const newCursorPos = lastAtIndex + mentionText.length;
+          messageTextFieldRef.current.setSelectionRange(newCursorPos, newCursorPos);
+          messageTextFieldRef.current.focus();
+        }
+      }, 0);
+    }
+  };
+
+  // Handle keyboard navigation in mentions for messages
+  const handleMentionKeyDown = (e) => {
+    if (!showMentions || filteredMentionUsers.length === 0) return;
+    
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedMentionIndex(prev => 
+        prev < filteredMentionUsers.length - 1 ? prev + 1 : 0
+      );
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedMentionIndex(prev => 
+        prev > 0 ? prev - 1 : filteredMentionUsers.length - 1
+      );
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
+        // Don't prevent default if it's Enter without shift (will send message)
+        return;
+      }
+      e.preventDefault();
+      if (filteredMentionUsers[selectedMentionIndex]) {
+        handleMentionSelect(filteredMentionUsers[selectedMentionIndex]);
+      }
+    } else if (e.key === 'Escape') {
+      setShowMentions(false);
+    }
+  };
+
+  // Parse text and highlight mentions for messages
+  const parseMentions = (text) => {
+    if (!text) return null;
+    
+    // Regex to match @mentions - exactly two words after @
+    const mentionRegex = /@(\S+\s+\S+)/g;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+    
+    while ((match = mentionRegex.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push({
+          type: 'text',
+          content: text.substring(lastIndex, match.index)
+        });
+      }
+      
+      parts.push({
+        type: 'mention',
+        content: match[0],
+        username: match[1]
+      });
+      
+      lastIndex = mentionRegex.lastIndex;
+    }
+    
+    if (lastIndex < text.length) {
+      parts.push({
+        type: 'text',
+        content: text.substring(lastIndex)
+      });
+    }
+    
+    if (parts.length === 0) {
+      return [{ type: 'text', content: text }];
+    }
+    
+    return parts;
+  };
+
+  // Render text with mentions highlighted for messages
+  const renderMessageWithMentions = (text) => {
+    const parts = parseMentions(text);
+    
+    if (!parts || parts.length === 0) {
+      return <span>{text}</span>;
+    }
+    
+    return (
+      <>
+        {parts.map((part, index) => {
+          if (part.type === 'mention') {
+            return (
+              <Box
+                key={index}
+                component="span"
+                sx={{
+                  color: '#1976d2',
+                  fontWeight: 600,
+                  backgroundColor: '#e3f2fd',
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  display: 'inline-block',
+                  margin: '0 2px'
+                }}
+              >
+                {part.content}
+              </Box>
+            );
+          }
+          return <span key={index}>{part.content}</span>;
+        })}
+      </>
+    );
   };
 
   // Fetch ticket messages
@@ -1341,16 +1575,20 @@ export default function TicketDetailsModal({
      userRole === "reviewer") &&
     // Exclude these roles
     userRole !== "director-general" &&
+    // Hide attend button for attendee/agent if complaint_type is Minor or Major
+    !((userRole === "attendee" || userRole === "agent") && 
+      (selectedTicket.complaint_type === "Minor" || selectedTicket.complaint_type === "Major")) &&
     (
       // For director: show attend button for Minor status
       (userRole === "director" && selectedTicket.complaint_type === "Minor") ||
-      // For attendee: show attend button for Minor/Major complaints from head of unit (like directorate)
-      (userRole === "attendee" && 
-       selectedTicket.category === "Complaint" && 
-       (selectedTicket.complaint_type === "Minor" || selectedTicket.complaint_type === "Major") &&
-       isFromHeadOfUnit) ||
-      // For non-directors and non-attendees: existing logic
-      (userRole !== "director" && userRole !== "attendee" && (
+      // For attendee: show attend button for normal tickets (Inquiry/other non-complaint categories)
+      (userRole === "attendee" && selectedTicket.category !== "Complaint") ||
+      // For agent: show attend button for normal tickets (Inquiry/other non-complaint categories)
+      (userRole === "agent" && selectedTicket.category !== "Complaint") ||
+      // For head-of-unit: show attend button only for Minor complaints
+      (userRole === "head-of-unit" && selectedTicket.complaint_type === "Minor") ||
+      // For non-directors, non-attendees, non-agents, and non-head-of-unit: existing logic
+      (userRole !== "director" && userRole !== "attendee" && userRole !== "agent" && userRole !== "head-of-unit" && (
         // For non-managers, only allow if ticket is not rated
         (userRole === "manager" || !selectedTicket.complaint_type) &&
         // For managers, hide attend button if priority is "Major" or "Minor"
@@ -1450,18 +1688,112 @@ export default function TicketDetailsModal({
 
   // Forward to Director General handler
   const handleForwardToDG = () => {
-    // Initialize edited resolution with current resolution details or ticket description
-    let initialResolution = selectedTicket?.resolution_details || "";
+    // Get previous assigner's description/resolution details from assignment history
+    let previousAssignerDescription = "";
+    let previousAssignerAttachment = null;
     
-        // If ticket is reversed and with reviewer, pre-fill with ticket description
-    if (selectedTicket.status === "Reversed" &&
-        userRole === "reviewer" && 
-        selectedTicket.assigned_to_id &&
-        String(selectedTicket.assigned_to_id) === String(userId)) {
-      initialResolution = selectedTicket?.description || selectedTicket?.resolution_details || "";
+    if (assignmentHistory && Array.isArray(assignmentHistory) && assignmentHistory.length > 0) {
+      // For director: find manager's description (previous assigner)
+      // For head-of-unit: find attendee's description (previous assigner)
+      const currentUserRole = userRole;
+      
+      // Find the most recent assignment where the current user was assigned
+      // Then find the previous assignment (the one that assigned to current user)
+      for (let i = assignmentHistory.length - 1; i >= 0; i--) {
+        const assignment = assignmentHistory[i];
+        
+        // Check if this assignment was to the current user
+        if (assignment.assigned_to_id && String(assignment.assigned_to_id) === String(userId)) {
+          // Find the previous assignment (the one that assigned to current user)
+          if (i > 0) {
+            const previousAssignment = assignmentHistory[i - 1];
+            // Get description from previous assigner's reason or resolution_details
+            previousAssignerDescription = previousAssignment.reason || previousAssignment.resolution_details || "";
+            previousAssignerAttachment = previousAssignment.attachment_path || null;
+          }
+          break;
+        }
+      }
+      
+      // If not found above, try to find by role
+      // For director: look for manager assignment
+      // For head-of-unit: look for attendee assignment
+      if (!previousAssignerDescription) {
+        for (let i = assignmentHistory.length - 1; i >= 0; i--) {
+          const assignment = assignmentHistory[i];
+          
+          if (currentUserRole === "director" && assignment.assigned_by_role === "manager") {
+            previousAssignerDescription = assignment.reason || "";
+            previousAssignerAttachment = assignment.attachment_path || null;
+            break;
+          } else if (currentUserRole === "head-of-unit" && assignment.assigned_by_role === "attendee") {
+            previousAssignerDescription = assignment.reason || "";
+            previousAssignerAttachment = assignment.attachment_path || null;
+            break;
+          }
+        }
+      }
     }
     
+    // Initialize edited resolution with creator's description (ticket's original description)
+    let initialResolution = selectedTicket?.description || selectedTicket?.resolution_details || "";
+    
+    // Store creator's description and attachment for display in modal
+    setPreviousAssignerDescription(selectedTicket?.description || "");
+    setPreviousAssignerAttachment(selectedTicket?.attachment_path || null);
+    
+    // Initialize edited creator's description (editable)
     setEditedResolution(initialResolution);
+    
+    // Initialize director/head-of-unit's own description (separate field)
+    // IMPORTANT: Director's own description should be NEW - do NOT take previous director-general description
+    // Always start with empty - director will write their own new description
+    // Do not pre-fill with any previous assignment, especially not director-general's
+    setOwnDescription("");
+    
+    // For director and head-of-unit: find last attendee/agent description
+    // For director: find attendee's description that was sent to the manager (who assigned to director)
+    // For head-of-unit: find attendee's description that was sent to head-of-unit
+    let lastAttendeeAgentDesc = "";
+    if ((userRole === "director" || userRole === "head-of-unit") && assignmentHistory && Array.isArray(assignmentHistory) && assignmentHistory.length > 0) {
+      if (userRole === "director") {
+        // Find the manager who assigned to the director
+        let managerId = null;
+        for (let i = assignmentHistory.length - 1; i >= 0; i--) {
+          const assignment = assignmentHistory[i];
+          if (assignment.assigned_to_id && String(assignment.assigned_to_id) === String(userId) && assignment.assigned_by_role === "manager") {
+            managerId = assignment.assigned_by_id;
+            break;
+          }
+        }
+        
+        // Now find the attendee/agent assignment that was sent to this manager
+        // Look for assignments where attendee/agent assigned TO the manager
+        if (managerId) {
+          for (let i = assignmentHistory.length - 1; i >= 0; i--) {
+            const assignment = assignmentHistory[i];
+            if ((assignment.assigned_by_role === "attendee" || assignment.assigned_by_role === "agent") && 
+                assignment.assigned_to_id && String(assignment.assigned_to_id) === String(managerId)) {
+              lastAttendeeAgentDesc = assignment.reason || "";
+              break;
+            }
+          }
+        }
+      } else if (userRole === "head-of-unit") {
+        // For head-of-unit: find attendee's description that was sent to head-of-unit
+        // Look for assignments where attendee/agent assigned TO the head-of-unit
+        for (let i = assignmentHistory.length - 1; i >= 0; i--) {
+          const assignment = assignmentHistory[i];
+          if ((assignment.assigned_by_role === "attendee" || assignment.assigned_by_role === "agent") &&
+              assignment.assigned_to_id && String(assignment.assigned_to_id) === String(userId)) {
+            lastAttendeeAgentDesc = assignment.reason || "";
+            break;
+          }
+        }
+      }
+    }
+    setLastAttendeeAgentDescription(lastAttendeeAgentDesc || "");
+    
     setIsForwardToDGDialogOpen(true);
   };
 
@@ -1624,6 +1956,8 @@ export default function TicketDetailsModal({
         `[${reverseResolutionType}] ${reverseReason}` : 
         reverseReason;
       formData.append("reason", fullReason);
+      // Also send description field for backend to use
+      formData.append("description", reverseReason);
       formData.append("status", "reversing");
       
       if (attachment) {
@@ -1665,74 +1999,214 @@ export default function TicketDetailsModal({
   // Handle opening the edit reversed ticket dialog
   const handleEditReversedTicket = () => {
     // Initialize form data with current ticket values
+    const currentSection = selectedTicket.section || "";
+    const currentSubSection = selectedTicket.sub_section || "";
+    const currentResponsibleUnit = selectedTicket.responsible_unit_name || "";
+    
     setEditReversedTicketData({
       subject: selectedTicket.subject || "",
-      section: selectedTicket.section || "",
-      sub_section: selectedTicket.sub_section || "",
+      section: currentSection,
+      sub_section: currentSubSection,
       responsible_unit_id: selectedTicket.responsible_unit_id || "",
-      responsible_unit_name: selectedTicket.responsible_unit_name || ""
+      responsible_unit_name: currentResponsibleUnit
     });
+    
+    // Initialize selected directorate/unit and section based on current ticket
+    setSelectedDirectorateUnit(currentResponsibleUnit || currentSection || "");
+    setSelectedSection(currentSubSection || "");
+    
     setIsEditReversedTicketDialogOpen(true);
   };
 
-  // Handle form data changes for reversed ticket editing
+  // Handle Directorate/Unit selection
+  const handleDirectorateUnitChange = (value) => {
+    setSelectedDirectorateUnit(value);
+    setSelectedSection("");
+    setEditReversedTicketData(prev => ({
+      ...prev,
+      section: value,
+      sub_section: "",
+      responsible_unit_id: "",
+      responsible_unit_name: value
+    }));
+    
+    // Find the selected directorate/unit object to check if it's a section or function
+    const selectedItem = directoratesAndUnits.find(item => item.name === value);
+    const isFunction = selectedItem && selectedItem.section_id; // If it has section_id, it's a function (unit)
+    
+    // Filter sections (functions) for the selected directorate/unit
+    if (value && functionData.length > 0) {
+      let sectionsForDirectorate = [];
+      
+      if (isFunction) {
+        // If selected is a unit (function), show functions with same name or id
+        sectionsForDirectorate = functionData
+          .filter(item => {
+            const functionId = item.function?.id;
+            const functionName = item.function?.name || "";
+            return functionId === selectedItem.id || functionName === value;
+          })
+          .map(item => ({
+            id: item.function?.id,
+            name: item.function?.name || "",
+            section: item.function?.section?.name || ""
+          }))
+          .filter((item, index, self) => 
+            item.name && index === self.findIndex(t => t.name === item.name)
+          );
+      } else {
+        // If selected is a directorate (section), show all functions within that section
+        sectionsForDirectorate = functionData
+          .filter(item => {
+            const sectionName = item.function?.section?.name || "";
+            return sectionName === value;
+          })
+          .map(item => ({
+            id: item.function?.id,
+            name: item.function?.name || "",
+            section: item.function?.section?.name || ""
+          }))
+          .filter((item, index, self) => 
+            item.name && index === self.findIndex(t => t.name === item.name)
+          );
+      }
+      
+      setAvailableSections(sectionsForDirectorate);
+      console.log('🔍 Available sections for', value, ':', sectionsForDirectorate);
+    } else {
+      setAvailableSections([]);
+    }
+    setAvailableSubjects([]);
+  };
+
+  // Handle Section selection
+  const handleSectionChange = (value) => {
+    setSelectedSection(value);
+    
+    // Find the selected section object
+    const selectedSectionObj = availableSections.find(s => s.name === value);
+    
+    setEditReversedTicketData(prev => ({
+      ...prev,
+      sub_section: value,
+      responsible_unit_id: selectedSectionObj?.id || "",
+      responsible_unit_name: selectedDirectorateUnit || prev.responsible_unit_name
+    }));
+    
+    // Filter subjects (function data) for the selected section
+    if (value && functionData.length > 0) {
+      const subjectsForSection = functionData
+        .filter(item => {
+          const functionName = item.function?.name || "";
+          return functionName === value;
+        })
+        .map(item => ({
+          id: item.id,
+          name: item.name || "",
+          functionId: item.function?.id
+        }));
+      
+      setAvailableSubjects(subjectsForSection);
+      console.log('🔍 Available subjects for section', value, ':', subjectsForSection);
+    } else {
+      setAvailableSubjects([]);
+    }
+  };
+
+  // Handle Subject selection - Auto-fill Sub-section and Section like in ticket creation
+  const handleSubjectChange = (value) => {
+    if (value && functionData.length > 0) {
+      // Find the selected function data by ID or name
+      const selectedFunctionData = functionData.find((item) => 
+        item.id === value || item.name === value
+      );
+      
+      if (selectedFunctionData) {
+        // Extract function name (sub-section) and section name like in AdvancedTicketCreateModal
+        const functionName = selectedFunctionData.function?.name || 
+                           selectedFunctionData.name || 
+                           selectedFunctionData.function_name || 
+                           "";
+        const sectionName = selectedFunctionData.function?.section?.name || 
+                          selectedFunctionData.section?.name || 
+                          selectedFunctionData.section_name || 
+                          selectedFunctionData.section || 
+                          "";
+        
+        // Get the directorate/unit name (responsible unit)
+        const responsibleUnitName = sectionName || functionName || "";
+        
+        // Update form data
+        setEditReversedTicketData(prev => ({
+          ...prev,
+          subject: selectedFunctionData.name || value,
+          section: sectionName,
+          sub_section: functionName,
+          responsible_unit_id: selectedFunctionData.function?.id || "",
+          responsible_unit_name: responsibleUnitName
+        }));
+        
+        // Also update selected directorate/unit and section for UI consistency
+        if (sectionName) {
+          setSelectedDirectorateUnit(sectionName);
+          // Find and set available sections
+          const sectionsForDirectorate = functionData
+            .filter(item => {
+              const itemSectionName = item.function?.section?.name || "";
+              return itemSectionName === sectionName;
+            })
+            .map(item => ({
+              id: item.function?.id,
+              name: item.function?.name || "",
+              section: item.function?.section?.name || ""
+            }))
+            .filter((item, index, self) => 
+              item.name && index === self.findIndex(t => t.name === item.name)
+            );
+          setAvailableSections(sectionsForDirectorate);
+        }
+        
+        if (functionName) {
+          setSelectedSection(functionName);
+          // Find and set available subjects for this section
+          const subjectsForSection = functionData
+            .filter(item => {
+              const itemFunctionName = item.function?.name || "";
+              return itemFunctionName === functionName;
+            })
+            .map(item => ({
+              id: item.id,
+              name: item.name || "",
+              functionId: item.function?.id
+            }));
+          setAvailableSubjects(subjectsForSection);
+        }
+        
+        console.log('🔍 Selected function data:', selectedFunctionData);
+        console.log('🔍 Function name (sub-section):', functionName);
+        console.log('🔍 Section name:', sectionName);
+      } else {
+        // If not found by ID/name, just set the subject
+        setEditReversedTicketData(prev => ({
+          ...prev,
+          subject: value
+        }));
+      }
+    } else {
+      // If no function data or no value, just set the subject
+      setEditReversedTicketData(prev => ({
+        ...prev,
+        subject: value
+      }));
+    }
+  };
+
+  // Handle form data changes for reversed ticket editing (legacy support)
   const handleEditReversedTicketChange = (field, value) => {
     setEditReversedTicketData(prev => ({
       ...prev,
       [field]: value
     }));
-
-    // Auto-fill sub-section when section is selected
-    if (field === "section") {
-      console.log('🔍 Section changed to:', value);
-      console.log('🔍 Available functionData:', functionData);
-      
-      // Find the first FunctionData that belongs to the selected section
-      const selectedFunctionData = functionData.find((item) => 
-        item.function?.section?.name === value
-      );
-      if (selectedFunctionData) {
-        // Get the function name (sub-section)
-        const functionName = selectedFunctionData.function?.name || 
-                           selectedFunctionData.name || 
-                           selectedFunctionData.function_name || 
-                           "";
-        
-        console.log('Selected function data:', selectedFunctionData);
-        console.log('Function name (for sub-section):', functionName);
-        console.log('Section name:', value);
-        
-        console.log('🔍 Setting fields:');
-        console.log('  - sub_section:', functionName);
-        console.log('  - section:', value);
-        console.log('  - responsible_unit_id:', selectedFunctionData.function?.id);
-        console.log('  - responsible_unit_name:', functionName);
-        
-        setEditReversedTicketData(prev => ({
-          ...prev,
-          [field]: value, // This is the section name
-          sub_section: selectedFunctionData.function?.name || "", // Function name (like "Directorate of Operations") goes in sub-section
-          responsible_unit_id: selectedFunctionData.function?.id || "", // Use Function.id for mapping
-          responsible_unit_name: selectedFunctionData.function?.name || "" // Use Function name as responsible unit
-        }));
-        
-        // Debug: Check what was actually set
-        setTimeout(() => {
-          console.log('🔍 After setting, editReversedTicketData:');
-          console.log('  - sub_section:', editReversedTicketData.sub_section);
-          console.log('  - section:', editReversedTicketData.section);
-        }, 100);
-      } else {
-        console.log('❌ No function data found for section:', value);
-        setEditReversedTicketData(prev => ({
-          ...prev,
-          [field]: value,
-          sub_section: "",
-          responsible_unit_id: "",
-          responsible_unit_name: ""
-        }));
-      }
-    }
   };
 
   // Handle submitting the reversed ticket edit
@@ -1744,7 +2218,13 @@ export default function TicketDetailsModal({
         userId: userId,
         ...editReversedTicketData
       };
-      console.log('🔍 Sending request body:', requestBody);
+      console.log('🔍 ===== FRONTEND: Sending update request =====');
+      console.log('🔍 API Endpoint:', `${baseURL}/ticket/${selectedTicket.id}/update-reversed-details`);
+      console.log('🔍 Request Body:', JSON.stringify(requestBody, null, 2));
+      console.log('🔍 responsible_unit_name being sent:', requestBody.responsible_unit_name);
+      console.log('🔍 section being sent:', requestBody.section);
+      console.log('🔍 sub_section being sent:', requestBody.sub_section);
+      console.log('🔍 ===== END FRONTEND REQUEST =====');
       
       const response = await fetch(`${baseURL}/ticket/${selectedTicket.id}/update-reversed-details`, {
         method: "POST",
@@ -1776,46 +2256,56 @@ export default function TicketDetailsModal({
     }
   };
 
-  // Fetch function data for subject dropdown
+  // Fetch directorates/units and function data when modal opens
   useEffect(() => {
     console.log('🔍 useEffect triggered, isEditReversedTicketDialogOpen:', isEditReversedTicketDialogOpen);
     if (isEditReversedTicketDialogOpen) {
-      console.log('🔍 Modal is open, starting to fetch function data...');
-      const fetchFunctionData = async () => {
+      console.log('🔍 Modal is open, starting to fetch data...');
+      
+      const fetchData = async () => {
         try {
           const token = localStorage.getItem("authToken");
-          console.log('🔍 Fetching function data from:', `${baseURL}/section/functions-data`);
-          console.log('🔍 Token present:', !!token);
-          console.log('🔍 Base URL:', baseURL);
           
-          const response = await fetch(`${baseURL}/section/functions-data`, {
+          // Fetch directorates and units
+          const unitsResponse = await fetch(`${baseURL}/section/units-data`, {
             headers: { "Authorization": `Bearer ${token}` }
           });
           
-          console.log('🔍 Response status:', response.status);
-          console.log('🔍 Response ok:', response.ok);
+          if (unitsResponse.ok) {
+            const unitsData = await unitsResponse.json();
+            if (unitsData.data) {
+              setDirectoratesAndUnits(unitsData.data);
+              console.log('✅ Directorates and Units loaded:', unitsData.data);
+            }
+          }
           
-          const data = await response.json();
-          console.log('🔍 Response data:', data);
+          // Fetch function data (for sections and subjects)
+          const functionDataResponse = await fetch(`${baseURL}/section/functions-data`, {
+            headers: { "Authorization": `Bearer ${token}` }
+          });
           
-          if (response.ok && data.data) {
-            setFunctionData(data.data);
-            console.log('✅ Function data loaded:', data.data);
-            
-            // Debug: Check what sections are available
-            const sections = [...new Set(data.data.map(item => item.function?.section?.name).filter(Boolean))];
-            console.log('🔍 Available sections from API:', sections);
-            console.log('🔍 Sample function data item:', data.data[0]);
+          if (functionDataResponse.ok) {
+            const functionDataResult = await functionDataResponse.json();
+            if (functionDataResult.data) {
+              setFunctionData(functionDataResult.data);
+              console.log('✅ Function data loaded:', functionDataResult.data);
+            }
           } else {
-            console.error('❌ Failed to load function data:', data);
+            console.error('❌ Failed to load function data');
           }
         } catch (error) {
-          console.error("❌ Error fetching function data:", error);
+          console.error("❌ Error fetching data:", error);
         }
       };
-      fetchFunctionData();
+      
+      fetchData();
     } else {
-      console.log('🔍 Modal is not open, not fetching function data');
+      // Reset when modal closes
+      setSelectedDirectorateUnit("");
+      setSelectedSection("");
+      setAvailableSections([]);
+      setAvailableSubjects([]);
+      console.log('🔍 Modal is not open, resetting form');
     }
   }, [isEditReversedTicketDialogOpen]);
 
@@ -1825,7 +2315,9 @@ export default function TicketDetailsModal({
       const fetchAttendees = async () => {
         try {
           const token = localStorage.getItem("authToken");
-          const res = await fetch(`${baseURL}/ticket/admin/attendee`, {
+          // Include ticketId in query params if available (for focal person filtering by sub_section)
+          const ticketIdParam = selectedTicket?.id ? `?ticketId=${selectedTicket.id}` : '';
+          const res = await fetch(`${baseURL}/ticket/admin/attendee${ticketIdParam}`, {
             headers: { "Authorization": `Bearer ${token}` }
           });
           const data = await res.json();
@@ -1841,7 +2333,8 @@ export default function TicketDetailsModal({
           const currentReportTo = (localStorage.getItem("report_to") || "").toString().toLowerCase();
           
           const filtered = raw.filter(a => {
-            // For focal persons, head-of-unit, manager, and director, backend already filters by report_to/designation, so just return all attendees
+            // For focal persons, backend filters by ticket sub_section (if ticketId provided) or report_to
+            // For head-of-unit, manager, and director, backend already filters by report_to/designation
             if (currentUserRole === "focal-person" || currentUserRole === "head-of-unit" || currentUserRole === "manager" || currentUserRole === "director") {
               return true;
             }
@@ -1858,7 +2351,7 @@ export default function TicketDetailsModal({
       };
       fetchAttendees();
     }
-  }, [isAssignModalOpen, isReassignModalOpen]);
+  }, [isAssignModalOpen, isReassignModalOpen, selectedTicket?.id]);
 
   // Clear reassign form when reassign modal opens
   useEffect(() => {
@@ -1963,15 +2456,32 @@ export default function TicketDetailsModal({
     console.log("MODAL selectedTicket", selectedTicket);
   }, [selectedTicket]);
 
+  // Automatically set resolution type to "Reverse" when reverse modal opens
+  useEffect(() => {
+    if (isReverseModalOpen) {
+      setReverseResolutionType("Reverse");
+    }
+  }, [isReverseModalOpen]);
+
   const handleForwardToDGSubmit = async () => {
-    if (!editedResolution.trim()) {
-      setSnackbarState({ open: true, message: "Please edit the resolution details before forwarding to Director General", severity: "warning" });
+    if (!ownDescription.trim()) {
+      setSnackbarState({ open: true, message: "Please provide your description before forwarding to Director General", severity: "warning" });
       return;
     }
 
     setForwardToDGLoading(true);
     try {
       const token = localStorage.getItem("authToken");
+      
+      // For director: use current description (not edited) since director can't edit
+      // For manager/head-of-unit: use edited resolution if provided, otherwise current description
+      let resolutionDetails = editedResolution.trim();
+      if (userRole === "director" || !resolutionDetails) {
+        // Director can't edit, so use current description
+        // Or if manager/head-of-unit didn't edit, use current description
+        resolutionDetails = selectedTicket?.description || "";
+      }
+      
       const response = await fetch(`${baseURL}/ticket/${selectedTicket.id}/forward-to-dg`, {
         method: 'POST',
         headers: {
@@ -1980,7 +2490,9 @@ export default function TicketDetailsModal({
         },
         body: JSON.stringify({
           userId,
-          resolution_details: editedResolution,
+          resolution_details: resolutionDetails, // Current description for director, edited for manager/head-of-unit
+          own_description: ownDescription.trim(), // Director/Head-of-unit's own description
+          last_attendee_agent_description: null, // Not used - removed
           assignmentId: selectedTicket.id
         })
       });
@@ -1990,6 +2502,8 @@ export default function TicketDetailsModal({
         setSnackbarState({ open: true, message: "Ticket forwarded to Director General successfully!", severity: "success" });
         setIsForwardToDGDialogOpen(false);
         setEditedResolution("");
+        setOwnDescription("");
+        setLastAttendeeAgentDescription("");
         onClose();
         refreshTickets();
       } else {
@@ -2300,13 +2814,23 @@ export default function TicketDetailsModal({
       const token = localStorage.getItem("authToken");
       const formData = new FormData();
       formData.append("userId", localStorage.getItem("userId"));
-      formData.append("recommendation", agentRecommendation);
+      
+      // Use resolution details as reason, with resolution type prefix (same as handleReverse)
+      const fullReason = complaintSeverity ? 
+        `[${complaintSeverity}] ${agentRecommendation}` : 
+        agentRecommendation;
+      formData.append("reason", fullReason);
+      // Also send description field for backend to use
+      formData.append("description", agentRecommendation);
+      formData.append("status", "reversing");
       
       if (attachment) {
         formData.append("attachment", attachment);
       }
 
-      const res = await fetch(`${baseURL}/ticket/${selectedTicket.id}/reverse-complaint`, {
+      // Use the same reverse endpoint as other reverse actions
+      // Backend now handles reassignment logic (returns to reassigned_by if reassigned)
+      const res = await fetch(`${baseURL}/ticket/${selectedTicket.id}/reverse`, {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${token}`
@@ -2317,6 +2841,7 @@ export default function TicketDetailsModal({
       
       const data = await res.json();
       if (!res.ok) {
+        setSnackbarState({ open: true, message: data.message || `Failed to reverse complaint: ${res.status}`, severity: "error" });
         setSnackbar && setSnackbar({ 
           open: true, 
           message: `Failed to reverse complaint: ${res.status} ${data.message || ''}`, 
@@ -2325,6 +2850,12 @@ export default function TicketDetailsModal({
         return;
       }
       
+      // Show success message (same as handleReverse)
+      setSnackbarState({ 
+        open: true, 
+        message: data.message || "Complaint reversed with recommendation successfully", 
+        severity: "success" 
+      });
       setSnackbar && setSnackbar({
         open: true,
         message: data.message || "Complaint reversed with recommendation successfully",
@@ -2333,7 +2864,7 @@ export default function TicketDetailsModal({
       
       // Clear form and close modal with a small delay to prevent ResizeObserver error
       setAgentRecommendation("");
-      setComplaintSeverity("minor");
+      setComplaintSeverity(""); // Reset to empty (matches "Select Resolution Type")
       setAttachment(null);
       setIsAgentReverseModalOpen(false);
       
@@ -2343,6 +2874,7 @@ export default function TicketDetailsModal({
         onClose && onClose();
       }, 100);
     } catch (error) {
+      setSnackbarState({ open: true, message: `Reverse error: ${error.message}`, severity: "error" });
       setSnackbar && setSnackbar({ 
         open: true, 
         message: `Reverse error: ${error.message}`, 
@@ -2394,6 +2926,7 @@ export default function TicketDetailsModal({
                 >
                   Ticket Details {selectedTicket.ticket_id ? `#${selectedTicket.ticket_id}` : ""}
                 </Typography>
+                <Tooltip title="Close modal">
                 <IconButton
                   onClick={onClose}
                   sx={{
@@ -2409,6 +2942,7 @@ export default function TicketDetailsModal({
                 >
                   <CloseIcon />
                 </IconButton>
+                </Tooltip>
               </Box>
               <Divider sx={{ mb: 2 }} />
 
@@ -2436,6 +2970,7 @@ export default function TicketDetailsModal({
                         }
                       }}
                     >
+                      <Tooltip title="View ticket charts">
                       <Button 
                         size="small" 
                         onClick={handleOpenTicketCharts} 
@@ -2474,6 +3009,7 @@ export default function TicketDetailsModal({
                       >
                         Ticket Charts {unreadMessagesCount > 0 ? `(${unreadMessagesCount})` : ''}
                       </Button>
+                      </Tooltip>
                     </Badge>
                     {/* Ticket Updates Button */}
                     <Badge 
@@ -2492,6 +3028,7 @@ export default function TicketDetailsModal({
                         }
                       }}
                     >
+                      <Tooltip title="View ticket updates and messages">
                       <Button 
                         size="small" 
                         onClick={handleOpenTicketUpdates} 
@@ -2530,6 +3067,7 @@ export default function TicketDetailsModal({
                       >
                         Ticket Updates {unreadUpdatesCount > 0 ? `(${unreadUpdatesCount})` : ''}
                       </Button>
+                      </Tooltip>
                     </Badge>
                   </Box>
                 </Box>
@@ -2787,12 +3325,53 @@ export default function TicketDetailsModal({
                   </Typography>
                 </div>
 
+                {/* Resolution Details and Closed By - Show only when ticket is closed */}
+                {selectedTicket.status === "Closed" && (
+                  <>
+                    {selectedTicket.resolution_details && (
+                      <div style={{ flex: "1 1 100%", marginTop: "16px" }}>
+                        <Typography sx={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}>
+                          <strong>Resolution Details:</strong>{" "}
+                          {selectedTicket.resolution_details}
+                        </Typography>
+              </div>
+                    )}
+                    {(() => {
+                      // Get closed by information from assignment history (same logic as history section)
+                      const last = assignmentHistory && assignmentHistory.length > 0
+                        ? assignmentHistory[assignmentHistory.length - 1]
+                        : null;
+                      
+                      const closedByName = last?.assigned_to_name || 
+                                        last?.assignedTo?.full_name || 
+                                        last?.user?.full_name || 
+                                        selectedTicket.attended_by_name ||
+                                        "N/A";
+                      
+                      const closedByRole = last?.assigned_to_role || "N/A";
+                      
+                      return (
+                        <div style={{ flex: "1 1 100%", marginTop: "16px" }}>
+                          <Typography>
+                            <strong>Closed By:</strong>{" "}
+                            {closedByName}{" "}
+                            <span style={{ color: "#888" }}>
+                              ({closedByRole})
+                            </span>
+                          </Typography>
+                        </div>
+                      );
+                    })()}
+                  </>
+                )}
+
               </div>
 
 
               {/* Action Buttons */}
               <Box sx={{ mt: 2, textAlign: "right" }}>
                 {showAttendButton && userRole !== "reviewer" && (
+                  <Tooltip title="Attend to this ticket and provide resolution details">
                   <Button 
                     variant="contained" 
                     color="primary" 
@@ -2813,11 +3392,13 @@ export default function TicketDetailsModal({
                   >
                     {attendLoading ? "Attending..." : "Attend"}
                   </Button>
+                  </Tooltip>
                 )}
 
                 {/* Edit Subject & Section button for reversed tickets */}
                 {selectedTicket?.status === "Reversed" && userRole === "agent" && 
                  selectedTicket?.assigned_to_id === userId && (
+                  <Tooltip title="Edit ticket subject and section">
                   <Button
                     variant="contained"
                     color="secondary"
@@ -2826,47 +3407,123 @@ export default function TicketDetailsModal({
                   >
                     Edit Subject & Section
                   </Button>
+                  </Tooltip>
                 )}
                 
                 {/* Reviewer Actions */}
                 {showReviewerActions && (
-                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2, justifyContent: "flex-end" }}>
+                  <Paper 
+                    elevation={0} 
+                    sx={{ 
+                      p: 2, 
+                      mb: 2, 
+                      border: '1px solid #e0e0e0',
+                      borderRadius: 1.5,
+                      backgroundColor: '#fafafa'
+                    }}
+                  >
+                    <Typography 
+                      variant="subtitle1" 
+                      sx={{ 
+                        mb: 1.5, 
+                        fontWeight: 600, 
+                        color: '#424242',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.75,
+                        fontSize: '0.95rem'
+                      }}
+                    >
+                      <CheckCircleIcon sx={{ color: '#667eea', fontSize: 20 }} />
+                      Reviewer Actions
+                    </Typography>
+                    
                     {/* Show rating selection only if ticket is not returned and not already rated */}
                     {!(selectedTicket.status === "Returned" || selectedTicket.complaint_type) && (
-                      <>
-                        <Box sx={{ display: "flex", flexDirection: "column", gap: 1, mb: 2 }}>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <Typography variant="body2" sx={{ fontWeight: "bold", fontSize: "0.8rem" }}>
+                      <Box sx={{ mb: 2 }}>
+                        {/* Complaint Category Row */}
+                        <Box sx={{ display: "flex", alignItems: "flex-end", gap: 1.5, mb: 1.5, flexWrap: "wrap" }}>
+                          <Box sx={{ minWidth: { xs: "100%", sm: "180px" }, flex: { xs: "1 1 100%", sm: "0 0 auto" } }}>
+                            <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.75, color: '#424242', fontSize: '0.85rem' }}>
                               Complaint Category:
                             </Typography>
-                            <select
-                              style={{
-                                padding: "4px 8px",
-                                fontSize: "0.8rem",
-                                height: "32px",
-                                borderRadius: "4px",
-                                border: "1px solid #ccc"
-                              }}
-                              value={selectedRating}
-                              onChange={(e) => {
-                                setSelectedRating(e.target.value);
-                              }}
-                              disabled={ratingLoading}
-                            >
-                              <option value="">Select Category</option>
-                              <option value="Minor">Minor</option>
-                              <option value="Major">Major</option>
-                            </select>
+                            <FormControl fullWidth size="small">
+                              <Select
+                                value={selectedRating}
+                                onChange={(e) => setSelectedRating(e.target.value)}
+                                disabled={ratingLoading}
+                                sx={{
+                                  fontSize: '0.8rem',
+                                  height: '32px',
+                                  textAlign: 'left',
+                                  '& .MuiSelect-select': {
+                                    padding: '6px 14px',
+                                    fontSize: '0.8rem',
+                                    textAlign: 'left'
+                                  }
+                                }}
+                              >
+                                <MenuItem value="" sx={{ fontSize: '0.8rem', py: 0.5 }}>Select Category</MenuItem>
+                                <MenuItem value="Minor" sx={{ fontSize: '0.8rem', py: 0.5 }}>Minor</MenuItem>
+                                <MenuItem value="Major" sx={{ fontSize: '0.8rem', py: 0.5 }}>Major</MenuItem>
+                              </Select>
+                            </FormControl>
                           </Box>
+                          
+                          {/* Convert To Section */}
+                          {selectedTicket.category === "Complaint" && (
+                            <Box sx={{ display: "flex", alignItems: "flex-end", gap: 1, minWidth: { xs: "100%", sm: "auto" }, flex: { xs: "1 1 100%", sm: "0 0 auto" } }}>
+                              <FormControl size="small" sx={{ minWidth: 120 }}>
+                                <InputLabel sx={{ fontSize: '0.8rem' }}>Convert To</InputLabel>
+                                <Select
+                                  value={convertCategory[selectedTicket.id] || ""}
+                                  onChange={(e) => handleCategoryChange(selectedTicket.id, e.target.value)}
+                                  label="Convert To"
+                                  sx={{
+                                    fontSize: '0.8rem',
+                                    height: '32px',
+                                    textAlign: 'left',
+                                    '& .MuiSelect-select': {
+                                      padding: '6px 14px',
+                                      fontSize: '0.8rem',
+                                      textAlign: 'left'
+                                    }
+                                  }}
+                                >
+                                  <MenuItem value="" sx={{ fontSize: '0.8rem', py: 0.5 }}>Convert To</MenuItem>
+                                  <MenuItem value="Inquiry" sx={{ fontSize: '0.8rem', py: 0.5 }}>Inquiry</MenuItem>
+                                </Select>
+                              </FormControl>
+                              <Tooltip title="Convert this complaint to an inquiry">
+                                <Button
+                                  size="small"
+                                  variant="contained"
+                                  onClick={() => handleConvertOrForward(selectedTicket.id)}
+                                  disabled={convertOrForwardLoading}
+                                  sx={{
+                                    textTransform: 'none',
+                                    px: 1.5,
+                                    py: 0.5,
+                                    fontSize: '0.75rem',
+                                    minHeight: '32px'
+                                  }}
+                                >
+                                  {convertOrForwardLoading ? "Converting..." : "Convert"}
+                                </Button>
+                              </Tooltip>
+                            </Box>
+                          )}
+                        </Box>
+
                           {/* Comment/Description field - required when rating and forwarding */}
                           {selectedRating && ["Minor", "Major"].includes(selectedRating) && (
-                            <Box>
-                              <Typography variant="body2" sx={{ fontWeight: "bold", fontSize: "0.8rem", mb: 0.5 }}>
+                            <Box sx={{ mb: 1.5 }}>
+                              <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.75, color: '#424242', fontSize: '0.85rem' }}>
                                 Comment/Description <span style={{ color: "red" }}>*</span>:
                               </Typography>
                               <TextField
                                 multiline
-                                rows={3}
+                                rows={2}
                                 fullWidth
                                 value={ratingComment}
                                 onChange={(e) => setRatingComment(e.target.value)}
@@ -2875,11 +3532,143 @@ export default function TicketDetailsModal({
                                 required
                                 error={!ratingComment.trim() && selectedRating && forwardUnit[selectedTicket.id]}
                                 helperText={!ratingComment.trim() && selectedRating && forwardUnit[selectedTicket.id] ? "Comment is required before forwarding" : ""}
+                                sx={{
+                                  '& .MuiInputBase-root': {
+                                    fontSize: '0.8rem'
+                                  },
+                                  '& .MuiInputBase-input': {
+                                    fontSize: '0.8rem',
+                                    padding: '8px 14px'
+                                  },
+                                  '& .MuiFormHelperText-root': {
+                                    fontSize: '0.65rem'
+                                  }
+                                }}
                               />
                             </Box>
                           )}
+
+                        {/* Forward Section */}
+                        <Box sx={{ display: "flex", alignItems: "flex-end", gap: 1.5, flexWrap: "wrap" }}>
+                          <Box sx={{ flex: { xs: "1 1 100%", sm: "1 1 auto" }, minWidth: { xs: "100%", sm: "220px" } }}>
+                            <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.75, color: '#424242', fontSize: '0.85rem' }}>
+                              Forward To:
+                            </Typography>
+                            <FormControl fullWidth size="small">
+                              <Select
+                                value={forwardUnit[selectedTicket.id] || (() => {
+                                  // If it's a unit (not directorate), use sub_section, otherwise use section
+                                  const isDirectorate = selectedTicket.section && (
+                                    selectedTicket.section.includes('Directorate') || 
+                                    selectedTicket.section.includes('directorate') ||
+                                    (allSectionsList && allSectionsList.some(s => s.name === selectedTicket.section && !s.section_id))
+                                  );
+                                  return isDirectorate ? (selectedTicket.section || "") : (selectedTicket.sub_section || selectedTicket.section || "");
+                                })()}
+                                onChange={(e) => handleUnitChange(selectedTicket.id, e.target.value)}
+                                sx={{
+                                  fontSize: '0.8rem',
+                                  height: '32px',
+                                  textAlign: 'left',
+                                  '& .MuiSelect-select': {
+                                    padding: '6px 14px',
+                                    fontSize: '0.8rem',
+                                    textAlign: 'left'
+                                  }
+                                }}
+                              >
+                                <MenuItem value="" sx={{ fontSize: '0.8rem', py: 0.5 }}>Forward To</MenuItem>
+                                {/* Show sub-section for units, section for directorates */}
+                                {(() => {
+                                  const isDirectorate = selectedTicket.section && (
+                                    selectedTicket.section.includes('Directorate') || 
+                                    selectedTicket.section.includes('directorate') ||
+                                    (allSectionsList && allSectionsList.some(s => s.name === selectedTicket.section && !s.section_id))
+                                  );
+                                  if (isDirectorate && selectedTicket.section) {
+                                    return (
+                                      <MenuItem value={selectedTicket.section} sx={{ fontSize: '0.8rem', py: 0.5 }}>
+                                        {selectedTicket.section} 
+                                      </MenuItem>
+                                    );
+                                  } else if (!isDirectorate && selectedTicket.sub_section) {
+                                    return (
+                                      <MenuItem value={selectedTicket.sub_section} sx={{ fontSize: '0.8rem', py: 0.5 }}>
+                                        {selectedTicket.sub_section} 
+                                      </MenuItem>
+                                    );
+                                  } else if (selectedTicket.section) {
+                                    return (
+                                      <MenuItem value={selectedTicket.section} sx={{ fontSize: '0.8rem', py: 0.5 }}>
+                                        {selectedTicket.section} 
+                                      </MenuItem>
+                                    );
+                                  }
+                                  return null;
+                                })()}
+                                {allSectionsList && allSectionsList.length > 0 ? (
+                                  allSectionsList.map((section) => (
+                                    <MenuItem key={section.id} value={section.name} sx={{ fontSize: '0.8rem', py: 0.5 }}>{section.name}</MenuItem>
+                                  ))
+                                ) : (
+                                  units && units.length > 0 ? (
+                                    [...new Set(units.map(item => item.function?.section?.name).filter(Boolean))].map((sectionName) => (
+                                      <MenuItem key={sectionName} value={sectionName} sx={{ fontSize: '0.8rem', py: 0.5 }}>{sectionName}</MenuItem>
+                                    ))
+                                  ) : null
+                                )}
+                              </Select>
+                            </FormControl>
                         </Box>
-                      </>
+                          
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
+                            <Tooltip title={!selectedRating || !["Minor", "Major"].includes(selectedRating) ? "Please select a rating (Minor or Major) from the 'Complaint Category' dropdown above" : !ratingComment.trim() ? "Please provide a comment/description before forwarding" : "Forward ticket to selected unit/section"}>
+                              <Button
+                                size="small"
+                                variant="contained"
+                                onClick={() => handleConvertOrForward(selectedTicket.id)}
+                                disabled={!selectedRating || !["Minor", "Major"].includes(selectedRating) || !ratingComment.trim() || convertOrForwardLoading}
+                                sx={{
+                                  textTransform: 'none',
+                                  px: 1.5,
+                                  py: 0.5,
+                                  fontSize: '0.75rem',
+                                  minHeight: '32px'
+                                }}
+                              >
+                                {convertOrForwardLoading ? "Processing..." : "Forward"}
+                              </Button>
+                            </Tooltip>
+                            
+                            {/* Status Messages */}
+                            <Box sx={{ display: "flex", flexDirection: "column", gap: 0.25, minWidth: { xs: "100%", sm: "auto" } }}>
+                              {(!selectedRating || !["Minor", "Major"].includes(selectedRating)) && (
+                                <Typography variant="caption" sx={{ color: '#ff9800', fontSize: "0.7rem", fontWeight: 500 }}>
+                                  Rating required
+                                </Typography>
+                              )}
+                              {selectedRating && ["Minor", "Major"].includes(selectedRating) && !ratingComment.trim() && (
+                                <Typography variant="caption" sx={{ color: '#d32f2f', fontSize: "0.7rem", fontWeight: 500 }}>
+                                  Comment required
+                                </Typography>
+                              )}
+                              {(() => {
+                                const isDirectorate = selectedTicket.section && (
+                                  selectedTicket.section.includes('Directorate') || 
+                                  selectedTicket.section.includes('directorate') ||
+                                  (allSectionsList && allSectionsList.some(s => s.name === selectedTicket.section && !s.section_id))
+                                );
+                                const displayValue = isDirectorate ? selectedTicket.section : (selectedTicket.sub_section || selectedTicket.section);
+                                return displayValue && !forwardUnit[selectedTicket.id] && selectedRating && ["Minor", "Major"].includes(selectedRating) && ratingComment.trim() && (
+                                  <Typography variant="caption" sx={{ color: '#1976d2', fontSize: "0.7rem", fontWeight: 500 }}>
+                                    Will forward to: {displayValue}
+                                  </Typography>
+                                );
+                              })()}
+                            </Box>
+                          </Box>
+                        </Box>
+                      </Box>
                     )}
 
                     {/* Show Forward to DG button for Major complaints:
@@ -2972,6 +3761,7 @@ export default function TicketDetailsModal({
                       return originalCondition || directorCondition1 || directorCondition2 || directorCondition3;
                     })() ? (
                       <>
+                        <Tooltip title="Forward ticket to Director General for final approval">
                         <Button
                           variant="contained"
                           color="warning"
@@ -2980,7 +3770,9 @@ export default function TicketDetailsModal({
                         >
                           {forwardToDGLoading ? "Forwarding..." : "Forward to Director General"}
                         </Button>
+                        </Tooltip>
                         <Box sx={{ display: "flex", gap: 1 }}>
+                          <Tooltip title="Close and resolve this ticket">
                           <Button
                             variant="contained"
                             color="success"
@@ -2988,124 +3780,62 @@ export default function TicketDetailsModal({
                           >
                             Close ticket
                           </Button>
+                          </Tooltip>
+                          <Tooltip title="Cancel and close this dialog">
                           <Button
                             variant="outlined"
                             onClick={onClose}
                           >
                             Cancel
                           </Button>
+                          </Tooltip>
                         </Box>
                       </>
                     ) : null}
 
-                    {/* Show regular assign/forward options only if ticket is not returned and not already rated */}
-                    {!(selectedTicket.status === "Returned" || selectedTicket.complaint_type) && (
-                      <>
-                        {selectedTicket.category === "Complaint" && (
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <select
-                              style={{
-                                padding: "4px 8px",
-                                fontSize: "0.8rem",
-                                height: "32px",
-                                borderRadius: "4px"
-                              }}
-                              value={convertCategory[selectedTicket.id] || ""}
-                              onChange={(e) => handleCategoryChange(selectedTicket.id, e.target.value)}
-                            >
-                              <option value="">Convert To</option>
-                              <option value="Inquiry">Inquiry</option>
-                            </select>
-                            <Button
-                              size="small"
-                              variant="contained"
-                              onClick={() => handleConvertOrForward(selectedTicket.id)}
-                              disabled={convertOrForwardLoading}
-                            >
-                              {convertOrForwardLoading ? "Converting..." : "Convert"}
-                            </Button>
-                          </Box>
-                        )}
-
-                        <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                          <select
-                            style={{
-                              padding: "4px 8px",
-                              fontSize: "0.8rem",
-                              height: "32px",
-                              borderRadius: "4px"
-                            }}
-                            value={forwardUnit[selectedTicket.id] || selectedTicket.section || ""}
-                            onChange={(e) => handleUnitChange(selectedTicket.id, e.target.value)}
-                          >
-                            <option value="">Forward To</option>
-                            {selectedTicket.section && (
-                              <option value={selectedTicket.section}>
-                                {selectedTicket.section} 
-                              </option>
-                            )}
-                            {/* Show all sections (directorates and units) from mapping */}
-                            {allSectionsList && allSectionsList.length > 0 ? (
-                              allSectionsList.map((section) => (
-                                <option key={section.id} value={section.name}>{section.name}</option>
-                              ))
-                            ) : (
-                              /* Fallback to sections from functionData if mapping not loaded */
-                              units && units.length > 0 ? (
-                                [...new Set(units.map(item => item.function?.section?.name).filter(Boolean))].map((sectionName) => (
-                                  <option key={sectionName} value={sectionName}>{sectionName}</option>
-                                ))
-                              ) : null
-                            )}
-                          </select>
-                          <Button
-                            size="small"
-                            variant="contained"
-                            onClick={() => handleConvertOrForward(selectedTicket.id)}
-                            disabled={!selectedRating || !["Minor", "Major"].includes(selectedRating) || !ratingComment.trim() || convertOrForwardLoading}
-                            title={!selectedRating || !["Minor", "Major"].includes(selectedRating) ? "Please select a rating (Minor or Major) from the 'Complaint Category' dropdown above" : !ratingComment.trim() ? "Please provide a comment/description before forwarding" : "Submit rating and forward ticket together"}
-                          >
-                            {convertOrForwardLoading ? "Processing..." : "Forward"}
-                          </Button>
-                          {(!selectedRating || !["Minor", "Major"].includes(selectedRating)) && (
-                            <Typography variant="caption" color="warning.main" sx={{ fontSize: "0.7rem" }}>
-                              Rating required
-                            </Typography>
-                          )}
-                          {selectedRating && ["Minor", "Major"].includes(selectedRating) && !ratingComment.trim() && (
-                            <Typography variant="caption" color="error.main" sx={{ fontSize: "0.7rem" }}>
-                              Comment required
-                            </Typography>
-                          )}
-                          {selectedTicket.section && !forwardUnit[selectedTicket.id] && (
-                            <Typography variant="caption" color="info.main" sx={{ fontSize: "0.7rem" }}>
-                              Will forward to: {selectedTicket.section}
-                            </Typography>
-                          )}
-                        </Box>
-
+                    {/* Action Buttons Section */}
+                    <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1.5, mt: 2, pt: 1.5, borderTop: '1px solid #e0e0e0' }}>
                         {/* Close ticket button - only show if not returned and not already rated */}
-                        {(permissionManager.canCloseAtCurrentStep(selectedTicket) || 
+                      {!(selectedTicket.status === "Returned" || selectedTicket.complaint_type) && 
+                       (permissionManager.canCloseAtCurrentStep(selectedTicket) || 
                           (userRole === 'reviewer' && 
                            (selectedTicket.assigned_to_id === userId || 
                             selectedTicket.responsible_unit_name === "Public Relation Unit" ||
                             forwardUnit[selectedTicket.id]))) && (
-                          <Box sx={{ display: "flex", gap: 1 }}>
+                        <>
+                          <Tooltip title="Close and resolve this ticket">
                             <Button
                               variant="contained"
                               color="success"
                               onClick={handleReviewerClose}
+                              sx={{
+                                borderRadius: 1.5,
+                                textTransform: 'none',
+                                px: 2.5,
+                                py: 0.75,
+                                minWidth: 110,
+                                fontSize: '0.875rem'
+                              }}
                             >
                               Close ticket
                             </Button>
+                          </Tooltip>
+                          <Tooltip title="Cancel and close this dialog">
                             <Button
                               variant="outlined"
                               onClick={onClose}
+                              sx={{
+                                borderRadius: 1.5,
+                                textTransform: 'none',
+                                px: 2.5,
+                                py: 0.75,
+                                minWidth: 90,
+                                fontSize: '0.875rem'
+                              }}
                             >
                               Cancel
                             </Button>
-                          </Box>
-                        )}
+                          </Tooltip>
                       </>
                     )}
 
@@ -3118,23 +3848,44 @@ export default function TicketDetailsModal({
                       (userRole === 'reviewer' && 
                        (selectedTicket.assigned_to_id === userId || 
                         forwardUnit[selectedTicket.id]))) && (
-                      <Box sx={{ display: "flex", gap: 1 }}>
+                        <>
+                          <Tooltip title="Close and resolve this ticket">
                         <Button
                           variant="contained"
                           color="success"
                           onClick={handleReviewerClose}
+                              sx={{
+                                borderRadius: 1.5,
+                                textTransform: 'none',
+                                px: 2.5,
+                                py: 0.75,
+                                minWidth: 110,
+                                fontSize: '0.875rem'
+                              }}
                         >
                           Close ticket
                         </Button>
+                          </Tooltip>
+                          <Tooltip title="Cancel and close this dialog">
                         <Button
                           variant="outlined"
                           onClick={onClose}
+                              sx={{
+                                borderRadius: 1.5,
+                                textTransform: 'none',
+                                px: 2.5,
+                                py: 0.75,
+                                minWidth: 90,
+                                fontSize: '0.875rem'
+                              }}
                         >
                           Cancel
                         </Button>
-                      </Box>
+                          </Tooltip>
+                        </>
                     )}
                   </Box>
+                  </Paper>
                 )}
 
 
@@ -3143,6 +3894,7 @@ export default function TicketDetailsModal({
                  selectedTicket?.assigned_to_id === userId && (
                   <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2, justifyContent: "flex-end" }}>
                     {/* Close Ticket */}
+                    <Tooltip title="Close and approve this ticket">
                     <Button
                       variant="contained"
                       color="success"
@@ -3150,8 +3902,10 @@ export default function TicketDetailsModal({
                     >
                       Close ticket
                     </Button>
+                    </Tooltip>
                     
                     {/* Reverse (Assign) to Reviewer */}
+                    <Tooltip title="Reverse ticket back to reviewer for clarification">
                     <Button
                       variant="contained"
                       color="warning"
@@ -3160,14 +3914,17 @@ export default function TicketDetailsModal({
                     >
                       Reverse
                     </Button>
+                    </Tooltip>
                     
                     {/* Close Modal */}
+                    <Tooltip title="Cancel and close this dialog">
                     <Button
                       variant="outlined"
                       onClick={onClose}
                     >
                       Cancel
                     </Button>
+                    </Tooltip>
                   </Box>
                 )}
 
@@ -3176,12 +3933,17 @@ export default function TicketDetailsModal({
                   !["agent", "reviewer", "attendee", "director-general"].includes(localStorage.getItem("role"))) && 
                  selectedTicket?.assigned_to_id === localStorage.getItem("userId") && selectedTicket.status !== "Closed") && (
                   <>
-                    {/* Show Forward to DG button for Director with Major Complaint Directorate */}
-                    {userRole === "director" && 
-                     selectedTicket?.category === "Complaint" && 
-                     selectedTicket?.complaint_type === "Major" &&
-                     selectedTicket?.responsible_unit_name?.toLowerCase().includes("directorate") &&
-                     (selectedTicket?.status === "Attended and Recommended" || selectedTicket?.status === "Reversed") && (
+                    {/* Show Forward to DG button for Director or Head-of-unit with Major Complaint */}
+                    {((userRole === "director" && 
+                       selectedTicket?.category === "Complaint" && 
+                       selectedTicket?.complaint_type === "Major" &&
+                       selectedTicket?.responsible_unit_name?.toLowerCase().includes("directorate") &&
+                       (selectedTicket?.status === "Attended and Recommended" || selectedTicket?.status === "Reversed")) ||
+                      (userRole === "head-of-unit" && 
+                       selectedTicket?.category === "Complaint" && 
+                       selectedTicket?.complaint_type === "Major" &&
+                       selectedTicket?.assigned_to_id === userId)) && (
+                      <Tooltip title="Forward ticket to Director General for final approval">
                       <Button
                         variant="contained"
                         color="warning"
@@ -3191,8 +3953,10 @@ export default function TicketDetailsModal({
                       >
                         {forwardToDGLoading ? "Forwarding..." : "Forward to Director General"}
                       </Button>
+                      </Tooltip>
                     )}
                     
+                    <Tooltip title="Reverse this ticket back to the previous assignee">
                     <Button
                       variant="contained"
                       color="warning"
@@ -3202,6 +3966,8 @@ export default function TicketDetailsModal({
                     >
                       Reverse
                     </Button>
+                    </Tooltip>
+                    <Tooltip title="Assign this ticket to an attendee">
                     <Button
                       variant="contained"
                       color="info"
@@ -3210,6 +3976,7 @@ export default function TicketDetailsModal({
                     >
                       Assign
                     </Button>
+                    </Tooltip>
                   </>
                 )}
 
@@ -3218,6 +3985,7 @@ export default function TicketDetailsModal({
                  wasPreviouslyAssigned() && 
                  selectedTicket?.assigned_to_id !== localStorage.getItem("userId") && 
                  selectedTicket.status !== "Closed" && (
+                  <Tooltip title="Reassign this ticket to a different attendee">
                   <Button
                     variant="contained"
                     color="secondary"
@@ -3226,6 +3994,7 @@ export default function TicketDetailsModal({
                   >
                     Reassign
                   </Button>
+                  </Tooltip>
                 )}
 
                 {/* Agent Reverse button for rated tickets */}
@@ -3233,6 +4002,7 @@ export default function TicketDetailsModal({
                  selectedTicket?.assigned_to_id === localStorage.getItem("userId") &&
                  selectedTicket?.complaint_type && 
                  ["Major", "Minor"].includes(selectedTicket.complaint_type) && (
+                  <Tooltip title="Reverse this ticket with a recommendation">
                   <Button
                     variant="contained"
                     color="warning"
@@ -3242,27 +4012,36 @@ export default function TicketDetailsModal({
                   >
                     Reverse with Recommendation
                   </Button>
+                  </Tooltip>
                 )}
 
                 {/* Manager Send to Director button - visible for all complaints (Major and Minor) */}
                 {userRole === "manager" && 
                  selectedTicket?.assigned_to_id === localStorage.getItem("userId") &&
                  selectedTicket?.status !== "Closed" && (
+                  <Tooltip title="Send this ticket to Director for review">
                   <Button
                     variant="contained"
                     color="success"
                     sx={{ mr: 1 }}
-                    onClick={() => setIsSendToDirectorModalOpen(true)}
+                    onClick={() => {
+                      // Initialize edited resolution with current ticket description
+                      setEditedResolution(selectedTicket?.description || "");
+                      setIsSendToDirectorModalOpen(true);
+                    }}
                     disabled={sendToDirectorLoading}
                   >
                     Send to Director
                   </Button>
+                  </Tooltip>
                 )}
                       {/* General Cancel button for all users except reviewers and director-general */}
       {userRole !== "reviewer" && userRole !== "director-general" && (
+                  <Tooltip title="Cancel and close this dialog">
                   <Button variant="outlined" onClick={onClose}>
                     Cancel
                   </Button>
+                  </Tooltip>
                 )}
               </Box>
             </>
@@ -3362,6 +4141,7 @@ export default function TicketDetailsModal({
             </Box>
 
             <Box sx={{ mt: 2, textAlign: "right" }}>
+              <Tooltip title={userRole === "manager" && selectedTicket?.complaint_type === "Major" ? "Submit your recommendation for this ticket" : "Submit your resolution for this ticket"}>
               <Button
                 variant="contained"
                 color="primary"
@@ -3375,6 +4155,8 @@ export default function TicketDetailsModal({
                     : "Submit")
                 }
               </Button>
+              </Tooltip>
+              <Tooltip title="Cancel and close this dialog">
               <Button
                 variant="outlined"
                 onClick={() => setIsAttendDialogOpen(false)}
@@ -3382,16 +4164,40 @@ export default function TicketDetailsModal({
               >
                 Cancel
               </Button>
+              </Tooltip>
             </Box>
           </Box>
         </DialogContent>
       </Dialog>
 
       {/* Manager Send to Director Dialog */}
-      <Dialog open={isSendToDirectorModalOpen} onClose={() => setIsSendToDirectorModalOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={isSendToDirectorModalOpen} onClose={() => {
+        setIsSendToDirectorModalOpen(false);
+        setDirectorRecommendation("");
+        setEditedResolution("");
+        setAttachment(null);
+      }} maxWidth="sm" fullWidth>
         <DialogTitle>Send to Director - Recommendation</DialogTitle>
         <DialogContent>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
+            {/* Creator's Description (Editable) - For Manager */}
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Creator's Description (Editable):
+              </Typography>
+              <TextField
+                multiline
+                rows={4}
+                value={editedResolution}
+                onChange={e => setEditedResolution(e.target.value)}
+                fullWidth
+                placeholder="Edit creator's description..."
+              />
+              <Typography variant="caption" sx={{ color: "#666", mt: 0.5, display: "block" }}>
+                Edit the creator's description. This will update the ticket's description.
+              </Typography>
+            </Box>
+
             <Box>
               <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
                 Recommendation Details:
@@ -3441,6 +4247,9 @@ export default function TicketDetailsModal({
                     const formData = new FormData();
                     formData.append("userId", localStorage.getItem("userId"));
                     formData.append("recommendation", directorRecommendation);
+                    // Send edited creator's description if provided, otherwise send current description
+                    const resolutionDetails = editedResolution.trim() || selectedTicket?.description || "";
+                    formData.append("resolution_details", resolutionDetails);
                     
                     if (attachment) {
                       formData.append("attachment", attachment);
@@ -3462,6 +4271,7 @@ export default function TicketDetailsModal({
 
                     showSnackbar(data.message || "Ticket sent to Director successfully", "success");
                     setDirectorRecommendation("");
+                    setEditedResolution("");
                     setAttachment(null);
                     setIsSendToDirectorModalOpen(false);
                     refreshTickets && refreshTickets();
@@ -3489,7 +4299,12 @@ export default function TicketDetailsModal({
       </Dialog>
 
       {/* Reviewer Close Dialog */}
-      <Dialog open={isReviewerCloseDialogOpen} onClose={() => setIsReviewerCloseDialogOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog 
+        open={isReviewerCloseDialogOpen} 
+        onClose={() => setIsReviewerCloseDialogOpen(false)} 
+        maxWidth="sm" 
+        fullWidth
+      >
         <DialogTitle>
           {userRole === "reviewer" ? "Close Ticket - Resolution Details" : "Attend Ticket - Resolution Details"}
         </DialogTitle>
@@ -3497,7 +4312,7 @@ export default function TicketDetailsModal({
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
             <Box>
               <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
-                Resolution Type:
+                Resolution Type *
               </Typography>
               <select
                 style={{
@@ -3505,7 +4320,9 @@ export default function TicketDetailsModal({
                   padding: "8px 12px",
                   fontSize: "0.9rem",
                   borderRadius: "4px",
-                  border: "1px solid #ccc"
+                  border: "1px solid #ccc",
+                  backgroundColor: "white",
+                  color: "#000"
                 }}
                 value={resolutionType}
                 onChange={(e) => setResolutionType(e.target.value)}
@@ -3518,7 +4335,7 @@ export default function TicketDetailsModal({
 
             <Box>
               <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
-                Resolution Details:
+                Resolution Details *
               </Typography>
               <TextField
                 multiline
@@ -3526,8 +4343,13 @@ export default function TicketDetailsModal({
                 value={resolutionDetails}
                 onChange={(e) => setResolutionDetails(e.target.value)}
                 fullWidth
-                placeholder="Enter resolution details..."
+                placeholder="Please provide detailed resolution information..."
               />
+              {!resolutionDetails.trim() && (
+                <Typography variant="caption" sx={{ color: "red", mt: 0.5, display: "block" }}>
+                  Comment required
+                </Typography>
+              )}
             </Box>
 
             <Box>
@@ -3578,7 +4400,17 @@ export default function TicketDetailsModal({
       </Dialog>
 
       {/* Reverse Modal */}
-      <Dialog open={isReverseModalOpen} onClose={() => setIsReverseModalOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog 
+        open={isReverseModalOpen} 
+        onClose={() => {
+          setIsReverseModalOpen(false);
+          setReverseReason("");
+          setReverseResolutionType("");
+          setAttachment(null);
+        }} 
+        maxWidth="sm" 
+        fullWidth
+      >
         <DialogTitle>Reverse Ticket - Resolution Details</DialogTitle>
         <DialogContent>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
@@ -3592,15 +4424,15 @@ export default function TicketDetailsModal({
                   padding: "8px 12px",
                   fontSize: "0.9rem",
                   borderRadius: "4px",
-                  border: "1px solid #ccc"
+                  border: "1px solid #ccc",
+                  backgroundColor: "#f5f5f5",
+                  color: "#000",
+                  cursor: "not-allowed"
                 }}
-                value={reverseResolutionType}
-                onChange={(e) => setReverseResolutionType(e.target.value)}
+                value="Reverse"
+                disabled={true}
               >
-                <option value="">Select Resolution Type</option>
-                <option value="Resolved">Resolved</option>
-                <option value="Duplicate">Duplicate</option>
-                <option value="Duplicate">Reverse</option>
+                <option value="Reverse">Reverse</option>
               </select>
             </Box>
 
@@ -3642,14 +4474,17 @@ export default function TicketDetailsModal({
             </Box>
 
             <Box sx={{ mt: 2, textAlign: "right" }}>
+              <Tooltip title="Reverse this ticket back to the previous assignee">
               <Button
                 variant="contained"
                 color="warning"
                 onClick={handleReverse}
-                disabled={isReversing || !reverseResolutionType || !reverseReason.trim()}
+                disabled={isReversing || !reverseReason.trim()}
               >
                 {isReversing ? "Reversing..." : "Reverse Ticket"}
               </Button>
+              </Tooltip>
+              <Tooltip title="Cancel and close this dialog">
               <Button
                 variant="outlined"
                 onClick={() => {
@@ -3663,6 +4498,7 @@ export default function TicketDetailsModal({
               >
                 Cancel
               </Button>
+              </Tooltip>
             </Box>
           </Box>
         </DialogContent>
@@ -3765,6 +4601,7 @@ export default function TicketDetailsModal({
           <Divider sx={{ my: 3 }} />
           
           <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1.5 }}>
+            <Tooltip title="Cancel and close this dialog">
             <Button 
               onClick={() => setIsAssignModalOpen(false)} 
               disabled={assignLoading}
@@ -3779,6 +4616,8 @@ export default function TicketDetailsModal({
             >
               Cancel
             </Button>
+            </Tooltip>
+            <Tooltip title="Assign this ticket to the selected attendee">
             <Button
               variant="contained"
               color="primary"
@@ -3793,6 +4632,7 @@ export default function TicketDetailsModal({
             >
               {assignLoading ? "Assigning..." : "Assign Ticket"}
             </Button>
+            </Tooltip>
           </Box>
         </Box>
       </Modal>
@@ -3908,6 +4748,7 @@ export default function TicketDetailsModal({
             >
               Cancel
             </Button>
+            <Tooltip title="Reassign this ticket to a different attendee">
             <Button
               variant="contained"
               color="secondary"
@@ -3922,6 +4763,7 @@ export default function TicketDetailsModal({
             >
               {reassignLoading ? "Reassigning..." : "Reassign Ticket"}
             </Button>
+            </Tooltip>
           </Box>
         </Box>
       </Modal>
@@ -4015,32 +4857,53 @@ export default function TicketDetailsModal({
         <DialogTitle>Forward to Director General</DialogTitle>
         <DialogContent>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
-            {/* Display the original ticket description (read-only) */}
+            {/* Creator's Description (Editable) - Only show for manager and head-of-unit, NOT for director */}
+            {(userRole === "manager" || userRole === "head-of-unit") && (
+              <Box>
+                <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                  Creator's Description (Editable):
+                </Typography>
+                <TextField
+                  multiline
+                  rows={4}
+                  value={editedResolution}
+                  onChange={e => setEditedResolution(e.target.value)}
+                  fullWidth
+                  placeholder="Edit creator's description..."
+                />
+                <Typography variant="caption" sx={{ color: "#666", mt: 0.5, display: "block" }}>
+                  Edit the creator's description. This will update the ticket's description.
+                </Typography>
+              </Box>
+            )}
+
+            {/* Director/Head-of-unit's own description */}
             <Box>
               <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
-                Original Ticket Description:
+                {userRole === "director" ? "Director's Description:" : userRole === "head-of-unit" ? "Head of Unit's Description:" : "Your Description:"}
               </Typography>
               <TextField
                 multiline
                 rows={4}
-                value={selectedTicket?.description || ""}
+                value={ownDescription}
+                onChange={e => setOwnDescription(e.target.value)}
                 fullWidth
-                disabled
-                sx={{ 
-                  backgroundColor: '#f5f5f5',
-                  '& .MuiInputBase-input.Mui-disabled': {
-                    WebkitTextFillColor: '#000',
-                    color: '#000'
-                  }
-                }}
+                placeholder={userRole === "director" ? "Enter your (Director's) description..." : userRole === "head-of-unit" ? "Enter your (Head of Unit's) description..." : "Enter your description..."}
               />
+              <Typography variant="caption" sx={{ color: "#666", mt: 0.5, display: "block" }}>
+                {userRole === "director" 
+                  ? "This is your (Director's) own description. This will be saved in your assignment record." 
+                  : userRole === "head-of-unit" 
+                  ? "This is your (Head of Unit's) own description. This will be saved in your assignment record."
+                  : "This is your own description."}
+              </Typography>
             </Box>
 
-            {/* Show existing attendee attachment if any */}
-            {selectedTicket?.attachment_path && (
+            {/* Show existing previous assigner's attachment if any */}
+            {(previousAssignerAttachment || selectedTicket?.attachment_path) && (
               <Box>
                 <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
-                  Attendee's Attachment:
+                  {userRole === "director" ? "Manager's Attachment:" : userRole === "head-of-unit" ? "Attendee's Attachment:" : "Attendee's Attachment:"}
                 </Typography>
                 <Typography
                   variant="body2"
@@ -4054,34 +4917,19 @@ export default function TicketDetailsModal({
                     borderRadius: 1,
                     border: '1px solid #dee2e6'
                   }}
-                  onClick={() => handleDownloadAttachment(selectedTicket.attachment_path)}
+                  onClick={() => handleDownloadAttachment(previousAssignerAttachment || selectedTicket.attachment_path)}
                 >
-                  📎 View Attendee's Attachment: {getFileNameFromPath(selectedTicket.attachment_path)}
+                  📎 View {userRole === "director" ? "Manager's" : userRole === "head-of-unit" ? "Attendee's" : "Attendee's"} Attachment: {getFileNameFromPath(previousAssignerAttachment || selectedTicket.attachment_path)}
                 </Typography>
               </Box>
             )}
-
-            {/* Editable attendee resolution details */}
-            <Box>
-              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
-                Resolution Details (Editable):
-              </Typography>
-              <TextField
-                multiline
-                rows={4}
-                value={editedResolution}
-                onChange={e => setEditedResolution(e.target.value)}
-                fullWidth
-                placeholder="Edit the resolution details..."
-              />
-            </Box>
 
             <Box sx={{ mt: 2, textAlign: "right" }}>
               <Button
                 variant="contained"
                 color="primary"
                 onClick={handleForwardToDGSubmit}
-                disabled={!editedResolution.trim()}
+                disabled={!ownDescription.trim()}
               >
                 Forward to Director General
               </Button>
@@ -4228,83 +5076,54 @@ export default function TicketDetailsModal({
       </Dialog>
 
       {/* Edit Reversed Ticket Dialog */}
-      <Dialog open={isEditReversedTicketDialogOpen} onClose={() => setIsEditReversedTicketDialogOpen(false)} maxWidth={false} fullWidth PaperProps={{ sx: { width: '40%' } }}>
+      <Dialog open={isEditReversedTicketDialogOpen} onClose={() => setIsEditReversedTicketDialogOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>
           Edit Reversed Ticket Details
         </DialogTitle>
         <DialogContent>
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
-            {/* Section Field */}
+            {/* Subject Field - Auto-fills Sub-section and Section when selected (like ticket creation) */}
             <Box>
               <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
-                Section: <span style={{ color: "red" }}>*</span>
+                Subject: <span style={{ color: "red" }}>*</span>
               </Typography>
-              <select
-                style={{
-                  width: "100%",
-                  padding: "8px 12px",
-                  fontSize: "0.9rem",
-                  borderRadius: "4px",
-                  border: "1px solid #ccc"
-                }}
-                value={editReversedTicketData.section}
-                onChange={(e) => handleEditReversedTicketChange("section", e.target.value)}
-              >
-                <option value="">Select Section</option>
-                {functionData && functionData.length > 0 ? (
-                  // Get unique sections and add debug logging
-                  (() => {
-                    const sections = [...new Set(functionData.map(item => item.function?.section?.name).filter(Boolean))];
-                    console.log('🔍 Available sections:', sections);
-                    console.log('🔍 FunctionData structure:', functionData.slice(0, 2)); // Show first 2 items
-                    return sections.map((sectionName) => {
-                      return (
-                        <option key={sectionName} value={sectionName}>
-                          {sectionName}
-                        </option>
-                      );
-                    });
-                  })()
-                ) : (
-                  <option value="" disabled>
-                    {functionData ? 'No sections available' : 'Loading sections...'}
-                  </option>
-                )}
-              </select>
-              {/* Debug info */}
+              {functionData && functionData.length > 0 ? (
+                <select
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    fontSize: "0.9rem",
+                    borderRadius: "4px",
+                    border: "1px solid #ccc"
+                  }}
+                  value={functionData.find(item => item.name === editReversedTicketData.subject)?.id || ""}
+                  onChange={(e) => handleSubjectChange(e.target.value)}
+                >
+                  <option value="">Select Subject</option>
+                  {functionData.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <TextField
+                  fullWidth
+                  value={editReversedTicketData.subject}
+                  onChange={(e) => handleEditReversedTicketChange("subject", e.target.value)}
+                  placeholder="Enter ticket subject..."
+                  size="small"
+                  required
+                />
+              )}
               {functionData && functionData.length === 0 && (
-                <span style={{ color: "orange", fontSize: "0.75rem" }}>
+                <span style={{ color: "orange", fontSize: "0.75rem", display: "block", marginTop: "4px" }}>
                   No function data loaded. Please check if subjects are configured.
                 </span>
               )}
-              {functionData && (
-                <span style={{ color: "blue", fontSize: "0.75rem" }}>
-                  Function data loaded: {functionData.length} items
-                </span>
-              )}
             </Box>
 
-            {/* Section Field */}
-            <Box>
-              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
-                Section:
-              </Typography>
-              <TextField
-                fullWidth
-                value={editReversedTicketData.section}
-                InputProps={{
-                  readOnly: true,
-                  style: {
-                    backgroundColor: "#f5f5f5",
-                    fontSize: "0.875rem"
-                  }
-                }}
-                placeholder="Auto-filled when subject is selected..."
-                size="small"
-              />
-            </Box>
-
-            {/* Sub-section Field */}
+            {/* Sub-section Field - Auto-filled when Subject is selected */}
             <Box>
               <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
                 Sub-section:
@@ -4324,34 +5143,14 @@ export default function TicketDetailsModal({
               />
             </Box>
 
-            {/* Responsible Unit ID */}
-            {/* <Box>
-              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
-                Responsible Unit ID:
-              </Typography>
-              <TextField
-                fullWidth
-                value={editReversedTicketData.responsible_unit_id}
-                InputProps={{
-                  readOnly: true,
-                  style: {
-                    backgroundColor: "#f5f5f5",
-                    fontSize: "0.875rem"
-                  }
-                }}
-                placeholder="Auto-filled when subject is selected..."
-                size="small"
-              />
-            </Box> */}
-
-            {/* Responsible Unit Name */}
+            {/* Section Field - Auto-filled when Subject is selected */}
             <Box>
               <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
-                Responsible Unit Name:
+                Section:
               </Typography>
               <TextField
                 fullWidth
-                value={editReversedTicketData.responsible_unit_name}
+                value={editReversedTicketData.section || "Unit"}
                 InputProps={{
                   readOnly: true,
                   style: {
@@ -4362,6 +5161,23 @@ export default function TicketDetailsModal({
                 placeholder="Auto-filled when subject is selected..."
                 size="small"
               />
+            </Box>
+
+
+            {/* Display Fields (Read-only) */}
+            <Box sx={{ mt: 2, p: 2, bgcolor: "#f5f5f5", borderRadius: 1 }}>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Summary:
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 0.5 }}>
+                <strong>Subject:</strong> {editReversedTicketData.subject || "N/A"}
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 0.5 }}>
+                <strong>Sub-section:</strong> {editReversedTicketData.sub_section || "N/A"}
+              </Typography>
+              <Typography variant="body2" sx={{ mb: 0.5 }}>
+                <strong>Section:</strong> {editReversedTicketData.section || "N/A"}
+              </Typography>
             </Box>
 
             <Box sx={{ mt: 2, textAlign: "right" }}>
@@ -4486,7 +5302,7 @@ export default function TicketDetailsModal({
                         {message.user_name || message.full_name || 'Unknown User'}
                       </Typography>
                       <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-                        {message.message}
+                        {renderMessageWithMentions(message.message)}
                       </Typography>
                       <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}>
                         {new Date(message.created_at).toLocaleString()}
@@ -4506,22 +5322,73 @@ export default function TicketDetailsModal({
             flexShrink: 0
           }}>
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
-              <TextField
-                fullWidth
-                multiline
-                rows={2}
-                placeholder="Type your message..."
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyPress={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey) {
-                    e.preventDefault();
-                    handleSendMessage();
-                  }
-                }}
-                size="small"
-                disabled={sendingMessage}
-              />
+              <Box sx={{ position: 'relative', flex: 1 }}>
+                <TextField
+                  inputRef={messageTextFieldRef}
+                  fullWidth
+                  multiline
+                  rows={2}
+                  placeholder="Type your message... Type @ to mention users"
+                  value={newMessage}
+                  onChange={handleMessageTextChange}
+                  onKeyDown={handleMentionKeyDown}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey && !e.ctrlKey && !showMentions) {
+                      e.preventDefault();
+                      handleSendMessage();
+                    }
+                  }}
+                  size="small"
+                  disabled={sendingMessage}
+                />
+                {showMentions && filteredMentionUsers.length > 0 && (
+                  <ClickAwayListener onClickAway={() => setShowMentions(false)}>
+                    <Popper
+                      open={showMentions}
+                      anchorEl={mentionAnchorEl}
+                      placement="top-start"
+                      style={{ zIndex: 1300, width: mentionAnchorEl?.offsetWidth || 300 }}
+                    >
+                      <Paper
+                        elevation={4}
+                        sx={{
+                          maxHeight: 200,
+                          overflow: 'auto',
+                          mt: 1,
+                          border: '1px solid #e0e0e0'
+                        }}
+                      >
+                        <List dense>
+                          {filteredMentionUsers.map((user, index) => (
+                            <ListItem
+                              key={user.id}
+                              button
+                              selected={index === selectedMentionIndex}
+                              onClick={() => handleMentionSelect(user)}
+                              sx={{
+                                '&:hover': { backgroundColor: '#f5f5f5' },
+                                '&.Mui-selected': { backgroundColor: '#e3f2fd' }
+                              }}
+                            >
+                              <ListItemAvatar>
+                                <Avatar sx={{ width: 32, height: 32, bgcolor: '#1976d2' }}>
+                                  {user.name.charAt(0).toUpperCase()}
+                                </Avatar>
+                              </ListItemAvatar>
+                              <ListItemText
+                                primary={user.name}
+                                secondary={`${user.role}${user.unit_section ? ` • ${user.unit_section}` : ''}`}
+                                primaryTypographyProps={{ fontSize: '0.875rem' }}
+                                secondaryTypographyProps={{ fontSize: '0.75rem' }}
+                              />
+                            </ListItem>
+                          ))}
+                        </List>
+                      </Paper>
+                    </Popper>
+                  </ClickAwayListener>
+                )}
+              </Box>
               <Button
                 variant="contained"
                 onClick={handleSendMessage}
