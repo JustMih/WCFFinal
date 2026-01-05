@@ -637,20 +637,32 @@ const AgentCRM = () => {
       console.log("🔍 Dependents in formData:", formData.dependents);
 
       // --- Allocated User Logic ---
-      // Routing Rules:
-      // 1. If searched details has a claim number → Send to checklist user shown in details
-      // 2. If no claim number and it's an inquiry → Send to focal person of the selected section/unit
-      // 3. Otherwise → Fallback to institution's allocated staff
+      // Routing Rules for Inquiry Tickets:
+      // 1. If Inquiry + has claim + has allocated user → Send to allocated user (priority over checklist user)
+      // 2. If Inquiry + has claim + no allocated user → Send to focal person (backend will handle)
+      // 3. If Inquiry + no claim + has allocated user → Send to allocated user
+      // 4. If Inquiry + no claim + no allocated user → Send to focal person (backend will handle)
+      // For other categories: Follow normal routing (claim → checklist user, etc.)
       let employerAllocatedStaffUsername = "";
 
+      // For Inquiry tickets: Always prioritize allocated user if available (even if claim exists)
+      // Priority: selectedSuggestion > formData > selectedEmployer
       if (selectedSuggestion && selectedSuggestion.allocated_user_username) {
         // Use allocated user from employee search response
         employerAllocatedStaffUsername = selectedSuggestion.allocated_user_username;
-        console.log("Routing: Using allocated user from employee search:", employerAllocatedStaffUsername);
+        console.log("🔵 Inquiry - Using allocated user from employee search:", employerAllocatedStaffUsername);
+      } else if (formData.allocated_user_username) {
+        // Use allocated user from formData (from employer selection)
+        employerAllocatedStaffUsername = formData.allocated_user_username;
+        console.log("🔵 Inquiry - Using allocated user from formData (employer):", employerAllocatedStaffUsername);
+      } else if (selectedEmployer && selectedEmployer.allocated_staff_username) {
+        // Use allocated user from selected employer (fallback)
+        employerAllocatedStaffUsername = selectedEmployer.allocated_staff_username;
+        console.log("🔵 Inquiry - Using allocated user from selected employer:", employerAllocatedStaffUsername);
       } else {
-        // No allocated user found, will be assigned by backend logic
+        // No allocated user found, will be assigned by backend logic (to focal-person for Inquiry)
         employerAllocatedStaffUsername = "";
-        console.log("Routing: No allocated user found, will be assigned by backend");
+        console.log("🔵 Inquiry - No allocated user found, backend will assign to focal-person");
       }
 
       const ticketData = {
@@ -678,6 +690,15 @@ const AgentCRM = () => {
         // Add dependents field explicitly
         dependents: formData.dependents || []
       };
+      
+      // Debug allocated user
+      console.log("🔵 FRONTEND ALLOCATED USER DEBUG (Agent Dashboard):");
+      console.log("  - selectedSuggestion?.allocated_user_username:", selectedSuggestion?.allocated_user_username);
+      console.log("  - employerAllocatedStaffUsername:", employerAllocatedStaffUsername);
+      console.log("  - ticketData.allocated_user_username:", ticketData.allocated_user_username);
+      console.log("  - ticketData.employerAllocatedStaffUsername:", ticketData.employerAllocatedStaffUsername);
+      console.log("  - category:", formData.category);
+      console.log("  - isInquiry:", formData.category === "Inquiry");
 
       // Debug: Log final ticketData being sent
       console.log("🚀 Final ticketData being sent to backend:", ticketData);
@@ -2091,13 +2112,26 @@ const AgentCRM = () => {
     setEmployerSearchQuery(employer.name || "");
     setEmployerSearchResults([]);
     
+    // Extract allocated staff from employer data
+    const allocatedStaffUsername = employer.allocated_staff_username || null;
+    
+    console.log("🔵 EMPLOYER SELECTION (Agent Dashboard) - Allocated User:");
+    console.log("  - employer.allocated_staff_username:", employer.allocated_staff_username);
+    console.log("  - employer.allocated_staff_name:", employer.allocated_staff_name);
+    console.log("  - employer.allocated_staff_id:", employer.allocated_staff_id);
+    console.log("  - Final allocatedStaffUsername:", allocatedStaffUsername);
+    
     // Update form data with selected employer
     setFormData(prev => ({
       ...prev,
       employerName: employer.name || "",
       institution: employer.name || "",
       nidaNumber: employer.tin || "",
-      phoneNumber: employer.phone || ""
+      phoneNumber: employer.phone || "",
+      // Store allocated staff information from employer
+      allocated_user_username: allocatedStaffUsername || prev.allocated_user_username || "",
+      allocated_user_name: employer.allocated_staff_name || prev.allocated_user_name || "",
+      allocated_user_id: employer.allocated_staff_id || prev.allocated_user_id || ""
     }));
 
     // If this is an employer search (not employee search), mark as completed
@@ -2174,6 +2208,27 @@ const AgentCRM = () => {
     const dependents = employee.dependents || [];
     console.log("Dependents extracted:", dependents); // Debug log
     
+    // Extract allocated user from multiple sources (claim, employer, employee)
+    const claims = employee.claims || [];
+    const firstClaim = claims.length > 0 ? claims[0] : null;
+    const allocatedUserFromClaim = firstClaim?.allocated_user_username || null;
+    const allocatedUserFromEmployer = employee.employer?.allocated_staff_username || 
+                                      employeeData?.employer?.allocated_staff_username || 
+                                      selectedEmployer?.allocated_staff_username ||
+                                      null;
+    const allocatedUserFromEmployee = employeeData?.allocated_user_username || null;
+    
+    // Priority: claim > employer > employee
+    const finalAllocatedUser = allocatedUserFromClaim || allocatedUserFromEmployer || allocatedUserFromEmployee;
+    
+    console.log("🔵 ALLOCATED USER EXTRACTION (Agent Dashboard):");
+    console.log("  - allocatedUserFromClaim:", allocatedUserFromClaim);
+    console.log("  - allocatedUserFromEmployer:", allocatedUserFromEmployer);
+    console.log("  - allocatedUserFromEmployee:", allocatedUserFromEmployee);
+    console.log("  - finalAllocatedUser:", finalAllocatedUser);
+    console.log("  - employee.employer:", employee.employer);
+    console.log("  - selectedEmployer:", selectedEmployer);
+    
     // Parse the name to extract first, middle, and last names
     const fullName = employeeData.name || "";
     const nameWithoutEmployer = fullName.split("—")[0].trim();
@@ -2193,12 +2248,12 @@ const AgentCRM = () => {
       nidaNumber: employeeData.nin || "",
       institution: selectedEmployer.name || "",
       employerName: selectedEmployer.name || "",
-      // Store allocated user information from search response
-      allocated_user_username: employeeData.allocated_user_username || "",
-      allocated_user_name: employeeData.allocated_user || "",
-      allocated_user_id: employeeData.allocated_user_id || "",
+      // Store allocated user information from search response (with fallback to employer)
+      allocated_user_username: finalAllocatedUser || "",
+      allocated_user_name: firstClaim?.allocated_user || employee.employer?.allocated_staff_name || employeeData?.allocated_user || "",
+      allocated_user_id: firstClaim?.allocated_user_id || employee.employer?.allocated_staff_id || employeeData?.allocated_user_id || "",
       // Store claim information
-      claimNumber: employeeData.claim_number || "",
+      claimNumber: employeeData.claim_number || firstClaim?.claim_number || "",
       // Store dependents from search response (correctly extracted)
       dependents: dependents
     }));
