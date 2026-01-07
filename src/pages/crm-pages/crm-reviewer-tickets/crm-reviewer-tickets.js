@@ -42,13 +42,15 @@ export default function CRMReviewerTickets() {
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   const DEFAULT_COLUMNS = [
     "ticket_id",
-    "created_at",
-    "fullName",
+    "createdAt",
+    "employee",
+    "employer",
     "phone_number",
     "region",
     "status",
-    "dateCreatedAt",
-    "categoryType"
+    "categoryType",
+    "category",
+    "assigned_to_role"
   ];
   const [activeColumns, setActiveColumns] = useState(DEFAULT_COLUMNS);
   const [loading, setLoading] = useState(true);
@@ -209,16 +211,17 @@ export default function CRMReviewerTickets() {
   const renderTableHeader = () => (
     <tr>
       {activeColumns.includes("ticket_id") && <th>Ticket ID</th>}
-      {activeColumns.includes("fullName") && <th>Full Name</th>}
+      {activeColumns.includes("createdAt") && <th>Created At</th>}
+      {activeColumns.includes("employee") && <th>Employee</th>}
+      {activeColumns.includes("employer") && <th>Employer</th>}
       {activeColumns.includes("phone_number") && <th>Phone</th>}
       {activeColumns.includes("region") && <th>Region</th>}
       {activeColumns.includes("status") && <th>Status</th>}
-      {activeColumns.includes("subject") && <th>Subject</th>}
+      {activeColumns.includes("categoryType") && <th>Category Type (Major/Minor)</th>}
       {activeColumns.includes("category") && <th>Category</th>}
       {activeColumns.includes("assigned_to_role") && <th>Assigned Role</th>}
-      {activeColumns.includes("createdAt") && <th>Created At</th>}
-      {activeColumns.includes("dateCreatedAt") && <th>Created At</th>}
-      {activeColumns.includes("categoryType") && <th>Category Type (Major/Minor)</th>}
+      {activeColumns.includes("subject") && <th>Subject</th>}
+      {activeColumns.includes("fullName") && <th>Full Name</th>}
       <th>Actions</th>
     </tr>
   );
@@ -228,16 +231,50 @@ export default function CRMReviewerTickets() {
       {activeColumns.includes("ticket_id") && (
         <td>{ticket.ticket_id || ticket.id}</td>
       )}
+      {activeColumns.includes("createdAt") && (
+        <td>
+          {ticket.created_at
+            ? new Date(ticket.created_at).toLocaleString("en-GB", {
+                day: "2-digit",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+                hour12: true,
+              })
+            : "N/A"}
+        </td>
+      )}
+      {activeColumns.includes("employee") && (
+        <td>
+          {ticket.first_name && ticket.first_name.trim() !== ""
+            ? `${ticket.first_name} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim()
+            : ticket.representative_name && ticket.representative_name.trim() !== ""
+              ? ticket.representative_name
+              : "N/A"}
+        </td>
+      )}
+      {activeColumns.includes("employer") && (
+        <td>
+          {typeof ticket.institution === "string"
+            ? ticket.institution
+            : ticket.institution && typeof ticket.institution === "object" && typeof ticket.institution.name === "string"
+              ? ticket.institution.name
+              : ticket.employer && typeof ticket.employer === "object" && typeof ticket.employer.name === "string"
+                ? ticket.employer.name
+                : ticket.employer && typeof ticket.employer === "string"
+                  ? ticket.employer
+                  : "N/A"}
+        </td>
+      )}
       {activeColumns.includes("fullName") && (
         <td>
-        {ticket.first_name && ticket.first_name.trim() !== ""
-          ? `${ticket.first_name} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim()
-          : (typeof ticket.institution === "string"
-              ? ticket.institution
-              : ticket.institution && typeof ticket.institution === "object" && typeof ticket.institution.name === "string"
-                ? ticket.institution.name
-                : "N/A")}
-      </td>
+          {ticket.first_name && ticket.first_name.trim() !== ""
+            ? `${ticket.first_name} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim()
+            : ticket.representative_name && ticket.representative_name.trim() !== ""
+              ? ticket.representative_name
+              : "N/A"}
+        </td>
       )}
       {activeColumns.includes("phone_number") && (
         <td>{ticket.phone_number || "N/A"}</td>
@@ -254,56 +291,61 @@ export default function CRMReviewerTickets() {
                   ? "green"
                   : ticket.status === "Closed"
                   ? "gray"
+                  : ticket.status === "Assigned"
+                  ? "orange"
+                  : ticket.status === "Forwarded"
+                  ? "purple"
+                  : ticket.status === "Reversed"
+                  ? "red"
                   : "blue",
+              fontWeight: "500"
             }}
           >
-            {ticket.status || "Escalated" || "N/A"}
+            {ticket.status || "N/A"}
           </span>
-        </td>
-      )}
-      {activeColumns.includes("subject") && <td>{ticket.subject || "N/A"}</td>}
-      {activeColumns.includes("category") && <td>{ticket.category || "N/A"}</td>}
-      {activeColumns.includes("assigned_to_role") && (
-        <td>{ticket.assigned_to_role || "N/A"}</td>
-      )}
-      {activeColumns.includes("createdAt") && (
-        <td>
-          {ticket.created_at
-            ? new Date(ticket.created_at).toLocaleString("en-GB", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: true,
-              })
-            : "N/A"}
-        </td>
-      )}
-      {activeColumns.includes("dateCreatedAt") && (
-        <td>
-          {ticket.created_at
-            ? new Date(ticket.created_at).toLocaleString("en-GB", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: true,
-              })
-            : "N/A"}
         </td>
       )}
       {activeColumns.includes("categoryType") && (
         <td>
-          {ticket.complaint_type ? ticket.complaint_type : "Not Rated"}
+          <span style={{
+            color: ticket.complaint_type === "Major" ? "red" : ticket.complaint_type === "Minor" ? "orange" : "gray",
+            fontWeight: ticket.complaint_type ? "500" : "normal"
+          }}>
+            {ticket.complaint_type || "Not Rated"}
+          </span>
+        </td>
+      )}
+      {activeColumns.includes("category") && (
+        <td>{ticket.category || "N/A"}</td>
+      )}
+      {activeColumns.includes("assigned_to_role") && (
+        <td>
+          <span style={{
+            textTransform: "capitalize",
+            color: ticket.assigned_to_role ? "#1976d2" : "gray"
+          }}>
+            {ticket.assigned_to_role ? ticket.assigned_to_role.replace(/-/g, " ") : "N/A"}
+          </span>
+        </td>
+      )}
+      {activeColumns.includes("subject") && (
+        <td style={{ maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {ticket.subject || "N/A"}
         </td>
       )}
       <td>
-        <Tooltip title="Ticket Details">
+        <Tooltip title="View Ticket Details">
           <button
             className="view-ticket-details-btn"
             onClick={() => openModal(ticket)}
+            style={{
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              padding: "4px 8px",
+              borderRadius: "4px",
+              color: "#1976d2"
+            }}
           >
             <FaEye />
           </button>

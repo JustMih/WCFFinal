@@ -12,6 +12,7 @@ const WorkflowActionModal = ({
   const [action, setAction] = useState('');
   const [notes, setNotes] = useState('');
   const [evidenceUrl, setEvidenceUrl] = useState('');
+  const [attachment, setAttachment] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [workflowInfo, setWorkflowInfo] = useState(null);
@@ -226,6 +227,26 @@ const WorkflowActionModal = ({
             <p className="text-xs text-gray-500 mt-1">
               Upload evidence to a file hosting service and provide the URL here.
             </p>
+          </div>
+        )}
+
+        {/* Attachment Upload for Head of Unit / Manager / Director */}
+        {['head-of-unit', 'manager', 'director', 'director-general', 'supervisor'].includes(userRole) && (
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Attachment (Optional)
+            </label>
+            <input
+              type="file"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.txt"
+              onChange={(e) => setAttachment(e.target.files && e.target.files[0] ? e.target.files[0] : null)}
+              className="w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+            />
+            {attachment && (
+              <p className="mt-1 text-xs text-green-700">
+                Selected file: {attachment.name}
+              </p>
+            )}
           </div>
         )}
 

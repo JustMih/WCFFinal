@@ -425,13 +425,12 @@ export default function Navbar({
       const isTaggedMessage = hasComment || messageText.includes('mentioned you');
       // Use status, recipient_id, and ticket status instead of just text matching
       const isForCurrentUser = notif.recipient_id === userId;
-      const isReversedTicket = notif.ticket?.status === 'Reversed' || notif.ticket?.status === 'reversed';
+      // Simple check: if ticket is reversed, count it as reversed (case-insensitive, no need to check message text)
+      const ticketStatus = notif.ticket?.status || '';
+      const isReversedTicket = ticketStatus.toLowerCase() === 'reversed';
       
-      // Check if it's a reversed notification (ticket is reversed AND message indicates reversal to this user)
-      const isReversedByText = (messageText.includes('reversed back to you') ||
-                               messageText.includes('reversed to you') ||
-                               (messageText.includes('has been reversed') && messageText.includes('to'))) && !isTaggedMessage;
-      const isReversed = isForCurrentUser && isUnread && isReversedTicket && isReversedByText;
+      // Count as reversed if ticket is reversed (simple check like backend)
+      const isReversed = isForCurrentUser && isUnread && isReversedTicket && !isTaggedMessage;
       
       // Check message text for assignment (excluding reversed messages)
       // Only check message text - don't use ticket status as it's too broad
@@ -798,10 +797,13 @@ export default function Navbar({
                   // Check if it's tagged
                   const isTagged = messageText.includes('mentioned you') || commentText.includes('@');
                   
-                  // Check if it's reversed
-                  const isReversedTicket = n.ticket?.status === 'Reversed' || n.ticket?.status === 'reversed';
+                  // Check if it's reversed (ticket status AND message indicates reversal)
+                  const ticketStatus = n.ticket?.status || '';
+                  const isReversedTicket = ticketStatus.toLowerCase() === 'reversed';
                   const isReversedByText = messageText.includes('reversed back to you') ||
                                           messageText.includes('reversed to you') ||
+                                          
+                                          messageText.includes('Ticket details updated') ||
                                           (messageText.includes('has been reversed') && messageText.includes('to'));
                   const isReversed = isReversedTicket && isReversedByText;
                   
@@ -820,16 +822,14 @@ export default function Navbar({
                   const isForCurrentUser = n.recipient_id === userId;
                   if (!isForCurrentUser || !isUnread) return false;
                   
-                  const messageText = (n.message || '').toLowerCase();
-                  const isReversedTicket = n.ticket?.status === 'Reversed' || n.ticket?.status === 'reversed';
-                  const isReversedByText = messageText.includes('reversed back to you') ||
-                                          messageText.includes('reversed to you') ||
-                                          (messageText.includes('has been reversed') && messageText.includes('to'));
+                  // Simple check: if ticket is reversed, count it (case-insensitive, no need to check message text)
+                  const ticketStatus = n.ticket?.status || '';
+                  const isReversedTicket = ticketStatus.toLowerCase() === 'reversed';
                   
-                  return isReversedTicket && isReversedByText;
+                  return isReversedTicket;
                 }).length || 0;
                 
-                const assignedCountLocal = notificationsData?.notifications?.filter(n => {
+                const assignedCountLocal = notificationsData?.notifizcations?.filter(n => {
                   // Use status and recipient_id instead of text matching for better reliability
                   const isUnread = n.status === 'unread' || n.status === ' ';
                   const isForCurrentUser = n.recipient_id === userId;
@@ -841,6 +841,7 @@ export default function Navbar({
                   const messageText = (n.message || '').toLowerCase();
                   const isReversedByText = messageText.includes('reversed back to you') ||
                                           messageText.includes('reversed to you') ||
+                                          messageText.includes('Ticket details updated') ||
                                           (messageText.includes('has been reversed') && messageText.includes('to'));
                   
                   // Exclude reversed notifications from assigned count
@@ -1117,14 +1118,12 @@ export default function Navbar({
                   // Check if notification is for current user and unread
                   const isForCurrentUser = notif.recipient_id === userId;
                   
-                  // Check ticket status if available (more reliable than text matching)
-                  const isReversedTicket = notif.ticket?.status === 'Reversed' || notif.ticket?.status === 'reversed';
+                  // Simple check: if ticket is reversed, count it as reversed (case-insensitive, no need to check message text)
+                  const ticketStatus = notif.ticket?.status || '';
+                  const isReversedTicket = ticketStatus.toLowerCase() === 'reversed';
                   
-                  // Check if it's a reversed notification (ticket is reversed AND message indicates reversal to this user)
-                  const isReversedByText = (messageText.includes('reversed back to you') ||
-                                           messageText.includes('reversed to you') ||
-                                           (messageText.includes('has been reversed') && messageText.includes('to'))) && !isTaggedMessage;
-                  const isReversed = isForCurrentUser && isUnread && isReversedTicket && isReversedByText;
+                  // Count as reversed if ticket is reversed (simple check like backend)
+                  const isReversed = isForCurrentUser && isUnread && isReversedTicket && !isTaggedMessage;
                   
                   // Check message text for assignment (excluding reversed messages)
                   // Only check message text - don't use ticket status as it's too broad (many tickets have "Assigned" status)

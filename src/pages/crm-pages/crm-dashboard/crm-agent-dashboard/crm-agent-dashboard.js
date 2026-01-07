@@ -962,7 +962,27 @@ const AgentCRM = () => {
       {activeColumns.includes("phone_number") && <td>{ticket.phone_number}</td>}
       {activeColumns.includes("region") && <td>{ticket.region || "N/A"}</td>}
       {activeColumns.includes("status") && (
-        <td>{ticket.status || "Escalated"}</td>
+        <td>
+          <span
+            style={{
+              color:
+                ticket.status === "Open"
+                  ? "green"
+                  : ticket.status === "Closed"
+                  ? "gray"
+                  : ticket.status === "Assigned"
+                  ? "orange"
+                  : ticket.status === "Forwarded"
+                  ? "purple"
+                  : ticket.status === "Reversed"
+                  ? "red"
+                  : "blue",
+              fontWeight: "500"
+            }}
+          >
+            {ticket.status || "Escalated"}
+          </span>
+        </td>
       )}
       {activeColumns.includes("subject") && (
         <td>{ticket.functionData?.name}</td>
@@ -2955,7 +2975,14 @@ const AgentCRM = () => {
                               ? "green"
                               : selectedTicket.status === "Closed"
                               ? "gray"
+                              : selectedTicket.status === "Assigned"
+                              ? "orange"
+                              : selectedTicket.status === "Forwarded"
+                              ? "purple"
+                              : selectedTicket.status === "Reversed"
+                              ? "red"
                               : "blue",
+                          fontWeight: "500"
                         }}
                       >
                         {selectedTicket.status || "Escalated" || "N/A"}
@@ -3348,10 +3375,16 @@ const AgentCRM = () => {
                             borderRadius: "12px",
                             color: "white",
                             background:
-                              ticket.status === "Closed"
-                                ? "#757575"
-                                : ticket.status === "Open"
+                              ticket.status === "Open"
                                 ? "#2e7d32"
+                                : ticket.status === "Closed"
+                                ? "#757575"
+                                : ticket.status === "Assigned"
+                                ? "#ff9800"
+                                : ticket.status === "Forwarded"
+                                ? "#9c27b0"
+                                : ticket.status === "Reversed"
+                                ? "#f44336"
                                 : "#1976d2",
                             fontSize: "0.75rem",
                             fontWeight: 500
@@ -3711,10 +3744,16 @@ const AgentCRM = () => {
                         borderRadius: "12px",
                         color: "white",
                         background:
-                          ticket.status === "Closed"
-                            ? "#757575"
-                            : ticket.status === "Open"
+                          ticket.status === "Open"
                             ? "#2e7d32"
+                            : ticket.status === "Closed"
+                            ? "#757575"
+                            : ticket.status === "Assigned"
+                            ? "#ff9800"
+                            : ticket.status === "Forwarded"
+                            ? "#9c27b0"
+                            : ticket.status === "Reversed"
+                            ? "#f44336"
                             : "#1976d2",
                         fontSize: "0.75rem",
                         fontWeight: 500

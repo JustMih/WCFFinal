@@ -314,7 +314,14 @@ export default function Crm() {
                   ? "green"
                   : ticket.status === "Closed"
                   ? "gray"
+                  : ticket.status === "Assigned"
+                  ? "orange"
+                  : ticket.status === "Forwarded"
+                  ? "purple"
+                  : ticket.status === "Reversed"
+                  ? "red"
                   : "blue",
+              fontWeight: "500"
             }}
           >
           {ticket.status || "Escalated" || "N/A" }

@@ -178,6 +178,8 @@ export default function CRMSidebar({ isSidebarOpen }) {
             const isReversedTicket = n.ticket?.status === 'Reversed' || n.ticket?.status === 'reversed';
             const isReversedByText = messageText.includes('reversed back to you') ||
                                     messageText.includes('reversed to you') ||
+                                    
+                                    messageText.includes('reassigned to focal person') ||
                                     (messageText.includes('has been reversed') && messageText.includes('to'));
             const isReversed = isReversedTicket && isReversedByText;
             

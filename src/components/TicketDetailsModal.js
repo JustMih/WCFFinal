@@ -1803,6 +1803,7 @@ export default function TicketDetailsModal({
   // Director General approval dialog handler
   const handleDGApprovalDialog = () => {
     setDgNotes("");
+    setAttachment(null);
     setIsDGApprovalDialogOpen(true);
   };
 
@@ -1822,6 +1823,10 @@ export default function TicketDetailsModal({
       formData.append("date_of_resolution", new Date().toISOString());
       formData.append("userId", userId);
       
+      if (attachment) {
+        formData.append("attachment", attachment);
+      }
+      
       const response = await fetch(
         `${baseURL}/ticket/${selectedTicket.id}/close`,
         {
@@ -1836,6 +1841,7 @@ export default function TicketDetailsModal({
 
       if (response.ok) {
         setIsDGApprovalDialogOpen(false);
+        setAttachment(null);
         onClose();
         refreshTickets();
         setSnackbarState({open: true, message: 'Ticket closed successfully by Director General', severity: 'success'});
@@ -2487,19 +2493,25 @@ export default function TicketDetailsModal({
         resolutionDetails = selectedTicket?.description || "";
       }
       
+      // Use FormData to support file upload
+      const formData = new FormData();
+      formData.append("userId", userId);
+      formData.append("resolution_details", resolutionDetails);
+      formData.append("own_description", ownDescription.trim());
+      formData.append("last_attendee_agent_description", "");
+      formData.append("assignmentId", selectedTicket.id);
+      
+      if (attachment) {
+        formData.append("attachment", attachment);
+      }
+      
       const response = await fetch(`${baseURL}/ticket/${selectedTicket.id}/forward-to-dg`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
+          // Do NOT set Content-Type; browser will set it for FormData
         },
-        body: JSON.stringify({
-          userId,
-          resolution_details: resolutionDetails, // Current description for director, edited for manager/head-of-unit
-          own_description: ownDescription.trim(), // Director/Head-of-unit's own description
-          last_attendee_agent_description: null, // Not used - removed
-          assignmentId: selectedTicket.id
-        })
+        body: formData
       });
 
       if (response.ok) {
@@ -2509,6 +2521,7 @@ export default function TicketDetailsModal({
         setEditedResolution("");
         setOwnDescription("");
         setLastAttendeeAgentDescription("");
+        setAttachment(null);
         onClose();
         refreshTickets();
       } else {
@@ -2572,7 +2585,7 @@ export default function TicketDetailsModal({
     }
   };
 
-  const handleConvertOrForward = async (ticketId) => {
+  const handleConvertOrForward = async (ticketId, mode = "convert") => {
     const userId = localStorage.getItem("userId");
     const token = localStorage.getItem("authToken");
     const category = convertCategory[ticketId];
@@ -2645,7 +2658,8 @@ export default function TicketDetailsModal({
       const payload = { 
         userId,
         responsible_unit_name: effectiveUnitName || undefined,
-        category: category || undefined,
+        // Only send category when explicitly converting; for pure forward ignore convertCategory value
+        category: mode === "convert" ? (category || undefined) : undefined,
         complaintType: selectedRating || currentTicket?.complaint_type || undefined,
         ratingComment: ratingComment.trim() || undefined
       };
@@ -3503,7 +3517,7 @@ export default function TicketDetailsModal({
                                 <Button
                                   size="small"
                                   variant="contained"
-                                  onClick={() => handleConvertOrForward(selectedTicket.id)}
+                                  onClick={() => handleConvertOrForward(selectedTicket.id, "convert")}
                                   disabled={convertOrForwardLoading}
                                   sx={{
                                     textTransform: 'none',
@@ -3631,7 +3645,7 @@ export default function TicketDetailsModal({
                               <Button
                                 size="small"
                                 variant="contained"
-                                onClick={() => handleConvertOrForward(selectedTicket.id)}
+                                onClick={() => handleConvertOrForward(selectedTicket.id, "forward")}
                                 disabled={!selectedRating || !["Minor", "Major"].includes(selectedRating) || !ratingComment.trim() || convertOrForwardLoading}
                                 sx={{
                                   textTransform: 'none',
@@ -4126,18 +4140,34 @@ export default function TicketDetailsModal({
               <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
                 Attachment (Optional):
               </Typography>
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
-                onChange={e => setAttachment(e.target.files[0])}
-                style={{
+              <Box
+                sx={{
                   width: "100%",
-                  padding: "8px 12px",
-                  fontSize: "0.9rem",
-                  borderRadius: "4px",
-                  border: "1px solid #ccc"
+                  "& input[type='file']": {
+                    width: "100%",
+                    padding: "8px 12px",
+                    fontSize: "0.9rem",
+                    borderRadius: "4px",
+                    border: "1px solid #ccc",
+                    boxSizing: "border-box",
+                    display: "block"
+                  }
                 }}
-              />
+              >
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+                  onChange={e => setAttachment(e.target.files[0])}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    fontSize: "0.9rem",
+                    borderRadius: "4px",
+                    border: "1px solid #ccc",
+                    boxSizing: "border-box"
+                  }}
+                />
+              </Box>
               {attachment && (
                 <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
                   File selected: {attachment.name}
@@ -4222,18 +4252,34 @@ export default function TicketDetailsModal({
               <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
                 Attachment (Optional):
               </Typography>
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
-                onChange={e => setAttachment(e.target.files[0])}
-                style={{
+              <Box
+                sx={{
                   width: "100%",
-                  padding: "8px 12px",
-                  fontSize: "0.9rem",
-                  borderRadius: "4px",
-                  border: "1px solid #ccc"
+                  "& input[type='file']": {
+                    width: "100%",
+                    padding: "8px 12px",
+                    fontSize: "0.9rem",
+                    borderRadius: "4px",
+                    border: "1px solid #ccc",
+                    boxSizing: "border-box",
+                    display: "block"
+                  }
                 }}
-              />
+              >
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+                  onChange={e => setAttachment(e.target.files[0])}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    fontSize: "0.9rem",
+                    borderRadius: "4px",
+                    border: "1px solid #ccc",
+                    boxSizing: "border-box"
+                  }}
+                />
+              </Box>
               {attachment && (
                 <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
                   File selected: {attachment.name}
@@ -4361,18 +4407,34 @@ export default function TicketDetailsModal({
               <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
                 Attachment (Optional):
               </Typography>
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
-                onChange={(e) => setAttachment(e.target.files[0])}
-                style={{
+              <Box
+                sx={{
                   width: "100%",
-                  padding: "8px 12px",
-                  fontSize: "0.9rem",
-                  borderRadius: "4px",
-                  border: "1px solid #ccc"
+                  "& input[type='file']": {
+                    width: "100%",
+                    padding: "8px 12px",
+                    fontSize: "0.9rem",
+                    borderRadius: "4px",
+                    border: "1px solid #ccc",
+                    boxSizing: "border-box",
+                    display: "block"
+                  }
                 }}
-              />
+              >
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+                  onChange={(e) => setAttachment(e.target.files[0])}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    fontSize: "0.9rem",
+                    borderRadius: "4px",
+                    border: "1px solid #ccc",
+                    boxSizing: "border-box"
+                  }}
+                />
+              </Box>
               {attachment && (
                 <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
                   File selected: {attachment.name}
@@ -4459,18 +4521,34 @@ export default function TicketDetailsModal({
               <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
                 Attachment (Optional):
               </Typography>
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
-                onChange={(e) => setAttachment(e.target.files[0])}
-                style={{
+              <Box
+                sx={{
                   width: "100%",
-                  padding: "8px 12px",
-                  fontSize: "0.9rem",
-                  borderRadius: "4px",
-                  border: "1px solid #ccc"
+                  "& input[type='file']": {
+                    width: "100%",
+                    padding: "8px 12px",
+                    fontSize: "0.9rem",
+                    borderRadius: "4px",
+                    border: "1px solid #ccc",
+                    boxSizing: "border-box",
+                    display: "block"
+                  }
                 }}
-              />
+              >
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+                  onChange={(e) => setAttachment(e.target.files[0])}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    fontSize: "0.9rem",
+                    borderRadius: "4px",
+                    border: "1px solid #ccc",
+                    boxSizing: "border-box"
+                  }}
+                />
+              </Box>
               {attachment && (
                 <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
                   File selected: {attachment.name}
@@ -4817,18 +4895,34 @@ export default function TicketDetailsModal({
               <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
                 Attachment (Optional):
               </Typography>
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
-                onChange={(e) => setAttachment(e.target.files[0])}
-                style={{
+              <Box
+                sx={{
                   width: "100%",
-                  padding: "8px 12px",
-                  fontSize: "0.9rem",
-                  borderRadius: "4px",
-                  border: "1px solid #ccc"
+                  "& input[type='file']": {
+                    width: "100%",
+                    padding: "8px 12px",
+                    fontSize: "0.9rem",
+                    borderRadius: "4px",
+                    border: "1px solid #ccc",
+                    boxSizing: "border-box",
+                    display: "block"
+                  }
                 }}
-              />
+              >
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+                  onChange={(e) => setAttachment(e.target.files[0])}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    fontSize: "0.9rem",
+                    borderRadius: "4px",
+                    border: "1px solid #ccc",
+                    boxSizing: "border-box"
+                  }}
+                />
+              </Box>
               {attachment && (
                 <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
                   File selected: {attachment.name}
@@ -4929,6 +5023,46 @@ export default function TicketDetailsModal({
               </Box>
             )}
 
+            {/* Attachment Input for Head of Unit, Manager, and Director */}
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Attachment (Optional):
+              </Typography>
+              <Box
+                sx={{
+                  width: "100%",
+                  "& input[type='file']": {
+                    width: "100%",
+                    padding: "8px 12px",
+                    fontSize: "0.9rem",
+                    borderRadius: "4px",
+                    border: "1px solid #ccc",
+                    boxSizing: "border-box",
+                    display: "block"
+                  }
+                }}
+              >
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+                  onChange={(e) => setAttachment(e.target.files[0])}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    fontSize: "0.9rem",
+                    borderRadius: "4px",
+                    border: "1px solid #ccc",
+                    boxSizing: "border-box"
+                  }}
+                />
+              </Box>
+              {attachment && (
+                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
+                  File selected: {attachment.name}
+                </Typography>
+              )}
+            </Box>
+
             <Box sx={{ mt: 2, textAlign: "right" }}>
               <Button
                 variant="contained"
@@ -4956,19 +5090,62 @@ export default function TicketDetailsModal({
           Close Ticket - Director General
         </DialogTitle>
         <DialogContent>
-          <Typography variant="body2" sx={{ mb: 2, fontWeight: "bold" }}>
-            Justification (required):
-          </Typography>
-          <TextField
-            multiline
-            rows={4}
-            value={dgNotes}
-            onChange={e => setDgNotes(e.target.value)}
-            fullWidth
-            placeholder="Provide justification for closing this ticket..."
-            required
-            sx={{ mb: 2 }}
-          />
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mt: 2 }}>
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Justification (required):
+              </Typography>
+              <TextField
+                multiline
+                rows={4}
+                value={dgNotes}
+                onChange={e => setDgNotes(e.target.value)}
+                fullWidth
+                placeholder="Provide justification for closing this ticket..."
+                required
+              />
+            </Box>
+
+            {/* Attachment Input for Director General */}
+            <Box>
+              <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
+                Attachment (Optional):
+              </Typography>
+              <Box
+                sx={{
+                  width: "100%",
+                  "& input[type='file']": {
+                    width: "100%",
+                    padding: "8px 12px",
+                    fontSize: "0.9rem",
+                    borderRadius: "4px",
+                    border: "1px solid #ccc",
+                    boxSizing: "border-box",
+                    display: "block"
+                  }
+                }}
+              >
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+                  onChange={(e) => setAttachment(e.target.files[0])}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    fontSize: "0.9rem",
+                    borderRadius: "4px",
+                    border: "1px solid #ccc",
+                    boxSizing: "border-box"
+                  }}
+                />
+              </Box>
+              {attachment && (
+                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
+                  File selected: {attachment.name}
+                </Typography>
+              )}
+            </Box>
+          </Box>
           <Box sx={{ mt: 2, textAlign: "right" }}>
             <Button
               variant="contained"
@@ -4980,7 +5157,10 @@ export default function TicketDetailsModal({
             </Button>
             <Button
               variant="outlined"
-              onClick={() => setIsDGApprovalDialogOpen(false)}
+              onClick={() => {
+                setIsDGApprovalDialogOpen(false);
+                setAttachment(null);
+              }}
               sx={{ ml: 1 }}
               disabled={dgApprovalLoading}
             >
@@ -5034,18 +5214,34 @@ export default function TicketDetailsModal({
               <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold" }}>
                 Attachment (Optional):
               </Typography>
-              <input
-                type="file"
-                accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
-                onChange={(e) => setAttachment(e.target.files[0])}
-                style={{
+              <Box
+                sx={{
                   width: "100%",
-                  padding: "8px 12px",
-                  fontSize: "0.9rem",
-                  borderRadius: "4px",
-                  border: "1px solid #ccc"
+                  "& input[type='file']": {
+                    width: "100%",
+                    padding: "8px 12px",
+                    fontSize: "0.9rem",
+                    borderRadius: "4px",
+                    border: "1px solid #ccc",
+                    boxSizing: "border-box",
+                    display: "block"
+                  }
                 }}
-              />
+              >
+                <input
+                  type="file"
+                  accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+                  onChange={(e) => setAttachment(e.target.files[0])}
+                  style={{
+                    width: "100%",
+                    padding: "8px 12px",
+                    fontSize: "0.9rem",
+                    borderRadius: "4px",
+                    border: "1px solid #ccc",
+                    boxSizing: "border-box"
+                  }}
+                />
+              </Box>
               {attachment && (
                 <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
                   File selected: {attachment.name}
