@@ -26,6 +26,8 @@ import {
   TableHead,
   TableRow,
   Paper,
+  Pagination,
+  Typography,
 } from "@mui/material";
 
 const CallCenterExtensions = () => {
@@ -45,6 +47,8 @@ const CallCenterExtensions = () => {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10); // Number of items per page
 
   const authToken = localStorage.getItem("authToken");
 
@@ -276,6 +280,27 @@ const CallCenterExtensions = () => {
     setSnackbarOpen(true);
   };
 
+  // Filter users based on search
+  const filteredUsers = usersWithExtensions.filter((user) =>
+    user.full_name?.toLowerCase().includes(search.toLowerCase())
+  );
+
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
+
+  // Handle page change
+  const handlePageChange = (event, value) => {
+    setCurrentPage(value);
+  };
+
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
+
   return (
     <div className="call-center-extension-table-container">
       <h2 className="call-center-extension-table-title">
@@ -316,11 +341,20 @@ const CallCenterExtensions = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {usersWithExtensions
-              .filter((user) =>
-                user.full_name.toLowerCase().includes(search.toLowerCase())
-              )
-              .map((user) => (
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={5} align="center">
+                  Loading...
+                </TableCell>
+              </TableRow>
+            ) : paginatedUsers.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} align="center">
+                  No extensions found
+                </TableCell>
+              </TableRow>
+            ) : (
+              paginatedUsers.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell>{user.extension}</TableCell>
                   <TableCell>{user.full_name}</TableCell>
@@ -367,10 +401,37 @@ const CallCenterExtensions = () => {
                     </Tooltip>
                   </TableCell> */}
                 </TableRow>
-              ))}
+              ))
+            )}
           </TableBody>
         </Table>
       </TableContainer>
+
+      {/* Pagination Controls */}
+      {filteredUsers.length > 0 && (
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginTop: 2,
+            padding: 2,
+          }}
+        >
+          <Typography variant="body2" color="text.secondary">
+            Showing {startIndex + 1} to {Math.min(endIndex, filteredUsers.length)} of{" "}
+            {filteredUsers.length} extensions
+          </Typography>
+          <Pagination
+            count={totalPages}
+            page={currentPage}
+            onChange={handlePageChange}
+            color="primary"
+            showFirstButton
+            showLastButton
+          />
+        </Box>
+      )}
 
       {/* Add / Update Modal */}
       <Modal open={showModal} onClose={handleCloseModal}>

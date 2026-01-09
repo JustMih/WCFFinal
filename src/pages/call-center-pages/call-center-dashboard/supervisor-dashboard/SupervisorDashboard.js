@@ -21,6 +21,10 @@ import {
   MdWifiCalling2,
   MdOutlineFollowTheSigns,
   MdOutlineLunchDining,
+  MdPhone,
+  MdPhoneDisabled,
+  MdCallEnd,
+  MdTrendingUp,
 } from "react-icons/md";
 import { HiMiniSpeakerWave } from "react-icons/hi2";
 import { IoKeypadOutline } from "react-icons/io5";
@@ -225,6 +229,70 @@ export default function SupervisorDashboard() {
       stopStatusTimer();
     };
   }, []);
+
+  // ===== Percentage calculation helpers =====
+  const calculatePercentage = (count, total) => {
+    if (!total || total === 0) return 0;
+    return ((count / total) * 100).toFixed(1);
+  };
+
+  // Calculate totals for each period
+  const yearlyTotal = totalCounts.reduce(
+    (sum, item) => sum + (item.count || 0),
+    0
+  );
+  const monthlyTotal = monthlyCounts.reduce(
+    (sum, item) => sum + (item.count || 0),
+    0
+  );
+  const dailyTotal = dailyCounts.reduce(
+    (sum, item) => sum + (item.count || 0),
+    0
+  );
+
+  // Get counts for each disposition
+  const getCount = (counts, disposition) =>
+    counts.find((i) => i.disposition === disposition)?.count || 0;
+
+  // Yearly counts
+  const yearlyAnswered = getCount(totalCounts, "ANSWERED");
+  const yearlyNoAnswer = getCount(totalCounts, "NO ANSWER");
+  const yearlyBusy = getCount(totalCounts, "BUSY");
+
+  // Monthly counts
+  const monthlyAnswered = getCount(monthlyCounts, "ANSWERED");
+  const monthlyNoAnswer = getCount(monthlyCounts, "NO ANSWER");
+  const monthlyBusy = getCount(monthlyCounts, "BUSY");
+
+  // Daily counts
+  const dailyAnswered = getCount(dailyCounts, "ANSWERED");
+  const dailyNoAnswer = getCount(dailyCounts, "NO ANSWER");
+  const dailyBusy = getCount(dailyCounts, "BUSY");
+
+  // Calculate percentages
+  const yearlyAnsweredPercent = calculatePercentage(
+    yearlyAnswered,
+    yearlyTotal
+  );
+  const yearlyNoAnswerPercent = calculatePercentage(
+    yearlyNoAnswer,
+    yearlyTotal
+  );
+  const yearlyBusyPercent = calculatePercentage(yearlyBusy, yearlyTotal);
+
+  const monthlyAnsweredPercent = calculatePercentage(
+    monthlyAnswered,
+    monthlyTotal
+  );
+  const monthlyNoAnswerPercent = calculatePercentage(
+    monthlyNoAnswer,
+    monthlyTotal
+  );
+  const monthlyBusyPercent = calculatePercentage(monthlyBusy, monthlyTotal);
+
+  const dailyAnsweredPercent = calculatePercentage(dailyAnswered, dailyTotal);
+  const dailyNoAnswerPercent = calculatePercentage(dailyNoAnswer, dailyTotal);
+  const dailyBusyPercent = calculatePercentage(dailyBusy, dailyTotal);
 
   // ===== Online users for transfer =====
   useEffect(() => {
@@ -758,104 +826,149 @@ export default function SupervisorDashboard() {
       </Menu>
 
       {/* Summary cards */}
+      {/* Yearly Row */}
       <div className="call-center-agent-summary">
-        <div className="call-center-agent-card">
-          <div className="call-center-agent-card-icon">
-            <div className="call-center-agent-data">
-              <p className="call-center-agent-value">
-                {totalCounts.find((i) => i.disposition === "ANSWERED")?.count ||
-                  0}
-              </p>
+        <div className="call-center-agent-card answered-calls">
+          <div className="stat-icon">
+            <MdPhone style={{ color: "#4caf50" }} />
+          </div>
+          <div className="stat-content">
+            <div className="stat-value">
+              <span className="stat-percentage" style={{ color: "#4caf50" }}>
+                ({yearlyAnsweredPercent}%)
+              </span>{" "}
+              {yearlyAnswered}
             </div>
-            <h4>Yearly Answered Calls</h4>
+            <div className="stat-label">Yearly Answered Calls</div>
+            <div className="stat-sublabel">of total calls</div>
           </div>
         </div>
-        <div className="call-center-agent-card">
-          <div className="call-center-agent-card-icon">
-            <div className="call-center-agent-data">
-              <p className="call-center-agent-value">
-                {totalCounts.find((i) => i.disposition === "NO ANSWER")
-                  ?.count || 0}
-              </p>
+        <div className="call-center-agent-card no-answer-calls">
+          <div className="stat-icon">
+            <MdPhoneDisabled style={{ color: "#ff9800" }} />
+          </div>
+          <div className="stat-content">
+            <div className="stat-value">
+              <span className="stat-percentage" style={{ color: "#ff9800" }}>
+                ({yearlyNoAnswerPercent}%)
+              </span>{" "}
+              {yearlyNoAnswer}
             </div>
-            <h4>Yearly No Answer Calls</h4>
+            <div className="stat-label">Yearly No Answer Calls</div>
+            <div className="stat-sublabel">of total calls</div>
           </div>
         </div>
-        <div className="call-center-agent-card">
-          <div className="call-center-agent-card-icon">
-            <div className="call-center-agent-data">
-              <p className="call-center-agent-value">
-                {totalCounts.find((i) => i.disposition === "BUSY")?.count || 0}
-              </p>
-            </div>
-            <h4>Yearly Busy Calls</h4>
+        <div className="call-center-agent-card busy-calls">
+          <div className="stat-icon">
+            <MdCallEnd style={{ color: "#f44336" }} />
           </div>
-        </div>
-        <div className="call-center-agent-card">
-          <div className="call-center-agent-card-icon">
-            <div className="call-center-agent-data">
-              <p className="call-center-agent-value">
-                {monthlyCounts.find((i) => i.disposition === "ANSWERED")
-                  ?.count || 0}
-              </p>
+          <div className="stat-content">
+            <div className="stat-value">
+              <span className="stat-percentage" style={{ color: "#f44336" }}>
+                ({yearlyBusyPercent}%)
+              </span>{" "}
+              {yearlyBusy}
             </div>
-            <h4>Monthly Answered Calls</h4>
-          </div>
-        </div>
-        <div className="call-center-agent-card">
-          <div className="call-center-agent-card-icon">
-            <div className="call-center-agent-data">
-              <p className="call-center-agent-value">
-                {monthlyCounts.find((i) => i.disposition === "NO ANSWER")
-                  ?.count || 0}
-              </p>
-            </div>
-            <h4>Monthly No Answer Calls</h4>
+            <div className="stat-label">Yearly Busy Calls</div>
+            <div className="stat-sublabel">of total calls</div>
           </div>
         </div>
       </div>
+
+      {/* Monthly Row */}
       <div className="call-center-agent-summary">
-        <div className="call-center-agent-card">
-          <div className="call-center-agent-card-icon">
-            <div className="call-center-agent-data">
-              <p className="call-center-agent-value">
-                {monthlyCounts.find((i) => i.disposition === "BUSY")?.count ||
-                  0}
-              </p>
+        <div className="call-center-agent-card answered-calls">
+          <div className="stat-icon">
+            <MdPhone style={{ color: "#4caf50" }} />
+          </div>
+          <div className="stat-content">
+            <div className="stat-value">
+              <span className="stat-percentage" style={{ color: "#4caf50" }}>
+                ({monthlyAnsweredPercent}%)
+              </span>{" "}
+              {monthlyAnswered}
             </div>
-            <h4>Monthly Busy Calls</h4>
+            <div className="stat-label">Monthly Answered Calls</div>
+            <div className="stat-sublabel">of monthly calls</div>
           </div>
         </div>
-        <div className="call-center-agent-card">
-          <div className="call-center-agent-card-icon">
-            <div className="call-center-agent-data">
-              <p className="call-center-agent-value">
-                {dailyCounts.find((i) => i.disposition === "ANSWERED")?.count ||
-                  0}
-              </p>
+        <div className="call-center-agent-card no-answer-calls">
+          <div className="stat-icon">
+            <MdPhoneDisabled style={{ color: "#ff9800" }} />
+          </div>
+          <div className="stat-content">
+            <div className="stat-value">
+              <span className="stat-percentage" style={{ color: "#ff9800" }}>
+                ({monthlyNoAnswerPercent}%)
+              </span>{" "}
+              {monthlyNoAnswer}
             </div>
-            <h4>Daily Answered Calls</h4>
+            <div className="stat-label">Monthly No Answer Calls</div>
+            <div className="stat-sublabel">of monthly calls</div>
           </div>
         </div>
-        <div className="call-center-agent-card">
-          <div className="call-center-agent-card-icon">
-            <div className="call-center-agent-data">
-              <p className="call-center-agent-value">
-                {dailyCounts.find((i) => i.disposition === "NO ANSWER")
-                  ?.count || 0}
-              </p>
+        <div className="call-center-agent-card busy-calls">
+          <div className="stat-icon">
+            <MdCallEnd style={{ color: "#f44336" }} />
+          </div>
+          <div className="stat-content">
+            <div className="stat-value">
+              <span className="stat-percentage" style={{ color: "#f44336" }}>
+                ({monthlyBusyPercent}%)
+              </span>{" "}
+              {monthlyBusy}
             </div>
-            <h4>Daily No Answer Calls</h4>
+            <div className="stat-label">Monthly Busy Calls</div>
+            <div className="stat-sublabel">of monthly calls</div>
           </div>
         </div>
-        <div className="call-center-agent-card">
-          <div className="call-center-agent-card-icon">
-            <div className="call-center-agent-data">
-              <p className="call-center-agent-value">
-                {dailyCounts.find((i) => i.disposition === "BUSY")?.count || 0}
-              </p>
+      </div>
+
+      {/* Daily Row */}
+      <div className="call-center-agent-summary">
+        <div className="call-center-agent-card answered-calls">
+          <div className="stat-icon">
+            <MdPhone style={{ color: "#4caf50" }} />
+          </div>
+          <div className="stat-content">
+            <div className="stat-value">
+              <span className="stat-percentage" style={{ color: "#4caf50" }}>
+                ({dailyAnsweredPercent}%)
+              </span>{" "}
+              {dailyAnswered}
             </div>
-            <h4>Daily Busy Calls</h4>
+            <div className="stat-label">Daily Answered Calls</div>
+            <div className="stat-sublabel">of daily calls</div>
+          </div>
+        </div>
+        <div className="call-center-agent-card no-answer-calls">
+          <div className="stat-icon">
+            <MdPhoneDisabled style={{ color: "#ff9800" }} />
+          </div>
+          <div className="stat-content">
+            <div className="stat-value">
+              <span className="stat-percentage" style={{ color: "#ff9800" }}>
+                ({dailyNoAnswerPercent}%)
+              </span>{" "}
+              {dailyNoAnswer}
+            </div>
+            <div className="stat-label">Daily No Answer Calls</div>
+            <div className="stat-sublabel">of daily calls</div>
+          </div>
+        </div>
+        <div className="call-center-agent-card busy-calls">
+          <div className="stat-icon">
+            <MdCallEnd style={{ color: "#f44336" }} />
+          </div>
+          <div className="stat-content">
+            <div className="stat-value">
+              <span className="stat-percentage" style={{ color: "#f44336" }}>
+                ({dailyBusyPercent}%)
+              </span>{" "}
+              {dailyBusy}
+            </div>
+            <div className="stat-label">Daily Busy Calls</div>
+            <div className="stat-sublabel">of daily calls</div>
           </div>
         </div>
       </div>

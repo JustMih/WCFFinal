@@ -74,7 +74,7 @@
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(10px);
   border-radius: 10px;
-  padding: 15px;
+  padding: 5px;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -371,6 +371,106 @@
   text-align: center;
   text-transform: uppercase;
   font-weight: 600;
+}
+
+/* Call Summary Statistics */
+.call-summary-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.call-summary-card {
+  background-color: #fff;
+  padding: 5px;
+  border-radius: 8px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border-left: 5px solid transparent;
+}
+
+.call-summary-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+.call-summary-card.answered-calls {
+  border-left-color: #4caf50;
+}
+
+.call-summary-card.no-answer-calls {
+  border-left-color: #ff9800;
+}
+
+.call-summary-card.busy-calls {
+  border-left-color: #f44336;
+}
+
+.call-summary-card .stat-icon {
+  font-size: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.call-summary-card .stat-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-value-with-percent {
+  display: flex;
+  align-items: baseline;
+  margin-bottom: 5px;
+}
+
+.stat-value-with-percent span:first-child {
+  font-size: 1.5rem;
+  font-weight: bold;
+  margin-right: 5px;
+}
+
+.stat-value-with-percent span:last-child {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #333;
+}
+
+.call-summary-card .stat-label {
+  font-size: 0.85rem;
+  color: #666;
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.call-summary-card .stat-sublabel {
+  font-size: 0.75rem;
+  color: #888;
+}
+
+/* Responsive adjustments for call summary */
+@media (max-width: 1400px) {
+  .call-summary-row {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 1024px) {
+  .call-summary-row {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .call-summary-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* Responsive Design */

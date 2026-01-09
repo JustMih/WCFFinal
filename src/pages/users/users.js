@@ -21,6 +21,15 @@ import {
   Modal,
   Box,
   Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Pagination,
+  Typography,
 } from "@mui/material";
 
 const Users = () => {
@@ -29,7 +38,7 @@ const Users = () => {
   const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [usersPerPage] = useState(5);
+  const [usersPerPage] = useState(10); // Changed to 10 to match CallCenterExtensions
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [newUserData, setNewUserData] = useState({
@@ -376,9 +385,21 @@ const Users = () => {
     );
   });
 
-  const indexOfLastUser = currentPage * usersPerPage;
-  const indexOfFirstUser = indexOfLastUser - usersPerPage;
-  const currentUsers = filteredUsers.slice(indexOfFirstUser, indexOfLastUser);
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
+  const startIndex = (currentPage - 1) * usersPerPage;
+  const endIndex = startIndex + usersPerPage;
+  const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
+
+  // Handle page change
+  const handlePageChange = (event, value) => {
+    setCurrentPage(value);
+  };
+
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
 
   return (
     <div className="user-table-container">
@@ -409,161 +430,188 @@ const Users = () => {
           <FaPlus /> Add User
         </button>
       </div>
-      <table className="user-table">
-        <thead>
-          <tr>
-            <th>Sn</th>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Role</th>
-            <th>Unit Section</th>
-            <th>Sub-Section</th>
-            <th>Status</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {currentUsers.map((user, index) => (
-            <tr key={user.id}>
-              <td>{index + 1}</td>
-              <td>{user.name || user.full_name || "N/A"}</td>
-              <td>{user.email || "N/A"}</td>
-              <td>{user.role || "N/A"}</td>
-              <td>{user.unit_section || "N/A"}</td>
-              <td>{user.sub_section || "N/A"}</td>
-              <td>{user.isActive ? "Active" : "Inactive"}</td>
-              <td className="action-buttons">
-                <Tooltip title="Edit User">
-                  <button
-                    className="edit-button"
-                    onClick={async () => {
-                      // Set current user without password to prevent accidental password updates
-                      const { password, ...userWithoutPassword } = user;
-                      setCurrentUser(userWithoutPassword);
-                      
-                      // Fetch sections and functions if role is focal-person
-                      if (user.role === "focal-person") {
-                        try {
-                          const token = localStorage.getItem("authToken");
+      {/* Users Table */}
+      <TableContainer component={Paper}>
+        <Table className="user-table">
+          <TableHead>
+            <TableRow>
+              <TableCell>Sn</TableCell>
+              <TableCell>Name</TableCell>
+              <TableCell>Email</TableCell>
+              <TableCell>Role</TableCell>
+              <TableCell>Unit Section</TableCell>
+              <TableCell>Sub-Section</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Action</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={8} align="center">
+                  Loading...
+                </TableCell>
+              </TableRow>
+            ) : paginatedUsers.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} align="center">
+                  No users found
+                </TableCell>
+              </TableRow>
+            ) : (
+              paginatedUsers.map((user, index) => (
+                <TableRow key={user.id}>
+                  <TableCell>{startIndex + index + 1}</TableCell>
+                  <TableCell>{user.name || user.full_name || "N/A"}</TableCell>
+                  <TableCell>{user.email || "N/A"}</TableCell>
+                  <TableCell>{user.role || "N/A"}</TableCell>
+                  <TableCell>{user.unit_section || "N/A"}</TableCell>
+                  <TableCell>{user.sub_section || "N/A"}</TableCell>
+                  <TableCell>{user.isActive ? "Active" : "Inactive"}</TableCell>
+                  <TableCell className="action-buttons">
+                    <Tooltip title="Edit User">
+                      <button
+                        className="edit-button"
+                        onClick={async () => {
+                          // Set current user without password to prevent accidental password updates
+                          const { password, ...userWithoutPassword } = user;
+                          setCurrentUser(userWithoutPassword);
                           
-                          // Fetch directorates and units
-                          const sectionsResponse = await fetch(`${baseURL}/section/units-data`, {
-                            headers: { Authorization: `Bearer ${token}` }
-                          });
-                          
-                          if (sectionsResponse.ok) {
-                            const sectionsData = await sectionsResponse.json();
-                            const fetchedSections = sectionsData.data || [];
-                            setSectionsList(fetchedSections);
-                            
-                            // Set selectedSection if user has unit_section that matches a section
-                            // This ensures sub_section dropdown displays correctly
-                            if (user.unit_section) {
-                              // Try exact match first
-                              let matchingSection = fetchedSections.find(s => 
-                                s.name.toLowerCase() === user.unit_section.toLowerCase()
-                              );
+                          // Fetch sections and functions if role is focal-person
+                          if (user.role === "focal-person") {
+                            try {
+                              const token = localStorage.getItem("authToken");
                               
-                              // If no exact match, try partial match
-                              if (!matchingSection) {
-                                matchingSection = fetchedSections.find(s => 
-                                  user.unit_section.includes(s.name) || s.name.includes(user.unit_section)
-                                );
+                              // Fetch directorates and units
+                              const sectionsResponse = await fetch(`${baseURL}/section/units-data`, {
+                                headers: { Authorization: `Bearer ${token}` }
+                              });
+                              
+                              if (sectionsResponse.ok) {
+                                const sectionsData = await sectionsResponse.json();
+                                const fetchedSections = sectionsData.data || [];
+                                setSectionsList(fetchedSections);
+                                
+                                // Set selectedSection if user has unit_section that matches a section
+                                // This ensures sub_section dropdown displays correctly
+                                if (user.unit_section) {
+                                  // Try exact match first
+                                  let matchingSection = fetchedSections.find(s => 
+                                    s.name.toLowerCase() === user.unit_section.toLowerCase()
+                                  );
+                                  
+                                  // If no exact match, try partial match
+                                  if (!matchingSection) {
+                                    matchingSection = fetchedSections.find(s => 
+                                      user.unit_section.includes(s.name) || s.name.includes(user.unit_section)
+                                    );
+                                  }
+                                  
+                                  if (matchingSection) {
+                                    setSelectedSection(matchingSection.name);
+                                  } else {
+                                    // If no match found, still set to user's unit_section to preserve it
+                                    setSelectedSection(user.unit_section);
+                                  }
+                                } else {
+                                  setSelectedSection("");
+                                }
                               }
                               
-                              if (matchingSection) {
-                                setSelectedSection(matchingSection.name);
-                              } else {
-                                // If no match found, still set to user's unit_section to preserve it
-                                setSelectedSection(user.unit_section);
+                              // Fetch functions (sub-sections)
+                              const functionsResponse = await fetch(`${baseURL}/section/functions-data`, {
+                                headers: { Authorization: `Bearer ${token}` }
+                              });
+                              
+                              if (functionsResponse.ok) {
+                                const functionsData = await functionsResponse.json();
+                                setFunctionsList(functionsData.data || []);
                               }
-                            } else {
-                              setSelectedSection("");
+                            } catch (error) {
+                              console.error("Error fetching sections and functions:", error);
                             }
+                          } else {
+                            // For non-focal-person roles, ensure unit_section is preserved
+                            setSelectedSection("");
                           }
                           
-                          // Fetch functions (sub-sections)
-                          const functionsResponse = await fetch(`${baseURL}/section/functions-data`, {
-                            headers: { Authorization: `Bearer ${token}` }
-                          });
-                          
-                          if (functionsResponse.ok) {
-                            const functionsData = await functionsResponse.json();
-                            setFunctionsList(functionsData.data || []);
-                          }
-                        } catch (error) {
-                          console.error("Error fetching sections and functions:", error);
+                          setShowModal(true);
+                          setIsEditing(true);
+                        }}
+                      >
+                        <AiFillEdit />
+                      </button>
+                    </Tooltip>
+                    <Tooltip title="Activate User">
+                      <button
+                        className="activated-button"
+                        onClick={() => handleConfirmAction("activate", user.id)}
+                      >
+                        <HiMiniLockOpen />
+                      </button>
+                    </Tooltip>
+
+                    <Tooltip title="Deactivate User">
+                      <button
+                        className="deactivated-button"
+                        onClick={() => handleConfirmAction("de-activate", user.id)}
+                      >
+                        <HiMiniLockClosed />
+                      </button>
+                    </Tooltip>
+
+                    <Tooltip title="Reset User Password">
+                      <button
+                        className="reset-button"
+                        onClick={() =>
+                          handleConfirmAction("reset-password", user.id)
                         }
-                      } else {
-                        // For non-focal-person roles, ensure unit_section is preserved
-                        setSelectedSection("");
-                      }
-                      
-                      setShowModal(true);
-                      setIsEditing(true);
-                    }}
-                  >
-                    <AiFillEdit />
-                  </button>
-                </Tooltip>
-                <Tooltip title="Activate User">
-                  <button
-                    className="activated-button"
-                    onClick={() => handleConfirmAction("activate", user.id)}
-                  >
-                    <HiMiniLockOpen />
-                  </button>
-                </Tooltip>
+                      >
+                        <RxReset />
+                      </button>
+                    </Tooltip>
 
-                <Tooltip title="Deactivate User">
-                  <button
-                    className="deactivated-button"
-                    onClick={() => handleConfirmAction("de-activate", user.id)}
-                  >
-                    <HiMiniLockClosed />
-                  </button>
-                </Tooltip>
+                    <Tooltip title="Delete User">
+                      <button
+                        className="delete-button"
+                        onClick={() => handleConfirmAction("delete", user.id)}
+                      >
+                        <MdDeleteForever />
+                      </button>
+                    </Tooltip>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
-                <Tooltip title="Reset User Password">
-                  <button
-                    className="reset-button"
-                    onClick={() =>
-                      handleConfirmAction("reset-password", user.id)
-                    }
-                  >
-                    <RxReset />
-                  </button>
-                </Tooltip>
-
-                <Tooltip title="Delete User">
-                  <button
-                    className="delete-button"
-                    onClick={() => handleConfirmAction("delete", user.id)}
-                  >
-                    <MdDeleteForever />
-                  </button>
-                </Tooltip>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {/* Pagination */}
-      <div className="pagination">
-        {Array.from(
-          { length: Math.ceil(filteredUsers.length / usersPerPage) },
-          (_, i) => (
-            <button
-              key={i + 1}
-              onClick={() => setCurrentPage(i + 1)}
-              className={currentPage === i + 1 ? "active" : ""}
-            >
-              {i + 1}
-            </button>
-          )
-        )}
-      </div>
+      {/* Pagination Controls */}
+      {filteredUsers.length > 0 && (
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginTop: 2,
+            padding: 2,
+          }}
+        >
+          <Typography variant="body2" color="text.secondary">
+            Showing {startIndex + 1} to {Math.min(endIndex, filteredUsers.length)} of{" "}
+            {filteredUsers.length} users
+          </Typography>
+          <Pagination
+            count={totalPages}
+            page={currentPage}
+            onChange={handlePageChange}
+            color="primary"
+            showFirstButton
+            showLastButton
+          />
+        </Box>
+      )}
 
       {/* Add and Update User Modal */}
       <Modal open={showModal} onClose={handleCloseModal}>
