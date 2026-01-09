@@ -325,6 +325,7 @@ export default function PublicDashboard() {
 
   const fetchLostCalls = async () => {
     setLostCallsLoading(true);
+    
     try {
       const response = await fetch(`${baseURL}/calls/lost-calls-today`);
       if (response.ok) {
