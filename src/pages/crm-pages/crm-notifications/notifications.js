@@ -732,6 +732,19 @@ export default function Crm() {
       return <div className="no-notifications">No notifications found</div>;
     }
 
+    // Get ticket created date from selectedTicket
+    const ticketCreatedAt = selectedTicket?.ticket?.created_at || 
+                            selectedTicket?.created_at || 
+                            null;
+    
+    // Debug: Log ticket data
+    console.log('🔍 Notification History Debug:', {
+      selectedTicket: selectedTicket,
+      ticketCreatedAt: ticketCreatedAt,
+      hasTicket: !!selectedTicket?.ticket,
+      hasCreatedAt: !!ticketCreatedAt
+    });
+
     // Use MUI Box and Typography for consistent style
     return (
       <div className="notification-list" style={{ padding: 0, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
@@ -822,13 +835,31 @@ export default function Crm() {
                 flexDirection: 'column', 
                 gap: 0.75 
               }}>
-                {/* Created Date */}
+                {/* Ticket Created Date */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                   <Typography variant="caption" sx={{ color: '#999', fontWeight: 600, minWidth: 55, fontSize: '0.7rem' }}>
                     Created:
                   </Typography>
                   <Typography variant="caption" sx={{ color: '#666', fontSize: '0.7rem' }}>
-                    {notification.created_at
+                    {ticketCreatedAt
+                      ? new Date(ticketCreatedAt).toLocaleString("en-GB", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: true
+                        })
+                      : notification.ticket?.created_at
+                      ? new Date(notification.ticket.created_at).toLocaleString("en-GB", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          hour12: true
+                        })
+                      : notification.created_at
                       ? new Date(notification.created_at).toLocaleString("en-GB", {
                           day: "2-digit",
                           month: "short",

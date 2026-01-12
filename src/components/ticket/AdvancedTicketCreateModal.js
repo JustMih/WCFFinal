@@ -1952,11 +1952,12 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
       };
 
       // Only include employer fields if requester is "Employer"
+      // Use the same mapping as normal create (line 1709-1717)
       if (formData.requester === "Employer") {
-        ticketData.employerRegistrationNumber = formData.employerRegistrationNumber || null;
-        ticketData.employerName = formData.employerName || null;
-        ticketData.employerTin = formData.employerTin || null;
-        ticketData.employerPhone = formData.employerPhone || null;
+        ticketData.employerRegistrationNumber = formData.nidaNumber || null;
+        ticketData.employerName = formData.institution || null; // Map institution to employerName
+        ticketData.employerTin = formData.nidaNumber || null;
+        ticketData.employerPhone = formData.phoneNumber || null;
         ticketData.employerEmail = formData.employerEmail || null;
         ticketData.employerStatus = formData.employerStatus || null;
         ticketData.employerAllocatedStaffId = formData.employerAllocatedStaffId || null;
@@ -1964,13 +1965,14 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
         ticketData.employerAllocatedStaffUsername = formData.employerAllocatedStaffUsername || null;
       }
 
-      // Only include representative fields if requester is "Representative" or "Employer"
+      // Map representative fields to backend field names if requester is Representative or Employer
+      // Use the same mapping as normal create (line 1718-1725)
       if (formData.requester === "Representative" || formData.requester === "Employer") {
-        ticketData.representative_name = formData.representative_name || null;
-        ticketData.representative_phone = formData.representative_phone || null;
-        ticketData.representative_email = formData.representative_email || null;
-        ticketData.representative_address = formData.representative_address || null;
-        ticketData.representative_relationship = formData.representative_relationship || null;
+        ticketData.representative_name = formData.requesterName || null;
+        ticketData.representative_phone = formData.requesterPhoneNumber || null;
+        ticketData.representative_email = formData.requesterEmail || null;
+        ticketData.representative_address = formData.requesterAddress || null;
+        ticketData.representative_relationship = formData.relationshipToEmployee || null;
       }
 
       // Remove undefined values to prevent backend errors
@@ -1993,8 +1995,9 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
         delete ticketData.employerAllocatedStaffUsername;
       }
 
-      // If requester is not "Representative", remove representative-related fields
-      if (ticketData.requester !== "Representative") {
+      // DO NOT delete representative fields for Employer - they are needed!
+      // Only delete if requester is neither "Representative" nor "Employer"
+      if (ticketData.requester !== "Representative" && ticketData.requester !== "Employer") {
         delete ticketData.representative_name;
         delete ticketData.representative_phone;
         delete ticketData.representative_email;
