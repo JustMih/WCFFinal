@@ -829,7 +829,7 @@ export default function Navbar({
                   return isReversedTicket;
                 }).length || 0;
                 
-                const assignedCountLocal = notificationsData?.notifizcations?.filter(n => {
+                const assignedCountLocal = notificationsData?.notifications?.filter(n => {
                   // Use status and recipient_id instead of text matching for better reliability
                   const isUnread = n.status === 'unread' || n.status === ' ';
                   const isForCurrentUser = n.recipient_id === userId;
@@ -847,13 +847,19 @@ export default function Navbar({
                   // Exclude reversed notifications from assigned count
                   if (isReversedByText) return false;
                   
+                  // Check message text for assignment indicators
                   const isAssignedByText = messageText.includes('assigned to you') || 
                                          messageText.includes('forwarded to you') ||
                                          messageText.includes('reassigned to you');
                   
-                  // Assigned ONLY if message explicitly indicates assignment (don't use ticket status - too broad)
-                  // Many "Notified" notifications have tickets with "Assigned" status, so we only check message text
-                  return isAssignedByText;
+                  // Also check category for assignment-related categories
+                  // Categories like "Assigned", "Forwarded", "Converted" indicate assignment
+                  const assignmentCategories = ['Assigned', 'Forwarded', 'Converted'];
+                  const isAssignedByCategory = assignmentCategories.includes(n.category);
+                  
+                  // Assigned if message text indicates assignment OR category indicates assignment
+                  // Many "Notified" notifications have tickets with "Assigned" status, so we check both message and category
+                  return isAssignedByText || isAssignedByCategory;
                 }).length || 0;
                 
                 console.log('Notification counts:', { taggedCount, notifiedCount, assignedCount: assignedCountLocal, reversedCount: reversedCountLocal, total: notificationsData?.notifications?.length });
