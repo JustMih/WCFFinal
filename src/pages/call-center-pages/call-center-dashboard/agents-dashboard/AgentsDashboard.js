@@ -853,7 +853,7 @@ const markMissedCallAsCalledBack = async (missedCallId) => {
     "activeCallState",
     JSON.stringify({
       phoneStatus: "In Call",
-      phoneNumber: formatted || "",
+     phoneNumber: phoneNumber || "",
       callStartTime: new Date().toISOString(),
       hasActiveCall: true,
     })
