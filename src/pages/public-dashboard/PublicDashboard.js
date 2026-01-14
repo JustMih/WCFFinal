@@ -785,7 +785,8 @@ return () => {
                   </div>
                   <div className="lost-call-status">
                     <span className={`status-badge ${call.status === "called_back" ? "called-back" : "no-answer"}`}>
-                      {call.disposition || (call.status === "called_back" ? "CALLED BACK" : "NO ANSWER")}
+                    {call.status === "called_back" ? "CALLED BACK" : "NO ANSWER"}
+
                     </span>
                   </div>
                   <div className="lost-call-callback">

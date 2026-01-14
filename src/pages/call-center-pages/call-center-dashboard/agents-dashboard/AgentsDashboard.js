@@ -829,6 +829,7 @@ const markMissedCallAsCalledBack = async (missedCallId) => {
   const handleDial = () => {
     if (!userAgent || !phoneNumber) return;
     const targetURI = UserAgent.makeURI(`sip:${phoneNumber}@${SIP_DOMAIN}`);
+    
     if (!targetURI) return;
 
     const inviter = new Inviter(userAgent, targetURI, {
@@ -857,11 +858,7 @@ const markMissedCallAsCalledBack = async (missedCallId) => {
       hasActiveCall: true,
     })
   );
-
-  // ✅ SAFE async call
-  if (missedCallId) {
-    markMissedCallAsCalledBack(missedCallId);
-  }
+ 
 }
 
           if (state === SessionState.Terminated) {
@@ -907,19 +904,17 @@ const markMissedCallAsCalledBack = async (missedCallId) => {
     startCallTimer();
 
     localStorage.setItem(
-      "activeCallState",
-      JSON.stringify({
-        phoneStatus: "In Call",
-        phoneNumber: formatted || "",
-        callStartTime: new Date().toISOString(),
-        hasActiveCall: true,
-      })
-    );
+  "activeCallState",
+  JSON.stringify({
+    phoneStatus: "In Call",
+    phoneNumber: phoneNumber || "",
+    callStartTime: new Date().toISOString(),
+    hasActiveCall: true,
+  })
+);
 
-    // ✅ ASYNC SAFE
-    if (missedCallId) {
-      markMissedCallAsCalledBack(missedCallId);
-    }
+ 
+   
   }
 
   if (state === SessionState.Terminated) {
