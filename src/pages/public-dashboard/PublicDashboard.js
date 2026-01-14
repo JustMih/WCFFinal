@@ -163,11 +163,12 @@ export default function PublicDashboard() {
       }
     }, 10000);
 
-    return () => {
-      socket.disconnect();
-      clearInterval(interval);
-      clearInterval(fallback);
-    };
+return () => {
+  socket.disconnect();
+  clearInterval(liveCallsInterval);
+  clearInterval(fallbackInterval);
+};
+
   }, []);
 
   const formatTime = (seconds) => {
