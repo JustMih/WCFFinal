@@ -738,6 +738,15 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
     setShowRegistrationOptions(false);
     
     // Update form data with employer information while preserving call phone number
+    // Extract allocated staff from employer data
+    const allocatedStaffUsername = employer.allocated_staff_username || null;
+    
+    console.log("🔵 EMPLOYER SELECTION - Allocated User:");
+    console.log("  - employer.allocated_staff_username:", employer.allocated_staff_username);
+    console.log("  - employer.allocated_staff_name:", employer.allocated_staff_name);
+    console.log("  - employer.allocated_staff_id:", employer.allocated_staff_id);
+    console.log("  - Final allocatedStaffUsername:", allocatedStaffUsername);
+    
     setFormData(prev => ({
       ...prev,
       firstName: "",
@@ -748,7 +757,11 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
       phoneNumber: prev.phoneNumber || callPhoneNumber || "",
       institution: employer.name || "",
       requester: "Employer",
-      employerName: employer.name || ""
+      employerName: employer.name || "",
+      // Store allocated staff information from employer
+      allocated_user_username: allocatedStaffUsername || prev.allocated_user_username || "",
+      allocated_user_name: employer.allocated_staff_name || prev.allocated_user_name || "",
+      allocated_user_id: employer.allocated_staff_id || prev.allocated_user_id || ""
     }));
     
     // Fetch institution details
@@ -1249,6 +1262,15 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
     setOpenAuto(false);
     let updatedFormData = { ...formData };
     if (searchType === "employee") {
+      // Extract allocated user from suggestion (which now includes employer fallback)
+      const allocatedUserUsername = suggestion.allocated_user_username || null;
+      
+      console.log("🔵 SETTING FORM DATA - Allocated User:");
+      console.log("  - suggestion.allocated_user_username:", suggestion.allocated_user_username);
+      console.log("  - rawData.allocated_user_username:", rawData.allocated_user_username);
+      console.log("  - rawData.employer?.allocated_staff_username:", rawData.employer?.allocated_staff_username);
+      console.log("  - Final allocatedUserUsername for formData:", allocatedUserUsername);
+      
       updatedFormData = {
         ...updatedFormData,
         firstName: suggestion.firstname || "",
@@ -1261,6 +1283,10 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
         // Store both claim number and notification report ID
         claimNumber: suggestion.claim_number || rawData.claim_number || "",
         notification_report_id: suggestion.notification_report_id || rawData.notification_report_id || "",
+        // Store allocated user information
+        allocated_user_username: allocatedUserUsername,
+        allocated_user_name: suggestion.allocated_user || rawData.employer?.allocated_staff_name || null,
+        allocated_user_id: suggestion.allocated_user_id || rawData.employer?.allocated_staff_id || null,
       };
     } else if (searchType === "employer") {
       updatedFormData = {
@@ -1395,12 +1421,31 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
         console.log("Dependents:", dependents); // Debug: Log dependents
         console.log("Claims:", claims); // Debug: Log claims
         
+        // Extract allocated user from multiple sources (claim, employer, employee)
+        const allocatedUserFromClaim = firstClaim?.allocated_user_username || null;
+        const allocatedUserFromEmployer = result.employer?.allocated_staff_username || 
+                                         result.employee?.employer?.allocated_staff_username || 
+                                         employeeData?.employer?.allocated_staff_username || 
+                                         null;
+        const allocatedUserFromEmployee = employeeData?.allocated_user_username || null;
+        
+        // Priority: claim > employer > employee
+        const finalAllocatedUser = allocatedUserFromClaim || allocatedUserFromEmployer || allocatedUserFromEmployee;
+        
+        console.log("🔵 ALLOCATED USER EXTRACTION FROM SEARCH RESULT:");
+        console.log("  - allocatedUserFromClaim:", allocatedUserFromClaim);
+        console.log("  - allocatedUserFromEmployer:", allocatedUserFromEmployer);
+        console.log("  - allocatedUserFromEmployee:", allocatedUserFromEmployee);
+        console.log("  - finalAllocatedUser:", finalAllocatedUser);
+        console.log("  - result.employer:", result.employer);
+        console.log("  - employeeData.employer:", employeeData?.employer);
+        
         return {
           ...employeeData, // Spread employee data to top level
           dependents: dependents, // Add dependents at top level
-          allocated_user: firstClaim?.allocated_user || null,
-          allocated_user_id: firstClaim?.allocated_user_id || null,
-          allocated_user_username: firstClaim?.allocated_user_username || null,
+          allocated_user: firstClaim?.allocated_user || result.employer?.allocated_staff_name || employeeData?.allocated_user || null,
+          allocated_user_id: firstClaim?.allocated_user_id || result.employer?.allocated_staff_id || employeeData?.allocated_user_id || null,
+          allocated_user_username: finalAllocatedUser,
           claim_number: firstClaim?.claim_number || null,
           notification_report_id: firstClaim?.notification_report_id || null,
           rawData: result // Preserve the original result structure
@@ -1503,10 +1548,12 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
       }
       
       // --- Allocated User Logic ---
-      // Routing Rules:
-      // 1. If searched details has a claim number → Send to checklist user shown in details
-      // 2. If no claim number and it's an inquiry → Send to focal person of the selected section/unit
-      // 3. Otherwise → Fallback to institution's allocated staff
+      // Routing Rules for Inquiry Tickets:
+      // 1. If Inquiry + has claim + has allocated user → Send to allocated user (priority over checklist user)
+      // 2. If Inquiry + has claim + no allocated user → Send to focal person (backend will handle)
+      // 3. If Inquiry + no claim + has allocated user → Send to allocated user
+      // 4. If Inquiry + no claim + no allocated user → Send to focal person (backend will handle)
+      // For other categories: Follow normal routing (claim → checklist user, etc.)
       let employerAllocatedStaffUsername = "";
       
       // Get the selected claim based on selectedClaimIndex
@@ -1514,19 +1561,72 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
         ? formData.allClaims[selectedClaimIndex] 
         : null;
 
-      // Priority: Use selected claim's allocated user, then fallback to selectedSuggestion, then formData
-      if (selectedClaim && selectedClaim.allocated_user_username) {
-        // Use allocated user from the selected claim
-        employerAllocatedStaffUsername = selectedClaim.allocated_user_username;
-      } else if (selectedSuggestion && selectedSuggestion.allocated_user_username) {
-        // Use allocated user from employee search response (fallback)
-        employerAllocatedStaffUsername = selectedSuggestion.allocated_user_username;
-      } else if (formData.allocated_user_username) {
-        // Use allocated user from formData (fallback)
-        employerAllocatedStaffUsername = formData.allocated_user_username;
+      // For Inquiry tickets: Different priority based on sub-section
+      // SPECIAL RULE: For "Compliance Section" only:
+      //   - Priority: allocated_staff_username from employer/institution (NOT allocated_user_username from claim)
+      // FOR OTHER SUB-SECTIONS:
+      //   - Priority: allocated_user_username from claim/suggestion/formData (old logic)
+      //   - Fallback: allocated_staff_username from employer/institution
+      
+      // Get sub-section to determine priority logic
+      const ticketSubSection = parentFunction ? parentFunction.name : formData.sub_section || "";
+      const normalizedSubSection = ticketSubSection.toLowerCase().trim();
+      const isComplianceSection = normalizedSubSection === "compliance section";
+      const isClaimsAdministrationSection = normalizedSubSection === "claims administration section";
+      
+      console.log("🔵 Inquiry Sub-Section Check:");
+      console.log("  - ticketSubSection:", ticketSubSection);
+      console.log("  - normalizedSubSection:", normalizedSubSection);
+      console.log("  - isComplianceSection:", isComplianceSection);
+      console.log("  - isClaimsAdministrationSection:", isClaimsAdministrationSection);
+      
+      if (isComplianceSection) {
+        // SPECIAL SUB-SECTION: Compliance Section
+        // Priority 1: allocated_staff_username from employer/institution (NOT allocated_user_username from claim)
+        // Priority 2: Focal-person of Compliance Section (if allocated_staff_username is null)
+        // CRITICAL: Even if there's a claim, use allocated_staff_username, NOT allocated_user_username (checklist user)
+        console.log("🔵 SPECIAL SUB-SECTION DETECTED (Compliance Section): Using allocated_staff_username priority (NOT checklist user)");
+        if (selectedEmployer && selectedEmployer.allocated_staff_username && selectedEmployer.allocated_staff_username.trim() !== "") {
+          employerAllocatedStaffUsername = selectedEmployer.allocated_staff_username;
+          console.log("🔵 Inquiry (Compliance Section) - Using allocated_staff_username from employer:", employerAllocatedStaffUsername);
+          console.log("🔵 Inquiry (Compliance Section) - Even if claim exists, using allocated_staff_username (NOT checklist user)");
+        } else if (selectedInstitution && selectedInstitution.allocated_staff_username && selectedInstitution.allocated_staff_username.trim() !== "") {
+          employerAllocatedStaffUsername = selectedInstitution.allocated_staff_username;
+          console.log("🔵 Inquiry (Compliance Section) - Using allocated_staff_username from institution:", employerAllocatedStaffUsername);
+          console.log("🔵 Inquiry (Compliance Section) - Even if claim exists, using allocated_staff_username (NOT checklist user)");
+        } else {
+          // No allocated_staff_username found, backend will assign to focal-person of Compliance Section
+          employerAllocatedStaffUsername = "";
+          console.log("🔵 Inquiry (Compliance Section) - No allocated_staff_username found, backend will assign to focal-person of Compliance Section");
+        }
+      } else if (isClaimsAdministrationSection) {
+        // SPECIAL SUB-SECTION: Claims Administration Section
+        // If allocated_user_username from claim exists and is not null → use that (checklist user)
+        // Otherwise → backend will assign to focal-person (don't send allocated_staff_username)
+        console.log("🔵 SPECIAL SUB-SECTION DETECTED (Claims Administration Section): Checking for checklist user");
+        if (selectedClaim && selectedClaim.allocated_user_username && selectedClaim.allocated_user_username.trim() !== "") {
+          // Use checklist user from claim
+          employerAllocatedStaffUsername = selectedClaim.allocated_user_username;
+          console.log("🔵 Inquiry (Claims Administration Section) - Using checklist user (allocated_user_username) from claim:", employerAllocatedStaffUsername);
+        } else if (selectedSuggestion && selectedSuggestion.allocated_user_username && selectedSuggestion.allocated_user_username.trim() !== "") {
+          // Fallback: Use from suggestion
+          employerAllocatedStaffUsername = selectedSuggestion.allocated_user_username;
+          console.log("🔵 Inquiry (Claims Administration Section) - Using checklist user (allocated_user_username) from suggestion:", employerAllocatedStaffUsername);
+        } else if (formData.allocated_user_username && formData.allocated_user_username.trim() !== "") {
+          // Fallback: Use from formData
+          employerAllocatedStaffUsername = formData.allocated_user_username;
+          console.log("🔵 Inquiry (Claims Administration Section) - Using checklist user (allocated_user_username) from formData:", employerAllocatedStaffUsername);
+        } else {
+          // No checklist user found, backend will assign to focal-person
+          employerAllocatedStaffUsername = "";
+          console.log("🔵 Inquiry (Claims Administration Section) - No checklist user found, backend will assign to focal-person");
+        }
       } else {
-        // No allocated user found, will be assigned by backend logic
+        // OTHER SUB-SECTIONS: Always go to focal-person (ignore checklist user and allocated user)
+        // Even if there's a checklist user, allocated user, or claim number, send to focal-person
+        console.log("🔵 REGULAR SUB-SECTION: Always assigning to focal-person (ignoring checklist user and allocated user)");
         employerAllocatedStaffUsername = "";
+        console.log("🔵 Inquiry (Regular Sub-Section) - No allocated user sent, backend will assign to focal-person of sub-section:", ticketSubSection);
       }
 
       // Get claim information from selected claim or fallback
@@ -1550,14 +1650,52 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
         // Add routing information for backend
         hasClaim: Boolean(claimId),
         isInquiry: formData.category === "Inquiry",
-        // Add allocated user details for routing (use selected claim)
-        allocated_user_id: selectedClaim?.allocated_user_id || selectedSuggestion?.allocated_user_id || formData.allocated_user_id || null,
-        allocated_user_name: selectedClaim?.allocated_user || selectedSuggestion?.allocated_user || formData.allocated_user_name || null,
-        allocated_user_username: selectedClaim?.allocated_user_username || selectedSuggestion?.allocated_user_username || formData.allocated_user_username || null,
+        // Add allocated user details for routing
+        // CRITICAL: For Inquiry, prioritize allocated_staff_username from employer/institution (actual allocated user)
+        // NOT allocated_user_username from claim (which might be checklist user)
+        // For special sub-sections (Claims Administration Section, Compliance Section): prioritize allocated_staff_username
+        // For other sub-sections: prioritize allocated_user_username (old logic)
+        // For Compliance Section: send allocated_staff_username
+        // For Claims Administration Section: send allocated_user_username (checklist user) if exists
+        // For other sub-sections: send null (backend will assign to focal-person)
+        // For Compliance Section: send allocated_staff_username (NOT allocated_user_username from claim, even if claim exists)
+        // For Claims Administration Section: send allocated_user_username (checklist user) if exists
+        // For other sub-sections: send null (backend will assign to focal-person)
+        allocated_user_id: isComplianceSection
+          ? (selectedEmployer?.allocated_staff_id || selectedInstitution?.allocated_staff_id || null)
+          : isClaimsAdministrationSection
+          ? (selectedClaim?.allocated_user_id || selectedSuggestion?.allocated_user_id || formData.allocated_user_id || null)
+          : null,
+        allocated_user_name: isComplianceSection
+          ? (selectedEmployer?.allocated_staff_name || selectedInstitution?.allocated_staff_name || null)
+          : isClaimsAdministrationSection
+          ? (selectedClaim?.allocated_user || selectedSuggestion?.allocated_user || formData.allocated_user_name || null)
+          : null,
+        allocated_user_username: isComplianceSection
+          ? (selectedEmployer?.allocated_staff_username || selectedInstitution?.allocated_staff_username || null)
+          : isClaimsAdministrationSection
+          ? (selectedClaim?.allocated_user_username || selectedSuggestion?.allocated_user_username || formData.allocated_user_username || null)
+          : null,
         // Add employer information from search
         employer: formData.employer || selectedSuggestion?.employer || "",
         employerName: formData.employerName || "",
       };
+      
+      // Debug allocated user
+      console.log("🔵 FRONTEND ALLOCATED USER DEBUG:");
+      console.log("  - selectedClaim?.allocated_user_username:", selectedClaim?.allocated_user_username);
+      console.log("  - selectedSuggestion?.allocated_user_username:", selectedSuggestion?.allocated_user_username);
+      console.log("  - formData.allocated_user_username:", formData.allocated_user_username);
+      console.log("  - selectedEmployer?.allocated_staff_username:", selectedEmployer?.allocated_staff_username);
+      console.log("  - selectedInstitution?.allocated_staff_username:", selectedInstitution?.allocated_staff_username);
+      console.log("  - employerAllocatedStaffUsername:", employerAllocatedStaffUsername);
+      console.log("  - ticketData.allocated_user_username:", ticketData.allocated_user_username);
+      console.log("  - ticketData.employerAllocatedStaffUsername:", ticketData.employerAllocatedStaffUsername);
+      console.log("  - category:", formData.category);
+      console.log("  - isInquiry:", formData.category === "Inquiry");
+      console.log("  - hasClaim:", Boolean(claimId));
+      console.log("  - claimId:", claimId);
+      console.log("  - For Inquiry with claim, allocated user should take priority over checklist user");
       
       // Debug phone number
       console.log("🔍 FRONTEND PHONE NUMBER DEBUG:");
@@ -1814,11 +1952,12 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
       };
 
       // Only include employer fields if requester is "Employer"
+      // Use the same mapping as normal create (line 1709-1717)
       if (formData.requester === "Employer") {
-        ticketData.employerRegistrationNumber = formData.employerRegistrationNumber || null;
-        ticketData.employerName = formData.employerName || null;
-        ticketData.employerTin = formData.employerTin || null;
-        ticketData.employerPhone = formData.employerPhone || null;
+        ticketData.employerRegistrationNumber = formData.nidaNumber || null;
+        ticketData.employerName = formData.institution || null; // Map institution to employerName
+        ticketData.employerTin = formData.nidaNumber || null;
+        ticketData.employerPhone = formData.phoneNumber || null;
         ticketData.employerEmail = formData.employerEmail || null;
         ticketData.employerStatus = formData.employerStatus || null;
         ticketData.employerAllocatedStaffId = formData.employerAllocatedStaffId || null;
@@ -1826,13 +1965,14 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
         ticketData.employerAllocatedStaffUsername = formData.employerAllocatedStaffUsername || null;
       }
 
-      // Only include representative fields if requester is "Representative" or "Employer"
+      // Map representative fields to backend field names if requester is Representative or Employer
+      // Use the same mapping as normal create (line 1718-1725)
       if (formData.requester === "Representative" || formData.requester === "Employer") {
-        ticketData.representative_name = formData.representative_name || null;
-        ticketData.representative_phone = formData.representative_phone || null;
-        ticketData.representative_email = formData.representative_email || null;
-        ticketData.representative_address = formData.representative_address || null;
-        ticketData.representative_relationship = formData.representative_relationship || null;
+        ticketData.representative_name = formData.requesterName || null;
+        ticketData.representative_phone = formData.requesterPhoneNumber || null;
+        ticketData.representative_email = formData.requesterEmail || null;
+        ticketData.representative_address = formData.requesterAddress || null;
+        ticketData.representative_relationship = formData.relationshipToEmployee || null;
       }
 
       // Remove undefined values to prevent backend errors
@@ -1855,8 +1995,9 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
         delete ticketData.employerAllocatedStaffUsername;
       }
 
-      // If requester is not "Representative", remove representative-related fields
-      if (ticketData.requester !== "Representative") {
+      // DO NOT delete representative fields for Employer - they are needed!
+      // Only delete if requester is neither "Representative" nor "Employer"
+      if (ticketData.requester !== "Representative" && ticketData.requester !== "Employer") {
         delete ticketData.representative_name;
         delete ticketData.representative_phone;
         delete ticketData.representative_email;

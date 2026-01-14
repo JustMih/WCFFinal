@@ -72,12 +72,15 @@ export default function ReviewerDashboard() {
   const [forwardUnit, setForwardUnit] = useState({});
   const [activeColumns, setActiveColumns] = useState([
     "ticket_id",
+    "created_at",
     "employee",
     "employer",
     "phone_number",
     "region",
     "status",
-    "dateCreatedAt",
+    "subject",
+    "category",
+    "assigned_to_role",
     "categoryType"
   ]);
   const [currentPage, setCurrentPage] = useState(1);
@@ -715,26 +718,28 @@ export default function ReviewerDashboard() {
 
 
   const filteredTickets = tickets.filter((t) => {
-    const s = search.trim().toLowerCase();
-    const fullName = `${t.firstName || t.first_name || ""} ${
-      t.middleName || t.middle_name || ""
-    } ${t.lastName || t.last_name || ""}`.trim().toLowerCase();
-    const institutionName = (t.institution && typeof t.institution === 'object' ? t.institution.name : t.institution || "").toLowerCase();
-    const representativeName = (t.representative_name || "").toLowerCase();
+    // If no search term and no filters, show all tickets
+    const hasSearch = search.trim().length > 0;
+    const hasFilters = filters.status || filters.category || filters.priority || 
+                      filters.region || filters.district || filters.ticketId || 
+                      filters.startDate || filters.endDate;
 
-    // Debug logging for search
-    if (s && (t.phone_number?.toLowerCase().includes(s) || t.nida_number?.toLowerCase().includes(s))) {
-      console.log("🔍 Found match:", {
-        ticketId: t.id,
-        phone: t.phone_number,
-        nida: t.nida_number,
-        searchTerm: s
-      });
+    // If no search and no filters, show all tickets
+    if (!hasSearch && !hasFilters) {
+      return true;
     }
 
-    // Basic search and status filter
-    let matches =
-      (!s ||
+    // Apply search filter
+    let matchesSearch = true;
+    if (hasSearch) {
+      const s = search.trim().toLowerCase();
+      const fullName = `${t.firstName || t.first_name || ""} ${
+        t.middleName || t.middle_name || ""
+      } ${t.lastName || t.last_name || ""}`.trim().toLowerCase();
+      const institutionName = (t.institution && typeof t.institution === 'object' ? t.institution.name : t.institution || "").toLowerCase();
+      const representativeName = (t.representative_name || "").toLowerCase();
+
+      matchesSearch = 
         t.phone_number?.toLowerCase().includes(s) ||
         t.nida_number?.toLowerCase().includes(s) ||
         fullName.includes(s) ||
@@ -744,40 +749,42 @@ export default function ReviewerDashboard() {
         (t.lastName || t.last_name || "").toLowerCase().includes(s) ||
         (t.middleName || t.middle_name || "").toLowerCase().includes(s) ||
         (t.ticket_id || "").toLowerCase().includes(s) ||
-        (t.id || "").toLowerCase().includes(s)) &&
-      (!filters.status || t.status === filters.status);
+        (t.id || "").toLowerCase().includes(s);
+    }
+
+    // Apply status filter
+    let matchesStatus = !filters.status || t.status === filters.status;
 
     // Apply advanced filters
+    let matchesFilters = true;
     if (filters.category && filters.category !== "") {
-      matches = matches && t.category === filters.category;
+      matchesFilters = matchesFilters && t.category === filters.category;
     }
     if (filters.priority && filters.priority !== "") {
-      matches = matches && t.priority === filters.priority;
+      matchesFilters = matchesFilters && t.priority === filters.priority;
     }
     if (filters.region && filters.region !== "") {
-      matches = matches && t.region === filters.region;
+      matchesFilters = matchesFilters && t.region === filters.region;
     }
     if (filters.district && filters.district !== "") {
-      matches = matches && t.district === filters.district;
+      matchesFilters = matchesFilters && t.district === filters.district;
     }
     if (filters.ticketId && filters.ticketId !== "") {
-      matches = matches && (
+      matchesFilters = matchesFilters && (
         (t.ticket_id && t.ticket_id.toLowerCase().includes(filters.ticketId.toLowerCase())) ||
         (t.id && t.id.toLowerCase().includes(filters.ticketId.toLowerCase()))
       );
     }
     if (filters.startDate) {
-      matches =
-        matches &&
+      matchesFilters = matchesFilters &&
         new Date(t.createdAt || t.created_at) >= new Date(filters.startDate);
     }
     if (filters.endDate) {
-      matches =
-        matches &&
+      matchesFilters = matchesFilters &&
         new Date(t.createdAt || t.created_at) <= new Date(filters.endDate);
     }
 
-    return matches;
+    return matchesSearch && matchesStatus && matchesFilters;
   });
 
   // Debug: Log filtered results
@@ -803,6 +810,7 @@ export default function ReviewerDashboard() {
   const renderTableHeader = () => (
     <tr>
       {activeColumns.includes("ticket_id") && <th>Ticket ID</th>}
+      {activeColumns.includes("created_at") && <th>Created At</th>}
       {activeColumns.includes("employee") && <th>Employee</th>}
       {activeColumns.includes("employer") && <th>Employer</th>}
       {activeColumns.includes("phone_number") && <th>Phone</th>}
@@ -811,15 +819,26 @@ export default function ReviewerDashboard() {
       {activeColumns.includes("subject") && <th>Subject</th>}
       {activeColumns.includes("category") && <th>Category</th>}
       {activeColumns.includes("assigned_to_role") && <th>Assigned Role</th>}
-      {activeColumns.includes("createdAt") && <th>Created At</th>}
       <th>Actions</th>
     </tr>
   );
 
   const renderTableRow = (ticket, index) => (
-    <tr key={ticket.id}>
+    <tr key={ticket.id || index}>
       {activeColumns.includes("ticket_id") && (
         <td>{ticket.ticket_id || ticket.id}</td>
+      )}
+      {activeColumns.includes("created_at") && (
+        <td>
+          {new Date(ticket.created_at).toLocaleString("en-GB", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+            hour12: true
+          })}
+        </td>
       )}
       {activeColumns.includes("employee") && (
         <td>
@@ -839,39 +858,43 @@ export default function ReviewerDashboard() {
               : "N/A"}
         </td>
       )}
-      {activeColumns.includes("phone_number") && (
-        <td>{ticket.phone_number || "N/A"}</td>
-      )}
-      {activeColumns.includes("region") && (
-        <td>{ticket.region || "N/A"}</td>
-      )}
-      {activeColumns.includes("status") && <td>{ticket.status || "N/A"}</td>}
-      {activeColumns.includes("subject") && <td>{ticket.subject || "N/A"}</td>}
-      {activeColumns.includes("category") && (
-        <td>{ticket.category || "N/A"}</td>
-      )}
-      {activeColumns.includes("assigned_to_role") && (
-        <td>{ticket.assigned_to_role || "N/A"}</td>
-      )}
-      {activeColumns.includes("createdAt") && (
+      {activeColumns.includes("phone_number") && <td>{ticket.phone_number}</td>}
+      {activeColumns.includes("region") && <td>{ticket.region || "N/A"}</td>}
+      {activeColumns.includes("status") && (
         <td>
-          {ticket.createdAt
-            ? new Date(ticket.createdAt).toLocaleString("en-GB", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: true
-              })
-            : "N/A"}
+          <span
+            style={{
+              color:
+                ticket.status === "Open"
+                  ? "green"
+                  : ticket.status === "Closed"
+                  ? "gray"
+                  : ticket.status === "Assigned"
+                  ? "orange"
+                  : ticket.status === "Forwarded"
+                  ? "purple"
+                  : ticket.status === "Reversed"
+                  ? "red"
+                  : "blue",
+              fontWeight: "500"
+            }}
+          >
+            {ticket.status || "Escalated"}
+          </span>
         </td>
+      )}
+      {activeColumns.includes("subject") && (
+        <td>{ticket.functionData?.name}</td>
+      )}
+      {activeColumns.includes("category") && <td>{ticket.category}</td>}
+      {activeColumns.includes("assigned_to_role") && (
+        <td>{ticket.assigned_to_role}</td>
       )}
       <td>
         <button
           className="view-ticket-details-btn"
-          title="View"
           onClick={() => openDetailsModal(ticket)}
+          title="View Details"
         >
           <FaEye />
         </button>
@@ -1181,89 +1204,17 @@ export default function ReviewerDashboard() {
           />
 
           <table className="user-table">
-          <thead>
-            <tr>
-              {activeColumns.includes("ticket_id") && <th>Ticket ID</th>}
-              {activeColumns.includes("employee") && <th>Employee</th>}
-              {activeColumns.includes("employer") && <th>Employer</th>}
-              {activeColumns.includes("phone_number") && <th>Phone</th>}
-              {activeColumns.includes("region") && <th>Region</th>}
-              {activeColumns.includes("status") && <th>Status</th>}
-              {activeColumns.includes("dateCreatedAt") && <th>Created At</th>}
-              {activeColumns.includes("categoryType") && <th>Category Type (Major/Minor)</th>}
-              <th>Actions</th>
-            </tr>
-          </thead>
+          <thead>{renderTableHeader()}</thead>
           <tbody>
             {paginatedTickets.length > 0 ? (
-              paginatedTickets.map((ticket, i) => (
-                <tr key={ticket.id}>
-                  {activeColumns.includes("ticket_id") && (
-                    <td>{ticket.ticket_id || ticket.id}</td>
-                  )}
-                  {activeColumns.includes("fullName") && (
-                    <td>
-                      {!ticket.first_name
-                        ? (ticket.institution || "N/A")
-                        : `${ticket.first_name || ""} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim() || "N/A"}
-                    </td>
-                  )}
-                  {activeColumns.includes("phone_number") && (
-                    <td>{ticket.phone_number || "N/A"}</td>
-                  )}
-                  {activeColumns.includes("region") && (
-                    <td>{ticket.region || "N/A"}</td>
-                  )}
-                  {activeColumns.includes("status") && (
-                    <td>{ticket.status || "N/A"}</td>
-                  )}
-                  {activeColumns.includes("dateCreatedAt") && (
-                    <td>
-                      {ticket.created_at
-                        ? new Date(ticket.created_at).toLocaleString("en-GB", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hour12: true
-                          })
-                        : "N/A"}
-                    </td>
-                  )}
-                  {activeColumns.includes("categoryType") && (
-                    <td>
-                      {ticket.complaint_type ? ticket.complaint_type : "Not Rated"}
-                    </td>
-                  )}
-                  <td>
-                    <button
-                      className="view-ticket-details-btn"
-                      title="View"
-                      onClick={() => {
-                        openDetailsModal(ticket);
-                      }}
-                    >
-                      <FaEye />
-                    </button>
-                    {/* <button
-                      className="advanced-ticket-btn"
-                      title="Advanced"
-                      style={{ marginLeft: 8 }}
-                      onClick={() => handleAdvanced(ticket)}
-                    >
-                      <FiSettings />
-                    </button> */}
-                  </td>
-                </tr>
-              ))
+              paginatedTickets.map((ticket, i) => renderTableRow(ticket, i))
             ) : (
               <tr>
                 <td
                   colSpan={activeColumns.length + 1}
                   style={{ textAlign: "center", color: "red" }}
                 >
-                  No complaints found.
+                  No tickets found.
                 </td>
               </tr>
             )}
@@ -1446,7 +1397,14 @@ export default function ReviewerDashboard() {
                               ? "green"
                               : selectedTicket.status === "Closed"
                               ? "gray"
+                              : selectedTicket.status === "Assigned"
+                              ? "orange"
+                              : selectedTicket.status === "Forwarded"
+                              ? "purple"
+                              : selectedTicket.status === "Reversed"
+                              ? "red"
                               : "blue",
+                          fontWeight: "500"
                         }}
                       >
                         {selectedTicket.status || "Escalated" || "N/A"}
@@ -1775,10 +1733,16 @@ export default function ReviewerDashboard() {
                             borderRadius: "12px",
                             color: "white",
                             background:
-                              ticket.status === "Closed"
-                                ? "#757575"
-                                : ticket.status === "Open"
+                              ticket.status === "Open"
                                 ? "#2e7d32"
+                                : ticket.status === "Closed"
+                                ? "#757575"
+                                : ticket.status === "Assigned"
+                                ? "#ff9800"
+                                : ticket.status === "Forwarded"
+                                ? "#9c27b0"
+                                : ticket.status === "Reversed"
+                                ? "#f44336"
                                 : "#1976d2",
                             fontSize: "0.75rem",
                             fontWeight: 500
