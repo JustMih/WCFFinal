@@ -21,6 +21,15 @@ import {
   Modal,
   Box,
   Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Pagination,
+  Typography,
 } from "@mui/material";
 
 export default function CallCenterUsers() {
@@ -52,7 +61,7 @@ export default function CallCenterUsers() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [actionType, setActionType] = useState(""); // Type of action (activate, deactivate, etc.)
   const [userIdForAction, setUserIdForAction] = useState(null); // ID of the user for the action
-  
+
   // States for sections and functions (for focal-person)
   const [sectionsList, setSectionsList] = useState([]); // Directorates and units
   const [functionsList, setFunctionsList] = useState([]); // Functions (sub-sections)
@@ -86,25 +95,35 @@ export default function CallCenterUsers() {
   // Fetch sections and functions when modal opens and role is focal-person
   useEffect(() => {
     const fetchSectionsAndFunctions = async () => {
-      if (showModal && (newUserData.role === "focal-person" || (currentUser && currentUser.role === "focal-person"))) {
+      if (
+        showModal &&
+        (newUserData.role === "focal-person" ||
+          (currentUser && currentUser.role === "focal-person"))
+      ) {
         try {
           const token = localStorage.getItem("authToken");
-          
+
           // Fetch directorates and units
-          const sectionsResponse = await fetch(`${baseURL}/section/units-data`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          
+          const sectionsResponse = await fetch(
+            `${baseURL}/section/units-data`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+
           if (sectionsResponse.ok) {
             const sectionsData = await sectionsResponse.json();
             setSectionsList(sectionsData.data || []);
           }
-          
+
           // Fetch functions (sub-sections)
-          const functionsResponse = await fetch(`${baseURL}/section/functions-data`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          
+          const functionsResponse = await fetch(
+            `${baseURL}/section/functions-data`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
+
           if (functionsResponse.ok) {
             const functionsData = await functionsResponse.json();
             setFunctionsList(functionsData.data || []);
@@ -114,13 +133,18 @@ export default function CallCenterUsers() {
         }
       }
     };
-    
+
     fetchSectionsAndFunctions();
   }, [showModal, newUserData.role, currentUser]);
 
   // When editing and selectedSection is set, ensure sub_section is preserved
   useEffect(() => {
-    if (isEditing && currentUser && selectedSection && currentUser.role === "focal-person") {
+    if (
+      isEditing &&
+      currentUser &&
+      selectedSection &&
+      currentUser.role === "focal-person"
+    ) {
       // If selectedSection is set and matches user's unit_section, preserve sub_section
       // The sub_section value is already set in currentUser, so it will display automatically
       // This effect ensures the dropdown is ready when selectedSection changes
@@ -146,12 +170,21 @@ export default function CallCenterUsers() {
     // Validate that focal-person must have sub_section if it's for a directorate
     // For units, sub-section is not required
     if (newUserData.role === "focal-person") {
-      const unitSection = (newUserData.unit_section || selectedSection || "").toLowerCase();
+      const unitSection = (
+        newUserData.unit_section ||
+        selectedSection ||
+        ""
+      ).toLowerCase();
       const isDirectorate = unitSection.includes("directorate");
-      
+
       // Only require sub_section if it's a directorate
-      if (isDirectorate && (!newUserData.sub_section || newUserData.sub_section.trim() === "")) {
-        setSnackbarMessage("Focal person for directorate must have a sub-section (function)");
+      if (
+        isDirectorate &&
+        (!newUserData.sub_section || newUserData.sub_section.trim() === "")
+      ) {
+        setSnackbarMessage(
+          "Focal person for directorate must have a sub-section (function)"
+        );
         setSnackbarSeverity("error");
         setSnackbarOpen(true);
         return;
@@ -164,14 +197,11 @@ export default function CallCenterUsers() {
         .toLowerCase()
         .replace(/\s+/g, ".");
 
-      // Prepare user data - set extension to null if role is not agent or attendee
+      // Prepare user data - extension is optional for all roles
       const userDataToSend = {
         ...newUserData,
         username: generatedUsername,
-        extension:
-          newUserData.role === "agent" || newUserData.role === "attendee"
-            ? newUserData.extension
-            : null,
+        extension: newUserData.extension || null, // Allow extension for all roles, set to null if empty
       };
 
       const response = await fetch(`${baseURL}/users/create-user`, {
@@ -182,7 +212,7 @@ export default function CallCenterUsers() {
         },
         body: JSON.stringify(userDataToSend),
       });
-      
+
       if (!response.ok) {
         // Get the error response from the server
         const errorData = await response.json();
@@ -207,7 +237,7 @@ export default function CallCenterUsers() {
       setSnackbarOpen(true);
     } catch (error) {
       console.error("Error creating user:", error);
-      
+
       const errorMessage = error.message || "Error adding user.";
       setError(errorMessage);
       setSnackbarMessage(errorMessage);
@@ -220,16 +250,22 @@ export default function CallCenterUsers() {
     // Validate that focal-person must have sub_section if it's for a directorate
     // For units, sub-section is not required
     const roleToCheck = currentUser.role || (currentUser && currentUser.role);
-    const unitSectionToCheck = currentUser.unit_section || selectedSection || "";
+    const unitSectionToCheck =
+      currentUser.unit_section || selectedSection || "";
     const subSectionToCheck = currentUser.sub_section || "";
-    
+
     if (roleToCheck === "focal-person") {
       const unitSection = (unitSectionToCheck || "").toLowerCase();
       const isDirectorate = unitSection.includes("directorate");
-      
+
       // Only require sub_section if it's a directorate
-      if (isDirectorate && (!subSectionToCheck || subSectionToCheck.trim() === "")) {
-        setSnackbarMessage("Focal person for directorate must have a sub-section (function)");
+      if (
+        isDirectorate &&
+        (!subSectionToCheck || subSectionToCheck.trim() === "")
+      ) {
+        setSnackbarMessage(
+          "Focal person for directorate must have a sub-section (function)"
+        );
         setSnackbarSeverity("error");
         setSnackbarOpen(true);
         return;
@@ -244,27 +280,27 @@ export default function CallCenterUsers() {
 
       // Auto-fill unit_section from selectedSection if not already set
       // Preserve existing unit_section if it exists, otherwise use selectedSection
-      const finalUnitSection = currentUser.unit_section || selectedSection || "";
-      
+      const finalUnitSection =
+        currentUser.unit_section || selectedSection || "";
+
       // Prepare user data - explicitly exclude password to prevent accidental updates
       const { password, ...userDataWithoutPassword } = currentUser;
       const userDataToSend = {
         ...userDataWithoutPassword,
         username: generatedUsername,
         unit_section: finalUnitSection, // Always include unit_section
-        extension:
-          currentUser.role === "agent" || currentUser.role === "attendee"
-            ? currentUser.extension
-            : null,
+        extension: currentUser.extension || null, // Allow extension for all roles, set to null if empty
       };
-      
+
       // Only include password if it has been explicitly changed (not empty and has meaningful value)
       // Password should only be sent if user actually entered a new password
-      if (password && 
-          password !== undefined && 
-          password !== null && 
-          String(password).trim() !== "" &&
-          String(password).trim().length > 0) {
+      if (
+        password &&
+        password !== undefined &&
+        password !== null &&
+        String(password).trim() !== "" &&
+        String(password).trim().length > 0
+      ) {
         userDataToSend.password = password;
       }
 
@@ -276,7 +312,7 @@ export default function CallCenterUsers() {
         },
         body: JSON.stringify(userDataToSend),
       });
-      
+
       if (!response.ok) {
         // Get the error response from the server
         const errorData = await response.json();
@@ -400,7 +436,7 @@ export default function CallCenterUsers() {
   // 4. More flexible - can search across multiple fields at once
   const filteredUsers = users.filter((user) => {
     if (!search.trim()) return true;
-    
+
     const searchLower = search.toLowerCase();
     const userId = String(user.id || "").toLowerCase();
     const name = (user.full_name || "").toLowerCase();
@@ -410,7 +446,7 @@ export default function CallCenterUsers() {
     const subSection = (user.sub_section || "").toLowerCase();
     const designation = (user.designation || "").toLowerCase();
     const reportTo = (user.report_to || "").toLowerCase();
-    
+
     return (
       userId.includes(searchLower) ||
       name.includes(searchLower) ||
@@ -423,9 +459,21 @@ export default function CallCenterUsers() {
     );
   });
 
-  const indexOfLastUser = currentPage * usersPerPage;
-  const indexOfFirstUser = indexOfLastUser - usersPerPage;
-  const currentUsers = filteredUsers.slice(indexOfFirstUser, indexOfLastUser);
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredUsers.length / usersPerPage);
+  const startIndex = (currentPage - 1) * usersPerPage;
+  const endIndex = startIndex + usersPerPage;
+  const paginatedUsers = filteredUsers.slice(startIndex, endIndex);
+
+  // Handle page change
+  const handlePageChange = (event, value) => {
+    setCurrentPage(value);
+  };
+
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
 
   return (
     <div className="user-table-container">
@@ -460,228 +508,218 @@ export default function CallCenterUsers() {
           <FaPlus /> Add User
         </button>
       </div>
-      <table className="user-table">
-        <thead>
-          <tr>
-            <th>Sn</th>
-            <th>Name</th>
-            <th>Email</th>
-            <th>Role</th>
-            <th>Unit Section</th>
-            <th>Sub-Section</th>
-            <th>Status</th>
-            <th>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {currentUsers.map((user, index) => (
-            <tr key={user.id}>
-              <td>{index + 1}</td>
-              <td>{user.full_name}</td>
-              <td>{user.email}</td>
-              <td>{user.role}</td>
-              <td>
-                <Tooltip title={user.unit_section || 'No unit section assigned'}>
-                  <span>{user.unit_section || 'N/A'}</span>
-                </Tooltip>
-              </td>
-              <td>
-                <Tooltip title={user.sub_section || 'No sub-section assigned'}>
-                  <span>{user.sub_section || 'N/A'}</span>
-                </Tooltip>
-              </td>
-              <td>{user.isActive ? "Active" : "Inactive"}</td>
-              <td className="action-buttons">
-                <Tooltip title="Edit User">
-                  <button
-                    className="edit-button"
-                    onClick={async () => {
-                      // Set current user without password to prevent accidental password updates
-                      const { password, ...userWithoutPassword } = user;
-                      setCurrentUser(userWithoutPassword);
-                      
-                      // Fetch sections and functions if role is focal-person
-                      if (user.role === "focal-person") {
-                        try {
-                          const token = localStorage.getItem("authToken");
-                          
-                          // Fetch directorates and units
-                          const sectionsResponse = await fetch(`${baseURL}/section/units-data`, {
-                            headers: { Authorization: `Bearer ${token}` }
-                          });
-                          
-                          if (sectionsResponse.ok) {
-                            const sectionsData = await sectionsResponse.json();
-                            const fetchedSections = sectionsData.data || [];
-                            setSectionsList(fetchedSections);
-                            
-                            // Set selectedSection if user has unit_section that matches a section
-                            // This ensures sub_section dropdown displays correctly
-                            if (user.unit_section) {
-                              // Try exact match first
-                              let matchingSection = fetchedSections.find(s => 
-                                s.name.toLowerCase() === user.unit_section.toLowerCase()
+      {/* Users Table */}
+      <TableContainer component={Paper}>
+        <Table className="user-table">
+          <TableHead>
+            <TableRow>
+              <TableCell>Sn</TableCell>
+              <TableCell>Name</TableCell>
+              <TableCell>Email</TableCell>
+              <TableCell>Role</TableCell>
+              <TableCell>Unit Section</TableCell>
+              <TableCell>Sub-Section</TableCell>
+              <TableCell>Status</TableCell>
+              <TableCell>Action</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {loading ? (
+              <TableRow>
+                <TableCell colSpan={8} align="center">
+                  Loading...
+                </TableCell>
+              </TableRow>
+            ) : paginatedUsers.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} align="center">
+                  No users found
+                </TableCell>
+              </TableRow>
+            ) : (
+              paginatedUsers.map((user, index) => (
+                <TableRow key={user.id}>
+                  <TableCell>{startIndex + index + 1}</TableCell>
+                  <TableCell>{user.full_name}</TableCell>
+                  <TableCell>{user.email}</TableCell>
+                  <TableCell>{user.role}</TableCell>
+                  <TableCell>
+                    <Tooltip
+                      title={user.unit_section || "No unit section assigned"}
+                    >
+                      <span>{user.unit_section || "N/A"}</span>
+                    </Tooltip>
+                  </TableCell>
+                  <TableCell>
+                    <Tooltip
+                      title={user.sub_section || "No sub-section assigned"}
+                    >
+                      <span>{user.sub_section || "N/A"}</span>
+                    </Tooltip>
+                  </TableCell>
+                  <TableCell>{user.isActive ? "Active" : "Inactive"}</TableCell>
+                  <TableCell className="action-buttons">
+                    <Tooltip title="Edit User">
+                      <button
+                        className="edit-button"
+                        onClick={async () => {
+                          // Set current user without password to prevent accidental password updates
+                          const { password, ...userWithoutPassword } = user;
+                          setCurrentUser(userWithoutPassword);
+
+                          // Fetch sections and functions if role is focal-person
+                          if (user.role === "focal-person") {
+                            try {
+                              const token = localStorage.getItem("authToken");
+
+                              // Fetch directorates and units
+                              const sectionsResponse = await fetch(
+                                `${baseURL}/section/units-data`,
+                                {
+                                  headers: { Authorization: `Bearer ${token}` },
+                                }
                               );
-                              
-                              // If no exact match, try partial match
-                              if (!matchingSection) {
-                                matchingSection = fetchedSections.find(s => 
-                                  user.unit_section.includes(s.name) || s.name.includes(user.unit_section)
-                                );
+
+                              if (sectionsResponse.ok) {
+                                const sectionsData =
+                                  await sectionsResponse.json();
+                                const fetchedSections = sectionsData.data || [];
+                                setSectionsList(fetchedSections);
+
+                                // Set selectedSection if user has unit_section that matches a section
+                                // This ensures sub_section dropdown displays correctly
+                                if (user.unit_section) {
+                                  // Try exact match first
+                                  let matchingSection = fetchedSections.find(
+                                    (s) =>
+                                      s.name.toLowerCase() ===
+                                      user.unit_section.toLowerCase()
+                                  );
+
+                                  // If no exact match, try partial match
+                                  if (!matchingSection) {
+                                    matchingSection = fetchedSections.find(
+                                      (s) =>
+                                        user.unit_section.includes(s.name) ||
+                                        s.name.includes(user.unit_section)
+                                    );
+                                  }
+
+                                  if (matchingSection) {
+                                    setSelectedSection(matchingSection.name);
+                                  } else {
+                                    // If no match found, still set to user's unit_section to preserve it
+                                    setSelectedSection(user.unit_section);
+                                  }
+                                } else {
+                                  setSelectedSection("");
+                                }
                               }
-                              
-                              if (matchingSection) {
-                                setSelectedSection(matchingSection.name);
-                              } else {
-                                // If no match found, still set to user's unit_section to preserve it
-                                setSelectedSection(user.unit_section);
+
+                              // Fetch functions (sub-sections)
+                              const functionsResponse = await fetch(
+                                `${baseURL}/section/functions-data`,
+                                {
+                                  headers: { Authorization: `Bearer ${token}` },
+                                }
+                              );
+
+                              if (functionsResponse.ok) {
+                                const functionsData =
+                                  await functionsResponse.json();
+                                setFunctionsList(functionsData.data || []);
                               }
-                            } else {
-                              setSelectedSection("");
+                            } catch (error) {
+                              console.error(
+                                "Error fetching sections and functions:",
+                                error
+                              );
                             }
+                          } else {
+                            // For non-focal-person roles, ensure unit_section is preserved
+                            setSelectedSection("");
                           }
-                          
-                          // Fetch functions (sub-sections)
-                          const functionsResponse = await fetch(`${baseURL}/section/functions-data`, {
-                            headers: { Authorization: `Bearer ${token}` }
-                          });
-                          
-                          if (functionsResponse.ok) {
-                            const functionsData = await functionsResponse.json();
-                            setFunctionsList(functionsData.data || []);
-                          }
-                        } catch (error) {
-                          console.error("Error fetching sections and functions:", error);
+
+                          setShowModal(true);
+                          setIsEditing(true);
+                        }}
+                      >
+                        <AiFillEdit />
+                      </button>
+                    </Tooltip>
+                    <Tooltip title="Activate User">
+                      <button
+                        className="activated-button"
+                        onClick={() => handleConfirmAction("activate", user.id)}
+                      >
+                        <HiMiniLockOpen />
+                      </button>
+                    </Tooltip>
+
+                    <Tooltip title="Deactivate User">
+                      <button
+                        className="deactivated-button"
+                        onClick={() =>
+                          handleConfirmAction("de-activate", user.id)
                         }
-                      } else {
-                        // For non-focal-person roles, ensure unit_section is preserved
-                        setSelectedSection("");
-                      }
-                      
-                      setShowModal(true);
-                      setIsEditing(true);
-                    }}
-                  >
-                    <AiFillEdit />
-                  </button>
-                </Tooltip>
-                <Tooltip title="Activate User">
-                  <button
-                    className="activated-button"
-                    onClick={() => handleConfirmAction("activate", user.id)}
-                  >
-                    <HiMiniLockOpen />
-                  </button>
-                </Tooltip>
+                      >
+                        <HiMiniLockClosed />
+                      </button>
+                    </Tooltip>
 
-                <Tooltip title="Deactivate User">
-                  <button
-                    className="deactivated-button"
-                    onClick={() => handleConfirmAction("de-activate", user.id)}
-                  >
-                    <HiMiniLockClosed />
-                  </button>
-                </Tooltip>
+                    <Tooltip title="Reset User Password">
+                      <button
+                        className="reset-button"
+                        onClick={() =>
+                          handleConfirmAction("reset-password", user.id)
+                        }
+                      >
+                        <RxReset />
+                      </button>
+                    </Tooltip>
 
-                <Tooltip title="Reset User Password">
-                  <button
-                    className="reset-button"
-                    onClick={() =>
-                      handleConfirmAction("reset-password", user.id)
-                    }
-                  >
-                    <RxReset />
-                  </button>
-                </Tooltip>
+                    <Tooltip title="Delete User">
+                      <button
+                        className="delete-button"
+                        onClick={() => handleConfirmAction("delete", user.id)}
+                      >
+                        <MdDeleteForever />
+                      </button>
+                    </Tooltip>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </TableContainer>
 
-                <Tooltip title="Delete User">
-                  <button
-                    className="delete-button"
-                    onClick={() => handleConfirmAction("delete", user.id)}
-                  >
-                    <MdDeleteForever />
-                  </button>
-                </Tooltip>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {/* Pagination */}
-      <div
-        className="pagination"
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          gap: "8px",
-          marginTop: "20px",
-        }}
-      >
-        <button
-          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-          disabled={currentPage === 1}
-          style={{
-            padding: "8px 12px",
-            border: "1px solid #ddd",
-            backgroundColor: currentPage === 1 ? "#f5f5f5" : "#fff",
-            color: currentPage === 1 ? "#999" : "#333",
-            cursor: currentPage === 1 ? "not-allowed" : "pointer",
-            borderRadius: "4px",
-            fontSize: "14px",
+      {/* Pagination Controls */}
+      {filteredUsers.length > 0 && (
+        <Box
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginTop: 2,
+            padding: 2,
           }}
         >
-          ← Previous
-        </button>
-
-        <span
-          style={{
-            padding: "8px 12px",
-            backgroundColor: "#f8f9fa",
-            border: "1px solid #ddd",
-            borderRadius: "4px",
-            fontSize: "14px",
-            fontWeight: "bold",
-          }}
-        >
-          Page {currentPage} of {Math.ceil(filteredUsers.length / usersPerPage)}
-        </span>
-
-        <button
-          onClick={() =>
-            setCurrentPage(
-              Math.min(
-                Math.ceil(filteredUsers.length / usersPerPage),
-                currentPage + 1
-              )
-            )
-          }
-          disabled={
-            currentPage === Math.ceil(filteredUsers.length / usersPerPage)
-          }
-          style={{
-            padding: "8px 12px",
-            border: "1px solid #ddd",
-            backgroundColor:
-              currentPage === Math.ceil(filteredUsers.length / usersPerPage)
-                ? "#f5f5f5"
-                : "#fff",
-            color:
-              currentPage === Math.ceil(filteredUsers.length / usersPerPage)
-                ? "#999"
-                : "#333",
-            cursor:
-              currentPage === Math.ceil(filteredUsers.length / usersPerPage)
-                ? "not-allowed"
-                : "pointer",
-            borderRadius: "4px",
-            fontSize: "14px",
-          }}
-        >
-          Next →
-        </button>
-      </div>
+          <Typography variant="body2" color="text.secondary">
+            Showing {startIndex + 1} to{" "}
+            {Math.min(endIndex, filteredUsers.length)} of {filteredUsers.length}{" "}
+            users
+          </Typography>
+          <Pagination
+            count={totalPages}
+            page={currentPage}
+            onChange={handlePageChange}
+            color="primary"
+            showFirstButton
+            showLastButton
+          />
+        </Box>
+      )}
 
       {/* Add and Update User Modal */}
       <Modal open={showModal} onClose={handleCloseModal}>
@@ -701,20 +739,24 @@ export default function CallCenterUsers() {
             border: "1px solid #e0e0e0",
           }}
         >
-          <Box sx={{ 
-            display: "flex", 
-            justifyContent: "space-between", 
-            alignItems: "center", 
-            mb: 2,
-            pb: 2,
-            borderBottom: "2px solid #f0f0f0"
-          }}>
-            <h2 style={{ 
-              margin: 0, 
-              color: "#333", 
-              fontSize: "20px",
-              fontWeight: "600"
-            }}>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              mb: 2,
+              pb: 2,
+              borderBottom: "2px solid #f0f0f0",
+            }}
+          >
+            <h2
+              style={{
+                margin: 0,
+                color: "#333",
+                fontSize: "20px",
+                fontWeight: "600",
+              }}
+            >
               {isEditing ? "Edit User" : "Add New User"}
             </h2>
             <button
@@ -727,22 +769,24 @@ export default function CallCenterUsers() {
                 color: "#666",
                 padding: "4px",
                 borderRadius: "4px",
-                transition: "all 0.2s"
+                transition: "all 0.2s",
               }}
-              onMouseEnter={(e) => e.target.style.color = "#333"}
-              onMouseLeave={(e) => e.target.style.color = "#666"}
+              onMouseEnter={(e) => (e.target.style.color = "#333")}
+              onMouseLeave={(e) => (e.target.style.color = "#666")}
             >
               ×
             </button>
           </Box>
-          
+
           <Box sx={{ display: "grid", gap: 1.5 }}>
             <TextField
               label="Full Name"
               fullWidth
               size="small"
               name="full_name"
-              value={isEditing ? currentUser?.full_name || "" : newUserData.full_name}
+              value={
+                isEditing ? currentUser?.full_name || "" : newUserData.full_name
+              }
               onChange={isEditing ? handleUpdateInputChange : handleInputChange}
               sx={{
                 "& .MuiOutlinedInput-root": {
@@ -755,7 +799,7 @@ export default function CallCenterUsers() {
                 },
               }}
             />
-            
+
             <TextField
               label="Email"
               fullWidth
@@ -775,14 +819,16 @@ export default function CallCenterUsers() {
                 },
               }}
             />
-            
+
             <TextField
               label="Password"
               fullWidth
               size="small"
               type="password"
               name="password"
-              value={isEditing ? currentUser?.password || "" : newUserData.password}
+              value={
+                isEditing ? currentUser?.password || "" : newUserData.password
+              }
               onChange={isEditing ? handleUpdateInputChange : handleInputChange}
               sx={{
                 "& .MuiOutlinedInput-root": {
@@ -795,13 +841,15 @@ export default function CallCenterUsers() {
                 },
               }}
             />
-            
+
             <TextField
               label="Report To"
               fullWidth
               size="small"
               name="report_to"
-              value={isEditing ? currentUser?.report_to || "" : newUserData.report_to}
+              value={
+                isEditing ? currentUser?.report_to || "" : newUserData.report_to
+              }
               onChange={isEditing ? handleUpdateInputChange : handleInputChange}
               sx={{
                 "& .MuiOutlinedInput-root": {
@@ -814,13 +862,17 @@ export default function CallCenterUsers() {
                 },
               }}
             />
-            
+
             <TextField
               label="Designation"
               fullWidth
               size="small"
               name="designation"
-              value={isEditing ? currentUser?.designation || "" : newUserData.designation}
+              value={
+                isEditing
+                  ? currentUser?.designation || ""
+                  : newUserData.designation
+              }
               onChange={isEditing ? handleUpdateInputChange : handleInputChange}
               sx={{
                 "& .MuiOutlinedInput-root": {
@@ -833,9 +885,10 @@ export default function CallCenterUsers() {
                 },
               }}
             />
-            
+
             {/* Section and Sub-Section dropdowns for focal-person */}
-            {(isEditing ? currentUser?.role : newUserData.role) === "focal-person" ? (
+            {(isEditing ? currentUser?.role : newUserData.role) ===
+            "focal-person" ? (
               <>
                 <FormControl fullWidth size="small">
                   <InputLabel>Section (Directorate/Unit)</InputLabel>
@@ -853,20 +906,20 @@ export default function CallCenterUsers() {
                       }
                     }}
                     MenuProps={{
-                     PaperProps: {
-                  style: {
-                    maxHeight: 300,
-                    width: 'auto',
-                    overflow: 'auto'
-                  }
+                      PaperProps: {
+                        style: {
+                          maxHeight: 300,
+                          width: "auto",
+                          overflow: "auto",
+                        },
                       },
                       anchorOrigin: {
-                        vertical: 'bottom',
-                        horizontal: 'left',
+                        vertical: "bottom",
+                        horizontal: "left",
                       },
                       transformOrigin: {
-                        vertical: 'top',
-                        horizontal: 'left',
+                        vertical: "top",
+                        horizontal: "left",
                       },
                       getContentAnchorEl: null,
                     }}
@@ -883,116 +936,197 @@ export default function CallCenterUsers() {
                   >
                     <MenuItem value="">Select Section</MenuItem>
                     {sectionsList.map((section) => (
-                      <MenuItem key={section.id || section.name} value={section.name} sx={{ 
-                        whiteSpace: 'nowrap', 
-                        overflow: 'hidden', 
-                        textOverflow: 'ellipsis',
-                        maxWidth: '380px',
-                        fontSize: '14px'
-                      }}>
+                      <MenuItem
+                        key={section.id || section.name}
+                        value={section.name}
+                        sx={{
+                          whiteSpace: "nowrap",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          maxWidth: "380px",
+                          fontSize: "14px",
+                        }}
+                      >
                         {section.name}
                       </MenuItem>
                     ))}
                   </Select>
                 </FormControl>
-                {selectedSection && (() => {
-                  // Check if selectedSection is a directorate
-                  // First check if it contains "directorate" in the name
-                  if (selectedSection.toLowerCase().includes("directorate")) {
-                    return true;
-                  }
-                  // If not, check if it's in sectionsList and not a unit
-                  // Units typically have "Unit" in their name or are functions from the "Units" section
-                  const sectionInList = sectionsList.find(s => s.name === selectedSection);
-                  if (sectionInList) {
-                    // If it's not a unit (doesn't have section_id pointing to Units), it's likely a directorate
-                    // Check if it's not a unit by checking if name doesn't contain "unit"
+                {selectedSection &&
+                  (() => {
+                    // Check if selectedSection is a directorate
+                    // First check if it contains "directorate" in the name
+                    if (selectedSection.toLowerCase().includes("directorate")) {
+                      return true;
+                    }
+                    // If not, check if it's in sectionsList and not a unit
+                    // Units typically have "Unit" in their name or are functions from the "Units" section
+                    const sectionInList = sectionsList.find(
+                      (s) => s.name === selectedSection
+                    );
+                    if (sectionInList) {
+                      // If it's not a unit (doesn't have section_id pointing to Units), it's likely a directorate
+                      // Check if it's not a unit by checking if name doesn't contain "unit"
+                      return !selectedSection.toLowerCase().includes("unit");
+                    }
+                    // If selectedSection is set but not in sectionsList, assume it's a directorate if it doesn't contain "unit"
+                    // This handles cases where unit_section was set directly without matching sectionsList
                     return !selectedSection.toLowerCase().includes("unit");
-                  }
-                  // If selectedSection is set but not in sectionsList, assume it's a directorate if it doesn't contain "unit"
-                  // This handles cases where unit_section was set directly without matching sectionsList
-                  return !selectedSection.toLowerCase().includes("unit");
-                })() && functionsList.length > 0 && (
-                  <>
-                    <FormControl fullWidth size="small" required>
-                      <InputLabel>Sub-Section (Function)</InputLabel>
-                      <Select
-                        label="Sub-Section (Function)"
-                        name="sub_section"
-                        value={isEditing ? (currentUser?.sub_section || "") : (newUserData.sub_section || "")}
-                        onChange={isEditing ? handleUpdateInputChange : handleInputChange}
-                        required
-                        MenuProps={{
-                          PaperProps: {
-                            style: {
-                              maxHeight: 250,
-                              width: '400px',
-                              maxWidth: '400px',
-                              overflow: 'hidden'
-                            }
-                          },
-                          anchorOrigin: {
-                            vertical: 'bottom',
-                            horizontal: 'left',
-                          },
-                          transformOrigin: {
-                            vertical: 'top',
-                            horizontal: 'left',
-                          },
-                          getContentAnchorEl: null,
-                        }}
+                  })() &&
+                  functionsList.length > 0 && (
+                    <>
+                      <FormControl fullWidth size="small" required>
+                        <InputLabel>Sub-Section (Function)</InputLabel>
+                        <Select
+                          label="Sub-Section (Function)"
+                          name="sub_section"
+                          value={
+                            isEditing
+                              ? currentUser?.sub_section || ""
+                              : newUserData.sub_section || ""
+                          }
+                          onChange={
+                            isEditing
+                              ? handleUpdateInputChange
+                              : handleInputChange
+                          }
+                          required
+                          MenuProps={{
+                            PaperProps: {
+                              style: {
+                                maxHeight: 250,
+                                width: "400px",
+                                maxWidth: "400px",
+                                overflow: "hidden",
+                              },
+                            },
+                            anchorOrigin: {
+                              vertical: "bottom",
+                              horizontal: "left",
+                            },
+                            transformOrigin: {
+                              vertical: "top",
+                              horizontal: "left",
+                            },
+                            getContentAnchorEl: null,
+                          }}
+                          sx={{
+                            "& .MuiOutlinedInput-notchedOutline": {
+                              "&:hover": {
+                                borderColor: "#1976d2",
+                              },
+                            },
+                            "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                              borderColor: "#1976d2",
+                            },
+                          }}
+                        >
+                          <MenuItem value="">Select Sub-Section</MenuItem>
+                          {(() => {
+                            // Filter functions by selected section and remove duplicates by function name
+                            const filtered = functionsList.filter((func) => {
+                              const funcSection =
+                                func.function?.section?.name ||
+                                func.section?.name ||
+                                func.section_name ||
+                                "";
+                              return funcSection === selectedSection;
+                            });
+
+                            // Get unique function names to avoid duplicates
+                            const uniqueFunctions = new Map();
+                            filtered.forEach((func) => {
+                              const functionName =
+                                func.function?.name ||
+                                func.name ||
+                                func.function_name ||
+                                "";
+                              const functionId =
+                                func.function?.id ||
+                                func.function_id ||
+                                func.id;
+                              if (
+                                functionName &&
+                                !uniqueFunctions.has(functionName)
+                              ) {
+                                uniqueFunctions.set(functionName, {
+                                  functionName,
+                                  functionId,
+                                  func,
+                                });
+                              }
+                            });
+
+                            return Array.from(uniqueFunctions.values()).map(
+                              (item, index) => (
+                                <MenuItem
+                                  key={item.functionId || item.func.id || index}
+                                  value={item.functionName}
+                                  sx={{
+                                    whiteSpace: "nowrap",
+                                    overflow: "hidden",
+                                    textOverflow: "ellipsis",
+                                    maxWidth: "380px",
+                                    fontSize: "14px",
+                                  }}
+                                >
+                                  {item.functionName}
+                                </MenuItem>
+                              )
+                            );
+                          })()}
+                        </Select>
+                      </FormControl>
+                      <TextField
+                        label="Unit Section"
+                        fullWidth
+                        size="small"
+                        name="unit_section"
+                        value={
+                          isEditing
+                            ? currentUser?.unit_section || selectedSection
+                            : newUserData.unit_section || selectedSection
+                        }
+                        onChange={
+                          isEditing
+                            ? handleUpdateInputChange
+                            : handleInputChange
+                        }
+                        helperText="Auto-filled from selected section"
+                        disabled
                         sx={{
-                          "& .MuiOutlinedInput-notchedOutline": {
-                            "&:hover": {
+                          "& .MuiOutlinedInput-root": {
+                            "&:hover fieldset": {
+                              borderColor: "#1976d2",
+                            },
+                            "&.Mui-focused fieldset": {
                               borderColor: "#1976d2",
                             },
                           },
-                          "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                            borderColor: "#1976d2",
+                          "& .MuiInputBase-root.Mui-disabled": {
+                            backgroundColor: "#f5f5f5",
+                            color: "#666",
                           },
                         }}
-                      >
-                        <MenuItem value="">Select Sub-Section</MenuItem>
-                        {(() => {
-                          // Filter functions by selected section and remove duplicates by function name
-                          const filtered = functionsList.filter((func) => {
-                            const funcSection = func.function?.section?.name || func.section?.name || func.section_name || "";
-                            return funcSection === selectedSection;
-                          });
-                          
-                          // Get unique function names to avoid duplicates
-                          const uniqueFunctions = new Map();
-                          filtered.forEach((func) => {
-                            const functionName = func.function?.name || func.name || func.function_name || "";
-                            const functionId = func.function?.id || func.function_id || func.id;
-                            if (functionName && !uniqueFunctions.has(functionName)) {
-                              uniqueFunctions.set(functionName, { functionName, functionId, func });
-                            }
-                          });
-                          
-                          return Array.from(uniqueFunctions.values()).map((item, index) => (
-                            <MenuItem key={item.functionId || item.func.id || index} value={item.functionName} sx={{ 
-                              whiteSpace: 'nowrap', 
-                              overflow: 'hidden', 
-                              textOverflow: 'ellipsis',
-                              maxWidth: '380px',
-                              fontSize: '14px'
-                            }}>
-                              {item.functionName}
-                            </MenuItem>
-                          ));
-                        })()}
-                      </Select>
-                    </FormControl>
+                      />
+                    </>
+                  )}
+                {selectedSection &&
+                  !selectedSection.toLowerCase().includes("directorate") && (
                     <TextField
                       label="Unit Section"
                       fullWidth
                       size="small"
                       name="unit_section"
-                      value={isEditing ? (currentUser?.unit_section || selectedSection) : (newUserData.unit_section || selectedSection)}
-                      onChange={isEditing ? handleUpdateInputChange : handleInputChange}
-                      helperText="Auto-filled from selected section"
-                      disabled
+                      value={
+                        isEditing
+                          ? currentUser?.unit_section || ""
+                          : newUserData.unit_section || ""
+                      }
+                      onChange={
+                        isEditing ? handleUpdateInputChange : handleInputChange
+                      }
+                      helperText="Optional for units"
                       sx={{
                         "& .MuiOutlinedInput-root": {
                           "&:hover fieldset": {
@@ -1002,35 +1136,9 @@ export default function CallCenterUsers() {
                             borderColor: "#1976d2",
                           },
                         },
-                        "& .MuiInputBase-root.Mui-disabled": {
-                          backgroundColor: "#f5f5f5",
-                          color: "#666",
-                        },
                       }}
                     />
-                  </>
-                )}
-                {selectedSection && !selectedSection.toLowerCase().includes("directorate") && (
-                  <TextField
-                    label="Unit Section"
-                    fullWidth
-                    size="small"
-                    name="unit_section"
-                    value={isEditing ? (currentUser?.unit_section || "") : (newUserData.unit_section || "")}
-                    onChange={isEditing ? handleUpdateInputChange : handleInputChange}
-                    helperText="Optional for units"
-                    sx={{
-                      "& .MuiOutlinedInput-root": {
-                        "&:hover fieldset": {
-                          borderColor: "#1976d2",
-                        },
-                        "&.Mui-focused fieldset": {
-                          borderColor: "#1976d2",
-                        },
-                      },
-                    }}
-                  />
-                )}
+                  )}
               </>
             ) : (
               <FormControl fullWidth size="small">
@@ -1038,24 +1146,30 @@ export default function CallCenterUsers() {
                 <Select
                   label="Unit Section"
                   name="unit_section"
-                  value={isEditing ? currentUser?.unit_section || "" : newUserData.unit_section}
-                  onChange={isEditing ? handleUpdateInputChange : handleInputChange}
+                  value={
+                    isEditing
+                      ? currentUser?.unit_section || ""
+                      : newUserData.unit_section
+                  }
+                  onChange={
+                    isEditing ? handleUpdateInputChange : handleInputChange
+                  }
                   MenuProps={{
                     PaperProps: {
                       style: {
                         maxHeight: 250,
-                        width: '400px',
-                        maxWidth: '400px',
-                        overflow: 'hidden'
-                      }
+                        width: "400px",
+                        maxWidth: "400px",
+                        overflow: "hidden",
+                      },
                     },
                     anchorOrigin: {
-                      vertical: 'bottom',
-                      horizontal: 'left',
+                      vertical: "bottom",
+                      horizontal: "left",
                     },
                     transformOrigin: {
-                      vertical: 'top',
-                      horizontal: 'left',
+                      vertical: "top",
+                      horizontal: "left",
                     },
                     getContentAnchorEl: null,
                   }}
@@ -1070,110 +1184,169 @@ export default function CallCenterUsers() {
                     },
                   }}
                 >
-                  <MenuItem value="" sx={{ 
-                    whiteSpace: 'nowrap', 
-                    overflow: 'hidden', 
-                    textOverflow: 'ellipsis',
-                    maxWidth: '380px',
-                    fontSize: '14px'
-                  }}>None</MenuItem>
-                  <MenuItem value="directorate of operations" sx={{ 
-                    whiteSpace: 'nowrap', 
-                    overflow: 'hidden', 
-                    textOverflow: 'ellipsis',
-                    maxWidth: '380px',
-                    fontSize: '14px'
-                  }}>Directorate of Operations</MenuItem>
-                  <MenuItem value="directorate of assessment services" sx={{ 
-                    whiteSpace: 'nowrap', 
-                    overflow: 'hidden', 
-                    textOverflow: 'ellipsis',
-                    maxWidth: '380px',
-                    fontSize: '14px'
-                  }}>Directorate of Assessment Services</MenuItem>
-                  <MenuItem value="directorate of finance, planning and investment" sx={{ 
-                    whiteSpace: 'nowrap', 
-                    overflow: 'hidden', 
-                    textOverflow: 'ellipsis',
-                    maxWidth: '380px',
-                    fontSize: '14px'
-                  }}>Directorate of Finance, Planning and Investment</MenuItem>
-                  <MenuItem value="legal unit" sx={{ 
-                    whiteSpace: 'nowrap', 
-                    overflow: 'hidden', 
-                    textOverflow: 'ellipsis',
-                    maxWidth: '380px',
-                    fontSize: '14px'
-                  }}>Legal Unit</MenuItem>
-                  <MenuItem value="ict unit" sx={{ 
-                    whiteSpace: 'nowrap', 
-                    overflow: 'hidden', 
-                    textOverflow: 'ellipsis',
-                    maxWidth: '380px',
-                    fontSize: '14px'
-                  }}>ICT Unit</MenuItem>
-                  <MenuItem value="actuarial services statistics and risk management unit" sx={{ 
-                    whiteSpace: 'nowrap', 
-                    overflow: 'hidden', 
-                    textOverflow: 'ellipsis',
-                    maxWidth: '380px',
-                    fontSize: '14px'
-                  }}>Actuarial Services Statistics and Risk Management Unit</MenuItem>
-                  <MenuItem value="public relation unit" sx={{ 
-                    whiteSpace: 'nowrap', 
-                    overflow: 'hidden', 
-                    textOverflow: 'ellipsis',
-                    maxWidth: '380px',
-                    fontSize: '14px'
-                  }}>Public Relation Unit</MenuItem>
-                  <MenuItem value="procurement management unit" sx={{ 
-                    whiteSpace: 'nowrap', 
-                    overflow: 'hidden', 
-                    textOverflow: 'ellipsis',
-                    maxWidth: '380px',
-                    fontSize: '14px'
-                  }}>Procurement Management Unit</MenuItem>
-                  <MenuItem value="human resource management and attachment unit" sx={{ 
-                    whiteSpace: 'nowrap', 
-                    overflow: 'hidden', 
-                    textOverflow: 'ellipsis',
-                    maxWidth: '380px',
-                    fontSize: '14px'
-                  }}>Human Resource Management and Attachment Unit</MenuItem>
-                  <MenuItem value="internal audit unit" sx={{ 
-                    whiteSpace: 'nowrap', 
-                    overflow: 'hidden', 
-                    textOverflow: 'ellipsis',
-                    maxWidth: '380px',
-                    fontSize: '14px'
-                  }}>Internal Audit Unit</MenuItem>
+                  <MenuItem
+                    value=""
+                    sx={{
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      maxWidth: "380px",
+                      fontSize: "14px",
+                    }}
+                  >
+                    None
+                  </MenuItem>
+                  <MenuItem
+                    value="directorate of operations"
+                    sx={{
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      maxWidth: "380px",
+                      fontSize: "14px",
+                    }}
+                  >
+                    Directorate of Operations
+                  </MenuItem>
+                  <MenuItem
+                    value="directorate of assessment services"
+                    sx={{
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      maxWidth: "380px",
+                      fontSize: "14px",
+                    }}
+                  >
+                    Directorate of Assessment Services
+                  </MenuItem>
+                  <MenuItem
+                    value="directorate of finance, planning and investment"
+                    sx={{
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      maxWidth: "380px",
+                      fontSize: "14px",
+                    }}
+                  >
+                    Directorate of Finance, Planning and Investment
+                  </MenuItem>
+                  <MenuItem
+                    value="legal unit"
+                    sx={{
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      maxWidth: "380px",
+                      fontSize: "14px",
+                    }}
+                  >
+                    Legal Unit
+                  </MenuItem>
+                  <MenuItem
+                    value="ict unit"
+                    sx={{
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      maxWidth: "380px",
+                      fontSize: "14px",
+                    }}
+                  >
+                    ICT Unit
+                  </MenuItem>
+                  <MenuItem
+                    value="actuarial services statistics and risk management unit"
+                    sx={{
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      maxWidth: "380px",
+                      fontSize: "14px",
+                    }}
+                  >
+                    Actuarial Services Statistics and Risk Management Unit
+                  </MenuItem>
+                  <MenuItem
+                    value="public relation unit"
+                    sx={{
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      maxWidth: "380px",
+                      fontSize: "14px",
+                    }}
+                  >
+                    Public Relation Unit
+                  </MenuItem>
+                  <MenuItem
+                    value="procurement management unit"
+                    sx={{
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      maxWidth: "380px",
+                      fontSize: "14px",
+                    }}
+                  >
+                    Procurement Management Unit
+                  </MenuItem>
+                  <MenuItem
+                    value="human resource management and attachment unit"
+                    sx={{
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      maxWidth: "380px",
+                      fontSize: "14px",
+                    }}
+                  >
+                    Human Resource Management and Attachment Unit
+                  </MenuItem>
+                  <MenuItem
+                    value="internal audit unit"
+                    sx={{
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      maxWidth: "380px",
+                      fontSize: "14px",
+                    }}
+                  >
+                    Internal Audit Unit
+                  </MenuItem>
                 </Select>
               </FormControl>
             )}
-            
+
             <FormControl fullWidth size="small">
               <InputLabel>Role</InputLabel>
               <Select
                 label="Role"
                 name="role"
-                value={isEditing ? currentUser?.role || "admin" : newUserData.role}
-                onChange={isEditing ? handleUpdateInputChange : handleInputChange}
+                value={
+                  isEditing ? currentUser?.role || "admin" : newUserData.role
+                }
+                onChange={
+                  isEditing ? handleUpdateInputChange : handleInputChange
+                }
                 MenuProps={{
                   PaperProps: {
                     style: {
-                      maxHeight: 'auto',
-                      width: '400px',
-                      maxWidth: '400px',
-                      overflow: 'hidden'
-                    }
+                      maxHeight: "auto",
+                      width: "400px",
+                      maxWidth: "400px",
+                      overflow: "hidden",
+                    },
                   },
                   anchorOrigin: {
-                    vertical: 'bottom',
-                    horizontal: 'left',
+                    vertical: "bottom",
+                    horizontal: "left",
                   },
                   transformOrigin: {
-                    vertical: 'top',
-                    horizontal: 'left',
+                    vertical: "top",
+                    horizontal: "left",
                   },
                   getContentAnchorEl: null,
                 }}
@@ -1188,39 +1361,89 @@ export default function CallCenterUsers() {
                   },
                 }}
               >
-                <MenuItem value="super-admin" sx={{ fontSize: '14px', maxWidth: '380px' }}>Super Admin</MenuItem>
-                <MenuItem value="admin" sx={{ fontSize: '14px', maxWidth: '380px' }}>Admin</MenuItem>
-                <MenuItem value="supervisor" sx={{ fontSize: '14px', maxWidth: '380px' }}>Supervisor</MenuItem>
-                <MenuItem value="agent" sx={{ fontSize: '14px', maxWidth: '380px' }}>Agent</MenuItem>
-                <MenuItem value="attendee" sx={{ fontSize: '14px', maxWidth: '380px' }}>Attendee</MenuItem>
-                <MenuItem value="reviewer" sx={{ fontSize: '14px', maxWidth: '380px' }}>Reviewer</MenuItem>
-                <MenuItem value="focal-person" sx={{ fontSize: '14px', maxWidth: '380px' }}>Focal Person</MenuItem>
-                <MenuItem value="head-of-unit" sx={{ fontSize: '14px', maxWidth: '380px' }}>Head of Unit</MenuItem>
-                <MenuItem value="manager" sx={{ fontSize: '14px', maxWidth: '380px' }}>Manager</MenuItem>
-                <MenuItem value="director" sx={{ fontSize: '14px', maxWidth: '380px' }}>Director</MenuItem>
-                <MenuItem value="director-general" sx={{ fontSize: '14px', maxWidth: '380px' }}>Director General</MenuItem>
+                <MenuItem
+                  value="super-admin"
+                  sx={{ fontSize: "14px", maxWidth: "380px" }}
+                >
+                  Super Admin
+                </MenuItem>
+                <MenuItem
+                  value="admin"
+                  sx={{ fontSize: "14px", maxWidth: "380px" }}
+                >
+                  Admin
+                </MenuItem>
+                <MenuItem
+                  value="supervisor"
+                  sx={{ fontSize: "14px", maxWidth: "380px" }}
+                >
+                  Supervisor
+                </MenuItem>
+                <MenuItem
+                  value="agent"
+                  sx={{ fontSize: "14px", maxWidth: "380px" }}
+                >
+                  Agent
+                </MenuItem>
+                <MenuItem
+                  value="attendee"
+                  sx={{ fontSize: "14px", maxWidth: "380px" }}
+                >
+                  Attendee
+                </MenuItem>
+                <MenuItem
+                  value="reviewer"
+                  sx={{ fontSize: "14px", maxWidth: "380px" }}
+                >
+                  Reviewer
+                </MenuItem>
+                <MenuItem
+                  value="focal-person"
+                  sx={{ fontSize: "14px", maxWidth: "380px" }}
+                >
+                  Focal Person
+                </MenuItem>
+                <MenuItem
+                  value="head-of-unit"
+                  sx={{ fontSize: "14px", maxWidth: "380px" }}
+                >
+                  Head of Unit
+                </MenuItem>
+                <MenuItem
+                  value="manager"
+                  sx={{ fontSize: "14px", maxWidth: "380px" }}
+                >
+                  Manager
+                </MenuItem>
+                <MenuItem
+                  value="director"
+                  sx={{ fontSize: "14px", maxWidth: "380px" }}
+                >
+                  Director
+                </MenuItem>
+                <MenuItem
+                  value="director-general"
+                  sx={{ fontSize: "14px", maxWidth: "380px" }}
+                >
+                  Director General
+                </MenuItem>
               </Select>
             </FormControl>
-            
-            {/* Extension field - always visible but with conditional logic */}
+
+            {/* Extension field - available for all roles, optional */}
             <TextField
               label="Extension"
               fullWidth
               size="small"
               name="extension"
               type="number"
-              value={isEditing ? currentUser?.extension || "" : newUserData.extension}
+              value={
+                isEditing
+                  ? currentUser?.extension || ""
+                  : newUserData.extension || ""
+              }
               onChange={isEditing ? handleUpdateInputChange : handleInputChange}
-              disabled={
-                (isEditing ? currentUser?.role : newUserData.role) !== "agent" && 
-                (isEditing ? currentUser?.role : newUserData.role) !== "attendee"
-              }
-              helperText={
-                (isEditing ? currentUser?.role : newUserData.role) !== "agent" && 
-                (isEditing ? currentUser?.role : newUserData.role) !== "attendee"
-                  ? "Extension is only required for Agent or Attendee roles"
-                  : ""
-              }
+              helperText="Optional - Leave empty if user doesn't have an extension number"
               sx={{
                 "& .MuiOutlinedInput-root": {
                   "&:hover fieldset": {
@@ -1236,12 +1459,16 @@ export default function CallCenterUsers() {
                 },
               }}
             />
-            
+
             {/* Checkbox for isActive */}
             <FormControlLabel
               control={
                 <Checkbox
-                  checked={isEditing ? currentUser?.isActive || false : newUserData.isActive}
+                  checked={
+                    isEditing
+                      ? currentUser?.isActive || false
+                      : newUserData.isActive
+                  }
                   onChange={(e) =>
                     isEditing
                       ? setCurrentUser({
@@ -1264,15 +1491,17 @@ export default function CallCenterUsers() {
               label="Is Active"
               sx={{ mt: 1 }}
             />
-            
+
             {/* Action Buttons */}
-            <Box sx={{ 
-              display: "flex", 
-              gap: 2, 
-              mt: 2,
-              pt: 2,
-              borderTop: "1px solid #e0e0e0"
-            }}>
+            <Box
+              sx={{
+                display: "flex",
+                gap: 2,
+                mt: 2,
+                pt: 2,
+                borderTop: "1px solid #e0e0e0",
+              }}
+            >
               <Button
                 variant="contained"
                 color="primary"
@@ -1337,39 +1566,45 @@ export default function CallCenterUsers() {
           }}
         >
           <Box sx={{ mb: 3 }}>
-            <FaRegQuestionCircle 
-              style={{ 
-                fontSize: 60, 
+            <FaRegQuestionCircle
+              style={{
+                fontSize: 60,
                 color: "#ff6b6b",
-                marginBottom: "16px"
-              }} 
+                marginBottom: "16px",
+              }}
             />
-            <h3 style={{ 
-              margin: "0 0 8px 0", 
-              color: "#333", 
-              fontSize: "20px",
-              fontWeight: "600"
-            }}>
+            <h3
+              style={{
+                margin: "0 0 8px 0",
+                color: "#333",
+                fontSize: "20px",
+                fontWeight: "600",
+              }}
+            >
               Confirm Action
             </h3>
-            <p style={{ 
-              margin: 0, 
-              color: "#666", 
-              fontSize: "16px",
-              lineHeight: "1.5"
-            }}>
+            <p
+              style={{
+                margin: 0,
+                color: "#666",
+                fontSize: "16px",
+                lineHeight: "1.5",
+              }}
+            >
               Are you sure you want to {actionType} this user?
             </p>
           </Box>
-          
-          <Box sx={{ 
-            display: "flex", 
-            gap: 2,
-            justifyContent: "center"
-          }}>
-            <Button 
-              variant="contained" 
-              color="primary" 
+
+          <Box
+            sx={{
+              display: "flex",
+              gap: 2,
+              justifyContent: "center",
+            }}
+          >
+            <Button
+              variant="contained"
+              color="primary"
               onClick={handleConfirm}
               sx={{
                 px: 3,

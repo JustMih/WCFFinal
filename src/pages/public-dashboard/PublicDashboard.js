@@ -18,6 +18,7 @@ import {
   MdAccessTime,
   MdQueue,
   MdVisibility,
+  MdPhoneDisabled,
 } from "react-icons/md";
 import { baseURL } from "../../config";
 import io from "socket.io-client";
@@ -69,7 +70,12 @@ export default function PublicDashboard() {
               offlineCount: 0,
             },
             liveCalls: Array.isArray(data.liveCalls) ? data.liveCalls : [],
-            callStats: data.callStats || { dailyCounts: [], totalRows: 0 },
+            callStats: data.callStats || {
+              totalCounts: [],
+              monthlyCounts: [],
+              dailyCounts: [],
+              totalRows: 0,
+            },
             queueStatus: Array.isArray(data.queueStatus)
               ? data.queueStatus
               : [],
@@ -115,6 +121,10 @@ export default function PublicDashboard() {
           : prev.liveCalls,
         callStats: {
           ...prev.callStats,
+          totalCounts:
+            data.callStats?.totalCounts || prev.callStats.totalCounts,
+          monthlyCounts:
+            data.callStats?.monthlyCounts || prev.callStats.monthlyCounts,
           dailyCounts:
             data.callStats?.dailyCounts || prev.callStats.dailyCounts,
         },
@@ -146,7 +156,12 @@ export default function PublicDashboard() {
               offlineCount: 0,
             },
             liveCalls: Array.isArray(data.liveCalls) ? data.liveCalls : [],
-            callStats: data.callStats || { dailyCounts: [], totalRows: 0 },
+            callStats: data.callStats || {
+              totalCounts: [],
+              monthlyCounts: [],
+              dailyCounts: [],
+              totalRows: 0,
+            },
             queueStatus: Array.isArray(data.queueStatus)
               ? data.queueStatus
               : [],
@@ -226,8 +241,91 @@ export default function PublicDashboard() {
   // Get in queue calls count from callStatusSummary
   const inQueueCallsCount = dashboardData.callStatusSummary?.inQueue || 0;
 
+  // Helper function to calculate percentage
+  const calculatePercentage = (count, total) => {
+    if (total === 0) return "0.0";
+    return ((count / total) * 100).toFixed(1);
+  };
+
+  // Helper function to get call type color
+  const getCallTypeColor = (disposition) => {
+    switch (disposition) {
+      case "ANSWERED":
+        return "#4caf50"; // Green
+      case "NO ANSWER":
+        return "#ff9800"; // Orange
+      case "BUSY":
+        return "#f44336"; // Red
+      default:
+        return "#666";
+    }
+  };
+
+  // Calculate totals for each period
+  const totalCounts = dashboardData.callStats.totalCounts || [];
+  const monthlyCounts = dashboardData.callStats.monthlyCounts || [];
+  const dailyCounts = dashboardData.callStats.dailyCounts || [];
+
+  const yearlyTotal = totalCounts.reduce(
+    (sum, item) => sum + (item.count || 0),
+    0
+  );
+  const monthlyTotal = monthlyCounts.reduce(
+    (sum, item) => sum + (item.count || 0),
+    0
+  );
+  const dailyTotal = dailyCounts.reduce(
+    (sum, item) => sum + (item.count || 0),
+    0
+  );
+
+  // Extract counts for each disposition
+  const getCount = (counts, disposition) =>
+    counts.find((i) => i.disposition === disposition)?.count || 0;
+
+  // Yearly counts
+  const yearlyAnswered = getCount(totalCounts, "ANSWERED");
+  const yearlyNoAnswer = getCount(totalCounts, "NO ANSWER");
+  const yearlyBusy = getCount(totalCounts, "BUSY");
+
+  // Monthly counts
+  const monthlyAnswered = getCount(monthlyCounts, "ANSWERED");
+  const monthlyNoAnswer = getCount(monthlyCounts, "NO ANSWER");
+  const monthlyBusy = getCount(monthlyCounts, "BUSY");
+
+  // Daily counts
+  const dailyAnswered = getCount(dailyCounts, "ANSWERED");
+  const dailyNoAnswer = getCount(dailyCounts, "NO ANSWER");
+  const dailyBusy = getCount(dailyCounts, "BUSY");
+
+  // Calculate percentages
+  const yearlyAnsweredPercent = calculatePercentage(
+    yearlyAnswered,
+    yearlyTotal
+  );
+  const yearlyNoAnswerPercent = calculatePercentage(
+    yearlyNoAnswer,
+    yearlyTotal
+  );
+  const yearlyBusyPercent = calculatePercentage(yearlyBusy, yearlyTotal);
+
+  const monthlyAnsweredPercent = calculatePercentage(
+    monthlyAnswered,
+    monthlyTotal
+  );
+  const monthlyNoAnswerPercent = calculatePercentage(
+    monthlyNoAnswer,
+    monthlyTotal
+  );
+  const monthlyBusyPercent = calculatePercentage(monthlyBusy, monthlyTotal);
+
+  const dailyAnsweredPercent = calculatePercentage(dailyAnswered, dailyTotal);
+  const dailyNoAnswerPercent = calculatePercentage(dailyNoAnswer, dailyTotal);
+  const dailyBusyPercent = calculatePercentage(dailyBusy, dailyTotal);
+
   const fetchLostCalls = async () => {
     setLostCallsLoading(true);
+    
     try {
       const response = await fetch(`${baseURL}/calls/lost-calls-today`);
       if (response.ok) {
@@ -419,6 +517,293 @@ export default function PublicDashboard() {
         </div>
       </div>
 
+      {/* Call Summary Statistics Section */}
+      <div className="dashboard-section">
+        <h2 className="section-title">
+          <MdTrendingUp className="section-icon" />
+          Call Summary Statistics
+        </h2>
+
+        {/* Yearly Row */}
+        <div className="call-summary-row yearly-summary">
+          <div className="call-summary-card answered-calls">
+            <div className="stat-icon">
+              <MdPhone style={{ color: getCallTypeColor("ANSWERED") }} />
+            </div>
+            <div className="stat-content">
+              <div className="stat-value-with-percent">
+                <span
+                  style={{
+                    color: getCallTypeColor("ANSWERED"),
+                    fontSize: "1.5rem",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {yearlyAnsweredPercent}%
+                </span>
+                <span
+                  style={{
+                    fontSize: "2rem",
+                    fontWeight: "bold",
+                    marginLeft: "8px",
+                  }}
+                >
+                  {yearlyAnswered}
+                </span>
+              </div>
+              <div className="stat-label">Yearly Answered Calls</div>
+              <div className="stat-sublabel">of total calls</div>
+            </div>
+          </div>
+          <div className="call-summary-card no-answer-calls">
+            <div className="stat-icon">
+              <MdPhoneDisabled
+                style={{ color: getCallTypeColor("NO ANSWER") }}
+              />
+            </div>
+            <div className="stat-content">
+              <div className="stat-value-with-percent">
+                <span
+                  style={{
+                    color: getCallTypeColor("NO ANSWER"),
+                    fontSize: "1.5rem",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {yearlyNoAnswerPercent}%
+                </span>
+                <span
+                  style={{
+                    fontSize: "2rem",
+                    fontWeight: "bold",
+                    marginLeft: "8px",
+                  }}
+                >
+                  {yearlyNoAnswer}
+                </span>
+              </div>
+              <div className="stat-label">Yearly No Answer Calls</div>
+              <div className="stat-sublabel">of total calls</div>
+            </div>
+          </div>
+          <div className="call-summary-card busy-calls">
+            <div className="stat-icon">
+              <MdCallEnd style={{ color: getCallTypeColor("BUSY") }} />
+            </div>
+            <div className="stat-content">
+              <div className="stat-value-with-percent">
+                <span
+                  style={{
+                    color: getCallTypeColor("BUSY"),
+                    fontSize: "1.5rem",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {yearlyBusyPercent}%
+                </span>
+                <span
+                  style={{
+                    fontSize: "2rem",
+                    fontWeight: "bold",
+                    marginLeft: "8px",
+                  }}
+                >
+                  {yearlyBusy}
+                </span>
+              </div>
+              <div className="stat-label">Yearly Busy Calls</div>
+              <div className="stat-sublabel">of total calls</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Monthly Row */}
+        <div className="call-summary-row monthly-summary">
+          <div className="call-summary-card answered-calls">
+            <div className="stat-icon">
+              <MdPhone style={{ color: getCallTypeColor("ANSWERED") }} />
+            </div>
+            <div className="stat-content">
+              <div className="stat-value-with-percent">
+                <span
+                  style={{
+                    color: getCallTypeColor("ANSWERED"),
+                    fontSize: "1.5rem",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {monthlyAnsweredPercent}%
+                </span>
+                <span
+                  style={{
+                    fontSize: "2rem",
+                    fontWeight: "bold",
+                    marginLeft: "8px",
+                  }}
+                >
+                  {monthlyAnswered}
+                </span>
+              </div>
+              <div className="stat-label">Monthly Answered Calls</div>
+              <div className="stat-sublabel">of total calls</div>
+            </div>
+          </div>
+          <div className="call-summary-card no-answer-calls">
+            <div className="stat-icon">
+              <MdPhoneDisabled
+                style={{ color: getCallTypeColor("NO ANSWER") }}
+              />
+            </div>
+            <div className="stat-content">
+              <div className="stat-value-with-percent">
+                <span
+                  style={{
+                    color: getCallTypeColor("NO ANSWER"),
+                    fontSize: "1.5rem",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {monthlyNoAnswerPercent}%
+                </span>
+                <span
+                  style={{
+                    fontSize: "2rem",
+                    fontWeight: "bold",
+                    marginLeft: "8px",
+                  }}
+                >
+                  {monthlyNoAnswer}
+                </span>
+              </div>
+              <div className="stat-label">Monthly No Answer Calls</div>
+              <div className="stat-sublabel">of total calls</div>
+            </div>
+          </div>
+          <div className="call-summary-card busy-calls">
+            <div className="stat-icon">
+              <MdCallEnd style={{ color: getCallTypeColor("BUSY") }} />
+            </div>
+            <div className="stat-content">
+              <div className="stat-value-with-percent">
+                <span
+                  style={{
+                    color: getCallTypeColor("BUSY"),
+                    fontSize: "1.5rem",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {monthlyBusyPercent}%
+                </span>
+                <span
+                  style={{
+                    fontSize: "2rem",
+                    fontWeight: "bold",
+                    marginLeft: "8px",
+                  }}
+                >
+                  {monthlyBusy}
+                </span>
+              </div>
+              <div className="stat-label">Monthly Busy Calls</div>
+              <div className="stat-sublabel">of total calls</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Daily Row */}
+        <div className="call-summary-row daily-summary">
+          <div className="call-summary-card answered-calls">
+            <div className="stat-icon">
+              <MdPhone style={{ color: getCallTypeColor("ANSWERED") }} />
+            </div>
+            <div className="stat-content">
+              <div className="stat-value-with-percent">
+                <span
+                  style={{
+                    color: getCallTypeColor("ANSWERED"),
+                    fontSize: "1.5rem",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {dailyAnsweredPercent}%
+                </span>
+                <span
+                  style={{
+                    fontSize: "2rem",
+                    fontWeight: "bold",
+                    marginLeft: "8px",
+                  }}
+                >
+                  {dailyAnswered}
+                </span>
+              </div>
+              <div className="stat-label">Daily Answered Calls</div>
+              <div className="stat-sublabel">of total calls</div>
+            </div>
+          </div>
+          <div className="call-summary-card no-answer-calls">
+            <div className="stat-icon">
+              <MdPhoneDisabled
+                style={{ color: getCallTypeColor("NO ANSWER") }}
+              />
+            </div>
+            <div className="stat-content">
+              <div className="stat-value-with-percent">
+                <span
+                  style={{
+                    color: getCallTypeColor("NO ANSWER"),
+                    fontSize: "1.5rem",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {dailyNoAnswerPercent}%
+                </span>
+                <span
+                  style={{
+                    fontSize: "2rem",
+                    fontWeight: "bold",
+                    marginLeft: "8px",
+                  }}
+                >
+                  {dailyNoAnswer}
+                </span>
+              </div>
+              <div className="stat-label">Daily No Answer Calls</div>
+              <div className="stat-sublabel">of total calls</div>
+            </div>
+          </div>
+          <div className="call-summary-card busy-calls">
+            <div className="stat-icon">
+              <MdCallEnd style={{ color: getCallTypeColor("BUSY") }} />
+            </div>
+            <div className="stat-content">
+              <div className="stat-value-with-percent">
+                <span
+                  style={{
+                    color: getCallTypeColor("BUSY"),
+                    fontSize: "1.5rem",
+                    fontWeight: "bold",
+                  }}
+                >
+                  {dailyBusyPercent}%
+                </span>
+                <span
+                  style={{
+                    fontSize: "2rem",
+                    fontWeight: "bold",
+                    marginLeft: "8px",
+                  }}
+                >
+                  {dailyBusy}
+                </span>
+              </div>
+              <div className="stat-label">Daily Busy Calls</div>
+              <div className="stat-sublabel">of total calls</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Queue Status Section */}
       {dashboardData.queueStatus.length > 0 && (
         <div className="dashboard-section">
@@ -449,35 +834,6 @@ export default function PublicDashboard() {
           </div>
         </div>
       )}
-
-      {/* Call Statistics Section */}
-      <div className="dashboard-section">
-        <h2 className="section-title">
-          <MdTrendingUp className="section-icon" />
-          Today's Call Statistics
-        </h2>
-        <div className="stats-table">
-          <div className="stats-table-header">
-            <div className="stats-table-cell">Status</div>
-            <div className="stats-table-cell">Count</div>
-          </div>
-          {dashboardData.callStats.dailyCounts.length > 0 ? (
-            dashboardData.callStats.dailyCounts.map((stat, index) => (
-              <div key={index} className="stats-table-row">
-                <div className="stats-table-cell">
-                  {stat.disposition || "Unknown"}
-                </div>
-                <div className="stats-table-cell">{stat.count || 0}</div>
-              </div>
-            ))
-          ) : (
-            <div className="stats-table-row">
-              <div className="stats-table-cell">No data available</div>
-              <div className="stats-table-cell">-</div>
-            </div>
-          )}
-        </div>
-      </div>
 
       {/* Lost Calls Modal */}
       <Dialog

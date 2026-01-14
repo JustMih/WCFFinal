@@ -18,6 +18,14 @@ import {
   Typography,
   CircularProgress,
   IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Checkbox,
+  FormControlLabel,
+  FormGroup,
+  Divider,
 } from "@mui/material";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -29,6 +37,7 @@ import {
   Refresh,
   Search,
   FilterList,
+  ViewColumn,
 } from "@mui/icons-material";
 import "./comprehensiveReports.css";
 
@@ -62,6 +71,10 @@ export default function ComprehensiveReports() {
   const [agentFilter, setAgentFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+
+  // Column selection
+  const [columnDialogOpen, setColumnDialogOpen] = useState(false);
+  const [selectedColumns, setSelectedColumns] = useState({});
 
   // Summary stats
   const [summaryStats, setSummaryStats] = useState({
@@ -185,6 +198,127 @@ export default function ComprehensiveReports() {
     setSnackbarOpen(false);
   };
 
+  // Column definitions for each report type
+  const getColumnDefinitions = () => {
+    switch (activeTab) {
+      case REPORT_TYPES.VOICE_NOTE:
+        return [
+          { key: "serial", label: "Serial No", default: true },
+          { key: "phone", label: "Phone", default: true },
+          { key: "date", label: "Date", default: true },
+          { key: "played", label: "Played", default: true },
+          { key: "agent", label: "Assigned Agent", default: true },
+          { key: "duration", label: "Duration (s)", default: true },
+          { key: "transcription", label: "Transcription", default: false },
+        ];
+      case REPORT_TYPES.CDR:
+        return [
+          { key: "serial", label: "Serial No", default: true },
+          { key: "callerId", label: "Caller ID", default: true },
+          { key: "source", label: "Source", default: true },
+          { key: "destination", label: "Destination", default: true },
+          { key: "startTime", label: "Start Time", default: true },
+          { key: "duration", label: "Duration (s)", default: true },
+          { key: "billed", label: "Billed (s)", default: true },
+          { key: "disposition", label: "Disposition", default: true },
+          { key: "recording", label: "Recording File", default: false },
+        ];
+      case REPORT_TYPES.TICKET_CRM:
+        return [
+          { key: "serial", label: "Serial No", default: true },
+          { key: "ticketNumber", label: "Ticket #", default: true },
+          { key: "subject", label: "Subject", default: true },
+          { key: "status", label: "Status", default: true },
+          { key: "category", label: "Category", default: true },
+          { key: "complaintType", label: "Complaint Type", default: true },
+          { key: "requester", label: "Requester", default: true },
+          { key: "assignedTo", label: "Assigned To", default: true },
+          { key: "createdDate", label: "Created Date", default: true },
+          { key: "resolvedDate", label: "Resolved Date", default: false },
+        ];
+      case REPORT_TYPES.AGENT_PERFORMANCE:
+        return [
+          { key: "serial", label: "Serial No", default: true },
+          { key: "agent", label: "Agent Name", default: true },
+          { key: "totalCalls", label: "Total Calls", default: true },
+          { key: "answeredCalls", label: "Answered Calls", default: true },
+          { key: "missedCalls", label: "Missed Calls", default: true },
+          { key: "avgDuration", label: "Avg Duration (s)", default: true },
+          { key: "totalTalkTime", label: "Total Talk Time (s)", default: true },
+          { key: "fcrRate", label: "FCR Rate", default: true },
+        ];
+      case REPORT_TYPES.CALL_SUMMARY:
+        return [
+          { key: "serial", label: "Serial No", default: true },
+          { key: "date", label: "Date", default: true },
+          { key: "totalCalls", label: "Total Calls", default: true },
+          { key: "answered", label: "Answered", default: true },
+          { key: "noAnswer", label: "No Answer", default: true },
+          { key: "busy", label: "Busy", default: true },
+          { key: "totalDuration", label: "Total Duration (s)", default: true },
+          { key: "avgDuration", label: "Avg Duration (s)", default: true },
+        ];
+      case REPORT_TYPES.IVR_INTERACTIONS:
+        return [
+          { key: "serial", label: "Serial No", default: true },
+          { key: "dtmfInput", label: "DTMF Input", default: true },
+          { key: "action", label: "Action", default: true },
+          { key: "voiceFile", label: "Voice File", default: true },
+          { key: "date", label: "Date", default: true },
+        ];
+      default:
+        return [];
+    }
+  };
+
+  // Initialize selected columns when tab changes or data loads
+  useEffect(() => {
+    const columns = getColumnDefinitions();
+    const defaultSelected = columns
+      .filter((col) => col.default)
+      .map((col) => col.key);
+    
+    setSelectedColumns((prev) => {
+      const current = prev[activeTab];
+      if (current && current.length > 0) {
+        // Keep existing selection if it exists
+        return prev;
+      }
+      // Initialize with defaults if no selection exists
+      return { ...prev, [activeTab]: defaultSelected };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
+
+  const handleColumnToggle = (columnKey) => {
+    setSelectedColumns((prev) => {
+      const current = prev[activeTab] || [];
+      const isSelected = current.includes(columnKey);
+      const updated = isSelected
+        ? current.filter((key) => key !== columnKey)
+        : [...current, columnKey];
+      return { ...prev, [activeTab]: updated };
+    });
+  };
+
+  const handleSelectAllColumns = () => {
+    const columns = getColumnDefinitions();
+    const allKeys = columns.map((col) => col.key);
+    setSelectedColumns((prev) => ({ ...prev, [activeTab]: allKeys }));
+  };
+
+  const handleDeselectAllColumns = () => {
+    setSelectedColumns((prev) => ({ ...prev, [activeTab]: [] }));
+  };
+
+  const handleResetColumns = () => {
+    const columns = getColumnDefinitions();
+    const defaultSelected = columns
+      .filter((col) => col.default)
+      .map((col) => col.key);
+    setSelectedColumns((prev) => ({ ...prev, [activeTab]: defaultSelected }));
+  };
+
   const filteredReports = reports.filter((report) => {
     const searchLower = search.toLowerCase();
 
@@ -242,6 +376,85 @@ export default function ComprehensiveReports() {
     indexOfLastReport
   );
 
+  // Helper function to get column value from report
+  const getColumnValue = (columnKey, report, index) => {
+    switch (activeTab) {
+      case REPORT_TYPES.VOICE_NOTE:
+        switch (columnKey) {
+          case "serial": return index + 1;
+          case "phone": return report.clid || "-";
+          case "date": return report.created_at ? new Date(report.created_at).toLocaleString() : "-";
+          case "played": return report.is_played ? "Yes" : "No";
+          case "agent": return report.assigned_agent_id || "-";
+          case "duration": return report.duration_seconds || "-";
+          case "transcription": return report.transcription || "-";
+          default: return "-";
+        }
+      case REPORT_TYPES.CDR:
+        switch (columnKey) {
+          case "serial": return index + 1;
+          case "callerId": return report.clid || "-";
+          case "source": return report.src || "-";
+          case "destination": return report.dst || "-";
+          case "startTime": return report.cdrstarttime ? new Date(report.cdrstarttime).toLocaleString() : "-";
+          case "duration": return report.duration || "-";
+          case "billed": return report.billsec || "-";
+          case "disposition": return report.disposition || "-";
+          case "recording": return report.recordingfile || "-";
+          default: return "-";
+        }
+      case REPORT_TYPES.TICKET_CRM:
+        switch (columnKey) {
+          case "serial": return index + 1;
+          case "ticketNumber": return report.ticket_number || "-";
+          case "subject": return report.subject || "-";
+          case "status": return report.status || "-";
+          case "category": return report.category || "-";
+          case "complaintType": return report.complaint_type || "-";
+          case "requester": return report.requester_name || "-";
+          case "assignedTo": return report.assigned_to_name || "-";
+          case "createdDate": return report.created_at ? new Date(report.created_at).toLocaleString() : "-";
+          case "resolvedDate": return report.resolved_at ? new Date(report.resolved_at).toLocaleString() : "-";
+          default: return "-";
+        }
+      case REPORT_TYPES.AGENT_PERFORMANCE:
+        switch (columnKey) {
+          case "serial": return index + 1;
+          case "agent": return report.agent_name || "-";
+          case "totalCalls": return report.total_calls || 0;
+          case "answeredCalls": return report.answered_calls || 0;
+          case "missedCalls": return report.missed_calls || 0;
+          case "avgDuration": return report.avg_duration || 0;
+          case "totalTalkTime": return report.total_talk_time || 0;
+          case "fcrRate": return report.fcr_rate || "0%";
+          default: return "-";
+        }
+      case REPORT_TYPES.CALL_SUMMARY:
+        switch (columnKey) {
+          case "serial": return index + 1;
+          case "date": return report.date ? new Date(report.date).toLocaleDateString() : "-";
+          case "totalCalls": return report.total_calls || 0;
+          case "answered": return report.answered || 0;
+          case "noAnswer": return report.no_answer || 0;
+          case "busy": return report.busy || 0;
+          case "totalDuration": return report.total_duration || 0;
+          case "avgDuration": return report.avg_duration || 0;
+          default: return "-";
+        }
+      case REPORT_TYPES.IVR_INTERACTIONS:
+        switch (columnKey) {
+          case "serial": return index + 1;
+          case "dtmfInput": return report.dtmf_input || "-";
+          case "action": return report.action?.name || "-";
+          case "voiceFile": return report.voice?.file_name || "-";
+          case "date": return report.created_at ? new Date(report.created_at).toLocaleString() : "-";
+          default: return "-";
+        }
+      default:
+        return "-";
+    }
+  };
+
   // CSV Export Function
   const handleExportCSV = () => {
     if (filteredReports.length === 0) {
@@ -251,80 +464,28 @@ export default function ComprehensiveReports() {
       return;
     }
 
-    let csvData = [];
-    let filename = "";
+    const columns = getColumnDefinitions();
+    const selected = selectedColumns[activeTab] || [];
+    const selectedColumnsDef = columns.filter((col) => selected.includes(col.key));
 
-    switch (activeTab) {
-      case REPORT_TYPES.VOICE_NOTE:
-        csvData = filteredReports.map((report) => ({
-          "Serial No": "",
-          Phone: report.clid || "-",
-          Date: report.created_at
-            ? new Date(report.created_at).toLocaleString()
-            : "-",
-          Played: report.is_played ? "Yes" : "No",
-          "Assigned Agent": report.assigned_agent_id || "-",
-          "Duration (s)": report.duration_seconds || "-",
-          Transcription: report.transcription || "-",
-        }));
-        filename = `voice_note_report_${startDate}_to_${endDate}.csv`;
-        break;
-      case REPORT_TYPES.CDR:
-        csvData = filteredReports.map((report) => ({
-          "Serial No": "",
-          "Caller ID": report.clid || "-",
-          Source: report.src || "-",
-          Destination: report.dst || "-",
-          "Start Time": report.cdrstarttime
-            ? new Date(report.cdrstarttime).toLocaleString()
-            : "-",
-          "Duration (s)": report.duration || "-",
-          "Billed (s)": report.billsec || "-",
-          Disposition: report.disposition || "-",
-          "Recording File": report.recordingfile || "-",
-        }));
-        filename = `cdr_report_${startDate}_to_${endDate}.csv`;
-        break;
-      case REPORT_TYPES.TICKET_CRM:
-        csvData = filteredReports.map((report) => ({
-          "Ticket #": report.ticket_number || "-",
-          Subject: report.subject || "-",
-          Status: report.status || "-",
-          Category: report.category || "-",
-          "Complaint Type": report.complaint_type || "-",
-          Requester: report.requester_name || "-",
-          "Assigned To": report.assigned_to_name || "-",
-          "Created Date": report.created_at
-            ? new Date(report.created_at).toLocaleString()
-            : "-",
-          "Resolved Date": report.resolved_at
-            ? new Date(report.resolved_at).toLocaleString()
-            : "-",
-        }));
-        filename = `ticket_crm_report_${startDate}_to_${endDate}.csv`;
-        break;
-      case REPORT_TYPES.AGENT_PERFORMANCE:
-        csvData = filteredReports.map((report) => ({
-          Agent: report.agent_name || "-",
-          "Total Calls": report.total_calls || 0,
-          "Answered Calls": report.answered_calls || 0,
-          "Missed Calls": report.missed_calls || 0,
-          "Avg Call Duration (s)": report.avg_duration || 0,
-          "Total Talk Time (s)": report.total_talk_time || 0,
-          "First Call Resolution": report.fcr_rate || "0%",
-        }));
-        filename = `agent_performance_report_${startDate}_to_${endDate}.csv`;
-        break;
-      default:
-        csvData = filteredReports;
-        filename = `report_${new Date().toISOString().split("T")[0]}.csv`;
+    if (selectedColumnsDef.length === 0) {
+      setSnackbarMessage("Please select at least one column to export");
+      setSnackbarSeverity("warning");
+      setSnackbarOpen(true);
+      return;
     }
 
-    // Add serial numbers
-    csvData = csvData.map((row, idx) => ({
-      "Serial No": idx + 1,
-      ...row,
-    }));
+    const csvData = filteredReports.map((report, idx) => {
+      const row = {};
+      selectedColumnsDef.forEach((col) => {
+        row[col.label] = getColumnValue(col.key, report, idx);
+      });
+      return row;
+    });
+
+    const filename = `${getReportTitle().toLowerCase().replace(/\s+/g, "_")}_${
+      startDate || "all"
+    }_${endDate || "all"}.csv`;
 
     const ws = XLSX.utils.json_to_sheet(csvData);
     const wb = XLSX.utils.book_new();
@@ -345,6 +506,17 @@ export default function ComprehensiveReports() {
       return;
     }
 
+    const columns = getColumnDefinitions();
+    const selected = selectedColumns[activeTab] || [];
+    const selectedColumnsDef = columns.filter((col) => selected.includes(col.key));
+
+    if (selectedColumnsDef.length === 0) {
+      setSnackbarMessage("Please select at least one column to export");
+      setSnackbarSeverity("warning");
+      setSnackbarOpen(true);
+      return;
+    }
+
     const doc = new jsPDF();
     const reportTitle = getReportTitle();
     doc.setFontSize(16);
@@ -355,113 +527,17 @@ export default function ComprehensiveReports() {
       doc.text(`Date Range: ${startDate} to ${endDate}`, 14, 20);
     }
 
-    let tableData = [];
-    let headers = [];
-
-    switch (activeTab) {
-      case REPORT_TYPES.VOICE_NOTE:
-        headers = [
-          [
-            "Sn",
-            "Phone",
-            "Date",
-            "Played",
-            "Agent",
-            "Duration (s)",
-            "Transcription",
-          ],
-        ];
-        tableData = filteredReports.map((report, idx) => [
-          idx + 1,
-          report.clid || "-",
-          report.created_at
-            ? new Date(report.created_at).toLocaleString()
-            : "-",
-          report.is_played ? "Yes" : "No",
-          report.assigned_agent_id || "-",
-          report.duration_seconds || "-",
-          (report.transcription || "-").substring(0, 50),
-        ]);
-        break;
-      case REPORT_TYPES.CDR:
-        headers = [
-          [
-            "Sn",
-            "Caller ID",
-            "Source",
-            "Destination",
-            "Start Time",
-            "Duration (s)",
-            "Disposition",
-          ],
-        ];
-        tableData = filteredReports.map((report, idx) => [
-          idx + 1,
-          report.clid || "-",
-          report.src || "-",
-          report.dst || "-",
-          report.cdrstarttime
-            ? new Date(report.cdrstarttime).toLocaleString()
-            : "-",
-          report.duration || "-",
-          report.disposition || "-",
-        ]);
-        break;
-      case REPORT_TYPES.TICKET_CRM:
-        headers = [
-          [
-            "Sn",
-            "Ticket #",
-            "Subject",
-            "Status",
-            "Category",
-            "Complaint Type",
-            "Requester",
-            "Created Date",
-          ],
-        ];
-        tableData = filteredReports.map((report, idx) => [
-          idx + 1,
-          report.ticket_number || "-",
-          (report.subject || "-").substring(0, 30),
-          report.status || "-",
-          report.category || "-",
-          report.complaint_type || "-",
-          report.requester_name || "-",
-          report.created_at
-            ? new Date(report.created_at).toLocaleString()
-            : "-",
-        ]);
-        break;
-      case REPORT_TYPES.AGENT_PERFORMANCE:
-        headers = [
-          [
-            "Sn",
-            "Agent",
-            "Total Calls",
-            "Answered",
-            "Missed",
-            "Avg Duration (s)",
-            "FCR Rate",
-          ],
-        ];
-        tableData = filteredReports.map((report, idx) => [
-          idx + 1,
-          report.agent_name || "-",
-          report.total_calls || 0,
-          report.answered_calls || 0,
-          report.missed_calls || 0,
-          report.avg_duration || 0,
-          report.fcr_rate || "0%",
-        ]);
-        break;
-      default:
-        headers = [["Sn", "Data"]];
-        tableData = filteredReports.map((r, idx) => [
-          idx + 1,
-          JSON.stringify(r),
-        ]);
-    }
+    const headers = [selectedColumnsDef.map((col) => col.label)];
+    const tableData = filteredReports.map((report, idx) =>
+      selectedColumnsDef.map((col) => {
+        const value = getColumnValue(col.key, report, idx);
+        // Truncate long text for PDF
+        if (typeof value === "string" && value.length > 50) {
+          return value.substring(0, 50) + "...";
+        }
+        return value;
+      })
+    );
 
     autoTable(doc, {
       startY: startDate && endDate ? 26 : 20,
@@ -1073,6 +1149,16 @@ export default function ComprehensiveReports() {
               >
                 Load Report
               </Button>
+              {filteredReports.length > 0 && (
+                <Button
+                  variant="outlined"
+                  color="info"
+                  startIcon={<ViewColumn />}
+                  onClick={() => setColumnDialogOpen(true)}
+                >
+                  Select Columns
+                </Button>
+              )}
               <Button
                 variant="outlined"
                 color="secondary"
@@ -1170,6 +1256,89 @@ export default function ComprehensiveReports() {
           </Button>
         </div>
       )}
+
+      {/* Column Selection Dialog */}
+      <Dialog
+        open={columnDialogOpen}
+        onClose={() => setColumnDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Typography variant="h6">Select Columns to Export</Typography>
+            <Box>
+              <Button
+                size="small"
+                onClick={handleSelectAllColumns}
+                style={{ marginRight: 8 }}
+              >
+                Select All
+              </Button>
+              <Button
+                size="small"
+                onClick={handleDeselectAllColumns}
+                style={{ marginRight: 8 }}
+              >
+                Deselect All
+              </Button>
+              <Button size="small" onClick={handleResetColumns}>
+                Reset
+              </Button>
+            </Box>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <FormGroup>
+            {getColumnDefinitions().map((column) => {
+              const isSelected = (selectedColumns[activeTab] || []).includes(
+                column.key
+              );
+              return (
+                <FormControlLabel
+                  key={column.key}
+                  control={
+                    <Checkbox
+                      checked={isSelected}
+                      onChange={() => handleColumnToggle(column.key)}
+                      color="primary"
+                    />
+                  }
+                  label={column.label}
+                />
+              );
+            })}
+          </FormGroup>
+          <Divider style={{ marginTop: 16, marginBottom: 16 }} />
+          <Typography variant="body2" color="textSecondary">
+            Selected: {(selectedColumns[activeTab] || []).length} of{" "}
+            {getColumnDefinitions().length} columns
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setColumnDialogOpen(false)} color="primary">
+            Cancel
+          </Button>
+          <Button
+            onClick={() => {
+              if ((selectedColumns[activeTab] || []).length === 0) {
+                setSnackbarMessage("Please select at least one column");
+                setSnackbarSeverity("warning");
+                setSnackbarOpen(true);
+                return;
+              }
+              setColumnDialogOpen(false);
+              setSnackbarMessage("Column selection saved");
+              setSnackbarSeverity("success");
+              setSnackbarOpen(true);
+            }}
+            variant="contained"
+            color="primary"
+          >
+            Apply
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Snackbar */}
       <Snackbar
