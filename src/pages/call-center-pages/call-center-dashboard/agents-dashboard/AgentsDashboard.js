@@ -389,6 +389,25 @@ export default function AgentsDashboard() {
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
+const markMissedCallAsCalledBack = async (missedCallId) => {
+  if (!missedCallId) return;
+
+  try {
+    await fetch(`${baseURL}/missed-calls/${missedCallId}/status`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+      },
+      body: JSON.stringify({ status: "called_back" }),
+    });
+
+    // Refresh badge immediately
+    await fetchMissedCallsFromBackend();
+  } catch (err) {
+    console.error("Failed to update missed call status:", err);
+  }
+};
 
   // ---------- Missed calls ----------
   useEffect(() => {
@@ -824,21 +843,27 @@ export default function AgentsDashboard() {
       .then(() => {
         setPhoneStatus("Dialing");
         inviter.stateChange.addListener((state) => {
-          if (state === SessionState.Established) {
-            attachMediaStream(inviter);
-            setPhoneStatus("In Call");
-            startCallTimer();
-            // Store call state in localStorage for persistence
-            localStorage.setItem(
-              "activeCallState",
-              JSON.stringify({
-                phoneStatus: "In Call",
-                phoneNumber: phoneNumber || "",
-                callStartTime: new Date().toISOString(),
-                hasActiveCall: true,
-              })
-            );
-          }
+     if (state === SessionState.Established) {
+  attachMediaStream(inviter);
+  setPhoneStatus("In Call");
+  startCallTimer();
+
+  localStorage.setItem(
+    "activeCallState",
+    JSON.stringify({
+      phoneStatus: "In Call",
+      phoneNumber: formatted || "",
+      callStartTime: new Date().toISOString(),
+      hasActiveCall: true,
+    })
+  );
+
+  // ✅ SAFE async call
+  if (missedCallId) {
+    markMissedCallAsCalledBack(missedCallId);
+  }
+}
+
           if (state === SessionState.Terminated) {
             setPhoneStatus("Idle");
             setSession(null);
@@ -875,53 +900,37 @@ export default function AgentsDashboard() {
       .invite()
       .then(() => {
         setPhoneStatus("Dialing");
-        inviter.stateChange.addListener((state) => {
-          if (state === SessionState.Established) {
-            attachMediaStream(inviter);
-            setPhoneStatus("In Call");
-            startCallTimer();
-            // Store call state in localStorage for persistence
-            localStorage.setItem(
-              "activeCallState",
-              JSON.stringify({
-                phoneStatus: "In Call",
-                phoneNumber: formatted || "",
-                callStartTime: new Date().toISOString(),
-                hasActiveCall: true,
-              })
-            );
-            if (missedCallId) {
-              fetch(`${baseURL}/missed-calls/${missedCallId}/status`, {
-                method: "PUT",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-                },
-                body: JSON.stringify({ status: "called_back" }),
-              })
-                .then((res) => {
-                  if (!res.ok) throw new Error("Failed to update status");
-                  return res.json();
-                })
-                .then(() =>
-                  setMissedCalls((prev) =>
-                    prev.filter((c) => c.id !== missedCallId)
-                  )
-                )
-                .catch((err) =>
-                  console.error("Failed to update missed call status:", err)
-                );
-            }
-          }
-          if (state === SessionState.Terminated) {
-            setPhoneStatus("Idle");
-            setSession(null);
-            // Clear call state from localStorage
-            localStorage.removeItem("activeCallState");
-            if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
-            stopCallTimer();
-          }
-        });
+     inviter.stateChange.addListener((state) => {
+  if (state === SessionState.Established) {
+    attachMediaStream(inviter);
+    setPhoneStatus("In Call");
+    startCallTimer();
+
+    localStorage.setItem(
+      "activeCallState",
+      JSON.stringify({
+        phoneStatus: "In Call",
+        phoneNumber: formatted || "",
+        callStartTime: new Date().toISOString(),
+        hasActiveCall: true,
+      })
+    );
+
+    // ✅ ASYNC SAFE
+    if (missedCallId) {
+      markMissedCallAsCalledBack(missedCallId);
+    }
+  }
+
+  if (state === SessionState.Terminated) {
+    setPhoneStatus("Idle");
+    setSession(null);
+    localStorage.removeItem("activeCallState");
+    if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
+    stopCallTimer();
+  }
+});
+
       })
       .catch((error) => {
         console.error("Redial invite failed:", error);
