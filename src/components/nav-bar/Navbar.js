@@ -813,7 +813,8 @@ export default function Navbar({
                   // Notified: unread, for current user, not tagged, not assigned, and not reversed
                   // Navbar counts ALL notifications (not distinct tickets)
                   const isUnread = n.status === 'unread' || n.status === ' ';
-                  const isForCurrentUser = n.recipient_id === userId;
+                  // Use String conversion for type-safe comparison (consistent with listing logic)
+                  const isForCurrentUser = String(n.recipient_id) === String(userId);
                   if (!isForCurrentUser || !isUnread) return false;
                   
                   const messageText = (n.message || n.comment || '').toLowerCase();
@@ -822,15 +823,12 @@ export default function Navbar({
                   // Check if it's tagged
                   const isTagged = messageText.includes('mentioned you') || commentText.includes('@');
                   
-                  // Check if it's reversed (ticket status AND message indicates reversal)
+                  // Check if it's reversed (ticket status indicates reversal)
+                  // Use same logic as listing: simple check if ticket is reversed (consistent with listing logic)
                   const ticketStatus = n.ticket?.status || '';
                   const isReversedTicket = ticketStatus.toLowerCase() === 'reversed';
-                  const isReversedByText = messageText.includes('reversed back to you') ||
-                                          messageText.includes('reversed to you') ||
-                                          
-                                          messageText.includes('Ticket details updated') ||
-                                          (messageText.includes('has been reversed') && messageText.includes('to'));
-                  const isReversed = isReversedTicket && isReversedByText;
+                  // For notified count, exclude reversed tickets (same as listing logic)
+                  const isReversed = isReversedTicket && !isTagged;
                   
                   // Check if it's assigned (only by message text, not ticket status)
                   const isAssignedByText = (messageText.includes('assigned to you') || 
@@ -844,7 +842,8 @@ export default function Navbar({
                 // Separate reversed and assigned counts
                 const reversedCountLocal = notificationsData?.notifications?.filter(n => {
                   const isUnread = n.status === 'unread' || n.status === ' ';
-                  const isForCurrentUser = n.recipient_id === userId;
+                  // Use String conversion for type-safe comparison (consistent with listing logic)
+                  const isForCurrentUser = String(n.recipient_id) === String(userId);
                   if (!isForCurrentUser || !isUnread) return false;
                   
                   // Simple check: if ticket is reversed, count it (case-insensitive, no need to check message text)
@@ -867,7 +866,8 @@ export default function Navbar({
                   assignedCountLocal = notificationsData?.notifications?.filter(n => {
                     // Use status and recipient_id instead of text matching for better reliability
                     const isUnread = n.status === 'unread' || n.status === ' ';
-                    const isForCurrentUser = n.recipient_id === userId;
+                    // Use String conversion for type-safe comparison (consistent with listing logic)
+                    const isForCurrentUser = String(n.recipient_id) === String(userId);
                     
                     // Check if notification is for current user and unread
                     if (!isForCurrentUser || !isUnread) return false;
