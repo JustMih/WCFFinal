@@ -1143,3 +1143,58 @@
 .top-action-btn.back-to-ticket:hover {
   background: #45a049;
 }
+.transfer-section {
+  margin-top: 16px;
+  padding: 14px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #ff9800, #ffb74d);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+}
+.transfer-header.colorful {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.transfer-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.transfer-title svg {
+  font-size: 20px;
+}
+.transfer-input-inline {
+  background: rgba(255, 255, 255, 0.95);
+  padding: 12px;
+  border-radius: 10px;
+}
+
+.transfer-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+.transfer-actions .MuiButton-contained {
+  background: linear-gradient(135deg, #ff5722, #ff9800);
+  color: #fff;
+  font-weight: bold;
+}
+
+.transfer-actions .MuiButton-contained:hover {
+  background: linear-gradient(135deg, #e64a19, #fb8c00);
+}
+.transfer-actions .MuiButton-outlined {
+  border-color: #ff9800;
+  color: #ff9800;
+}
+
+.transfer-actions .MuiButton-outlined:hover {
+  background: rgba(255, 152, 0, 0.1);
+}
+
+

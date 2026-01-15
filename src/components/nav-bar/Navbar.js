@@ -214,21 +214,38 @@ export default function Navbar({
   }, []);
 
   useEffect(() => {
-    // Fetch assigned ticket notification count
+    // Fetch assigned ticket count - different logic for reviewers vs other users
     async function fetchAssignedCount() {
+      const userRole = localStorage.getItem('role');
+      
       try {
-        const response = await fetch(
-          `${baseURL}/notifications/unread-count/${userId}`,
-          {
-            headers: { Authorization: `Bearer ${token}` }
+        if (userRole === 'reviewer') {
+          // For reviewers: fetch assigned tickets count (not notifications)
+          const response = await fetch(
+            `${baseURL}/ticket/count/assigned/${userId}`,
+            {
+              headers: { Authorization: `Bearer ${token}` }
+            }
+          );
+          if (response.ok) {
+            const data = await response.json();
+            setAssignedCount(data.count || 0);
           }
-        );
-        if (response.ok) {
-          const data = await response.json();
-          setAssignedCount(data.unreadCount || 0);
+        } else {
+          // For other users: fetch notification count (unread notifications)
+          const response = await fetch(
+            `${baseURL}/notifications/unread-count/${userId}`,
+            {
+              headers: { Authorization: `Bearer ${token}` }
+            }
+          );
+          if (response.ok) {
+            const data = await response.json();
+            setAssignedCount(data.unreadCount || 0);
+          }
         }
       } catch (err) {
-        console.error("Error fetching notification count:", err);
+        console.error("Error fetching assigned count:", err);
         setAssignedCount(0);
       }
     }
@@ -775,20 +792,29 @@ export default function Navbar({
                 const taggedCount = notificationsData?.notifications?.filter(n => {
                   // Tagged Message: unread, for current user, message contains "mentioned you" or "@" in comment
                   // Navbar counts ALL notifications (not distinct tickets)
+                  // Works for all users including reviewers
                   const isUnread = n.status === 'unread' || n.status === ' ';
-                  const isForCurrentUser = n.recipient_id === userId;
+                  const isForCurrentUser = String(n.recipient_id) === String(userId);
                   if (!isForCurrentUser || !isUnread) return false;
                   
+                  // Check message and comment for tagged indicators
                   const messageText = (n.message || '').toLowerCase();
                   const commentText = (n.comment || '').toLowerCase();
-                  return messageText.includes('mentioned you') || commentText.includes('@');
+                  
+                  // Check for "mentioned you" in message or "@" in comment
+                  // Message format: "John Doe mentioned you in a ticket update for Ticket WCF-CC-..."
+                  const hasMentionedYou = messageText.includes('mentioned you');
+                  const hasAtSymbol = commentText.includes('@');
+                  
+                  return hasMentionedYou || hasAtSymbol;
                 }).length || 0;
                 
                 const notifiedCount = notificationsData?.notifications?.filter(n => {
                   // Notified: unread, for current user, not tagged, not assigned, and not reversed
                   // Navbar counts ALL notifications (not distinct tickets)
                   const isUnread = n.status === 'unread' || n.status === ' ';
-                  const isForCurrentUser = n.recipient_id === userId;
+                  // Use String conversion for type-safe comparison (consistent with listing logic)
+                  const isForCurrentUser = String(n.recipient_id) === String(userId);
                   if (!isForCurrentUser || !isUnread) return false;
                   
                   const messageText = (n.message || n.comment || '').toLowerCase();
@@ -797,15 +823,12 @@ export default function Navbar({
                   // Check if it's tagged
                   const isTagged = messageText.includes('mentioned you') || commentText.includes('@');
                   
-                  // Check if it's reversed (ticket status AND message indicates reversal)
+                  // Check if it's reversed (ticket status indicates reversal)
+                  // Use same logic as listing: simple check if ticket is reversed (consistent with listing logic)
                   const ticketStatus = n.ticket?.status || '';
                   const isReversedTicket = ticketStatus.toLowerCase() === 'reversed';
-                  const isReversedByText = messageText.includes('reversed back to you') ||
-                                          messageText.includes('reversed to you') ||
-                                          
-                                          messageText.includes('Ticket details updated') ||
-                                          (messageText.includes('has been reversed') && messageText.includes('to'));
-                  const isReversed = isReversedTicket && isReversedByText;
+                  // For notified count, exclude reversed tickets (same as listing logic)
+                  const isReversed = isReversedTicket && !isTagged;
                   
                   // Check if it's assigned (only by message text, not ticket status)
                   const isAssignedByText = (messageText.includes('assigned to you') || 
@@ -819,7 +842,8 @@ export default function Navbar({
                 // Separate reversed and assigned counts
                 const reversedCountLocal = notificationsData?.notifications?.filter(n => {
                   const isUnread = n.status === 'unread' || n.status === ' ';
-                  const isForCurrentUser = n.recipient_id === userId;
+                  // Use String conversion for type-safe comparison (consistent with listing logic)
+                  const isForCurrentUser = String(n.recipient_id) === String(userId);
                   if (!isForCurrentUser || !isUnread) return false;
                   
                   // Simple check: if ticket is reversed, count it (case-insensitive, no need to check message text)
@@ -829,32 +853,50 @@ export default function Navbar({
                   return isReversedTicket;
                 }).length || 0;
                 
-                const assignedCountLocal = notificationsData?.notifizcations?.filter(n => {
-                  // Use status and recipient_id instead of text matching for better reliability
-                  const isUnread = n.status === 'unread' || n.status === ' ';
-                  const isForCurrentUser = n.recipient_id === userId;
-                  
-                  // Check if notification is for current user and unread
-                  if (!isForCurrentUser || !isUnread) return false;
-                  
-                  // Check message text for assignment indicators (excluding reversed)
-                  const messageText = (n.message || '').toLowerCase();
-                  const isReversedByText = messageText.includes('reversed back to you') ||
-                                          messageText.includes('reversed to you') ||
-                                          messageText.includes('Ticket details updated') ||
-                                          (messageText.includes('has been reversed') && messageText.includes('to'));
-                  
-                  // Exclude reversed notifications from assigned count
-                  if (isReversedByText) return false;
-                  
-                  const isAssignedByText = messageText.includes('assigned to you') || 
-                                         messageText.includes('forwarded to you') ||
-                                         messageText.includes('reassigned to you');
-                  
-                  // Assigned ONLY if message explicitly indicates assignment (don't use ticket status - too broad)
-                  // Many "Notified" notifications have tickets with "Assigned" status, so we only check message text
-                  return isAssignedByText;
-                }).length || 0;
+                // For reviewers: use assignedCount state (tickets count)
+                // For other users: count assignment notifications
+                const userRole = localStorage.getItem('role');
+                let assignedCountLocal = 0;
+                
+                if (userRole === 'reviewer') {
+                  // For reviewers: use assignedCount state variable (fetched from assigned tickets endpoint)
+                  assignedCountLocal = assignedCount || 0;
+                } else {
+                  // For other users: count assignment notifications
+                  assignedCountLocal = notificationsData?.notifications?.filter(n => {
+                    // Use status and recipient_id instead of text matching for better reliability
+                    const isUnread = n.status === 'unread' || n.status === ' ';
+                    // Use String conversion for type-safe comparison (consistent with listing logic)
+                    const isForCurrentUser = String(n.recipient_id) === String(userId);
+                    
+                    // Check if notification is for current user and unread
+                    if (!isForCurrentUser || !isUnread) return false;
+                    
+                    // Check message text for assignment indicators (excluding reversed)
+                    const messageText = (n.message || '').toLowerCase();
+                    const isReversedByText = messageText.includes('reversed back to you') ||
+                                            messageText.includes('reversed to you') ||
+                                            messageText.includes('Ticket details updated') ||
+                                            (messageText.includes('has been reversed') && messageText.includes('to'));
+                    
+                    // Exclude reversed notifications from assigned count
+                    if (isReversedByText) return false;
+                    
+                    // Check message text for assignment indicators
+                    const isAssignedByText = messageText.includes('assigned to you') || 
+                                           messageText.includes('forwarded to you') ||
+                                           messageText.includes('reassigned to you');
+                    
+                    // Also check category for assignment-related categories
+                    // Categories like "Assigned", "Forwarded", "Converted" indicate assignment
+                    const assignmentCategories = ['Assigned', 'Forwarded', 'Converted'];
+                    const isAssignedByCategory = assignmentCategories.includes(n.category);
+                    
+                    // Assigned if message text indicates assignment OR category indicates assignment
+                    // Many "Notified" notifications have tickets with "Assigned" status, so we check both message and category
+                    return isAssignedByText || isAssignedByCategory;
+                  }).length || 0;
+                }
                 
                 console.log('Notification counts:', { taggedCount, notifiedCount, assignedCount: assignedCountLocal, reversedCount: reversedCountLocal, total: notificationsData?.notifications?.length });
                 
@@ -1109,14 +1151,17 @@ export default function Navbar({
                   // 3. Notified: has comment (not null), status unread, not tagged, and not assigned
                   const hasComment = notif.comment !== null && notif.comment !== undefined && String(notif.comment).trim() !== '';
                   const messageText = (notif.message || '').toLowerCase();
+                  const commentText = (notif.comment || '').toLowerCase();
                   const isUnread = notif.status === 'unread' || notif.status === ' ';
                   
-                  // Tagged Message: message says "mentioned you"
-                  const isTaggedMessage = messageText.includes('mentioned you');
+                  // Tagged Message: message says "mentioned you" OR comment contains "@"
+                  // Check both message and comment for tagged indicators (consistent with count logic)
+                  const isTaggedMessage = messageText.includes('mentioned you') || commentText.includes('@');
                   
                   // Assigned: Use status, recipient_id, and ticket status instead of just text matching
                   // Check if notification is for current user and unread
-                  const isForCurrentUser = notif.recipient_id === userId;
+                  // Use String conversion for type-safe comparison (consistent with count logic)
+                  const isForCurrentUser = String(notif.recipient_id) === String(userId);
                   
                   // Simple check: if ticket is reversed, count it as reversed (case-insensitive, no need to check message text)
                   const ticketStatus = notif.ticket?.status || '';

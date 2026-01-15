@@ -105,7 +105,12 @@ const CDRReports = () => {
                   <td>{cdr.billsec}</td>
                   <td>{cdr.disposition}</td>
                   {/* <td>{cdr.recordingfile}</td> */}
-                  <td>{new Date(cdr.cdrstarttime).toLocaleString()}</td>
+                 <td>
+                    {cdr.cdrstarttime
+                      ? new Date(cdr.cdrstarttime).toLocaleString()
+                      : "—"}
+                  </td>
+
                 </tr>
               ))
             ) : (

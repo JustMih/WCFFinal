@@ -22,7 +22,6 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  Autocomplete,
   IconButton,
   Tooltip,
   Avatar,
@@ -65,7 +64,8 @@ export default function AgentsDashboard() {
   const [isOnHold, setIsOnHold] = useState(false);
   const [showKeypad, setShowKeypad] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [transferTarget, setTransferTarget] = useState("");
+  const [manualTransferExt, setManualTransferExt] = useState("");
+
 
   // --------- Status / break menu ---------
   const [anchorEl, setAnchorEl] = useState(null);
@@ -99,9 +99,6 @@ export default function AgentsDashboard() {
   const [ticketType, setTicketType] = useState(null); // 'employer' or 'employee'
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
 
-  // --------- Online users (for transfer) ---------
-  const [onlineUsers, setOnlineUsers] = useState([]);
-
   // --------- Voice notes ---------
   const [voiceNotes, setVoiceNotes] = useState([]);
   const [unplayedVoiceNotes, setUnplayedVoiceNotes] = useState(0);
@@ -115,7 +112,7 @@ export default function AgentsDashboard() {
   // --------- Config ---------
   const extension = localStorage.getItem("extension");
   const sipPassword = localStorage.getItem("sipPassword");
-  const SIP_DOMAIN = "10.52.0.19"; // unify here (adjust if needed)
+  const SIP_DOMAIN = "192.168.21.70"; // unify here (adjust if needed)
 
   const sipConfig = useMemo(() => {
     if (!extension || !sipPassword) return null;
@@ -159,61 +156,6 @@ export default function AgentsDashboard() {
       hackViaReceived: true, // Ensure correct IP in Via header
     };
   }, [extension, sipPassword]);
-
-  // ---------- Helpers ----------
-  const iconStyle = (bgColor) => ({
-    backgroundColor: bgColor,
-    padding: 10,
-    borderRadius: "50%",
-    color: "white",
-  });
-
-  // Test function for debugging incoming calls
-  const testIncomingCall = () => {
-    console.log("Testing incoming call...");
-
-    // Clean up any existing states first
-    if (session) {
-      setSession(null);
-    }
-    if (incomingCall) {
-      setIncomingCall(null);
-    }
-    setPhoneStatus("Idle");
-    stopCallTimer();
-    stopRingtone();
-
-    setLastIncomingNumber("123456789");
-
-    // Create a mock SIP invitation object for testing
-    const mockInvitation = {
-      test: true,
-      accept: (options) => {
-        console.log("Mock accept called with options:", options);
-        return Promise.resolve();
-      },
-      reject: () => {
-        console.log("Mock reject called");
-        return Promise.resolve();
-      },
-      stateChange: {
-        addListener: (callback) => {
-          console.log("Mock state listener added");
-          // Simulate call state changes
-          setTimeout(() => callback(SessionState.Established), 1000);
-        },
-      },
-    };
-
-    setIncomingCall(mockInvitation);
-    setShowPhonePopup(true);
-    setPhoneStatus("Ringing");
-
-    // Test ringtone
-    ringAudio.loop = true;
-    ringAudio.volume = 0.7;
-    ringAudio.play().catch(() => {});
-  };
 
   const formatDuration = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -328,7 +270,7 @@ export default function AgentsDashboard() {
 
     ringAudio.loop = true;
     ringAudio.volume = 0.7;
-    ringAudio.play().catch(() => {});
+    ringAudio.play().catch(() => { });
 
     invitation.stateChange.addListener((state) => {
       if (state === SessionState.Terminated) {
@@ -410,75 +352,6 @@ export default function AgentsDashboard() {
     })();
   }, []);
 
-  // ---------- Online users (for transfer options) ----------
-  useEffect(() => {
-    if (showPhonePopup) fetchOnlineUsers();
-  }, [showPhonePopup]);
-  const fetchOnlineUsers = async () => {
-    try {
-      const headers = {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-      };
-
-      // Fetch agents and supervisors from their own endpoints
-      const [agentsRes, supervisorsRes] = await Promise.all([
-        fetch(`${baseURL}/users/agents-online`, { method: "GET", headers }),
-        fetch(`${baseURL}/users/supervisors-online`, {
-          method: "GET",
-          headers,
-        }),
-      ]);
-
-      if (!agentsRes.ok && !supervisorsRes.ok)
-        throw new Error("Failed to fetch online users");
-
-      const [agentsPayload, supervisorsPayload] = await Promise.all([
-        agentsRes.ok ? agentsRes.json() : Promise.resolve([]),
-        supervisorsRes.ok ? supervisorsRes.json() : Promise.resolve([]),
-      ]);
-
-      const extractUsers = (payload) => {
-        if (!payload) return [];
-        if (Array.isArray(payload)) return payload;
-        if (Array.isArray(payload.agents)) return payload.agents;
-        if (Array.isArray(payload.supervisors)) return payload.supervisors;
-        if (Array.isArray(payload.data)) return payload.data;
-        if (Array.isArray(payload.items)) return payload.items;
-        return [];
-      };
-
-      const agents = extractUsers(agentsPayload).map((u) => ({
-        ...u,
-        role: u.role || "agent",
-      }));
-      const supervisors = extractUsers(supervisorsPayload).map((u) => ({
-        ...u,
-        role: u.role || "supervisor",
-      }));
-
-      // Only keep entries that have an extension or username (for display/transfer)
-      const selfExt = String(localStorage.getItem("extension") || "");
-      const selfUserId = String(localStorage.getItem("userId") || "");
-      const selfUsername = String(localStorage.getItem("username") || "");
-      const combined = [...agents, ...supervisors]
-        .filter((u) => u && (u.extension || u.username))
-        .filter((u) => {
-          const uExt = String(u.extension || "");
-          const uId = String((u.id ?? u.userId ?? u._id) || "");
-          const uName = String(u.username || u.name || "");
-          return (
-            uExt !== selfExt && uId !== selfUserId && uName !== selfUsername
-          );
-        });
-      setOnlineUsers(combined);
-      return combined;
-    } catch (err) {
-      setOnlineUsers([]);
-      return [];
-    }
-  };
-
   // ---------- Voice notes ----------
   useEffect(() => {
     const fetchVoiceNotes = async () => {
@@ -516,6 +389,25 @@ export default function AgentsDashboard() {
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
+const markMissedCallAsCalledBack = async (missedCallId) => {
+  if (!missedCallId) return;
+
+  try {
+    await fetch(`${baseURL}/missed-calls/${missedCallId}/status`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+      },
+      body: JSON.stringify({ status: "called_back" }),
+    });
+
+    // Refresh badge immediately
+    await fetchMissedCallsFromBackend();
+  } catch (err) {
+    console.error("Failed to update missed call status:", err);
+  }
+};
 
   // ---------- Missed calls ----------
   useEffect(() => {
@@ -760,7 +652,7 @@ export default function AgentsDashboard() {
       const deviceId = isSpeakerOn ? "communications" : "default";
       el.setSinkId(deviceId)
         .then(() => setIsSpeakerOn(!isSpeakerOn))
-        .catch(() => {});
+        .catch(() => { });
     }
   };
   const toggleHold = () => {
@@ -937,6 +829,7 @@ export default function AgentsDashboard() {
   const handleDial = () => {
     if (!userAgent || !phoneNumber) return;
     const targetURI = UserAgent.makeURI(`sip:${phoneNumber}@${SIP_DOMAIN}`);
+    
     if (!targetURI) return;
 
     const inviter = new Inviter(userAgent, targetURI, {
@@ -951,21 +844,23 @@ export default function AgentsDashboard() {
       .then(() => {
         setPhoneStatus("Dialing");
         inviter.stateChange.addListener((state) => {
-          if (state === SessionState.Established) {
-            attachMediaStream(inviter);
-            setPhoneStatus("In Call");
-            startCallTimer();
-            // Store call state in localStorage for persistence
-            localStorage.setItem(
-              "activeCallState",
-              JSON.stringify({
-                phoneStatus: "In Call",
-                phoneNumber: phoneNumber || "",
-                callStartTime: new Date().toISOString(),
-                hasActiveCall: true,
-              })
-            );
-          }
+     if (state === SessionState.Established) {
+  attachMediaStream(inviter);
+  setPhoneStatus("In Call");
+  startCallTimer();
+
+  localStorage.setItem(
+    "activeCallState",
+    JSON.stringify({
+      phoneStatus: "In Call",
+     phoneNumber: phoneNumber || "",
+      callStartTime: new Date().toISOString(),
+      hasActiveCall: true,
+    })
+  );
+ 
+}
+
           if (state === SessionState.Terminated) {
             setPhoneStatus("Idle");
             setSession(null);
@@ -1002,53 +897,35 @@ export default function AgentsDashboard() {
       .invite()
       .then(() => {
         setPhoneStatus("Dialing");
-        inviter.stateChange.addListener((state) => {
-          if (state === SessionState.Established) {
-            attachMediaStream(inviter);
-            setPhoneStatus("In Call");
-            startCallTimer();
-            // Store call state in localStorage for persistence
-            localStorage.setItem(
-              "activeCallState",
-              JSON.stringify({
-                phoneStatus: "In Call",
-                phoneNumber: formatted || "",
-                callStartTime: new Date().toISOString(),
-                hasActiveCall: true,
-              })
-            );
-            if (missedCallId) {
-              fetch(`${baseURL}/missed-calls/${missedCallId}/status`, {
-                method: "PUT",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-                },
-                body: JSON.stringify({ status: "called_back" }),
-              })
-                .then((res) => {
-                  if (!res.ok) throw new Error("Failed to update status");
-                  return res.json();
-                })
-                .then(() =>
-                  setMissedCalls((prev) =>
-                    prev.filter((c) => c.id !== missedCallId)
-                  )
-                )
-                .catch((err) =>
-                  console.error("Failed to update missed call status:", err)
-                );
-            }
-          }
-          if (state === SessionState.Terminated) {
-            setPhoneStatus("Idle");
-            setSession(null);
-            // Clear call state from localStorage
-            localStorage.removeItem("activeCallState");
-            if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
-            stopCallTimer();
-          }
-        });
+     inviter.stateChange.addListener((state) => {
+  if (state === SessionState.Established) {
+    attachMediaStream(inviter);
+    setPhoneStatus("In Call");
+    startCallTimer();
+
+    localStorage.setItem(
+  "activeCallState",
+  JSON.stringify({
+    phoneStatus: "In Call",
+    phoneNumber: phoneNumber || "",
+    callStartTime: new Date().toISOString(),
+    hasActiveCall: true,
+  })
+);
+
+ 
+   
+  }
+
+  if (state === SessionState.Terminated) {
+    setPhoneStatus("Idle");
+    setSession(null);
+    localStorage.removeItem("activeCallState");
+    if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
+    stopCallTimer();
+  }
+});
+
       })
       .catch((error) => {
         console.error("Redial invite failed:", error);
@@ -1058,34 +935,43 @@ export default function AgentsDashboard() {
 
   // ---------- BLIND TRANSFER ONLY ----------
   const handleBlindTransfer = async (targetExt) => {
-    const target = String(targetExt ?? transferTarget ?? "").trim();
-    if (!session || !target) {
-      showAlert("Select an online agent/supervisor to transfer", "warning");
+    const target = String(targetExt || "").trim();
+
+    if (!session) {
+      showAlert("No active call to transfer", "warning");
       return;
     }
-    // Enforce ONLINE only (agents or supervisors)
-    const isAllowed = onlineUsers.some(
-      (u) =>
-        (u.role === "agent" || u.role === "supervisor") &&
-        String(u.extension) === target
-    );
-    if (!isAllowed) {
-      showAlert("Target is not currently online", "error");
+
+    if (!target) {
+      showAlert("Please enter an extension", "warning");
       return;
     }
+
+    if (target === String(extension)) {
+      showAlert("You cannot transfer to your own extension", "error");
+      return;
+    }
+
     try {
       const targetURI = UserAgent.makeURI(`sip:${target}@${SIP_DOMAIN}`);
       if (!targetURI) {
-        showAlert("Invalid transfer target", "error");
+        showAlert("Invalid extension format", "error");
         return;
       }
 
       await session.refer(targetURI);
-      showAlert(`Call transferred to ${target}`, "success");
-      handleEndCall(); // end the agent leg after blind transfer
+
+      showAlert(`Call transferred to extension ${target}`, "success");
+
+      // Cleanup
+      setManualTransferExt("");
+      setTimeout(() => {
+        handleEndCall();
+      }, 300);
+
     } catch (err) {
-      console.error("Transfer failed:", err);
-      showAlert("Transfer failed", "error");
+      console.error("Blind transfer failed:", err);
+      showAlert("Transfer failed. Try again.", "error");
     }
   };
 
@@ -1469,8 +1355,8 @@ export default function AgentsDashboard() {
                   {phoneStatus === "In Call"
                     ? "Active Call"
                     : phoneStatus === "Ringing"
-                    ? "Incoming Call"
-                    : "Phone"}
+                      ? "Incoming Call"
+                      : "Phone"}
                 </span>
               </div>
               <button
@@ -1611,47 +1497,48 @@ export default function AgentsDashboard() {
                     <MdOutlineFollowTheSigns className="transfer-icon" />
                     <span>Transfer Call</span>
                   </div>
-                  <Autocomplete
-                    options={onlineUsers.filter(
-                      (u) =>
-                        !!u.extension &&
-                        (u.role === "agent" || u.role === "supervisor") &&
-                        String(u.extension) !== String(extension)
-                    )}
-                    getOptionLabel={(u) =>
-                      u
-                        ? `${u.extension} — ${
-                            u.name || u.username || "User"
-                          } (${u.role})`
-                        : ""
-                    }
-                    isOptionEqualToValue={(a, b) =>
-                      a?.extension === b?.extension
-                    }
-                    onChange={(_, u) => {
-                      setTransferTarget(u?.extension || "");
-                    }}
-                    renderInput={(params) => (
-                      <TextField
-                        {...params}
-                        label="Select online agent/supervisor"
+
+                  <div className="transfer-input-inline">
+                    <TextField
+                      label="Enter Extension"
+                      size="small"
+                      fullWidth
+                      autoFocus
+                      value={manualTransferExt}
+                      onChange={(e) =>
+                        setManualTransferExt(e.target.value.replace(/\D/g, ""))
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && manualTransferExt) {
+                          handleBlindTransfer(manualTransferExt);
+                        }
+                      }}
+                      placeholder="e.g. 1021"
+                      inputProps={{ maxLength: 6 }}
+                    />
+
+                    <div className="transfer-actions">
+                      <Button
+                        variant="contained"
+                        fullWidth
+                        onClick={() => handleBlindTransfer(manualTransferExt)}
+                        disabled={!manualTransferExt}
+                      >
+                        Transfer
+                      </Button>
+
+                      <Button
                         variant="outlined"
-                        size="small"
-                        className="transfer-input"
-                      />
-                    )}
-                    fullWidth
-                  />
-                  <button
-                    className="transfer-btn"
-                    onClick={() => handleBlindTransfer()}
-                    disabled={!session || !transferTarget}
-                  >
-                    <MdOutlineFollowTheSigns />
-                    <span>Transfer</span>
-                  </button>
+                        fullWidth
+                        onClick={() => setManualTransferExt("")}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               )}
+
 
               {/* Control Buttons */}
               <div className="phone-controls">

@@ -47,39 +47,37 @@ export default function RecordedSounds() {
     fetchVoiceNotes();
   }, []);
 
-  const handlePlayVoice = async (noteId) => {
-    const audioUrl = `${baseURL}/voice-notes/${noteId}/audio`;
+ const handlePlayVoice = async (noteId) => {
+ 
+  const audioUrl = `${baseURL}/voice-notes/${noteId}/audio`;
 
-    if (currentAudio) {
-      currentAudio.pause();
-      currentAudio.currentTime = 0;
-    }
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.currentTime = 0;
+  }
 
-    try {
-      const response = await fetch(audioUrl, { method: "HEAD" });
-      if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+  try {
+    const response = await fetch(audioUrl, { method: "HEAD" });
+    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
 
-      const audio = new Audio(audioUrl);
-      audio.play();
-      setCurrentAudio(audio);
-      setCurrentlyPlayingId(noteId);
+    const audio = new Audio(audioUrl);
+    audio.play().catch(err => console.error("Play failed:", err));
+    setCurrentAudio(audio);
+    setCurrentlyPlayingId(noteId);
 
-      const updatedStatus = { ...playedStatus, [noteId]: true };
-      setPlayedStatus(updatedStatus);
+    const updatedStatus = { ...playedStatus, [noteId]: true };
+    setPlayedStatus(updatedStatus);
+    localStorage.setItem("playedVoiceNotes", JSON.stringify(updatedStatus));
 
-      // Save to localStorage for persistence
-      localStorage.setItem("playedVoiceNotes", JSON.stringify(updatedStatus));
-
-      audio.onended = () => {
-        setCurrentlyPlayingId(null);
-        setCurrentAudio(null);
-      };
-    } catch (error) {
-      console.error("Error playing audio:", error);
-      alert(`Failed to play audio. Error: ${error.message}`);
-    }
-  };
-
+    audio.onended = () => {
+      setCurrentlyPlayingId(null);
+      setCurrentAudio(null);
+    };
+  } catch (error) {
+    console.error("Error playing audio:", error);
+    alert(`Failed to play audio: ${error.message}`);
+  }
+};
   const handlePauseVoice = () => {
     if (currentAudio) {
       currentAudio.pause();
@@ -164,3 +162,4 @@ export default function RecordedSounds() {
     </div>
   );
 }
+ 

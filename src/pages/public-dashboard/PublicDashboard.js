@@ -29,18 +29,9 @@ export default function PublicDashboard() {
   const [dashboardData, setDashboardData] = useState({
     agentStatus: { onlineCount: 0, offlineCount: 0 },
     liveCalls: [],
-    callStats: {
-      dailyCounts: [],
-      totalRows: 0,
-    },
+    callStats: { dailyCounts: [], totalRows: 0 },
     queueStatus: [],
-    callStatusSummary: {
-      active: 0,
-      inQueue: 0,
-      answered: 0,
-      dropped: 0,
-      lost: 0,
-    },
+    callStatusSummary: { active: 0, inQueue: 0, answered: 0, dropped: 0, lost: 0 },
   });
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
@@ -48,27 +39,19 @@ export default function PublicDashboard() {
   const [showLostCallsModal, setShowLostCallsModal] = useState(false);
   const [lostCallsLoading, setLostCallsLoading] = useState(false);
 
-  // Update current time every second
   useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(new Date());
-    }, 1000);
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
 
-  // Fetch dashboard data and setup real-time updates
   useEffect(() => {
-    // Initial fetch using public API
     const fetchDashboardData = async () => {
       try {
         const response = await fetch(`${baseURL}/public/dashboard`);
         if (response.ok) {
           const data = await response.json();
           setDashboardData({
-            agentStatus: data.agentStatus || {
-              onlineCount: 0,
-              offlineCount: 0,
-            },
+            agentStatus: data.agentStatus || { onlineCount: 0, offlineCount: 0 },
             liveCalls: Array.isArray(data.liveCalls) ? data.liveCalls : [],
             callStats: data.callStats || {
               totalCounts: [],
@@ -95,11 +78,8 @@ export default function PublicDashboard() {
       }
     };
 
-    // Initial fetch
     fetchDashboardData();
 
-    // Setup Socket.IO for real-time updates
-    // Extract base URL from baseURL (e.g., http://127.0.0.1:5070/api -> http://127.0.0.1:5070)
     const socketUrl = baseURL.replace(/\/api$/, "") || "https://192.168.21.70";
     const socket = io(socketUrl, {
       transports: ["websocket", "polling"],
@@ -108,13 +88,10 @@ export default function PublicDashboard() {
       reconnectionDelay: 1000,
     });
 
-    socket.on("connect", () => {
-      console.log("✅ Connected to dashboard socket:", socket.id);
-    });
-
+    socket.on("connect", () => console.log("Connected to dashboard socket"));
     socket.on("public_dashboard_update", (data) => {
-      console.log("📥 Received real-time dashboard update");
       setDashboardData((prev) => ({
+        ...prev,
         agentStatus: data.agentStatus || prev.agentStatus,
         liveCalls: Array.isArray(data.liveCalls)
           ? data.liveCalls
@@ -186,59 +163,43 @@ export default function PublicDashboard() {
       }
     }, 10000);
 
-    return () => {
-      socket.disconnect();
-      clearInterval(fallbackInterval);
-      clearInterval(liveCallsInterval);
-    };
+return () => {
+  socket.disconnect();
+  clearInterval(liveCallsInterval);
+  clearInterval(fallbackInterval);
+};
+
   }, []);
 
   const formatTime = (seconds) => {
-    if (!seconds) return "00:00";
+    if (!seconds || seconds <= 0) return "00:00";
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs
-      .toString()
-      .padStart(2, "0")}`;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
   const formatDuration = (startTime) => {
     if (!startTime) return "00:00";
-    const start = new Date(startTime);
-    const now = new Date();
-    const diff = Math.floor((now - start) / 1000);
+    const diff = Math.floor((new Date() - new Date(startTime)) / 1000);
     return formatTime(diff);
   };
 
   const extractAgentFromChannel = (channel) => {
     if (!channel) return "Unassigned";
-    // Extract extension from channel like "PJSIP/1001-00000001" or "SIP/1001-00000001"
     const match = channel.match(/\/(\d+)/);
     return match ? match[1] : channel;
   };
 
   const extractPhoneFromClid = (clid) => {
     if (!clid) return "Unknown";
-    // CLID format might be "Name" <number> or just number
-    const phoneMatch = clid.match(/<(\d+)>/) || clid.match(/(\d+)/);
-    return phoneMatch ? phoneMatch[1] : clid;
+    const match = clid.match(/<(\d+)>/) || clid.match(/(\d+)/);
+    return match ? match[1] : clid;
   };
 
-  const activeCalls = dashboardData.liveCalls.filter(
-    (call) => call.status === "active"
-  );
-  const totalAgents =
-    dashboardData.agentStatus.onlineCount +
-    dashboardData.agentStatus.offlineCount;
-  const answeredCalls = dashboardData.callStats.dailyCounts.find(
-    (c) => c.disposition === "ANSWERED"
-  );
-  const missedCalls = dashboardData.callStats.dailyCounts.find(
-    (c) => c.disposition === "NO ANSWER"
-  );
-  // Get lost calls count from callStatusSummary (from API)
+  const activeCalls = dashboardData.liveCalls.filter((call) => call.status === "active");
+  const totalAgents = dashboardData.agentStatus.onlineCount + dashboardData.agentStatus.offlineCount;
+  const answeredCalls = dashboardData.callStats.dailyCounts.find((c) => c.disposition === "ANSWERED");
   const lostCallsCount = dashboardData.callStatusSummary?.lost || 0;
-  // Get in queue calls count from callStatusSummary
   const inQueueCallsCount = dashboardData.callStatusSummary?.inQueue || 0;
 
   // Helper function to calculate percentage
@@ -331,6 +292,8 @@ export default function PublicDashboard() {
       if (response.ok) {
         const data = await response.json();
         setLostCalls(Array.isArray(data) ? data : []);
+      } else {
+        console.error("Failed to fetch lost calls:", response.status);
       }
     } catch (error) {
       console.error("Error fetching lost calls:", error);
@@ -341,9 +304,7 @@ export default function PublicDashboard() {
 
   const handleShowLostCalls = () => {
     setShowLostCallsModal(true);
-    if (lostCalls.length === 0) {
-      fetchLostCalls();
-    }
+    if (lostCalls.length === 0) fetchLostCalls();
   };
 
   if (loading) {
@@ -380,41 +341,23 @@ export default function PublicDashboard() {
             })}
           </div>
         </div>
-        {/* <Button
-          variant="contained"
-          color="primary"
-          onClick={() => navigate("/login")}
-          className="public-login-button"
-        >
-          Login
-        </Button> */}
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Grid */}
       <div className="stats-grid">
         <div className="stat-card online-agents">
-          <div className="stat-icon">
-            <MdPeople />
-          </div>
+          <div className="stat-icon"><MdPeople /></div>
           <div className="stat-content">
-            <div className="stat-value">
-              {dashboardData.agentStatus.onlineCount}
-            </div>
+            <div className="stat-value">{dashboardData.agentStatus.onlineCount}</div>
             <div className="stat-label">Online Agents</div>
             <div className="stat-sublabel">
-              {totalAgents > 0
-                ? `${Math.round(
-                    (dashboardData.agentStatus.onlineCount / totalAgents) * 100
-                  )}% Available`
-                : "No Agents"}
+              {totalAgents > 0 ? `${Math.round((dashboardData.agentStatus.onlineCount / totalAgents) * 100)}% Available` : "No Agents"}
             </div>
           </div>
         </div>
 
         <div className="stat-card active-calls">
-          <div className="stat-icon">
-            <MdPhoneInTalk />
-          </div>
+          <div className="stat-icon"><MdPhoneInTalk /></div>
           <div className="stat-content">
             <div className="stat-value">{activeCalls.length}</div>
             <div className="stat-label">Active Calls</div>
@@ -423,9 +366,7 @@ export default function PublicDashboard() {
         </div>
 
         <div className="stat-card answered-calls">
-          <div className="stat-icon">
-            <MdPhone />
-          </div>
+          <div className="stat-icon"><MdPhone /></div>
           <div className="stat-content">
             <div className="stat-value">{answeredCalls?.count || 0}</div>
             <div className="stat-label">Answered Today</div>
@@ -434,43 +375,29 @@ export default function PublicDashboard() {
         </div>
 
         <div className="stat-card missed-calls">
-          <div className="stat-icon">
-            <MdCallEnd />
-          </div>
+          <div className="stat-icon"><MdCallEnd /></div>
           <div className="stat-content">
-            <div className="stat-value">{lostCallsCount || 0}</div>
+            <div className="stat-value">{lostCallsCount}</div>
             <div className="stat-label">Lost Today</div>
             <div className="stat-sublabel">
-              <Button
-                size="small"
-                variant="outlined"
-                startIcon={<MdVisibility />}
-                onClick={handleShowLostCalls}
-                className="view-lost-calls-btn"
-              >
-                View Numbers
+              <Button size="small" variant="outlined" startIcon={<MdVisibility />} onClick={handleShowLostCalls}>
+                View Details
               </Button>
             </div>
           </div>
         </div>
 
         <div className="stat-card total-calls">
-          <div className="stat-icon">
-            <MdTrendingUp />
-          </div>
+          <div className="stat-icon"><MdTrendingUp /></div>
           <div className="stat-content">
-            <div className="stat-value">
-              {dashboardData.callStats.totalRows || 0}
-            </div>
+            <div className="stat-value">{dashboardData.callStats.totalRows || 0}</div>
             <div className="stat-label">Total Calls</div>
             <div className="stat-sublabel">All time records</div>
           </div>
         </div>
 
         <div className="stat-card queue-status">
-          <div className="stat-icon">
-            <MdQueue />
-          </div>
+          <div className="stat-icon"><MdQueue /></div>
           <div className="stat-content">
             <div className="stat-value">{inQueueCallsCount}</div>
             <div className="stat-label">In Queue</div>
@@ -479,42 +406,32 @@ export default function PublicDashboard() {
         </div>
       </div>
 
-      {/* Active Calls Section */}
+      {/* Active Calls */}
       <div className="dashboard-section">
-        <h2 className="section-title">
-          <MdPhoneInTalk className="section-icon" />
-          Active Calls
-        </h2>
+        <h2 className="section-title"><MdPhoneInTalk className="section-icon" /> Active Calls</h2>
         <div className="active-calls-grid">
           {activeCalls.length > 0 ? (
-            activeCalls.map((call, index) => (
-              <div key={call.linkedid || index} className="call-card">
+            activeCalls.map((call, i) => (
+              <div key={call.linkedid || i} className="call-card">
                 <div className="call-header">
                   <div className="call-status-badge active">ACTIVE</div>
                   <div className="call-duration">
-                    <MdAccessTime />{" "}
-                    {formatDuration(call.call_answered || call.call_start)}
+                    <MdAccessTime /> {formatDuration(call.call_answered || call.call_start)}
                   </div>
                 </div>
                 <div className="call-details">
                   <div className="call-info-row">
-                    <span className="call-label">Source:</span>
-                    <span className="call-value">
-                      {call.caller || "Unknown"}
-                    </span>
+                    <span className="call-label">From:</span>
+                    <span className="call-value">{extractPhoneFromClid(call.caller)}</span>
                   </div>
                   <div className="call-info-row">
-                    <span className="call-label">Destination:</span>
-                    <span className="call-value">
-                      {extractAgentFromChannel(call.callee || call.channel)}
-                    </span>
+                    <span className="call-label">Agent:</span>
+                    <span className="call-value">{extractAgentFromChannel(call.channel)}</span>
                   </div>
                   {call.call_answered && (
                     <div className="call-info-row">
                       <span className="call-label">Started:</span>
-                      <span className="call-value">
-                        {new Date(call.call_answered).toLocaleTimeString()}
-                      </span>
+                      <span className="call-value">{new Date(call.call_answered).toLocaleTimeString()}</span>
                     </div>
                   )}
                 </div>
@@ -816,27 +733,14 @@ export default function PublicDashboard() {
       {/* Queue Status Section */}
       {dashboardData.queueStatus.length > 0 && (
         <div className="dashboard-section">
-          <h2 className="section-title">
-            <MdQueue className="section-icon" />
-            Queue Status
-          </h2>
+          <h2 className="section-title"><MdQueue className="section-icon" /> Queue Status</h2>
           <div className="queue-grid">
-            {dashboardData.queueStatus.map((queue, index) => (
-              <div key={queue.queue || index} className="queue-card">
-                <div className="queue-name">
-                  {queue.queue || "Unknown Queue"}
-                </div>
+            {dashboardData.queueStatus.map((q, i) => (
+              <div key={q.queue || i} className="queue-card">
+                <div className="queue-name">{q.queue || "Unknown"}</div>
                 <div className="queue-stats">
-                  <div className="queue-stat">
-                    <span className="queue-stat-label">Calls:</span>
-                    <span className="queue-stat-value">{queue.calls || 0}</span>
-                  </div>
-                  <div className="queue-stat">
-                    <span className="queue-stat-label">Agents:</span>
-                    <span className="queue-stat-value">
-                      {queue.agents || 0}
-                    </span>
-                  </div>
+                  <div className="queue-stat"><span className="queue-stat-label">Calls:</span> <span>{q.calls || 0}</span></div>
+                  <div className="queue-stat"><span className="queue-stat-label">Agents:</span> <span>{q.agents || 0}</span></div>
                 </div>
               </div>
             ))}
@@ -852,43 +756,80 @@ export default function PublicDashboard() {
         fullWidth
       >
         <DialogTitle>
-          <div className="modal-header">
-            <span>Lost Calls Today - Customer Phone Numbers</span>
-            <IconButton
-              onClick={() => setShowLostCallsModal(false)}
-              size="small"
-            >
-              <CloseIcon />
-            </IconButton>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>Lost Calls Today - Callback Details</span>
+            <IconButton onClick={() => setShowLostCallsModal(false)}><CloseIcon /></IconButton>
           </div>
         </DialogTitle>
         <DialogContent>
           {lostCallsLoading ? (
-            <div className="modal-loading">Loading lost calls...</div>
+            <div style={{ textAlign: "center", padding: "40px" }}>Loading lost calls...</div>
           ) : lostCalls.length > 0 ? (
-            <div className="lost-calls-list">
-              {lostCalls.map((call, index) => (
-                <div key={index} className="lost-call-item">
+            <div className="lost-calls-list enhanced">
+              <div className="lost-call-item header">
+                <div>Phone Number</div>
+                <div>Missed At</div>
+                <div>Status</div>
+                <div>Callback Agent</div>
+                <div>Callback Time</div>
+                <div>Talk Duration</div>
+              </div>
+
+              {lostCalls.map((call, i) => (
+                <div
+                  key={i}
+                  className={`lost-call-item ${call.status === "called_back" ? "called-back" : ""}`}
+                >
                   <div className="lost-call-phone">
                     {extractPhoneFromClid(call.caller)}
                   </div>
                   <div className="lost-call-time">
                     {call.call_time
-                      ? new Date(call.call_time).toLocaleTimeString()
-                      : "Unknown time"}
+                      ? new Date(call.call_time).toLocaleString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                        })
+                      : "-"}
                   </div>
-                  <div className="lost-call-status">
-                    {call.disposition || "NO ANSWER"}
+                 <div className="lost-call-status">
+                  <span
+                    className={`status-badge ${
+                      call.status === "called_back" ? "called-back" : "pending"
+                    }`}
+                  >
+                    {call.status === "called_back" ? "CALLED BACK" : "PENDING"}
+                  </span>
+                </div>
+
+                  <div className="lost-call-callback">
+                    {call.callback_agent_name || (call.callback_agent_extension ? `Agent ${call.callback_agent_extension}` : "-")}
+                  </div>
+                  <div className="lost-call-callback-time">
+                    {call.callback_time
+                      ? new Date(call.callback_time).toLocaleString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                        })
+                      : "-"}
+                  </div>
+                  <div className="lost-call-duration">
+                    {call.callback_duration > 0 ? formatTime(call.callback_duration) : "-"}
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="modal-empty">No lost calls found for today</div>
+            <div style={{ textAlign: "center", padding: "40px", color: "#666" }}>
+              No lost calls recorded today
+            </div>
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowLostCallsModal(false)}>Close</Button>
+          <Button onClick={() => setShowLostCallsModal(false)} variant="contained">
+            Close
+          </Button>
         </DialogActions>
       </Dialog>
     </div>

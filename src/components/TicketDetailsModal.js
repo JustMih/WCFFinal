@@ -3909,43 +3909,83 @@ export default function TicketDetailsModal({
 
 
                 {/* Director General Actions for Assigned Tickets */}
-                {userRole === "director-general" && 
-                 selectedTicket?.assigned_to_id === userId && (
-                  <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2, justifyContent: "flex-end" }}>
-                    {/* Close Ticket */}
-                    <Tooltip title="Close and approve this ticket">
-                    <Button
-                      variant="contained"
-                      color="success"
-                      onClick={handleDGApprovalDialog}
-                    >
-                      Close ticket
-                    </Button>
-                    </Tooltip>
-                    
-                    {/* Reverse (Assign) to Reviewer */}
-                    <Tooltip title="Reverse ticket back to reviewer for clarification">
-                    <Button
-                      variant="contained"
-                      color="warning"
-                      onClick={() => setIsReverseModalOpen(true)}
-                      disabled={isReversing}
-                    >
-                      Reverse
-                    </Button>
-                    </Tooltip>
-                    
-                    {/* Close Modal */}
-                    <Tooltip title="Cancel and close this dialog">
-                    <Button
-                      variant="outlined"
-                      onClick={onClose}
-                    >
-                      Cancel
-                    </Button>
-                    </Tooltip>
-                  </Box>
-                )}
+                {/* Only show Close and Reverse buttons if ticket is assigned to current user (DG) and status allows */}
+                {userRole === "director-general" && (() => {
+                  // Strictly check if ticket is assigned to current user (DG)
+                  // Ensure both assigned_to_id and userId exist and match exactly
+                  const ticketAssignedToId = selectedTicket?.assigned_to_id;
+                  const currentUserId = userId;
+                  
+                  const isAssignedToDG = ticketAssignedToId != null && 
+                                         currentUserId != null && 
+                                         String(ticketAssignedToId) === String(currentUserId);
+                  
+                  const ticketStatus = selectedTicket?.status;
+                  
+                  // Hide Close and Reverse buttons if status is "Attended and Recommended" or "Closed"
+                  const shouldHideButtons = ticketStatus === "Attended and Recommended" || ticketStatus === "Closed";
+                  
+                  // Show buttons ONLY if:
+                  // 1. Ticket is assigned to current DG (isAssignedToDG === true)
+                  // 2. Status is NOT "Attended and Recommended" or "Closed"
+                  const shouldShowButtons = isAssignedToDG && !shouldHideButtons;
+                  
+                  if (!shouldShowButtons) {
+                    // Ticket not assigned to current DG OR status doesn't allow buttons - show only Cancel button
+                    return (
+                      <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2, justifyContent: "flex-end" }}>
+                        <Tooltip title="Cancel and close this dialog">
+                          <Button
+                            variant="outlined"
+                            onClick={onClose}
+                          >
+                            Cancel
+                          </Button>
+                        </Tooltip>
+                      </Box>
+                    );
+                  }
+                  
+                  // Ticket assigned to current DG and status allows - show Close, Reverse, and Cancel buttons
+                  // Buttons show for: In Progress, Forwarded, Assigned, Open, etc.
+                  // Buttons do NOT show for: Attended and Recommended, Closed
+                  return (
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1, mb: 2, justifyContent: "flex-end" }}>
+                      {/* Close Ticket */}
+                      <Tooltip title="Close and approve this ticket">
+                        <Button
+                          variant="contained"
+                          color="success"
+                          onClick={handleDGApprovalDialog}
+                        >
+                          Close ticket
+                        </Button>
+                      </Tooltip>
+                      
+                      {/* Reverse (Assign) to Reviewer */}
+                      <Tooltip title="Reverse ticket back to reviewer for clarification">
+                        <Button
+                          variant="contained"
+                          color="warning"
+                          onClick={() => setIsReverseModalOpen(true)}
+                          disabled={isReversing}
+                        >
+                          Reverse
+                        </Button>
+                      </Tooltip>
+                      
+                      {/* Close Modal */}
+                      <Tooltip title="Cancel and close this dialog">
+                        <Button
+                          variant="outlined"
+                          onClick={onClose}
+                        >
+                          Cancel
+                        </Button>
+                      </Tooltip>
+                    </Box>
+                  );
+                })()}
 
                 {/* Reverse, Assign, and Reassign buttons for focal persons and other roles */}
                 {((["focal-person", "head-of-unit", "manager", "director"].includes(localStorage.getItem("role")) || 
