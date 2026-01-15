@@ -10,7 +10,6 @@ import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
-import Snackbar from "@mui/material/Snackbar";
 import Avatar from "@mui/material/Avatar";
 import Paper from "@mui/material/Paper";
 import TextField from "@mui/material/TextField";
@@ -43,6 +42,7 @@ import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import { baseURL } from "../config";
 import { PermissionManager } from "../utils/permissions";
 import TicketUpdates from './ticket/TicketUpdates';
+import ActionMessageModal from "./ticket/ActionMessageModal";
 
 const getCreatorName = (selectedTicket) =>
   selectedTicket.created_by ||
@@ -1022,17 +1022,21 @@ export default function TicketDetailsModal({
   const [selectedSection, setSelectedSection] = useState(""); // Selected Section
   const [availableSubjects, setAvailableSubjects] = useState([]); // Subjects within selected Section
   
-  // Snackbar state
-  const [snackbar, setSnackbarState] = useState({ open: false, message: '', severity: 'info' });
-  
-  // Function to show snackbar messages
-  const showSnackbar = (message, severity = 'info') => {
-    setSnackbarState({ open: true, message, severity });
+  // Action feedback modal (same style as create-ticket popup)
+  const [actionModal, setActionModal] = useState({ isOpen: false, type: "info", message: "" });
+  const actionModalAfterCloseRef = useRef(null);
+
+  // Keep the old function name so we can swap implementations with minimal edits
+  const showSnackbar = (message, severity = "info", afterClose = null) => {
+    actionModalAfterCloseRef.current = typeof afterClose === "function" ? afterClose : null;
+    setActionModal({ isOpen: true, type: severity, message });
   };
-  
-  // Function to close snackbar
+
   const closeSnackbar = () => {
-    setSnackbarState({ ...snackbar, open: false });
+    setActionModal((prev) => ({ ...prev, isOpen: false }));
+    const afterClose = actionModalAfterCloseRef.current;
+    actionModalAfterCloseRef.current = null;
+    if (afterClose) afterClose();
   };
 
   // Function to check if current user was previously assigned to this ticket
@@ -1649,11 +1653,11 @@ export default function TicketDetailsModal({
         
         if (!response.ok) {
           const error = await response.json();
-          setSnackbarState({ open: true, message: error.message || 'Failed to submit recommendation', severity: 'error' });
+          showSnackbar(error.message || 'Failed to submit recommendation', 'error');
           return;
         }
         
-        setSnackbarState({ open: true, message: 'Recommendation submitted! Ticket sent to Head of Unit for review.', severity: 'success' });
+        showSnackbar('Recommendation submitted! Ticket sent to Head of Unit for review.', 'success');
         setIsAttendDialogOpen(false); // Close the attend dialog
         refreshTickets(); // Refresh to update ticket state
         // Don't close the main modal - let user see the updated state
@@ -1678,15 +1682,15 @@ export default function TicketDetailsModal({
       });
       if (!response.ok) {
         const error = await response.json();
-        setSnackbarState({ open: true, message: error.message || 'Failed to submit recommendation', severity: 'error' });
+        showSnackbar(error.message || 'Failed to submit recommendation', 'error');
         return;
       }
-      setSnackbarState({ open: true, message: 'Recommendation submitted! The Head of Unit will review it next.', severity: 'success' });
+      showSnackbar('Recommendation submitted! The Head of Unit will review it next.', 'success');
       setIsAttendDialogOpen(false); // Close the attend dialog
       refreshTickets(); // Refresh to update ticket state
       // Don't close the main modal - let user see the updated state
     } catch (err) {
-      setSnackbarState({ open: true, message: 'Network error: ' + err.message, severity: 'error' });
+      showSnackbar('Network error: ' + err.message, 'error');
     } finally {
       setAttendLoading(false);
     }
@@ -1813,7 +1817,7 @@ export default function TicketDetailsModal({
   // Director General close ticket handler
   const handleDGCloseTicket = async () => {
     if (!dgNotes || !dgNotes.trim()) {
-      setSnackbarState({open: true, message: 'Please provide justification before closing the ticket', severity: 'warning'});
+      showSnackbar('Please provide justification before closing the ticket', 'warning');
       return;
     }
 
@@ -1845,16 +1849,17 @@ export default function TicketDetailsModal({
       if (response.ok) {
         setIsDGApprovalDialogOpen(false);
         setAttachment(null);
-        onClose();
-        refreshTickets();
-        setSnackbarState({open: true, message: 'Ticket closed successfully by Director General', severity: 'success'});
+        showSnackbar('Ticket closed successfully by Director General', 'success', () => {
+          refreshTickets();
+          onClose();
+        });
       } else {
         const errorData = await response.json();
-        setSnackbarState({open: true, message: errorData.message || 'Failed to close ticket', severity: 'error'});
+        showSnackbar(errorData.message || 'Failed to close ticket', 'error');
       }
     } catch (error) {
       console.error("Error closing ticket:", error);
-      setSnackbarState({open: true, message: 'Error closing ticket: ' + error.message, severity: 'error'});
+      showSnackbar('Error closing ticket: ' + error.message, 'error');
     } finally {
       setDgApprovalLoading(false);
     }
@@ -1884,15 +1889,16 @@ export default function TicketDetailsModal({
       );
       if (response.ok) {
         setIsAttendDialogOpen(false);
-        onClose();
-        refreshTickets();
-        setSnackbarState({open: true, message: 'Ticket closed successfully', severity: 'success'});
+        showSnackbar('Ticket closed successfully', 'success', () => {
+          refreshTickets();
+          onClose();
+        });
       } else {
         const errorData = await response.json();
-        setSnackbarState({open: true, message: errorData.message || 'Failed to close ticket', severity: 'error'});
+        showSnackbar(errorData.message || 'Failed to close ticket', 'error');
       }
     } catch (error) {
-      setSnackbarState({open: true, message: 'Error closing ticket: ' + error.message, severity: 'error'});
+      showSnackbar('Error closing ticket: ' + error.message, 'error');
     } finally {
       setAttendSubmitLoading(false);
     }
@@ -1941,10 +1947,11 @@ export default function TicketDetailsModal({
       if (response.ok) {
         const data = await response.json();
         setIsReviewerCloseDialogOpen(false);
-        onClose();
-        refreshTickets();
         const actionMessage = userRole === "reviewer" ? 'Ticket closed successfully by Reviewer' : 'Ticket attended successfully';
-        showSnackbar(actionMessage, 'success');
+        showSnackbar(actionMessage, 'success', () => {
+          refreshTickets();
+          onClose();
+        });
       } else {
         const errorData = await response.json().catch(() => ({ message: 'Failed to process ticket' }));
         throw new Error(errorData.message || errorData.error || "Failed to process ticket");
@@ -1989,22 +1996,19 @@ export default function TicketDetailsModal({
       
       const data = await response.json();
       if (response.ok) {
-        setSnackbarState({ open: true, message: data.message, severity: "success" });
+        showSnackbar(data.message, "success", () => {
+          refreshTickets();
+          onClose();
+        });
         setIsReverseModalOpen(false);
         setReverseReason("");
         setReverseResolutionType("");
         setAttachment(null);
-        
-        // Add a small delay before refreshing and closing to prevent ResizeObserver error
-        setTimeout(() => {
-          refreshTickets();
-          onClose();
-        }, 100);
       } else {
-        setSnackbarState({ open: true, message: data.message, severity: "error" });
+        showSnackbar(data.message, "error");
       }
     } catch (error) {
-      setSnackbarState({ open: true, message: error.message, severity: "error" });
+      showSnackbar(error.message, "error");
     } finally {
       setIsReversing(false);
     }
@@ -2255,16 +2259,16 @@ export default function TicketDetailsModal({
         if (data.focal_person) {
           successMessage += ` - Assigned to: ${data.focal_person.full_name} (${data.focal_person.role})`;
         }
-        setSnackbarState({ open: true, message: successMessage, severity: "success" });
+        showSnackbar(successMessage, "success");
         setIsEditReversedTicketDialogOpen(false);
         refreshTickets();
         onClose();
       } else {
-        setSnackbarState({ open: true, message: data.message, severity: "error" });
+        showSnackbar(data.message, "error");
       }
     } catch (error) {
       console.error("Error updating reversed ticket details:", error);
-      setSnackbarState({ open: true, message: "Error updating ticket details", severity: "error" });
+      showSnackbar("Error updating ticket details", "error");
     } finally {
       setEditReversedTicketLoading(false);
     }
@@ -2377,15 +2381,15 @@ export default function TicketDetailsModal({
 
   const handleAssignTicket = async () => {
     if (!selectedAttendee || !selectedAttendee.username) {
-      setSnackbar && setSnackbar({ open: true, message: 'Please select an attendee', severity: 'warning' });
+      showSnackbar('Please select an attendee', 'warning');
       return;
     }
     if (!assignReason || !assignReason.trim()) {
-      setSnackbar && setSnackbar({ open: true, message: 'Assignment reason is required', severity: 'warning' });
+      showSnackbar('Assignment reason is required', 'warning');
       return;
     }
     if (!selectedTicket || !selectedTicket.id) {
-      setSnackbar && setSnackbar({ open: true, message: 'No ticket selected or ticket ID missing', severity: 'error' });
+      showSnackbar('No ticket selected or ticket ID missing', 'error');
       console.error('Assign error: selectedTicket or selectedTicket.id missing', selectedTicket);
       return;
     }
@@ -2397,7 +2401,7 @@ export default function TicketDetailsModal({
     console.log('DEBUG: reason:', reason);
     
     if (!assignedToUsername) {
-      setSnackbar && setSnackbar({ open: true, message: 'Missing required fields for assignment', severity: 'error' });
+      showSnackbar('Missing required fields for assignment', 'error');
       console.error('Assign error: missing assignedToUsername', { assignedToUsername });
       return;
     }
@@ -2429,37 +2433,20 @@ export default function TicketDetailsModal({
       });
       const data = await res.json();
       if (!res.ok) {
-        if (typeof showSnackbar === 'function') {
-          showSnackbar(`Failed to assign ticket: ${res.status} ${data.message || ''}`, 'error');
-        } else if (setSnackbar) {
-          setSnackbar({ open: true, message: `Failed to assign ticket: ${res.status} ${data.message || ''}`, severity: 'error' });
-        }
+        showSnackbar(`Failed to assign ticket: ${res.status} ${data.message || ''}`, 'error');
         console.error('Assign fetch error:', res.status, data);
-        // Add delay for error snackbar to be visible
-        setTimeout(() => {
-          setAssignLoading(false);
-        }, 500);
         return;
       }
-      if (typeof showSnackbar === 'function') {
-        showSnackbar(data.message || "Ticket assigned successfully", 'success');
-      } else if (setSnackbar) {
-        setSnackbar({ open: true, message: data.message || "Ticket assigned successfully", severity: "success" });
-      }
+      showSnackbar(data.message || "Ticket assigned successfully", "success", () => {
+        refreshTickets && refreshTickets();
+        refreshDashboardCounts && refreshDashboardCounts();
+        onClose && onClose();
+      });
       setAssignReason("");
       setSelectedAttendee(null);
       setIsAssignModalOpen(false);
-      
-      // Add a longer delay before refreshing and closing to ensure snackbar is visible
-      setTimeout(() => {
-        refreshTickets && refreshTickets();
-        // Refresh dashboard counts to update sidebar
-        refreshDashboardCounts && refreshDashboardCounts();
-        // Close the main ticket details modal after successful assignment
-        onClose && onClose();
-      }, 1500); // ensure snackbar is visible long enough
     } catch (e) {
-      setSnackbar && setSnackbar({ open: true, message: `Assign error: ${e.message}`, severity: "error" });
+      showSnackbar(`Assign error: ${e.message}`, "error");
       console.error('Assign exception:', e);
     } finally {
       setAssignLoading(false);
@@ -2479,7 +2466,7 @@ export default function TicketDetailsModal({
 
   const handleForwardToDGSubmit = async () => {
     if (!ownDescription.trim()) {
-      setSnackbarState({ open: true, message: "Please provide your description before forwarding to Director General", severity: "warning" });
+      showSnackbar("Please provide your description before forwarding to Director General", "warning");
       return;
     }
 
@@ -2519,21 +2506,22 @@ export default function TicketDetailsModal({
 
       if (response.ok) {
         const result = await response.json();
-        setSnackbarState({ open: true, message: "Ticket forwarded to Director General successfully!", severity: "success" });
+        showSnackbar(result.message || "Ticket forwarded to Director General successfully!", "success", () => {
+          refreshTickets();
+          onClose();
+        });
         setIsForwardToDGDialogOpen(false);
         setEditedResolution("");
         setOwnDescription("");
         setLastAttendeeAgentDescription("");
         setAttachment(null);
-        onClose();
-        refreshTickets();
       } else {
         const errorData = await response.json();
-        setSnackbarState({ open: true, message: `Error: ${errorData.message || 'Failed to forward to Director General'}`, severity: "error" });
+        showSnackbar(`Error: ${errorData.message || 'Failed to forward to Director General'}`, "error");
       }
     } catch (error) {
       console.error("Error forwarding to Director General:", error);
-      setSnackbarState({ open: true, message: "Failed to forward to Director General. Please try again.", severity: "error" });
+      showSnackbar("Failed to forward to Director General. Please try again.", "error");
     } finally {
       setForwardToDGLoading(false);
     }
@@ -2566,7 +2554,7 @@ export default function TicketDetailsModal({
           throw new Error(`Invalid JSON response: ${responseText.substring(0, 200)}`);
         }
         
-        setSnackbarState({ open: true, message: `Rated as ${rating}`, severity: "success" });
+        showSnackbar(`Rated as ${rating}`, "success");
         // Don't refresh tickets here - only refresh after forwarding
       } else {
         let errorData;
@@ -2578,11 +2566,11 @@ export default function TicketDetailsModal({
           throw new Error(`Server error (${response.status}): ${responseText.substring(0, 200)}`);
         }
         
-        setSnackbarState({ open: true, message: errorData.message || "Failed to rate ticket", severity: "error" });
+        showSnackbar(errorData.message || "Failed to rate ticket", "error");
       }
     } catch (error) {
       console.error('🔍 Error caught:', error);
-      setSnackbarState({ open: true, message: error.message, severity: "error" });
+      showSnackbar(error.message, "error");
     } finally {
       setRatingLoading(false);
     }
@@ -2603,11 +2591,7 @@ export default function TicketDetailsModal({
     const effectiveUnitName = unitName || currentTicket?.section || currentTicket?.responsible_unit_name;
     
     if (!category && !effectiveUnitName) {
-      setSnackbarState({
-        open: true,
-        message: "Please select either a category to convert to, or a unit to forward to, or both",
-        severity: "warning"
-      });
+      showSnackbar("Please select either a category to convert to, or a unit to forward to, or both", "warning");
       return;
     }
 
@@ -2629,28 +2613,16 @@ export default function TicketDetailsModal({
       const isRatingDropdownVisible = !(currentTicket.status === "Returned" || currentTicket.complaint_type);
       
       if (isRatingDropdownVisible) {
-        setSnackbarState({
-          open: true,
-          message: "Please select a rating (Minor or Major) from the 'Complaint Category' dropdown above before forwarding.",
-          severity: "warning"
-        });
+        showSnackbar("Please select a rating (Minor or Major) from the 'Complaint Category' dropdown above before forwarding.", "warning");
       } else {
-        setSnackbarState({
-          open: true,
-          message: "This ticket needs to be rated before forwarding. Please contact an administrator.",
-          severity: "warning"
-        });
+        showSnackbar("This ticket needs to be rated before forwarding. Please contact an administrator.", "warning");
       }
       return;
     }
 
     // Validate comment/description is required when rating and forwarding
     if (effectiveUnitName && (isProvidingRating || isAlreadyRated) && !ratingComment.trim()) {
-      setSnackbarState({
-        open: true,
-        message: "Please provide a comment/description before forwarding the ticket.",
-        severity: "warning"
-      });
+      showSnackbar("Please provide a comment/description before forwarding the ticket.", "warning");
       return;
     }
 
@@ -2677,13 +2649,10 @@ export default function TicketDetailsModal({
       });
       const data = await response.json();
       if (response.ok) {
-        // Use parent snackbar to avoid unmounting issue
-        if (setSnackbar) {
-          setSnackbar({ open: true, message: data.message || "Ticket updated successfully", severity: "success" });
-        } else {
-          setSnackbarState({ open: true, message: data.message || "Ticket updated successfully", severity: "success" });
-        }
-        refreshTickets();
+        showSnackbar(data.message || "Ticket updated successfully", "success", () => {
+          refreshTickets();
+          onClose && onClose();
+        });
         // Clear both states after successful update
         setConvertCategory((prev) => {
           const newState = { ...prev };
@@ -2699,26 +2668,12 @@ export default function TicketDetailsModal({
         setSelectedRating("");
         setRatingComment("");
         // Hide modal after successful forward/convert
-        onClose && onClose();
+        // (main modal closes after user closes the action popup)
       } else {
-        // Use parent snackbar to avoid unmounting issue
-        if (setSnackbar) {
-          setSnackbar({ open: true, message: data.message || "Failed to update ticket", severity: "error" });
-        } else {
-          setSnackbarState({ open: true, message: data.message || "Failed to update ticket", severity: "error" });
-        }
-        // Hide modal even on failure per requirement
-        onClose && onClose();
+        showSnackbar(data.message || "Failed to update ticket", "error");
       }
     } catch (error) {
-      // Use parent snackbar to avoid unmounting issue
-      if (setSnackbar) {
-        setSnackbar({ open: true, message: error.message, severity: "error" });
-      } else {
-        setSnackbarState({ open: true, message: error.message, severity: "error" });
-      }
-      // Hide modal even on error per requirement
-      onClose && onClose();
+      showSnackbar(error.message, "error");
     } finally {
       setConvertOrForwardLoading(false);
     }
@@ -2726,15 +2681,15 @@ export default function TicketDetailsModal({
 
   const handleReassignTicket = async () => {
     if (!selectedReassignAttendee || !selectedReassignAttendee.username) {
-      setSnackbar && setSnackbar({ open: true, message: 'Please select an attendee', severity: 'warning' });
+      showSnackbar('Please select an attendee', 'warning');
       return;
     }
     if (!reassignReason || !reassignReason.trim()) {
-      setSnackbar && setSnackbar({ open: true, message: 'Reassignment reason is required', severity: 'warning' });
+      showSnackbar('Reassignment reason is required', 'warning');
       return;
     }
     if (!selectedTicket || !selectedTicket.id) {
-      setSnackbar && setSnackbar({ open: true, message: 'No ticket selected or ticket ID missing', severity: 'error' });
+      showSnackbar('No ticket selected or ticket ID missing', 'error');
       console.error('Reassign error: selectedTicket or selectedTicket.id missing', selectedTicket);
       return;
     }
@@ -2746,7 +2701,7 @@ export default function TicketDetailsModal({
     console.log('DEBUG: reason:', reason);
     
     if (!assignedToUsername) {
-      setSnackbar && setSnackbar({ open: true, message: 'Missing required fields for reassignment', severity: 'error' });
+      showSnackbar('Missing required fields for reassignment', 'error');
       console.error('Reassign error: missing assignedToUsername', { assignedToUsername });
       return;
     }
@@ -2780,37 +2735,20 @@ export default function TicketDetailsModal({
       });
       const data = await res.json();
       if (!res.ok) {
-        if (typeof showSnackbar === 'function') {
-          showSnackbar(`Failed to reassign ticket: ${res.status} ${data.message || ''}`, 'error');
-        } else if (setSnackbar) {
-          setSnackbar({ open: true, message: `Failed to reassign ticket: ${res.status} ${data.message || ''}`, severity: 'error' });
-        }
+        showSnackbar(`Failed to reassign ticket: ${res.status} ${data.message || ''}`, 'error');
         console.error('Reassign fetch error:', res.status, data);
-        // Add delay for error snackbar to be visible
-        setTimeout(() => {
-          setReassignLoading(false);
-        }, 500);
         return;
       }
-      if (typeof showSnackbar === 'function') {
-        showSnackbar(data.message || "Ticket reassigned successfully", 'success');
-      } else if (setSnackbar) {
-        setSnackbar({ open: true, message: data.message || "Ticket reassigned successfully", severity: "success" });
-      }
+      showSnackbar(data.message || "Ticket reassigned successfully", "success", () => {
+        refreshTickets && refreshTickets();
+        refreshDashboardCounts && refreshDashboardCounts();
+        onClose && onClose();
+      });
       setReassignReason("");
       setSelectedReassignAttendee(null);
       setIsReassignModalOpen(false);
-      
-      // Add a longer delay before refreshing and closing to ensure snackbar is visible
-      setTimeout(() => {
-        refreshTickets && refreshTickets();
-        // Refresh dashboard counts to update sidebar
-        refreshDashboardCounts && refreshDashboardCounts();
-        // Close the main ticket details modal after successful reassignment
-        onClose && onClose();
-      }, 1500); // ensure snackbar is visible long enough
     } catch (e) {
-      setSnackbar && setSnackbar({ open: true, message: `Reassign error: ${e.message}`, severity: "error" });
+      showSnackbar(`Reassign error: ${e.message}`, "error");
       console.error('Reassign exception:', e);
     } finally {
       setReassignLoading(false);
@@ -2823,11 +2761,11 @@ export default function TicketDetailsModal({
 
   const handleAgentReverse = async () => {
     if (!agentRecommendation.trim()) {
-      setSnackbar && setSnackbar({ open: true, message: 'Please provide a recommendation', severity: 'warning' });
+      showSnackbar('Please provide a recommendation', 'warning');
       return;
     }
     if (!selectedTicket || !selectedTicket.id) {
-      setSnackbar && setSnackbar({ open: true, message: 'No ticket selected or ticket ID missing', severity: 'error' });
+      showSnackbar('No ticket selected or ticket ID missing', 'error');
       return;
     }
 
@@ -2863,25 +2801,14 @@ export default function TicketDetailsModal({
       
       const data = await res.json();
       if (!res.ok) {
-        setSnackbarState({ open: true, message: data.message || `Failed to reverse complaint: ${res.status}`, severity: "error" });
-        setSnackbar && setSnackbar({ 
-          open: true, 
-          message: `Failed to reverse complaint: ${res.status} ${data.message || ''}`, 
-          severity: 'error' 
-        });
+        showSnackbar(data.message || `Failed to reverse complaint: ${res.status}`, "error");
         return;
       }
       
       // Show success message (same as handleReverse)
-      setSnackbarState({ 
-        open: true, 
-        message: data.message || "Complaint reversed with recommendation successfully", 
-        severity: "success" 
-      });
-      setSnackbar && setSnackbar({
-        open: true,
-        message: data.message || "Complaint reversed with recommendation successfully",
-        severity: "success"
+      showSnackbar(data.message || "Complaint reversed with recommendation successfully", "success", () => {
+        refreshTickets && refreshTickets();
+        onClose && onClose();
       });
       
       // Clear form and close modal with a small delay to prevent ResizeObserver error
@@ -2890,18 +2817,8 @@ export default function TicketDetailsModal({
       setAttachment(null);
       setIsAgentReverseModalOpen(false);
       
-      // Add a small delay before refreshing and closing to prevent ResizeObserver error
-      setTimeout(() => {
-        refreshTickets && refreshTickets();
-        onClose && onClose();
-      }, 100);
     } catch (error) {
-      setSnackbarState({ open: true, message: `Reverse error: ${error.message}`, severity: "error" });
-      setSnackbar && setSnackbar({ 
-        open: true, 
-        message: `Reverse error: ${error.message}`, 
-        severity: "error" 
-      });
+      showSnackbar(`Reverse error: ${error.message}`, "error");
       console.error('Agent reverse exception:', error);
     } finally {
       setAgentReverseLoading(false);
@@ -3418,9 +3335,21 @@ export default function TicketDetailsModal({
                 )}
 
                 {/* Edit Subject & Section button for reversed tickets - only for ticket creator (initiator) */}
-                {selectedTicket?.status === "Reversed" && 
-                 selectedTicket?.created_by && userId &&
-                 String(selectedTicket.created_by) === String(userId) && (
+                {(() => {
+                  const currentUserId = userId || localStorage.getItem("userId");
+                  const status = (selectedTicket?.status || "").toString().trim().toLowerCase();
+                  if (status !== "reversed") return false;
+
+                  const creatorIdCandidates = [
+                    selectedTicket?.creator?.id,
+                    selectedTicket?.creator?.user_id,
+                    selectedTicket?.created_by_id,
+                    selectedTicket?.created_by, // sometimes uuid, sometimes name depending on endpoint
+                    selectedTicket?.userId,
+                  ].filter(v => v !== null && v !== undefined && String(v).trim() !== "");
+
+                  return creatorIdCandidates.some(v => String(v) === String(currentUserId));
+                })() && (
                   <Tooltip title="Edit ticket subject and section">
                   <Button
                     variant="contained"
@@ -4364,13 +4293,14 @@ export default function TicketDetailsModal({
                       return;
                     }
 
-                    showSnackbar(data.message || "Ticket sent to Director successfully", "success");
+                    showSnackbar(data.message || "Ticket sent to Director successfully", "success", () => {
+                      refreshTickets && refreshTickets();
+                      onClose && onClose();
+                    });
                     setDirectorRecommendation("");
                     setEditedResolution("");
                     setAttachment(null);
                     setIsSendToDirectorModalOpen(false);
-                    refreshTickets && refreshTickets();
-                    onClose && onClose();
                   } catch (error) {
                     showSnackbar(`Error: ${error.message}`, "error");
                   } finally {
@@ -5447,25 +5377,12 @@ export default function TicketDetailsModal({
         </DialogContent>
       </Dialog>
 
-      {/* Snackbar for notifications */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
+      <ActionMessageModal
+        open={actionModal.isOpen}
+        type={actionModal.type}
+        message={actionModal.message}
         onClose={closeSnackbar}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
-      >
-        <Alert 
-          severity={snackbar.severity}
-          onClose={closeSnackbar}
-          sx={{ 
-            minWidth: '300px',
-            fontSize: '14px',
-            fontWeight: snackbar.severity === 'success' ? 'bold' : 'normal'
-          }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+      />
 
       {/* Ticket Charts Modal */}
       <Dialog 
