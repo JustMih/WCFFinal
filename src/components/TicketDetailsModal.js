@@ -1614,8 +1614,13 @@ export default function TicketDetailsModal({
     String(selectedTicket.assigned_to_id) === String(userId) &&
     selectedTicket.status !== "Closed";
 
-      // Debug close permission for reviewers
-    if (userRole === 'reviewer' && selectedTicket?.category === 'Complaint') {
+  // Debug close permission for reviewers (only for specific categories)
+  const reviewerDebugCategories = ["Complaint", "Compliment", "Suggestion"];
+  if (
+    userRole === "reviewer" &&
+    selectedTicket &&
+    reviewerDebugCategories.includes(String(selectedTicket.category || "").toLowerCase())
+  ) {
     permissionManager.debugClosePermission(selectedTicket);
   }
 
@@ -1626,7 +1631,7 @@ export default function TicketDetailsModal({
         userRole,
         complaintType: selectedTicket?.complaint_type,
         isManager: userRole === "manager",
-        isMajor: selectedTicket?.complaint_type === "Major",
+        isMajor: selectedTicket?.complaint_type === "Major",  
         shouldUseManagerAPI: userRole === "manager" && selectedTicket?.complaint_type === "Major",
         selectedTicketId: selectedTicket?.id,
         selectedTicketStatus: selectedTicket?.status,

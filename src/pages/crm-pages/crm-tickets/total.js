@@ -27,10 +27,10 @@ import TicketDetailsModal from '../../../components/TicketDetailsModal';
 import Pagination from '../../../components/Pagination';
 import TableControls from "../../../components/TableControls";
 import TicketFilters from '../../../components/ticket/TicketFilters';
+import { useWcfTicketList } from "../../../api/wcfTicketQueries";
 
 export default function Crm() {
-  const [agentTickets, setAgentTickets] = useState([]);
-  const [agentTicketsError, setAgentTicketsError] = useState(null);
+  const [authError, setAuthError] = useState(null);
   const [userId, setUserId] = useState("");
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -49,7 +49,16 @@ export default function Crm() {
     "region",
     "status"
   ]);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: agentTickets = [],
+    isLoading: loading,
+    error: agentTicketsErrorObj,
+    refetch: refetchAgentTickets,
+  } = useWcfTicketList(
+    { type: "all", userId, enabled: Boolean(userId) },
+    { enabled: Boolean(userId) }
+  );
+  const agentTicketsError = authError || agentTicketsErrorObj?.message || null;
   const [filters, setFilters] = useState({
     search: '',
     nidaSearch: '',
@@ -74,58 +83,10 @@ export default function Crm() {
       setUserId(userId);
       console.log("user id is:", userId);
     } else {
-      setAgentTicketsError("User not authenticated. Please log in.");
-      setLoading(false);
+      setAuthError("User not authenticated. Please log in.");
     }
   }, []);
-
-  useEffect(() => {
-    if (userId) {
-      fetchAgentTickets();
-    }
-  }, [userId]);
-
-  const fetchAgentTickets = async () => {
-    try {
-      const token = localStorage.getItem("authToken");
-      if (!token) {
-        throw new Error("Authentication error. Please log in again.");
-      }
-
-      const url = `${baseURL}/ticket/all/${userId}`;
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      console.log('total', response);
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          setAgentTickets([]);
-          setAgentTicketsError("No ticket found");
-          return;
-        }
-        throw new Error(`HTTP error! Status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log("Fetched tickets:", data);
-      if (data && Array.isArray(data.tickets)) {
-        setAgentTickets(data.tickets);
-        setAgentTicketsError(null);
-      } else {
-        setAgentTickets([]);
-        setAgentTicketsError("No ticket found");
-      }
-    } catch (error) {
-      setAgentTicketsError(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // NOTE: fetching moved to TanStack Query (useWcfTicketList)
 
   const handleCommentsChange = (e) => {
     setComments(e.target.value);
@@ -151,7 +112,7 @@ export default function Crm() {
           type: "success",
           message: "Comments updated successfully.",
         });
-        fetchAgentTickets();
+        refetchAgentTickets();
       } else {
         const data = await response.json();
         setModal({
@@ -485,7 +446,7 @@ export default function Crm() {
         onClose={closeModal}
         selectedTicket={selectedTicket}
         assignmentHistory={Array.isArray(assignmentHistory) ? assignmentHistory : (assignmentHistory?.assignments || [])}
-        refreshTickets={fetchAgentTickets}
+        refreshTickets={refetchAgentTickets}
         refreshDashboardCounts={() => {}} // This page doesn't have dashboard counts, so pass empty function
       />
 
