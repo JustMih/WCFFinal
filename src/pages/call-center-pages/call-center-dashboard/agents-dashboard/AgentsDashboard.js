@@ -1348,7 +1348,11 @@ export default function AgentsDashboard() {
           </Tooltip>
         </div>
 
-        <div className="dashboard-single-agent-row_two">
+        <div className="dashboard-single-agent">
+          <CallQueueCard />
+        </div>
+
+        <div className="dashboard-single-agent">
           <CallHistoryCard
             onCallBack={(phoneNumber) => {
               setShowPhonePopup(true);
@@ -1356,7 +1360,6 @@ export default function AgentsDashboard() {
               handleRedial(phoneNumber);
             }}
           />
-          <CallQueueCard />
         </div>
 
         <div className="dashboard-single-agent">

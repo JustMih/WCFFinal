@@ -8,7 +8,7 @@ import {
   DialogActions,
   IconButton,
 } from "@mui/material";
-import { Close as CloseIcon } from "@mui/icons-material";
+import { Close as CloseIcon, ArrowBack as ArrowBackIcon } from "@mui/icons-material";
 import {
   MdPhone,
   MdPhoneInTalk,
@@ -359,7 +359,16 @@ export default function PublicDashboard() {
       {/* Header */}
       <div className="dashboard-header">
         <div className="header-left">
-          <h1 className="dashboard-title">WCF Call Center Dashboard</h1>
+          <div className="header-top">
+            <IconButton
+              className="back-button"
+              onClick={() => navigate(-1)}
+              aria-label="Go back"
+            >
+              <ArrowBackIcon />
+            </IconButton>
+            <h1 className="dashboard-title">WCF Call Center Dashboard</h1>
+          </div>
           <div className="current-time">
             {currentTime.toLocaleString("en-US", {
               weekday: "short",

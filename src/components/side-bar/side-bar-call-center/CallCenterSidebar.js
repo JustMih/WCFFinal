@@ -395,6 +395,20 @@ export default function CallCenterSidebar({
               </NavLink>
 
               <NavLink
+                to="/public-dashboard"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <MdPublic className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">Public Dashboard</span>
+                  )}
+                </div>
+              </NavLink>
+
+              <NavLink
                 to="/agents"
                 className={({ isActive }) =>
                   isActive ? "menu-item active-link" : "menu-item"

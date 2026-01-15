@@ -38,10 +38,42 @@
   flex: 1;
 }
 
+.header-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 5px;
+}
+
+.back-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  color: white !important;
+  padding: 10px !important;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4) !important;
+  transition: all 0.3s ease !important;
+  border-radius: 10px !important;
+  min-width: 44px !important;
+  height: 44px !important;
+}
+
+.back-button:hover {
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%) !important;
+  transform: translateX(-3px) scale(1.05) !important;
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6) !important;
+}
+
+.back-button:active {
+  transform: translateX(-1px) scale(0.98) !important;
+}
+
+.back-button svg {
+  font-size: 1.5rem !important;
+}
+
 .dashboard-title {
   font-size: 1.8rem;
   font-weight: bold;
-  margin: 0 0 5px 0;
+  margin: 0;
   color: #333;
 }
 
