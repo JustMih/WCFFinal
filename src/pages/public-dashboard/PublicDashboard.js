@@ -783,12 +783,16 @@ return () => {
                         })
                       : "-"}
                   </div>
-                  <div className="lost-call-status">
-                    <span className={`status-badge ${call.status === "called_back" ? "called-back" : "no-answer"}`}>
-                    {call.status === "called_back" ? "CALLED BACK" : "NO ANSWER"}
+                 <div className="lost-call-status">
+                  <span
+                    className={`status-badge ${
+                      call.status === "called_back" ? "called-back" : "pending"
+                    }`}
+                  >
+                    {call.status === "called_back" ? "CALLED BACK" : "PENDING"}
+                  </span>
+                </div>
 
-                    </span>
-                  </div>
                   <div className="lost-call-callback">
                     {call.callback_agent_name || (call.callback_agent_extension ? `Agent ${call.callback_agent_extension}` : "-")}
                   </div>
