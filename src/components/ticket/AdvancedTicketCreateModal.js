@@ -26,6 +26,7 @@ import { baseURL } from "../../config";
 import EnhancedSearchForm from "../search/EnhancedSearchForm";
 import ClaimRedirectButton from "./ClaimRedirectButton.jsx";
 import TicketUpdates from './TicketUpdates';
+import ActionMessageModal from "./ActionMessageModal";
 
 // Import the AssignmentFlowChat component and helper function
 const getCreatorName = (selectedTicket) =>
@@ -3831,52 +3832,12 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
       </Dialog>
 
       {/* Modal for Success/Error Messages */}
-      {modal.isOpen && (
-        <div style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          zIndex: 1301,
-          width: "100%",
-          height: "100%",
-          background: "rgba(0, 0, 0, 0.4)",
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center"
-        }}>
-          <div style={{
-            background: "#fff",
-            padding: "24px",
-            borderRadius: "8px",
-            width: "400px",
-            textAlign: "center",
-            borderLeft: modal.type === "success" ? "6px solid #4caf50" : "6px solid #f44336"
-          }}>
-            <h3 style={{ margin: "0 0 16px 0", color: modal.type === "success" ? "#4caf50" : "#f44336" }}>
-              {modal.type === "success" ? "Success" : "Error"}
-            </h3>
-            <p style={{ margin: "0 0 20px 0", fontSize: "14px", lineHeight: "1.5" }}>
-              {modal.message}
-            </p>
-            <button 
-              onClick={closeModal} 
-              style={{
-                marginTop: "20px",
-                background: "#007bff",
-                border: "none",
-                color: "white",
-                padding: "8px 16px",
-                borderRadius: "4px",
-                cursor: "pointer",
-                fontSize: "14px"
-              }}
-            >
-              Close
-            </button>
-            
-          </div>
-        </div>
-      )}
+      <ActionMessageModal
+        open={modal.isOpen}
+        type={modal.type || "info"}
+        message={modal.message}
+        onClose={closeModal}
+      />
 
       {/* Close Modal */}
       <Dialog open={isCloseModalOpen} onClose={handleCloseModalCancel} maxWidth="sm" fullWidth>

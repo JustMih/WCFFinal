@@ -27,10 +27,10 @@ import { AssignmentStepper } from '../../../components/TicketDetailsModal';
 import Pagination from '../../../components/Pagination';
 import TableControls from "../../../components/TableControls";
 import TicketFilters from '../../../components/ticket/TicketFilters';
+import { useWcfTicketList } from "../../../api/wcfTicketQueries";
 
 export default function Crm() {
-  const [agentTickets, setAgentTickets] = useState([]);
-  const [agentTicketsError, setAgentTicketsError] = useState(null);
+  const [authError, setAuthError] = useState(null);
   const [userId, setUserId] = useState("");
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
@@ -50,7 +50,16 @@ export default function Crm() {
     "region",
     "status"
   ]);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: agentTickets = [],
+    isLoading: loading,
+    error: agentTicketsErrorObj,
+    refetch: refetchAgentTickets,
+  } = useWcfTicketList(
+    { type: "open", userId, enabled: Boolean(userId) },
+    { enabled: Boolean(userId) }
+  );
+  const agentTicketsError = authError || agentTicketsErrorObj?.message || null;
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   const [assignedUser, setAssignedUser] = useState(null);
   const [isFlowModalOpen, setIsFlowModalOpen] = useState(false);
@@ -61,16 +70,11 @@ export default function Crm() {
       setUserId(userId);
       console.log("user id is:", userId);
     } else {
-      setAgentTicketsError("User not authenticated. Please log in.");
-      setLoading(false);
+      setAuthError("User not authenticated. Please log in.");
     }
   }, []);
 
-  useEffect(() => {
-    if (userId) {
-      fetchAgentTickets();
-    }
-  }, [userId]);
+  // NOTE: tickets are loaded via TanStack Query (useWcfTicketList)
 
   useEffect(() => {
     if (
@@ -97,46 +101,7 @@ export default function Crm() {
     }
   }, [selectedTicket, assignmentHistory]);
 
-  const fetchAgentTickets = async () => {
-    try {
-      const token = localStorage.getItem("authToken");
-      if (!token) {
-        throw new Error("Authentication error. Please log in again.");
-      }
-
-      const url = `${baseURL}/ticket/open/${userId}`;
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json"
-        }
-      });
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          setAgentTickets([]);
-          setAgentTicketsError("No ticket found");
-          return;
-        }
-        throw new Error(`HTTP error! Status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log("Fetched tickets:", data);
-      if (data && Array.isArray(data.tickets)) {
-        setAgentTickets(data.tickets);
-        setAgentTicketsError(null);
-      } else {
-        setAgentTickets([]);
-        setAgentTicketsError("No ticket found");
-      }
-    } catch (error) {
-      setAgentTicketsError(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // NOTE: fetching moved to TanStack Query (useWcfTicketList)
 
   const handleCommentsChange = (e) => {
     setComments(e.target.value);
@@ -165,7 +130,7 @@ export default function Crm() {
           type: "success",
           message: "Comments updated successfully."
         });
-        fetchAgentTickets();
+        refetchAgentTickets();
       } else {
         const data = await response.json();
         setModal({
@@ -553,7 +518,7 @@ export default function Crm() {
           type: "success",
           message: `Ticket rated as ${rating} successfully.`
         });
-        fetchAgentTickets();
+        refetchAgentTickets();
       } else {
         const data = await response.json();
         setModal({
@@ -596,7 +561,7 @@ export default function Crm() {
           type: "success",
           message: `Ticket forwarded to ${unit} successfully.`
         });
-        fetchAgentTickets();
+        refetchAgentTickets();
       } else {
         const data = await response.json();
         setModal({
@@ -639,7 +604,7 @@ export default function Crm() {
           type: "success",
           message: "Ticket closed successfully."
         });
-        fetchAgentTickets();
+        refetchAgentTickets();
       } else {
         const data = await response.json();
         setModal({
@@ -687,7 +652,7 @@ export default function Crm() {
           type: "success",
           message: "Complaint successfully changed to Inquiry."
         });
-        fetchAgentTickets();
+        refetchAgentTickets();
       } else {
         const data = await response.json();
         setModal({

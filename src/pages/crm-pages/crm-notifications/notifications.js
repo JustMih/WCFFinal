@@ -27,9 +27,16 @@ import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import TicketDetailsModal from '../../../components/TicketDetailsModal';
 import Pagination from '../../../components/Pagination';
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import TableControls from "../../../components/TableControls";
 import TicketFilters from '../../../components/ticket/TicketFilters';
+import {
+  useCrmNotificationFeed,
+  useCrmTicketNotificationHistory,
+  useCrmUserNotifications,
+  useMarkNotificationRead,
+  useMarkManyNotificationsRead,
+} from "../../../api/wcfNotificationQueries";
 
 export default function Crm() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -83,109 +90,35 @@ export default function Crm() {
 
   const queryClient = useQueryClient();
 
-  // Fetch notifications for the selected ticket and user
-  const { data: notificationHistory, isLoading: isLoadingHistory } = useQuery({
-    queryKey: [
-      "ticketNotifications",
-      selectedTicket?.ticket?.id ||
-        selectedTicket?.ticket_id ||
-        selectedTicket?.id,
-      userId
-    ],
-    queryFn: async () => {
-      const ticketId =
-        selectedTicket?.ticket?.id ||
-        selectedTicket?.ticket_id ||
-        selectedTicket?.id;
-      if (!ticketId || !userId) return { notifications: [] };
-      const token = localStorage.getItem("authToken");
-      const response = await fetch(
-        `${baseURL}/notifications/ticket/${ticketId}/user/${userId}`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (!response.ok) throw new Error("Failed to fetch notifications");
-      const data = await response.json();
-      // Defensive: ensure notifications is an array and sort
-      const notifications = Array.isArray(data.notifications)
-        ? data.notifications.sort(
-            (a, b) => new Date(b.created_at) - new Date(a.created_at)
-          )
-        : [];
-      return { notifications };
-    },
-    enabled: !!(
-      (selectedTicket?.ticket?.id ||
-        selectedTicket?.ticket_id ||
-        selectedTicket?.id) && userId
-    )
+  // TanStack: CRM notifications feed (list view) + counts (badges) + per-ticket history
+  const {
+    data: feedNotifications = [],
+    isLoading: isLoadingFeed,
+    error: feedError,
+    refetch: refetchFeed,
+  } = useCrmNotificationFeed(userId, { enabled: Boolean(userId) });
+
+  const { data: allUserNotifications = [] } = useCrmUserNotifications(userId, {
+    enabled: Boolean(userId),
   });
+
+  const ticketIdForHistory =
+    selectedTicket?.ticket?.id || selectedTicket?.ticket_id || selectedTicket?.id;
+
+  const { data: notificationHistory, isLoading: isLoadingHistory } =
+    useCrmTicketNotificationHistory(
+      { ticketId: ticketIdForHistory, userId },
+      { enabled: Boolean(ticketIdForHistory) && Boolean(userId) }
+    );
+
+  const markReadMutation = useMarkNotificationRead(userId);
+  const markManyReadMutation = useMarkManyNotificationsRead(userId);
 
   useEffect(() => {
     const userId = localStorage.getItem("userId");
     if (userId) {
       setUserId(userId);
       console.log("user id is:", userId);
-      // Fetch all notifications to calculate both tagged and notified counts
-      const token = localStorage.getItem("authToken");
-      if (token) {
-        fetch(`${baseURL}/notifications/user/${userId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-          .then((res) => {
-            const contentType = res.headers.get("content-type");
-            if (
-              !res.ok ||
-              !contentType ||
-              !contentType.includes("application/json")
-            ) {
-              throw new Error("Invalid response");
-            }
-            return res.json();
-          })
-          .then((data) => {
-            const notifications = data.notifications || [];
-            
-            // Calculate tagged count (unread, for current user, has "mentioned you")
-            const tagged = notifications.filter(n => {
-              const msgText = (n.message || '').toLowerCase();
-              const isUnread = n.status === 'unread' || n.status === ' ';
-              const isForCurrentUser = String(n.recipient_id) === String(userId);
-              return msgText.includes('mentioned you') && isUnread && isForCurrentUser;
-            }).length;
-            
-            // Calculate notified count (unread, for current user, not tagged, not assigned, not reversed)
-            const notified = notifications.filter(n => {
-              const isUnread = n.status === 'unread' || n.status === ' ';
-              const isForCurrentUser = String(n.recipient_id) === String(userId);
-              if (!isForCurrentUser || !isUnread) return false;
-              
-              const messageText = (n.message || n.comment || '').toLowerCase();
-              const isTagged = messageText.includes('mentioned you');
-              const isReversedTicket = n.ticket?.status === 'Reversed' || n.ticket?.status === 'reversed';
-              const isReversedByText = messageText.includes('reversed back to you') ||
-                                      messageText.includes('reversed to you') ||
-                                      (messageText.includes('has been reversed') && messageText.includes('to'));
-              const isReversed = isReversedTicket && isReversedByText;
-              const isAssignedByText = (messageText.includes('assigned to you') || 
-                                       messageText.includes('forwarded to you') ||
-                                       messageText.includes('reassigned to you')) && !isTagged && !isReversed;
-              
-              return !isTagged && !isAssignedByText && !isReversed;
-            }).length;
-            
-            setNotifiedCount(notified);
-            setTaggedCount(tagged);
-            localStorage.setItem('notificationCount', notified.toString());
-            localStorage.setItem('taggedCount', tagged.toString());
-          })
-          .catch((err) => {
-            console.error('Error fetching notification counts:', err);
-            setNotifiedCount(0);
-            setTaggedCount(0);
-            localStorage.setItem('notificationCount', '0');
-            localStorage.setItem('taggedCount', '0');
-          });
-      }
       
       // Listen for localStorage changes (for cross-tab sync)
       const handleStorageChange = (e) => {
@@ -207,11 +140,63 @@ export default function Crm() {
     }
   }, []);
 
+  // Counts are now derived from TanStack Query (auto-updated), but we still write to localStorage
+  // so CRM sidebar / other widgets that rely on localStorage keep working.
   useEffect(() => {
-    if (userId) {
-      fetchAgentTickets();
+    if (!userId) return;
+
+    const notifications = Array.isArray(allUserNotifications) ? allUserNotifications : [];
+
+    const tagged = notifications.filter((n) => {
+      const msgText = (n.message || "").toLowerCase();
+      const isUnread = n.status === "unread" || n.status === " ";
+      const isForCurrentUser = String(n.recipient_id) === String(userId);
+      return msgText.includes("mentioned you") && isUnread && isForCurrentUser;
+    }).length;
+
+    const notified = notifications.filter((n) => {
+      const isUnread = n.status === "unread" || n.status === " ";
+      const isForCurrentUser = String(n.recipient_id) === String(userId);
+      if (!isForCurrentUser || !isUnread) return false;
+
+      const messageText = (n.message || n.comment || "").toLowerCase();
+      const isTagged = messageText.includes("mentioned you");
+      const isReversedTicket = n.ticket?.status === "Reversed" || n.ticket?.status === "reversed";
+      const isReversedByText =
+        messageText.includes("reversed back to you") ||
+        messageText.includes("reversed to you") ||
+        (messageText.includes("has been reversed") && messageText.includes("to"));
+      const isReversed = isReversedTicket && isReversedByText;
+      const isAssignedByText =
+        (messageText.includes("assigned to you") ||
+          messageText.includes("forwarded to you") ||
+          messageText.includes("reassigned to you")) &&
+        !isTagged &&
+        !isReversed;
+
+      return !isTagged && !isAssignedByText && !isReversed;
+    }).length;
+
+    setNotifiedCount(notified);
+    setTaggedCount(tagged);
+    localStorage.setItem("notificationCount", String(notified));
+    localStorage.setItem("taggedCount", String(tagged));
+  }, [allUserNotifications, userId]);
+
+  // Keep legacy local state in sync with TanStack query results (minimal churn)
+  useEffect(() => {
+    if (!userId) return;
+    if (feedError) {
+      setAgentTicketsError(feedError.message || "Failed to load notifications");
+      setLoading(false);
+      return;
     }
-  }, [userId, notificationType]); // Also refetch when notificationType changes
+    if (!isLoadingFeed) {
+      setAgentTickets(feedNotifications);
+      setAgentTicketsError(null);
+      setLoading(false);
+    }
+  }, [userId, feedNotifications, isLoadingFeed, feedError]);
 
   // Debug: Log modal state changes
   useEffect(() => {
@@ -220,79 +205,7 @@ export default function Crm() {
     }
   }, [isTicketDetailsModalOpen, selectedTicket]);
 
-  const fetchAgentTickets = async () => {
-    try {
-      const token = localStorage.getItem("authToken");
-      if (!token) {
-        throw new Error("Authentication error. Please log in again.");
-      }
-
-      const url = `${baseURL}/ticket/assigned-notified/${userId}`;
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json"
-        }
-      });
-
-      if (!response.ok) {
-        if (response.status === 404) {
-          setAgentTickets([]);
-          setAgentTicketsError("No tickets found.");
-          return;
-        }
-        throw new Error(`HTTP error! Status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log("Fetched tickets (full API response):", data);
-      if (data.notifications && Array.isArray(data.notifications)) {
-        console.log(`Total notifications fetched: ${data.notifications.length}`);
-        data.notifications.forEach((notif, idx) => {
-          const messageText = (notif.message || notif.comment || '').toLowerCase();
-          const hasComment = notif.comment && notif.comment !== null && String(notif.comment).trim() !== '';
-          const isTagged = messageText.includes('mentioned you');
-          const isAssigned = (messageText.includes('assigned to you') || messageText.includes('forwarded to you')) && !isTagged;
-          const isUnread = notif.status === 'unread' || notif.status === ' ';
-          const isForCurrentUser = notif.recipient_id === userId;
-          console.log(`Notification #${idx + 1}:`, {
-            id: notif.id,
-            message: notif.message,
-            comment: notif.comment,
-            hasComment,
-            isTagged,
-            isAssigned,
-            status: notif.status,
-            recipient_id: notif.recipient_id,
-            userId,
-            isUnread,
-            isForCurrentUser
-          });
-          if (notif.ticket) {
-            console.log(`Ticket for notification #${idx + 1}:`, notif.ticket);
-          }
-        });
-      }
-      if (data && Array.isArray(data.tickets)) {
-        setAgentTickets(data.tickets);
-        setAgentTicketsError(null);
-      } else if (data && Array.isArray(data.Tickets)) {
-        setAgentTickets(data.Tickets);
-        setAgentTicketsError(null);
-      } else if (data && Array.isArray(data.notifications)) {
-        setAgentTickets(data.notifications);
-        setAgentTicketsError(null);
-      } else {
-        setAgentTickets([]);
-        setAgentTicketsError("No tickets found for this agent.");
-      }
-    } catch (error) {
-      setAgentTicketsError(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // NOTE: fetching moved to TanStack Query (useCrmNotificationFeed)
 
   const handleCommentsChange = (e) => {
     setComments(e.target.value);
@@ -321,7 +234,7 @@ export default function Crm() {
           type: "success",
           message: "Comments updated successfully."
         });
-        fetchAgentTickets();
+        refetchFeed();
       } else {
         const data = await response.json();
         setModal({
@@ -358,16 +271,7 @@ export default function Crm() {
     
     if (notificationId && notificationStatus === 'unread') {
       try {
-        const token = localStorage.getItem("authToken");
-        const response = await fetch(`${baseURL}/notifications/read/${notificationId}`, {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (response.ok) {
+        await markReadMutation.mutateAsync(notificationId);
           // Update notification status locally
           ticket.status = 'read';
           
@@ -391,49 +295,6 @@ export default function Crm() {
               t.id === notificationId ? { ...t, status: 'read' } : t
             )
           );
-          
-          // Refetch notification counts from server to ensure accuracy
-          // This will update both notified and tagged counts in sidebar
-          const userId = localStorage.getItem("userId");
-          if (userId && token) {
-            // Fetch all notifications to recalculate counts
-            fetch(`${baseURL}/notifications/user/${userId}`, {
-              headers: { Authorization: `Bearer ${token}` }
-            })
-              .then(res => res.json())
-              .then(data => {
-                const notifications = data.notifications || [];
-                
-                // Recalculate tagged count
-                const taggedCount = notifications.filter(n => {
-                  const msgText = (n.message || '').toLowerCase();
-                  const isUnread = n.status === 'unread' || n.status === ' ';
-                  return msgText.includes('mentioned you') && isUnread;
-                }).length;
-                
-                // Recalculate notified count
-                const notifiedCountNew = notifications.filter(n => {
-                  const hasComment = n.comment !== null && n.comment !== undefined && String(n.comment).trim() !== '';
-                  const msgText = (n.message || '').toLowerCase();
-                  const isTagged = msgText.includes('mentioned you');
-                  const isAssigned = (msgText.includes('assigned to you') || msgText.includes('forwarded to you')) && !isTagged;
-                  const isUnread = n.status === 'unread' || n.status === ' ';
-                  return hasComment && isUnread && !isTagged && !isAssigned;
-                }).length;
-                
-                // Update counts in localStorage for sidebar sync
-                localStorage.setItem('notificationCount', notifiedCountNew.toString());
-                localStorage.setItem('taggedCount', taggedCount.toString());
-                
-                // Update local state
-                setNotifiedCount(notifiedCountNew);
-                
-                // Trigger sidebar refresh
-                window.dispatchEvent(new CustomEvent('notificationCountUpdated'));
-              })
-              .catch(err => console.error('Error fetching updated counts:', err));
-          }
-        }
       } catch (error) {
         console.error('Error marking notification as read:', error);
       }
@@ -571,43 +432,19 @@ export default function Crm() {
     
     if (notificationId && notificationStatus === 'unread') {
       try {
-        const token = localStorage.getItem("authToken");
-        const response = await fetch(`${baseURL}/notifications/read/${notificationId}`, {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        if (response.ok) {
-          // Update notification status locally
-          notification.status = 'read';
-          
-          // Decrease notification count
-          if (notifiedCount > 0) {
-            const newCount = Math.max(0, notifiedCount - 1);
-            setNotifiedCount(newCount);
-            localStorage.setItem('notificationCount', newCount.toString());
-            
-            // Dispatch custom event to update sidebar
-            window.dispatchEvent(new CustomEvent('notificationModalOpened'));
-          }
-          
-          // Refetch notification count from server to ensure accuracy
-          const userId = localStorage.getItem("userId");
-          if (userId && token) {
-            fetch(`${baseURL}/notifications/unread-count/${userId}`, {
-              headers: { Authorization: `Bearer ${token}` }
-            })
-              .then(res => res.json())
-              .then(data => {
-                const count = data.unreadCount || 0;
-                setNotifiedCount(count);
-                localStorage.setItem('notificationCount', count.toString());
-              })
-              .catch(err => console.error('Error fetching updated count:', err));
-          }
+        await markReadMutation.mutateAsync(notificationId);
+
+        // Update notification status locally
+        notification.status = 'read';
+
+        // Decrease notification count
+        if (notifiedCount > 0) {
+          const newCount = Math.max(0, notifiedCount - 1);
+          setNotifiedCount(newCount);
+          localStorage.setItem('notificationCount', newCount.toString());
+
+          // Dispatch custom event to update sidebar
+          window.dispatchEvent(new CustomEvent('notificationModalOpened'));
         }
       } catch (error) {
         console.error('Error marking notification as read:', error);
@@ -640,9 +477,8 @@ export default function Crm() {
       return;
     }
 
-    const token = localStorage.getItem("authToken");
     const userId = localStorage.getItem("userId");
-    if (!token || !userId) return;
+    if (!userId) return;
 
     // Get all unread notifications for this ticket
     const unreadNotifications = notificationHistory.notifications.filter(
@@ -654,19 +490,9 @@ export default function Crm() {
     }
 
     try {
-      // Mark all unread notifications as read
-      const markPromises = unreadNotifications.map((notif) =>
-        fetch(`${baseURL}/notifications/read/${notif.id}`, {
-          method: 'PATCH',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json'
-          }
-        })
-      );
-
-      const results = await Promise.all(markPromises);
-      const successCount = results.filter((res) => res.ok).length;
+      const ids = unreadNotifications.map((n) => n.id);
+      const result = await markManyReadMutation.mutateAsync(ids);
+      const successCount = result.okCount || 0;
 
       if (successCount > 0) {
         // Update the React Query cache
@@ -695,18 +521,6 @@ export default function Crm() {
 
         // Dispatch custom event to update sidebar
         window.dispatchEvent(new CustomEvent('notificationModalOpened'));
-
-        // Refetch notification count from server to ensure accuracy
-        fetch(`${baseURL}/notifications/unread-count/${userId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        })
-          .then(res => res.json())
-          .then(data => {
-            const count = data.unreadCount || 0;
-            setNotifiedCount(count);
-            localStorage.setItem('notificationCount', count.toString());
-          })
-          .catch(err => console.error('Error fetching updated count:', err));
 
         // Update agentTickets array
         setAgentTickets(prevTickets =>
@@ -1968,7 +1782,7 @@ export default function Crm() {
         }}
         selectedTicket={selectedTicket}
         assignmentHistory={assignmentHistory}
-        refreshTickets={fetchAgentTickets}
+        refreshTickets={refetchFeed}
         refreshDashboardCounts={() => {}}
       />
 
