@@ -469,116 +469,116 @@ const Users = () => {
                   <TableCell>{user.sub_section || "N/A"}</TableCell>
                   <TableCell>{user.isActive ? "Active" : "Inactive"}</TableCell>
                   <TableCell className="action-buttons">
-                    <Tooltip title="Edit User">
-                      <button
-                        className="edit-button"
-                        onClick={async () => {
-                          // Set current user without password to prevent accidental password updates
-                          const { password, ...userWithoutPassword } = user;
-                          setCurrentUser(userWithoutPassword);
+                <Tooltip title="Edit User">
+                  <button
+                    className="edit-button"
+                    onClick={async () => {
+                      // Set current user without password to prevent accidental password updates
+                      const { password, ...userWithoutPassword } = user;
+                      setCurrentUser(userWithoutPassword);
+                      
+                      // Fetch sections and functions if role is focal-person
+                      if (user.role === "focal-person") {
+                        try {
+                          const token = localStorage.getItem("authToken");
                           
-                          // Fetch sections and functions if role is focal-person
-                          if (user.role === "focal-person") {
-                            try {
-                              const token = localStorage.getItem("authToken");
+                          // Fetch directorates and units
+                          const sectionsResponse = await fetch(`${baseURL}/section/units-data`, {
+                            headers: { Authorization: `Bearer ${token}` }
+                          });
+                          
+                          if (sectionsResponse.ok) {
+                            const sectionsData = await sectionsResponse.json();
+                            const fetchedSections = sectionsData.data || [];
+                            setSectionsList(fetchedSections);
+                            
+                            // Set selectedSection if user has unit_section that matches a section
+                            // This ensures sub_section dropdown displays correctly
+                            if (user.unit_section) {
+                              // Try exact match first
+                              let matchingSection = fetchedSections.find(s => 
+                                s.name.toLowerCase() === user.unit_section.toLowerCase()
+                              );
                               
-                              // Fetch directorates and units
-                              const sectionsResponse = await fetch(`${baseURL}/section/units-data`, {
-                                headers: { Authorization: `Bearer ${token}` }
-                              });
-                              
-                              if (sectionsResponse.ok) {
-                                const sectionsData = await sectionsResponse.json();
-                                const fetchedSections = sectionsData.data || [];
-                                setSectionsList(fetchedSections);
-                                
-                                // Set selectedSection if user has unit_section that matches a section
-                                // This ensures sub_section dropdown displays correctly
-                                if (user.unit_section) {
-                                  // Try exact match first
-                                  let matchingSection = fetchedSections.find(s => 
-                                    s.name.toLowerCase() === user.unit_section.toLowerCase()
-                                  );
-                                  
-                                  // If no exact match, try partial match
-                                  if (!matchingSection) {
-                                    matchingSection = fetchedSections.find(s => 
-                                      user.unit_section.includes(s.name) || s.name.includes(user.unit_section)
-                                    );
-                                  }
-                                  
-                                  if (matchingSection) {
-                                    setSelectedSection(matchingSection.name);
-                                  } else {
-                                    // If no match found, still set to user's unit_section to preserve it
-                                    setSelectedSection(user.unit_section);
-                                  }
-                                } else {
-                                  setSelectedSection("");
-                                }
+                              // If no exact match, try partial match
+                              if (!matchingSection) {
+                                matchingSection = fetchedSections.find(s => 
+                                  user.unit_section.includes(s.name) || s.name.includes(user.unit_section)
+                                );
                               }
                               
-                              // Fetch functions (sub-sections)
-                              const functionsResponse = await fetch(`${baseURL}/section/functions-data`, {
-                                headers: { Authorization: `Bearer ${token}` }
-                              });
-                              
-                              if (functionsResponse.ok) {
-                                const functionsData = await functionsResponse.json();
-                                setFunctionsList(functionsData.data || []);
+                              if (matchingSection) {
+                                setSelectedSection(matchingSection.name);
+                              } else {
+                                // If no match found, still set to user's unit_section to preserve it
+                                setSelectedSection(user.unit_section);
                               }
-                            } catch (error) {
-                              console.error("Error fetching sections and functions:", error);
+                            } else {
+                              setSelectedSection("");
                             }
-                          } else {
-                            // For non-focal-person roles, ensure unit_section is preserved
-                            setSelectedSection("");
                           }
                           
-                          setShowModal(true);
-                          setIsEditing(true);
-                        }}
-                      >
-                        <AiFillEdit />
-                      </button>
-                    </Tooltip>
-                    <Tooltip title="Activate User">
-                      <button
-                        className="activated-button"
-                        onClick={() => handleConfirmAction("activate", user.id)}
-                      >
-                        <HiMiniLockOpen />
-                      </button>
-                    </Tooltip>
-
-                    <Tooltip title="Deactivate User">
-                      <button
-                        className="deactivated-button"
-                        onClick={() => handleConfirmAction("de-activate", user.id)}
-                      >
-                        <HiMiniLockClosed />
-                      </button>
-                    </Tooltip>
-
-                    <Tooltip title="Reset User Password">
-                      <button
-                        className="reset-button"
-                        onClick={() =>
-                          handleConfirmAction("reset-password", user.id)
+                          // Fetch functions (sub-sections)
+                          const functionsResponse = await fetch(`${baseURL}/section/functions-data`, {
+                            headers: { Authorization: `Bearer ${token}` }
+                          });
+                          
+                          if (functionsResponse.ok) {
+                            const functionsData = await functionsResponse.json();
+                            setFunctionsList(functionsData.data || []);
+                          }
+                        } catch (error) {
+                          console.error("Error fetching sections and functions:", error);
                         }
-                      >
-                        <RxReset />
-                      </button>
-                    </Tooltip>
+                      } else {
+                        // For non-focal-person roles, ensure unit_section is preserved
+                        setSelectedSection("");
+                      }
+                      
+                      setShowModal(true);
+                      setIsEditing(true);
+                    }}
+                  >
+                    <AiFillEdit />
+                  </button>
+                </Tooltip>
+                <Tooltip title="Activate User">
+                  <button
+                    className="activated-button"
+                    onClick={() => handleConfirmAction("activate", user.id)}
+                  >
+                    <HiMiniLockOpen />
+                  </button>
+                </Tooltip>
 
-                    <Tooltip title="Delete User">
-                      <button
-                        className="delete-button"
-                        onClick={() => handleConfirmAction("delete", user.id)}
-                      >
-                        <MdDeleteForever />
-                      </button>
-                    </Tooltip>
+                <Tooltip title="Deactivate User">
+                  <button
+                    className="deactivated-button"
+                    onClick={() => handleConfirmAction("de-activate", user.id)}
+                  >
+                    <HiMiniLockClosed />
+                  </button>
+                </Tooltip>
+
+                <Tooltip title="Reset User Password">
+                  <button
+                    className="reset-button"
+                    onClick={() =>
+                      handleConfirmAction("reset-password", user.id)
+                    }
+                  >
+                    <RxReset />
+                  </button>
+                </Tooltip>
+
+                <Tooltip title="Delete User">
+                  <button
+                    className="delete-button"
+                    onClick={() => handleConfirmAction("delete", user.id)}
+                  >
+                    <MdDeleteForever />
+                  </button>
+                </Tooltip>
                   </TableCell>
                 </TableRow>
               ))

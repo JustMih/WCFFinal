@@ -1,10 +1,12 @@
 .queue-monitoring-section {
   background: #fff;
   border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   padding: 24px;
   margin-bottom: 32px;
   width: 100%;
+  height: 100%;
+  box-sizing: border-box;
 }
 .queue-monitoring-section h4 {
   margin-bottom: 18px;
@@ -23,7 +25,7 @@
   display: flex;
   align-items: center;
   min-width: 180px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
 }
 .queue-stat-icon {
   font-size: 1.8rem;
@@ -52,7 +54,8 @@
   margin-top: 10px;
   background: #fafbfc;
 }
-.waiting-calls-table th, .waiting-calls-table td {
+.waiting-calls-table th,
+.waiting-calls-table td {
   padding: 10px 12px;
   text-align: left;
   border-bottom: 1px solid #eaeaea;
@@ -61,7 +64,9 @@
   background: #f0f2f5;
   font-weight: 600;
 }
-.queue-id, .customer-number, .call-type {
+.queue-id,
+.customer-number,
+.call-type {
   font-weight: 500;
   color: #333;
 }
@@ -118,4 +123,4 @@
 }
 .priority-row-high {
   background: #ffeaea !important;
-} 
+}

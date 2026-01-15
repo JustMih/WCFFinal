@@ -15,7 +15,8 @@
   margin-bottom: 20px;
 }
 
-.phone-btn-call, .out-phone-btn-call {
+.phone-btn-call,
+.out-phone-btn-call {
   background-color: var(--hover-color);
   font-size: 30px;
   cursor: pointer;
@@ -23,7 +24,8 @@
   border-radius: 5px;
 }
 
-.phone-btn-call:hover, .out-phone-btn-call:hover {
+.phone-btn-call:hover,
+.out-phone-btn-call:hover {
   transition: ease-in-out 0.5s;
   color: #fff;
 }
@@ -89,12 +91,19 @@
   gap: 20px;
   margin-top: 20px;
   width: 100%;
+  flex-wrap: nowrap; /* Prevent wrapping to ensure side-by-side layout */
 }
 
 /* Ensure equal width for agent and supervisor tables when side by side */
-.dashboard-single-agent-row_two > div {
+.dashboard-single-agent-row_two > div,
+.dashboard-single-agent-row_two > * {
   flex: 1;
   min-width: 0; /* Allow flex items to shrink below their content size */
+}
+
+/* Ensure full width for single agent cards */
+.dashboard-single-agent > * {
+  width: 100%;
 }
 
 .queue-monitoring {
@@ -116,7 +125,8 @@
   text-align: left;
 }
 
-.queue-monitoring-table th, .queue-monitoring-table td {
+.queue-monitoring-table th,
+.queue-monitoring-table td {
   padding: 12px;
   border-bottom: 1px solid #ddd;
 }
@@ -126,7 +136,7 @@
 }
 
 .status-active {
-  background-color: #4CAF50;
+  background-color: #4caf50;
   color: white;
   padding: 4px 8px;
   border-radius: 4px;
@@ -152,7 +162,7 @@
   padding: 32px 28px 28px 28px;
   width: 370px;
   z-index: 1200;
-  animation: fadeInUp 0.3s cubic-bezier(.4,0,.2,1);
+  animation: fadeInUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border: none;
   overflow: hidden;
   max-height: 90vh;
@@ -191,13 +201,13 @@
   justify-content: center;
   cursor: pointer;
   transition: background 0.2s, box-shadow 0.2s, color 0.2s;
-  box-shadow: 0 2px 6px rgba(60,59,59,0.06);
+  box-shadow: 0 2px 6px rgba(60, 59, 59, 0.06);
 }
 
 .modern-keypad-btn:hover {
   background: #e3f2fd;
   color: #1976d2;
-  box-shadow: 0 4px 12px rgba(25,118,210,0.10);
+  box-shadow: 0 4px 12px rgba(25, 118, 210, 0.1);
 }
 
 .modern-keypad {
@@ -221,14 +231,14 @@
   color: #e53935;
   cursor: pointer;
   transition: background 0.2s, color 0.2s, box-shadow 0.2s;
-  box-shadow: 0 2px 6px rgba(60,59,59,0.06);
+  box-shadow: 0 2px 6px rgba(60, 59, 59, 0.06);
   margin-left: auto;
 }
 
 .modern-close-btn:hover {
   background: #ffeaea;
   color: #b71c1c;
-  box-shadow: 0 4px 12px rgba(229,57,53,0.10);
+  box-shadow: 0 4px 12px rgba(229, 57, 53, 0.1);
 }
 
 /* Phone Popup Modal - 3CX Style */
@@ -281,7 +291,7 @@
 }
 
 .phone-popup-header::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: 0;
   left: 0;
@@ -362,11 +372,12 @@
 }
 
 @keyframes pulse3CX {
-  0%, 100% { 
+  0%,
+  100% {
     opacity: 1;
     transform: scale(1);
   }
-  50% { 
+  50% {
     opacity: 0.7;
     transform: scale(1.1);
   }
@@ -389,7 +400,7 @@
   font-size: 18px;
   font-weight: 700;
   color: #ffffff;
-  font-family: 'Courier New', monospace;
+  font-family: "Courier New", monospace;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
@@ -429,7 +440,7 @@
 .cx3-timer {
   color: #b3e5fc;
   font-size: 14px;
-  font-family: 'Courier New', monospace;
+  font-family: "Courier New", monospace;
   font-weight: 700;
 }
 
@@ -608,7 +619,7 @@
   border-radius: 12px;
   font-size: 18px;
   text-align: center;
-  font-family: 'Courier New', monospace;
+  font-family: "Courier New", monospace;
   transition: all 0.3s ease;
   background: rgba(255, 255, 255, 0.05);
   color: #ffffff;
@@ -725,7 +736,9 @@
   border-color: #42a5f5;
 }
 
-.transfer-input .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+.transfer-input
+  .MuiOutlinedInput-root.Mui-focused
+  .MuiOutlinedInput-notchedOutline {
   border-color: #42a5f5;
   border-width: 2px;
 }
@@ -869,10 +882,11 @@
 }
 
 @keyframes pulse-red3CX {
-  0%, 100% { 
+  0%,
+  100% {
     box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.7);
   }
-  50% { 
+  50% {
     box-shadow: 0 0 0 15px rgba(211, 47, 47, 0);
   }
 }
@@ -895,45 +909,45 @@
     margin: 10px;
     border-radius: 16px;
   }
-  
+
   .phone-popup-content {
     padding: 16px;
   }
-  
+
   .control-row {
     flex-wrap: wrap;
     gap: 12px;
   }
-  
+
   .control-btn {
     min-width: 80px;
     padding: 16px 12px;
   }
-  
+
   .call-btn {
     min-width: 100px;
     padding: 16px 20px;
   }
-  
+
   .keypad-grid {
     gap: 12px;
   }
-  
+
   .keypad-btn {
     padding: 20px 16px;
     font-size: 20px;
   }
-  
+
   .cx3-logo {
     font-size: 40px;
   }
-  
+
   .caller-avatar {
     width: 80px;
     height: 80px;
     font-size: 32px;
   }
-  
+
   .caller-number {
     font-size: 24px;
   }
@@ -1077,7 +1091,7 @@
 
 .cx3-extension {
   font-weight: 600;
-  font-family: 'Courier New', monospace;
+  font-family: "Courier New", monospace;
 }
 
 .cx3-connection {

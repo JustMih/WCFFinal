@@ -254,6 +254,17 @@ export default function AgentsDashboard() {
       stopStatusTimer();
     };
   }, []);
+useEffect(() => {
+  // initial load
+  fetchMissedCallsFromBackend();
+
+  // auto refresh every 10 seconds
+  const interval = setInterval(() => {
+    fetchMissedCallsFromBackend();
+  }, 10000);
+
+  return () => clearInterval(interval);
+}, []);
 
   // ---------- SIP: incoming ----------
   const handleIncomingInvite = (invitation) => {
@@ -389,6 +400,25 @@ export default function AgentsDashboard() {
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
+const markMissedCallAsCalledBack = async (missedCallId) => {
+  if (!missedCallId) return;
+
+  try {
+    await fetch(`${baseURL}/missed-calls/${missedCallId}/status`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+      },
+      body: JSON.stringify({ status: "called_back" }),
+    });
+
+    // Refresh badge immediately
+    await fetchMissedCallsFromBackend();
+  } catch (err) {
+    console.error("Failed to update missed call status:", err);
+  }
+};
 
   // ---------- Missed calls ----------
   useEffect(() => {
@@ -400,7 +430,8 @@ export default function AgentsDashboard() {
     let formattedCaller = raw.startsWith("+255") ? `0${raw.substring(4)}` : raw;
     const time = new Date();
     const newCall = { caller: formattedCaller, time };
-    setMissedCalls((prev) => [...prev, newCall]);
+    setMissedCalls((prev) => [newCall, ...prev]);
+
     showAlert(`Missed Call from ${formattedCaller}`, "warning");
 
     fetch(`${baseURL}/missed-calls`, {
@@ -431,11 +462,14 @@ export default function AgentsDashboard() {
       );
       if (!response.ok) throw new Error("Failed to fetch missed calls");
       const data = await response.json();
-      const formatted = (data || []).map((call) => ({
-        ...call,
-        time: new Date(call.time),
-      }));
-      setMissedCalls(formatted);
+          const formatted = (data || [])
+        .map((call) => ({
+          ...call,
+          time: new Date(call.time),
+        }))
+        .sort((a, b) => b.time - a.time); // newest first
+
+            setMissedCalls(formatted);
       localStorage.setItem("missedCalls", JSON.stringify(formatted));
     } catch (error) {
       console.error("Error fetching missed calls:", error);
@@ -810,6 +844,7 @@ export default function AgentsDashboard() {
   const handleDial = () => {
     if (!userAgent || !phoneNumber) return;
     const targetURI = UserAgent.makeURI(`sip:${phoneNumber}@${SIP_DOMAIN}`);
+    
     if (!targetURI) return;
 
     const inviter = new Inviter(userAgent, targetURI, {
@@ -824,21 +859,23 @@ export default function AgentsDashboard() {
       .then(() => {
         setPhoneStatus("Dialing");
         inviter.stateChange.addListener((state) => {
-          if (state === SessionState.Established) {
-            attachMediaStream(inviter);
-            setPhoneStatus("In Call");
-            startCallTimer();
-            // Store call state in localStorage for persistence
-            localStorage.setItem(
-              "activeCallState",
-              JSON.stringify({
-                phoneStatus: "In Call",
-                phoneNumber: phoneNumber || "",
-                callStartTime: new Date().toISOString(),
-                hasActiveCall: true,
-              })
-            );
-          }
+     if (state === SessionState.Established) {
+  attachMediaStream(inviter);
+  setPhoneStatus("In Call");
+  startCallTimer();
+
+  localStorage.setItem(
+    "activeCallState",
+    JSON.stringify({
+      phoneStatus: "In Call",
+     phoneNumber: phoneNumber || "",
+      callStartTime: new Date().toISOString(),
+      hasActiveCall: true,
+    })
+  );
+ 
+}
+
           if (state === SessionState.Terminated) {
             setPhoneStatus("Idle");
             setSession(null);
@@ -875,53 +912,35 @@ export default function AgentsDashboard() {
       .invite()
       .then(() => {
         setPhoneStatus("Dialing");
-        inviter.stateChange.addListener((state) => {
-          if (state === SessionState.Established) {
-            attachMediaStream(inviter);
-            setPhoneStatus("In Call");
-            startCallTimer();
-            // Store call state in localStorage for persistence
-            localStorage.setItem(
-              "activeCallState",
-              JSON.stringify({
-                phoneStatus: "In Call",
-                phoneNumber: formatted || "",
-                callStartTime: new Date().toISOString(),
-                hasActiveCall: true,
-              })
-            );
-            if (missedCallId) {
-              fetch(`${baseURL}/missed-calls/${missedCallId}/status`, {
-                method: "PUT",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-                },
-                body: JSON.stringify({ status: "called_back" }),
-              })
-                .then((res) => {
-                  if (!res.ok) throw new Error("Failed to update status");
-                  return res.json();
-                })
-                .then(() =>
-                  setMissedCalls((prev) =>
-                    prev.filter((c) => c.id !== missedCallId)
-                  )
-                )
-                .catch((err) =>
-                  console.error("Failed to update missed call status:", err)
-                );
-            }
-          }
-          if (state === SessionState.Terminated) {
-            setPhoneStatus("Idle");
-            setSession(null);
-            // Clear call state from localStorage
-            localStorage.removeItem("activeCallState");
-            if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
-            stopCallTimer();
-          }
-        });
+     inviter.stateChange.addListener((state) => {
+  if (state === SessionState.Established) {
+    attachMediaStream(inviter);
+    setPhoneStatus("In Call");
+    startCallTimer();
+
+    localStorage.setItem(
+  "activeCallState",
+  JSON.stringify({
+    phoneStatus: "In Call",
+    phoneNumber: phoneNumber || "",
+    callStartTime: new Date().toISOString(),
+    hasActiveCall: true,
+  })
+);
+
+ 
+   
+  }
+
+  if (state === SessionState.Terminated) {
+    setPhoneStatus("Idle");
+    setSession(null);
+    localStorage.removeItem("activeCallState");
+    if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
+    stopCallTimer();
+  }
+});
+
       })
       .catch((error) => {
         console.error("Redial invite failed:", error);
@@ -1026,6 +1045,9 @@ export default function AgentsDashboard() {
 
   // Determine if there's an active call
   const hasActiveCall = phoneStatus === "In Call" && session !== null;
+useEffect(() => {
+  localStorage.setItem("missedCalls", JSON.stringify(missedCalls));
+}, [missedCalls]);
 
   return (
     <div className="p-6">
@@ -1230,7 +1252,11 @@ export default function AgentsDashboard() {
           </Tooltip>
         </div>
 
-        <div className="dashboard-single-agent-row_two">
+        <div className="dashboard-single-agent">
+          <CallQueueCard />
+        </div>
+
+        <div className="dashboard-single-agent">
           <CallHistoryCard
             onCallBack={(phoneNumber) => {
               setShowPhonePopup(true);
@@ -1238,7 +1264,6 @@ export default function AgentsDashboard() {
               handleRedial(phoneNumber);
             }}
           />
-          <CallQueueCard />
         </div>
 
         <div className="dashboard-single-agent">
@@ -1615,7 +1640,8 @@ export default function AgentsDashboard() {
             <p>No missed calls!</p>
           ) : (
             <ul style={{ listStyle: "none", padding: 0 }}>
-              {[...missedCalls].reverse().map((call, index) => (
+             {missedCalls.map((call, index) => (
+
                 <li
                   key={index}
                   style={{
@@ -1632,20 +1658,34 @@ export default function AgentsDashboard() {
                     <br />
                     <small>{new Date(call.time).toLocaleTimeString()}</small>
                   </div>
+                 
                   <Button
-                    variant="contained"
-                    color="primary"
-                    size="small"
-                    onClick={() => {
-                      setMissedOpen(false);
-                      setShowPhonePopup(true);
-                      setPhoneNumber(call.caller);
-                      handleRedial(call.caller, call.id);
-                    }}
-                    startIcon={<FiPhoneCall />}
-                  >
-                    Call Back
-                  </Button>
+                  variant="contained"
+                  color="primary"
+                  size="small"
+                  onClick={() => {
+                    // 1️⃣ REMOVE FROM UI BY ID (THIS FIXES IT)
+                    setMissedCalls((prev) =>
+                      prev.filter((c) => c.id !== call.id)
+                    );
+
+                    // 2️⃣ MARK AS CALLED BACK IN BACKEND
+                    markMissedCallAsCalledBack(call.id);
+
+                    // 3️⃣ CONTINUE NORMAL FLOW
+                    setMissedOpen(false);
+                    setShowPhonePopup(true);
+                    setPhoneNumber(call.caller);
+
+                    // 4️⃣ DIAL
+                    handleRedial(call.caller, call.id);
+                  }}
+                  startIcon={<FiPhoneCall />}
+                >
+                  Call Back
+                </Button>
+
+
                 </li>
               ))}
             </ul>

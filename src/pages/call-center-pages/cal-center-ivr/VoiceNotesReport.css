@@ -21,4 +21,17 @@
   .btn-pause {
     background-color: #ffc107;
   }
-  
+  .audio-player-container {
+  margin: 8px 0;
+}
+
+.audio-player-container audio {
+  width: 100%;
+  max-width: 300px;
+  height: 40px;
+}
+
+.audio-player-container small {
+  display: block;
+  margin-top: 4px;
+}

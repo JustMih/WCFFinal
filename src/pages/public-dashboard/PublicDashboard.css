@@ -38,10 +38,42 @@
   flex: 1;
 }
 
+.header-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 5px;
+}
+
+.back-button {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  color: white !important;
+  padding: 10px !important;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4) !important;
+  transition: all 0.3s ease !important;
+  border-radius: 10px !important;
+  min-width: 44px !important;
+  height: 44px !important;
+}
+
+.back-button:hover {
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%) !important;
+  transform: translateX(-3px) scale(1.05) !important;
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6) !important;
+}
+
+.back-button:active {
+  transform: translateX(-1px) scale(0.98) !important;
+}
+
+.back-button svg {
+  font-size: 1.5rem !important;
+}
+
 .dashboard-title {
   font-size: 1.8rem;
   font-weight: bold;
-  margin: 0 0 5px 0;
+  margin: 0;
   color: #333;
 }
 
@@ -514,4 +546,151 @@
   .section-title {
     font-size: 1rem;
   }
+}
+.lost-calls-list.enhanced {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lost-call-item.header {
+  font-weight: bold;
+  background-color: #f0f0f0;
+  border-bottom: 2px solid #ccc;
+}
+
+.lost-call-item {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1.2fr 1.2fr 1fr;
+  align-items: center;
+  padding: 12px 8px;
+  border-bottom: 1px solid #eee;
+  font-size: 0.95rem;
+}
+
+.lost-call-item > div {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 900px) {
+  .lost-call-item {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .lost-call-item.header {
+    display: none;
+  }
+}
+.lost-calls-list.enhanced {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.lost-call-item.header {
+  font-weight: 600;
+  background-color: #f5f5f5;
+  padding: 12px 10px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #444;
+}
+
+.lost-call-item {
+  display: grid;
+  grid-template-columns: 1.2fr 1.2fr 1fr 1.3fr 1.3fr 1fr;
+  align-items: center;
+  padding: 14px 10px;
+  background-color: #fff;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.lost-call-item:hover {
+  background-color: #f9f9f9;
+}
+
+.lost-call-item.called-back {
+  background-color: #e8f5e9;
+  border-left: 4px solid #4caf50;
+}
+
+.status-badge {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.lost-calls-list.enhanced {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.lost-call-item.header {
+  font-weight: 600;
+  background: #f0f0f0;
+  padding: 12px 10px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #333;
+  display: grid;
+  grid-template-columns: 1.2fr 1.2fr 1fr 1.3fr 1.3fr 1fr;
+}
+
+.lost-call-item {
+  display: grid;
+  grid-template-columns: 1.2fr 1.2fr 1fr 1.3fr 1.3fr 1fr;
+  padding: 14px 10px;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  align-items: center;
+  transition: all 0.2s;
+}
+
+.lost-call-item:hover {
+  background: #f5f5f5;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.lost-call-item.called-back {
+  background: #e8f5e8 !important;
+  border-left: 5px solid #4caf50;
+}
+
+.status-badge {
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.status-badge.no-answer {
+  background: #ff9800;
+  color: white;
+}
+
+.status-badge.called-back {
+  background: #4caf50;
+  color: white;
+}
+
+@media (max-width: 900px) {
+  .lost-call-item,
+  .lost-call-item.header {
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    font-size: 0.9rem;
+  }
+  .lost-call-item.header { display: none; }
 }
