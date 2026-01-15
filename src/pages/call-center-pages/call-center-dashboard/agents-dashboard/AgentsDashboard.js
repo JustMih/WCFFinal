@@ -254,6 +254,17 @@ export default function AgentsDashboard() {
       stopStatusTimer();
     };
   }, []);
+useEffect(() => {
+  // initial load
+  fetchMissedCallsFromBackend();
+
+  // auto refresh every 10 seconds
+  const interval = setInterval(() => {
+    fetchMissedCallsFromBackend();
+  }, 10000);
+
+  return () => clearInterval(interval);
+}, []);
 
   // ---------- SIP: incoming ----------
   const handleIncomingInvite = (invitation) => {
@@ -419,7 +430,8 @@ const markMissedCallAsCalledBack = async (missedCallId) => {
     let formattedCaller = raw.startsWith("+255") ? `0${raw.substring(4)}` : raw;
     const time = new Date();
     const newCall = { caller: formattedCaller, time };
-    setMissedCalls((prev) => [...prev, newCall]);
+    setMissedCalls((prev) => [newCall, ...prev]);
+
     showAlert(`Missed Call from ${formattedCaller}`, "warning");
 
     fetch(`${baseURL}/missed-calls`, {
@@ -450,11 +462,14 @@ const markMissedCallAsCalledBack = async (missedCallId) => {
       );
       if (!response.ok) throw new Error("Failed to fetch missed calls");
       const data = await response.json();
-      const formatted = (data || []).map((call) => ({
-        ...call,
-        time: new Date(call.time),
-      }));
-      setMissedCalls(formatted);
+          const formatted = (data || [])
+        .map((call) => ({
+          ...call,
+          time: new Date(call.time),
+        }))
+        .sort((a, b) => b.time - a.time); // newest first
+
+            setMissedCalls(formatted);
       localStorage.setItem("missedCalls", JSON.stringify(formatted));
     } catch (error) {
       console.error("Error fetching missed calls:", error);
@@ -1030,6 +1045,9 @@ const markMissedCallAsCalledBack = async (missedCallId) => {
 
   // Determine if there's an active call
   const hasActiveCall = phoneStatus === "In Call" && session !== null;
+useEffect(() => {
+  localStorage.setItem("missedCalls", JSON.stringify(missedCalls));
+}, [missedCalls]);
 
   return (
     <div className="p-6">
@@ -1622,7 +1640,8 @@ const markMissedCallAsCalledBack = async (missedCallId) => {
             <p>No missed calls!</p>
           ) : (
             <ul style={{ listStyle: "none", padding: 0 }}>
-              {[...missedCalls].reverse().map((call, index) => (
+             {missedCalls.map((call, index) => (
+
                 <li
                   key={index}
                   style={{
@@ -1639,20 +1658,34 @@ const markMissedCallAsCalledBack = async (missedCallId) => {
                     <br />
                     <small>{new Date(call.time).toLocaleTimeString()}</small>
                   </div>
+                 
                   <Button
-                    variant="contained"
-                    color="primary"
-                    size="small"
-                    onClick={() => {
-                      setMissedOpen(false);
-                      setShowPhonePopup(true);
-                      setPhoneNumber(call.caller);
-                      handleRedial(call.caller, call.id);
-                    }}
-                    startIcon={<FiPhoneCall />}
-                  >
-                    Call Back
-                  </Button>
+                  variant="contained"
+                  color="primary"
+                  size="small"
+                  onClick={() => {
+                    // 1️⃣ REMOVE FROM UI BY ID (THIS FIXES IT)
+                    setMissedCalls((prev) =>
+                      prev.filter((c) => c.id !== call.id)
+                    );
+
+                    // 2️⃣ MARK AS CALLED BACK IN BACKEND
+                    markMissedCallAsCalledBack(call.id);
+
+                    // 3️⃣ CONTINUE NORMAL FLOW
+                    setMissedOpen(false);
+                    setShowPhonePopup(true);
+                    setPhoneNumber(call.caller);
+
+                    // 4️⃣ DIAL
+                    handleRedial(call.caller, call.id);
+                  }}
+                  startIcon={<FiPhoneCall />}
+                >
+                  Call Back
+                </Button>
+
+
                 </li>
               ))}
             </ul>
