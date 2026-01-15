@@ -4032,8 +4032,19 @@ export default function TicketDetailsModal({
                   </Button>
                   </Tooltip>
                 )}
-                      {/* General Cancel button for all users except reviewers and director-general */}
-      {userRole !== "reviewer" && userRole !== "director-general" && (
+                      {/* General Cancel button: show for everyone except DG, but avoid duplicate Cancel for reviewers */}
+      {userRole !== "director-general" &&
+        !(
+          userRole === "reviewer" &&
+          selectedTicket &&
+          (
+            // When reviewer already sees action buttons that include Cancel, hide this one to avoid duplicates
+            permissionManager.canCloseAtCurrentStep(selectedTicket) ||
+            String(selectedTicket.assigned_to_id) === String(userId) ||
+            selectedTicket.responsible_unit_name === "Public Relation Unit" ||
+            Boolean(forwardUnit?.[selectedTicket.id])
+          )
+        ) && (
                   <Tooltip title="Cancel and close this dialog">
                   <Button variant="outlined" onClick={onClose}>
                     Cancel
