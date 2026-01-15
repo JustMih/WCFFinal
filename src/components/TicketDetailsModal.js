@@ -4685,7 +4685,7 @@ export default function TicketDetailsModal({
                   <li {...props} key={a.id}>
                     <Box sx={{ display: "flex", flexDirection: "column" }}>
                       <Typography variant="body2" sx={{ fontWeight: "medium" }}>
-                        {a.full_name || a.name}
+                        {a.full_name || a.name} - {a.role}
                       </Typography>
                       <Typography variant="caption" sx={{ color: "#666" }}>
                         @{a.username}
@@ -4818,7 +4818,7 @@ export default function TicketDetailsModal({
                   <li {...props} key={a.id}>
                     <Box sx={{ display: "flex", flexDirection: "column" }}>
                       <Typography variant="body2" sx={{ fontWeight: "medium" }}>
-                        {a.full_name || a.name}
+                        {a.full_name || a.name} - {a.role}
                       </Typography>
                       <Typography variant="caption" sx={{ color: "#666" }}>
                         @{a.username}
