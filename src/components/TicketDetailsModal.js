@@ -151,6 +151,9 @@ const getStepStatus = (stepIndex, currentStepIndex) => {
 
 const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, usersList = [] }) => {
   if (!selectedTicket) return null;
+  const normalizedCategory = String(selectedTicket.category || "").toLowerCase();
+  const isComplaintCategory = normalizedCategory === "complaint";
+  const isReviewerManagedCategory = ["complaint", "compliment", "complement", "suggestion"].includes(normalizedCategory);
   
   // Use creator_name from assignmentHistory[0] if available
   let creatorName = assignmentHistory && assignmentHistory[0] && assignmentHistory[0].creator_name;
@@ -171,8 +174,7 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
   }
 
   // Check if ticket should be with reviewer
-  const isWithReviewer = selectedTicket.status === "Open" && 
-    ["Complaint", "Compliment", "Suggestion"].includes(selectedTicket.category);
+  const isWithReviewer = selectedTicket.status === "Open" && isReviewerManagedCategory;
 
   // Build steps array - always include "Created" step
   const steps = [
@@ -2589,6 +2591,7 @@ export default function TicketDetailsModal({
 
     // Get the current ticket to check its section and rating
     const currentTicket = selectedTicket;
+    const isComplaintCategory = String(currentTicket?.category || "").toLowerCase() === "complaint";
 
     // Validate that at least one option is selected
     // If unitName is empty but ticket has a section, use the ticket's section
@@ -2600,8 +2603,9 @@ export default function TicketDetailsModal({
       return;
     }
 
-    // Check if trying to forward without rating
-    // Allow forwarding if either the ticket is already rated OR a rating is being provided in this request
+    // Rating rules:
+    // - Complaint + forward => rating required (Minor/Major) before forwarding
+    // - Non-Complaint or convert => no rating required
     const isProvidingRating = selectedRating && ["Minor", "Major"].includes(selectedRating);
     const isAlreadyRated = currentTicket?.complaint_type;
     
@@ -2613,7 +2617,7 @@ export default function TicketDetailsModal({
       currentTicketComplaintType: currentTicket?.complaint_type
     });
     
-    if (effectiveUnitName && !isAlreadyRated && !isProvidingRating) {
+    if (mode === "forward" && isComplaintCategory && effectiveUnitName && !isAlreadyRated && !isProvidingRating) {
       // Check if the rating dropdown is visible to the user
       const isRatingDropdownVisible = !(currentTicket.status === "Returned" || currentTicket.complaint_type);
       
@@ -2626,7 +2630,7 @@ export default function TicketDetailsModal({
     }
 
     // Validate comment/description is required when rating and forwarding
-    if (effectiveUnitName && (isProvidingRating || isAlreadyRated) && !ratingComment.trim()) {
+    if (mode === "forward" && isComplaintCategory && effectiveUnitName && (isProvidingRating || isAlreadyRated) && !ratingComment.trim()) {
       showSnackbar("Please provide a comment/description before forwarding the ticket.", "warning");
       return;
     }
@@ -2640,9 +2644,12 @@ export default function TicketDetailsModal({
         responsible_unit_name: effectiveUnitName || undefined,
         // Only send category when explicitly converting; for pure forward ignore convertCategory value
         category: mode === "convert" ? (category || undefined) : undefined,
-        complaintType: selectedRating || currentTicket?.complaint_type || undefined,
-        ratingComment: ratingComment.trim() || undefined
       };
+      if (isComplaintCategory) {
+        payload.complaintType = selectedRating || currentTicket?.complaint_type || undefined;
+        // only meaningful for complaints
+        payload.ratingComment = ratingComment.trim() || undefined;
+      }
 
       const response = await fetch(`${baseURL}/reviewer/${ticketId}/convert-or-forward-ticket`, {
         method: "PUT",
@@ -3398,37 +3405,38 @@ export default function TicketDetailsModal({
                     {/* Show rating selection only if ticket is not returned and not already rated */}
                     {(selectedTicket.assigned_to_role === 'reviewer') && selectedTicket.assigned_to && String(selectedTicket.assigned_to) === String(userId) && (
                       <Box sx={{ mb: 2 }}>
-                        {/* Complaint Category Row */}
-                        <Box sx={{ display: "flex", alignItems: "flex-end", gap: 1.5, mb: 1.5, flexWrap: "wrap" }}>
-                          <Box sx={{ minWidth: { xs: "100%", sm: "180px" }, flex: { xs: "1 1 100%", sm: "0 0 auto" } }}>
-                            <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.75, color: '#424242', fontSize: '0.85rem' }}>
-                              Complaint Category:
-                            </Typography>
-                            <FormControl fullWidth size="small">
-                              <Select
-                                value={selectedRating}
-                                onChange={(e) => setSelectedRating(e.target.value)}
-                                disabled={ratingLoading}
-                                sx={{
-                                  fontSize: '0.8rem',
-                                  height: '32px',
-                                  textAlign: 'left',
-                                  '& .MuiSelect-select': {
-                                    padding: '6px 14px',
+                        {/* Complaint-only Rating Row (non-Complaint behaves like Inquiry: no rating required/visible) */}
+                        {String(selectedTicket.category || "").toLowerCase() === "complaint" && (
+                          <Box sx={{ display: "flex", alignItems: "flex-end", gap: 1.5, mb: 1.5, flexWrap: "wrap" }}>
+                            <Box sx={{ minWidth: { xs: "100%", sm: "180px" }, flex: { xs: "1 1 100%", sm: "0 0 auto" } }}>
+                              <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.75, color: '#424242', fontSize: '0.85rem' }}>
+                                Complaint Category:
+                              </Typography>
+                              <FormControl fullWidth size="small">
+                                <Select
+                                  value={selectedRating}
+                                  onChange={(e) => setSelectedRating(e.target.value)}
+                                  disabled={ratingLoading}
+                                  sx={{
                                     fontSize: '0.8rem',
-                                    textAlign: 'left'
-                                  }
-                                }}
-                              >
-                                <MenuItem value="" sx={{ fontSize: '0.8rem', py: 0.5 }}>Select Category</MenuItem>
-                                <MenuItem value="Minor" sx={{ fontSize: '0.8rem', py: 0.5 }}>Minor</MenuItem>
-                                <MenuItem value="Major" sx={{ fontSize: '0.8rem', py: 0.5 }}>Major</MenuItem>
-                              </Select>
-                            </FormControl>
-                          </Box>
+                                    height: '32px',
+                                    textAlign: 'left',
+                                    '& .MuiSelect-select': {
+                                      padding: '6px 14px',
+                                      fontSize: '0.8rem',
+                                      textAlign: 'left'
+                                    }
+                                  }}
+                                >
+                                  <MenuItem value="" sx={{ fontSize: '0.8rem', py: 0.5 }}>Select Category</MenuItem>
+                                  <MenuItem value="Minor" sx={{ fontSize: '0.8rem', py: 0.5 }}>Minor</MenuItem>
+                                  <MenuItem value="Major" sx={{ fontSize: '0.8rem', py: 0.5 }}>Major</MenuItem>
+                                </Select>
+                              </FormControl>
+                            </Box>
                           
                           {/* Convert To Section */}
-                          {selectedTicket.category === "Complaint" && (
+                          {String(selectedTicket.category || "").toLowerCase() === "complaint" && (
                             <Box sx={{ display: "flex", alignItems: "flex-end", gap: 1, minWidth: { xs: "100%", sm: "auto" }, flex: { xs: "1 1 100%", sm: "0 0 auto" } }}>
                               <FormControl size="small" sx={{ minWidth: 120 }}>
                                 <InputLabel sx={{ fontSize: '0.8rem' }}>Convert To</InputLabel>
@@ -3470,10 +3478,11 @@ export default function TicketDetailsModal({
                               </Tooltip>
                             </Box>
                           )}
-                        </Box>
+                          </Box>
+                        )}
 
-                          {/* Comment/Description field - required when rating and forwarding */}
-                          {selectedRating && ["Minor", "Major"].includes(selectedRating) && (
+                          {/* Comment/Description field - required when rating and forwarding (Complaint only) */}
+                          {String(selectedTicket.category || "").toLowerCase() === "complaint" && selectedRating && ["Minor", "Major"].includes(selectedRating) && (
                             <Box sx={{ mb: 1.5 }}>
                               <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.75, color: '#424242', fontSize: '0.85rem' }}>
                                 Comment/Description <span style={{ color: "red" }}>*</span>:
@@ -3579,12 +3588,20 @@ export default function TicketDetailsModal({
                         </Box>
                           
                           <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-                            <Tooltip title={!selectedRating || !["Minor", "Major"].includes(selectedRating) ? "Please select a rating (Minor or Major) from the 'Complaint Category' dropdown above" : !ratingComment.trim() ? "Please provide a comment/description before forwarding" : "Forward ticket to selected unit/section"}>
+                            <Tooltip title={String(selectedTicket.category || "").toLowerCase() === "complaint"
+                              ? (!selectedRating || !["Minor", "Major"].includes(selectedRating)
+                                ? "Please select a rating (Minor or Major) from the 'Complaint Category' dropdown above"
+                                : !ratingComment.trim()
+                                  ? "Please provide a comment/description before forwarding"
+                                  : "Forward ticket to selected unit/section")
+                              : "Forward ticket to selected unit/section"}>
                               <Button
                                 size="small"
                                 variant="contained"
                                 onClick={() => handleConvertOrForward(selectedTicket.id, "forward")}
-                                disabled={!selectedRating || !["Minor", "Major"].includes(selectedRating) || !ratingComment.trim() || convertOrForwardLoading}
+                                disabled={String(selectedTicket.category || "").toLowerCase() === "complaint"
+                                  ? (!selectedRating || !["Minor", "Major"].includes(selectedRating) || !ratingComment.trim() || convertOrForwardLoading)
+                                  : convertOrForwardLoading}
                                 sx={{
                                   textTransform: 'none',
                                   px: 1.5,
@@ -3599,12 +3616,12 @@ export default function TicketDetailsModal({
                             
                             {/* Status Messages */}
                             <Box sx={{ display: "flex", flexDirection: "column", gap: 0.25, minWidth: { xs: "100%", sm: "auto" } }}>
-                              {(!selectedRating || !["Minor", "Major"].includes(selectedRating)) && (
+                              {String(selectedTicket.category || "").toLowerCase() === "complaint" && (!selectedRating || !["Minor", "Major"].includes(selectedRating)) && (
                                 <Typography variant="caption" sx={{ color: '#ff9800', fontSize: "0.7rem", fontWeight: 500 }}>
                                   Rating required
                                 </Typography>
                               )}
-                              {selectedRating && ["Minor", "Major"].includes(selectedRating) && !ratingComment.trim() && (
+                              {String(selectedTicket.category || "").toLowerCase() === "complaint" && selectedRating && ["Minor", "Major"].includes(selectedRating) && !ratingComment.trim() && (
                                 <Typography variant="caption" sx={{ color: '#d32f2f', fontSize: "0.7rem", fontWeight: 500 }}>
                                   Comment required
                                 </Typography>
@@ -3616,7 +3633,11 @@ export default function TicketDetailsModal({
                                   (allSectionsList && allSectionsList.some(s => s.name === selectedTicket.section && !s.section_id))
                                 );
                                 const displayValue = isDirectorate ? selectedTicket.section : (selectedTicket.sub_section || selectedTicket.section);
-                                return displayValue && !forwardUnit[selectedTicket.id] && selectedRating && ["Minor", "Major"].includes(selectedRating) && ratingComment.trim() && (
+                                return displayValue && !forwardUnit[selectedTicket.id] && (
+                                  String(selectedTicket.category || "").toLowerCase() === "complaint"
+                                    ? (selectedRating && ["Minor", "Major"].includes(selectedRating) && ratingComment.trim())
+                                    : true
+                                ) && (
                                   <Typography variant="caption" sx={{ color: '#1976d2', fontSize: "0.7rem", fontWeight: 500 }}>
                                     Will forward to: {displayValue}
                                   </Typography>
