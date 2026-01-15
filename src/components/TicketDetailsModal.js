@@ -657,7 +657,10 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
               ) : (
                 <>
                   {/* Justification for non-closed actions */}
+                  {/* Don't show Description for Current step EXCEPT when the action is Reversed (so user can see reversal reason) */}
                   {a.reason && (
+                    !(idx === currentAssigneeIdx && selectedTicket.status !== "Closed" && a.action !== "Reversed")
+                  ) && (
                     <Box sx={{ mt: 1, p: 1.25, bgcolor: '#f8f9fa', borderRadius: 1, border: '1px solid #e9ecef' }}>
                       <Typography variant="body2" sx={{ color: '#444', fontStyle: 'italic' }}>
                         <strong>Description:</strong> {a.reason}
@@ -3414,9 +3417,10 @@ export default function TicketDetailsModal({
                   </Tooltip>
                 )}
 
-                {/* Edit Subject & Section button for reversed tickets */}
-                {selectedTicket?.status === "Reversed" && userRole === "agent" && 
-                 selectedTicket?.assigned_to_id === userId && (
+                {/* Edit Subject & Section button for reversed tickets - only for ticket creator (initiator) */}
+                {selectedTicket?.status === "Reversed" && 
+                 selectedTicket?.created_by && userId &&
+                 String(selectedTicket.created_by) === String(userId) && (
                   <Tooltip title="Edit ticket subject and section">
                   <Button
                     variant="contained"
@@ -3458,7 +3462,7 @@ export default function TicketDetailsModal({
                     </Typography>
                     
                     {/* Show rating selection only if ticket is not returned and not already rated */}
-                    {!(selectedTicket.status === "Returned" || selectedTicket.complaint_type) && (
+                    {(selectedTicket.assigned_to_role === 'reviewer') && selectedTicket.assigned_to && String(selectedTicket.assigned_to) === String(userId) && (
                       <Box sx={{ mb: 2 }}>
                         {/* Complaint Category Row */}
                         <Box sx={{ display: "flex", alignItems: "flex-end", gap: 1.5, mb: 1.5, flexWrap: "wrap" }}>
