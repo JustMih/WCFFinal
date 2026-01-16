@@ -8,7 +8,7 @@ import {
   DialogActions,
   IconButton,
 } from "@mui/material";
-import { Close as CloseIcon, ArrowBack as ArrowBackIcon } from "@mui/icons-material";
+import { Close as CloseIcon } from "@mui/icons-material";
 import {
   MdPhone,
   MdPhoneInTalk,
@@ -320,16 +320,7 @@ return () => {
       {/* Header */}
       <div className="dashboard-header">
         <div className="header-left">
-          <div className="header-top">
-            <IconButton
-              className="back-button"
-              onClick={() => navigate(-1)}
-              aria-label="Go back"
-            >
-              <ArrowBackIcon />
-            </IconButton>
-            <h1 className="dashboard-title">WCF Call Center Dashboard</h1>
-          </div>
+          <h1 className="dashboard-title">WCF Call Center Dashboard</h1>
           <div className="current-time">
             {currentTime.toLocaleString("en-US", {
               weekday: "short",
@@ -792,16 +783,12 @@ return () => {
                         })
                       : "-"}
                   </div>
-                 <div className="lost-call-status">
-                  <span
-                    className={`status-badge ${
-                      call.status === "called_back" ? "called-back" : "pending"
-                    }`}
-                  >
-                    {call.status === "called_back" ? "CALLED BACK" : "PENDING"}
-                  </span>
-                </div>
+                  <div className="lost-call-status">
+                    <span className={`status-badge ${call.status === "called_back" ? "called-back" : "no-answer"}`}>
+                    {call.status === "called_back" ? "CALLED BACK" : "NO ANSWER"}
 
+                    </span>
+                  </div>
                   <div className="lost-call-callback">
                     {call.callback_agent_name || (call.callback_agent_extension ? `Agent ${call.callback_agent_extension}` : "-")}
                   </div>
