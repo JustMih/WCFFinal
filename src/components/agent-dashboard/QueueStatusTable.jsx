@@ -5,10 +5,14 @@ import "./QueueStatusTable.css";
 import { baseURL } from "../../config";
 
 // Connect to Socket.IO backend
-const socket = io("https://10.52.0.19", {
+const socket = io(baseURL, {
   path: "/ami-socket/socket.io",
   transports: ["websocket"],
-  secure: true
+  secure: true,
+  reconnection: true,
+  reconnectionAttempts: Infinity,
+  reconnectionDelay: 1000,
+  reconnectionDelayMax: 5000,
 });
 
 export default function QueueStatusTable() {
