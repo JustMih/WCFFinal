@@ -1239,6 +1239,7 @@ export default function Navbar({
                         display: 'flex', 
                         justifyContent: 'space-between', 
                         alignItems: 'center',
+                        marginTop: '8px', // Small gap below badge
                         marginBottom: '4px',
                         fontSize: '0.7rem',
                         color: '#666',
@@ -1270,7 +1271,8 @@ export default function Navbar({
                         marginBottom: '4px',
                         fontSize: '0.7rem',
                         color: '#666',
-                        width: '100%'
+                        width: '100%',
+                        paddingRight: '80px' // Add padding to prevent badge from covering dates
                       }}>
                         <span style={{ 
                           fontSize: '0.7rem',

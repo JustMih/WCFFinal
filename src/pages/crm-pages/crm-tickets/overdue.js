@@ -13,10 +13,10 @@ import TicketDetailsModal from '../../../components/TicketDetailsModal';
 import Pagination from '../../../components/Pagination';
 import TableControls from "../../../components/TableControls";
 import TicketFilters from '../../../components/ticket/TicketFilters';
+import { useWcfTicketList } from "../../../api/wcfTicketQueries";
 
 export default function Crm() {
-  const [agentTickets, setAgentTickets] = useState([]);
-  const [agentTicketsError, setAgentTicketsError] = useState(null);
+  const [authError, setAuthError] = useState(null);
   const [userId, setUserId] = useState("");
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -35,7 +35,16 @@ export default function Crm() {
     "region",
     "status"
   ]);
-  const [loading, setLoading] = useState(true);
+  const {
+    data: assignments = [],
+    isLoading: loading,
+    error: assignmentsErrorObj,
+    refetch: refetchOverdue,
+  } = useWcfTicketList(
+    { type: "overdue", userId, enabled: Boolean(userId) },
+    { enabled: Boolean(userId) }
+  );
+  const assignmentsError = authError || assignmentsErrorObj?.message || null;
   const [filters, setFilters] = useState({
     search: '',
     nidaSearch: '',
@@ -51,61 +60,17 @@ export default function Crm() {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   const [isFlowModalOpen, setIsFlowModalOpen] = useState(false);
-  const [assignments, setAssignments] = useState([]);
-  const [assignmentsError, setAssignmentsError] = useState(null);
+  // NOTE: overdue list now comes from TanStack Query (useWcfTicketList)
 
   useEffect(() => {
     const userId = localStorage.getItem("userId");
     if (userId) {
       setUserId(userId);
     } else {
-      setAssignmentsError("User not authenticated. Please log in.");
-      setLoading(false);
+      setAuthError("User not authenticated. Please log in.");
     }
   }, []);
-
-  useEffect(() => {
-    if (userId) {
-      fetchInProgressAssignments();
-    }
-  }, [userId]);
-
-  const fetchInProgressAssignments = async () => {
-    try {
-      const token = localStorage.getItem("authToken");
-      if (!token) {
-        throw new Error("Authentication error. Please log in again.");
-      }
-     const url = `${baseURL}/ticket/overdue/${userId}`;
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      if (!response.ok) {
-        if (response.status === 404) {
-          setAssignments([]);
-          setAssignmentsError("No ticket found");
-          return;
-        }
-        throw new Error(`HTTP errorr! Status: ${response.status}`);
-      }
-      const data = await response.json();
-      if (data && Array.isArray(data.assignments)) {
-        setAssignments(data.assignments);
-        setAssignmentsError(null);
-      } else {
-        setAssignments([]);
-        setAssignmentsError("No ticket found");
-      }
-    } catch (error) {
-      setAssignmentsError(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // NOTE: fetching moved to TanStack Query (useWcfTicketList)
 
   const handleCommentsChange = (e) => {
     setComments(e.target.value);
@@ -131,7 +96,7 @@ export default function Crm() {
           type: "success",
           message: "Comments updated successfully.",
         });
-        fetchInProgressAssignments();
+        refetchOverdue();
       } else {
         const data = await response.json();
         setModal({

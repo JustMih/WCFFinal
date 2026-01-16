@@ -10,7 +10,6 @@ import Button from "@mui/material/Button";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
-import Snackbar from "@mui/material/Snackbar";
 import Avatar from "@mui/material/Avatar";
 import Paper from "@mui/material/Paper";
 import TextField from "@mui/material/TextField";
@@ -43,6 +42,7 @@ import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import { baseURL } from "../config";
 import { PermissionManager } from "../utils/permissions";
 import TicketUpdates from './ticket/TicketUpdates';
+import ActionMessageModal from "./ticket/ActionMessageModal";
 
 const getCreatorName = (selectedTicket) =>
   selectedTicket.created_by ||
@@ -151,6 +151,9 @@ const getStepStatus = (stepIndex, currentStepIndex) => {
 
 const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, usersList = [] }) => {
   if (!selectedTicket) return null;
+  const normalizedCategory = String(selectedTicket.category || "").toLowerCase();
+  const isComplaintCategory = normalizedCategory === "complaint";
+  const isReviewerManagedCategory = ["complaint", "compliment", "complement", "suggestion"].includes(normalizedCategory);
   
   // Use creator_name from assignmentHistory[0] if available
   let creatorName = assignmentHistory && assignmentHistory[0] && assignmentHistory[0].creator_name;
@@ -171,8 +174,7 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
   }
 
   // Check if ticket should be with reviewer
-  const isWithReviewer = selectedTicket.status === "Open" && 
-    ["Complaint", "Compliment", "Suggestion"].includes(selectedTicket.category);
+  const isWithReviewer = selectedTicket.status === "Open" && isReviewerManagedCategory;
 
   // Build steps array - always include "Created" step
   const steps = [
@@ -657,7 +659,10 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
               ) : (
                 <>
                   {/* Justification for non-closed actions */}
+                  {/* Don't show Description for Current step EXCEPT when the action is Reversed (so user can see reversal reason) */}
                   {a.reason && (
+                    !(idx === currentAssigneeIdx && selectedTicket.status !== "Closed" && a.action !== "Reversed")
+                  ) && (
                     <Box sx={{ mt: 1, p: 1.25, bgcolor: '#f8f9fa', borderRadius: 1, border: '1px solid #e9ecef' }}>
                       <Typography variant="body2" sx={{ color: '#444', fontStyle: 'italic' }}>
                         <strong>Description:</strong> {a.reason}
@@ -1019,17 +1024,21 @@ export default function TicketDetailsModal({
   const [selectedSection, setSelectedSection] = useState(""); // Selected Section
   const [availableSubjects, setAvailableSubjects] = useState([]); // Subjects within selected Section
   
-  // Snackbar state
-  const [snackbar, setSnackbarState] = useState({ open: false, message: '', severity: 'info' });
-  
-  // Function to show snackbar messages
-  const showSnackbar = (message, severity = 'info') => {
-    setSnackbarState({ open: true, message, severity });
+  // Action feedback modal (same style as create-ticket popup)
+  const [actionModal, setActionModal] = useState({ isOpen: false, type: "info", message: "" });
+  const actionModalAfterCloseRef = useRef(null);
+
+  // Keep the old function name so we can swap implementations with minimal edits
+  const showSnackbar = (message, severity = "info", afterClose = null) => {
+    actionModalAfterCloseRef.current = typeof afterClose === "function" ? afterClose : null;
+    setActionModal({ isOpen: true, type: severity, message });
   };
-  
-  // Function to close snackbar
+
   const closeSnackbar = () => {
-    setSnackbarState({ ...snackbar, open: false });
+    setActionModal((prev) => ({ ...prev, isOpen: false }));
+    const afterClose = actionModalAfterCloseRef.current;
+    actionModalAfterCloseRef.current = null;
+    if (afterClose) afterClose();
   };
 
   // Function to check if current user was previously assigned to this ticket
@@ -1607,8 +1616,13 @@ export default function TicketDetailsModal({
     String(selectedTicket.assigned_to_id) === String(userId) &&
     selectedTicket.status !== "Closed";
 
-      // Debug close permission for reviewers
-    if (userRole === 'reviewer' && selectedTicket?.category === 'Complaint') {
+  // Debug close permission for reviewers (only for specific categories)
+  const reviewerDebugCategories = ["Complaint", "Compliment", "Suggestion"];
+  if (
+    userRole === "reviewer" &&
+    selectedTicket &&
+    reviewerDebugCategories.includes(String(selectedTicket.category || "").toLowerCase())
+  ) {
     permissionManager.debugClosePermission(selectedTicket);
   }
 
@@ -1619,7 +1633,7 @@ export default function TicketDetailsModal({
         userRole,
         complaintType: selectedTicket?.complaint_type,
         isManager: userRole === "manager",
-        isMajor: selectedTicket?.complaint_type === "Major",
+        isMajor: selectedTicket?.complaint_type === "Major",  
         shouldUseManagerAPI: userRole === "manager" && selectedTicket?.complaint_type === "Major",
         selectedTicketId: selectedTicket?.id,
         selectedTicketStatus: selectedTicket?.status,
@@ -1646,11 +1660,11 @@ export default function TicketDetailsModal({
         
         if (!response.ok) {
           const error = await response.json();
-          setSnackbarState({ open: true, message: error.message || 'Failed to submit recommendation', severity: 'error' });
+          showSnackbar(error.message || 'Failed to submit recommendation', 'error');
           return;
         }
         
-        setSnackbarState({ open: true, message: 'Recommendation submitted! Ticket sent to Head of Unit for review.', severity: 'success' });
+        showSnackbar('Recommendation submitted! Ticket sent to Head of Unit for review.', 'success');
         setIsAttendDialogOpen(false); // Close the attend dialog
         refreshTickets(); // Refresh to update ticket state
         // Don't close the main modal - let user see the updated state
@@ -1675,15 +1689,15 @@ export default function TicketDetailsModal({
       });
       if (!response.ok) {
         const error = await response.json();
-        setSnackbarState({ open: true, message: error.message || 'Failed to submit recommendation', severity: 'error' });
+        showSnackbar(error.message || 'Failed to submit recommendation', 'error');
         return;
       }
-      setSnackbarState({ open: true, message: 'Recommendation submitted! The Head of Unit will review it next.', severity: 'success' });
+      showSnackbar('Recommendation submitted! The Head of Unit will review it next.', 'success');
       setIsAttendDialogOpen(false); // Close the attend dialog
       refreshTickets(); // Refresh to update ticket state
       // Don't close the main modal - let user see the updated state
     } catch (err) {
-      setSnackbarState({ open: true, message: 'Network error: ' + err.message, severity: 'error' });
+      showSnackbar('Network error: ' + err.message, 'error');
     } finally {
       setAttendLoading(false);
     }
@@ -1810,7 +1824,7 @@ export default function TicketDetailsModal({
   // Director General close ticket handler
   const handleDGCloseTicket = async () => {
     if (!dgNotes || !dgNotes.trim()) {
-      setSnackbarState({open: true, message: 'Please provide justification before closing the ticket', severity: 'warning'});
+      showSnackbar('Please provide justification before closing the ticket', 'warning');
       return;
     }
 
@@ -1842,16 +1856,17 @@ export default function TicketDetailsModal({
       if (response.ok) {
         setIsDGApprovalDialogOpen(false);
         setAttachment(null);
-        onClose();
-        refreshTickets();
-        setSnackbarState({open: true, message: 'Ticket closed successfully by Director General', severity: 'success'});
+        showSnackbar('Ticket closed successfully by Director General', 'success', () => {
+          refreshTickets();
+          onClose();
+        });
       } else {
         const errorData = await response.json();
-        setSnackbarState({open: true, message: errorData.message || 'Failed to close ticket', severity: 'error'});
+        showSnackbar(errorData.message || 'Failed to close ticket', 'error');
       }
     } catch (error) {
       console.error("Error closing ticket:", error);
-      setSnackbarState({open: true, message: 'Error closing ticket: ' + error.message, severity: 'error'});
+      showSnackbar('Error closing ticket: ' + error.message, 'error');
     } finally {
       setDgApprovalLoading(false);
     }
@@ -1881,15 +1896,16 @@ export default function TicketDetailsModal({
       );
       if (response.ok) {
         setIsAttendDialogOpen(false);
-        onClose();
-        refreshTickets();
-        setSnackbarState({open: true, message: 'Ticket closed successfully', severity: 'success'});
+        showSnackbar('Ticket closed successfully', 'success', () => {
+          refreshTickets();
+          onClose();
+        });
       } else {
         const errorData = await response.json();
-        setSnackbarState({open: true, message: errorData.message || 'Failed to close ticket', severity: 'error'});
+        showSnackbar(errorData.message || 'Failed to close ticket', 'error');
       }
     } catch (error) {
-      setSnackbarState({open: true, message: 'Error closing ticket: ' + error.message, severity: 'error'});
+      showSnackbar('Error closing ticket: ' + error.message, 'error');
     } finally {
       setAttendSubmitLoading(false);
     }
@@ -1938,10 +1954,11 @@ export default function TicketDetailsModal({
       if (response.ok) {
         const data = await response.json();
         setIsReviewerCloseDialogOpen(false);
-        onClose();
-        refreshTickets();
         const actionMessage = userRole === "reviewer" ? 'Ticket closed successfully by Reviewer' : 'Ticket attended successfully';
-        showSnackbar(actionMessage, 'success');
+        showSnackbar(actionMessage, 'success', () => {
+          refreshTickets();
+          onClose();
+        });
       } else {
         const errorData = await response.json().catch(() => ({ message: 'Failed to process ticket' }));
         throw new Error(errorData.message || errorData.error || "Failed to process ticket");
@@ -1986,22 +2003,19 @@ export default function TicketDetailsModal({
       
       const data = await response.json();
       if (response.ok) {
-        setSnackbarState({ open: true, message: data.message, severity: "success" });
+        showSnackbar(data.message, "success", () => {
+          refreshTickets();
+          onClose();
+        });
         setIsReverseModalOpen(false);
         setReverseReason("");
         setReverseResolutionType("");
         setAttachment(null);
-        
-        // Add a small delay before refreshing and closing to prevent ResizeObserver error
-        setTimeout(() => {
-          refreshTickets();
-          onClose();
-        }, 100);
       } else {
-        setSnackbarState({ open: true, message: data.message, severity: "error" });
+        showSnackbar(data.message, "error");
       }
     } catch (error) {
-      setSnackbarState({ open: true, message: error.message, severity: "error" });
+      showSnackbar(error.message, "error");
     } finally {
       setIsReversing(false);
     }
@@ -2252,16 +2266,16 @@ export default function TicketDetailsModal({
         if (data.focal_person) {
           successMessage += ` - Assigned to: ${data.focal_person.full_name} (${data.focal_person.role})`;
         }
-        setSnackbarState({ open: true, message: successMessage, severity: "success" });
+        showSnackbar(successMessage, "success");
         setIsEditReversedTicketDialogOpen(false);
         refreshTickets();
         onClose();
       } else {
-        setSnackbarState({ open: true, message: data.message, severity: "error" });
+        showSnackbar(data.message, "error");
       }
     } catch (error) {
       console.error("Error updating reversed ticket details:", error);
-      setSnackbarState({ open: true, message: "Error updating ticket details", severity: "error" });
+      showSnackbar("Error updating ticket details", "error");
     } finally {
       setEditReversedTicketLoading(false);
     }
@@ -2374,15 +2388,15 @@ export default function TicketDetailsModal({
 
   const handleAssignTicket = async () => {
     if (!selectedAttendee || !selectedAttendee.username) {
-      setSnackbar && setSnackbar({ open: true, message: 'Please select an attendee', severity: 'warning' });
+      showSnackbar('Please select an attendee', 'warning');
       return;
     }
     if (!assignReason || !assignReason.trim()) {
-      setSnackbar && setSnackbar({ open: true, message: 'Assignment reason is required', severity: 'warning' });
+      showSnackbar('Assignment reason is required', 'warning');
       return;
     }
     if (!selectedTicket || !selectedTicket.id) {
-      setSnackbar && setSnackbar({ open: true, message: 'No ticket selected or ticket ID missing', severity: 'error' });
+      showSnackbar('No ticket selected or ticket ID missing', 'error');
       console.error('Assign error: selectedTicket or selectedTicket.id missing', selectedTicket);
       return;
     }
@@ -2394,7 +2408,7 @@ export default function TicketDetailsModal({
     console.log('DEBUG: reason:', reason);
     
     if (!assignedToUsername) {
-      setSnackbar && setSnackbar({ open: true, message: 'Missing required fields for assignment', severity: 'error' });
+      showSnackbar('Missing required fields for assignment', 'error');
       console.error('Assign error: missing assignedToUsername', { assignedToUsername });
       return;
     }
@@ -2426,37 +2440,20 @@ export default function TicketDetailsModal({
       });
       const data = await res.json();
       if (!res.ok) {
-        if (typeof showSnackbar === 'function') {
-          showSnackbar(`Failed to assign ticket: ${res.status} ${data.message || ''}`, 'error');
-        } else if (setSnackbar) {
-          setSnackbar({ open: true, message: `Failed to assign ticket: ${res.status} ${data.message || ''}`, severity: 'error' });
-        }
+        showSnackbar(`Failed to assign ticket: ${res.status} ${data.message || ''}`, 'error');
         console.error('Assign fetch error:', res.status, data);
-        // Add delay for error snackbar to be visible
-        setTimeout(() => {
-          setAssignLoading(false);
-        }, 500);
         return;
       }
-      if (typeof showSnackbar === 'function') {
-        showSnackbar(data.message || "Ticket assigned successfully", 'success');
-      } else if (setSnackbar) {
-        setSnackbar({ open: true, message: data.message || "Ticket assigned successfully", severity: "success" });
-      }
+      showSnackbar(data.message || "Ticket assigned successfully", "success", () => {
+        refreshTickets && refreshTickets();
+        refreshDashboardCounts && refreshDashboardCounts();
+        onClose && onClose();
+      });
       setAssignReason("");
       setSelectedAttendee(null);
       setIsAssignModalOpen(false);
-      
-      // Add a longer delay before refreshing and closing to ensure snackbar is visible
-      setTimeout(() => {
-        refreshTickets && refreshTickets();
-        // Refresh dashboard counts to update sidebar
-        refreshDashboardCounts && refreshDashboardCounts();
-        // Close the main ticket details modal after successful assignment
-        onClose && onClose();
-      }, 1500); // ensure snackbar is visible long enough
     } catch (e) {
-      setSnackbar && setSnackbar({ open: true, message: `Assign error: ${e.message}`, severity: "error" });
+      showSnackbar(`Assign error: ${e.message}`, "error");
       console.error('Assign exception:', e);
     } finally {
       setAssignLoading(false);
@@ -2476,7 +2473,7 @@ export default function TicketDetailsModal({
 
   const handleForwardToDGSubmit = async () => {
     if (!ownDescription.trim()) {
-      setSnackbarState({ open: true, message: "Please provide your description before forwarding to Director General", severity: "warning" });
+      showSnackbar("Please provide your description before forwarding to Director General", "warning");
       return;
     }
 
@@ -2516,21 +2513,22 @@ export default function TicketDetailsModal({
 
       if (response.ok) {
         const result = await response.json();
-        setSnackbarState({ open: true, message: "Ticket forwarded to Director General successfully!", severity: "success" });
+        showSnackbar(result.message || "Ticket forwarded to Director General successfully!", "success", () => {
+          refreshTickets();
+          onClose();
+        });
         setIsForwardToDGDialogOpen(false);
         setEditedResolution("");
         setOwnDescription("");
         setLastAttendeeAgentDescription("");
         setAttachment(null);
-        onClose();
-        refreshTickets();
       } else {
         const errorData = await response.json();
-        setSnackbarState({ open: true, message: `Error: ${errorData.message || 'Failed to forward to Director General'}`, severity: "error" });
+        showSnackbar(`Error: ${errorData.message || 'Failed to forward to Director General'}`, "error");
       }
     } catch (error) {
       console.error("Error forwarding to Director General:", error);
-      setSnackbarState({ open: true, message: "Failed to forward to Director General. Please try again.", severity: "error" });
+      showSnackbar("Failed to forward to Director General. Please try again.", "error");
     } finally {
       setForwardToDGLoading(false);
     }
@@ -2563,7 +2561,7 @@ export default function TicketDetailsModal({
           throw new Error(`Invalid JSON response: ${responseText.substring(0, 200)}`);
         }
         
-        setSnackbarState({ open: true, message: `Rated as ${rating}`, severity: "success" });
+        showSnackbar(`Rated as ${rating}`, "success");
         // Don't refresh tickets here - only refresh after forwarding
       } else {
         let errorData;
@@ -2575,11 +2573,11 @@ export default function TicketDetailsModal({
           throw new Error(`Server error (${response.status}): ${responseText.substring(0, 200)}`);
         }
         
-        setSnackbarState({ open: true, message: errorData.message || "Failed to rate ticket", severity: "error" });
+        showSnackbar(errorData.message || "Failed to rate ticket", "error");
       }
     } catch (error) {
       console.error('🔍 Error caught:', error);
-      setSnackbarState({ open: true, message: error.message, severity: "error" });
+      showSnackbar(error.message, "error");
     } finally {
       setRatingLoading(false);
     }
@@ -2593,6 +2591,7 @@ export default function TicketDetailsModal({
 
     // Get the current ticket to check its section and rating
     const currentTicket = selectedTicket;
+    const isComplaintCategory = String(currentTicket?.category || "").toLowerCase() === "complaint";
 
     // Validate that at least one option is selected
     // If unitName is empty but ticket has a section, use the ticket's section
@@ -2600,16 +2599,13 @@ export default function TicketDetailsModal({
     const effectiveUnitName = unitName || currentTicket?.section || currentTicket?.responsible_unit_name;
     
     if (!category && !effectiveUnitName) {
-      setSnackbarState({
-        open: true,
-        message: "Please select either a category to convert to, or a unit to forward to, or both",
-        severity: "warning"
-      });
+      showSnackbar("Please select either a category to convert to, or a unit to forward to, or both", "warning");
       return;
     }
 
-    // Check if trying to forward without rating
-    // Allow forwarding if either the ticket is already rated OR a rating is being provided in this request
+    // Rating rules:
+    // - Complaint + forward => rating required (Minor/Major) before forwarding
+    // - Non-Complaint or convert => no rating required
     const isProvidingRating = selectedRating && ["Minor", "Major"].includes(selectedRating);
     const isAlreadyRated = currentTicket?.complaint_type;
     
@@ -2621,33 +2617,21 @@ export default function TicketDetailsModal({
       currentTicketComplaintType: currentTicket?.complaint_type
     });
     
-    if (effectiveUnitName && !isAlreadyRated && !isProvidingRating) {
+    if (mode === "forward" && isComplaintCategory && effectiveUnitName && !isAlreadyRated && !isProvidingRating) {
       // Check if the rating dropdown is visible to the user
       const isRatingDropdownVisible = !(currentTicket.status === "Returned" || currentTicket.complaint_type);
       
       if (isRatingDropdownVisible) {
-        setSnackbarState({
-          open: true,
-          message: "Please select a rating (Minor or Major) from the 'Complaint Category' dropdown above before forwarding.",
-          severity: "warning"
-        });
+        showSnackbar("Please select a rating (Minor or Major) from the 'Complaint Category' dropdown above before forwarding.", "warning");
       } else {
-        setSnackbarState({
-          open: true,
-          message: "This ticket needs to be rated before forwarding. Please contact an administrator.",
-          severity: "warning"
-        });
+        showSnackbar("This ticket needs to be rated before forwarding. Please contact an administrator.", "warning");
       }
       return;
     }
 
     // Validate comment/description is required when rating and forwarding
-    if (effectiveUnitName && (isProvidingRating || isAlreadyRated) && !ratingComment.trim()) {
-      setSnackbarState({
-        open: true,
-        message: "Please provide a comment/description before forwarding the ticket.",
-        severity: "warning"
-      });
+    if (mode === "forward" && isComplaintCategory && effectiveUnitName && (isProvidingRating || isAlreadyRated) && !ratingComment.trim()) {
+      showSnackbar("Please provide a comment/description before forwarding the ticket.", "warning");
       return;
     }
 
@@ -2660,9 +2644,12 @@ export default function TicketDetailsModal({
         responsible_unit_name: effectiveUnitName || undefined,
         // Only send category when explicitly converting; for pure forward ignore convertCategory value
         category: mode === "convert" ? (category || undefined) : undefined,
-        complaintType: selectedRating || currentTicket?.complaint_type || undefined,
-        ratingComment: ratingComment.trim() || undefined
       };
+      if (isComplaintCategory) {
+        payload.complaintType = selectedRating || currentTicket?.complaint_type || undefined;
+        // only meaningful for complaints
+        payload.ratingComment = ratingComment.trim() || undefined;
+      }
 
       const response = await fetch(`${baseURL}/reviewer/${ticketId}/convert-or-forward-ticket`, {
         method: "PUT",
@@ -2674,13 +2661,10 @@ export default function TicketDetailsModal({
       });
       const data = await response.json();
       if (response.ok) {
-        // Use parent snackbar to avoid unmounting issue
-        if (setSnackbar) {
-          setSnackbar({ open: true, message: data.message || "Ticket updated successfully", severity: "success" });
-        } else {
-          setSnackbarState({ open: true, message: data.message || "Ticket updated successfully", severity: "success" });
-        }
-        refreshTickets();
+        showSnackbar(data.message || "Ticket updated successfully", "success", () => {
+          refreshTickets();
+          onClose && onClose();
+        });
         // Clear both states after successful update
         setConvertCategory((prev) => {
           const newState = { ...prev };
@@ -2696,26 +2680,12 @@ export default function TicketDetailsModal({
         setSelectedRating("");
         setRatingComment("");
         // Hide modal after successful forward/convert
-        onClose && onClose();
+        // (main modal closes after user closes the action popup)
       } else {
-        // Use parent snackbar to avoid unmounting issue
-        if (setSnackbar) {
-          setSnackbar({ open: true, message: data.message || "Failed to update ticket", severity: "error" });
-        } else {
-          setSnackbarState({ open: true, message: data.message || "Failed to update ticket", severity: "error" });
-        }
-        // Hide modal even on failure per requirement
-        onClose && onClose();
+        showSnackbar(data.message || "Failed to update ticket", "error");
       }
     } catch (error) {
-      // Use parent snackbar to avoid unmounting issue
-      if (setSnackbar) {
-        setSnackbar({ open: true, message: error.message, severity: "error" });
-      } else {
-        setSnackbarState({ open: true, message: error.message, severity: "error" });
-      }
-      // Hide modal even on error per requirement
-      onClose && onClose();
+      showSnackbar(error.message, "error");
     } finally {
       setConvertOrForwardLoading(false);
     }
@@ -2723,15 +2693,15 @@ export default function TicketDetailsModal({
 
   const handleReassignTicket = async () => {
     if (!selectedReassignAttendee || !selectedReassignAttendee.username) {
-      setSnackbar && setSnackbar({ open: true, message: 'Please select an attendee', severity: 'warning' });
+      showSnackbar('Please select an attendee', 'warning');
       return;
     }
     if (!reassignReason || !reassignReason.trim()) {
-      setSnackbar && setSnackbar({ open: true, message: 'Reassignment reason is required', severity: 'warning' });
+      showSnackbar('Reassignment reason is required', 'warning');
       return;
     }
     if (!selectedTicket || !selectedTicket.id) {
-      setSnackbar && setSnackbar({ open: true, message: 'No ticket selected or ticket ID missing', severity: 'error' });
+      showSnackbar('No ticket selected or ticket ID missing', 'error');
       console.error('Reassign error: selectedTicket or selectedTicket.id missing', selectedTicket);
       return;
     }
@@ -2743,7 +2713,7 @@ export default function TicketDetailsModal({
     console.log('DEBUG: reason:', reason);
     
     if (!assignedToUsername) {
-      setSnackbar && setSnackbar({ open: true, message: 'Missing required fields for reassignment', severity: 'error' });
+      showSnackbar('Missing required fields for reassignment', 'error');
       console.error('Reassign error: missing assignedToUsername', { assignedToUsername });
       return;
     }
@@ -2777,37 +2747,20 @@ export default function TicketDetailsModal({
       });
       const data = await res.json();
       if (!res.ok) {
-        if (typeof showSnackbar === 'function') {
-          showSnackbar(`Failed to reassign ticket: ${res.status} ${data.message || ''}`, 'error');
-        } else if (setSnackbar) {
-          setSnackbar({ open: true, message: `Failed to reassign ticket: ${res.status} ${data.message || ''}`, severity: 'error' });
-        }
+        showSnackbar(`Failed to reassign ticket: ${res.status} ${data.message || ''}`, 'error');
         console.error('Reassign fetch error:', res.status, data);
-        // Add delay for error snackbar to be visible
-        setTimeout(() => {
-          setReassignLoading(false);
-        }, 500);
         return;
       }
-      if (typeof showSnackbar === 'function') {
-        showSnackbar(data.message || "Ticket reassigned successfully", 'success');
-      } else if (setSnackbar) {
-        setSnackbar({ open: true, message: data.message || "Ticket reassigned successfully", severity: "success" });
-      }
+      showSnackbar(data.message || "Ticket reassigned successfully", "success", () => {
+        refreshTickets && refreshTickets();
+        refreshDashboardCounts && refreshDashboardCounts();
+        onClose && onClose();
+      });
       setReassignReason("");
       setSelectedReassignAttendee(null);
       setIsReassignModalOpen(false);
-      
-      // Add a longer delay before refreshing and closing to ensure snackbar is visible
-      setTimeout(() => {
-        refreshTickets && refreshTickets();
-        // Refresh dashboard counts to update sidebar
-        refreshDashboardCounts && refreshDashboardCounts();
-        // Close the main ticket details modal after successful reassignment
-        onClose && onClose();
-      }, 1500); // ensure snackbar is visible long enough
     } catch (e) {
-      setSnackbar && setSnackbar({ open: true, message: `Reassign error: ${e.message}`, severity: "error" });
+      showSnackbar(`Reassign error: ${e.message}`, "error");
       console.error('Reassign exception:', e);
     } finally {
       setReassignLoading(false);
@@ -2820,11 +2773,11 @@ export default function TicketDetailsModal({
 
   const handleAgentReverse = async () => {
     if (!agentRecommendation.trim()) {
-      setSnackbar && setSnackbar({ open: true, message: 'Please provide a recommendation', severity: 'warning' });
+      showSnackbar('Please provide a recommendation', 'warning');
       return;
     }
     if (!selectedTicket || !selectedTicket.id) {
-      setSnackbar && setSnackbar({ open: true, message: 'No ticket selected or ticket ID missing', severity: 'error' });
+      showSnackbar('No ticket selected or ticket ID missing', 'error');
       return;
     }
 
@@ -2860,25 +2813,14 @@ export default function TicketDetailsModal({
       
       const data = await res.json();
       if (!res.ok) {
-        setSnackbarState({ open: true, message: data.message || `Failed to reverse complaint: ${res.status}`, severity: "error" });
-        setSnackbar && setSnackbar({ 
-          open: true, 
-          message: `Failed to reverse complaint: ${res.status} ${data.message || ''}`, 
-          severity: 'error' 
-        });
+        showSnackbar(data.message || `Failed to reverse complaint: ${res.status}`, "error");
         return;
       }
       
       // Show success message (same as handleReverse)
-      setSnackbarState({ 
-        open: true, 
-        message: data.message || "Complaint reversed with recommendation successfully", 
-        severity: "success" 
-      });
-      setSnackbar && setSnackbar({
-        open: true,
-        message: data.message || "Complaint reversed with recommendation successfully",
-        severity: "success"
+      showSnackbar(data.message || "Complaint reversed with recommendation successfully", "success", () => {
+        refreshTickets && refreshTickets();
+        onClose && onClose();
       });
       
       // Clear form and close modal with a small delay to prevent ResizeObserver error
@@ -2887,18 +2829,8 @@ export default function TicketDetailsModal({
       setAttachment(null);
       setIsAgentReverseModalOpen(false);
       
-      // Add a small delay before refreshing and closing to prevent ResizeObserver error
-      setTimeout(() => {
-        refreshTickets && refreshTickets();
-        onClose && onClose();
-      }, 100);
     } catch (error) {
-      setSnackbarState({ open: true, message: `Reverse error: ${error.message}`, severity: "error" });
-      setSnackbar && setSnackbar({ 
-        open: true, 
-        message: `Reverse error: ${error.message}`, 
-        severity: "error" 
-      });
+      showSnackbar(`Reverse error: ${error.message}`, "error");
       console.error('Agent reverse exception:', error);
     } finally {
       setAgentReverseLoading(false);
@@ -3414,9 +3346,22 @@ export default function TicketDetailsModal({
                   </Tooltip>
                 )}
 
-                {/* Edit Subject & Section button for reversed tickets */}
-                {selectedTicket?.status === "Reversed" && userRole === "agent" && 
-                 selectedTicket?.assigned_to_id === userId && (
+                {/* Edit Subject & Section button for reversed tickets - only for ticket creator (initiator) */}
+                {(() => {
+                  const currentUserId = userId || localStorage.getItem("userId");
+                  const status = (selectedTicket?.status || "").toString().trim().toLowerCase();
+                  if (status !== "reversed") return false;
+
+                  const creatorIdCandidates = [
+                    selectedTicket?.creator?.id,
+                    selectedTicket?.creator?.user_id,
+                    selectedTicket?.created_by_id,
+                    selectedTicket?.created_by, // sometimes uuid, sometimes name depending on endpoint
+                    selectedTicket?.userId,
+                  ].filter(v => v !== null && v !== undefined && String(v).trim() !== "");
+
+                  return creatorIdCandidates.some(v => String(v) === String(currentUserId));
+                })() && (
                   <Tooltip title="Edit ticket subject and section">
                   <Button
                     variant="contained"
@@ -3458,39 +3403,40 @@ export default function TicketDetailsModal({
                     </Typography>
                     
                     {/* Show rating selection only if ticket is not returned and not already rated */}
-                    {!(selectedTicket.status === "Returned" || selectedTicket.complaint_type) && (
+                    {(selectedTicket.assigned_to_role === 'reviewer') && selectedTicket.assigned_to && String(selectedTicket.assigned_to) === String(userId) && (
                       <Box sx={{ mb: 2 }}>
-                        {/* Complaint Category Row */}
-                        <Box sx={{ display: "flex", alignItems: "flex-end", gap: 1.5, mb: 1.5, flexWrap: "wrap" }}>
-                          <Box sx={{ minWidth: { xs: "100%", sm: "180px" }, flex: { xs: "1 1 100%", sm: "0 0 auto" } }}>
-                            <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.75, color: '#424242', fontSize: '0.85rem' }}>
-                              Complaint Category:
-                            </Typography>
-                            <FormControl fullWidth size="small">
-                              <Select
-                                value={selectedRating}
-                                onChange={(e) => setSelectedRating(e.target.value)}
-                                disabled={ratingLoading}
-                                sx={{
-                                  fontSize: '0.8rem',
-                                  height: '32px',
-                                  textAlign: 'left',
-                                  '& .MuiSelect-select': {
-                                    padding: '6px 14px',
+                        {/* Complaint-only Rating Row (non-Complaint behaves like Inquiry: no rating required/visible) */}
+                        {String(selectedTicket.category || "").toLowerCase() === "complaint" && (
+                          <Box sx={{ display: "flex", alignItems: "flex-end", gap: 1.5, mb: 1.5, flexWrap: "wrap" }}>
+                            <Box sx={{ minWidth: { xs: "100%", sm: "180px" }, flex: { xs: "1 1 100%", sm: "0 0 auto" } }}>
+                              <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.75, color: '#424242', fontSize: '0.85rem' }}>
+                                Complaint Category:
+                              </Typography>
+                              <FormControl fullWidth size="small">
+                                <Select
+                                  value={selectedRating}
+                                  onChange={(e) => setSelectedRating(e.target.value)}
+                                  disabled={ratingLoading}
+                                  sx={{
                                     fontSize: '0.8rem',
-                                    textAlign: 'left'
-                                  }
-                                }}
-                              >
-                                <MenuItem value="" sx={{ fontSize: '0.8rem', py: 0.5 }}>Select Category</MenuItem>
-                                <MenuItem value="Minor" sx={{ fontSize: '0.8rem', py: 0.5 }}>Minor</MenuItem>
-                                <MenuItem value="Major" sx={{ fontSize: '0.8rem', py: 0.5 }}>Major</MenuItem>
-                              </Select>
-                            </FormControl>
-                          </Box>
+                                    height: '32px',
+                                    textAlign: 'left',
+                                    '& .MuiSelect-select': {
+                                      padding: '6px 14px',
+                                      fontSize: '0.8rem',
+                                      textAlign: 'left'
+                                    }
+                                  }}
+                                >
+                                  <MenuItem value="" sx={{ fontSize: '0.8rem', py: 0.5 }}>Select Category</MenuItem>
+                                  <MenuItem value="Minor" sx={{ fontSize: '0.8rem', py: 0.5 }}>Minor</MenuItem>
+                                  <MenuItem value="Major" sx={{ fontSize: '0.8rem', py: 0.5 }}>Major</MenuItem>
+                                </Select>
+                              </FormControl>
+                            </Box>
                           
                           {/* Convert To Section */}
-                          {selectedTicket.category === "Complaint" && (
+                          {String(selectedTicket.category || "").toLowerCase() === "complaint" && (
                             <Box sx={{ display: "flex", alignItems: "flex-end", gap: 1, minWidth: { xs: "100%", sm: "auto" }, flex: { xs: "1 1 100%", sm: "0 0 auto" } }}>
                               <FormControl size="small" sx={{ minWidth: 120 }}>
                                 <InputLabel sx={{ fontSize: '0.8rem' }}>Convert To</InputLabel>
@@ -3532,10 +3478,11 @@ export default function TicketDetailsModal({
                               </Tooltip>
                             </Box>
                           )}
-                        </Box>
+                          </Box>
+                        )}
 
-                          {/* Comment/Description field - required when rating and forwarding */}
-                          {selectedRating && ["Minor", "Major"].includes(selectedRating) && (
+                          {/* Comment/Description field - required when rating and forwarding (Complaint only) */}
+                          {String(selectedTicket.category || "").toLowerCase() === "complaint" && selectedRating && ["Minor", "Major"].includes(selectedRating) && (
                             <Box sx={{ mb: 1.5 }}>
                               <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.75, color: '#424242', fontSize: '0.85rem' }}>
                                 Comment/Description <span style={{ color: "red" }}>*</span>:
@@ -3641,12 +3588,20 @@ export default function TicketDetailsModal({
                         </Box>
                           
                           <Box sx={{ display: "flex", alignItems: "center", gap: 1, flexWrap: "wrap" }}>
-                            <Tooltip title={!selectedRating || !["Minor", "Major"].includes(selectedRating) ? "Please select a rating (Minor or Major) from the 'Complaint Category' dropdown above" : !ratingComment.trim() ? "Please provide a comment/description before forwarding" : "Forward ticket to selected unit/section"}>
+                            <Tooltip title={String(selectedTicket.category || "").toLowerCase() === "complaint"
+                              ? (!selectedRating || !["Minor", "Major"].includes(selectedRating)
+                                ? "Please select a rating (Minor or Major) from the 'Complaint Category' dropdown above"
+                                : !ratingComment.trim()
+                                  ? "Please provide a comment/description before forwarding"
+                                  : "Forward ticket to selected unit/section")
+                              : "Forward ticket to selected unit/section"}>
                               <Button
                                 size="small"
                                 variant="contained"
                                 onClick={() => handleConvertOrForward(selectedTicket.id, "forward")}
-                                disabled={!selectedRating || !["Minor", "Major"].includes(selectedRating) || !ratingComment.trim() || convertOrForwardLoading}
+                                disabled={String(selectedTicket.category || "").toLowerCase() === "complaint"
+                                  ? (!selectedRating || !["Minor", "Major"].includes(selectedRating) || !ratingComment.trim() || convertOrForwardLoading)
+                                  : convertOrForwardLoading}
                                 sx={{
                                   textTransform: 'none',
                                   px: 1.5,
@@ -3661,12 +3616,12 @@ export default function TicketDetailsModal({
                             
                             {/* Status Messages */}
                             <Box sx={{ display: "flex", flexDirection: "column", gap: 0.25, minWidth: { xs: "100%", sm: "auto" } }}>
-                              {(!selectedRating || !["Minor", "Major"].includes(selectedRating)) && (
+                              {String(selectedTicket.category || "").toLowerCase() === "complaint" && (!selectedRating || !["Minor", "Major"].includes(selectedRating)) && (
                                 <Typography variant="caption" sx={{ color: '#ff9800', fontSize: "0.7rem", fontWeight: 500 }}>
                                   Rating required
                                 </Typography>
                               )}
-                              {selectedRating && ["Minor", "Major"].includes(selectedRating) && !ratingComment.trim() && (
+                              {String(selectedTicket.category || "").toLowerCase() === "complaint" && selectedRating && ["Minor", "Major"].includes(selectedRating) && !ratingComment.trim() && (
                                 <Typography variant="caption" sx={{ color: '#d32f2f', fontSize: "0.7rem", fontWeight: 500 }}>
                                   Comment required
                                 </Typography>
@@ -3678,7 +3633,11 @@ export default function TicketDetailsModal({
                                   (allSectionsList && allSectionsList.some(s => s.name === selectedTicket.section && !s.section_id))
                                 );
                                 const displayValue = isDirectorate ? selectedTicket.section : (selectedTicket.sub_section || selectedTicket.section);
-                                return displayValue && !forwardUnit[selectedTicket.id] && selectedRating && ["Minor", "Major"].includes(selectedRating) && ratingComment.trim() && (
+                                return displayValue && !forwardUnit[selectedTicket.id] && (
+                                  String(selectedTicket.category || "").toLowerCase() === "complaint"
+                                    ? (selectedRating && ["Minor", "Major"].includes(selectedRating) && ratingComment.trim())
+                                    : true
+                                ) && (
                                   <Typography variant="caption" sx={{ color: '#1976d2', fontSize: "0.7rem", fontWeight: 500 }}>
                                     Will forward to: {displayValue}
                                   </Typography>
@@ -4094,8 +4053,19 @@ export default function TicketDetailsModal({
                   </Button>
                   </Tooltip>
                 )}
-                      {/* General Cancel button for all users except reviewers and director-general */}
-      {userRole !== "reviewer" && userRole !== "director-general" && (
+                      {/* General Cancel button: show for everyone except DG, but avoid duplicate Cancel for reviewers */}
+      {userRole !== "director-general" &&
+        !(
+          userRole === "reviewer" &&
+          selectedTicket &&
+          (
+            // When reviewer already sees action buttons that include Cancel, hide this one to avoid duplicates
+            permissionManager.canCloseAtCurrentStep(selectedTicket) ||
+            String(selectedTicket.assigned_to_id) === String(userId) ||
+            selectedTicket.responsible_unit_name === "Public Relation Unit" ||
+            Boolean(forwardUnit?.[selectedTicket.id])
+          )
+        ) && (
                   <Tooltip title="Cancel and close this dialog">
                   <Button variant="outlined" onClick={onClose}>
                     Cancel
@@ -4360,13 +4330,14 @@ export default function TicketDetailsModal({
                       return;
                     }
 
-                    showSnackbar(data.message || "Ticket sent to Director successfully", "success");
+                    showSnackbar(data.message || "Ticket sent to Director successfully", "success", () => {
+                      refreshTickets && refreshTickets();
+                      onClose && onClose();
+                    });
                     setDirectorRecommendation("");
                     setEditedResolution("");
                     setAttachment(null);
                     setIsSendToDirectorModalOpen(false);
-                    refreshTickets && refreshTickets();
-                    onClose && onClose();
                   } catch (error) {
                     showSnackbar(`Error: ${error.message}`, "error");
                   } finally {
@@ -4681,7 +4652,7 @@ export default function TicketDetailsModal({
                   <li {...props} key={a.id}>
                     <Box sx={{ display: "flex", flexDirection: "column" }}>
                       <Typography variant="body2" sx={{ fontWeight: "medium" }}>
-                        {a.full_name || a.name}
+                        {a.full_name || a.name} - {a.role}
                       </Typography>
                       <Typography variant="caption" sx={{ color: "#666" }}>
                         @{a.username}
@@ -4814,7 +4785,7 @@ export default function TicketDetailsModal({
                   <li {...props} key={a.id}>
                     <Box sx={{ display: "flex", flexDirection: "column" }}>
                       <Typography variant="body2" sx={{ fontWeight: "medium" }}>
-                        {a.full_name || a.name}
+                        {a.full_name || a.name} - {a.role}
                       </Typography>
                       <Typography variant="caption" sx={{ color: "#666" }}>
                         @{a.username}
@@ -5443,25 +5414,12 @@ export default function TicketDetailsModal({
         </DialogContent>
       </Dialog>
 
-      {/* Snackbar for notifications */}
-      <Snackbar
-        open={snackbar.open}
-        autoHideDuration={6000}
+      <ActionMessageModal
+        open={actionModal.isOpen}
+        type={actionModal.type}
+        message={actionModal.message}
         onClose={closeSnackbar}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
-      >
-        <Alert 
-          severity={snackbar.severity}
-          onClose={closeSnackbar}
-          sx={{ 
-            minWidth: '300px',
-            fontSize: '14px',
-            fontWeight: snackbar.severity === 'success' ? 'bold' : 'normal'
-          }}
-        >
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
+      />
 
       {/* Ticket Charts Modal */}
       <Dialog 

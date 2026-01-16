@@ -26,6 +26,7 @@ import TicketDetailsModal from '../../../components/TicketDetailsModal';
 import Pagination from '../../../components/Pagination';
 import TableControls from "../../../components/TableControls";
 import TicketFilters from '../../../components/ticket/TicketFilters';
+import { useWcfTicketList } from "../../../api/wcfTicketQueries";
 
 export default function Crm() {
   const [agentTickets, setAgentTickets] = useState([]);
@@ -48,7 +49,17 @@ export default function Crm() {
     "region",
     "status"
   ]);
-  const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState(null);
+  const {
+    data: assignments = [],
+    isLoading: loading,
+    error: assignmentsErrorObj,
+    refetch: refetchInProgressAssignments,
+  } = useWcfTicketList(
+    { type: "in-progress-assignments", enabled: Boolean(userId) },
+    { enabled: Boolean(userId) }
+  );
+  const assignmentsError = authError || assignmentsErrorObj?.message || null;
   const [filters, setFilters] = useState({
     search: '',
     nidaSearch: '',
@@ -64,8 +75,7 @@ export default function Crm() {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   const [isFlowModalOpen, setIsFlowModalOpen] = useState(false);
-  const [assignments, setAssignments] = useState([]);
-  const [assignmentsError, setAssignmentsError] = useState(null);
+  // NOTE: assignments now come from TanStack Query (useWcfTicketList)
 
   useEffect(() => {
     const userId = localStorage.getItem("userId");
@@ -73,8 +83,7 @@ export default function Crm() {
       setUserId(userId);
       console.log("user id is:", userId);
     } else {
-      setAssignmentsError("User not authenticated. Please log in.");
-      setLoading(false);
+      setAuthError("User not authenticated. Please log in.");
     }
     
     // Check for ticketId in URL query parameters
@@ -86,12 +95,7 @@ export default function Crm() {
       localStorage.setItem('openTicketId', ticketIdFromUrl);
     }
   }, []);
-
-  useEffect(() => {
-    if (userId) {
-      fetchInProgressAssignments();
-    }
-  }, [userId]);
+  // NOTE: list fetching moved to TanStack Query (useWcfTicketList)
   
   // Open ticket modal if ticketId was in URL
   useEffect(() => {
@@ -223,42 +227,7 @@ export default function Crm() {
     }
   }, [assignments, loading]);
 
-  const fetchInProgressAssignments = async () => {
-    try {
-      const token = localStorage.getItem("authToken");
-      if (!token) {
-        throw new Error("Authentication error. Please log in again.");
-      }
-      const url = `${baseURL}/ticket/assignments/in-progress`;
-      const response = await fetch(url, {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-      if (!response.ok) {
-        if (response.status === 404) {
-          setAssignments([]);
-          setAssignmentsError("No ticket found.");
-          return;
-        }
-        throw new Error(`HTTP error! Status: ${response.status}`);
-      }
-      const data = await response.json();
-      if (data && Array.isArray(data.assignments)) {
-        setAssignments(data.assignments);
-        setAssignmentsError(null);
-      } else {
-        setAssignments([]);
-        setAssignmentsError("No ticket found");
-      }
-    } catch (error) {
-      setAssignmentsError(error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // NOTE: fetching moved to TanStack Query (useWcfTicketList)
 
   const handleCommentsChange = (e) => {
     setComments(e.target.value);
@@ -284,7 +253,7 @@ export default function Crm() {
           type: "success",
           message: "Comments updated successfully.",
         });
-        fetchInProgressAssignments();
+        refetchInProgressAssignments();
       } else {
         const data = await response.json();
         setModal({
