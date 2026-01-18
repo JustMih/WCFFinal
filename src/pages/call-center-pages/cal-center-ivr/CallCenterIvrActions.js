@@ -44,13 +44,7 @@ export default function CallCenterIvrActions() {
         .then(res => res.json())
         .then(data => {
           console.log("Fetched Mappings for selected voice:", data);
-
-          // const filledMappings = DTMF_KEYS.map(key => {
-          //   const existing = data.find(m => m.dtmf_digit === key);
-          //   return existing
-          //     ? { dtmf_digit: key, action_id: existing.action_id, parameter: existing.parameter }
-          //     : { dtmf_digit: key, action_id: "", parameter: "" };
-          // });
+ 
 const INVALID_ACTION_ID = actions.find(a => a.name.toLowerCase().includes("invalid"))?.id || "";
 
 const filledMappings = DTMF_KEYS.map(key => {
@@ -129,29 +123,33 @@ const filledMappings = DTMF_KEYS.map(key => {
     setEditItem(item);
   };
 
-  const saveEdit = async (id) => {
-    try {
-      const response = await fetch(`${baseURL}/ivr/dtmf-mappings/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ parameter: editItem.parameter }),
-      });
+   
+const saveEdit = async (id) => {
+  try {
+    const response = await fetch(`${baseURL}/ivr/dtmf-mappings/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        parameter: editItem.parameter,
+        action_id: editItem.action_id,
+        language: editItem.language,
+        menu_context: editItem.menu_context
+      }),
+    });
 
-      const data = await response.json();
+    const data = await response.json();
 
-      if (response.ok) {
-        alert("✅ Mapping updated!");
-        setProcessedMappings(prev =>
-          prev.map(m => m.id === id ? { ...m, parameter: data.mapping.parameter } : m)
-        );
-        setEditItem(null);
-      } else {
-        alert("❌ Error updating mapping");
-      }
-    } catch (error) {
-      console.error("Error updating mapping:", error);
+    if (response.ok) {
+      alert("✅ Edited Successfully!");
+      setProcessedMappings(prev =>
+        prev.map(m => m.id === id ? data.mapping : m)
+      );
+      setEditItem(null);
     }
-  };
+  } catch (err) {
+    console.error(err);
+  }
+};
 
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this mapping?")) {

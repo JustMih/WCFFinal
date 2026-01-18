@@ -86,6 +86,8 @@ export default function AgentsDashboard() {
   // --------- Missed calls ---------
   const [missedCalls, setMissedCalls] = useState([]);
   const [missedOpen, setMissedOpen] = useState(false);
+  const [callingBackId, setCallingBackId] = useState(null);
+
 
   // --------- Tickets / MAC lookup ---------
   const [userData, setUserData] = useState(null);
@@ -447,34 +449,31 @@ const markMissedCallAsCalledBack = async (missedCallId) => {
       }),
     }).catch((err) => console.error("Failed to post missed call:", err));
   };
-  const fetchMissedCallsFromBackend = async () => {
-    try {
-      const ext = localStorage.getItem("extension");
-      const response = await fetch(
-        `${baseURL}/missed-calls?agentId=${ext}&status=pending`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-          },
-        }
-      );
-      if (!response.ok) throw new Error("Failed to fetch missed calls");
-      const data = await response.json();
-          const formatted = (data || [])
-        .map((call) => ({
-          ...call,
-          time: new Date(call.time),
-        }))
-        .sort((a, b) => b.time - a.time); // newest first
+ const fetchMissedCallsFromBackend = async () => {
+  // ❗ DO NOT refresh while calling back
+  if (callingBackId) return;
 
-            setMissedCalls(formatted);
-      localStorage.setItem("missedCalls", JSON.stringify(formatted));
-    } catch (error) {
-      console.error("Error fetching missed calls:", error);
+  const ext = localStorage.getItem("extension");
+
+  const response = await fetch(
+    `${baseURL}/missed-calls?agentId=${ext}&status=pending`,
+    {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+      },
     }
-  };
+  );
+
+  const data = await response.json();
+
+  setMissedCalls(
+    (data || []).map(call => ({
+      ...call,
+      time: new Date(call.time),
+    }))
+  );
+};
+
 
   // ---------- MAC: fetch user by phone ----------
   const fetchUserByPhoneNumber = async (phone) => {
@@ -1640,10 +1639,10 @@ useEffect(() => {
             <p>No missed calls!</p>
           ) : (
             <ul style={{ listStyle: "none", padding: 0 }}>
-             {missedCalls.map((call, index) => (
+             {missedCalls.map((call) => (
 
                 <li
-                  key={index}
+                  key={call.id}
                   style={{
                     marginBottom: 15,
                     borderBottom: "1px solid #ccc",
@@ -1659,31 +1658,34 @@ useEffect(() => {
                     <small>{new Date(call.time).toLocaleTimeString()}</small>
                   </div>
                  
-                  <Button
+                 <Button
                   variant="contained"
-                  color="primary"
                   size="small"
+                  color={callingBackId === call.id ? "success" : "primary"}
+                  disabled={callingBackId === call.id}
+                  startIcon={<FiPhoneCall />}
                   onClick={() => {
-                    // 1️⃣ REMOVE FROM UI BY ID (THIS FIXES IT)
-                    setMissedCalls((prev) =>
-                      prev.filter((c) => c.id !== call.id)
+                    // 🔴 VISUAL STATE FIRST
+                    setCallingBackId(call.id);
+
+                    // 🔴 REMOVE FROM UI
+                    setMissedCalls(prev =>
+                      prev.filter(c => c.id !== call.id)
                     );
 
-                    // 2️⃣ MARK AS CALLED BACK IN BACKEND
+                    // 🔴 BACKEND UPDATE
                     markMissedCallAsCalledBack(call.id);
 
-                    // 3️⃣ CONTINUE NORMAL FLOW
+                    // 🔴 PHONE FLOW
                     setMissedOpen(false);
                     setShowPhonePopup(true);
                     setPhoneNumber(call.caller);
-
-                    // 4️⃣ DIAL
                     handleRedial(call.caller, call.id);
                   }}
-                  startIcon={<FiPhoneCall />}
                 >
-                  Call Back
+                  {callingBackId === call.id ? "Calling..." : "Call Back"}
                 </Button>
+
 
 
                 </li>
