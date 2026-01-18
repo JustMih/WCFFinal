@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Login from "./auth/login-page/Login";
 import Dashboard from "./pages/dashboard-page/Dashboard";
 import PublicDashboard from "./pages/public-dashboard/PublicDashboard";
-import CrmTicketsAssigned from "./pages/crm-pages/crm-tickets/assigned";
+import CrmTicketsAssigned from "./pages/crm-pages/crm-tickets-status/assigned";
 import "./App.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
