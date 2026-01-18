@@ -19,7 +19,7 @@ const Pagination = ({
       gap: "10px" 
     }}>
       {/* Showing info */}
-      <div style={{ fontSize: "14px", color: "#666" }}>
+      <div style={{ fontSize: "14px", color: "#666", textAlign: "center" }}>
         {totalItems > 0 ? (
           <>
             Showing <strong>{startIndex}</strong> to <strong>{endIndex}</strong> out of <strong>{totalItems}</strong> tickets

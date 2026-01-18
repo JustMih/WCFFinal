@@ -567,7 +567,7 @@ export default function Crm() {
               <tr>
                 <td
                   colSpan={5}
-                  style={{ textAlign: "center", color: "red" }}
+                  style={{ textAlign: "center", color: "red", padding: "20px" }}
                 >
                   {assignmentsError || "No ticket found"}
                 </td>

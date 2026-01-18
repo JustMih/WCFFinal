@@ -551,8 +551,8 @@ export default function Crm() {
             ) : (
               <tr>
                 <td
-                  colSpan={5}
-                  style={{ textAlign: "center", color: "red" }}
+                  colSpan={activeColumns.length + 1}
+                  style={{ textAlign: "center", color: "red", padding: "20px" }}
                 >
                   {assignmentsError || "No overdue ticket found."}
                 </td>
