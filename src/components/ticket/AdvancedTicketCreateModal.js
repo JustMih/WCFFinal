@@ -3081,22 +3081,54 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                       <div className="modal-form-row">
                         <div className="modal-form-group">
                           <label style={{ fontSize: "0.875rem" }}>
-                            {formData.requester === "Employer" ? "Representative Position/Role" : "Relationship to Employee"}: <span style={{ color: "red" }}>*</span>
+                            {formData.requester === "Employer"
+                              ? "Representative Position/Role"
+                              : "Relationship to Employee"}: <span style={{ color: "red" }}>*</span>
                           </label>
-                          <input
+                          <select
                             name="relationshipToEmployee"
                             value={formData.relationshipToEmployee}
                             onChange={handleChange}
-                            placeholder={formData.requester === "Employer" ? "e.g., HR Manager, Director, CEO" : "e.g., Parent, Spouse, Child"}
                             style={{
                               height: "32px",
                               fontSize: "0.875rem",
                               padding: "4px 8px",
                               border: formErrors.relationshipToEmployee
                                 ? "1px solid red"
-                                : "1px solid #ccc"
+                                : "1px solid #ccc",
+                              width: "100%"
                             }}
-                          />
+                          >
+                            <option value="">
+                              {formData.requester === "Employer"
+                                ? "Select position/role"
+                                : "Select relationship"}
+                            </option>
+                            {formData.requester === "Employer" ? (
+                              <>
+                                <option value="HR Manager">HR Manager</option>
+                                <option value="Director">Director</option>
+                                <option value="CEO">CEO</option>
+                                <option value="Manager">Manager</option>
+                                <option value="Legal Representative">Legal Representative</option>
+                                <option value="Authorized Officer">Authorized Officer</option>
+                                <option value="Other">Other</option>
+                              </>
+                            ) : (
+                              <>
+                                <option value="Parent">Parent</option>
+                                <option value="Spouse">Spouse</option>
+                                <option value="Child">Child</option>
+                                <option value="Sibling">Sibling</option>
+                                <option value="Relative">Relative</option>
+                                <option value="Guardian">Guardian</option>
+                                <option value="Friend">Friend</option>
+                                <option value="Lawyer">Lawyer</option>
+                                <option value="Union Representative">Union Representative</option>
+                                <option value="Other">Other</option>
+                              </>
+                            )}
+                          </select>
                           {formErrors.relationshipToEmployee && (
                             <span style={{ color: "red", fontSize: "0.75rem" }}>
                               {formErrors.relationshipToEmployee}
