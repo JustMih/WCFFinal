@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { RxDashboard } from "react-icons/rx";
-import { MdOutlineSupportAgent, MdEmail, MdNotifications, MdMessage, MdChat } from "react-icons/md";
+import { MdOutlineSupportAgent, MdEmail, MdNotifications, MdMessage, MdChat, MdWork } from "react-icons/md";
 import { FaInstagram } from "react-icons/fa";
 import { baseURL } from "../../../config";
 import "./crmSidebar.css";
@@ -447,6 +447,20 @@ export default function CRMSidebar({ isSidebarOpen }) {
                   )}
                 </div>
               </NavLink>
+
+              {/* <NavLink
+                to="/workflow"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <MdWork className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">Workflow Dashboard</span>
+                  )}
+                </div>
+              </NavLink> */}
 
               <div
                 className={`menu-item ${

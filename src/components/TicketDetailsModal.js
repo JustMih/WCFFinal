@@ -1702,8 +1702,46 @@ export default function TicketDetailsModal({
       console.log('DEBUG: Using default workflow API - not a manager');
       console.log('DEBUG: userRole value:', userRole);
       console.log('DEBUG: complaint_type value:', selectedTicket.complaint_type);
+      console.log('DEBUG: ticket category:', selectedTicket.category);
       
-      // Default workflow for other roles
+      // For Inquiry tickets, use close endpoint directly
+      if (selectedTicket.category === 'Inquiry') {
+        console.log('DEBUG: Inquiry ticket - using close endpoint');
+        const token = localStorage.getItem("authToken");
+        const formData = new FormData();
+        formData.append("status", "Closed");
+        formData.append("resolution_details", resolutionDetails);
+        formData.append("date_of_resolution", new Date().toISOString());
+        if (attachment) {
+          formData.append("attachment", attachment);
+        }
+        
+        const response = await fetch(
+          `${baseURL}/ticket/${selectedTicket.id}/close`,
+          {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${token}`
+              // Do NOT set Content-Type; browser will set it for FormData
+            },
+            body: formData
+          }
+        );
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          showSnackbar(errorData.message || 'Failed to close ticket', 'error');
+          return;
+        }
+        
+        showSnackbar('Inquiry ticket closed successfully', 'success');
+        setIsAttendDialogOpen(false); // Close the attend dialog
+        refreshTickets(); // Refresh to update ticket state
+        onClose(); // Close the modal to refresh the list
+        return;
+      }
+      
+      // Default workflow for other roles (Complaint tickets)
       const response = await fetch(`${baseURL}/workflow/${selectedTicket.id}/attend-and-recommend`, {
         method: 'POST',
         headers: {
