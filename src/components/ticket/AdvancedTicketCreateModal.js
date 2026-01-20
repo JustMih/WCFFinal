@@ -3887,12 +3887,12 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                 type="file"
                 accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
                 onChange={(e) => {
-                  const file = e.target.files[0];
+                  const file = e.target.files && e.target.files[0] ? e.target.files[0] : null;
                   if (file) {
-                    // Check file size (50MB limit)
-                    const maxSize = 50 * 1024 * 1024; // 50MB in bytes
-                    if (file.size > maxSize) {
-                      alert(`File size too large! Maximum allowed size is 50MB. Your file is ${(file.size / (1024 * 1024)).toFixed(2)}MB.`);
+                    // Check file size (10MB = 10 * 1024 * 1024 bytes)
+                    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+                    if (file.size > MAX_FILE_SIZE) {
+                      alert(`File size exceeds the maximum limit of 10MB. Your file is ${(file.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`);
                       e.target.value = ''; // Clear the input
                       setAttachment(null);
                       return;
@@ -3912,9 +3912,12 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
               />
               {attachment && (
                 <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
-                  File selected: {attachment.name}
+                  File selected: {attachment.name} ({(attachment.size / (1024 * 1024)).toFixed(2)}MB)
                 </Typography>
               )}
+              <Typography variant="caption" sx={{ color: "gray", mt: 0.5, display: "block", fontSize: "0.75rem" }}>
+                Maximum file size: 10MB
+              </Typography>
             </Box>
 
             <Box sx={{ mt: 2, textAlign: "right" }}>

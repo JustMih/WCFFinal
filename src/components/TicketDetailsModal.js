@@ -931,6 +931,27 @@ export default function TicketDetailsModal({
   const [isAttendDialogOpen, setIsAttendDialogOpen] = useState(false);
   const [resolutionDetails, setResolutionDetails] = useState("");
   const [attachment, setAttachment] = useState(null);
+  const [fileError, setFileError] = useState("");
+
+  // Helper function to handle file selection with size validation
+  const handleFileChange = (e) => {
+    const file = e.target.files && e.target.files[0] ? e.target.files[0] : null;
+    if (file) {
+      // Check file size (10MB = 10 * 1024 * 1024 bytes)
+      const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+      if (file.size > MAX_FILE_SIZE) {
+        setFileError(`File size exceeds the maximum limit of 10MB. Your file is ${(file.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`);
+        e.target.value = ''; // Clear the input
+        setAttachment(null);
+        return;
+      }
+      setFileError(''); // Clear any previous errors
+      setAttachment(file);
+    } else {
+      setAttachment(null);
+      setFileError('');
+    }
+  };
   
   // Reviewer-specific states
   const [resolutionType, setResolutionType] = useState("");
@@ -1627,6 +1648,13 @@ export default function TicketDetailsModal({
   }
 
   const handleAttend = async () => {
+    // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    if (attachment && attachment.size > MAX_FILE_SIZE) {
+      setFileError(`File size exceeds the maximum limit of 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`);
+      return;
+    }
+    
     setAttendLoading(true);
     try {
       console.log('DEBUG handleAttend:', {
@@ -1828,6 +1856,14 @@ export default function TicketDetailsModal({
       return;
     }
 
+    // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    if (attachment && attachment.size > MAX_FILE_SIZE) {
+      setFileError(`File size exceeds the maximum limit of 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`);
+      showSnackbar('File size exceeds the maximum limit of 10MB', 'error');
+      return;
+    }
+
     setDgApprovalLoading(true);
     try {
       const token = localStorage.getItem("authToken");
@@ -1873,6 +1909,14 @@ export default function TicketDetailsModal({
   };
 
   const handleAttendSubmit = async () => {
+    // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    if (attachment && attachment.size > MAX_FILE_SIZE) {
+      setFileError(`File size exceeds the maximum limit of 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`);
+      showSnackbar('File size exceeds the maximum limit of 10MB', 'error');
+      return;
+    }
+
     setAttendSubmitLoading(true);
     try {
       const token = localStorage.getItem("authToken");
@@ -4167,7 +4211,7 @@ export default function TicketDetailsModal({
                 <input
                   type="file"
                   accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
-                  onChange={e => setAttachment(e.target.files[0])}
+                  onChange={handleFileChange}
                   style={{
                     width: "100%",
                     padding: "8px 12px",
@@ -4178,11 +4222,19 @@ export default function TicketDetailsModal({
                   }}
                 />
               </Box>
-              {attachment && (
-                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
-                  File selected: {attachment.name}
+              {fileError && (
+                <Typography variant="caption" sx={{ color: "red", mt: 1, display: "block" }}>
+                  {fileError}
                 </Typography>
               )}
+              {attachment && !fileError && (
+                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
+                  File selected: {attachment.name} ({(attachment.size / (1024 * 1024)).toFixed(2)}MB)
+                </Typography>
+              )}
+              <Typography variant="caption" sx={{ color: "gray", mt: 0.5, display: "block", fontSize: "0.75rem" }}>
+                Maximum file size: 10MB
+              </Typography>
             </Box>
 
             <Box sx={{ mt: 2, textAlign: "right" }}>
@@ -4279,7 +4331,7 @@ export default function TicketDetailsModal({
                 <input
                   type="file"
                   accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
-                  onChange={e => setAttachment(e.target.files[0])}
+                  onChange={handleFileChange}
                   style={{
                     width: "100%",
                     padding: "8px 12px",
@@ -4290,11 +4342,19 @@ export default function TicketDetailsModal({
                   }}
                 />
               </Box>
-              {attachment && (
-                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
-                  File selected: {attachment.name}
+              {fileError && (
+                <Typography variant="caption" sx={{ color: "red", mt: 1, display: "block" }}>
+                  {fileError}
                 </Typography>
               )}
+              {attachment && !fileError && (
+                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
+                  File selected: {attachment.name} ({(attachment.size / (1024 * 1024)).toFixed(2)}MB)
+                </Typography>
+              )}
+              <Typography variant="caption" sx={{ color: "gray", mt: 0.5, display: "block", fontSize: "0.75rem" }}>
+                Maximum file size: 10MB
+              </Typography>
             </Box>
 
             <Box sx={{ mt: 2, textAlign: "right" }}>
@@ -4435,7 +4495,7 @@ export default function TicketDetailsModal({
                 <input
                   type="file"
                   accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
-                  onChange={(e) => setAttachment(e.target.files[0])}
+                  onChange={handleFileChange}
                   style={{
                     width: "100%",
                     padding: "8px 12px",
@@ -4446,11 +4506,19 @@ export default function TicketDetailsModal({
                   }}
                 />
               </Box>
-              {attachment && (
-                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
-                  File selected: {attachment.name}
+              {fileError && (
+                <Typography variant="caption" sx={{ color: "red", mt: 1, display: "block" }}>
+                  {fileError}
                 </Typography>
               )}
+              {attachment && !fileError && (
+                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
+                  File selected: {attachment.name} ({(attachment.size / (1024 * 1024)).toFixed(2)}MB)
+                </Typography>
+              )}
+              <Typography variant="caption" sx={{ color: "gray", mt: 0.5, display: "block", fontSize: "0.75rem" }}>
+                Maximum file size: 10MB
+              </Typography>
             </Box>
 
             <Box sx={{ mt: 2, textAlign: "right" }}>
@@ -4549,7 +4617,7 @@ export default function TicketDetailsModal({
                 <input
                   type="file"
                   accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
-                  onChange={(e) => setAttachment(e.target.files[0])}
+                  onChange={handleFileChange}
                   style={{
                     width: "100%",
                     padding: "8px 12px",
@@ -4560,11 +4628,19 @@ export default function TicketDetailsModal({
                   }}
                 />
               </Box>
-              {attachment && (
-                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
-                  File selected: {attachment.name}
+              {fileError && (
+                <Typography variant="caption" sx={{ color: "red", mt: 1, display: "block" }}>
+                  {fileError}
                 </Typography>
               )}
+              {attachment && !fileError && (
+                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
+                  File selected: {attachment.name} ({(attachment.size / (1024 * 1024)).toFixed(2)}MB)
+                </Typography>
+              )}
+              <Typography variant="caption" sx={{ color: "gray", mt: 0.5, display: "block", fontSize: "0.75rem" }}>
+                Maximum file size: 10MB
+              </Typography>
             </Box>
 
             <Box sx={{ mt: 2, textAlign: "right" }}>
@@ -4923,7 +4999,7 @@ export default function TicketDetailsModal({
                 <input
                   type="file"
                   accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
-                  onChange={(e) => setAttachment(e.target.files[0])}
+                  onChange={handleFileChange}
                   style={{
                     width: "100%",
                     padding: "8px 12px",
@@ -4934,11 +5010,19 @@ export default function TicketDetailsModal({
                   }}
                 />
               </Box>
-              {attachment && (
-                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
-                  File selected: {attachment.name}
+              {fileError && (
+                <Typography variant="caption" sx={{ color: "red", mt: 1, display: "block" }}>
+                  {fileError}
                 </Typography>
               )}
+              {attachment && !fileError && (
+                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
+                  File selected: {attachment.name} ({(attachment.size / (1024 * 1024)).toFixed(2)}MB)
+                </Typography>
+              )}
+              <Typography variant="caption" sx={{ color: "gray", mt: 0.5, display: "block", fontSize: "0.75rem" }}>
+                Maximum file size: 10MB
+              </Typography>
             </Box>
 
             <Box sx={{ mt: 2, textAlign: "right" }}>
@@ -5056,7 +5140,7 @@ export default function TicketDetailsModal({
                 <input
                   type="file"
                   accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
-                  onChange={(e) => setAttachment(e.target.files[0])}
+                  onChange={handleFileChange}
                   style={{
                     width: "100%",
                     padding: "8px 12px",
@@ -5067,11 +5151,19 @@ export default function TicketDetailsModal({
                   }}
                 />
               </Box>
-              {attachment && (
-                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
-                  File selected: {attachment.name}
+              {fileError && (
+                <Typography variant="caption" sx={{ color: "red", mt: 1, display: "block" }}>
+                  {fileError}
                 </Typography>
               )}
+              {attachment && !fileError && (
+                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
+                  File selected: {attachment.name} ({(attachment.size / (1024 * 1024)).toFixed(2)}MB)
+                </Typography>
+              )}
+              <Typography variant="caption" sx={{ color: "gray", mt: 0.5, display: "block", fontSize: "0.75rem" }}>
+                Maximum file size: 10MB
+              </Typography>
             </Box>
 
             <Box sx={{ mt: 2, textAlign: "right" }}>
@@ -5139,7 +5231,7 @@ export default function TicketDetailsModal({
                 <input
                   type="file"
                   accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
-                  onChange={(e) => setAttachment(e.target.files[0])}
+                  onChange={handleFileChange}
                   style={{
                     width: "100%",
                     padding: "8px 12px",
@@ -5150,11 +5242,19 @@ export default function TicketDetailsModal({
                   }}
                 />
               </Box>
-              {attachment && (
-                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
-                  File selected: {attachment.name}
+              {fileError && (
+                <Typography variant="caption" sx={{ color: "red", mt: 1, display: "block" }}>
+                  {fileError}
                 </Typography>
               )}
+              {attachment && !fileError && (
+                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
+                  File selected: {attachment.name} ({(attachment.size / (1024 * 1024)).toFixed(2)}MB)
+                </Typography>
+              )}
+              <Typography variant="caption" sx={{ color: "gray", mt: 0.5, display: "block", fontSize: "0.75rem" }}>
+                Maximum file size: 10MB
+              </Typography>
             </Box>
           </Box>
           <Box sx={{ mt: 2, textAlign: "right" }}>
@@ -5242,7 +5342,7 @@ export default function TicketDetailsModal({
                 <input
                   type="file"
                   accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
-                  onChange={(e) => setAttachment(e.target.files[0])}
+                  onChange={handleFileChange}
                   style={{
                     width: "100%",
                     padding: "8px 12px",
@@ -5253,11 +5353,19 @@ export default function TicketDetailsModal({
                   }}
                 />
               </Box>
-              {attachment && (
-                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
-                  File selected: {attachment.name}
+              {fileError && (
+                <Typography variant="caption" sx={{ color: "red", mt: 1, display: "block" }}>
+                  {fileError}
                 </Typography>
               )}
+              {attachment && !fileError && (
+                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
+                  File selected: {attachment.name} ({(attachment.size / (1024 * 1024)).toFixed(2)}MB)
+                </Typography>
+              )}
+              <Typography variant="caption" sx={{ color: "gray", mt: 0.5, display: "block", fontSize: "0.75rem" }}>
+                Maximum file size: 10MB
+              </Typography>
             </Box>
 
             <Box sx={{ mt: 2, textAlign: "right" }}>
