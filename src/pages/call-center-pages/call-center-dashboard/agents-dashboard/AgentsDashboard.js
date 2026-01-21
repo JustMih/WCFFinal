@@ -87,6 +87,32 @@ export default function AgentsDashboard() {
   const [missedCalls, setMissedCalls] = useState([]);
   const [missedOpen, setMissedOpen] = useState(false);
   const [callingBackId, setCallingBackId] = useState(null);
+const [excludedMissedIds, setExcludedMissedIds] = useState(new Set());
+ const fetchMissedCallsFromBackend = React.useCallback(async () => {
+  if (callingBackId) return;
+
+  const ext = localStorage.getItem("extension");
+
+  const response = await fetch(
+    `${baseURL}/missed-calls?agentId=${ext}&status=pending`,
+    {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+      },
+    }
+  );
+
+  const data = await response.json();
+
+  setMissedCalls(
+    (data || [])
+      .filter(call => !excludedMissedIds.has(call.id))
+      .map(call => ({
+        ...call,
+        time: new Date(call.time),
+      }))
+  );
+}, [callingBackId, excludedMissedIds]);
 
 
   // --------- Tickets / MAC lookup ---------
@@ -257,16 +283,12 @@ export default function AgentsDashboard() {
     };
   }, []);
 useEffect(() => {
-  // initial load
   fetchMissedCallsFromBackend();
 
-  // auto refresh every 10 seconds
-  const interval = setInterval(() => {
-    fetchMissedCallsFromBackend();
-  }, 10000);
+  const interval = setInterval(fetchMissedCallsFromBackend, 10000);
 
   return () => clearInterval(interval);
-}, []);
+}, [fetchMissedCallsFromBackend]);
 
   // ---------- SIP: incoming ----------
   const handleIncomingInvite = (invitation) => {
@@ -423,9 +445,9 @@ const markMissedCallAsCalledBack = async (missedCallId) => {
 };
 
   // ---------- Missed calls ----------
-  useEffect(() => {
-    fetchMissedCallsFromBackend();
-  }, []);
+  // useEffect(() => {
+  //   fetchMissedCallsFromBackend();
+  // }, []);
   const addMissedCall = (raw) => {
     const agentId = localStorage.getItem("extension");
     if (!raw || raw.trim() === "") return;
@@ -449,30 +471,6 @@ const markMissedCallAsCalledBack = async (missedCallId) => {
       }),
     }).catch((err) => console.error("Failed to post missed call:", err));
   };
- const fetchMissedCallsFromBackend = async () => {
-  // ❗ DO NOT refresh while calling back
-  if (callingBackId) return;
-
-  const ext = localStorage.getItem("extension");
-
-  const response = await fetch(
-    `${baseURL}/missed-calls?agentId=${ext}&status=pending`,
-    {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-      },
-    }
-  );
-
-  const data = await response.json();
-
-  setMissedCalls(
-    (data || []).map(call => ({
-      ...call,
-      time: new Date(call.time),
-    }))
-  );
-};
 
 
   // ---------- MAC: fetch user by phone ----------
@@ -1664,24 +1662,28 @@ useEffect(() => {
                   color={callingBackId === call.id ? "success" : "primary"}
                   disabled={callingBackId === call.id}
                   startIcon={<FiPhoneCall />}
-                  onClick={() => {
-                    // 🔴 VISUAL STATE FIRST
+                onClick={() => {
+                    // 1️⃣ mark as calling
                     setCallingBackId(call.id);
 
-                    // 🔴 REMOVE FROM UI
+                    // 2️⃣ EXCLUDE FROM FRONTEND FOREVER (this session)
+                    setExcludedMissedIds(prev => new Set(prev).add(call.id));
+
+                    // 3️⃣ remove from UI immediately
                     setMissedCalls(prev =>
                       prev.filter(c => c.id !== call.id)
                     );
 
-                    // 🔴 BACKEND UPDATE
+                    // 4️⃣ backend update (fire-and-forget)
                     markMissedCallAsCalledBack(call.id);
 
-                    // 🔴 PHONE FLOW
+                    // 5️⃣ phone flow
                     setMissedOpen(false);
                     setShowPhonePopup(true);
                     setPhoneNumber(call.caller);
                     handleRedial(call.caller, call.id);
                   }}
+
                 >
                   {callingBackId === call.id ? "Calling..." : "Call Back"}
                 </Button>
