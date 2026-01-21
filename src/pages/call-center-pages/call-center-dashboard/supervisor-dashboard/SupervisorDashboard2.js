@@ -42,6 +42,7 @@ import {
 import "./supervisorDashboard.css";
 import LiveCallsCard from "../../../../components/supervisor-dashboard/LiveCallsCard";
 import CallQueueCard from "../../../../components/supervisor-dashboard/CallQueueCard";
+import ActiveCalls from "../../../../components/active-calls/ActiveCalls";
 
 // Register chart.js components
 ChartJS.register(
@@ -229,9 +230,11 @@ export default function SupervisorDashboard2() {
       setDailyData(data.dailyCounts);
       
       // Fetch live calls data
-      const liveCallsResponse = await fetch(`${baseURL}/calls/live-calls`);
-      const liveCallsData = await liveCallsResponse.json();
-      setLiveCalls(liveCallsData);
+      const liveCallsResponse = await fetch(`${baseURL}/livestream/live-calls`);
+      if (liveCallsResponse.ok) {
+        const liveCallsData = await liveCallsResponse.json();
+        setLiveCalls(liveCallsData);
+      }
 
       // Fetch SLA metrics
       const slaResponse = await fetch(`${baseURL}/calls/sla-metrics`);
@@ -494,6 +497,10 @@ export default function SupervisorDashboard2() {
 
       {/* Queue Monitoring Section */}
       <CallQueueCard />
+      
+      {/* Active Calls Section */}
+      <ActiveCalls liveCalls={liveCalls} refreshInterval={5000} showTitle={true} />
+      
       {/* Live Calls Table */}
       <div className="live-calls-table-container">
       <LiveCallsCard />

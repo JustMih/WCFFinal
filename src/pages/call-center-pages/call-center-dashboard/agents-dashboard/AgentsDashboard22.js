@@ -64,6 +64,7 @@ import OnlineAgentsTable from "../../../../components/agent-dashboard/OnlineAgen
 import OnlineSupervisorsTable from "../../../../components/agent-dashboard/OnlineSupervisorsTable";
 import TotalContactSummary from "../../../../components/agent-dashboard/TotalContactSummary";
 import ContactSummaryGrid from "../../../../components/agent-dashboard/ContactSummaryGrid";
+import CallHistoryCard from "../../../../components/agent-dashboard/CallHistoryCard";
 
 export default function AgentsDashboard() {
   const [customerType, setCustomerType] = useState("");
@@ -1227,6 +1228,20 @@ export default function AgentsDashboard() {
 
   const [showVoiceNotesModal, setShowVoiceNotesModal] = useState(false);
 
+  // Ticket modal functions
+  const openTicketModal = (ticketType = null) => {
+    setTicketType(ticketType);
+    setShowTicketModal(true);
+  };
+
+  const closeTicketModal = () => {
+    setShowTicketModal(false);
+    setTicketType(null);
+    setTicketPhoneNumber("");
+  };
+
+  const [ticketType, setTicketType] = useState(null); // 'employer' or 'employee'
+
   return (
     <div className="p-6">
       <div className="agent-body">
@@ -1347,6 +1362,11 @@ export default function AgentsDashboard() {
           <ContactSummaryGrid />
         </div>
         
+        {/* Agent Activity Cards - Inbound, Outbound, Messages, Voicemail */}
+        <div className="dashboard-single-agent-row_one">
+          <SingleAgentDashboardCard />
+        </div>
+        
         <div className="dashboard-single-agent-row_two">
           {/* Online Agents Table */}
           <OnlineAgentsTable />
@@ -1356,6 +1376,16 @@ export default function AgentsDashboard() {
         <div className="dashboard-single-agent-row_two">
           {/* Queue Monitoring Section */}
           <CallQueueCard />
+        </div>
+        <div className="dashboard-single-agent-row_one">
+          {/* Call History Card */}
+          <CallHistoryCard
+            onCallBack={(phoneNumber) => {
+              setShowPhonePopup(true);
+              setPhoneNumber(phoneNumber);
+              handleRedial(phoneNumber);
+            }}
+          />
         </div>
         <div className="dashboard-single-agent-row_four">
           <AgentPerformanceScore />
@@ -1790,25 +1820,16 @@ export default function AgentsDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Create Ticket Button (example, place where appropriate) */}
-      <Button
-        variant="contained"
-        color="primary"
-        onClick={() => {
-          setTicketPhoneNumber(phoneNumber || ""); // or use the relevant phone number
-          setShowTicketModal(true);
-        }}
-      >
-        Create Ticket
-      </Button>
-
-      {/* Ticket Create Modal (after answering call) */}
-      <AdvancedTicketCreateModal
-        open={showTicketModal}
-        onClose={() => setShowTicketModal(false)}
-        initialPhoneNumber={ticketPhoneNumber}
-        functionData={functionData}
-      />
+      {/* Ticket Create Modal */}
+      <div style={{ position: "relative" }}>
+        <AdvancedTicketCreateModal
+          open={showTicketModal}
+          onClose={closeTicketModal}
+          onOpen={openTicketModal}
+          initialPhoneNumber={ticketPhoneNumber}
+          functionData={functionData}
+        />
+      </div>
 
       <Dialog
         open={showVoiceNotesModal}

@@ -124,7 +124,7 @@ export default function Dashboard() {
               <>
                 <Route
                   path="/dashboard"
-                  element={<PrivateRoute element={<CallCenterDashboard />} />}
+                  element={<PrivateRoute element={<Dashboard2 />} />}
                 />
                 <Route
                   path="/public-dashboard"
@@ -133,6 +133,10 @@ export default function Dashboard() {
                 <Route
                   path="/dashboard2"
                   element={<PrivateRoute element={<Dashboard2 />} />}
+                />
+                <Route
+                  path="/dashboard-old"
+                  element={<PrivateRoute element={<CallCenterDashboard />} />}
                 />
                 <Route
                   path="/rtdashboard"
