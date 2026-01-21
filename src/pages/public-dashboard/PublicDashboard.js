@@ -19,9 +19,12 @@ import {
   MdQueue,
   MdVisibility,
   MdPhoneDisabled,
+  MdArrowBack,
 } from "react-icons/md";
+import { ArrowBack } from "@mui/icons-material";
 import { baseURL } from "../../config";
 import io from "socket.io-client";
+import ActiveCalls from "../../components/active-calls/ActiveCalls";
 import "./PublicDashboard.css";
 
 export default function PublicDashboard() {
@@ -200,7 +203,11 @@ return () => {
   const totalAgents = dashboardData.agentStatus.onlineCount + dashboardData.agentStatus.offlineCount;
   const answeredCalls = dashboardData.callStats.dailyCounts.find((c) => c.disposition === "ANSWERED");
   const lostCallsCount = dashboardData.callStatusSummary?.lost || 0;
-  const inQueueCallsCount = dashboardData.callStatusSummary?.inQueue || 0;
+  
+  // Calculate inQueue dynamically from live calls (calls in queue but not answered)
+  const inQueueCallsCount = dashboardData.liveCalls.filter(
+    (call) => call.queue_entry_time && !call.call_answered && !call.call_end
+  ).length;
 
   // Helper function to calculate percentage
   const calculatePercentage = (count, total) => {
@@ -320,7 +327,16 @@ return () => {
       {/* Header */}
       <div className="dashboard-header">
         <div className="header-left">
-          <h1 className="dashboard-title">WCF Call Center Dashboard</h1>
+          <div className="header-top">
+            <IconButton
+              className="back-button"
+              onClick={() => navigate(-1)}
+              aria-label="go back"
+            >
+              <ArrowBack />
+            </IconButton>
+            <h1 className="dashboard-title">WCF Call Center Dashboard</h1>
+          </div>
           <div className="current-time">
             {currentTime.toLocaleString("en-US", {
               weekday: "short",
@@ -399,39 +415,7 @@ return () => {
 
       {/* Active Calls */}
       <div className="dashboard-section">
-        <h2 className="section-title"><MdPhoneInTalk className="section-icon" /> Active Calls</h2>
-        <div className="active-calls-grid">
-          {activeCalls.length > 0 ? (
-            activeCalls.map((call, i) => (
-              <div key={call.linkedid || i} className="call-card">
-                <div className="call-header">
-                  <div className="call-status-badge active">ACTIVE</div>
-                  <div className="call-duration">
-                    <MdAccessTime /> {formatDuration(call.call_answered || call.call_start)}
-                  </div>
-                </div>
-                <div className="call-details">
-                  <div className="call-info-row">
-                    <span className="call-label">From:</span>
-                    <span className="call-value">{extractPhoneFromClid(call.caller)}</span>
-                  </div>
-                  <div className="call-info-row">
-                    <span className="call-label">Agent:</span>
-                    <span className="call-value">{extractAgentFromChannel(call.channel)}</span>
-                  </div>
-                  {call.call_answered && (
-                    <div className="call-info-row">
-                      <span className="call-label">Started:</span>
-                      <span className="call-value">{new Date(call.call_answered).toLocaleTimeString()}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="no-calls">No active calls at the moment</div>
-          )}
-        </div>
+        <ActiveCalls liveCalls={dashboardData.liveCalls} refreshInterval={2000} showTitle={true} />
       </div>
 
       {/* Call Summary Statistics Section */}
@@ -716,6 +700,97 @@ return () => {
               </div>
               <div className="stat-label">Daily Busy Calls</div>
               <div className="stat-sublabel">of total calls</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Total Calls Summary Row */}
+        <div className="call-summary-row total-summary">
+          <div className="call-summary-card answered-calls" style={{ borderLeftColor: "#1976d2" }}>
+            <div className="stat-icon">
+              <MdTrendingUp style={{ color: "#1976d2" }} />
+            </div>
+            <div className="stat-content">
+              <div className="stat-value-with-percent">
+                <span
+                  style={{
+                    color: "#1976d2",
+                    fontSize: "1.5rem",
+                    fontWeight: "bold",
+                  }}
+                >
+                  100%
+                </span>
+                <span
+                  style={{
+                    fontSize: "2rem",
+                    fontWeight: "bold",
+                    marginLeft: "8px",
+                  }}
+                >
+                  {dailyTotal}
+                </span>
+              </div>
+              <div className="stat-label">Total Daily Calls</div>
+              <div className="stat-sublabel">All calls today</div>
+            </div>
+          </div>
+          <div className="call-summary-card no-answer-calls" style={{ borderLeftColor: "#9c27b0" }}>
+            <div className="stat-icon">
+              <MdTrendingUp style={{ color: "#9c27b0" }} />
+            </div>
+            <div className="stat-content">
+              <div className="stat-value-with-percent">
+                <span
+                  style={{
+                    color: "#9c27b0",
+                    fontSize: "1.5rem",
+                    fontWeight: "bold",
+                  }}
+                >
+                  100%
+                </span>
+                <span
+                  style={{
+                    fontSize: "2rem",
+                    fontWeight: "bold",
+                    marginLeft: "8px",
+                  }}
+                >
+                  {monthlyTotal}
+                </span>
+              </div>
+              <div className="stat-label">Total Monthly Calls</div>
+              <div className="stat-sublabel">All calls this month</div>
+            </div>
+          </div>
+          <div className="call-summary-card busy-calls" style={{ borderLeftColor: "#ff5722" }}>
+            <div className="stat-icon">
+              <MdTrendingUp style={{ color: "#ff5722" }} />
+            </div>
+            <div className="stat-content">
+              <div className="stat-value-with-percent">
+                <span
+                  style={{
+                    color: "#ff5722",
+                    fontSize: "1.5rem",
+                    fontWeight: "bold",
+                  }}
+                >
+                  100%
+                </span>
+                <span
+                  style={{
+                    fontSize: "2rem",
+                    fontWeight: "bold",
+                    marginLeft: "8px",
+                  }}
+                >
+                  {yearlyTotal}
+                </span>
+              </div>
+              <div className="stat-label">Total Yearly Calls</div>
+              <div className="stat-sublabel">All calls this year</div>
             </div>
           </div>
         </div>
