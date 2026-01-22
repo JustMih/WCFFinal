@@ -151,6 +151,8 @@ const getStepStatus = (stepIndex, currentStepIndex) => {
 
 const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, usersList = [] }) => {
   if (!selectedTicket) return null;
+  // Get current user ID to check if they are the one who uploaded the attachment
+  const currentUserId = localStorage.getItem("userId");
   const normalizedCategory = String(selectedTicket.category || "").toLowerCase();
   const isComplaintCategory = normalizedCategory === "complaint";
   const isReviewerManagedCategory = ["complaint", "compliment", "complement", "suggestion"].includes(normalizedCategory);
@@ -443,7 +445,10 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
             <Box sx={{ flex: 1 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
                 <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-                  {a.assigned_to_name || a.assignedTo?.full_name || a.user?.full_name || a.assigned_to_id || "Unknown"} ({a.assigned_to_role || a.assignedTo?.role || a.user?.role || "N/A"})
+                  {/* Show assigned_by_name (mtu aliyetuma) kama attachment ipo, si assigned_to_name (mtu aliyepokea) */}
+                  {a.attachment_path && a.assigned_by_name 
+                    ? `${a.assigned_by_name} (${a.assigned_by_role || "N/A"})`
+                    : a.assigned_to_name || a.assignedTo?.full_name || a.user?.full_name || a.assigned_to_id || "Unknown"} ({a.attachment_path && a.assigned_by_role ? a.assigned_by_role : (a.assigned_to_role || a.assignedTo?.role || a.user?.role || "N/A")})
                 </Typography>
                 {/* Show aging for all assignments except creator, calculating active time for each */}
                 {a.created_at && (
@@ -694,25 +699,75 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
               )}
               
               {/* Attachment/Evidence link if present, else show 'No attachment' */}
-              {a.attachment_path ? (
-                <Typography
-                  variant="body2"
-                  sx={{ color: '#28a745', fontStyle: 'italic', cursor: 'pointer', textDecoration: 'underline' }}
-                  onClick={() => handleDownloadAttachment(a.attachment_path)}
-                >
-                  Download attachment
-                </Typography>
-              ) : a.evidence_url ? (
-                <Typography variant="body2" color="primary">
-                  <a href={a.evidence_url} target="_blank" rel="noopener noreferrer">
-                    View Evidence
-                  </a>
-                </Typography>
-              ) : (
-                <Typography variant="body2" sx={{ color: 'gray', fontStyle: 'italic' }}>
-                  No attachment
-                </Typography>
-              )}
+              {/* Show attachment kwenye entry ya mtu ambaye alituma (assigned_by_id), si kwenye entry ya mtu ambaye alipokea (assigned_to_id) */}
+              {/* IMPORTANT: Entry inaonyesha mtu ambaye alipokea (assigned_to_id), lakini attachment ina-save kwa mtu ambaye alituma (assigned_by_id) */}
+              {/* Kwa hiyo, attachment inapaswa kuonekana kwenye entry ambayo assigned_by_id ya entry ni sawa na assigned_by_id ya attachment */}
+              {(() => {
+                // Check if this entry has attachment_path
+                if (!a.attachment_path && !a.evidence_url) {
+                  return (
+                    <Typography variant="body2" sx={{ color: 'gray', fontStyle: 'italic' }}>
+                      No attachment
+                    </Typography>
+                  );
+                }
+                
+                // IMPORTANT: Entry inaonyesha mtu ambaye alipokea (assigned_to_id)
+                // Lakini attachment ina-save kwa mtu ambaye alituma (assigned_by_id)
+                // Kwa hiyo, attachment inapaswa kuonekana kwenye entry ambayo:
+                // - Entry ina attachment_path (ya mtu aliyetuma)
+                // - Entry ina assigned_by_id (mtu aliyetuma attachment)
+                // Si kwenye entry ambayo assigned_to_id ni sawa na assigned_by_id ya attachment
+                
+                // Check: Kama entry ina attachment_path, basi attachment inaonekana kwenye entry hii
+                // (kwa sababu attachment ina-save kwa assigned_by_id ya entry hii)
+                // Entry inaonyesha mtu ambaye alipokea (assigned_to_id), lakini attachment ina-save kwa mtu ambaye alituma (assigned_by_id)
+                // Kwa hiyo, attachment inaonekana kwenye entry hii kwa sababu entry hii ina attachment_path
+                // (attachment ina-save kwa assigned_by_id ya entry hii, si assigned_to_id)
+                if (a.attachment_path) {
+                  // Get the name of the previous user who sent the attachment
+                  // Attachment is shown on the entry where it was received, but was sent by the previous user
+                  const previousStep = reversedSteps[idx - 1];
+                  const nextStep = reversedSteps[idx + 1];
+                  
+                  // Try multiple sources for sender name:
+                  // 1. Previous step's assigned_to_name (who sent it to current) - most reliable for non-first steps
+                  // 2. Current entry's assignedBy.full_name (from backend)
+                  // 3. Current entry's assigned_by_name (if available)
+                  // 4. Next step's assigned_to_name (for first step, attachment might be from next in original order)
+                  // 5. Other fallback properties
+                  let senderName = previousStep?.assigned_to_name 
+                    || a.assignedBy?.full_name 
+                    || a.assigned_by_name 
+                    || (idx === 0 && nextStep?.assigned_to_name)
+                    || a.user?.full_name 
+                    || 'Unknown';
+                  
+                  return (
+                    <Typography
+                      variant="body2"
+                      sx={{ color: '#28a745', fontStyle: 'italic', cursor: 'pointer', textDecoration: 'underline' }}
+                      onClick={() => handleDownloadAttachment(a.attachment_path)}
+                    >
+                      Download attachment - Sent by {senderName}
+                    </Typography>
+                  );
+                } else if (a.evidence_url) {
+                  return (
+                    <Typography variant="body2" color="primary">
+                      <a href={a.evidence_url} target="_blank" rel="noopener noreferrer">
+                        View Evidence
+                      </a>
+                    </Typography>
+                  );
+                } else {
+                  return (
+                    <Typography variant="body2" sx={{ color: 'gray', fontStyle: 'italic' }}>
+                      No attachment
+                    </Typography>
+                  );
+                }
+              })()}
             </Box>
           </Box>
         );

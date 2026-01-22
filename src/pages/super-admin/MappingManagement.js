@@ -290,7 +290,7 @@ const MappingManagement = () => {
         throw new Error(result.message || "Failed to save function");
       }
     } catch (err) {
-      console.error("Error saving function:", err);
+      console.error("Error saving Sub-Section:", err);
       setSnackbar({
         open: true,
         message: err.message || "Failed to save function",
@@ -337,7 +337,7 @@ const MappingManagement = () => {
         throw new Error(result.message || "Failed to delete function");
       }
     } catch (err) {
-      console.error("Error deleting function:", err);
+      console.error("Error deleting Sub-Section:", err);
       setSnackbar({
         open: true,
         message: err.message || "Failed to delete function",
@@ -404,7 +404,7 @@ const MappingManagement = () => {
         throw new Error(result.message || "Failed to save function data");
       }
     } catch (err) {
-      console.error("Error saving function data:", err);
+      console.error("Error saving Subjects:", err);
       setSnackbar({
         open: true,
         message: err.message || "Failed to save function data",
@@ -451,7 +451,7 @@ const MappingManagement = () => {
         throw new Error(result.message || "Failed to delete function data");
       }
     } catch (err) {
-      console.error("Error deleting function data:", err);
+      console.error("Error deleting Subjects:", err);
       setSnackbar({
         open: true,
         message: err.message || "Failed to delete function data",
@@ -737,7 +737,7 @@ const MappingManagement = () => {
                           {func.name}
                         </Typography>
                         <Chip
-                          label={`${functionDataCount} ${functionDataCount === 1 ? 'Function Data' : 'Function Data'}`}
+                          label={`${functionDataCount} ${functionDataCount === 1 ? 'Subjects:' : 'Subjects:'}`}
                           size="small"
                           color="secondary"
                           variant={hasFunctionData ? "filled" : "outlined"}
@@ -778,7 +778,7 @@ const MappingManagement = () => {
                             handleOpenFunctionDataModal({ functionId: func.id })
                           }
                         >
-                          Add Function Data
+                          Add Subjects:
                         </Button>
                       </Box>
                       {func.functionData && func.functionData.length > 0 ? (
@@ -979,7 +979,7 @@ const MappingManagement = () => {
                           {func.name}
                         </Typography>
                         <Chip
-                          label={`${functionDataCount} ${functionDataCount === 1 ? 'Function Data' : 'Function Data'}`}
+                          label={`${functionDataCount} ${functionDataCount === 1 ? 'Subjects:' : 'Subjects:'}`}
                           size="small"
                           color="secondary"
                           variant={hasFunctionData ? "filled" : "outlined"}
@@ -1021,7 +1021,7 @@ const MappingManagement = () => {
                             handleOpenFunctionDataModal({ functionId: func.id })
                           }
                         >
-                          Add Function Data
+                          Add Subjects:
                         </Button>
                       </Box>
                       {func.functionData && func.functionData.length > 0 ? (
@@ -1274,7 +1274,7 @@ const MappingManagement = () => {
                             {func.name}
                           </Typography>
                           <Chip
-                            label={`${functionDataCount} ${functionDataCount === 1 ? 'Function Data' : 'Function Data'}`}
+                            label={`${functionDataCount} ${functionDataCount === 1 ? 'Subjects:' : 'Subjects:'}`}
                             size="small"
                             color="secondary"
                             variant={hasFunctionData ? "filled" : "outlined"}
@@ -1315,7 +1315,7 @@ const MappingManagement = () => {
                               handleOpenFunctionDataModal({ functionId: func.id })
                             }
                           >
-                            Add Function Data
+                            Add Subjects:
                           </Button>
                         </Box>
                         {func.functionData && func.functionData.length > 0 ? (
@@ -1394,7 +1394,7 @@ const MappingManagement = () => {
                       }, 0) || 0;
                       return sum + sectionFunctionData;
                     }, 0);
-                    return totalFunctionData > 0 ? ` - ${totalFunctionData} Function Data` : '';
+                    return totalFunctionData > 0 ? ` - ${totalFunctionData} Subjects:` : '';
                   })()}
                 </Typography>
                 {groupedSections.unit.map((section) => {
@@ -1420,7 +1420,7 @@ const MappingManagement = () => {
                             {section.name}
                           </Typography>
                           <Chip
-                            label={`${totalFunctionData} ${totalFunctionData === 1 ? 'Function Data' : 'Function Data'}`}
+                            label={`${totalFunctionData} ${totalFunctionData === 1 ? 'Subjects:' : 'Subjects:'}`}
                             size="small"
                             color={hasFunctionData ? "secondary" : "default"}
                             variant={hasFunctionData ? "filled" : "outlined"}
@@ -1486,7 +1486,7 @@ const MappingManagement = () => {
                                   {func.name}
                                 </Typography>
                                 <Chip
-                                  label={`${functionDataCount} ${functionDataCount === 1 ? 'Function Data' : 'Function Data'}`}
+                                  label={`${functionDataCount} ${functionDataCount === 1 ? 'Subjects:' : 'Subjects:'}`}
                                   size="small"
                                   color="secondary"
                                   variant={hasFunctionData ? "filled" : "outlined"}
@@ -1528,7 +1528,7 @@ const MappingManagement = () => {
                                     handleOpenFunctionDataModal({ functionId: func.id })
                                   }
                                 >
-                                  Add Function Data
+                                  Add Subjects:
                                 </Button>
                               </Box>
                               {func.functionData && func.functionData.length > 0 ? (
@@ -1611,7 +1611,7 @@ const MappingManagement = () => {
     return (
       <Box>
         <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
-          <Typography variant="body2" fontWeight="bold">Total Functions: {filteredFunctionsData.length}</Typography>
+          <Typography variant="body2" fontWeight="bold">Total Sub-Sections: {filteredFunctionsData.length}</Typography>
           <Button
             variant="contained"
             size="small"
@@ -1655,7 +1655,7 @@ const MappingManagement = () => {
                     {func.functionData && func.functionData.length > 0 ? (
                       <>
                         <Typography variant="caption" fontWeight="bold" gutterBottom>
-                          Function Data ({func.functionData.length}):
+                          Subjects: ({func.functionData.length}):
                         </Typography>
                         <Box sx={{ display: "flex", flexWrap: "wrap", gap: 1 }}>
                           {func.functionData.map((fd) => (
@@ -1683,7 +1683,7 @@ const MappingManagement = () => {
     );
   };
 
-  // Render Function Data View
+  // Render Subjects: View
   const renderFunctionDataView = () => {
     if (loading) {
       return (
@@ -1704,14 +1704,14 @@ const MappingManagement = () => {
     return (
       <Box>
         <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
-          <Typography variant="body2" fontWeight="bold">Total Function Data: {filteredFunctionDataList.length}</Typography>
+          <Typography variant="body2" fontWeight="bold">Total Subjects: {filteredFunctionDataList.length}</Typography>
           <Button
             variant="contained"
             size="small"
             startIcon={<AddIcon />}
             onClick={() => handleOpenFunctionDataModal()}
           >
-            Add Function Data
+            Add Sub-Section Data
           </Button>
         </Box>
         {filteredFunctionDataList.length === 0 ? (
@@ -1746,7 +1746,7 @@ const MappingManagement = () => {
                       <>
                         <Box sx={{ display: "flex", gap: 1, mb: 1 }}>
                           <Chip
-                            label={`Function: ${fd.function.name}`}
+                            label={`Sub-Section: ${fd.function.name}`}
                             size="small"
                             color="primary"
                           />
@@ -1777,7 +1777,7 @@ const MappingManagement = () => {
           Mapping Management
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          View and manage the hierarchical structure of Sections, Functions, and Function Data
+          View and manage the hierarchical structure of Sections, Sub-sections, and Subjects
         </Typography>
       </Paper>
 
@@ -1804,8 +1804,8 @@ const MappingManagement = () => {
         <Box sx={{ borderBottom: 1, borderColor: "divider" }}>
           <Tabs value={value} onChange={handleChange} aria-label="mapping tabs" sx={{ '& .MuiTab-root': { fontSize: '0.875rem', minHeight: '48px' } }}>
             <Tab label="Sections View" />
-            <Tab label="Functions View" />
-            <Tab label="Function Data View" />
+            <Tab label="Sub-Sections View" />
+            <Tab label="Subjects View" />
           </Tabs>
         </Box>
 
@@ -1880,7 +1880,7 @@ const MappingManagement = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Function Data Modal */}
+      {/* Subjects: Modal */}
       <Dialog
         open={openFunctionDataModal}
         onClose={() => setOpenFunctionDataModal(false)}
@@ -1888,13 +1888,13 @@ const MappingManagement = () => {
         fullWidth
       >
         <DialogTitle>
-          {functionDataForm.id ? "Edit Function Data" : "Create Function Data"}
+          {functionDataForm.id ? "Edit Subjects:" : "Create Subjects:"}
         </DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
             margin="dense"
-            label="Function Data Name"
+            label="Subjects: Name"
             fullWidth
             variant="outlined"
             value={functionDataForm.name}

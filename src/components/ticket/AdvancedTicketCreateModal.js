@@ -616,6 +616,42 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
   // --- Right Part Visibility Control ---
   const [showRightPart, setShowRightPart] = useState(true);
   const [rightPartContent, setRightPartContent] = useState("no-history"); // "no-history", "hidden", "ticket-history"
+
+  // --- Relations for Representative/Employer (managed by super-admin in Lookup Tables) ---
+  const [relations, setRelations] = useState([]);
+  const [relationsLoading, setRelationsLoading] = useState(false);
+  const [relationsError, setRelationsError] = useState("");
+
+  useEffect(() => {
+    const fetchRelations = async () => {
+      try {
+        setRelationsLoading(true);
+        setRelationsError("");
+        const token = localStorage.getItem("authToken");
+        if (!token) {
+          setRelationsError("Auth token missing");
+          return;
+        }
+        const res = await fetch(`${baseURL}/lookup-tables/relations`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          setRelationsError(err.message || "Failed to load relations");
+          return;
+        }
+        const json = await res.json();
+        setRelations(Array.isArray(json.data) ? json.data : []);
+      } catch (e) {
+        console.error("Error fetching relations:", e);
+        setRelationsError("Failed to load relations");
+      } finally {
+        setRelationsLoading(false);
+      }
+    };
+
+    fetchRelations();
+  }, []);
   
   // --- Call Phone Number Preservation ---
   const [callPhoneNumber] = useState(initialPhoneNumber); // Preserve call phone number throughout component lifecycle
@@ -3089,6 +3125,7 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                             name="relationshipToEmployee"
                             value={formData.relationshipToEmployee}
                             onChange={handleChange}
+                            disabled={relationsLoading}
                             style={{
                               height: "32px",
                               fontSize: "0.875rem",
@@ -3096,39 +3133,37 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                               border: formErrors.relationshipToEmployee
                                 ? "1px solid red"
                                 : "1px solid #ccc",
-                              width: "100%"
+                              width: "100%",
+                              backgroundColor: relationsLoading ? "#f5f5f5" : "white",
+                              cursor: relationsLoading ? "not-allowed" : "pointer"
                             }}
                           >
                             <option value="">
-                              {formData.requester === "Employer"
+                              {relationsLoading
+                                ? "Loading relationships..."
+                                : relationsError
+                                ? "Error loading relationships"
+                                : formData.requester === "Employer"
                                 ? "Select position/role"
                                 : "Select relationship"}
                             </option>
-                            {formData.requester === "Employer" ? (
-                              <>
-                                <option value="HR Manager">HR Manager</option>
-                                <option value="Director">Director</option>
-                                <option value="CEO">CEO</option>
-                                <option value="Manager">Manager</option>
-                                <option value="Legal Representative">Legal Representative</option>
-                                <option value="Authorized Officer">Authorized Officer</option>
-                                <option value="Other">Other</option>
-                              </>
-                            ) : (
-                              <>
-                                <option value="Parent">Parent</option>
-                                <option value="Spouse">Spouse</option>
-                                <option value="Child">Child</option>
-                                <option value="Sibling">Sibling</option>
-                                <option value="Relative">Relative</option>
-                                <option value="Guardian">Guardian</option>
-                                <option value="Friend">Friend</option>
-                                <option value="Lawyer">Lawyer</option>
-                                <option value="Union Representative">Union Representative</option>
-                                <option value="Other">Other</option>
-                              </>
-                            )}
+                            {relations.length > 0 ? (
+                              relations.map((rel) => (
+                                <option key={rel.id} value={rel.name}>
+                                  {rel.name}
+                                </option>
+                              ))
+                            ) : !relationsLoading && !relationsError ? (
+                              <option value="" disabled>
+                                No relationships available. Please contact admin.
+                              </option>
+                            ) : null}
                           </select>
+                          {relationsError && (
+                            <span style={{ color: "orange", fontSize: "0.75rem", display: "block", marginTop: "4px" }}>
+                              {relationsError} - Using default options may not be available.
+                            </span>
+                          )}
                           {formErrors.relationshipToEmployee && (
                             <span style={{ color: "red", fontSize: "0.75rem" }}>
                               {formErrors.relationshipToEmployee}
