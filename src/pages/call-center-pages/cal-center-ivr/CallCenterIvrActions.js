@@ -130,26 +130,41 @@ const saveEdit = async (id) => {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        parameter: editItem.parameter,
+        dtmf_digit: editItem.dtmf_digit,
         action_id: editItem.action_id,
+        parameter: editItem.parameter,
+        ivr_voice_id: editItem.ivr_voice_id,
         language: editItem.language,
-        menu_context: editItem.menu_context
+        menu_context: editItem.menu_context,
       }),
     });
 
     const data = await response.json();
 
-    if (response.ok) {
-      alert("✅ Edited Successfully!");
-      setProcessedMappings(prev =>
-        prev.map(m => m.id === id ? data.mapping : m)
-      );
-      setEditItem(null);
+    if (!response.ok) {
+      alert(`❌ ${data.message}`);
+      return;
     }
+
+    alert("✅ Mapping updated successfully");
+
+   const updated = {
+  ...data.mapping,
+  action_name: data.mapping.action?.name || "Unknown",
+};
+
+setProcessedMappings(prev =>
+  prev.map(m => (m.id === id ? updated : m))
+);
+
+
+    setEditItem(null);
+
   } catch (err) {
-    console.error(err);
+    console.error("Edit failed:", err);
   }
 };
+
 
   const handleDelete = async (id) => {
     if (window.confirm("Are you sure you want to delete this mapping?")) {
@@ -169,6 +184,24 @@ const saveEdit = async (id) => {
       }
     }
   };
+const playVoice = (voiceId) => {
+  if (!voiceId) {
+    alert("No IVR voice selected");
+    return;
+  }
+
+  const audioUrl = `${baseURL}/ivr/voices/${voiceId}/audio`;
+
+  const audio = new Audio(audioUrl);
+
+  audio.onerror = () => {
+    alert("Unable to play IVR audio (file missing or format issue)");
+  };
+
+  audio.play().catch(err => {
+    console.error("Audio play failed:", err);
+  });
+};
 
   return (
     <div className="user-table-container">
@@ -240,6 +273,7 @@ const saveEdit = async (id) => {
                           onChange={e => handleChange(index, "parameter", e.target.value)}
                         />
                       </td>
+       
                     </tr>
                   ))}
                 </tbody>
@@ -250,45 +284,141 @@ const saveEdit = async (id) => {
           )}
 
           <h3 style={{ marginTop: "30px" }}>Existing Mappings</h3>
-          <table className="user-table">
-            <thead>
-              <tr>
-                <th>DTMF</th>
-                <th>Action</th>
-                <th>Parameter</th>
-                <th>IVR Voice</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {processedMappings.map(item => (
-                <tr key={item.id}>
-                  <td>{item.dtmf_digit}</td>
-                  <td>{item.action_name || "Unknown"}</td>
-                  <td>
+
+        <table className="user-table">
+          <thead>
+            <tr>
+              <th>DTMF</th>
+              <th>Action</th>
+              <th>Parameter</th>
+              <th>IVR Voice</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {processedMappings.map(item => (
+              <tr key={item.id}>
+
+                {/* 🔢 DTMF DIGIT */}
+                <td>
+                  {editItem && editItem.id === item.id ? (
+                    <select
+                      value={editItem.dtmf_digit}
+                      onChange={e =>
+                        setEditItem({ ...editItem, dtmf_digit: e.target.value })
+                      }
+                    >
+                      {DTMF_KEYS.map(k => (
+                        <option key={k} value={k}>{k}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    item.dtmf_digit
+                  )}
+                </td>
+
+                {/* 🎯 ACTION */}
+                <td>
+                  {editItem && editItem.id === item.id ? (
+                    <select
+                      value={editItem.action_id}
+                      onChange={e =>
+                        setEditItem({ ...editItem, action_id: e.target.value })
+                      }
+                    >
+                      {actions.map(a => (
+                        <option key={a.id} value={a.id}>
+                          {a.name}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    item.action_name || "Unknown"
+                  )}
+                </td>
+
+                {/* 🧾 PARAMETER */}
+                <td>
+                  {editItem && editItem.id === item.id ? (
+                    <input
+                      type="text"
+                      value={editItem.parameter || ""}
+                      onChange={e =>
+                        setEditItem({ ...editItem, parameter: e.target.value })
+                      }
+                    />
+                  ) : (
+                    item.parameter
+                  )}
+                </td>
+
+                {/* 🔊 IVR VOICE */}
+              <td style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                     {editItem && editItem.id === item.id ? (
-                      <input
-                        type="text"
-                        value={editItem.parameter}
-                        onChange={e => setEditItem({ ...editItem, parameter: e.target.value })}
-                      />
+                      <>
+                        <select
+                          value={editItem.ivr_voice_id}
+                          onChange={e =>
+                            setEditItem({ ...editItem, ivr_voice_id: e.target.value })
+                          }
+                        >
+                          {voices.map(v => (
+                            <option key={v.id} value={v.id}>
+                              {v.file_name}
+                            </option>
+                          ))}
+                        </select>
+
+                        {editItem.ivr_voice_id && (
+                          <button
+                            className="ivr-play-btn"
+                            title="Preview selected voice"
+                            onClick={() => playVoice(editItem.ivr_voice_id)}
+                          >
+                            ▶️
+                          </button>
+                        )}
+                      </>
                     ) : (
-                      item.parameter
+                      <>
+                        <span>{item.voice?.file_name || "Unknown"}</span>
+
+                        {item.ivr_voice_id && (
+                          <button
+                            className="ivr-play-btn"
+                            title="Play IVR voice"
+                            onClick={() => playVoice(item.ivr_voice_id)}
+                          >
+                            ▶️
+                          </button>
+                        )}
+                      </>
                     )}
                   </td>
-                  <td>{item.ivr_voice_id || "Unknown"}</td>
-                  <td>
-                    {editItem && editItem.id === item.id ? (
-                      <button onClick={() => saveEdit(item.id)}>💾 Save</button>
-                    ) : (
-                      <button onClick={() => handleEdit(item)}>✏️ Edit</button>
-                    )}
-                    <button onClick={() => handleDelete(item.id)}>🗑️ Delete</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+
+
+
+        {/* 💾 ACTION BUTTONS */}
+        <td>
+          {editItem && editItem.id === item.id ? (
+            <>
+              <button onClick={() => saveEdit(item.id)}>💾 Save</button>
+              <button onClick={() => setEditItem(null)}>❌ Cancel</button>
+            </>
+          ) : (
+            <>
+              <button onClick={() => setEditItem(item)}>✏️ Edit</button>
+              <button onClick={() => handleDelete(item.id)}>🗑️ Delete</button>
+            </>
+          )}
+        </td>
+
+      </tr>
+    ))}
+  </tbody>
+</table>
+
         </>
       )}
     </div>
