@@ -725,23 +725,15 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
                 // Kwa hiyo, attachment inaonekana kwenye entry hii kwa sababu entry hii ina attachment_path
                 // (attachment ina-save kwa assigned_by_id ya entry hii, si assigned_to_id)
                 if (a.attachment_path) {
-                  // Get the name of the previous user who sent the attachment
-                  // Attachment is shown on the entry where it was received, but was sent by the previous user
-                  const previousStep = reversedSteps[idx - 1];
+                  // Get the name of the user who sent the attachment
+                  // Strategy: Use previous step's assigned_to_name (same as other steps do for "Message from Previous")
+                  // IMPORTANT: reversedSteps is reversed, so previous step in chronological order is next step (idx + 1) in reversed array
+                  // For all steps, use next step's assigned_to_name (which is previous step in chronological order)
                   const nextStep = reversedSteps[idx + 1];
                   
-                  // Try multiple sources for sender name:
-                  // 1. Previous step's assigned_to_name (who sent it to current) - most reliable for non-first steps
-                  // 2. Current entry's assignedBy.full_name (from backend)
-                  // 3. Current entry's assigned_by_name (if available)
-                  // 4. Next step's assigned_to_name (for first step, attachment might be from next in original order)
-                  // 5. Other fallback properties
-                  let senderName = previousStep?.assigned_to_name 
-                    || a.assignedBy?.full_name 
-                    || a.assigned_by_name 
-                    || (idx === 0 && nextStep?.assigned_to_name)
-                    || a.user?.full_name 
-                    || 'Unknown';
+                  // Use next step's assigned_to_name (previous step in chronological order)
+                  // If no next step, use "Previous" as fallback
+                  const senderName = nextStep?.assigned_to_name || 'Previous';
                   
                   return (
                     <Typography
