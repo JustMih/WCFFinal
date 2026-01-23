@@ -1,7 +1,10 @@
+// import baseURL from config
+import { baseURL } from "./config";
+
 const sipConfig = {
-  uri: UserAgent.makeURI(`sip:${extension}@10.52.0.19`),
+  uri: UserAgent.makeURI(`sip:${extension}@${baseURL}`),
   transportOptions: {
-    server: "wss://10.52.0.19:8089/ws",
+    server: `wss://${baseURL}:8089/ws`,
   },
   authorizationUsername: extension,
   authorizationPassword: sipPassword,
@@ -146,7 +149,7 @@ const handleAcceptCall = () => {
 const handleDial = () => {
   if (!userAgent || !phoneNumber) return;
 
-  const target = `sip:${phoneNumber}@10.52.0.19`;
+  const target = `sip:${phoneNumber}@${baseURL}`;
   const targetURI = UserAgent.makeURI(target);
   if (!targetURI) return;
 

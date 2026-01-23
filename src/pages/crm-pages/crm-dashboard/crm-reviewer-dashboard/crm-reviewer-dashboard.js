@@ -229,7 +229,8 @@ export default function ReviewerDashboard() {
   const fetchTickets = async () => {
     try {
       const token = localStorage.getItem("authToken");
-      const response = await fetch(`${baseURL}/reviewer/all-tickets`, {
+      // const response = await fetch(`${baseURL}/reviewer/all-tickets`, {
+        const response = await fetch(`${baseURL}/ticket/all-customer-tickets`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await response.json();

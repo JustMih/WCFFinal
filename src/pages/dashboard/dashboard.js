@@ -92,8 +92,8 @@ const Dashboard = () => {
   // Function to initialize SIP client
   const initializeSIPClient = () => {
     const configuration = {
-      uri: "sip:1004@10.52.0.19",
-      // wsServers: ["ws://10.52.0.19:8088"], // Ensure the WebSocket URL is correct
+      uri: `sip:1004@${baseURL}`,
+      wsServers: ["ws://192.168.21.70:8088"], // Ensure the WebSocket URL is correct
       traceSip: true,
       authorizationUser: "1004",
       password: "sip12345",
@@ -178,7 +178,7 @@ const Dashboard = () => {
     }
 
     try {
-      const session = sipClient.invite(`sip:${phoneNumber}@10.52.0.19`, {
+      const session = sipClient.invite(`sip:${phoneNumber}@${baseURL}`, {
         media: {
           constraints: { audio: true },
           render: { remote: document.getElementById("remoteAudio") },

@@ -111,13 +111,13 @@ export default function SupervisorDashboard() {
   // ===== Config / SIP =====
   const extension = localStorage.getItem("extension");
   const sipPassword = localStorage.getItem("sipPassword");
-  const SIP_DOMAIN = "10.52.0.19"; // align with Agents
+  const SIP_DOMAIN = baseURL;
 
   const sipConfig = useMemo(() => {
     if (!extension || !sipPassword) return null;
     return {
-      uri: UserAgent.makeURI(`sip:${extension}@${SIP_DOMAIN}`),
-      transportOptions: { server: `wss://${SIP_DOMAIN}:8089/ws` },
+      uri: UserAgent.makeURI(`sip:${extension}@${baseURL}`),
+      transportOptions: { server: `wss://${baseURL}:8089/ws` },
       authorizationUsername: extension,
       authorizationPassword: sipPassword,
       sessionDescriptionHandlerFactoryOptions: {

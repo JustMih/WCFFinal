@@ -64,6 +64,7 @@ import OnlineAgentsTable from "../../../../components/agent-dashboard/OnlineAgen
 import OnlineSupervisorsTable from "../../../../components/agent-dashboard/OnlineSupervisorsTable";
 import TotalContactSummary from "../../../../components/agent-dashboard/TotalContactSummary";
 import ContactSummaryGrid from "../../../../components/agent-dashboard/ContactSummaryGrid";
+import CallHistoryCard from "../../../../components/agent-dashboard/CallHistoryCard";
 
 export default function AgentsDashboard() {
   const [customerType, setCustomerType] = useState("");
@@ -302,9 +303,9 @@ export default function AgentsDashboard() {
   const sipPassword = localStorage.getItem("sipPassword");
 
   const sipConfig = {
-    uri: UserAgent.makeURI(`sip:${extension}@10.52.0.19`),
+    uri: UserAgent.makeURI(`sip:${extension}@${baseURL}`),
     transportOptions: {
-      server: "wss://10.52.0.19:8089/ws",
+      server: `wss://${baseURL}:8089/ws`,
     },
     authorizationUsername: extension,
     authorizationPassword: sipPassword,
@@ -578,7 +579,7 @@ export default function AgentsDashboard() {
   const handleAttendedTransferDial = () => {
     if (!userAgent || !transferTarget) return;
 
-    const targetURI = UserAgent.makeURI(`sip:${transferTarget}@10.52.0.19`);
+    const targetURI = UserAgent.makeURI(`sip:${transferTarget}@${baseURL}`);
     if (!targetURI) {
       console.error("Invalid transfer target URI");
       return;
@@ -750,7 +751,7 @@ export default function AgentsDashboard() {
       console.log(`📞 Formatted number: ${number} → ${formattedNumber}`);
     }
 
-    const target = `sip:${formattedNumber}@10.52.0.19`;
+    const target = `sip:${formattedNumber}@${baseURL}`;
     const targetURI = UserAgent.makeURI(target);
 
     if (!targetURI) {
@@ -835,7 +836,7 @@ export default function AgentsDashboard() {
   const handleDial = () => {
     if (!userAgent || !phoneNumber) return;
 
-    const target = `sip:${phoneNumber}@10.52.0.19`;
+    const target = `sip:${phoneNumber}@${baseURL}`;
     const targetURI = UserAgent.makeURI(target);
     if (!targetURI) return;
 
@@ -913,7 +914,7 @@ export default function AgentsDashboard() {
 
       // Step 3: Proceed with the transfer if the target is valid
       const targetURI = UserAgent.makeURI(
-        `sip:${transferTarget}@10.52.0.19`
+        `sip:${transferTarget}@${baseURL}`
       );
       if (!targetURI) {
         console.error("Invalid transfer target URI");
@@ -1227,6 +1228,20 @@ export default function AgentsDashboard() {
 
   const [showVoiceNotesModal, setShowVoiceNotesModal] = useState(false);
 
+  // Ticket modal functions
+  const openTicketModal = (ticketType = null) => {
+    setTicketType(ticketType);
+    setShowTicketModal(true);
+  };
+
+  const closeTicketModal = () => {
+    setShowTicketModal(false);
+    setTicketType(null);
+    setTicketPhoneNumber("");
+  };
+
+  const [ticketType, setTicketType] = useState(null); // 'employer' or 'employee'
+
   return (
     <div className="p-6">
       <div className="agent-body">
@@ -1347,6 +1362,11 @@ export default function AgentsDashboard() {
           <ContactSummaryGrid />
         </div>
         
+        {/* Agent Activity Cards - Inbound, Outbound, Messages, Voicemail */}
+        <div className="dashboard-single-agent-row_one">
+          <SingleAgentDashboardCard />
+        </div>
+        
         <div className="dashboard-single-agent-row_two">
           {/* Online Agents Table */}
           <OnlineAgentsTable />
@@ -1356,6 +1376,16 @@ export default function AgentsDashboard() {
         <div className="dashboard-single-agent-row_two">
           {/* Queue Monitoring Section */}
           <CallQueueCard />
+        </div>
+        <div className="dashboard-single-agent-row_one">
+          {/* Call History Card */}
+          <CallHistoryCard
+            onCallBack={(phoneNumber) => {
+              setShowPhonePopup(true);
+              setPhoneNumber(phoneNumber);
+              handleRedial(phoneNumber);
+            }}
+          />
         </div>
         <div className="dashboard-single-agent-row_four">
           <AgentPerformanceScore />
@@ -1790,25 +1820,16 @@ export default function AgentsDashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Create Ticket Button (example, place where appropriate) */}
-      <Button
-        variant="contained"
-        color="primary"
-        onClick={() => {
-          setTicketPhoneNumber(phoneNumber || ""); // or use the relevant phone number
-          setShowTicketModal(true);
-        }}
-      >
-        Create Ticket
-      </Button>
-
-      {/* Ticket Create Modal (after answering call) */}
-      <AdvancedTicketCreateModal
-        open={showTicketModal}
-        onClose={() => setShowTicketModal(false)}
-        initialPhoneNumber={ticketPhoneNumber}
-        functionData={functionData}
-      />
+      {/* Ticket Create Modal */}
+      <div style={{ position: "relative" }}>
+        <AdvancedTicketCreateModal
+          open={showTicketModal}
+          onClose={closeTicketModal}
+          onOpen={openTicketModal}
+          initialPhoneNumber={ticketPhoneNumber}
+          functionData={functionData}
+        />
+      </div>
 
       <Dialog
         open={showVoiceNotesModal}

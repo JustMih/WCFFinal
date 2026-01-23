@@ -87,6 +87,32 @@ export default function AgentsDashboard() {
   const [missedCalls, setMissedCalls] = useState([]);
   const [missedOpen, setMissedOpen] = useState(false);
   const [callingBackId, setCallingBackId] = useState(null);
+const [excludedMissedIds, setExcludedMissedIds] = useState(new Set());
+ const fetchMissedCallsFromBackend = React.useCallback(async () => {
+  if (callingBackId) return;
+
+  const ext = localStorage.getItem("extension");
+
+  const response = await fetch(
+    `${baseURL}/missed-calls?agentId=${ext}&status=pending`,
+    {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+      },
+    }
+  );
+
+  const data = await response.json();
+
+  setMissedCalls(
+    (data || [])
+      .filter(call => !excludedMissedIds.has(call.id))
+      .map(call => ({
+        ...call,
+        time: new Date(call.time),
+      }))
+  );
+}, [callingBackId, excludedMissedIds]);
 
 
   // --------- Tickets / MAC lookup ---------
@@ -257,16 +283,12 @@ export default function AgentsDashboard() {
     };
   }, []);
 useEffect(() => {
-  // initial load
   fetchMissedCallsFromBackend();
 
-  // auto refresh every 10 seconds
-  const interval = setInterval(() => {
-    fetchMissedCallsFromBackend();
-  }, 10000);
+  const interval = setInterval(fetchMissedCallsFromBackend, 10000);
 
   return () => clearInterval(interval);
-}, []);
+}, [fetchMissedCallsFromBackend]);
 
   // ---------- SIP: incoming ----------
   const handleIncomingInvite = (invitation) => {

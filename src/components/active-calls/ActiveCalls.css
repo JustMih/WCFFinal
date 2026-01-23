@@ -1,0 +1,117 @@
+.active-calls-container {
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 10px;
+  padding: 15px;
+  margin-bottom: 15px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.section-title {
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin: 0 0 12px 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #333;
+}
+
+.section-icon {
+  font-size: 1.3rem;
+  color: #555;
+}
+
+/* Active Calls Grid */
+.active-calls-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.call-card {
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s ease;
+}
+
+.call-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+}
+
+.call-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.call-status-badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.65rem;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.call-status-badge.active {
+  background: #4caf50;
+  color: white;
+}
+
+.call-duration {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #555;
+}
+
+.call-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.call-info-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+}
+
+.call-label {
+  font-weight: 600;
+  color: #666;
+}
+
+.call-value {
+  font-weight: bold;
+  text-align: right;
+  color: #333;
+}
+
+.no-calls {
+  text-align: center;
+  font-size: 0.9rem;
+  padding: 20px;
+  color: #888;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .active-calls-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .section-title {
+    font-size: 1rem;
+  }
+}
+
