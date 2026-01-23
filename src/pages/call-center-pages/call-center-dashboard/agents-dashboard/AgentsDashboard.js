@@ -402,41 +402,41 @@ useEffect(() => {
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
-const markMissedCallAsCalledBack = async (missedCallId) => {
-  if (!missedCallId) return;
+      const markMissedCallAsCalledBack = async (missedCallId) => {
+        if (!missedCallId) return;
 
-  try {
-    await fetch(`${baseURL}/missed-calls/${missedCallId}/status`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-      },
-      body: JSON.stringify({ status: "called_back" }),
-    });
-
-    // Refresh badge immediately
-    await fetchMissedCallsFromBackend();
-  } catch (err) {
-    console.error("Failed to update missed call status:", err);
-  }
-};
+        try {
+          await fetch(`${baseURL}/missed-calls/${missedCallId}/status`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+            },
+            body: JSON.stringify({ status: "called_back" }),
+          });
+        } catch (err) {
+          console.error("Failed to update missed call status:", err);
+        }
+      };
 
   // ---------- Missed calls ----------
   useEffect(() => {
     fetchMissedCallsFromBackend();
   }, []);
-  const addMissedCall = (raw) => {
-    const agentId = localStorage.getItem("extension");
-    if (!raw || raw.trim() === "") return;
-    let formattedCaller = raw.startsWith("+255") ? `0${raw.substring(4)}` : raw;
-    const time = new Date();
-    const newCall = { caller: formattedCaller, time };
-    setMissedCalls((prev) => [newCall, ...prev]);
+ const addMissedCall = async (raw) => {
+  const agentId = localStorage.getItem("extension");
+  if (!raw || raw.trim() === "") return;
 
-    showAlert(`Missed Call from ${formattedCaller}`, "warning");
+  let formattedCaller = raw.startsWith("+255")
+    ? `0${raw.substring(4)}`
+    : raw;
 
-    fetch(`${baseURL}/missed-calls`, {
+  const time = new Date().toISOString();
+
+  showAlert(`Missed Call from ${formattedCaller}`, "warning");
+
+  try {
+    await fetch(`${baseURL}/missed-calls`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -444,34 +444,42 @@ const markMissedCallAsCalledBack = async (missedCallId) => {
       },
       body: JSON.stringify({
         caller: formattedCaller,
-        time: time.toISOString(),
+        time,
         agentId,
       }),
-    }).catch((err) => console.error("Failed to post missed call:", err));
-  };
- const fetchMissedCallsFromBackend = async () => {
-  // ❗ DO NOT refresh while calling back
-  if (callingBackId) return;
+    });
 
+    // 🔥 single source of truth
+    fetchMissedCallsFromBackend();
+  } catch (err) {
+    console.error("Failed to post missed call:", err);
+  }
+};
+
+const fetchMissedCallsFromBackend = async () => {
   const ext = localStorage.getItem("extension");
 
-  const response = await fetch(
-    `${baseURL}/missed-calls?agentId=${ext}&status=pending`,
-    {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-      },
-    }
-  );
+  try {
+    const response = await fetch(
+      `${baseURL}/missed-calls?agentId=${ext}&status=pending`,
+      {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        },
+      }
+    );
 
-  const data = await response.json();
+    const data = await response.json();
 
-  setMissedCalls(
-    (data || []).map(call => ({
-      ...call,
-      time: new Date(call.time),
-    }))
-  );
+    setMissedCalls(
+      (data || []).map(call => ({
+        ...call,
+        time: new Date(call.time),
+      }))
+    );
+  } catch (err) {
+    console.error("Failed to fetch missed calls:", err);
+  }
 };
 
 
@@ -1044,9 +1052,9 @@ const markMissedCallAsCalledBack = async (missedCallId) => {
 
   // Determine if there's an active call
   const hasActiveCall = phoneStatus === "In Call" && session !== null;
-useEffect(() => {
-  localStorage.setItem("missedCalls", JSON.stringify(missedCalls));
-}, [missedCalls]);
+// useEffect(() => {
+//   localStorage.setItem("missedCalls", JSON.stringify(missedCalls));
+// }, [missedCalls]);
 
   return (
     <div className="p-6">
@@ -1664,24 +1672,23 @@ useEffect(() => {
                   color={callingBackId === call.id ? "success" : "primary"}
                   disabled={callingBackId === call.id}
                   startIcon={<FiPhoneCall />}
-                  onClick={() => {
-                    // 🔴 VISUAL STATE FIRST
-                    setCallingBackId(call.id);
+                 onClick={async () => {
+                      // 1️⃣ Optimistic UI: remove immediately
+                      setMissedCalls(prev => prev.filter(c => c.id !== call.id));
 
-                    // 🔴 REMOVE FROM UI
-                    setMissedCalls(prev =>
-                      prev.filter(c => c.id !== call.id)
-                    );
+                      // 2️⃣ Backend: mark as called_back
+                      await markMissedCallAsCalledBack(call.id);
 
-                    // 🔴 BACKEND UPDATE
-                    markMissedCallAsCalledBack(call.id);
+                      // 3️⃣ Reset calling state
+                      setCallingBackId(null);
 
-                    // 🔴 PHONE FLOW
-                    setMissedOpen(false);
-                    setShowPhonePopup(true);
-                    setPhoneNumber(call.caller);
-                    handleRedial(call.caller, call.id);
-                  }}
+                      // 4️⃣ Phone flow
+                      setMissedOpen(false);
+                      setShowPhonePopup(true);
+                      setPhoneNumber(call.caller);
+                      handleRedial(call.caller);
+                    }}
+
                 >
                   {callingBackId === call.id ? "Calling..." : "Call Back"}
                 </Button>
