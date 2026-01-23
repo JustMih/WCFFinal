@@ -478,31 +478,31 @@ useEffect(() => {
   }
 };
 
-const fetchMissedCallsFromBackend = async () => {
-  const ext = localStorage.getItem("extension");
+// const fetchMissedCallsFromBackend = async () => {
+//   const ext = localStorage.getItem("extension");
 
-  try {
-    const response = await fetch(
-      `${baseURL}/missed-calls?agentId=${ext}&status=pending`,
-      {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-        },
-      }
-    );
+//   try {
+//     const response = await fetch(
+//       `${baseURL}/missed-calls?agentId=${ext}&status=pending`,
+//       {
+//         headers: {
+//           Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+//         },
+//       }
+//     );
 
-    const data = await response.json();
+//     const data = await response.json();
 
-    setMissedCalls(
-      (data || []).map(call => ({
-        ...call,
-        time: new Date(call.time),
-      }))
-    );
-  } catch (err) {
-    console.error("Failed to fetch missed calls:", err);
-  }
-};
+//     setMissedCalls(
+//       (data || []).map(call => ({
+//         ...call,
+//         time: new Date(call.time),
+//       }))
+//     );
+//   } catch (err) {
+//     console.error("Failed to fetch missed calls:", err);
+//   }
+// };
 
 
   // ---------- MAC: fetch user by phone ----------

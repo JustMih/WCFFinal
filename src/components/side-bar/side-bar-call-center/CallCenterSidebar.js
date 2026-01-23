@@ -304,7 +304,7 @@ export default function CallCenterSidebar({
           {role === "agent" && (
             <>
               <NavLink
-                to="/dashboard"
+                to="/dashboard-old"
                 className={({ isActive }) =>
                   isActive ? "menu-item active-link" : "menu-item"
                 }
