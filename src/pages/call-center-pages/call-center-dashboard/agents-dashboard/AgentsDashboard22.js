@@ -368,6 +368,29 @@ export default function AgentsDashboard() {
         setPhoneStatus("Ringing");
         // Extract phone number and search tickets
         const incomingNumber = invitation.remoteIdentity.uri.user;
+        
+        // Show browser notification
+        if ("Notification" in window && Notification.permission === "granted") {
+          new Notification("📞 Incoming Call", {
+            body: `Call from ${incomingCaller}`,
+            icon: "/phone-icon.png", // You can add a phone icon
+            tag: "incoming-call",
+            requireInteraction: true,
+            silent: false,
+          });
+        } else if ("Notification" in window && Notification.permission !== "denied") {
+          Notification.requestPermission().then((permission) => {
+            if (permission === "granted") {
+              new Notification("📞 Incoming Call", {
+                body: `Call from ${incomingCaller}`,
+                tag: "incoming-call",
+                requireInteraction: true,
+                silent: false,
+              });
+            }
+          });
+        }
+        
         ringAudio
           .play()
           .catch((err) => console.error("🔇 Ringtone error:", err));
@@ -412,6 +435,15 @@ export default function AgentsDashboard() {
       stopRingtone();
       stopTimer();
     };
+  }, []);
+
+  // ✅ Request notification permission on mount
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission().catch((err) => {
+        console.log("Notification permission request failed:", err);
+      });
+    }
   }, []);
 
   // ✅ Load missed calls from backend on component mount
@@ -1508,7 +1540,7 @@ export default function AgentsDashboard() {
               </button>
             </div>
 
-            {/* Call Status Bar */}
+            {/* Call Status Bar - In Call */}
             {phoneStatus === "In Call" && (
               <div className="call-status-bar">
                 <div className="call-status-indicator">
@@ -1520,6 +1552,19 @@ export default function AgentsDashboard() {
                   <span className="duration-time">
                     {formatDuration(callDuration)}
                   </span>
+                </div>
+              </div>
+            )}
+
+            {/* Call Status Bar - Ringing */}
+            {phoneStatus === "Ringing" && (
+              <div className="call-status-bar ringing-status">
+                <div className="call-status-indicator">
+                  <div className="call-status-dot ringing"></div>
+                  <span>📞 Incoming Call - Phone is Ringing</span>
+                </div>
+                <div className="ringing-notification">
+                  <span className="ringing-text">RINGING...</span>
                 </div>
               </div>
             )}
