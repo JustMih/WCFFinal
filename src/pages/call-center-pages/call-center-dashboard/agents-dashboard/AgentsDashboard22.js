@@ -194,7 +194,6 @@ export default function AgentsDashboard() {
   const [userAgent, setUserAgent] = useState(null);
   const [session, setSession] = useState(null);
   const [incomingCall, setIncomingCall] = useState(null);
-  const [lastIncomingNumber, setLastIncomingNumber] = useState("");
   const [ringAudio] = useState(new Audio("/ringtone.mp3"));
   const remoteAudioRef = useRef(null);
   const [callDuration, setCallDuration] = useState(0);
@@ -724,7 +723,7 @@ export default function AgentsDashboard() {
       session.bye().catch(console.error);
       setSession(null);
       setPhoneStatus("Idle");
-      remoteAudio.srcObject = null;
+      if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
       stopRingtone();
       stopTimer();
       setShowPhonePopup(false);
