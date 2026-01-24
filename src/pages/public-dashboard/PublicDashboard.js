@@ -80,48 +80,52 @@ export default function PublicDashboard() {
         setLoading(false);
       }
     };
+fetchDashboardData();
 
-    fetchDashboardData();
+// 🔒 Explicit socket URL (same server that serves the API)
+const SOCKET_URL = "http://127.0.0.1:5070";
 
-    const socketUrl = baseURL.replace(/\/api$/, "") || "https://192.168.21.70";
-    const socket = io(socketUrl, {
-      transports: ["websocket", "polling"],
-      reconnection: true,
-      reconnectionAttempts: Infinity,
-      reconnectionDelay: 1000,
-    });
+const socket = io(SOCKET_URL, {
+  transports: ["websocket"],   // ✅ FORCE websocket only
+  upgrade: false,              // ✅ do NOT fallback to polling
+  reconnection: true,
+  reconnectionAttempts: Infinity,
+  reconnectionDelay: 1000,
+  timeout: 20000,
+});
 
-    socket.on("connect", () => console.log("Connected to dashboard socket"));
-    socket.on("public_dashboard_update", (data) => {
-      setDashboardData((prev) => ({
-        ...prev,
-        agentStatus: data.agentStatus || prev.agentStatus,
-        liveCalls: Array.isArray(data.liveCalls)
-          ? data.liveCalls
-          : prev.liveCalls,
-        callStats: {
-          ...prev.callStats,
-          totalCounts:
-            data.callStats?.totalCounts || prev.callStats.totalCounts,
-          monthlyCounts:
-            data.callStats?.monthlyCounts || prev.callStats.monthlyCounts,
-          dailyCounts:
-            data.callStats?.dailyCounts || prev.callStats.dailyCounts,
-        },
-        queueStatus: Array.isArray(data.queueStatus)
-          ? data.queueStatus
-          : prev.queueStatus,
-        callStatusSummary: data.callStatusSummary || prev.callStatusSummary,
-      }));
-    });
+socket.on("connect", () => {
+  console.log("✅ Connected to dashboard socket:", socket.id);
+});
 
-    socket.on("disconnect", () => {
-      console.log("❌ Disconnected from dashboard socket");
-    });
+socket.on("public_dashboard_update", (data) => {
+  setDashboardData((prev) => ({
+    ...prev,
+    agentStatus: data.agentStatus ?? prev.agentStatus,
+    liveCalls: Array.isArray(data.liveCalls)
+      ? data.liveCalls
+      : prev.liveCalls,
+    callStats: {
+      ...prev.callStats,
+      totalCounts: data.callStats?.totalCounts ?? prev.callStats.totalCounts,
+      monthlyCounts: data.callStats?.monthlyCounts ?? prev.callStats.monthlyCounts,
+      dailyCounts: data.callStats?.dailyCounts ?? prev.callStats.dailyCounts,
+    },
+    queueStatus: Array.isArray(data.queueStatus)
+      ? data.queueStatus
+      : prev.queueStatus,
+    callStatusSummary:
+      data.callStatusSummary ?? prev.callStatusSummary,
+  }));
+});
 
-    socket.on("connect_error", (error) => {
-      console.error("Socket connection error:", error);
-    });
+socket.on("disconnect", (reason) => {
+  console.warn("❌ Dashboard socket disconnected:", reason);
+});
+
+socket.on("connect_error", (error) => {
+  console.error("❌ Dashboard socket connection error:", error.message);
+});
 
     // Periodic fetch for live calls and full dashboard data every 2 seconds
     const liveCallsInterval = setInterval(async () => {
