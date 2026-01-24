@@ -1777,7 +1777,7 @@ export default function AgentsDashboard() {
               </div>
             ))
           ) : (
-            <div>No tickets found.</div>
+            <div style={{ textAlign: "center" }}>No tickets found.</div>
           )}
           {/* Ticket Details Modal (nested) */}
           <Dialog

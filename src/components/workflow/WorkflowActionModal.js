@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { baseURL } from '../../config/config';
+import { baseURL } from '../../config';
 
 const WorkflowActionModal = ({ 
   isOpen, 
@@ -41,36 +41,96 @@ const WorkflowActionModal = ({
       return;
     }
 
+    // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    if (attachment && attachment.size > MAX_FILE_SIZE) {
+      setError(`File size exceeds the maximum limit of 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`);
+      return;
+    }
+
     setIsLoading(true);
     setError('');
 
     try {
       const token = localStorage.getItem('token') || sessionStorage.getItem('token');
-      const payload = {
-        [action === 'recommend' ? 'recommendation_notes' : 
-         action === 'reverse' ? 'reversal_reason' : 
-         action === 'close' ? 'closure_notes' : 'notes']: notes
-      };
+      
+      // If attachment exists, use FormData; otherwise use JSON
+      if (attachment) {
+        const formData = new FormData();
+        formData.append(
+          action === 'recommend' ? 'recommendation_notes' : 
+          action === 'reverse' ? 'reversal_reason' : 
+          action === 'close' ? 'closure_notes' : 'notes',
+          notes
+        );
 
-      // Add evidence URL for recommend action if it's a major complaint
-      if (action === 'recommend' && ticket.complaint_type === 'Major') {
-        payload.evidence_url = evidenceUrl;
-      }
-
-      const response = await axios.post(
-        `${baseURL}/workflow/ticket/${ticket.id}/${action}`,
-        payload,
-        {
-          headers: { Authorization: `Bearer ${token}` }
+        // Add evidence URL for recommend action if it's a major complaint
+        if (action === 'recommend' && ticket.complaint_type === 'Major') {
+          formData.append('evidence_url', evidenceUrl);
         }
-      );
 
-      if (response.data.success) {
-        onActionComplete(response.data);
-        onClose();
+        // Add attachment
+        formData.append('attachment', attachment);
+
+        const response = await axios.post(
+          `${baseURL}/workflow/ticket/${ticket.id}/${action}`,
+          formData,
+          {
+            headers: { 
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'multipart/form-data'
+            },
+            timeout: 60000, // 60 seconds timeout for file uploads
+            onUploadProgress: (progressEvent) => {
+              // Optional: You can add progress indicator here
+              const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+              console.log(`Upload progress: ${percentCompleted}%`);
+            }
+          }
+        );
+
+        if (response.data.success) {
+          onActionComplete(response.data);
+          onClose();
+        }
+      } else {
+        // No attachment - use JSON payload
+        const payload = {
+          [action === 'recommend' ? 'recommendation_notes' : 
+           action === 'reverse' ? 'reversal_reason' : 
+           action === 'close' ? 'closure_notes' : 'notes']: notes
+        };
+
+        // Add evidence URL for recommend action if it's a major complaint
+        if (action === 'recommend' && ticket.complaint_type === 'Major') {
+          payload.evidence_url = evidenceUrl;
+        }
+
+        const response = await axios.post(
+          `${baseURL}/workflow/ticket/${ticket.id}/${action}`,
+          payload,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            timeout: 30000 // 30 seconds timeout for regular requests
+          }
+        );
+
+        if (response.data.success) {
+          onActionComplete(response.data);
+          onClose();
+        }
       }
     } catch (error) {
-      setError(error.response?.data?.message || 'An error occurred');
+      console.error('Error processing action:', error);
+      if (error.code === 'ERR_NETWORK' || error.message?.includes('NetworkError')) {
+        setError('Network error: Please check your internet connection and try again. If the file is large, it may take longer to upload.');
+      } else if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        setError('Request timeout: The file may be too large or the server is taking too long to respond. Please try again with a smaller file or check your connection.');
+      } else if (error.response?.status === 400 && error.response?.data?.message?.includes('File too large')) {
+        setError('File too large: Maximum file size is 10MB. Please upload a smaller file.');
+      } else {
+        setError(error.response?.data?.message || error.message || 'An error occurred while processing your action');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -239,14 +299,33 @@ const WorkflowActionModal = ({
             <input
               type="file"
               accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png,.txt"
-              onChange={(e) => setAttachment(e.target.files && e.target.files[0] ? e.target.files[0] : null)}
+              onChange={(e) => {
+                const file = e.target.files && e.target.files[0] ? e.target.files[0] : null;
+                if (file) {
+                  // Check file size (10MB = 10 * 1024 * 1024 bytes)
+                  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+                  if (file.size > MAX_FILE_SIZE) {
+                    setError(`File size exceeds the maximum limit of 10MB. Your file is ${(file.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`);
+                    e.target.value = ''; // Clear the input
+                    setAttachment(null);
+                    return;
+                  }
+                  setError(''); // Clear any previous errors
+                  setAttachment(file);
+                } else {
+                  setAttachment(null);
+                }
+              }}
               className="w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
             />
             {attachment && (
               <p className="mt-1 text-xs text-green-700">
-                Selected file: {attachment.name}
+                Selected file: {attachment.name} ({(attachment.size / (1024 * 1024)).toFixed(2)}MB)
               </p>
             )}
+            <p className="mt-1 text-xs text-gray-500">
+              Maximum file size: 10MB
+            </p>
           </div>
         )}
 

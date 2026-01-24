@@ -2053,8 +2053,17 @@ export default function ReviewerDashboard() {
         onClose={() => setIsDetailsModalOpen(false)}
         selectedTicket={detailsModalTicket}
         assignmentHistory={detailsModalAssignmentHistory}
+        handleCategoryChange={handleCategoryChange}
+        handleUnitChange={handleUnitChange}
+        categories={categories}
+        units={units}
+        convertCategory={convertCategory}
+        forwardUnit={forwardUnit}
         refreshTickets={fetchTickets}
-        refreshDashboardCounts={() => {}} // This page doesn't have dashboard counts, so pass empty function
+        setSnackbar={setSnackbar}
+        setConvertCategory={setConvertCategory}
+        setForwardUnit={setForwardUnit}
+        refreshDashboardCounts={fetchDashboardCounts}
       />
 
       {/* ReviewerActionModal */}

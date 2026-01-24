@@ -1353,7 +1353,7 @@ export default function Crm() {
                   colSpan={activeColumns.length + 1}
                   style={{ textAlign: "center", color: "red" }}
                 >
-                  {agentTicketsError || "No tickets found for this agent."}
+                  {agentTicketsError || "No tickets found."}
                 </td>
               </tr>
             )}

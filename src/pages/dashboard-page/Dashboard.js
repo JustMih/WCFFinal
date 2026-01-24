@@ -8,16 +8,15 @@ import Dashboard2 from "../call-center-pages/call-center-dashboard/Dashboard2";
 import RTDashboard from "../call-center-pages/call-center-dashboard/RTDashboard";
 import CRMDashboard from "../crm-pages/crm-dashboard/CRMDashboard";
 import CRMNotificationTickets from "../crm-pages/crm-notifications/notifications";
-import CRMAssignedTickets from "../crm-pages/crm-tickets/assigned";
-import CRMOpenedTickets from "../crm-pages/crm-tickets/ticket";
-import CRMInProgressTickets from "../crm-pages/crm-tickets/inprogress";
-import CRMCarriedForawardTickets from "../crm-pages/crm-tickets/carried-forward";
-import CRMOverdueTickets from "../crm-pages/crm-tickets/overdue";
-import CRMClosedTickets from "../crm-pages/crm-tickets/closed";
-import CRMTotalTickets from "../crm-pages/crm-tickets/total";
+import CRMAssignedTickets from "../crm-pages/crm-tickets-status/assigned";
+import CRMOpenedTickets from "../crm-pages/crm-tickets-status/ticket";
+import CRMInProgressTickets from "../crm-pages/crm-tickets-status/inprogress";
+import CRMOverdueTickets from "../crm-pages/crm-tickets-status/overdue";
+import CRMClosedTickets from "../crm-pages/crm-tickets-status/closed";
+import CRMTotalTickets from "../crm-pages/crm-tickets-status/total";
 import CRMReviewerTickets from "../crm-pages/crm-reviewer-tickets/crm-reviewer-tickets";
-import CRMFocalPersonTickets from "../crm-pages/crm-focal-person-tickets/crm-focal-person-tickets";
 import CRMChat from "../crm-pages/crm-chat/CRMChat";
+import WorkflowDashboard from "../../components/workflow/WorkflowDashboard";
 import CallCenterUsers from "../call-center-pages/call-center-users/CallCenterUsers";
 import CallCenterAgents from "../call-center-pages/call-center-agents/CallCenterAgents";
 import CallCenterExtensions from "../call-center-pages/call-center-extensions/CallCenterExtensions";
@@ -270,12 +269,6 @@ export default function Dashboard() {
                   element={<PrivateRoute element={<CRMInProgressTickets />} />}
                 />
                 <Route
-                  path="/ticket/carried-forward"
-                  element={
-                    <PrivateRoute element={<CRMCarriedForawardTickets />} />
-                  }
-                />
-                <Route
                   path="/ticket/closed"
                   element={<PrivateRoute element={<CRMClosedTickets />} />}
                 />
@@ -292,12 +285,12 @@ export default function Dashboard() {
                   element={<PrivateRoute element={<CRMReviewerTickets />} />}
                 />
                 <Route
-                  path="/focal-person/:status"
-                  element={<PrivateRoute element={<CRMFocalPersonTickets />} />}
-                />
-                <Route
                   path="/crm-chat"
                   element={<PrivateRoute element={<CRMChat />} />}
+                />
+                <Route
+                  path="/workflow"
+                  element={<PrivateRoute element={<WorkflowDashboard userRole={role} />} />}
                 />
                 <Route
                   path="/instagram"
