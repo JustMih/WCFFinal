@@ -1695,10 +1695,18 @@ export default function TicketDetailsModal({
   }
 
   const handleAttend = async () => {
+    // Don't submit if there's a file error
+    if (fileError) {
+      showSnackbar('File size exceeds the maximum limit of 10MB. Your file is 362.28MB. Please fix the file error before submitting', 'error');
+      return;
+    }
+
     // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
     const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
     if (attachment && attachment.size > MAX_FILE_SIZE) {
-      setFileError(`File size exceeds the maximum limit of 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`);
+      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+      setFileError(errorMsg);
+      showSnackbar(errorMsg, 'error');
       return;
     }
     
@@ -1941,11 +1949,18 @@ export default function TicketDetailsModal({
       return;
     }
 
+    // Don't submit if there's a file error
+    if (fileError) {
+      showSnackbar('File size exceeds the maximum limit of 10MB. Your file is 362.28MB. Please fix the file error before submitting', 'error');
+      return;
+    }
+
     // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
     const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
     if (attachment && attachment.size > MAX_FILE_SIZE) {
-      setFileError(`File size exceeds the maximum limit of 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`);
-      showSnackbar('File size exceeds the maximum limit of 10MB', 'error');
+      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+      setFileError(errorMsg);
+      showSnackbar(errorMsg, 'error');
       return;
     }
 
@@ -1994,11 +2009,18 @@ export default function TicketDetailsModal({
   };
 
   const handleAttendSubmit = async () => {
+    // Don't submit if there's a file error
+    if (fileError) {
+      showSnackbar('File size exceeds the maximum limit of 10MB. Your file is 362.28MB. Please fix the file error before submitting', 'error');
+      return;
+    }
+
     // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
     const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
     if (attachment && attachment.size > MAX_FILE_SIZE) {
-      setFileError(`File size exceeds the maximum limit of 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`);
-      showSnackbar('File size exceeds the maximum limit of 10MB', 'error');
+      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+      setFileError(errorMsg);
+      showSnackbar(errorMsg, 'error');
       return;
     }
 
@@ -2047,6 +2069,21 @@ export default function TicketDetailsModal({
   const handleReviewerCloseSubmit = async () => {
     if (!resolutionType || !resolutionDetails) {
       alert("Please provide both resolution type and details");
+      return;
+    }
+
+    // Don't submit if there's a file error
+    if (fileError) {
+      showSnackbar('File size exceeds the maximum limit of 10MB. Your file is 362.28MB. Please fix the file error before submitting', 'error');
+      return;
+    }
+
+    // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    if (attachment && attachment.size > MAX_FILE_SIZE) {
+      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+      setFileError(errorMsg);
+      showSnackbar(errorMsg, 'error');
       return;
     }
 
@@ -2102,6 +2139,21 @@ export default function TicketDetailsModal({
 
   // Reverse handler
   const handleReverse = async () => {
+    // Don't submit if there's a file error
+    if (fileError) {
+      showSnackbar('File size exceeds the maximum limit of 10MB. Your file is 362.28MB. Please fix the file error before submitting', 'error');
+      return;
+    }
+
+    // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    if (attachment && attachment.size > MAX_FILE_SIZE) {
+      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+      setFileError(errorMsg);
+      showSnackbar(errorMsg, 'error');
+      return;
+    }
+
     setIsReversing(true);
     try {
       const token = localStorage.getItem("authToken");
@@ -2606,6 +2658,21 @@ export default function TicketDetailsModal({
       return;
     }
 
+    // Don't submit if there's a file error
+    if (fileError) {
+      showSnackbar('File size exceeds the maximum limit of 10MB. Your file is 362.28MB. Please fix the file error before submitting', 'error');
+      return;
+    }
+
+    // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    if (attachment && attachment.size > MAX_FILE_SIZE) {
+      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+      setFileError(errorMsg);
+      showSnackbar(errorMsg, 'error');
+      return;
+    }
+
     setForwardToDGLoading(true);
     try {
       const token = localStorage.getItem("authToken");
@@ -2907,6 +2974,21 @@ export default function TicketDetailsModal({
     }
     if (!selectedTicket || !selectedTicket.id) {
       showSnackbar('No ticket selected or ticket ID missing', 'error');
+      return;
+    }
+
+    // Don't submit if there's a file error
+    if (fileError) {
+      showSnackbar('File size exceeds the maximum limit of 10MB. Your file is 362.28MB. Please fix the file error before submitting', 'error');
+      return;
+    }
+
+    // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    if (attachment && attachment.size > MAX_FILE_SIZE) {
+      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+      setFileError(errorMsg);
+      showSnackbar(errorMsg, 'error');
       return;
     }
 
@@ -4447,6 +4529,21 @@ export default function TicketDetailsModal({
                 variant="contained"
                 color="success"
                 onClick={async () => {
+                  // Don't submit if there's a file error
+                  if (fileError) {
+                    showSnackbar('File size exceeds the maximum limit of 10MB. Your file is 362.28MB. Please fix the file error before submitting', 'error');
+                    return;
+                  }
+
+                  // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
+                  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+                  if (attachment && attachment.size > MAX_FILE_SIZE) {
+                    const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+                    setFileError(errorMsg);
+                    showSnackbar(errorMsg, 'error');
+                    return;
+                  }
+
                   setSendToDirectorLoading(true);
                   try {
                     const token = localStorage.getItem("authToken");
