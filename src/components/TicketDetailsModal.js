@@ -427,9 +427,52 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
           closedBy = a.assigned_to_name || a.assignedTo?.full_name || a.user?.full_name || a.assigned_to_id || "N/A";
         }
 
-        // For Closed step: don't show anything, status shown in previous step
+        // For Closed step: show "Closed at" and "Closed by" as it was originally with green styling
         if (isClosedStep) {
-          return null; // Skip rendering Closed step entirely - info shown in previous step
+          const closedAt = a.created_at || a.closed_at || selectedTicket.date_of_resolution || selectedTicket.updated_at;
+          return (
+            <Box key={idx} sx={{ display: "flex", alignItems: "flex-start", gap: 2, mb: 2 }}>
+              <Box
+                sx={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: "50%",
+                  bgcolor: "green",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "white",
+                  fontWeight: "bold",
+                  mt: 0.5
+                }}
+              >
+                {reversedSteps.length - idx}
+              </Box>
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: "bold", color: "green" }}>
+                  {a.assigned_to_name || a.assignedTo?.full_name || a.user?.full_name || a.assigned_to_id || "Unknown"} ({a.assigned_to_role || a.assignedTo?.role || a.user?.role || "N/A"})
+                </Typography>
+                <Typography variant="body2" sx={{ color: "green" }}>
+                  Closed - {closedAt ? new Date(closedAt).toLocaleString("en-US", {
+                    month: "numeric",
+                    day: "numeric",
+                    year: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                    second: "2-digit",
+                    hour12: true
+                  }) : "Date not available"} (Closed by: {closedBy})
+                </Typography>
+                {a.reason && (
+                  <Box sx={{ mt: 1, p: 1.25, bgcolor: '#d4edda', borderRadius: 1, border: '1px solid #c3e6cb' }}>
+                    <Typography variant="body2" sx={{ color: '#155724', fontStyle: 'italic' }}>
+                      <strong>Description:</strong> {a.reason}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            </Box>
+          );
         }
 
         return (
@@ -648,122 +691,36 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
                 )}
               </Typography>
               
-              {/* For Closed actions: don't show anything, status shown in previous step */}
-              {a.action === "Closed" || (selectedTicket.status === "Closed" && idx === 0 && a.action === "Closed") ? (
-                <>
-                  {/* Don't show anything for closed step - status is shown in previous step */}
-                </>
-              ) : (
-                <>
-                  {/* Show description/justification and status "Closed" in previous step if next step (in reversed order, idx-1) is Closed */}
-                  {(() => {
-                    // In reversed order: idx 0 = most recent (Closed), idx 1 = previous (Forwarded)
-                    // Check if the step before this one (idx - 1 in reversed order) is Closed
-                    const nextStepInReversed = idx > 0 ? reversedSteps[idx - 1] : null;
-                    const isNextStepClosed = nextStepInReversed && (
-                      nextStepInReversed.action === "Closed" || 
-                      (selectedTicket.status === "Closed" && idx - 1 === 0)
-                    );
-                    
-                    // Also check: if idx === 1 and idx === 0 is Closed, show status here
-                    const isPreviousToClosed = selectedTicket.status === "Closed" && 
-                      idx === 1 && 
-                      reversedSteps[0] && 
-                      (reversedSteps[0].action === "Closed" || selectedTicket.status === "Closed");
-                    
-                    if ((isNextStepClosed || isPreviousToClosed) && selectedTicket.status === "Closed") {
-                      // Get closed step info for "Closed by" and date
-                      const closedStep = nextStepInReversed || (idx === 1 ? reversedSteps[0] : null);
-                      const closedAt = closedStep?.created_at || closedStep?.closed_at || selectedTicket.date_of_resolution || selectedTicket.updated_at;
-                      const closedBy = closedStep?.assigned_to_name || closedStep?.assignedTo?.full_name || closedStep?.user?.full_name || closedStep?.assigned_to_id || "N/A";
-                      
-                      // Show description/justification from current step + status "Closed" + "Closed by" and date in green
-                      return (
-                        <>
-                          {a.reason && (
-                            <Box sx={{ mt: 1, p: 1.25, bgcolor: '#d4edda', borderRadius: 1, border: '1px solid #c3e6cb' }}>
-                              <Typography variant="body2" sx={{ color: '#155724', fontStyle: 'italic' }}>
-                                <strong>Description:</strong> {a.reason}
-                              </Typography>
-                            </Box>
-                          )}
-                          <Box sx={{ mt: 1, p: 1, bgcolor: '#d4edda', borderRadius: 1, border: '1px solid #c3e6cb' }}>
-                            <Typography variant="body2" sx={{ color: '#155724' }}>
-                              <strong>Status:</strong> Closed
-                            </Typography>
-                          </Box>
-                          {closedAt && (
-                            <Box sx={{ mt: 1, p: 1, bgcolor: '#d4edda', borderRadius: 1, border: '1px solid #c3e6cb' }}>
-                              <Typography variant="body2" sx={{ color: '#155724' }}>
-                                <strong>Closed at:</strong> {new Date(closedAt).toLocaleString("en-US", {
-                                  month: "numeric",
-                                  day: "numeric",
-                                  year: "numeric",
-                                  hour: "numeric",
-                                  minute: "2-digit",
-                                  second: "2-digit",
-                                  hour12: true
-                                })}
-                              </Typography>
-                            </Box>
-                          )}
-                          {closedBy && (
-                            <Box sx={{ mt: 1, p: 1, bgcolor: '#d4edda', borderRadius: 1, border: '1px solid #c3e6cb' }}>
-                              <Typography variant="body2" sx={{ color: '#155724' }}>
-                                <strong>Closed by:</strong> {closedBy}
-                              </Typography>
-                            </Box>
-                          )}
-                        </>
-                      );
-                    }
-                    return null;
-                  })()}
-                  
-                  {/* Don't show Description for Current step EXCEPT when the action is Reversed (so user can see reversal reason) OR when next step is not Closed */}
-                  {a.reason && (
-                    !(idx === currentAssigneeIdx && selectedTicket.status !== "Closed" && a.action !== "Reversed")
-                  ) && (() => {
-                    const nextStepInReversed = idx > 0 ? reversedSteps[idx - 1] : null;
-                    const isNextStepClosed = nextStepInReversed && (
-                      nextStepInReversed.action === "Closed" || 
-                      (selectedTicket.status === "Closed" && idx - 1 === 0)
-                    );
-                    const isPreviousToClosed = selectedTicket.status === "Closed" && 
-                      idx === 1 && 
-                      reversedSteps[0] && 
-                      (reversedSteps[0].action === "Closed" || selectedTicket.status === "Closed");
-                    // Don't show description if next step is closed (already shown above)
-                    return !(isNextStepClosed || isPreviousToClosed);
-                  })() && (
-                    <Box sx={{ mt: 1, p: 1.25, bgcolor: '#f8f9fa', borderRadius: 1, border: '1px solid #e9ecef' }}>
-                      <Typography variant="body2" sx={{ color: '#444', fontStyle: 'italic' }}>
-                        <strong>Description:</strong> {a.reason}
-                      </Typography>
-                    </Box>
+              {/* Show description for all steps except current (unless Reversed) */}
+              {a.reason && (
+                !(idx === currentAssigneeIdx && selectedTicket.status !== "Closed" && a.action !== "Reversed")
+              ) && (
+                <Box sx={{ mt: 1, p: 1.25, bgcolor: '#f8f9fa', borderRadius: 1, border: '1px solid #e9ecef' }}>
+                  <Typography variant="body2" sx={{ color: '#444', fontStyle: 'italic' }}>
+                    <strong>Description:</strong> {a.reason}
+                  </Typography>
+                </Box>
+              )}
+              
+              {/* Additional workflow details if available */}
+              {(a.workflow_step || a.coordinator_notes || a.dg_notes) && (
+                <Box sx={{ mt: 1, p: 1.5, bgcolor: '#fff3cd', borderRadius: 1, border: '1px solid #ffeaa7' }}>
+                  {a.workflow_step && (
+                    <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 'bold', color: '#856404' }}>
+                      Workflow Step: {a.workflow_step}
+                    </Typography>
                   )}
-                  
-                  {/* Additional workflow details if available */}
-                  {(a.workflow_step || a.coordinator_notes || a.dg_notes) && (
-                    <Box sx={{ mt: 1, p: 1.5, bgcolor: '#fff3cd', borderRadius: 1, border: '1px solid #ffeaa7' }}>
-                      {a.workflow_step && (
-                        <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 'bold', color: '#856404' }}>
-                          Workflow Step: {a.workflow_step}
-                        </Typography>
-                      )}
-                      {a.coordinator_notes && (
-                        <Typography variant="body2" sx={{ mb: 0.5, color: '#856404' }}>
-                          <strong>Reviewer Notes:</strong> {a.coordinator_notes}
-                        </Typography>
-                      )}
-                      {a.dg_notes && (
-                        <Typography variant="body2" sx={{ color: '#856404' }}>
-                          <strong>DG Notes:</strong> {a.dg_notes}
-                        </Typography>
-                      )}
-                    </Box>
+                  {a.coordinator_notes && (
+                    <Typography variant="body2" sx={{ mb: 0.5, color: '#856404' }}>
+                      <strong>Reviewer Notes:</strong> {a.coordinator_notes}
+                    </Typography>
                   )}
-                </>
+                  {a.dg_notes && (
+                    <Typography variant="body2" sx={{ color: '#856404' }}>
+                      <strong>DG Notes:</strong> {a.dg_notes}
+                    </Typography>
+                  )}
+                </Box>
               )}
               
               {/* Attachment/Evidence link if present, else show 'No attachment' */}
@@ -2852,20 +2809,19 @@ export default function TicketDetailsModal({
     const token = localStorage.getItem("authToken");
     const category = convertCategory[ticketId];
     const unitName = forwardUnit[ticketId];
+    
+    console.log('🔍 handleConvertOrForward called:', {
+      ticketId,
+      mode,
+      forwardUnitState: forwardUnit,
+      unitNameFromState: unitName,
+      convertCategoryState: convertCategory,
+      categoryFromState: category
+    });
 
     // Get the current ticket to check its section and rating
     const currentTicket = selectedTicket;
     const isComplaintCategory = String(currentTicket?.category || "").toLowerCase() === "complaint";
-
-    // Validate that at least one option is selected
-    // If unitName is empty but ticket has a section, use the ticket's section
-    // Priority: selected unit > ticket section > responsible unit name (avoid sub_section)
-    const effectiveUnitName = unitName || currentTicket?.section || currentTicket?.responsible_unit_name;
-    
-    if (!category && !effectiveUnitName) {
-      showSnackbar("Please select either a category to convert to, or a unit to forward to, or both", "warning");
-      return;
-    }
 
     // Rating rules:
     // - Complaint + forward => rating required (Minor/Major) before forwarding
@@ -2873,13 +2829,43 @@ export default function TicketDetailsModal({
     const isProvidingRating = selectedRating && ["Minor", "Major"].includes(selectedRating);
     const isAlreadyRated = currentTicket?.complaint_type;
     
+    // Validate that at least one option is selected
+    // Priority: selected unit from dropdown > ticket sub_section (specific unit) > responsible unit name > section (avoid generic section names like "Units")
+    // Only use section as fallback if it's not a generic name like "Units"
+    let effectiveUnitName = unitName;
+    
+    // If no unit selected from dropdown, try fallbacks
+    if (!effectiveUnitName) {
+      // Prefer sub_section (specific unit name) over section (which might be generic like "Units")
+      effectiveUnitName = currentTicket?.sub_section || currentTicket?.responsible_unit_name;
+      
+      // Only use section as last resort if it's not a generic name
+      if (!effectiveUnitName && currentTicket?.section) {
+        const sectionName = currentTicket.section.trim().toLowerCase();
+        // Avoid generic section names like "units", "unit", etc.
+        if (sectionName !== "units" && sectionName !== "unit" && sectionName.length > 3) {
+          effectiveUnitName = currentTicket.section;
+        }
+      }
+    }
+    
     console.log('Debug - Forward validation:', {
+      unitNameFromDropdown: unitName,
+      forwardUnitState: forwardUnit[ticketId],
+      currentTicketSection: currentTicket?.section,
+      currentTicketSubSection: currentTicket?.sub_section,
+      currentTicketResponsibleUnit: currentTicket?.responsible_unit_name,
       effectiveUnitName,
       isProvidingRating,
       selectedRating,
       isAlreadyRated,
       currentTicketComplaintType: currentTicket?.complaint_type
     });
+    
+    if (!category && !effectiveUnitName) {
+      showSnackbar("Please select either a category to convert to, or a unit to forward to, or both", "warning");
+      return;
+    }
     
     if (mode === "forward" && isComplaintCategory && effectiveUnitName && !isAlreadyRated && !isProvidingRating) {
       // Check if the rating dropdown is visible to the user
@@ -3801,16 +3787,15 @@ export default function TicketDetailsModal({
                             </Typography>
                             <FormControl fullWidth size="small">
                               <Select
-                                value={forwardUnit[selectedTicket.id] || (() => {
-                                  // If it's a unit (not directorate), use sub_section, otherwise use section
-                                  const isDirectorate = selectedTicket.section && (
-                                    selectedTicket.section.includes('Directorate') || 
-                                    selectedTicket.section.includes('directorate') ||
-                                    (allSectionsList && allSectionsList.some(s => s.name === selectedTicket.section && !s.section_id))
-                                  );
-                                  return isDirectorate ? (selectedTicket.section || "") : (selectedTicket.sub_section || selectedTicket.section || "");
-                                })()}
-                                onChange={(e) => handleUnitChange(selectedTicket.id, e.target.value)}
+                                value={forwardUnit[selectedTicket.id] || ""}
+                                onChange={(e) => {
+                                  console.log('🔍 Unit dropdown changed:', {
+                                    ticketId: selectedTicket.id,
+                                    selectedValue: e.target.value,
+                                    previousValue: forwardUnit[selectedTicket.id]
+                                  });
+                                  handleUnitChange(selectedTicket.id, e.target.value);
+                                }}
                                 sx={{
                                   fontSize: '0.8rem',
                                   height: '32px',
@@ -3857,9 +3842,35 @@ export default function TicketDetailsModal({
                                   ))
                                 ) : (
                                   units && units.length > 0 ? (
-                                    [...new Set(units.map(item => item.function?.section?.name).filter(Boolean))].map((sectionName) => (
-                                      <MenuItem key={sectionName} value={sectionName} sx={{ fontSize: '0.8rem', py: 0.5 }}>{sectionName}</MenuItem>
-                                    ))
+                                    // Use the actual unit/function name, not the section name
+                                    // For units, use function.name (e.g., "Internal Audit Unit"), for directorates use section name
+                                    // Remove duplicates and prioritize function names over section names
+                                    (() => {
+                                      const unitMap = new Map();
+                                      units.forEach((item) => {
+                                        const functionName = item.function?.name || "";
+                                        const sectionName = item.function?.section?.name || "";
+                                        const itemName = item.name || "";
+                                        
+                                        // Priority: function.name > item.name > section.name
+                                        const displayName = functionName || itemName || sectionName;
+                                        const valueToUse = functionName || itemName || sectionName;
+                                        
+                                        if (displayName && !unitMap.has(valueToUse)) {
+                                          unitMap.set(valueToUse, {
+                                            key: item.id || item.function?.id || valueToUse,
+                                            value: valueToUse,
+                                            label: displayName
+                                          });
+                                        }
+                                      });
+                                      
+                                      return Array.from(unitMap.values()).map((unit) => (
+                                        <MenuItem key={unit.key} value={unit.value} sx={{ fontSize: '0.8rem', py: 0.5 }}>
+                                          {unit.label}
+                                        </MenuItem>
+                                      ));
+                                    })()
                                   ) : null
                                 )}
                               </Select>
