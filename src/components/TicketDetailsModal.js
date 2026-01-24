@@ -346,6 +346,9 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
   return (
     <Box>
       {reversedSteps.map((a, idx) => {
+        // For Closed action: show only "Closed at" and "Closed by", status shown in previous step
+        const isClosedStep = a.action === "Closed" || (selectedTicket.status === "Closed" && idx === 0 && a.action === "Closed");
+        
         // Determine if this is the first step (most recent) and ticket is closed
         const isFirstStep = idx === 0;
         const isClosed = selectedTicket.status === "Closed" && isFirstStep;
@@ -420,8 +423,13 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
 
         // Set who closed
         let closedBy = "";
-        if (isClosed) {
+        if (isClosedStep) {
           closedBy = a.assigned_to_name || a.assignedTo?.full_name || a.user?.full_name || a.assigned_to_id || "N/A";
+        }
+
+        // For Closed step: don't show anything, status shown in previous step
+        if (isClosedStep) {
+          return null; // Skip rendering Closed step entirely - info shown in previous step
         }
 
         return (
@@ -640,34 +648,94 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
                 )}
               </Typography>
               
-              {/* For Closed actions: show resolution/description, status, and attachment in one consolidated view */}
-              {a.action === "Closed" || (selectedTicket.status === "Closed" && idx === 0) ? (
+              {/* For Closed actions: don't show anything, status shown in previous step */}
+              {a.action === "Closed" || (selectedTicket.status === "Closed" && idx === 0 && a.action === "Closed") ? (
                 <>
-                  {/* Resolution/Description - use reason from assignment or resolution_details from ticket */}
-                  {(a.reason || (selectedTicket.status === "Closed" && selectedTicket.resolution_details && idx === 0)) && (
-                    <Box sx={{ mt: 1, p: 1.25, bgcolor: '#d4edda', borderRadius: 1, border: '1px solid #c3e6cb' }}>
-                      <Typography variant="body2" sx={{ color: '#155724' }}>
-                        <strong>Resolution:</strong> {a.reason || (selectedTicket.status === "Closed" && selectedTicket.resolution_details && idx === 0 ? selectedTicket.resolution_details : '')}
-                      </Typography>
-                    </Box>
-                  )}
-                  
-                  {/* Status */}
-                  {selectedTicket.status === "Closed" && (
-                    <Box sx={{ mt: 1, p: 1, bgcolor: '#f8f9fa', borderRadius: 1, border: '1px solid #e9ecef' }}>
-                      <Typography variant="body2" sx={{ color: '#444' }}>
-                        <strong>Status:</strong> Closed
-                      </Typography>
-                    </Box>
-                  )}
+                  {/* Don't show anything for closed step - status is shown in previous step */}
                 </>
               ) : (
                 <>
-                  {/* Justification for non-closed actions */}
-                  {/* Don't show Description for Current step EXCEPT when the action is Reversed (so user can see reversal reason) */}
+                  {/* Show description/justification and status "Closed" in previous step if next step (in reversed order, idx-1) is Closed */}
+                  {(() => {
+                    // In reversed order: idx 0 = most recent (Closed), idx 1 = previous (Forwarded)
+                    // Check if the step before this one (idx - 1 in reversed order) is Closed
+                    const nextStepInReversed = idx > 0 ? reversedSteps[idx - 1] : null;
+                    const isNextStepClosed = nextStepInReversed && (
+                      nextStepInReversed.action === "Closed" || 
+                      (selectedTicket.status === "Closed" && idx - 1 === 0)
+                    );
+                    
+                    // Also check: if idx === 1 and idx === 0 is Closed, show status here
+                    const isPreviousToClosed = selectedTicket.status === "Closed" && 
+                      idx === 1 && 
+                      reversedSteps[0] && 
+                      (reversedSteps[0].action === "Closed" || selectedTicket.status === "Closed");
+                    
+                    if ((isNextStepClosed || isPreviousToClosed) && selectedTicket.status === "Closed") {
+                      // Get closed step info for "Closed by" and date
+                      const closedStep = nextStepInReversed || (idx === 1 ? reversedSteps[0] : null);
+                      const closedAt = closedStep?.created_at || closedStep?.closed_at || selectedTicket.date_of_resolution || selectedTicket.updated_at;
+                      const closedBy = closedStep?.assigned_to_name || closedStep?.assignedTo?.full_name || closedStep?.user?.full_name || closedStep?.assigned_to_id || "N/A";
+                      
+                      // Show description/justification from current step + status "Closed" + "Closed by" and date in green
+                      return (
+                        <>
+                          {a.reason && (
+                            <Box sx={{ mt: 1, p: 1.25, bgcolor: '#d4edda', borderRadius: 1, border: '1px solid #c3e6cb' }}>
+                              <Typography variant="body2" sx={{ color: '#155724', fontStyle: 'italic' }}>
+                                <strong>Description:</strong> {a.reason}
+                              </Typography>
+                            </Box>
+                          )}
+                          <Box sx={{ mt: 1, p: 1, bgcolor: '#d4edda', borderRadius: 1, border: '1px solid #c3e6cb' }}>
+                            <Typography variant="body2" sx={{ color: '#155724' }}>
+                              <strong>Status:</strong> Closed
+                            </Typography>
+                          </Box>
+                          {closedAt && (
+                            <Box sx={{ mt: 1, p: 1, bgcolor: '#d4edda', borderRadius: 1, border: '1px solid #c3e6cb' }}>
+                              <Typography variant="body2" sx={{ color: '#155724' }}>
+                                <strong>Closed at:</strong> {new Date(closedAt).toLocaleString("en-US", {
+                                  month: "numeric",
+                                  day: "numeric",
+                                  year: "numeric",
+                                  hour: "numeric",
+                                  minute: "2-digit",
+                                  second: "2-digit",
+                                  hour12: true
+                                })}
+                              </Typography>
+                            </Box>
+                          )}
+                          {closedBy && (
+                            <Box sx={{ mt: 1, p: 1, bgcolor: '#d4edda', borderRadius: 1, border: '1px solid #c3e6cb' }}>
+                              <Typography variant="body2" sx={{ color: '#155724' }}>
+                                <strong>Closed by:</strong> {closedBy}
+                              </Typography>
+                            </Box>
+                          )}
+                        </>
+                      );
+                    }
+                    return null;
+                  })()}
+                  
+                  {/* Don't show Description for Current step EXCEPT when the action is Reversed (so user can see reversal reason) OR when next step is not Closed */}
                   {a.reason && (
                     !(idx === currentAssigneeIdx && selectedTicket.status !== "Closed" && a.action !== "Reversed")
-                  ) && (
+                  ) && (() => {
+                    const nextStepInReversed = idx > 0 ? reversedSteps[idx - 1] : null;
+                    const isNextStepClosed = nextStepInReversed && (
+                      nextStepInReversed.action === "Closed" || 
+                      (selectedTicket.status === "Closed" && idx - 1 === 0)
+                    );
+                    const isPreviousToClosed = selectedTicket.status === "Closed" && 
+                      idx === 1 && 
+                      reversedSteps[0] && 
+                      (reversedSteps[0].action === "Closed" || selectedTicket.status === "Closed");
+                    // Don't show description if next step is closed (already shown above)
+                    return !(isNextStepClosed || isPreviousToClosed);
+                  })() && (
                     <Box sx={{ mt: 1, p: 1.25, bgcolor: '#f8f9fa', borderRadius: 1, border: '1px solid #e9ecef' }}>
                       <Typography variant="body2" sx={{ color: '#444', fontStyle: 'italic' }}>
                         <strong>Description:</strong> {a.reason}
