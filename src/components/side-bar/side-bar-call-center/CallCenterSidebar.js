@@ -149,143 +149,7 @@ export default function CallCenterSidebar({
                   </div>
                 </NavLink>
               )}
-              {/* <NavLink
-                to="/ivr"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <GiVrHeadset className="menu-icon" />
-                  {isSidebarOpen && <span className="menu-text">IVR's</span>}
-                </div>
-              </NavLink>
-              <NavLink
-                to="/ivr-voices"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <MdOutlineAudiotrack className="menu-icon" />
-                  {isSidebarOpen && (
-                    <span className="menu-text">IVR's Voices</span>
-                  )}
-                </div>
-              </NavLink>
-              <NavLink
-                to="/ivr-action"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <TbActivityHeartbeat className="menu-icon" />
-                  {isSidebarOpen && (
-                    <span className="menu-text">IVR's Actions</span>
-                  )}
-                </div>
-              </NavLink>
-              <NavLink
-              to="/ivr-dtmf-mappings"
-              className={({ isActive }) => (isActive ? "active" : "")}
-            >
-               <div className="menu-item">
-                  <TbActivityHeartbeat className="menu-icon" />
-                  {isSidebarOpen && (
-                    <span className="menu-text">IVR's Mapping</span>
-                  )}
-                </div>
-            </NavLink>
-            <NavLink
-                to="/recorded-sounds"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <MdOutlineAudiotrack className="menu-icon" />
-                  {isSidebarOpen && <span className="menu-text">Recorded Sounds</span>}
-                </div>
-              </NavLink>
-              <NavLink
-                to="/ivr-holidays"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <MdOutlineAudiotrack className="menu-icon" />
-                  {isSidebarOpen && <span className="menu-text">IVR Holdays</span>}
-                </div>
-              </NavLink>
-            
-              <NavLink
-                to="/ivr-emegency"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <MdOutlineAudiotrack className="menu-icon" />
-                  {isSidebarOpen && <span className="menu-text">IVR Emegency Number</span>}
-                </div>
-              </NavLink>
-              <NavLink
-                  to="/voice-notes"
-                  className={({ isActive }) =>
-                    isActive ? "menu-item active-link" : "menu-item"
-                  }
-                >
-                  <div className="menu-item">
-                    <MdOutlineAudiotrack className="menu-icon" />
-                    {isSidebarOpen && <span className="menu-text">Voice Notes Reports</span>}
-                  </div>
-                </NavLink>
-
-              <NavLink
-                to="/cdr-reports"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <MdOutlineAudiotrack className="menu-icon" />
-                  {isSidebarOpen && <span className="menu-text">CDR Reports</span>}
-                </div>
-              </NavLink>
-              <NavLink
-                to="/ivr-interactions"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <MdOutlineAudiotrack className="menu-icon" />
-                  {isSidebarOpen && <span className="menu-text">IVR interactions Reports</span>}
-                
-                </div>
-              </NavLink>
-              <NavLink
-        to="/livestream"
-        className={({ isActive }) =>
-          isActive ? "menu-item active-link" : "menu-item"
-        }
-      >
-        <div className="menu-item">
-          <MdOutlineAudiotrack className="menu-icon" />
-          {isSidebarOpen && <span className="menu-text">Live Streaming</span>}
-        </div>
-      </NavLink>
-      <NavLink
-  to="/recorded-audio"
-  className={({ isActive }) => (isActive ? "menu-item active-link" : "menu-item")}
->
-  <div className="menu-item">
-    <MdOutlineAudiotrack className="menu-icon" />
-    {isSidebarOpen && <span className="menu-text">Recorded Audio</span>}
-  </div>
-</NavLink> */}
+              {/*IVR management */}
               <NavLink
                 to="/ivr-cards"
                 className={({ isActive }) =>
@@ -408,6 +272,21 @@ export default function CallCenterSidebar({
                 </div>
               </NavLink>
 
+                <NavLink
+                to="/ivr-cards"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <GiVrHeadset className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">IVR Management</span>
+                  )}
+                </div>
+              </NavLink>
+        
+              
               <NavLink
                 to="/agents"
                 className={({ isActive }) =>

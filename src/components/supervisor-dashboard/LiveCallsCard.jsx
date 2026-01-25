@@ -7,6 +7,7 @@ import {
 } from "react-icons/fa";
 import "./LiveCallsCard.css";
 import { baseURL } from "../../config";
+import { initSupervisorSIP, sipCall } from "../../sip/supervisorSip";
 
 export default function LiveCallsCard({
   isLoading,
@@ -23,36 +24,57 @@ export default function LiveCallsCard({
   /* ================================
      SPY ACTION HANDLER (NEW)
      ================================ */
-  const spyAction = async (spyCallId, action) => {
-    console.log(`[SPY] ${action} on`, spyCallId);
+  // const spyAction = async (spyCallId, action) => {
+  //   console.log(`[SPY] ${action} on`, spyCallId);
 
-    if (!spyCallId) {
-      console.error("[SPY] Missing spyCallId");
-      return;
-    }
+  //   if (!spyCallId) {
+  //     console.error("[SPY] Missing spyCallId");
+  //     return;
+  //   }
 
-    try {
-      const response = await fetch(`${baseURL}/spy/call-control`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          callId: spyCallId,
-          action,
-        }),
-      });
+  //   try {
+  //     const response = await fetch(`${baseURL}/spy/call-control`, {
+  //       method: "POST",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //       },
+  //       body: JSON.stringify({
+  //         callId: spyCallId,
+  //         action,
+  //       }),
+  //     });
 
-      const data = await response.json();
-      console.log("[SPY] Dial string:", data.dial);
+  //     const data = await response.json();
+  //     console.log("[SPY] Dial string:", data.dial);
 
       // TODO: Trigger SIP.js call here
       // sipCall(data.dial);
 
-    } catch (error) {
-      console.error("[SPY] Error:", error);
+  //   } catch (error) {
+  //     console.error("[SPY] Error:", error);
+  //   }
+  // };
+const spyAction = async (spyCallId, action) => {
+  if (!spyCallId) return;
+
+  try {
+    const response = await fetch(`${baseURL}/spy/call-control`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ callId: spyCallId, action })
+    });
+
+    const data = await response.json();
+
+    // ✅ THIS IS IT
+    if (data?.dial) {
+      sipCall(data.dial);
     }
-  };
+
+  } catch (error) {
+    console.error("[SPY] Error:", error);
+  }
+};
 
   const handleListen = (spyCallId) => spyAction(spyCallId, "listen");
   const handleWhisper = (spyCallId) => spyAction(spyCallId, "whisper");
@@ -90,6 +112,9 @@ export default function LiveCallsCard({
     if (totalMinutes < 5) return "duration-yellow";
     return "duration-red";
   };
+useEffect(() => {
+  initSupervisorSIP();
+}, []);
 
   /* ================================
      FETCH LIVE CALLS
@@ -167,15 +192,22 @@ export default function LiveCallsCard({
               active.map((call) => (
                 <tr key={call.spyCallId || call.id}>
                   <td className="agent-name">{call.caller}</td>
+                
+
                   <td className="customer-number">{call.callee}</td>
-                  <td className="agent-name">
-                    {call.agent ? (
-                      <span style={{ fontWeight: 500, color: "#1976d2" }}>
-                        {call.agent}
+                 <td className="agent-name">
+                    {call.agent_name ? (
+                      <span style={{ fontWeight: 600, color: "#1976d2" }}>
+                        {call.agent_name}
+                        {call.agent_extension && (
+                          <span style={{ color: "#555", marginLeft: 6 }}>
+                            ({call.agent_extension})
+                          </span>
+                        )}
                       </span>
                     ) : (
                       <span style={{ color: "#999", fontStyle: "italic" }}>
-                        Not assigned
+                        Unassigned
                       </span>
                     )}
                   </td>
@@ -198,24 +230,34 @@ export default function LiveCallsCard({
                     <div className="action-buttons">
                       <button
                         className="action-button listen"
-                        onClick={() => handleListen(call.spyCallId)}
-                        disabled={!call.spyCallId}
+                        // onClick={() => handleListen(call.spyCallId)}
+                        onClick={() => handleListen(call.spyCallId || call.channel)}
+                        // disabled={!call.spyCallId}
+                        disabled={!call.spyCallId && !call.channel}
+
                         title="Listen"
                       >
                         <FaHeadphones />
                       </button>
                       <button
                         className="action-button intervene"
-                        onClick={() => handleIntervene(call.spyCallId)}
-                        disabled={!call.spyCallId}
+                        // onClick={() => handleIntervene(call.spyCallId)}
+                        onClick={() => handleListen(call.spyCallId || call.channel)}
+                        // disabled={!call.spyCallId}
+                        disabled={!call.spyCallId && !call.channel}
+
                         title="Intervene"
                       >
                         <FaUserShield />
                       </button>
                       <button
                         className="action-button whisper"
-                        onClick={() => handleWhisper(call.spyCallId)}
-                        disabled={!call.spyCallId}
+                        // onClick={() => handleWhisper(call.spyCallId)}
+                        onClick={() => handleListen(call.spyCallId || call.channel)}
+
+                        // disabled={!call.spyCallId}
+                        disabled={!call.spyCallId && !call.channel}
+
                         title="Whisper"
                       >
                         <FaComments />

@@ -90,6 +90,8 @@ const Livestream = () => {
           <tr>
             <th>Caller</th>
             <th>Callee</th>
+            <th>Agent</th>
+            <th>Extension</th>
             <th>Status</th>
             <th>Start</th>
             <th>Answered</th>
@@ -108,6 +110,9 @@ const Livestream = () => {
             >
               <td>{call.caller || "-"}</td>
               <td>{call.callee || "-"}</td>
+              <td>{call.agent_name || "Unassigned"}</td>
+              <td>{call.agent_extension || "-"}</td>
+
               <td>{call.status}</td>
               <td>{call.call_start || "-"}</td>
               <td>{call.call_answered || "-"}</td>
