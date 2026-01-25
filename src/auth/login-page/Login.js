@@ -69,8 +69,14 @@ export default function Login() {
           console.log("Domain credentials stored securely in sessionStorage (legacy method)");
         }
 
-        // Redirect to dashboard
-        window.location.href = "/dashboard";
+        // Redirect to dashboard based on user role
+        // Supervisors go to /dashboard-old, others go to /dashboard
+        const userRole = data.user.role;
+        if (userRole === "supervisor") {
+          window.location.href = "/dashboard-old";
+        } else {
+          window.location.href = "/dashboard";
+        }
       } else {
         setError(data.message || "An error occurred. Please try again.");
         if (data.timeRemaining) {
