@@ -3,10 +3,17 @@ import React, { useEffect, useState } from "react";
 import { baseURL } from "../../../config";
 import "./livestream.css";
 import io from "socket.io-client";
- 
+ import { initSupervisorSIP } from "../../../sip/supervisorSip";
+
 
 const Livestream = () => {
   const [calls, setCalls] = useState([]);
+  /* =====================================
+     INITIALIZE SUPERVISOR SIP (ONCE)
+  ===================================== */
+  useEffect(() => {
+    initSupervisorSIP();
+  }, []);
 
   useEffect(() => {
     const socket = io(baseURL, { transports: ["websocket"] });
