@@ -13,7 +13,7 @@ export default function CallCenterIvrActions() {
   const [editItem, setEditItem] = useState(null);
   const [language, setLanguage] = useState("english");
   const [menuContext, setMenuContext] = useState("");  // NEW
-  const MENU_CONTEXT_OPTIONS = ["english-menu", "swahili-menu", "general", "inbound"]; // Extend as needed
+  const MENU_CONTEXT_OPTIONS = ["english-menu", "swahili-menu", "general", "inbound","holiday-handler","emergency-dial","leave-voicemail"]; // Extend as needed
   
   // Fetch voices and actions
   useEffect(() => {

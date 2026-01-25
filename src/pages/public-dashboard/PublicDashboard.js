@@ -406,7 +406,9 @@ return () => {
         <div className="stat-card queue-status">
           <div className="stat-icon"><MdQueue /></div>
           <div className="stat-content">
-            <div className="stat-value">{inQueueCallsCount}</div>
+             
+            <div className="stat-value">{dashboardData.callStatusSummary?.inQueue || 0}</div>
+
             <div className="stat-label">In Queue</div>
             <div className="stat-sublabel">Waiting for agents</div>
           </div>
