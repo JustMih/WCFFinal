@@ -4264,7 +4264,9 @@ export default function TicketDetailsModal({
                       </Tooltip>
                     )}
                     
-                    <Tooltip title="Reverse this ticket back to the previous assignee">
+                    <Tooltip title={userRole === "focal-person" && selectedTicket?.category === "Complaint" 
+                      ? "Reverse this ticket with a recommendation" 
+                      : "Reverse this ticket back to the previous assignee"}>
                     <Button
                       variant="contained"
                       color="warning"
@@ -4272,19 +4274,27 @@ export default function TicketDetailsModal({
                       onClick={() => setIsReverseModalOpen(true)}
                       disabled={isReversing}
                     >
-                      Reverse
+                      {userRole === "focal-person" && selectedTicket?.category === "Complaint" 
+                        ? "Reverse with Recommendation" 
+                        : "Reverse"}
                     </Button>
                     </Tooltip>
-                    <Tooltip title="Assign this ticket to an attendee">
-                    <Button
-                      variant="contained"
-                      color="info"
-                      sx={{ mr: 1 }}
-                      onClick={() => setIsAssignModalOpen(true)}
-                    >
-                      Assign
-                    </Button>
-                    </Tooltip>
+                    {/* Hide Assign button for manager and head-of-unit when category is Compliment or Suggestion */}
+                    {/* Hide Assign button for focal-person when category is Complaint */}
+                    {!((userRole === "manager" || userRole === "head-of-unit") && 
+                        (selectedTicket?.category === "Compliment" || selectedTicket?.category === "Suggestion")) &&
+                     !(userRole === "focal-person" && selectedTicket?.category === "Complaint") && (
+                      <Tooltip title="Assign this ticket to an attendee">
+                      <Button
+                        variant="contained"
+                        color="info"
+                        sx={{ mr: 1 }}
+                        onClick={() => setIsAssignModalOpen(true)}
+                      >
+                        Assign
+                      </Button>
+                      </Tooltip>
+                    )}
                   </>
                 )}
 

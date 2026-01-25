@@ -3296,8 +3296,16 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                         }}
                       >
                         <option value="">Select Channel</option>
-                        <option value="Call">Call</option>
+                        <option value="Call Center">Call Center</option>
+                        <option value="Staff Phone Number">Staff Phone Number</option>
                         <option value="Email">Email</option>
+                        <option value="Walk in">Walk in</option>
+                        <option value="Letter">Letter</option>
+                        <option value="Exhibition">Exhibition</option>
+                        <option value="Social Media">Social Media</option>
+                        <option value="Suggestion Box">Suggestion Box</option>
+                        <option value="e-mrejesho">e-mrejesho</option>
+
                       </select>
                       {formErrors.channel && (
                         <span style={{ color: "red", fontSize: "0.75rem" }}>
