@@ -1488,16 +1488,34 @@ export default function Navbar({
           <div style={{ 
             fontSize: '1.25rem', 
             fontWeight: '600',
-            color: '#1976d2'
+            color: '#1976d2',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
           }}>
-            Notification Details
+            <span>Notification Details</span>
+            {selectedNotification && (
+              <span style={{ 
+                fontSize: '0.75rem',
+                backgroundColor: '#1976d2',
+                color: 'white',
+                padding: '4px 12px',
+                borderRadius: '16px',
+                fontWeight: '600',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                Selected Notification
+              </span>
+            )}
           </div>
           <div style={{ 
             fontSize: '0.875rem', 
             color: '#666',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px'
+            gap: '8px',
+            flexWrap: 'wrap'
           }}>
             <span style={{ 
               backgroundColor: '#e3f2fd',
@@ -1519,7 +1537,44 @@ export default function Navbar({
                   hour12: true
                 })}
             </span>
+            {/* {selectedNotification?.id && (
+              <span style={{ 
+                fontSize: '0.7rem',
+                color: '#999',
+                fontFamily: 'monospace'
+              }}>
+                ID: {selectedNotification.id.substring(0, 8)}...
+              </span>
+            )} */}
           </div>
+          {selectedNotification?.message && (
+            <div style={{ 
+              marginTop: '8px',
+              padding: '12px',
+              backgroundColor: '#f5f5f5',
+              borderRadius: '6px',
+              border: '1px solid #e0e0e0',
+              textAlign: 'left'
+            }}>
+              <div style={{ 
+                fontSize: '0.75rem',
+                color: '#666',
+                marginBottom: '4px',
+                fontWeight: '500',
+                textAlign: 'left'
+              }}>
+                Notification Message:
+              </div>
+              <div style={{ 
+                fontSize: '0.875rem',
+                color: '#333',
+                lineHeight: '1.5',
+                textAlign: 'left'
+              }}>
+                {selectedNotification.message}
+              </div>
+            </div>
+          )}
         </DialogTitle>
         <DialogContent style={{ padding: '24px' }}>
           {/* Ticket Details Section */}
@@ -1663,28 +1718,47 @@ export default function Navbar({
                     style={{
                       padding: '16px',
                       borderBottom: index < ticketNotificationsData.notifications.length - 1 ? '1px solid #e0e0e0' : 'none',
-                      backgroundColor: notif.id === selectedNotification?.id ? '#e3f2fd' : '#fff'
+                      backgroundColor: notif.id === selectedNotification?.id ? '#e3f2fd' : '#fff',
+                      borderLeft: notif.id === selectedNotification?.id ? '4px solid #1976d2' : '4px solid transparent',
+                      position: 'relative'
                     }}
                   >
                     <div style={{ 
                       display: 'flex',
                       justifyContent: 'space-between',
-                      marginBottom: '8px'
+                      marginBottom: '8px',
+                      alignItems: 'center'
                     }}>
-                      <span style={{ 
-                        fontSize: '0.75rem',
-                        color: '#666'
-                      }}>
-                        {notif.created_at && new Date(notif.created_at)
-                          .toLocaleString("en-GB", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hour12: true
-                          })}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ 
+                          fontSize: '0.75rem',
+                          color: '#666'
+                        }}>
+                          {notif.created_at && new Date(notif.created_at)
+                            .toLocaleString("en-GB", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              hour12: true
+                            })}
+                        </span>
+                        {notif.id === selectedNotification?.id && (
+                          <span style={{ 
+                            fontSize: '0.7rem',
+                            backgroundColor: '#1976d2',
+                            color: 'white',
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            fontWeight: '600',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px'
+                          }}>
+                            Currently Selected
+                          </span>
+                        )}
+                      </div>
                       <span style={{ 
                         fontSize: '0.75rem',
                         color: notif.status === 'unread' ? '#1976d2' : '#666',
