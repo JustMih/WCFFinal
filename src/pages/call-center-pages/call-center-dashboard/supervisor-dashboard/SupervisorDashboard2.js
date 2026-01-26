@@ -496,7 +496,9 @@ export default function SupervisorDashboard2() {
       </div>
 
       {/* Queue Monitoring Section */}
-      <CallQueueCard />
+      <div className="dashboard-single-agent">
+          <CallQueueCard />
+        </div>
       
       {/* Active Calls Section */}
       <ActiveCalls liveCalls={liveCalls} refreshInterval={5000} showTitle={true} />

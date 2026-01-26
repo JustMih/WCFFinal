@@ -48,6 +48,8 @@ import {
 } from "@mui/material";
 
 import "./supervisorDashboard.css";
+import OnlineAgentsTable from "../../../../components/agent-dashboard/OnlineAgentsTable";
+import OnlineSupervisorsTable from "../../../../components/agent-dashboard/OnlineSupervisorsTable";
 
 // Register chart.js components
 ChartJS.register(
@@ -825,6 +827,10 @@ export default function SupervisorDashboard() {
         </MenuItem>
       </Menu>
 
+      <div className="dashboard-single-agent-row_two">
+          <OnlineAgentsTable />
+          <OnlineSupervisorsTable />
+        </div>
       {/* Summary cards */}
       {/* Yearly Row */}
       <div className="call-center-agent-summary">
