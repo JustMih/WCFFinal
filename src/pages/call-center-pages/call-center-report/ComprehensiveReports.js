@@ -1424,7 +1424,16 @@ export default function ComprehensiveReports() {
                 color={report.is_played ? "success" : "warning"}
               />
             </td>
-            <td>{report.assigned_agent_id || "-"}</td>
+            <td>
+          {report.assigned_extension
+            ? `Ext ${report.assigned_extension}${
+                report.assigned_agent_name
+                  ? ` (${report.assigned_agent_name})`
+                  : ""
+              }`
+            : "-"}
+        </td>
+
             <td>{report.duration_seconds || "-"}</td>
             <td className="transcription-cell">
               {report.transcription || "-"}
