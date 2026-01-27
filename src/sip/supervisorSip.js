@@ -3,6 +3,7 @@ import {
   Inviter,
   Registerer
 } from "sip.js";
+import { baseURL } from "../config";
 
 let userAgent = null;
 let registerer = null;

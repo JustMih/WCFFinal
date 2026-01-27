@@ -428,75 +428,12 @@ export default function SupervisorDashboard2() {
 
   return (
     <div className="call-center-agent-container">
-      <div className="dashboard-header">
         <h3 className="call-center-agent-title">Supervisor Dashboard 2</h3>
-        {/* <div className="notification-bell-container">
-          <button 
-            className="notification-bell-btn"
-            onClick={() => setShowAlerts(!showAlerts)}
-          >
-            <FaBell className="bell-icon" />
-            {alerts.length > 0 && (
-              <span className="notification-badge">{alerts.length}</span>
-            )}
-          </button>
-          
-          {showAlerts && (
-            <div className="notification-dropdown">
-              <div className="notification-header">
-                <h4>
-                  <FaBell className="section-icon" />
-                  Notifications
-                </h4>
-                <button 
-                  className="dismiss-all-btn"
-                  onClick={handleDismissAllAlerts}
-                >
-                  Dismiss All
-                </button>
-              </div>
-              <div className="notification-list">
-                {alerts.length > 0 ? (
-                  alerts.map(alert => (
-                    <div 
-                      key={alert.id} 
-                      className={`notification-item ${getAlertSeverityClass(alert.severity)}`}
-                    >
-                      <div className="notification-icon">
-                        {getAlertIcon(alert.type)}
-                      </div>
-                      <div className="notification-content">
-                        <div className="notification-header">
-                          <span className="notification-message">{alert.message}</span>
-                          <button 
-                            className="dismiss-notification-btn"
-                            onClick={() => handleDismissAlert(alert.id)}
-                          >
-                            <FaTimes />
-                          </button>
-                        </div>
-                        <div className="notification-details">
-                          <span className="notification-timestamp">
-                            {new Date(alert.timestamp).toLocaleTimeString()}
-                          </span>
-                          <span className="notification-info">{alert.details}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="no-notifications">
-                    No new notifications
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-        </div> */}
-      </div>
 
       {/* Queue Monitoring Section */}
-      <CallQueueCard />
+      <div className="dashboard-single-agent">
+          <CallQueueCard />
+        </div>
       
       {/* Active Calls Section */}
       <ActiveCalls liveCalls={liveCalls} refreshInterval={5000} showTitle={true} />

@@ -1172,8 +1172,37 @@ export default function TicketDetailsModal({
   useEffect(() => {
     if (selectedTicket) {
       setSelectedRating(selectedTicket.complaint_type || "");
+      
+      // Initialize forwardUnit with section (if directorate) or sub_section (if unit)
+      if (selectedTicket.id && setForwardUnit && !forwardUnit[selectedTicket.id]) {
+        // Check if it's a directorate based on section name
+        const isDirectorate = selectedTicket.section && (
+          selectedTicket.section.includes('Directorate') || 
+          selectedTicket.section.includes('directorate')
+        );
+        
+        // Determine the value to use: section for directorate, sub_section for unit
+        let initialValue = null;
+        if (isDirectorate && selectedTicket.section) {
+          initialValue = selectedTicket.section;
+        } else if (!isDirectorate && selectedTicket.sub_section) {
+          initialValue = selectedTicket.sub_section;
+        } else if (selectedTicket.responsible_unit_name) {
+          initialValue = selectedTicket.responsible_unit_name;
+        } else if (selectedTicket.section && !selectedTicket.section.toLowerCase().includes('unit')) {
+          initialValue = selectedTicket.section;
+        }
+        
+        // Set the initial value if we have one
+        if (initialValue) {
+          setForwardUnit((prev) => ({
+            ...prev,
+            [selectedTicket.id]: initialValue
+          }));
+        }
+      }
     }
-  }, [selectedTicket]);
+  }, [selectedTicket, allSectionsList, forwardUnit, setForwardUnit]);
 
   // Fetch all sections (directorates and units) from units-data and functions
   useEffect(() => {

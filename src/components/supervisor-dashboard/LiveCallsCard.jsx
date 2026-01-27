@@ -163,15 +163,7 @@ useEffect(() => {
           Live Calls{" "}
           {isLoading && <span className="loading-indicator">(Loading...)</span>}
         </h4>
-        <div className="search-box">
-          <input
-            type="text"
-            placeholder="Search calls..."
-            value={searchTerm}
-            onChange={onSearch}
-            className="search-input"
-          />
-        </div>
+        
       </div>
 
       <div className="table-responsive">
