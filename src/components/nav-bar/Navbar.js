@@ -424,6 +424,15 @@ export default function Navbar({
     }
   };
 
+  /**
+   * Handle notification click
+   * 
+   * Modals used:
+   * 1. "Notified" notifications -> Notification Details Dialog (notificationDialogOpen)
+   * 2. "Assigned" notifications -> Navigate to /ticket/assigned -> TicketDetailsModal (from assigned.js)
+   * 3. "Tagged Message" notifications -> Navigate to ticket page -> TicketDetailsModal
+   * 4. Fallback (no ticket ID) -> Notification Details Dialog (notificationDialogOpen)
+   */
   const handleNotificationClick = async (notif) => {
     console.log("Notification clicked:", notif);
     try {
@@ -461,6 +470,7 @@ export default function Navbar({
       const isNotified = !isTaggedMessage && !isAssigned && !isReversed;
       
       // If it's a "Notified" type, open the modal instead of navigating
+      // Uses: Notification Details Dialog (notificationDialogOpen)
       if (isNotified) {
         setSelectedNotification(notif);
         setNotificationDialogOpen(true);
@@ -468,6 +478,7 @@ export default function Navbar({
       }
       
       // For "Tagged Message" and "Assigned", navigate to ticket page
+      // When navigating to /ticket/assigned, it uses: TicketDetailsModal (from assigned.js page)
       // Get ticket ID - try multiple sources
       let ticketId = null;
       
@@ -542,6 +553,8 @@ export default function Navbar({
               });
               if (foundTicket) {
                 foundInAssigned = true;
+                // Navigate to assigned page - will use TicketDetailsModal (from assigned.js)
+                console.log('Navigating to assigned page - will open TicketDetailsModal');
                 window.location.href = `/ticket/assigned?ticketId=${encodeURIComponent(actualTicketId)}`;
                 return;
               }
@@ -567,6 +580,8 @@ export default function Navbar({
                   return ticketIdMatch || idMatch;
                 });
                 if (foundTicket) {
+                  // Navigate to in-progress page - will use TicketDetailsModal (from in-progress.js)
+                  console.log('Navigating to in-progress page - will open TicketDetailsModal');
                   window.location.href = `/ticket/in-progress?ticketId=${encodeURIComponent(actualTicketId)}`;
                   return;
                 }
@@ -578,9 +593,13 @@ export default function Navbar({
         }
         
         // If not found in either, default to assigned page
+        // Will use TicketDetailsModal (from assigned.js)
+        console.log('Navigating to assigned page (default) - will open TicketDetailsModal');
         window.location.href = `/ticket/assigned?ticketId=${encodeURIComponent(actualTicketId)}`;
       } else {
         // If no ticket ID found, open the modal as fallback
+        // Uses: Notification Details Dialog (notificationDialogOpen)
+        console.log('No ticket ID found - opening Notification Details Dialog');
         setSelectedNotification(notif);
         setNotificationDialogOpen(true);
       }
