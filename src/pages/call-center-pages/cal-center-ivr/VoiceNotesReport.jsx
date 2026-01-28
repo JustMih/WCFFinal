@@ -1,4 +1,4 @@
- import React, { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { baseURL } from "../../../config";
 import './VoiceNotesReport.css';
@@ -47,37 +47,37 @@ export default function RecordedSounds() {
     fetchVoiceNotes();
   }, []);
 
- const handlePlayVoice = async (noteId) => {
- 
-  const audioUrl = `${baseURL}/voice-notes/${noteId}/audio`;
+  const handlePlayVoice = async (noteId) => {
+    const audioUrl = `${baseURL}/voice-notes/${noteId}/audio`;
 
-  if (currentAudio) {
-    currentAudio.pause();
-    currentAudio.currentTime = 0;
-  }
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+    }
 
-  try {
-    const response = await fetch(audioUrl, { method: "HEAD" });
-    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+    try {
+      const response = await fetch(audioUrl, { method: "HEAD" });
+      if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
 
-    const audio = new Audio(audioUrl);
-    audio.play().catch(err => console.error("Play failed:", err));
-    setCurrentAudio(audio);
-    setCurrentlyPlayingId(noteId);
+      const audio = new Audio(audioUrl);
+      audio.play().catch(err => console.error("Play failed:", err));
+      setCurrentAudio(audio);
+      setCurrentlyPlayingId(noteId);
 
-    const updatedStatus = { ...playedStatus, [noteId]: true };
-    setPlayedStatus(updatedStatus);
-    localStorage.setItem("playedVoiceNotes", JSON.stringify(updatedStatus));
+      const updatedStatus = { ...playedStatus, [noteId]: true };
+      setPlayedStatus(updatedStatus);
+      localStorage.setItem("playedVoiceNotes", JSON.stringify(updatedStatus));
 
-    audio.onended = () => {
-      setCurrentlyPlayingId(null);
-      setCurrentAudio(null);
-    };
-  } catch (error) {
-    console.error("Error playing audio:", error);
-    alert(`Failed to play audio: ${error.message}`);
-  }
-};
+      audio.onended = () => {
+        setCurrentlyPlayingId(null);
+        setCurrentAudio(null);
+      };
+    } catch (error) {
+      console.error("Error playing audio:", error);
+      alert(`Failed to play audio: ${error.message}`);
+    }
+  };
+
   const handlePauseVoice = () => {
     if (currentAudio) {
       currentAudio.pause();
@@ -92,7 +92,7 @@ export default function RecordedSounds() {
     return hoursAgo >= 24 ? "#f8d7da" : "#fff3cd"; // red or yellow
   };
 
-  // Pagination Logic
+  // Pagination
   const indexOfLastNote = currentPage * notesPerPage;
   const indexOfFirstNote = indexOfLastNote - notesPerPage;
   const currentNotes = voiceNotes.slice(indexOfFirstNote, indexOfLastNote);
@@ -117,6 +117,7 @@ export default function RecordedSounds() {
               <th>ID</th>
               <th>Caller ID</th>
               <th>Created At</th>
+              <th>Assigned Extension</th>   {/* ← new column */}
               <th>Status</th>
               <th>Actions</th>
             </tr>
@@ -126,16 +127,28 @@ export default function RecordedSounds() {
               const isPlayed = playedStatus[note.id];
               const isPlaying = currentlyPlayingId === note.id;
 
+              // Adjust field name if it's not exactly "assigned_agent_id"
+        const extension = note.assigned_extension
+  ? `Ext ${note.assigned_extension}${note.assigned_agent_name ? ` (${note.assigned_agent_name})` : ""}`
+  : "—";
+
               return (
                 <tr key={note.id} style={{ backgroundColor: getRowColor(note) }}>
                   <td>{note.id}</td>
                   <td>{note.clid}</td>
                   <td>{new Date(note.created_at).toLocaleString()}</td>
+                  <td>{extension}</td>
                   <td>{isPlayed ? "Played" : "Not Played"}</td>
                   <td>
-                    <button className="btn btn-play" onClick={() => handlePlayVoice(note.id)}>Play</button>
+                    <button className="btn btn-play" onClick={() => handlePlayVoice(note.id)}>
+                      Play
+                    </button>
                     {isPlaying && (
-                      <button className="btn btn-pause" onClick={handlePauseVoice} style={{ marginLeft: "5px" }}>
+                      <button
+                        className="btn btn-pause"
+                        onClick={handlePauseVoice}
+                        style={{ marginLeft: "5px" }}
+                      >
                         Pause
                       </button>
                     )}
@@ -147,7 +160,6 @@ export default function RecordedSounds() {
         </table>
       </div>
 
-      {/* Pagination */}
       <div className="voice-pagination">
         <button onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}>
           &lt; Prev
@@ -162,4 +174,3 @@ export default function RecordedSounds() {
     </div>
   );
 }
- 

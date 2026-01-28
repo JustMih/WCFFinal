@@ -1,5 +1,3 @@
- 
-
 import React, { useEffect, useState, useMemo } from 'react';
 import axios from 'axios';
 import { baseURL } from "../../../config";
@@ -9,6 +7,9 @@ import { CSVLink } from 'react-csv';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 
+/* ===============================
+   DTMF LABELS
+=============================== */
 const digitLabels = {
   '3': 'Registration Info',
   '4': 'Confirmation Info',
@@ -25,20 +26,24 @@ const DTMFStats = () => {
   const [logs, setLogs] = useState([]);
   const [searchText, setSearchText] = useState('');
 
+  /* ===============================
+     FETCH DATA
+  =============================== */
   useEffect(() => {
-    axios.get(`${baseURL}/dtmf-stats`)
-      .then(res => setLogs(res.data))
+    axios
+      .get(`${baseURL}/dtmf-stats`)
+      .then(res => setLogs(res.data || []))
       .catch(err => console.error(err));
   }, []);
 
   /* ===============================
-     FILTER BY ALL COLUMNS
+     FILTER (ALL COLUMNS)
   =============================== */
   const filteredLogs = useMemo(() => {
+    const search = searchText.toLowerCase();
+
     return logs.filter(item => {
       if (!digitLabels[item.digit_pressed]) return false;
-
-      const search = searchText.toLowerCase();
 
       return (
         String(item.digit_pressed).includes(search) ||
@@ -55,7 +60,7 @@ const DTMFStats = () => {
   }, [logs, searchText]);
 
   /* ===============================
-     CHART DATA (UNCHANGED)
+     CHART DATA
   =============================== */
   const countMap = {};
   filteredLogs.forEach(log => {
@@ -69,45 +74,68 @@ const DTMFStats = () => {
   const digitNames = digits.map(d => digitLabels[d]);
   const digitCounts = digits.map(d => countMap[d]);
 
+  const maxValue = Math.max(...digitCounts, 1); // 🔥 RADIAL FIX
+
   const barColors = [
     '#3366CC', '#DC3912', '#FF9900', '#109618', '#990099',
     '#3B3EAC', '#0099C6', '#DD4477', '#66AA00', '#B82E2E'
   ];
 
+  /* ===============================
+     RADIAL CHART OPTIONS (FIXED)
+  =============================== */
   const radialOptions = {
-    chart: { type: 'radialBar', height: 350 },
+    chart: {
+      type: 'radialBar',
+      height: 350
+    },
     plotOptions: {
       radialBar: {
+        startAngle: -90,
+        endAngle: 270,
+        hollow: { size: '45%' },
+        track: { background: '#f0f0f0' },
         dataLabels: {
-          name: { fontSize: '16px' },
-          value: { fontSize: '14px' },
+          name: { fontSize: '14px' },
+          value: {
+            fontSize: '16px',
+            formatter: val => Math.round(val)
+          },
           total: {
             show: true,
             label: 'Total',
-            formatter: () => digitCounts.reduce((a, b) => a + b, 0)
+            formatter: () =>
+              digitCounts.reduce((a, b) => a + b, 0)
           }
         }
       }
     },
+    yaxis: {
+      max: maxValue // ✅ REQUIRED
+    },
     labels: digitNames,
     colors: digits.map((_, i) => barColors[i % barColors.length]),
-    legend: { show: true, position: 'bottom' }
+    legend: {
+      show: true,
+      position: 'bottom'
+    }
   };
 
+  /* ===============================
+     BAR CHART OPTIONS
+  =============================== */
   const apexBarOptions = {
     chart: { type: 'bar', height: 350 },
     plotOptions: {
       bar: {
         horizontal: true,
         borderRadius: 4,
-        dataLabels: { position: 'top' },
         distributed: true,
         barHeight: '15%'
       }
     },
     dataLabels: {
       enabled: true,
-      formatter: val => val,
       style: { fontSize: '12px', colors: ['#333'] }
     },
     xaxis: {
@@ -116,13 +144,20 @@ const DTMFStats = () => {
     },
     yaxis: { labels: { show: false } },
     colors: digits.map((_, i) => barColors[i % barColors.length]),
-    legend: { show: false },
     grid: { show: false }
   };
 
+  /* ===============================
+     TABLE COLUMNS
+  =============================== */
   const columns = [
     { name: 'Digit', selector: row => row.digit_pressed, sortable: true, width: '80px' },
-    { name: 'DTMF Action', selector: row => digitLabels[row.digit_pressed], sortable: true, wrap: true },
+    {
+      name: 'DTMF Action',
+      selector: row => digitLabels[row.digit_pressed],
+      sortable: true,
+      wrap: true
+    },
     { name: 'Caller ID', selector: row => row.caller_id, sortable: true },
     { name: 'Language', selector: row => row.language, sortable: true },
     {
@@ -131,10 +166,13 @@ const DTMFStats = () => {
         row.timestamp
           ? new Date(row.timestamp.replace(' ', 'T')).toLocaleString()
           : 'N/A',
-      sortable: true,
-    },
+      sortable: true
+    }
   ];
 
+  /* ===============================
+     EXPORT DATA
+  =============================== */
   const csvData = filteredLogs.map(item => ({
     digit_pressed: item.digit_pressed,
     dtmf_action: digitLabels[item.digit_pressed],
@@ -142,7 +180,7 @@ const DTMFStats = () => {
     language: item.language,
     timestamp: item.timestamp
       ? new Date(item.timestamp.replace(' ', 'T')).toLocaleString()
-      : 'N/A',
+      : 'N/A'
   }));
 
   const handleExcelExport = () => {
@@ -153,20 +191,33 @@ const DTMFStats = () => {
     saveAs(new Blob([buffer]), 'dtmf_usage.xlsx');
   };
 
+  /* ===============================
+     RENDER
+  =============================== */
   return (
     <div style={{ padding: '1rem', maxWidth: '900px', margin: 'auto' }}>
       <h3 style={{ textAlign: 'center' }}>IVR DTMF Usage Report</h3>
 
-      {/* CHARTS (UNCHANGED) */}
+      {/* CHARTS */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2rem', marginBottom: '2rem' }}>
         <div style={{ flex: 1, minWidth: 320, background: '#fafbfc', padding: 16, borderRadius: 8 }}>
           <h4 style={{ textAlign: 'center' }}>Radial Chart</h4>
-          <ReactApexChart options={radialOptions} series={digitCounts} type="radialBar" height={320} />
+          <ReactApexChart
+            options={radialOptions}
+            series={digitCounts}
+            type="radialBar"
+            height={320}
+          />
         </div>
 
         <div style={{ flex: 2, minWidth: 400, background: '#fafbfc', padding: 16, borderRadius: 8 }}>
           <h4 style={{ textAlign: 'center' }}>Bar Chart</h4>
-          <ReactApexChart options={apexBarOptions} series={[{ data: digitCounts }]} type="bar" height={320} />
+          <ReactApexChart
+            options={apexBarOptions}
+            series={[{ data: digitCounts }]}
+            type="bar"
+            height={320}
+          />
         </div>
       </div>
 
@@ -174,12 +225,14 @@ const DTMFStats = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h4>DTMF Usage Table</h4>
         <div style={{ display: 'flex', gap: '1rem' }}>
-          <CSVLink data={csvData} filename="dtmf_usage.csv">Export CSV</CSVLink>
+          <CSVLink data={csvData} filename="dtmf_usage.csv">
+            Export CSV
+          </CSVLink>
           <button onClick={handleExcelExport}>Export Excel</button>
         </div>
       </div>
 
-      {/* 🔍 SEARCH BOX (TOP OF TABLE) */}
+      {/* SEARCH */}
       <input
         type="text"
         placeholder="Search digit, action, caller, language, time..."

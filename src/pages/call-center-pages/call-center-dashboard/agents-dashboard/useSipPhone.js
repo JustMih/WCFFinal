@@ -193,7 +193,49 @@ export function useSipPhone({
       });
     });
   };
-
+  const blindTransfer = async (targetExtension) => {
+    if (!session) {
+      console.warn("No active call to transfer");
+      return;
+    }
+  
+    const target = String(targetExtension || "").trim();
+    if (!target) {
+      console.warn("Invalid transfer target");
+      return;
+    }
+  
+    // Prevent self-transfer
+    if (target === String(extension)) {
+      console.warn("Cannot transfer to same extension");
+      return;
+    }
+  
+    try {
+      const targetURI = UserAgent.makeURI(`sip:${target}@${SIP_DOMAIN}`);
+      if (!targetURI) {
+        console.warn("Failed to create target URI");
+        return;
+      }
+  
+      await session.refer(targetURI);
+  
+      // Clean local state AFTER REFER
+      setSession(null);
+      stopCallTimer();
+      setPhoneStatus("Idle");
+  
+      if (remoteAudioRef.current) {
+        remoteAudioRef.current.srcObject = null;
+      }
+  
+      onCallEnded?.();
+  
+    } catch (err) {
+      console.error("Blind transfer failed:", err);
+    }
+  };
+  
   const toggleMute = () => {
     const pc = session?.sessionDescriptionHandler?.peerConnection;
     pc?.getSenders().forEach((s) => {
@@ -234,6 +276,7 @@ export function useSipPhone({
       rejectCall,
       endCall,
       dial,
+      blindTransfer, 
       toggleMute,
       toggleHold,
       toggleSpeaker,
