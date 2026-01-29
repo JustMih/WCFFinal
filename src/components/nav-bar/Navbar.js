@@ -424,6 +424,15 @@ export default function Navbar({
     }
   };
 
+  /**
+   * Handle notification click
+   * 
+   * Modals used:
+   * 1. "Notified" notifications -> Notification Details Dialog (notificationDialogOpen)
+   * 2. "Assigned" notifications -> Navigate to /ticket/assigned -> TicketDetailsModal (from assigned.js)
+   * 3. "Tagged Message" notifications -> Navigate to ticket page -> TicketDetailsModal
+   * 4. Fallback (no ticket ID) -> Notification Details Dialog (notificationDialogOpen)
+   */
   const handleNotificationClick = async (notif) => {
     console.log("Notification clicked:", notif);
     try {
@@ -461,6 +470,7 @@ export default function Navbar({
       const isNotified = !isTaggedMessage && !isAssigned && !isReversed;
       
       // If it's a "Notified" type, open the modal instead of navigating
+      // Uses: Notification Details Dialog (notificationDialogOpen)
       if (isNotified) {
         setSelectedNotification(notif);
         setNotificationDialogOpen(true);
@@ -468,6 +478,7 @@ export default function Navbar({
       }
       
       // For "Tagged Message" and "Assigned", navigate to ticket page
+      // When navigating to /ticket/assigned, it uses: TicketDetailsModal (from assigned.js page)
       // Get ticket ID - try multiple sources
       let ticketId = null;
       
@@ -542,6 +553,8 @@ export default function Navbar({
               });
               if (foundTicket) {
                 foundInAssigned = true;
+                // Navigate to assigned page - will use TicketDetailsModal (from assigned.js)
+                console.log('Navigating to assigned page - will open TicketDetailsModal');
                 window.location.href = `/ticket/assigned?ticketId=${encodeURIComponent(actualTicketId)}`;
                 return;
               }
@@ -567,6 +580,8 @@ export default function Navbar({
                   return ticketIdMatch || idMatch;
                 });
                 if (foundTicket) {
+                  // Navigate to in-progress page - will use TicketDetailsModal (from in-progress.js)
+                  console.log('Navigating to in-progress page - will open TicketDetailsModal');
                   window.location.href = `/ticket/in-progress?ticketId=${encodeURIComponent(actualTicketId)}`;
                   return;
                 }
@@ -578,9 +593,13 @@ export default function Navbar({
         }
         
         // If not found in either, default to assigned page
+        // Will use TicketDetailsModal (from assigned.js)
+        console.log('Navigating to assigned page (default) - will open TicketDetailsModal');
         window.location.href = `/ticket/assigned?ticketId=${encodeURIComponent(actualTicketId)}`;
       } else {
         // If no ticket ID found, open the modal as fallback
+        // Uses: Notification Details Dialog (notificationDialogOpen)
+        console.log('No ticket ID found - opening Notification Details Dialog');
         setSelectedNotification(notif);
         setNotificationDialogOpen(true);
       }
@@ -1488,16 +1507,34 @@ export default function Navbar({
           <div style={{ 
             fontSize: '1.25rem', 
             fontWeight: '600',
-            color: '#1976d2'
+            color: '#1976d2',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between'
           }}>
-            Notification Details
+            <span>Notification Details</span>
+            {selectedNotification && (
+              <span style={{ 
+                fontSize: '0.75rem',
+                backgroundColor: '#1976d2',
+                color: 'white',
+                padding: '4px 12px',
+                borderRadius: '16px',
+                fontWeight: '600',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                Selected Notification
+              </span>
+            )}
           </div>
           <div style={{ 
             fontSize: '0.875rem', 
             color: '#666',
             display: 'flex',
             alignItems: 'center',
-            gap: '8px'
+            gap: '8px',
+            flexWrap: 'wrap'
           }}>
             <span style={{ 
               backgroundColor: '#e3f2fd',
@@ -1519,7 +1556,44 @@ export default function Navbar({
                   hour12: true
                 })}
             </span>
+            {/* {selectedNotification?.id && (
+              <span style={{ 
+                fontSize: '0.7rem',
+                color: '#999',
+                fontFamily: 'monospace'
+              }}>
+                ID: {selectedNotification.id.substring(0, 8)}...
+              </span>
+            )} */}
           </div>
+          {selectedNotification?.message && (
+            <div style={{ 
+              marginTop: '8px',
+              padding: '12px',
+              backgroundColor: '#f5f5f5',
+              borderRadius: '6px',
+              border: '1px solid #e0e0e0',
+              textAlign: 'left'
+            }}>
+              <div style={{ 
+                fontSize: '0.75rem',
+                color: '#666',
+                marginBottom: '4px',
+                fontWeight: '500',
+                textAlign: 'left'
+              }}>
+                Notification Message:
+              </div>
+              <div style={{ 
+                fontSize: '0.875rem',
+                color: '#333',
+                lineHeight: '1.5',
+                textAlign: 'left'
+              }}>
+                {selectedNotification.message}
+              </div>
+            </div>
+          )}
         </DialogTitle>
         <DialogContent style={{ padding: '24px' }}>
           {/* Ticket Details Section */}
@@ -1663,28 +1737,47 @@ export default function Navbar({
                     style={{
                       padding: '16px',
                       borderBottom: index < ticketNotificationsData.notifications.length - 1 ? '1px solid #e0e0e0' : 'none',
-                      backgroundColor: notif.id === selectedNotification?.id ? '#e3f2fd' : '#fff'
+                      backgroundColor: notif.id === selectedNotification?.id ? '#e3f2fd' : '#fff',
+                      borderLeft: notif.id === selectedNotification?.id ? '4px solid #1976d2' : '4px solid transparent',
+                      position: 'relative'
                     }}
                   >
                     <div style={{ 
                       display: 'flex',
                       justifyContent: 'space-between',
-                      marginBottom: '8px'
+                      marginBottom: '8px',
+                      alignItems: 'center'
                     }}>
-                      <span style={{ 
-                        fontSize: '0.75rem',
-                        color: '#666'
-                      }}>
-                        {notif.created_at && new Date(notif.created_at)
-                          .toLocaleString("en-GB", {
-                            day: "2-digit",
-                            month: "short",
-                            year: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                            hour12: true
-                          })}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ 
+                          fontSize: '0.75rem',
+                          color: '#666'
+                        }}>
+                          {notif.created_at && new Date(notif.created_at)
+                            .toLocaleString("en-GB", {
+                              day: "2-digit",
+                              month: "short",
+                              year: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                              hour12: true
+                            })}
+                        </span>
+                        {notif.id === selectedNotification?.id && (
+                          <span style={{ 
+                            fontSize: '0.7rem',
+                            backgroundColor: '#1976d2',
+                            color: 'white',
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            fontWeight: '600',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px'
+                          }}>
+                            Currently Selected
+                          </span>
+                        )}
+                      </div>
                       <span style={{ 
                         fontSize: '0.75rem',
                         color: notif.status === 'unread' ? '#1976d2' : '#666',
