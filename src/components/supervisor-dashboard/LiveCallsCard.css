@@ -182,3 +182,8 @@
   font-size: 1em;
   color: #888;
 } 
+.active-spy {
+  background: #4caf50 !important;
+  color: white;
+  box-shadow: 0 0 10px rgba(76, 175, 80, 0.8);
+}
