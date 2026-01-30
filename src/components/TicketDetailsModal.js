@@ -250,6 +250,19 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
             }
             continue; // Skip adding this Closed action separately
           }
+          // If previous step has the same name (assigned_to_name) as current Closed action, consolidate
+          // This handles cases where the same person assigned and then closed
+          if (prevStep.assigned_to_name === current.assigned_to_name && 
+              prevStep.assigned_to_id === current.assigned_to_id) {
+            // Consolidate: update previous step to "Closed"
+            prevStep.action = "Closed";
+            prevStep.closed_at = current.created_at;
+            prevStep.isConsolidated = true;
+            if (current.reason) {
+              prevStep.reason = current.reason;
+            }
+            continue; // Skip adding this Closed action separately
+          }
         }
       }
 
@@ -309,6 +322,33 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
       created_at: selectedTicket.assigned_at,
       assigned_to_id: selectedTicket.assigned_to_id
     });
+  }
+
+  // Check if ticket is closed and if the person who closed it is the same as the last assignment
+  // If so, update the last step to "Closed" instead of adding a new step
+  if (selectedTicket.status === "Closed" && steps.length > 1) {
+    const lastStep = steps[steps.length - 1];
+    // Try to find who closed from assignment history
+    let closedBy = null;
+    if (Array.isArray(assignmentHistory) && assignmentHistory.length > 0) {
+      const closedAction = assignmentHistory.find(a => a.action === "Closed");
+      if (closedAction) {
+        closedBy = closedAction.assigned_to_name || closedAction.assigned_to_id;
+      }
+    }
+    
+    // If closed by is same as last step's assigned_to_name or assigned_to_id, update last step
+    if (closedBy && (
+      closedBy === lastStep.assigned_to_name || 
+      closedBy === lastStep.assigned_to_id ||
+      (lastStep.assignedTo && closedBy === lastStep.assignedTo.full_name) ||
+      (lastStep.user && closedBy === lastStep.user.full_name)
+    )) {
+      // Update last step to "Closed" instead of adding new step
+      lastStep.action = "Closed";
+      lastStep.closed_at = selectedTicket.date_of_resolution || selectedTicket.updated_at;
+      lastStep.isConsolidated = true;
+    }
   }
 
   // Determine current step index for descending order
@@ -1094,10 +1134,10 @@ export default function TicketDetailsModal({
   const handleFileChange = (e) => {
     const file = e.target.files && e.target.files[0] ? e.target.files[0] : null;
     if (file) {
-      // Check file size (10MB = 10 * 1024 * 1024 bytes)
-      const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+      // Check file size (2MB = 2 * 1024 * 1024 bytes)
+      const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
       if (file.size > MAX_FILE_SIZE) {
-        setFileError(`File size exceeds the maximum limit of 10MB. Your file is ${(file.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`);
+        setFileError(`File size exceeds the maximum limit of 2MB. Your file is ${(file.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`);
         e.target.value = ''; // Clear the input
         setAttachment(null);
         return;
@@ -1896,7 +1936,7 @@ export default function TicketDetailsModal({
     // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
     const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
     if (attachment && attachment.size > MAX_FILE_SIZE) {
-      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 2MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
       setFileError(errorMsg);
       showSnackbar(errorMsg, 'error');
       return;
@@ -2150,7 +2190,7 @@ export default function TicketDetailsModal({
     // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
     const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
     if (attachment && attachment.size > MAX_FILE_SIZE) {
-      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 2MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
       setFileError(errorMsg);
       showSnackbar(errorMsg, 'error');
       return;
@@ -2210,7 +2250,7 @@ export default function TicketDetailsModal({
     // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
     const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
     if (attachment && attachment.size > MAX_FILE_SIZE) {
-      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 2MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
       setFileError(errorMsg);
       showSnackbar(errorMsg, 'error');
       return;
@@ -2273,7 +2313,7 @@ export default function TicketDetailsModal({
     // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
     const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
     if (attachment && attachment.size > MAX_FILE_SIZE) {
-      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 2MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
       setFileError(errorMsg);
       showSnackbar(errorMsg, 'error');
       return;
@@ -2340,7 +2380,7 @@ export default function TicketDetailsModal({
     // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
     const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
     if (attachment && attachment.size > MAX_FILE_SIZE) {
-      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 2MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
       setFileError(errorMsg);
       showSnackbar(errorMsg, 'error');
       return;
@@ -2859,7 +2899,7 @@ export default function TicketDetailsModal({
     // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
     const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
     if (attachment && attachment.size > MAX_FILE_SIZE) {
-      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 2MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
       setFileError(errorMsg);
       showSnackbar(errorMsg, 'error');
       return;
@@ -3223,7 +3263,7 @@ export default function TicketDetailsModal({
     // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
     const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
     if (attachment && attachment.size > MAX_FILE_SIZE) {
-      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 2MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
       setFileError(errorMsg);
       showSnackbar(errorMsg, 'error');
       return;
@@ -4834,7 +4874,7 @@ export default function TicketDetailsModal({
                   // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
                   const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
                   if (attachment && attachment.size > MAX_FILE_SIZE) {
-                    const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+                    const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 2MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
                     setFileError(errorMsg);
                     showSnackbar(errorMsg, 'error');
                     return;
