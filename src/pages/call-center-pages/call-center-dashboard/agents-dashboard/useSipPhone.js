@@ -109,6 +109,13 @@ export function useSipPhone({
     ringAudio.currentTime = 0;
   };
 
+  const startRingtone = () => {
+    stopRingtone(); // Stop any existing ringtone first
+    ringAudio.loop = true;
+    ringAudio.volume = 0.7;
+    ringAudio.play().catch(() => {});
+  };
+
   const attachMediaStream = (sipSession) => {
     if (!sipSession) return;
 
@@ -332,8 +339,10 @@ export function useSipPhone({
       .invite()
       .then(() => {
         setPhoneStatus("Dialing");
+        startRingtone(); // Start ringing when dialing
         inviter.stateChange.addListener((state) => {
           if (state === SessionState.Established) {
+            stopRingtone(); // Stop ringing when call is answered
             attachMediaStream(inviter);
             setPhoneStatus("In Call");
             startCallTimer();
@@ -350,6 +359,7 @@ export function useSipPhone({
           }
 
           if (state === SessionState.Terminated) {
+            stopRingtone(); // Stop ringing when call is terminated
             setPhoneStatus("Idle");
             setSession(null);
             localStorage.removeItem("activeCallState");
@@ -361,6 +371,7 @@ export function useSipPhone({
       })
       .catch((error) => {
         console.error("Call failed:", error);
+        stopRingtone(); // Stop ringing if call fails
         setPhoneStatus("Call Failed");
       });
   };
@@ -385,8 +396,10 @@ export function useSipPhone({
       .invite()
       .then(() => {
         setPhoneStatus("Dialing");
+        startRingtone(); // Start ringing when redialing
         inviter.stateChange.addListener((state) => {
           if (state === SessionState.Established) {
+            stopRingtone(); // Stop ringing when call is answered
             attachMediaStream(inviter);
             setPhoneStatus("In Call");
             startCallTimer();
@@ -403,6 +416,7 @@ export function useSipPhone({
           }
 
           if (state === SessionState.Terminated) {
+            stopRingtone(); // Stop ringing when call is terminated
             setPhoneStatus("Idle");
             setSession(null);
             localStorage.removeItem("activeCallState");
@@ -414,6 +428,7 @@ export function useSipPhone({
       })
       .catch((error) => {
         console.error("Redial invite failed:", error);
+        stopRingtone(); // Stop ringing if redial fails
         setPhoneStatus("Call Failed");
       });
   };
