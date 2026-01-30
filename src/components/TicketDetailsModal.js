@@ -978,7 +978,7 @@ export default function TicketDetailsModal({
   selectedTicket,
   assignmentHistory,
   handleCategoryChange,
-  handleUnitChange,
+  handleUnitChange = null, // Make optional
   categories = [],
   units = [],
   convertCategory = {},
@@ -999,6 +999,20 @@ export default function TicketDetailsModal({
   
   // State for all sections (directorates and units) from mapping
   const [allSectionsList, setAllSectionsList] = useState([]);
+  
+  // Internal state for forwardUnit if not provided as prop
+  const [internalForwardUnit, setInternalForwardUnit] = useState({});
+  
+  // Internal state for convertCategory if not provided as prop
+  const [internalConvertCategory, setInternalConvertCategory] = useState({});
+  
+  // Use prop forwardUnit if provided, otherwise use internal state
+  const effectiveForwardUnit = Object.keys(forwardUnit).length > 0 ? forwardUnit : internalForwardUnit;
+  const effectiveSetForwardUnit = setForwardUnit && setForwardUnit.toString() !== '() => {}' ? setForwardUnit : setInternalForwardUnit;
+  
+  // Use prop convertCategory if provided, otherwise use internal state
+  const effectiveConvertCategory = Object.keys(convertCategory).length > 0 ? convertCategory : internalConvertCategory;
+  const effectiveSetConvertCategory = setConvertCategory && setConvertCategory.toString() !== '() => {}' ? setConvertCategory : setInternalConvertCategory;
   
   const [isAttendDialogOpen, setIsAttendDialogOpen] = useState(false);
   const [resolutionDetails, setResolutionDetails] = useState("");
@@ -1030,6 +1044,7 @@ export default function TicketDetailsModal({
   const [isReviewerCloseDialogOpen, setIsReviewerCloseDialogOpen] = useState(false);
   const [selectedRating, setSelectedRating] = useState("");
   const [ratingComment, setRatingComment] = useState("");
+  const [lastInitializedTicketId, setLastInitializedTicketId] = useState(null);
 
   // Reverse modal state
   const [isReverseModalOpen, setIsReverseModalOpen] = useState(false);
@@ -1168,13 +1183,16 @@ export default function TicketDetailsModal({
            mostRecentAssignment?.assigned_to_role === "Manager";
   };
 
-  // Initialize selectedRating when modal opens
+  // Initialize selectedRating when modal opens (only when ticket changes, not when unit changes)
   useEffect(() => {
-    if (selectedTicket) {
+    if (selectedTicket && selectedTicket.id !== lastInitializedTicketId) {
+      // Only initialize rating when ticket changes, not when unit changes
+      // This preserves user's rating selection when they change unit
       setSelectedRating(selectedTicket.complaint_type || "");
+      setLastInitializedTicketId(selectedTicket.id);
       
       // Initialize forwardUnit with section (if directorate) or sub_section (if unit)
-      if (selectedTicket.id && setForwardUnit && !forwardUnit[selectedTicket.id]) {
+      if (selectedTicket.id && effectiveSetForwardUnit && !effectiveForwardUnit[selectedTicket.id]) {
         // Check if it's a directorate based on section name
         const isDirectorate = selectedTicket.section && (
           selectedTicket.section.includes('Directorate') || 
@@ -1195,14 +1213,14 @@ export default function TicketDetailsModal({
         
         // Set the initial value if we have one
         if (initialValue) {
-          setForwardUnit((prev) => ({
+          effectiveSetForwardUnit((prev) => ({
             ...prev,
             [selectedTicket.id]: initialValue
           }));
         }
       }
     }
-  }, [selectedTicket, allSectionsList, forwardUnit, setForwardUnit]);
+  }, [selectedTicket?.id, allSectionsList, lastInitializedTicketId]); // Only initialize when ticket ID changes, not when unit changes
 
   // Fetch all sections (directorates and units) from units-data and functions
   useEffect(() => {
@@ -2836,15 +2854,15 @@ export default function TicketDetailsModal({
   const handleConvertOrForward = async (ticketId, mode = "convert") => {
     const userId = localStorage.getItem("userId");
     const token = localStorage.getItem("authToken");
-    const category = convertCategory[ticketId];
-    const unitName = forwardUnit[ticketId];
+    const category = effectiveConvertCategory[ticketId];
+    const unitName = effectiveForwardUnit[ticketId]; // Use effectiveForwardUnit instead of forwardUnit
     
     console.log('🔍 handleConvertOrForward called:', {
       ticketId,
       mode,
-      forwardUnitState: forwardUnit,
+      forwardUnitState: effectiveForwardUnit,
       unitNameFromState: unitName,
-      convertCategoryState: convertCategory,
+      convertCategoryState: effectiveConvertCategory,
       categoryFromState: category
     });
 
@@ -2880,7 +2898,7 @@ export default function TicketDetailsModal({
     
     console.log('Debug - Forward validation:', {
       unitNameFromDropdown: unitName,
-      forwardUnitState: forwardUnit[ticketId],
+      forwardUnitState: effectiveForwardUnit[ticketId],
       currentTicketSection: currentTicket?.section,
       currentTicketSubSection: currentTicket?.sub_section,
       currentTicketResponsibleUnit: currentTicket?.responsible_unit_name,
@@ -2945,12 +2963,12 @@ export default function TicketDetailsModal({
           onClose && onClose();
         });
         // Clear both states after successful update
-        setConvertCategory((prev) => {
+        effectiveSetConvertCategory((prev) => {
           const newState = { ...prev };
           delete newState[ticketId];
           return newState;
         });
-        setForwardUnit((prev) => {
+        effectiveSetForwardUnit((prev) => {
           const newState = { ...prev };
           delete newState[ticketId];
           return newState;
@@ -3151,6 +3169,7 @@ export default function TicketDetailsModal({
             bgcolor: "background.paper",
             boxShadow: 24,
             borderRadius: 2,
+            border: "3px solid #1976d2",
             p: 3
           }}
         >
@@ -3735,8 +3754,18 @@ export default function TicketDetailsModal({
                               <FormControl size="small" sx={{ minWidth: 120 }}>
                                 <InputLabel sx={{ fontSize: '0.8rem' }}>Convert To</InputLabel>
                                 <Select
-                                  value={convertCategory[selectedTicket.id] || ""}
-                                  onChange={(e) => handleCategoryChange(selectedTicket.id, e.target.value)}
+                                  value={effectiveConvertCategory[selectedTicket.id] || ""}
+                                  onChange={(e) => {
+                                    // Use handleCategoryChange if provided, otherwise use effectiveSetConvertCategory
+                                    if (handleCategoryChange) {
+                                      handleCategoryChange(selectedTicket.id, e.target.value);
+                                    } else {
+                                      effectiveSetConvertCategory((prev) => ({
+                                        ...prev,
+                                        [selectedTicket.id]: e.target.value
+                                      }));
+                                    }
+                                  }}
                                   label="Convert To"
                                   sx={{
                                     fontSize: '0.8rem',
@@ -3790,8 +3819,8 @@ export default function TicketDetailsModal({
                                 placeholder="Please provide a comment/description before forwarding..."
                                 size="small"
                                 required
-                                error={!ratingComment.trim() && selectedRating && forwardUnit[selectedTicket.id]}
-                                helperText={!ratingComment.trim() && selectedRating && forwardUnit[selectedTicket.id] ? "Comment is required before forwarding" : ""}
+                                error={!ratingComment.trim() && selectedRating && effectiveForwardUnit[selectedTicket.id]}
+                                helperText={!ratingComment.trim() && selectedRating && effectiveForwardUnit[selectedTicket.id] ? "Comment is required before forwarding" : ""}
                                 sx={{
                                   '& .MuiInputBase-root': {
                                     fontSize: '0.8rem'
@@ -3816,14 +3845,22 @@ export default function TicketDetailsModal({
                             </Typography>
                             <FormControl fullWidth size="small">
                               <Select
-                                value={forwardUnit[selectedTicket.id] || ""}
+                                value={effectiveForwardUnit[selectedTicket.id] || ""}
                                 onChange={(e) => {
                                   console.log('🔍 Unit dropdown changed:', {
                                     ticketId: selectedTicket.id,
                                     selectedValue: e.target.value,
-                                    previousValue: forwardUnit[selectedTicket.id]
+                                    previousValue: effectiveForwardUnit[selectedTicket.id]
                                   });
-                                  handleUnitChange(selectedTicket.id, e.target.value);
+                                  // Use handleUnitChange if provided, otherwise use effectiveSetForwardUnit
+                                  if (handleUnitChange) {
+                                    handleUnitChange(selectedTicket.id, e.target.value);
+                                  } else {
+                                    effectiveSetForwardUnit((prev) => ({
+                                      ...prev,
+                                      [selectedTicket.id]: e.target.value
+                                    }));
+                                  }
                                 }}
                                 sx={{
                                   fontSize: '0.8rem',
@@ -3952,7 +3989,7 @@ export default function TicketDetailsModal({
                                   (allSectionsList && allSectionsList.some(s => s.name === selectedTicket.section && !s.section_id))
                                 );
                                 const displayValue = isDirectorate ? selectedTicket.section : (selectedTicket.sub_section || selectedTicket.section);
-                                return displayValue && !forwardUnit[selectedTicket.id] && (
+                                return displayValue && !effectiveForwardUnit[selectedTicket.id] && (
                                   String(selectedTicket.category || "").toLowerCase() === "complaint"
                                     ? (selectedRating && ["Minor", "Major"].includes(selectedRating) && ratingComment.trim())
                                     : true
@@ -4098,7 +4135,7 @@ export default function TicketDetailsModal({
                           (userRole === 'reviewer' && 
                            (selectedTicket.assigned_to_id === userId || 
                             selectedTicket.responsible_unit_name === "Public Relation Unit" ||
-                            forwardUnit[selectedTicket.id]))) && (
+                            effectiveForwardUnit[selectedTicket.id]))) && (
                         <>
                           <Tooltip title="Close and resolve this ticket">
                             <Button
@@ -4144,7 +4181,7 @@ export default function TicketDetailsModal({
                      (permissionManager.canCloseAtCurrentStep(selectedTicket) ||
                       (userRole === 'reviewer' && 
                        (selectedTicket.assigned_to_id === userId || 
-                        forwardUnit[selectedTicket.id]))) && (
+                        effectiveForwardUnit[selectedTicket.id]))) && (
                         <>
                           <Tooltip title="Close and resolve this ticket">
                         <Button
@@ -4392,7 +4429,7 @@ export default function TicketDetailsModal({
             permissionManager.canCloseAtCurrentStep(selectedTicket) ||
             String(selectedTicket.assigned_to_id) === String(userId) ||
             selectedTicket.responsible_unit_name === "Public Relation Unit" ||
-            Boolean(forwardUnit?.[selectedTicket.id])
+            Boolean(effectiveForwardUnit?.[selectedTicket.id])
           )
         ) && (
                   <Tooltip title="Cancel and close this dialog">
