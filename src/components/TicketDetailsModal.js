@@ -795,6 +795,77 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
 
 export { AssignmentStepper };
 
+// Clarification Stepper Component
+const ClarificationStepper = ({ clarifications }) => {
+  if (!clarifications || clarifications.length === 0) {
+    return null; // Don't show if no clarifications
+  }
+
+  return (
+    <Box sx={{ mt: 3, mb: 2 }}>
+      <Typography 
+        variant="subtitle1" 
+        sx={{ 
+          color: "#3f51b5", 
+          mb: 2, 
+          fontWeight: "bold",
+          fontSize: "1rem"
+        }}
+      >
+        Additional Clarifications
+      </Typography>
+      <Divider sx={{ mb: 2 }} />
+      {clarifications.map((clarification, index) => (
+        <Box
+          key={clarification.id || index}
+          sx={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 2,
+            mb: 2,
+            p: 2,
+            bgcolor: "#f5f5f5",
+            borderRadius: 1,
+            borderLeft: "4px solid #1976d2",
+            position: "relative"
+          }}
+        >
+          <Box
+            sx={{
+              width: 12,
+              height: 12,
+              borderRadius: "50%",
+              bgcolor: "#1976d2",
+              flexShrink: 0,
+              mt: 0.5
+            }}
+          />
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: "bold", mb: 0.5, fontSize: "0.9rem" }}>
+              {clarification.edited_by_name || "Unknown"} ({clarification.edited_by_role || "N/A"})
+            </Typography>
+            <Typography variant="body2" sx={{ color: "#333", mb: 1, whiteSpace: "pre-wrap", fontSize: "0.875rem", lineHeight: 1.6 }}>
+              {clarification.clarification_text}
+            </Typography>
+            <Typography variant="caption" sx={{ color: "#666", fontSize: "0.75rem" }}>
+              {clarification.created_at
+                ? new Date(clarification.created_at).toLocaleString("en-GB", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: true
+                  })
+                : "N/A"}
+            </Typography>
+          </Box>
+        </Box>
+      ))}
+    </Box>
+  );
+};
+
 function AssignmentFlowChat({ assignmentHistory = [], selectedTicket }) {
   const creatorStep = selectedTicket
     ? {
@@ -1057,6 +1128,10 @@ export default function TicketDetailsModal({
   const [assignReason, setAssignReason] = useState("");
   const [assignLoading, setAssignLoading] = useState(false);
   const [attendees, setAttendees] = useState([]);
+  
+  // State for clarifications
+  const [clarifications, setClarifications] = useState([]);
+  const [loadingClarifications, setLoadingClarifications] = useState(false);
 
   // Reassign modal state
   const [isReassignModalOpen, setIsReassignModalOpen] = useState(false);
@@ -1221,6 +1296,38 @@ export default function TicketDetailsModal({
       }
     }
   }, [selectedTicket?.id, allSectionsList, lastInitializedTicketId]); // Only initialize when ticket ID changes, not when unit changes
+
+  // Fetch clarifications when ticket is selected
+  useEffect(() => {
+    const fetchClarifications = async () => {
+      if (!selectedTicket?.id) {
+        setClarifications([]);
+        return;
+      }
+      
+      setLoadingClarifications(true);
+      try {
+        const token = localStorage.getItem("authToken");
+        const response = await fetch(`${baseURL}/ticket/${selectedTicket.id}/clarifications`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setClarifications(Array.isArray(data) ? data : []);
+        } else {
+          setClarifications([]);
+        }
+      } catch (error) {
+        console.error("Error fetching clarifications:", error);
+        setClarifications([]);
+      } finally {
+        setLoadingClarifications(false);
+      }
+    };
+    
+    fetchClarifications();
+  }, [selectedTicket?.id]);
 
   // Fetch all sections (directorates and units) from units-data and functions
   useEffect(() => {
@@ -1730,15 +1837,28 @@ export default function TicketDetailsModal({
     // Hide attend button for attendee/agent if complaint_type is Minor or Major
     !((userRole === "attendee" || userRole === "agent") && 
       (selectedTicket.complaint_type === "Minor" || selectedTicket.complaint_type === "Major")) &&
-    (
-      // For director: show attend button for Minor status
-      (userRole === "director" && selectedTicket.complaint_type === "Minor") ||
-      // For attendee: show attend button for normal tickets (Inquiry/other non-complaint categories)
-      (userRole === "attendee" && selectedTicket.category !== "Complaint") ||
-      // For agent: show attend button for normal tickets (Inquiry/other non-complaint categories)
-      (userRole === "agent" && selectedTicket.category !== "Complaint") ||
-      // For head-of-unit: show attend button only for Minor complaints
-      (userRole === "head-of-unit" && selectedTicket.complaint_type === "Minor") ||
+      (
+        // For director: show attend button for Minor status OR Suggestion/Complement/Compliment OR unrated tickets (N/A)
+        (userRole === "director" && (
+          selectedTicket.complaint_type === "Minor" ||
+          selectedTicket.complaint_type === "N/A" ||
+          !selectedTicket.complaint_type ||
+          selectedTicket.category === "Suggestion" ||
+          selectedTicket.category === "Compliment"
+        )) ||
+        // For attendee: show attend button for normal tickets (Inquiry/other non-complaint categories)
+        (userRole === "attendee" && selectedTicket.category !== "Complaint") ||
+        // For agent: show attend button for normal tickets (Inquiry/other non-complaint categories)
+        (userRole === "agent" && selectedTicket.category !== "Complaint") ||
+        // For head-of-unit: show attend button for Minor complaints OR Suggestion/Complement/Compliment OR unrated tickets (N/A)
+        (userRole === "head-of-unit" && (
+          selectedTicket.complaint_type === "Minor" ||
+          selectedTicket.complaint_type === "N/A" ||
+          !selectedTicket.complaint_type ||
+          selectedTicket.category === "Suggestion" ||
+          selectedTicket.category === "Complement" ||
+          selectedTicket.category === "Compliment"
+        )) ||
       // For non-directors, non-attendees, non-agents, and non-head-of-unit: existing logic
       (userRole !== "director" && userRole !== "attendee" && userRole !== "agent" && userRole !== "head-of-unit" && (
         // For non-managers, only allow if ticket is not rated
@@ -2958,6 +3078,22 @@ export default function TicketDetailsModal({
       });
       const data = await response.json();
       if (response.ok) {
+        // Refresh clarifications after forward/convert
+        if (selectedTicket?.id) {
+          try {
+            const token = localStorage.getItem("authToken");
+            const clarifResponse = await fetch(`${baseURL}/ticket/${selectedTicket.id}/clarifications`, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            if (clarifResponse.ok) {
+              const clarifData = await clarifResponse.json();
+              setClarifications(Array.isArray(clarifData) ? clarifData : []);
+            }
+          } catch (error) {
+            console.error("Error refreshing clarifications:", error);
+          }
+        }
+        
         showSnackbar(data.message || "Ticket updated successfully", "success", () => {
           refreshTickets();
           onClose && onClose();
@@ -3338,6 +3474,11 @@ export default function TicketDetailsModal({
                 <Divider sx={{ mb: 2 }} />
 
                 <AssignmentStepper assignmentHistory={assignmentHistory} selectedTicket={selectedTicket} />
+
+                {/* Additional Clarifications - Show before Current Status */}
+                <Box sx={{ mt: 2 }}>
+                  <ClarificationStepper clarifications={clarifications} />
+                </Box>
 
                 {/* Current Status */}
                 <Box sx={{ mt: 2, p: 2, bgcolor: "white", borderRadius: 1 }}>
@@ -4345,10 +4486,10 @@ export default function TicketDetailsModal({
                         : "Reverse"}
                     </Button>
                     </Tooltip>
-                    {/* Hide Assign button for manager and head-of-unit when category is Compliment or Suggestion */}
+                    {/* Hide Assign button for manager, head-of-unit, and director when category is Compliment, Suggestion, or Complement */}
                     {/* Hide Assign button for focal-person when category is Complaint */}
-                    {!((userRole === "manager" || userRole === "head-of-unit") && 
-                        (selectedTicket?.category === "Compliment" || selectedTicket?.category === "Suggestion")) &&
+                    {!((userRole === "manager" || userRole === "head-of-unit" || userRole === "director") && 
+                        (selectedTicket?.category === "Compliment" || selectedTicket?.category === "Suggestion" || selectedTicket?.category === "Complement")) &&
                      !(userRole === "focal-person" && selectedTicket?.category === "Complaint") && (
                       <Tooltip title="Assign this ticket to an attendee">
                       <Button
