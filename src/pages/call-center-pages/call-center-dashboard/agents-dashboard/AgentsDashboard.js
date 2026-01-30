@@ -43,6 +43,8 @@ import OnlineSupervisorsTable from "../../../../components/agent-dashboard/Onlin
 import AgentPerformanceScore from "../../../../components/agent-dashboard/AgentPerformanceScore";
 import AdvancedTicketCreateModal from "../../../../components/ticket/AdvancedTicketCreateModal";
 import VoiceNotesReport from "../../cal-center-ivr/VoiceNotesReport";
+import TotalContactSummary from "../../../../components/agent-dashboard/TotalContactSummary";
+import ContactSummaryGrid from "../../../../components/agent-dashboard/ContactSummaryGrid";
 import CallHistoryCard from "../../../../components/agent-dashboard/CallHistoryCard";
 
 export default function AgentsDashboard() {
@@ -87,32 +89,32 @@ export default function AgentsDashboard() {
   const [missedCalls, setMissedCalls] = useState([]);
   const [missedOpen, setMissedOpen] = useState(false);
   const [callingBackId, setCallingBackId] = useState(null);
-const [excludedMissedIds, setExcludedMissedIds] = useState(new Set());
- const fetchMissedCallsFromBackend = React.useCallback(async () => {
-  if (callingBackId) return;
+  const [excludedMissedIds, setExcludedMissedIds] = useState(new Set());
+  const fetchMissedCallsFromBackend = React.useCallback(async () => {
+    if (callingBackId) return;
 
-  const ext = localStorage.getItem("extension");
+    const ext = localStorage.getItem("extension");
 
-  const response = await fetch(
-    `${baseURL}/missed-calls?agentId=${ext}&status=pending`,
-    {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-      },
-    }
-  );
+    const response = await fetch(
+      `${baseURL}/missed-calls?agentId=${ext}&status=pending`,
+      {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        },
+      }
+    );
 
-  const data = await response.json();
+    const data = await response.json();
 
-  setMissedCalls(
-    (data || [])
-      .filter(call => !excludedMissedIds.has(call.id))
-      .map(call => ({
-        ...call,
-        time: new Date(call.time),
-      }))
-  );
-}, [callingBackId, excludedMissedIds]);
+    setMissedCalls(
+      (data || [])
+        .filter(call => !excludedMissedIds.has(call.id))
+        .map(call => ({
+          ...call,
+          time: new Date(call.time),
+        }))
+    );
+  }, [callingBackId, excludedMissedIds]);
 
 
   // --------- Tickets / MAC lookup ---------
@@ -282,13 +284,13 @@ const [excludedMissedIds, setExcludedMissedIds] = useState(new Set());
       stopStatusTimer();
     };
   }, []);
-useEffect(() => {
-  fetchMissedCallsFromBackend();
+  useEffect(() => {
+    fetchMissedCallsFromBackend();
 
-  const interval = setInterval(fetchMissedCallsFromBackend, 10000);
+    const interval = setInterval(fetchMissedCallsFromBackend, 10000);
 
-  return () => clearInterval(interval);
-}, [fetchMissedCallsFromBackend]);
+    return () => clearInterval(interval);
+  }, [fetchMissedCallsFromBackend]);
 
   // ---------- SIP: incoming ----------
   const handleIncomingInvite = (invitation) => {
@@ -424,85 +426,85 @@ useEffect(() => {
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
-      const markMissedCallAsCalledBack = async (missedCallId) => {
-        if (!missedCallId) return;
+  const markMissedCallAsCalledBack = async (missedCallId) => {
+    if (!missedCallId) return;
 
-        try {
-          await fetch(`${baseURL}/missed-calls/${missedCallId}/status`, {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-            },
-            body: JSON.stringify({ status: "called_back" }),
-          });
-        } catch (err) {
-          console.error("Failed to update missed call status:", err);
-        }
-      };
+    try {
+      await fetch(`${baseURL}/missed-calls/${missedCallId}/status`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        },
+        body: JSON.stringify({ status: "called_back" }),
+      });
+    } catch (err) {
+      console.error("Failed to update missed call status:", err);
+    }
+  };
 
   // ---------- Missed calls ----------
   useEffect(() => {
     fetchMissedCallsFromBackend();
   }, []);
- const addMissedCall = async (raw) => {
-  const agentId = localStorage.getItem("extension");
-  if (!raw || raw.trim() === "") return;
+  const addMissedCall = async (raw) => {
+    const agentId = localStorage.getItem("extension");
+    if (!raw || raw.trim() === "") return;
 
-  let formattedCaller = raw.startsWith("+255")
-    ? `0${raw.substring(4)}`
-    : raw;
+    let formattedCaller = raw.startsWith("+255")
+      ? `0${raw.substring(4)}`
+      : raw;
 
-  const time = new Date().toISOString();
+    const time = new Date().toISOString();
 
-  showAlert(`Missed Call from ${formattedCaller}`, "warning");
+    showAlert(`Missed Call from ${formattedCaller}`, "warning");
 
-  try {
-    await fetch(`${baseURL}/missed-calls`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-      },
-      body: JSON.stringify({
-        caller: formattedCaller,
-        time,
-        agentId,
-      }),
-    });
+    try {
+      await fetch(`${baseURL}/missed-calls`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        },
+        body: JSON.stringify({
+          caller: formattedCaller,
+          time,
+          agentId,
+        }),
+      });
 
-    // 🔥 single source of truth
-    fetchMissedCallsFromBackend();
-  } catch (err) {
-    console.error("Failed to post missed call:", err);
-  }
-};
+      // 🔥 single source of truth
+      fetchMissedCallsFromBackend();
+    } catch (err) {
+      console.error("Failed to post missed call:", err);
+    }
+  };
 
-// const fetchMissedCallsFromBackend = async () => {
-//   const ext = localStorage.getItem("extension");
+  // const fetchMissedCallsFromBackend = async () => {
+  //   const ext = localStorage.getItem("extension");
 
-//   try {
-//     const response = await fetch(
-//       `${baseURL}/missed-calls?agentId=${ext}&status=pending`,
-//       {
-//         headers: {
-//           Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-//         },
-//       }
-//     );
+  //   try {
+  //     const response = await fetch(
+  //       `${baseURL}/missed-calls?agentId=${ext}&status=pending`,
+  //       {
+  //         headers: {
+  //           Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+  //         },
+  //       }
+  //     );
 
-//     const data = await response.json();
+  //     const data = await response.json();
 
-//     setMissedCalls(
-//       (data || []).map(call => ({
-//         ...call,
-//         time: new Date(call.time),
-//       }))
-//     );
-//   } catch (err) {
-//     console.error("Failed to fetch missed calls:", err);
-//   }
-// };
+  //     setMissedCalls(
+  //       (data || []).map(call => ({
+  //         ...call,
+  //         time: new Date(call.time),
+  //       }))
+  //     );
+  //   } catch (err) {
+  //     console.error("Failed to fetch missed calls:", err);
+  //   }
+  // };
 
 
   // ---------- MAC: fetch user by phone ----------
@@ -873,7 +875,7 @@ useEffect(() => {
   const handleDial = () => {
     if (!userAgent || !phoneNumber) return;
     const targetURI = UserAgent.makeURI(`sip:${phoneNumber}@${SIP_DOMAIN}`);
-    
+
     if (!targetURI) return;
 
     const inviter = new Inviter(userAgent, targetURI, {
@@ -888,22 +890,22 @@ useEffect(() => {
       .then(() => {
         setPhoneStatus("Dialing");
         inviter.stateChange.addListener((state) => {
-     if (state === SessionState.Established) {
-  attachMediaStream(inviter);
-  setPhoneStatus("In Call");
-  startCallTimer();
+          if (state === SessionState.Established) {
+            attachMediaStream(inviter);
+            setPhoneStatus("In Call");
+            startCallTimer();
 
-  localStorage.setItem(
-    "activeCallState",
-    JSON.stringify({
-      phoneStatus: "In Call",
-     phoneNumber: phoneNumber || "",
-      callStartTime: new Date().toISOString(),
-      hasActiveCall: true,
-    })
-  );
- 
-}
+            localStorage.setItem(
+              "activeCallState",
+              JSON.stringify({
+                phoneStatus: "In Call",
+                phoneNumber: phoneNumber || "",
+                callStartTime: new Date().toISOString(),
+                hasActiveCall: true,
+              })
+            );
+
+          }
 
           if (state === SessionState.Terminated) {
             setPhoneStatus("Idle");
@@ -941,34 +943,34 @@ useEffect(() => {
       .invite()
       .then(() => {
         setPhoneStatus("Dialing");
-     inviter.stateChange.addListener((state) => {
-  if (state === SessionState.Established) {
-    attachMediaStream(inviter);
-    setPhoneStatus("In Call");
-    startCallTimer();
+        inviter.stateChange.addListener((state) => {
+          if (state === SessionState.Established) {
+            attachMediaStream(inviter);
+            setPhoneStatus("In Call");
+            startCallTimer();
 
-    localStorage.setItem(
-  "activeCallState",
-  JSON.stringify({
-    phoneStatus: "In Call",
-    phoneNumber: phoneNumber || "",
-    callStartTime: new Date().toISOString(),
-    hasActiveCall: true,
-  })
-);
+            localStorage.setItem(
+              "activeCallState",
+              JSON.stringify({
+                phoneStatus: "In Call",
+                phoneNumber: phoneNumber || "",
+                callStartTime: new Date().toISOString(),
+                hasActiveCall: true,
+              })
+            );
 
- 
-   
-  }
 
-  if (state === SessionState.Terminated) {
-    setPhoneStatus("Idle");
-    setSession(null);
-    localStorage.removeItem("activeCallState");
-    if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
-    stopCallTimer();
-  }
-});
+
+          }
+
+          if (state === SessionState.Terminated) {
+            setPhoneStatus("Idle");
+            setSession(null);
+            localStorage.removeItem("activeCallState");
+            if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
+            stopCallTimer();
+          }
+        });
 
       })
       .catch((error) => {
@@ -1074,9 +1076,9 @@ useEffect(() => {
 
   // Determine if there's an active call
   const hasActiveCall = phoneStatus === "In Call" && session !== null;
-// useEffect(() => {
-//   localStorage.setItem("missedCalls", JSON.stringify(missedCalls));
-// }, [missedCalls]);
+  // useEffect(() => {
+  //   localStorage.setItem("missedCalls", JSON.stringify(missedCalls));
+  // }, [missedCalls]);
 
   return (
     <div className="p-6">
@@ -1284,8 +1286,13 @@ useEffect(() => {
         <div className="dashboard-single-agent">
           <CallQueueCard />
         </div>
-
+        {/* Total Contact Summary */}
         <div className="dashboard-single-agent">
+          <TotalContactSummary />
+          {/* Contact Summary Grid - 4 Equal Boxes */}
+          <ContactSummaryGrid />
+        </div>
+        {/* <div className="dashboard-single-agent">
           <CallHistoryCard
             onCallBack={(phoneNumber) => {
               setShowPhonePopup(true);
@@ -1294,10 +1301,9 @@ useEffect(() => {
             }}
           />
         </div>
-
         <div className="dashboard-single-agent">
           <SingleAgentDashboardCard />
-        </div>
+        </div> */}
 
         <div className="dashboard-single-agent-row_two">
           <OnlineAgentsTable />
@@ -1669,7 +1675,7 @@ useEffect(() => {
             <p>No missed calls!</p>
           ) : (
             <ul style={{ listStyle: "none", padding: 0 }}>
-             {missedCalls.map((call) => (
+              {missedCalls.map((call) => (
 
                 <li
                   key={call.id}
@@ -1687,14 +1693,14 @@ useEffect(() => {
                     <br />
                     <small>{new Date(call.time).toLocaleTimeString()}</small>
                   </div>
-                 
-                 <Button
-                  variant="contained"
-                  size="small"
-                  color={callingBackId === call.id ? "success" : "primary"}
-                  disabled={callingBackId === call.id}
-                  startIcon={<FiPhoneCall />}
-                 onClick={async () => {
+
+                  <Button
+                    variant="contained"
+                    size="small"
+                    color={callingBackId === call.id ? "success" : "primary"}
+                    disabled={callingBackId === call.id}
+                    startIcon={<FiPhoneCall />}
+                    onClick={async () => {
                       // 1️⃣ Optimistic UI: remove immediately
                       setMissedCalls(prev => prev.filter(c => c.id !== call.id));
 
@@ -1711,9 +1717,9 @@ useEffect(() => {
                       handleRedial(call.caller);
                     }}
 
-                >
-                  {callingBackId === call.id ? "Calling..." : "Call Back"}
-                </Button>
+                  >
+                    {callingBackId === call.id ? "Calling..." : "Call Back"}
+                  </Button>
 
 
 
