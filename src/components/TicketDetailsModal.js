@@ -35,6 +35,7 @@ import InputAdornment from "@mui/material/InputAdornment";
 import ChatIcon from '@mui/icons-material/Chat';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import Download from '@mui/icons-material/Download';
+import InfoIcon from '@mui/icons-material/Info';
 import AttachFile from '@mui/icons-material/AttachFile';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DescriptionIcon from '@mui/icons-material/Description';
@@ -1723,6 +1724,11 @@ export default function TicketDetailsModal({
 
   // Send new message
   const handleSendMessage = async () => {
+    // Don't allow sending messages if ticket is closed
+    if (selectedTicket?.status === 'Closed' || selectedTicket?.status === 'Attended and Recommended') {
+      showSnackbar("Cannot send message: Ticket is closed", "warning");
+      return;
+    }
     if (!newMessage.trim() || !selectedTicket?.id || sendingMessage) return;
 
     setSendingMessage(true);
@@ -6099,6 +6105,36 @@ export default function TicketDetailsModal({
             }}
             id="messages-container"
           >
+            {/* Show Ticket Closed message if ticket is closed */}
+            {(selectedTicket?.status === 'Closed' || selectedTicket?.status === 'Attended and Recommended') && (
+              <Alert 
+                severity="info" 
+                icon={<InfoIcon />}
+                sx={{ 
+                  mt: 2, 
+                  mb: 2,
+                  backgroundColor: '#e3f2fd',
+                  border: '1px solid #90caf9',
+                  borderRadius: 2,
+                  '& .MuiAlert-icon': {
+                    color: '#1976d2'
+                  },
+                  '& .MuiAlert-message': {
+                    width: '100%'
+                  }
+                }}
+              >
+                <Typography variant="h6" sx={{ color: '#1976d2', fontWeight: 'bold', mb: 1 }}>
+                  Ticket Closed
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#666', mb: 0.5 }}>
+                  This ticket has been closed. No further messages are available.
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#666' }}>
+                  The ticket has been resolved and completed.
+                </Typography>
+              </Alert>
+            )}
             {ticketMessages.length === 0 ? (
               <Alert severity="info" sx={{ mt: 2 }}>No messages yet. Start the conversation!</Alert>
             ) : (
@@ -6153,7 +6189,11 @@ export default function TicketDetailsModal({
                   fullWidth
                   multiline
                   rows={2}
-                  placeholder="Type your message... Type @ to mention users"
+                  placeholder={
+                    selectedTicket?.status === 'Closed' || selectedTicket?.status === 'Attended and Recommended'
+                      ? "Cannot send message: Ticket is closed"
+                      : "Type your message... Type @ to mention users"
+                  }
                   value={newMessage}
                   onChange={handleMessageTextChange}
                   onKeyDown={handleMentionKeyDown}
@@ -6164,7 +6204,7 @@ export default function TicketDetailsModal({
                     }
                   }}
                   size="small"
-                  disabled={sendingMessage}
+                  disabled={sendingMessage || selectedTicket?.status === 'Closed' || selectedTicket?.status === 'Attended and Recommended'}
                 />
                 {showMentions && filteredMentionUsers.length > 0 && (
                   <ClickAwayListener onClickAway={() => setShowMentions(false)}>
@@ -6217,7 +6257,7 @@ export default function TicketDetailsModal({
               <Button
                 variant="contained"
                 onClick={handleSendMessage}
-                disabled={!newMessage.trim() || sendingMessage}
+                disabled={!newMessage.trim() || sendingMessage || selectedTicket?.status === 'Closed' || selectedTicket?.status === 'Attended and Recommended'}
                 sx={{ 
                   alignSelf: 'flex-end',
                   minWidth: '80px'
