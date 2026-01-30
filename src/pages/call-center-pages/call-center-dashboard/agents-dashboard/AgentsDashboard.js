@@ -85,6 +85,13 @@ export default function AgentsDashboard() {
   const autoRejectTimerRef = useRef(null);
   const wasAnsweredRef = useRef(false);
 
+  // --------- SIP registration state (for pausing softphone on break) ---------
+  const registererRef = useRef(null);
+  const [isRegistered, setIsRegistered] = useState(false);
+
+  // --------- Break tracking (for reports) ---------
+  const [breakTracking, setBreakTracking] = useState(null);
+
   // --------- Missed calls ---------
   const [missedCalls, setMissedCalls] = useState([]);
   const [missedOpen, setMissedOpen] = useState(false);
@@ -261,6 +268,14 @@ export default function AgentsDashboard() {
     const limit = timeIntervals[key] || 0;
     stopStatusTimer();
     setTimeRemaining(limit);
+
+    // Track this break for over‑time reporting
+    setBreakTracking({
+      activity,
+      startedAt: new Date().toISOString(),
+      limitSeconds: limit,
+    });
+
     statusTimerRef.current = setInterval(() => {
       setTimeRemaining((t) => {
         if (t <= 1) {
@@ -343,6 +358,7 @@ export default function AgentsDashboard() {
 
     const ua = new UserAgent(sipConfig);
     const registerer = new Registerer(ua);
+    registererRef.current = registerer;
 
     // Handle incoming calls
     ua.delegate = {
@@ -356,17 +372,25 @@ export default function AgentsDashboard() {
     setUserAgent(ua);
 
     ua.start()
-      .then(() => {
-        registerer.register();
-        setPhoneStatus("Idle");
-      })
+      .then(() =>
+        registerer
+          .register()
+          .then(() => {
+            setIsRegistered(true);
+            setPhoneStatus("Idle");
+          })
+      )
       .catch((error) => {
-        console.error("UA failed to start:", error);
+        console.error("UA failed to start or register:", error);
+        setIsRegistered(false);
         setPhoneStatus("Connection Failed");
       });
 
     return () => {
-      registerer.unregister().catch(console.error);
+      registerer
+        .unregister()
+        .catch(console.error)
+        .finally(() => setIsRegistered(false));
       ua.stop();
       stopRingtone();
       stopCallTimer();
@@ -1026,16 +1050,108 @@ export default function AgentsDashboard() {
   const handleClose = () => setAnchorEl(null);
 
   const handleAgentEmergency = async (activity) => {
+    const normalized = (activity || "").toLowerCase();
+
+    // If moving from READY to any break/activity, enforce minimum online agents
+    if (agentStatus === "ready" && normalized !== "ready") {
+      try {
+        const res = await fetch(`${baseURL}/users/agents-online`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          },
+        });
+
+        if (!res.ok) {
+          throw new Error("Failed to fetch online agents");
+        }
+
+        const data = await res.json();
+        const onlineCount = Array.isArray(data.agents) ? data.agents.length : 0;
+
+        // Business rule: at least 3 agents must remain online.
+        // If <= 2 are online, do NOT allow another agent to go on break.
+        if (onlineCount <= 2) {
+          showAlert(
+            "Break not allowed: fewer than 3 agents are online. Please wait until more agents are available.",
+            "error"
+          );
+          return;
+        }
+      } catch (err) {
+        console.error("Failed to verify online agents:", err);
+        showAlert(
+          "Unable to verify online agents. Please try again or contact supervisor.",
+          "error"
+        );
+        return;
+      }
+    }
+
+    // If we are entering a break (non-ready) and currently registered, pause softphone (stop ringing)
+    if (normalized !== "ready" && isRegistered && registererRef.current) {
+      try {
+        await registererRef.current.unregister();
+        setIsRegistered(false);
+        // Optional: reflect on UI that phone is not available for calls
+        setPhoneStatus("Offline");
+      } catch (e) {
+        console.error("Failed to unregister SIP on break:", e);
+      }
+    }
+
+    // When returning to READY, compute how much break time was exceeded (if any)
+    if (normalized === "ready" && breakTracking) {
+      try {
+        const start = new Date(breakTracking.startedAt);
+        const now = new Date();
+        const totalSeconds = Math.max(
+          0,
+          Math.floor((now.getTime() - start.getTime()) / 1000)
+        );
+        const exceeded = Math.max(
+          0,
+          totalSeconds - (breakTracking.limitSeconds || 0)
+        );
+
+        if (exceeded > 0) {
+          const mins = Math.floor(exceeded / 60);
+          const secs = exceeded % 60;
+          showAlert(
+            `You exceeded your ${breakTracking.activity} time by ${mins}m ${secs}s.`,
+            "warning"
+          );
+          // TODO: Optionally send this overage to backend for reporting.
+        }
+      } catch (e) {
+        console.error("Error calculating break overage:", e);
+      } finally {
+        setBreakTracking(null);
+      }
+    }
+
+    // If we are returning to READY and currently not registered, re-register softphone
+    if (normalized === "ready" && !isRegistered && registererRef.current) {
+      try {
+        await registererRef.current.register();
+        setIsRegistered(true);
+        setPhoneStatus("Idle");
+      } catch (e) {
+        console.error("Failed to re-register SIP on ready:", e);
+        setPhoneStatus("Connection Failed");
+      }
+    }
+
     // Update local UI state
     setAgentStatus(activity);
 
     // Start/stop status timer
-    if ((activity || "").toLowerCase() !== "ready") startStatusTimer(activity);
+    if (normalized !== "ready") startStatusTimer(activity);
     else stopStatusTimer();
 
     // Translate to backend online/offline
-    const statusToUpdate =
-      (activity || "").toLowerCase() === "ready" ? "online" : "offline";
+    const statusToUpdate = normalized === "ready" ? "online" : "offline";
     try {
       await fetch(`${baseURL}/users/status/${localStorage.getItem("userId")}`, {
         method: "PUT",

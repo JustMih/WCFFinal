@@ -1,19 +1,17 @@
-import {
-  UserAgent,
-  Inviter,
-  Registerer
-} from "sip.js";
+import { UserAgent, Registerer, Inviter } from "sip.js";
 import { baseURL } from "../config";
 
 let userAgent = null;
 let registerer = null;
 let isReady = false;
 
+export const isSipReady = () => isReady;
+
 /* =====================================
-   INITIALIZE SUPERVISOR SIP (ONCE)
+   INITIALIZE SUPERVISOR SIP
 ===================================== */
 export const initSupervisorSIP = async () => {
-  if (userAgent) {
+  if (userAgent && isReady) {
     console.log("ℹ️ SIP already initialized");
     return;
   }
@@ -21,25 +19,22 @@ export const initSupervisorSIP = async () => {
   try {
     console.log("🚀 Initializing Supervisor SIP...");
 
+    const supervisorExt = "3001";
+    const supervisorPass = "wcf12345";
+    const asteriskIP = "192.168.21.70";
+
     userAgent = new UserAgent({
-      uri: UserAgent.makeURI("sip:3001@YOUR_ASTERISK_IP"),
-
+      uri: UserAgent.makeURI(`sip:${supervisorExt}@${asteriskIP}`),
       transportOptions: {
-        server: "wss://YOUR_ASTERISK_IP:8089/ws"
+        server: `wss://${asteriskIP}:8089/ws`,
       },
-
-      authorizationUsername: "3001",
-      authorizationPassword: "3001_PASSWORD",
-
+      authorizationUsername: supervisorExt,
+      authorizationPassword: supervisorPass,
       sessionDescriptionHandlerFactoryOptions: {
-        constraints: {
-          audio: true,
-          video: false
-        }
-      }
+        constraints: { audio: true, video: false },
+      },
     });
 
-    // 🔥 REQUIRED
     await userAgent.start();
 
     registerer = new Registerer(userAgent);
@@ -57,26 +52,27 @@ export const initSupervisorSIP = async () => {
 /* =====================================
    PLACE SPY CALL (ChanSpy)
 ===================================== */
-export const sipCall = async (dial) => {
+ 
+export const sipCall = async (channel, mode = "q") => {
   if (!userAgent || !isReady) {
     console.error("❌ SIP not initialized");
     return;
   }
 
   try {
-    console.log("📞 Spy call:", dial);
+    console.log("🎧 Starting ChanSpy on:", channel);
 
-    // NOTE: ChanSpy is executed inside Asterisk
     const target = UserAgent.makeURI(
-      `sip:${dial}@YOUR_ASTERISK_IP`
+      `sip:chanspy@${userAgent.configuration.uri.host}`
     );
 
     const inviter = new Inviter(userAgent, target, {
+      extraHeaders: [
+        `X-Spy-Channel: ${channel}`,
+        `X-Spy-Mode: ${mode}`
+      ],
       sessionDescriptionHandlerOptions: {
-        constraints: {
-          audio: true,
-          video: false
-        }
+        constraints: { audio: true, video: false }
       }
     });
 
@@ -98,9 +94,9 @@ export const sipCall = async (dial) => {
 
         document.body.appendChild(audio);
 
-        audio.play().catch((e) =>
-          console.error("🔇 Audio play failed:", e)
-        );
+        audio.play().catch(() => {
+          alert("🔊 Click anywhere to enable supervisor audio");
+        });
 
         console.log("🔊 Supervisor audio attached");
       }
