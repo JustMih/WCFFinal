@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+ import React, { useState, useEffect } from "react";
 import {
   FaSearch,
   FaHeadphones,
@@ -7,8 +7,9 @@ import {
 } from "react-icons/fa";
 import "./LiveCallsCard.css";
 import { baseURL } from "../../config";
-import { initSupervisorSIP, sipCall } from "../../sip/supervisorSip";
-
+ 
+import { sipCall, isSipReady, initSupervisorSIP } from "../../sip/supervisorSip";
+ 
 export default function LiveCallsCard({
   isLoading,
   searchTerm,
@@ -20,59 +21,87 @@ export default function LiveCallsCard({
   const [liveCalls, setLiveCalls] = useState([]);
   const [filteredLiveCalls, setFilteredLiveCalls] = useState([]);
   const [active, setActive] = useState([]);
+const [spyingOn, setSpyingOn] = useState(null);
 
-  /* ================================
-     SPY ACTION HANDLER (NEW)
-     ================================ */
-  // const spyAction = async (spyCallId, action) => {
-  //   console.log(`[SPY] ${action} on`, spyCallId);
+ 
 
-  //   if (!spyCallId) {
-  //     console.error("[SPY] Missing spyCallId");
-  //     return;
-  //   }
+/* =====================================
+   HELPER: parse ChanSpy dial string
+   ChanSpy(PJSIP/eGA-00000019,q)
+===================================== */
+const sipCallFromDial = async (dial) => {
+  console.log("🧩 Parsing dial string:", dial);
 
-  //   try {
-  //     const response = await fetch(`${baseURL}/spy/call-control`, {
-  //       method: "POST",
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //       },
-  //       body: JSON.stringify({
-  //         callId: spyCallId,
-  //         action,
-  //       }),
-  //     });
+  const match = dial.match(/^ChanSpy\(([^,]+),?([^)]+)?\)$/);
 
-  //     const data = await response.json();
-  //     console.log("[SPY] Dial string:", data.dial);
+  if (!match) {
+    console.error("❌ Invalid ChanSpy dial format:", dial);
+    return;
+  }
 
-      // TODO: Trigger SIP.js call here
-      // sipCall(data.dial);
+  const channel = match[1];       // PJSIP/eGA-00000019
+  const mode = match[2] || "";    // q | qw | qB
 
-  //   } catch (error) {
-  //     console.error("[SPY] Error:", error);
-  //   }
-  // };
-const spyAction = async (spyCallId, action) => {
-  if (!spyCallId) return;
+  console.log("🎧 Parsed spy params:", { channel, mode });
+
+  await sipCall(channel, mode);
+};
+
+/* =====================================
+   SPY ACTION (FINAL)
+===================================== */
+const spyAction = async (agentExtension, action) => {
+  console.log("🟢 SPY CLICKED:", agentExtension, action);
 
   try {
-    const response = await fetch(`${baseURL}/spy/call-control`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ callId: spyCallId, action })
-    });
+    /* =====================================
+       1️⃣ ENSURE SIP IS READY
+    ===================================== */
+    if (!isSipReady()) {
+      console.warn("⏳ SIP not ready — initializing now...");
+      await initSupervisorSIP();
 
-    const data = await response.json();
-
-    // ✅ THIS IS IT
-    if (data?.dial) {
-      sipCall(data.dial);
+      // give REGISTER + WS a moment
+      await new Promise((res) => setTimeout(res, 800));
     }
 
-  } catch (error) {
-    console.error("[SPY] Error:", error);
+    if (!isSipReady()) {
+      alert("Supervisor phone is still connecting. Try again in 1 second.");
+      return;
+    }
+
+    /* =====================================
+       2️⃣ CALL BACKEND (AUTHORITATIVE)
+    ===================================== */
+    const response = await fetch(`${baseURL}/spy/call-control`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+      },
+      body: JSON.stringify({ agentExtension, action }),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(errText);
+    }
+
+    const data = await response.json();
+    console.log("📥 Spy API response:", data);
+
+    /* =====================================
+       3️⃣ EXECUTE SIP SPY CALL
+    ===================================== */
+    if (data?.dial) {
+      await sipCallFromDial(data.dial);
+    } else {
+      console.error("❌ No dial string returned from server");
+    }
+
+  } catch (err) {
+    console.error("[SPY] Error:", err);
+    alert("Spy failed. Check SIP connection and try again.");
   }
 };
 
@@ -218,44 +247,42 @@ useEffect(() => {
                     </span>
                   </td>
                   <td className="call-type">{getCallType(call.caller)}</td>
-                  <td>
-                    <div className="action-buttons">
-                      <button
-                        className="action-button listen"
-                        // onClick={() => handleListen(call.spyCallId)}
-                        onClick={() => handleListen(call.spyCallId || call.channel)}
-                        // disabled={!call.spyCallId}
-                        disabled={!call.spyCallId && !call.channel}
+                <td>
+                <div className="action-buttons">
+                  {/* 🎧 LISTEN */}
+                 <button
+            className={`action-button listen ${
+              spyingOn === call.agent_extension ? "active-spy" : ""
+            }`}
+            onClick={() => spyAction(call.agent_extension, "listen")}
+          >
+            <FaHeadphones />
+          </button>
 
-                        title="Listen"
-                      >
-                        <FaHeadphones />
-                      </button>
-                      <button
-                        className="action-button intervene"
-                        // onClick={() => handleIntervene(call.spyCallId)}
-                        onClick={() => handleListen(call.spyCallId || call.channel)}
-                        // disabled={!call.spyCallId}
-                        disabled={!call.spyCallId && !call.channel}
 
-                        title="Intervene"
-                      >
-                        <FaUserShield />
-                      </button>
-                      <button
-                        className="action-button whisper"
-                        // onClick={() => handleWhisper(call.spyCallId)}
-                        onClick={() => handleListen(call.spyCallId || call.channel)}
+                  {/* 🛑 INTERVENE / BARGE */}
+                  <button
+                    className="action-button intervene"
+                    onClick={() => spyAction(call.agent_extension, "barge")}
+                    disabled={call.status !== "active" || !call.agent_extension}
+                    title="Intervene"
+                  >
+                    <FaUserShield />
+                  </button>
 
-                        // disabled={!call.spyCallId}
-                        disabled={!call.spyCallId && !call.channel}
+                  {/* 💬 WHISPER */}
+                  <button
+                    className="action-button whisper"
+                    onClick={() => spyAction(call.agent_extension, "whisper")}
+                    disabled={call.status !== "active" || !call.agent_extension}
+                    title="Whisper"
+                  >
+                    <FaComments />
+                  </button>
+                </div>
+              </td>
 
-                        title="Whisper"
-                      >
-                        <FaComments />
-                      </button>
-                    </div>
-                  </td>
+
                 </tr>
               ))
             ) : (

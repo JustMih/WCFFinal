@@ -229,7 +229,7 @@ export default function CallCenterSidebar({
               </NavLink>
             </>
           )}
-          {role === "supervisor" && (
+          {(role === "supervisor" || role === "director-general") && (
             <>
               <NavLink
                 to="/dashboard-old"
@@ -240,7 +240,11 @@ export default function CallCenterSidebar({
                 <div className="menu-item">
                   <RxDashboard className="menu-icon" />
                   {isSidebarOpen && (
-                    <span className="menu-text">Supervisor Dashboard</span>
+                    <span className="menu-text">
+                      {role === "director-general"
+                        ? "Dashboard"
+                        : "Supervisor Dashboard"}
+                    </span>
                   )}
                 </div>
               </NavLink>
@@ -253,7 +257,11 @@ export default function CallCenterSidebar({
                 <div className="menu-item">
                   <RxDashboard className="menu-icon" />
                   {isSidebarOpen && (
-                    <span className="menu-text">Supervisor Dashboard Two</span>
+                    <span className="menu-text">
+                      {role === "director-general"
+                        ? "Dashboard"
+                        : "Supervisor Dashboard Two"}
+                    </span>
                   )}
                 </div>
               </NavLink>

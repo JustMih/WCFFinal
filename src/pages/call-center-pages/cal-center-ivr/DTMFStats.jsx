@@ -11,15 +11,15 @@ import { saveAs } from 'file-saver';
    DTMF LABELS
 =============================== */
 const digitLabels = {
-  '3': 'Registration Info',
-  '4': 'Confirmation Info',
-  '5': 'Claims Info',
-  '6': 'Compulsion Details',
-  '7': 'Accident Details',
-  '8': 'Office in Dodoma',
-  '9': 'Agent / Support Queue',
-  '10': 'Record Voice Note',
-  '11': 'Voice Note Saved',
+  '1': 'Registration Info',
+  '2': 'Confirmation Info',
+  '3': 'Claims Info',
+  '4': 'Compulsion Details',
+  '5': 'Accident Details',
+  '6': 'Office in Dodoma',
+  '7': 'Agent / Support Queue',
+  '8': 'Record Voice Note',
+  '9': 'Voice Note Saved',
 };
 
 const DTMFStats = () => {
