@@ -4167,6 +4167,28 @@ export default function TicketDetailsModal({
                                   ? "Please provide a comment/description before forwarding"
                                   : "Forward ticket to selected unit/section")
                               : "Forward ticket to selected unit/section"}>
+                              {/* Show Reverse button for Suggestion or Complement */}
+                              {(selectedTicket.category === "Suggestion" || selectedTicket.category === "Compliment") && (
+                                <Tooltip title="Reverse this ticket back to the previous assignee">
+                                  <Button
+                                    size="small"
+                                    variant="contained"
+                                    color="warning"
+                                    onClick={() => setIsReverseModalOpen(true)}
+                                    disabled={isReversing}
+                                    sx={{
+                                      textTransform: 'none',
+                                      px: 1.5,
+                                      py: 0.5,
+                                      fontSize: '0.75rem',
+                                      minHeight: '32px',
+                                      mr: 1
+                                    }}
+                                  >
+                                    {isReversing ? "Reversing..." : "Reverse"}
+                                  </Button>
+                                </Tooltip>
+                              )}
                               <Button
                                 size="small"
                                 variant="contained"
@@ -4322,6 +4344,7 @@ export default function TicketDetailsModal({
                         </Button>
                         </Tooltip>
                         <Box sx={{ display: "flex", gap: 1 }}>
+                          
                           <Tooltip title="Close and resolve this ticket">
                           <Button
                             variant="contained"
@@ -4399,6 +4422,29 @@ export default function TicketDetailsModal({
                        (selectedTicket.assigned_to_id === userId || 
                         effectiveForwardUnit[selectedTicket.id]))) && (
                         <>
+                          {/* Show Reverse button for reviewer if category is Suggestion or Complement */}
+                          {userRole === 'reviewer' && 
+                           (selectedTicket.category === "Suggestion" || selectedTicket.category === "Complement") && (
+                            <Tooltip title="Reverse this ticket back to the previous assignee">
+                              <Button
+                                variant="contained"
+                                color="warning"
+                                onClick={() => setIsReverseModalOpen(true)}
+                                disabled={isReversing}
+                                sx={{
+                                  borderRadius: 1.5,
+                                  textTransform: 'none',
+                                  px: 2.5,
+                                  py: 0.75,
+                                  minWidth: 110,
+                                  fontSize: '0.875rem',
+                                  mr: 1
+                                }}
+                              >
+                                {isReversing ? "Reversing..." : "Reverse"}
+                              </Button>
+                            </Tooltip>
+                          )}
                           <Tooltip title="Close and resolve this ticket">
                         <Button
                           variant="contained"
