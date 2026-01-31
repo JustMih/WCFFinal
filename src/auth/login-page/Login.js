@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { ImSpinner9 } from "react-icons/im";
 import wcf_image from "../../asserts/images/wcf_image.jpg";
 import wcf_logo from "../../asserts/images/logo.png";
-import loginBg from "../../asserts/images/login-bg.png";
+import loginBg from "../../asserts/images/wcflogin.jpg";
 import { TextField, Button } from "@mui/material";
 import { baseURL } from "../../config";
 import { storeDomainCredentials, storeCredentialsObject, validateCredentials } from "../../utils/credentials";
@@ -104,14 +104,14 @@ export default function Login() {
     <div className="login-container" style={{ backgroundImage: `url(${loginBg})` }}>
       <div className="login-card">
         {/* Left Content Section */}
-        <div className="login-image" style={{marginTop: '20px', marginLeft: '40px' }}>
+        <div className="login-image">
           <div className="content-overlay">
             <div className="slogan">
-              <span className="slogan-our">Our</span> <span className="slogan-slogan">Slogan</span>
+              <span className="slogan-our">Contact</span> <span className="slogan-slogan">Center</span>
             </div>
-            <p className="content-paragraph">
+            {/* <p className="content-paragraph">
             Rightful Compensation, On Time.
-            </p>
+            </p> */}
             <div className="support-info">
               <div className="support-item">
                 <span className="support-label">For Support contact IT SUPPORT</span>
