@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+ import React, { useEffect, useState } from "react";
 import { baseURL } from "../../../config";
 import {
   Snackbar,
@@ -20,48 +20,40 @@ export default function VoiceNoteReport() {
   const [activeTab, setActiveTab] = useState(0);
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [reportsPerPage] = useState(10);
+  const reportsPerPage = 10;
+
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
+
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [playedFilter, setPlayedFilter] = useState("all");
   const [disposition, setDisposition] = useState("all");
+  const [audioUrls, setAudioUrls] = useState({});
+
+  const safe = (v) => (v === null || v === undefined || v === "" ? "-" : v);
 
   const fetchReports = async () => {
     setLoading(true);
-    setError(null);
     try {
-      let endpoint = "";
-      if (activeTab === 0) {
-        // Voice Note Report
-        endpoint = `${baseURL}/reports/voice-note-report/${startDate}/${endDate}`;
-      } else {
-        // CDR Report
-        endpoint = `${baseURL}/reports/cdr-report/${startDate}/${endDate}/${disposition}`;
-      }
+      const endpoint =
+        activeTab === 0
+          ? `${baseURL}/reports/voice-note-report/${startDate}/${endDate}`
+          : `${baseURL}/reports/cdr-report/${startDate}/${endDate}/${disposition}`;
 
-      const response = await fetch(endpoint, {
-        method: "GET",
+      const res = await fetch(endpoint, {
         headers: {
-          "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("authToken")}`,
         },
       });
-      if (!response.ok) {
-        throw new Error(
-          `Failed to fetch ${activeTab === 0 ? "voice note" : "CDR"} reports`
-        );
-      }
-      const data = await response.json();
-      setReports(data);
-    } catch (error) {
-      setError(error.message);
-      setSnackbarMessage("Error loading reports.");
+
+      if (!res.ok) throw new Error("Failed to load reports");
+      setReports(await res.json());
+    } catch (err) {
+      setSnackbarMessage("Error loading reports");
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
     } finally {
@@ -69,190 +61,115 @@ export default function VoiceNoteReport() {
     }
   };
 
-  // Remove automatic fetch on mount since no default dates
-  // useEffect(() => {
-  //   fetchReports();
-  //   // eslint-disable-next-line
-  // }, []);
-
-  const handleSnackbarClose = () => {
-    setSnackbarOpen(false);
-  };
-
-  // Filter by search and filters based on active tab
-  const filteredReports = reports.filter((report) => {
-    const matchesSearch = (report.clid || "")
-      .toLowerCase()
-      .includes(search.toLowerCase());
+  const filteredReports = reports.filter((r) => {
+    const matchSearch = (r.clid || "").toLowerCase().includes(search.toLowerCase());
 
     if (activeTab === 0) {
-      // Voice Note Report filtering
-      const matchesPlayedFilter =
-        playedFilter === "all" ||
-        (playedFilter === "played" && report.is_played) ||
-        (playedFilter === "not_played" && !report.is_played);
-      return matchesSearch && matchesPlayedFilter;
-    } else {
-      // CDR Report filtering - disposition is already filtered by API
-      return matchesSearch;
+      if (playedFilter === "played") return matchSearch && r.is_played;
+      if (playedFilter === "not_played") return matchSearch && !r.is_played;
     }
+    return matchSearch;
   });
 
-  const indexOfLastReport = currentPage * reportsPerPage;
-  const indexOfFirstReport = indexOfLastReport - reportsPerPage;
+  const totalPages = Math.ceil(filteredReports.length / reportsPerPage);
   const currentReports = filteredReports.slice(
-    indexOfFirstReport,
-    indexOfLastReport
+    (currentPage - 1) * reportsPerPage,
+    currentPage * reportsPerPage
   );
 
-  // PDF Export Function
-  const handleExportPDF = () => {
-    const doc = new jsPDF();
-
-    if (activeTab === 0) {
-      // Voice Note Report PDF
-      doc.text("Voice Note Report", 14, 14);
-      doc.text(`Date Range: ${startDate} to ${endDate}`, 14, 20);
-      if (playedFilter !== "all") {
-        doc.text(
-          `Played Status: ${
-            playedFilter === "played" ? "Played" : "Not Played"
-          }`,
-          14,
-          26
-        );
-      }
-
-      autoTable(doc, {
-        startY: 32,
-        head: [
-          [
-            "Sn",
-            "Phone",
-            "Date",
-            "Played",
-            "Assigned Agent",
-            "Duration (s)",
-            "Transcription",
-          ],
-        ],
-        body: filteredReports.map((report, idx) => [
-          idx + 1,
-          report.clid || "-",
-          report.created_at
-            ? new Date(report.created_at).toLocaleString()
-            : "-",
-          report.is_played ? "Yes" : "No",
-          report.assigned_agent_id || "-",
-          report.duration_seconds || "-",
-          report.transcription || "-",
-        ]),
-        styles: { fontSize: 8 },
-        headStyles: { fillColor: [22, 160, 133] },
+  const loadAudio = async (id) => {
+    if (audioUrls[id]) return;
+    try {
+      const res = await fetch(`${baseURL}/voice-notes/${id}/audio`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        },
       });
-      doc.save(
-        `voice_note_report_${startDate}_to_${endDate}_${playedFilter}.pdf`
-      );
-    } else {
-      // CDR Report PDF
-      doc.text("CDR Report", 14, 14);
-      doc.text(`Date Range: ${startDate} to ${endDate}`, 14, 20);
-      if (disposition !== "all") {
-        doc.text(`Disposition: ${disposition}`, 14, 26);
-      }
-
-      autoTable(doc, {
-        startY: 32,
-        head: [
-          [
-            "Sn",
-            "Caller ID",
-            "Source",
-            "Destination",
-            "Start Time",
-            "Duration (s)",
-            "Billed (s)",
-            "Disposition",
-            "Recording File",
-          ],
-        ],
-        body: filteredReports.map((report, idx) => [
-          idx + 1,
-          report.clid || "-",
-          report.src || "-",
-          report.dst || "-",
-          report.cdrstarttime
-            ? new Date(report.cdrstarttime).toLocaleString()
-            : "-",
-          report.duration || "-",
-          report.billsec || "-",
-          report.disposition || "-",
-          report.recordingfile || "-",
-        ]),
-        styles: { fontSize: 8 },
-        headStyles: { fillColor: [22, 160, 133] },
-      });
-      doc.save(`cdr_report_${startDate}_to_${endDate}_${disposition}.pdf`);
+      if (!res.ok) throw new Error("Audio fetch failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      setAudioUrls((prev) => ({ ...prev, [id]: url }));
+    } catch (err) {
+      console.error("Audio error:", err);
+      alert("Unable to play audio");
     }
   };
 
-  const handleTabChange = (event, newValue) => {
-    setActiveTab(newValue);
-    setReports([]);
-    setCurrentPage(1);
-    setSearch("");
+  const handleExportPDF = () => {
+    const doc = new jsPDF();
+    doc.text(activeTab === 0 ? "Voice Note Report" : "CDR Report", 14, 14);
+
+    autoTable(doc, {
+      startY: 22,
+      head: [
+        activeTab === 0
+          ? ["#", "Phone", "Date", "Played", "Agent", "Duration", "Transcription"]
+          : [
+              "#",
+              "Caller ID",
+              "Source",
+              "Destination",
+              "Start Time",
+              "Duration",
+              "Billsec",
+              "Disposition",
+            ],
+      ],
+      body: filteredReports.map((r, i) =>
+        activeTab === 0
+          ? [
+              i + 1,
+              safe(r.clid),
+              r.created_at ? new Date(r.created_at).toLocaleString() : "-",
+              r.is_played ? "Yes" : "No",
+              r.assigned_agent_id ? `Agent #${r.assigned_agent_id}` : "-",
+              safe(r.duration_seconds),
+              safe(r.transcription),
+            ]
+          : [
+              i + 1,
+              safe(r.clid),
+              safe(r.src),
+              safe(r.dst),
+              r.cdrstarttime
+                ? new Date(r.cdrstarttime).toLocaleString()
+                : "-",
+              safe(r.duration),
+              safe(r.billsec),
+              safe(r.disposition),
+            ]
+      ),
+    });
+
+    doc.save("call_center_report.pdf");
   };
 
   return (
     <div className="user-table-container">
       <h2 className="table-title">Call Center Reports</h2>
 
-      {/* Tabs */}
-      <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 2 }}>
-        <Tabs value={activeTab} onChange={handleTabChange}>
-          <Tab label="Voice Note Report" />
-          <Tab label="CDR Report" />
-        </Tabs>
-      </Box>
+      <Tabs value={activeTab} onChange={(e, v) => setActiveTab(v)}>
+        <Tab label="Voice Note Report" />
+        <Tab label="CDR Report" />
+      </Tabs>
 
       <div className="controls" style={{ gap: 8 }}>
-        <TextField
-          type="date"
-          label="Start Date"
-          InputLabelProps={{ shrink: true }}
-          value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
-          size="small"
-        />
-        <TextField
-          type="date"
-          label="End Date"
-          InputLabelProps={{ shrink: true }}
-          value={endDate}
-          onChange={(e) => setEndDate(e.target.value)}
-          size="small"
-        />
+        <TextField type="date" label="Start Date" InputLabelProps={{ shrink: true }} size="small" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+        <TextField type="date" label="End Date" InputLabelProps={{ shrink: true }} size="small" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+
         {activeTab === 0 ? (
-          <FormControl size="small" style={{ minWidth: 120 }}>
-            <InputLabel>Played Status</InputLabel>
-            <Select
-              value={playedFilter}
-              label="Played Status"
-              onChange={(e) => setPlayedFilter(e.target.value)}
-            >
+          <FormControl size="small">
+            <InputLabel>Played</InputLabel>
+            <Select value={playedFilter} label="Played" onChange={(e) => setPlayedFilter(e.target.value)}>
               <MenuItem value="all">All</MenuItem>
               <MenuItem value="played">Played</MenuItem>
               <MenuItem value="not_played">Not Played</MenuItem>
             </Select>
           </FormControl>
         ) : (
-          <FormControl size="small" style={{ minWidth: 120 }}>
+          <FormControl size="small">
             <InputLabel>Disposition</InputLabel>
-            <Select
-              value={disposition}
-              label="Disposition"
-              onChange={(e) => setDisposition(e.target.value)}
-            >
+            <Select value={disposition} label="Disposition" onChange={(e) => setDisposition(e.target.value)}>
               <MenuItem value="all">All</MenuItem>
               <MenuItem value="ANSWERED">Answered</MenuItem>
               <MenuItem value="NO ANSWER">No Answer</MenuItem>
@@ -261,265 +178,103 @@ export default function VoiceNoteReport() {
             </Select>
           </FormControl>
         )}
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={() => {
-            if (!startDate || !endDate) {
-              setSnackbarMessage("Please select both start and end dates.");
-              setSnackbarSeverity("warning");
-              setSnackbarOpen(true);
-              return;
-            }
-            setCurrentPage(1);
-            fetchReports();
-          }}
-          disabled={!startDate || !endDate}
-        >
-          Load Report
+
+        <Button variant="contained" onClick={fetchReports} disabled={!startDate || !endDate}>
+          Load
         </Button>
-        <Button
-          variant="outlined"
-          color="secondary"
-          onClick={handleExportPDF}
-          disabled={filteredReports.length === 0}
-        >
+
+        <Button variant="outlined" onClick={handleExportPDF} disabled={!filteredReports.length}>
           Export PDF
         </Button>
-        <input
-          type="text"
-          placeholder={
-            activeTab === 0
-              ? "Search by phone..."
-              : "Search by caller ID or destination..."
-          }
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="search-input"
-          style={{ marginLeft: 8 }}
-        />
+
+        <input className="search-input" placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
-      {activeTab === 0 ? (
-        // Voice Note Report Table
-        <table className="user-table">
-          <thead>
+
+      <table className="user-table">
+        <thead>
+          {activeTab === 0 ? (
             <tr>
-              <th>Sn</th>
+              <th>#</th>
               <th>Phone</th>
               <th>Date</th>
               <th>Audio</th>
               <th>Played</th>
-              <th>Assigned Agent</th>
-              <th>Duration (s)</th>
+              <th>Agent</th>
+              <th>Duration</th>
               <th>Transcription</th>
             </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={8}>Loading...</td>
-              </tr>
-            ) : currentReports.length === 0 ? (
-              <tr>
-                <td colSpan={8}>No records found.</td>
-              </tr>
-            ) : (
-              currentReports.map((report, index) => (
-                <tr key={report.id || index}>
-                  <td>{indexOfFirstReport + index + 1}</td>
-                  <td>{report.clid}</td>
-                  <td>
-                    {report.created_at
-                      ? new Date(report.created_at).toLocaleString()
-                      : ""}
-                  </td>
-                  <td>
-                    {report.recording_path ? (
-                      <audio
-                        controls
-                        src={`${baseURL}${report.recording_path}`}
-                        style={{ maxWidth: 120 }}
-                      />
-                    ) : (
-                      "No file"
-                    )}
-                  </td>
-                  <td>
-                    <span
-                      style={{
-                        padding: "2px 8px",
-                        borderRadius: "4px",
-                        fontSize: "12px",
-                        fontWeight: "bold",
-                        backgroundColor: report.is_played
-                          ? "#4caf50"
-                          : "#ff9800",
-                        color: "white",
-                      }}
-                    >
-                      {report.is_played ? "Yes" : "No"}
-                    </span>
-                  </td>
-                  <td>{report.assigned_agent_id || "-"}</td>
-                  <td>{report.duration_seconds || "-"}</td>
-                  <td>{report.transcription || "-"}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      ) : (
-        // CDR Report Table
-        <table className="user-table">
-          <thead>
+          ) : (
             <tr>
-              <th>Sn</th>
-              <th>Caller ID</th>
-              <th>Source</th>
-              <th>Destination</th>
-              <th>Start Time</th>
-              <th>Duration (s)</th>
-              <th>Billed (s)</th>
-              <th>Disposition</th>
-              <th>Recording File</th>
+              <th>#</th>
+              <th>Caller</th>
+              <th>Src</th>
+              <th>Dst</th>
+              <th>Start</th>
+              <th>Dur</th>
+              <th>Bill</th>
+              <th>Status</th>
             </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={9}>Loading...</td>
-              </tr>
-            ) : currentReports.length === 0 ? (
-              <tr>
-                <td colSpan={9}>No records found.</td>
-              </tr>
-            ) : (
-              currentReports.map((report, index) => (
-                <tr key={report.id || index}>
-                  <td>{indexOfFirstReport + index + 1}</td>
-                  <td>{report.clid || "-"}</td>
-                  <td>{report.src || "-"}</td>
-                  <td>{report.dst || "-"}</td>
-                  <td>
-                    {report.cdrstarttime
-                      ? new Date(report.cdrstarttime).toLocaleString()
-                      : "-"}
-                  </td>
-                  <td>{report.duration || "-"}</td>
-                  <td>{report.billsec || "-"}</td>
-                  <td>
-                    <span
-                      style={{
-                        padding: "2px 8px",
-                        borderRadius: "4px",
-                        fontSize: "12px",
-                        fontWeight: "bold",
-                        backgroundColor:
-                          report.disposition === "ANSWERED"
-                            ? "#4caf50"
-                            : report.disposition === "NO ANSWER"
-                            ? "#ff9800"
-                            : report.disposition === "BUSY"
-                            ? "#f44336"
-                            : "#9e9e9e",
-                        color: "white",
-                      }}
-                    >
-                      {report.disposition || "-"}
-                    </span>
-                  </td>
-                  <td>{report.recordingfile || "-"}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      )}
-      {/* Pagination */}
-      <div
-        className="pagination"
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          alignItems: "center",
-          gap: "8px",
-          marginTop: "20px",
-        }}
-      >
-        <button
-          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-          disabled={currentPage === 1}
-          style={{
-            padding: "8px 12px",
-            border: "1px solid #ddd",
-            backgroundColor: currentPage === 1 ? "#f5f5f5" : "#fff",
-            color: currentPage === 1 ? "#999" : "#333",
-            cursor: currentPage === 1 ? "not-allowed" : "pointer",
-            borderRadius: "4px",
-            fontSize: "14px",
-          }}
-        >
-          ← Previous
-        </button>
+          )}
+        </thead>
 
-        <span
-          style={{
-            padding: "8px 12px",
-            backgroundColor: "#f8f9fa",
-            border: "1px solid #ddd",
-            borderRadius: "4px",
-            fontSize: "14px",
-            fontWeight: "bold",
-          }}
-        >
-          Page {currentPage} of{" "}
-          {Math.ceil(filteredReports.length / reportsPerPage)}
-        </span>
+       <tbody>
+  {loading ? (
+    <tr><td colSpan={8}>Loading…</td></tr>
+  ) : currentReports.length === 0 ? (
+    <tr><td colSpan={8}>No records found</td></tr>
+  ) : (
+    currentReports.map((r, i) => (
+      <tr key={r.id}>
+        <td>{(currentPage - 1) * reportsPerPage + i + 1}</td>
+        <td>{safe(r.clid)}</td>
+        <td>{r.created_at ? new Date(r.created_at).toLocaleString() : "-"}</td>
+        <td>
+          {audioUrls[r.id] ? (
+            <audio controls src={audioUrls[r.id]} style={{ width: 160 }} />
+          ) : (
+            <button onClick={() => loadAudio(r.id)} style={{ padding: "6px 10px", cursor: "pointer", fontSize: 12 }}>
+              ▶ Load & Play
+            </button>
+          )}
+        </td>
+        <td>
+          <span
+            style={{
+              padding: "2px 8px",
+              borderRadius: 6,
+              backgroundColor: r.is_played ? "#4caf50" : "#ff9800",
+              color: "#fff",
+              fontSize: 12,
+              fontWeight: "bold",
+            }}
+          >
+            {r.is_played ? "Yes" : "No"}
+          </span>
+        </td>
 
-        <button
-          onClick={() =>
-            setCurrentPage(
-              Math.min(
-                Math.ceil(filteredReports.length / reportsPerPage),
-                currentPage + 1
-              )
-            )
-          }
-          disabled={
-            currentPage === Math.ceil(filteredReports.length / reportsPerPage)
-          }
-          style={{
-            padding: "8px 12px",
-            border: "1px solid #ddd",
-            backgroundColor:
-              currentPage === Math.ceil(filteredReports.length / reportsPerPage)
-                ? "#f5f5f5"
-                : "#fff",
-            color:
-              currentPage === Math.ceil(filteredReports.length / reportsPerPage)
-                ? "#999"
-                : "#333",
-            cursor:
-              currentPage === Math.ceil(filteredReports.length / reportsPerPage)
-                ? "not-allowed"
-                : "pointer",
-            borderRadius: "4px",
-            fontSize: "14px",
-          }}
-        >
-          Next →
-        </button>
+       <td>
+  {r.assigned_extension
+    ? `Ext ${r.assigned_extension}${r.assigned_agent_name ? ` (${r.assigned_agent_name})` : ""}`
+    : "-"}
+</td>
+
+        <td>{safe(r.duration_seconds)}</td>
+        <td>{safe(r.transcription)}</td>
+      </tr>
+    ))
+  )}
+</tbody>
+
+      </table>
+
+      <div className="pagination">
+        <button disabled={currentPage === 1} onClick={() => setCurrentPage(currentPage - 1)}>Prev</button>
+        <span>Page {currentPage} / {totalPages}</span>
+        <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(currentPage + 1)}>Next</button>
       </div>
-      {/* Snackbar for notifications */}
-      <Snackbar
-        open={snackbarOpen}
-        autoHideDuration={3000}
-        onClose={handleSnackbarClose}
-        anchorOrigin={{ vertical: "top", horizontal: "right" }}
-      >
-        <Alert onClose={handleSnackbarClose} severity={snackbarSeverity}>
-          {snackbarMessage}
-        </Alert>
+
+      <Snackbar open={snackbarOpen} autoHideDuration={3000} onClose={() => setSnackbarOpen(false)}>
+        <Alert severity={snackbarSeverity}>{snackbarMessage}</Alert>
       </Snackbar>
     </div>
   );

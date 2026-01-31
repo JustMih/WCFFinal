@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+ import React, { useState, useEffect } from "react";
 import {
   FaSearch,
   FaHeadphones,
@@ -7,7 +7,9 @@ import {
 } from "react-icons/fa";
 import "./LiveCallsCard.css";
 import { baseURL } from "../../config";
-
+ 
+import { sipCall, isSipReady, initSupervisorSIP } from "../../sip/supervisorSip";
+ 
 export default function LiveCallsCard({
   isLoading,
   searchTerm,
@@ -19,40 +21,89 @@ export default function LiveCallsCard({
   const [liveCalls, setLiveCalls] = useState([]);
   const [filteredLiveCalls, setFilteredLiveCalls] = useState([]);
   const [active, setActive] = useState([]);
+const [spyingOn, setSpyingOn] = useState(null);
 
-  /* ================================
-     SPY ACTION HANDLER (NEW)
-     ================================ */
-  const spyAction = async (spyCallId, action) => {
-    console.log(`[SPY] ${action} on`, spyCallId);
+ 
 
-    if (!spyCallId) {
-      console.error("[SPY] Missing spyCallId");
+/* =====================================
+   HELPER: parse ChanSpy dial string
+   ChanSpy(PJSIP/eGA-00000019,q)
+===================================== */
+const sipCallFromDial = async (dial) => {
+  console.log("🧩 Parsing dial string:", dial);
+
+  const match = dial.match(/^ChanSpy\(([^,]+),?([^)]+)?\)$/);
+
+  if (!match) {
+    console.error("❌ Invalid ChanSpy dial format:", dial);
+    return;
+  }
+
+  const channel = match[1];       // PJSIP/eGA-00000019
+  const mode = match[2] || "";    // q | qw | qB
+
+  console.log("🎧 Parsed spy params:", { channel, mode });
+
+  await sipCall(channel, mode);
+};
+
+/* =====================================
+   SPY ACTION (FINAL)
+===================================== */
+const spyAction = async (agentExtension, action) => {
+  console.log("🟢 SPY CLICKED:", agentExtension, action);
+
+  try {
+    /* =====================================
+       1️⃣ ENSURE SIP IS READY
+    ===================================== */
+    if (!isSipReady()) {
+      console.warn("⏳ SIP not ready — initializing now...");
+      await initSupervisorSIP();
+
+      // give REGISTER + WS a moment
+      await new Promise((res) => setTimeout(res, 800));
+    }
+
+    if (!isSipReady()) {
+      alert("Supervisor phone is still connecting. Try again in 1 second.");
       return;
     }
 
-    try {
-      const response = await fetch(`${baseURL}/spy/call-control`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          callId: spyCallId,
-          action,
-        }),
-      });
+    /* =====================================
+       2️⃣ CALL BACKEND (AUTHORITATIVE)
+    ===================================== */
+    const response = await fetch(`${baseURL}/spy/call-control`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+      },
+      body: JSON.stringify({ agentExtension, action }),
+    });
 
-      const data = await response.json();
-      console.log("[SPY] Dial string:", data.dial);
-
-      // TODO: Trigger SIP.js call here
-      // sipCall(data.dial);
-
-    } catch (error) {
-      console.error("[SPY] Error:", error);
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(errText);
     }
-  };
+
+    const data = await response.json();
+    console.log("📥 Spy API response:", data);
+
+    /* =====================================
+       3️⃣ EXECUTE SIP SPY CALL
+    ===================================== */
+    if (data?.dial) {
+      await sipCallFromDial(data.dial);
+    } else {
+      console.error("❌ No dial string returned from server");
+    }
+
+  } catch (err) {
+    console.error("[SPY] Error:", err);
+    alert("Spy failed. Check SIP connection and try again.");
+  }
+};
 
   const handleListen = (spyCallId) => spyAction(spyCallId, "listen");
   const handleWhisper = (spyCallId) => spyAction(spyCallId, "whisper");
@@ -90,6 +141,9 @@ export default function LiveCallsCard({
     if (totalMinutes < 5) return "duration-yellow";
     return "duration-red";
   };
+useEffect(() => {
+  initSupervisorSIP();
+}, []);
 
   /* ================================
      FETCH LIVE CALLS
@@ -138,15 +192,7 @@ export default function LiveCallsCard({
           Live Calls{" "}
           {isLoading && <span className="loading-indicator">(Loading...)</span>}
         </h4>
-        <div className="search-box">
-          <input
-            type="text"
-            placeholder="Search calls..."
-            value={searchTerm}
-            onChange={onSearch}
-            className="search-input"
-          />
-        </div>
+        
       </div>
 
       <div className="table-responsive">
@@ -167,15 +213,22 @@ export default function LiveCallsCard({
               active.map((call) => (
                 <tr key={call.spyCallId || call.id}>
                   <td className="agent-name">{call.caller}</td>
+                
+
                   <td className="customer-number">{call.callee}</td>
-                  <td className="agent-name">
-                    {call.agent ? (
-                      <span style={{ fontWeight: 500, color: "#1976d2" }}>
-                        {call.agent}
+                 <td className="agent-name">
+                    {call.agent_name ? (
+                      <span style={{ fontWeight: 600, color: "#1976d2" }}>
+                        {call.agent_name}
+                        {call.agent_extension && (
+                          <span style={{ color: "#555", marginLeft: 6 }}>
+                            ({call.agent_extension})
+                          </span>
+                        )}
                       </span>
                     ) : (
                       <span style={{ color: "#999", fontStyle: "italic" }}>
-                        Not assigned
+                        Unassigned
                       </span>
                     )}
                   </td>
@@ -194,34 +247,42 @@ export default function LiveCallsCard({
                     </span>
                   </td>
                   <td className="call-type">{getCallType(call.caller)}</td>
-                  <td>
-                    <div className="action-buttons">
-                      <button
-                        className="action-button listen"
-                        onClick={() => handleListen(call.spyCallId)}
-                        disabled={!call.spyCallId}
-                        title="Listen"
-                      >
-                        <FaHeadphones />
-                      </button>
-                      <button
-                        className="action-button intervene"
-                        onClick={() => handleIntervene(call.spyCallId)}
-                        disabled={!call.spyCallId}
-                        title="Intervene"
-                      >
-                        <FaUserShield />
-                      </button>
-                      <button
-                        className="action-button whisper"
-                        onClick={() => handleWhisper(call.spyCallId)}
-                        disabled={!call.spyCallId}
-                        title="Whisper"
-                      >
-                        <FaComments />
-                      </button>
-                    </div>
-                  </td>
+                <td>
+                <div className="action-buttons">
+                  {/* 🎧 LISTEN */}
+                 <button
+            className={`action-button listen ${
+              spyingOn === call.agent_extension ? "active-spy" : ""
+            }`}
+            onClick={() => spyAction(call.agent_extension, "listen")}
+          >
+            <FaHeadphones />
+          </button>
+
+
+                  {/* 🛑 INTERVENE / BARGE */}
+                  <button
+                    className="action-button intervene"
+                    onClick={() => spyAction(call.agent_extension, "barge")}
+                    disabled={call.status !== "active" || !call.agent_extension}
+                    title="Intervene"
+                  >
+                    <FaUserShield />
+                  </button>
+
+                  {/* 💬 WHISPER */}
+                  <button
+                    className="action-button whisper"
+                    onClick={() => spyAction(call.agent_extension, "whisper")}
+                    disabled={call.status !== "active" || !call.agent_extension}
+                    title="Whisper"
+                  >
+                    <FaComments />
+                  </button>
+                </div>
+              </td>
+
+
                 </tr>
               ))
             ) : (

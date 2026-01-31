@@ -113,7 +113,7 @@ export default function ActiveCalls({
                   <MdAccessTime /> {formatDuration(call.call_answered || call.call_start)}
                 </div>
               </div>
-              <div className="call-details">
+              {/* <div className="call-details">
                 <div className="call-info-row">
                   <span className="call-label">Caller:</span>
                   <span className="call-value">{extractPhoneFromClid(call.caller) || "Unknown"}</span>
@@ -134,7 +134,41 @@ export default function ActiveCalls({
                     <span className="call-value">{new Date(call.call_answered).toLocaleTimeString()}</span>
                   </div>
                 )}
-              </div>
+              </div> */}
+              <div className="call-details">
+  <div className="call-info-row">
+    <span className="call-label">Caller:</span>
+    <span className="call-value">
+      {extractPhoneFromClid(call.caller) || "Unknown"}
+    </span>
+  </div>
+
+  <div className="call-info-row">
+    <span className="call-label">Queue:</span>
+    <span className="call-value">
+      {call.callee || "Unknown"}
+    </span>
+  </div>
+
+  <div className="call-info-row">
+    <span className="call-label">Agent:</span>
+    <span className="call-value">
+      {call.agent_name && call.agent_name !== "Unknown Agent"
+        ? call.agent_name + (call.agent_extension ? ` (${call.agent_extension})` : "")
+        : "Waiting for agent"}
+    </span>
+  </div>
+
+  {call.call_answered && (
+    <div className="call-info-row">
+      <span className="call-label">Started:</span>
+      <span className="call-value">
+        {new Date(call.call_answered).toLocaleTimeString()}
+      </span>
+    </div>
+  )}
+</div>
+
             </div>
           ))
         ) : (

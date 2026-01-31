@@ -1149,7 +1149,9 @@ export default function ReviewerDashboard() {
           />
           <Card
             title="Ticket Status"
-            data={{ ...ticketStatus, Total: ticketStatusTotal }}
+            data={{ ...ticketStatus, 
+              // Total: ticketStatusTotal
+            }}
             color="#ffc4dd"
             icon={<MdImportExport fontSize={35} />}
           />

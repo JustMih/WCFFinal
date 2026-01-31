@@ -48,6 +48,8 @@ import {
 } from "@mui/material";
 
 import "./supervisorDashboard.css";
+import OnlineAgentsTable from "../../../../components/agent-dashboard/OnlineAgentsTable";
+import OnlineSupervisorsTable from "../../../../components/agent-dashboard/OnlineSupervisorsTable";
 
 // Register chart.js components
 ChartJS.register(
@@ -109,26 +111,51 @@ export default function SupervisorDashboard() {
   };
 
   // ===== Config / SIP =====
+  // --------- Config ---------
   const extension = localStorage.getItem("extension");
   const sipPassword = localStorage.getItem("sipPassword");
-  const SIP_DOMAIN = baseURL;
+  const SIP_DOMAIN = "192.168.21.70"; // unify here (adjust if needed)
 
   const sipConfig = useMemo(() => {
     if (!extension || !sipPassword) return null;
     return {
-      uri: UserAgent.makeURI(`sip:${extension}@${baseURL}`),
-      transportOptions: { server: `wss://${baseURL}:8089/ws` },
+      uri: UserAgent.makeURI(`sip:${extension}@${SIP_DOMAIN}`),
+      transportOptions: {
+        server: `wss://${SIP_DOMAIN}:8089/ws`,
+        keepAliveInterval: 30, // Keep WebSocket alive
+        connectionTimeout: 10000, // Prevent timeout issues
+      },
       authorizationUsername: extension,
       authorizationPassword: sipPassword,
+      traceSip: true, // Enable SIP.js logging
       sessionDescriptionHandlerFactoryOptions: {
         constraints: { audio: true, video: false },
+        codecs: ["PCMU", "opus"], // Match Asterisk: PCMU prioritized
         peerConnectionConfiguration: {
           iceServers: [
             { urls: "stun:stun.l.google.com:19302" },
-            // { urls: ['turn:turn.example.com:3478','turns:turn.example.com:5349'], username: 'user', credential: 'pass' },
+            {
+              urls: "turn:openrelay.metered.ca:80",
+              username: "openrelayproject",
+              credential: "openrelayproject",
+            },
           ],
+          iceTransportPolicy: "all", // Allow host candidates
+          rtcpMuxPolicy: "require", // Required for Asterisk WebRTC
+          bundlePolicy: "balanced", // Improve compatibility
+          iceGatheringTimeout: 500, // Increased for reliable STUN response
+          // iceCandidateFilter: (candidate) => candidate.type === 'host' || candidate.type === 'srflx', // Prefer UDP candidates
         },
       },
+      hackIpInContact: true, // Force private IP in Contact header
+      register: true, // Ensure registration with Asterisk
+      log: {
+        level: "debug", // Detailed logging
+        builtinEnabled: true,
+      },
+      // Additional WebRTC tweaks
+      allowLegacyNotifications: true, // For PJSIP compatibility
+      hackViaReceived: true, // Ensure correct IP in Via header
     };
   }, [extension, sipPassword]);
 
@@ -825,6 +852,10 @@ export default function SupervisorDashboard() {
         </MenuItem>
       </Menu>
 
+      <div className="dashboard-single-agent-row_two">
+          <OnlineAgentsTable />
+          <OnlineSupervisorsTable />
+        </div>
       {/* Summary cards */}
       {/* Yearly Row */}
       <div className="call-center-agent-summary">

@@ -1,23 +1,16 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   MdOutlineLocalPhone,
-  MdPauseCircleOutline,
-  MdLocalPhone,
   MdOutlineVoicemail,
   MdOutlineFreeBreakfast,
   MdWifiCalling2,
   MdOutlineFollowTheSigns,
   MdOutlineLunchDining,
 } from "react-icons/md";
-import { HiMiniSpeakerWave } from "react-icons/hi2";
-import { IoKeypadOutline } from "react-icons/io5";
-import { BsFillMicMuteFill } from "react-icons/bs";
 import { GiExplosiveMeeting, GiTrafficLightsReadyToGo } from "react-icons/gi";
 import { TbEmergencyBed } from "react-icons/tb";
 import { FiPhoneOff, FiPhoneCall, FiPhoneIncoming } from "react-icons/fi";
-import { UserAgent, Inviter, Registerer, SessionState } from "sip.js";
 import {
-  TextField,
   Button,
   Dialog,
   DialogTitle,
@@ -43,28 +36,23 @@ import OnlineSupervisorsTable from "../../../../components/agent-dashboard/Onlin
 import AgentPerformanceScore from "../../../../components/agent-dashboard/AgentPerformanceScore";
 import AdvancedTicketCreateModal from "../../../../components/ticket/AdvancedTicketCreateModal";
 import VoiceNotesReport from "../../cal-center-ivr/VoiceNotesReport";
+import TotalContactSummary from "../../../../components/agent-dashboard/TotalContactSummary";
+import ContactSummaryGrid from "../../../../components/agent-dashboard/ContactSummaryGrid";
 import CallHistoryCard from "../../../../components/agent-dashboard/CallHistoryCard";
 
+// Phone components
+import { useSipPhone } from "./useSipPhone";
+import PhonePopup from "./PhonePopup";
+
 export default function AgentsDashboard() {
-  // --------- Core phone state ---------
+  // --------- Phone popup state ---------
   const [showPhonePopup, setShowPhonePopup] = useState(false);
-  const [phoneStatus, setPhoneStatus] = useState("Idle");
-  const [userAgent, setUserAgent] = useState(null);
-  const [session, setSession] = useState(null);
-  const [incomingCall, setIncomingCall] = useState(null);
-  const [lastIncomingNumber, setLastIncomingNumber] = useState("");
-
-  const [ringAudio] = useState(() => new Audio("/ringtone.mp3"));
-  const remoteAudioRef = useRef(null);
-
-  // --------- Call control ---------
-  const [callDuration, setCallDuration] = useState(0);
-  const [isMuted, setIsMuted] = useState(false);
-  const [isSpeakerOn, setIsSpeakerOn] = useState(true);
-  const [isOnHold, setIsOnHold] = useState(false);
   const [showKeypad, setShowKeypad] = useState(false);
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [manualTransferExt, setManualTransferExt] = useState("");
+
+  // --------- Config ---------
+  const extension = localStorage.getItem("extension");
+  const sipPassword = localStorage.getItem("sipPassword");
+  const SIP_DOMAIN = "192.168.21.70";
 
 
   // --------- Status / break menu ---------
@@ -78,41 +66,12 @@ export default function AgentsDashboard() {
   });
 
   // --------- Timers (separate refs!) ---------
-  const callTimerRef = useRef(null);
   const statusTimerRef = useRef(null);
-  const autoRejectTimerRef = useRef(null);
-  const wasAnsweredRef = useRef(false);
 
   // --------- Missed calls ---------
   const [missedCalls, setMissedCalls] = useState([]);
   const [missedOpen, setMissedOpen] = useState(false);
   const [callingBackId, setCallingBackId] = useState(null);
-const [excludedMissedIds, setExcludedMissedIds] = useState(new Set());
- const fetchMissedCallsFromBackend = React.useCallback(async () => {
-  if (callingBackId) return;
-
-  const ext = localStorage.getItem("extension");
-
-  const response = await fetch(
-    `${baseURL}/missed-calls?agentId=${ext}&status=pending`,
-    {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-      },
-    }
-  );
-
-  const data = await response.json();
-
-  setMissedCalls(
-    (data || [])
-      .filter(call => !excludedMissedIds.has(call.id))
-      .map(call => ({
-        ...call,
-        time: new Date(call.time),
-      }))
-  );
-}, [callingBackId, excludedMissedIds]);
 
 
   // --------- Tickets / MAC lookup ---------
@@ -137,63 +96,112 @@ const [excludedMissedIds, setExcludedMissedIds] = useState(new Set());
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("warning");
 
-  // --------- Config ---------
-  const extension = localStorage.getItem("extension");
-  const sipPassword = localStorage.getItem("sipPassword");
-  const SIP_DOMAIN = "192.168.21.70"; // unify here (adjust if needed)
+  // --------- Helper functions for hook callbacks ---------
+  const showAlert = useCallback((message, severity = "warning") => {
+    setSnackbarMessage(message);
+    setSnackbarSeverity(severity);
+    setSnackbarOpen(true);
+  }, []);
 
-  const sipConfig = useMemo(() => {
-    if (!extension || !sipPassword) return null;
-    return {
-      uri: UserAgent.makeURI(`sip:${extension}@${SIP_DOMAIN}`),
-      transportOptions: {
-        server: `wss://${SIP_DOMAIN}:8089/ws`,
-        keepAliveInterval: 30, // Keep WebSocket alive
-        connectionTimeout: 10000, // Prevent timeout issues
-      },
-      authorizationUsername: extension,
-      authorizationPassword: sipPassword,
-      traceSip: true, // Enable SIP.js logging
-      sessionDescriptionHandlerFactoryOptions: {
-        constraints: { audio: true, video: false },
-        codecs: ["PCMU", "opus"], // Match Asterisk: PCMU prioritized
-        peerConnectionConfiguration: {
-          iceServers: [
-            { urls: "stun:stun.l.google.com:19302" },
-            {
-              urls: "turn:openrelay.metered.ca:80",
-              username: "openrelayproject",
-              credential: "openrelayproject",
-            },
-          ],
-          iceTransportPolicy: "all", // Allow host candidates
-          rtcpMuxPolicy: "require", // Required for Asterisk WebRTC
-          bundlePolicy: "balanced", // Improve compatibility
-          iceGatheringTimeout: 500, // Increased for reliable STUN response
-          // iceCandidateFilter: (candidate) => candidate.type === 'host' || candidate.type === 'srflx', // Prefer UDP candidates
-        },
-      },
-      hackIpInContact: true, // Force private IP in Contact header
-      register: true, // Ensure registration with Asterisk
-      log: {
-        level: "debug", // Detailed logging
-        builtinEnabled: true,
-      },
-      // Additional WebRTC tweaks
-      allowLegacyNotifications: true, // For PJSIP compatibility
-      hackViaReceived: true, // Ensure correct IP in Via header
-    };
-  }, [extension, sipPassword]);
+  const fetchUserByPhoneNumber = useCallback(async (phone) => {
+    try {
+      const response = await fetch(
+        `${baseURL}/mac-system/search-by-phone-number?phone_number=${encodeURIComponent(
+          phone
+        )}`
+      );
+      if (!response.ok) {
+        setUserData(null);
+        setShowUserForm(false);
+        return;
+      }
+      const data = await response.json();
+      setUserData(data);
+      setShowUserForm(true);
+    } catch (error) {
+      console.error("Failed to fetch user data:", error);
+      setUserData(null);
+      setShowUserForm(false);
+    }
+  }, []);
 
-  const formatDuration = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    const hrs = Math.floor(mins / 60);
-    const pad = (n) => String(n).padStart(2, "0");
-    return hrs > 0
-      ? `${pad(hrs)}:${pad(mins % 60)}:${pad(secs)}`
-      : `${pad(mins)}:${pad(secs)}`;
-  };
+  const addMissedCall = useCallback((raw) => {
+    const agentId = localStorage.getItem("extension");
+    if (!raw || raw.trim() === "") return;
+    let formattedCaller = raw.startsWith("+255") ? `0${raw.substring(4)}` : raw;
+    const time = new Date();
+    const newCall = { caller: formattedCaller, time };
+    setMissedCalls((prev) => [newCall, ...prev]);
+
+    showAlert(`Missed Call from ${formattedCaller}`, "warning");
+
+    fetch(`${baseURL}/missed-calls`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+      },
+      body: JSON.stringify({
+        caller: formattedCaller,
+        time: time.toISOString(),
+        agentId,
+      }),
+    }).catch((err) => console.error("Failed to post missed call:", err));
+  }, [showAlert]);
+
+  // --------- Use SIP Phone Hook ---------
+  const {
+    phoneStatus,
+    incomingCall,
+    lastIncomingNumber,
+    callDuration,
+    isMuted,
+    isSpeakerOn,
+    isOnHold,
+    phoneNumber,
+    setPhoneNumber,
+    manualTransferExt,
+    setManualTransferExt,
+    remoteAudioRef,
+    session,
+    consultSession,
+    isConsulting,
+    formatDuration,
+    acceptCall,
+    rejectCall,
+    endCall,
+    dial,
+    redial,
+    blindTransfer,
+    startConsult,
+    completeConsultTransfer,
+    cancelConsult,
+    toggleMute,
+    toggleSpeaker,
+    toggleHold,
+  } = useSipPhone({
+    extension,
+    sipPassword,
+    SIP_DOMAIN,
+    onIncomingCall: useCallback((number) => {
+      setShowPhonePopup(true);
+      if (number) fetchUserByPhoneNumber(number);
+    }, [fetchUserByPhoneNumber]),
+    onMissedCall: addMissedCall,
+    onCallAccepted: useCallback((number) => {
+      setTicketPhoneNumber(number || "");
+      setShowTicketModal(true);
+      setIsTicketModalOpen(true);
+      setShowPhonePopup(false);
+    }, []),
+    onCallEnded: useCallback(() => {
+      setShowUserForm(false);
+      setUserData(null);
+    }, []),
+    showAlert,
+    allowIncomingRinging: agentStatus === "ready",
+  });
+
   const formatRemainingTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -227,31 +235,6 @@ const [excludedMissedIds, setExcludedMissedIds] = useState(new Set());
     emergency: (userDefinedTimes.emergency || 20) * 60,
   };
 
-  const showAlert = (message, severity = "warning") => {
-    setSnackbarMessage(message);
-    setSnackbarSeverity(severity);
-    setSnackbarOpen(true);
-  };
-
-  // ---------- Ringtone ----------
-  const stopRingtone = () => {
-    ringAudio.pause();
-    ringAudio.currentTime = 0;
-  };
-
-  // ---------- Timers ----------
-  const startCallTimer = () => {
-    stopCallTimer();
-    callTimerRef.current = setInterval(
-      () => setCallDuration((p) => p + 1),
-      1000
-    );
-  };
-  const stopCallTimer = () => {
-    if (callTimerRef.current) clearInterval(callTimerRef.current);
-    callTimerRef.current = null;
-    setCallDuration(0);
-  };
 
   const startStatusTimer = (activity) => {
     const key = mapActivityToTimerKey(activity);
@@ -278,98 +261,21 @@ const [excludedMissedIds, setExcludedMissedIds] = useState(new Set());
 
   useEffect(() => {
     return () => {
-      stopCallTimer();
       stopStatusTimer();
     };
   }, []);
 useEffect(() => {
+  // initial load
   fetchMissedCallsFromBackend();
 
-  const interval = setInterval(fetchMissedCallsFromBackend, 10000);
+  // auto refresh every 10 seconds
+  const interval = setInterval(() => {
+    fetchMissedCallsFromBackend();
+  }, 10000);
 
   return () => clearInterval(interval);
-}, [fetchMissedCallsFromBackend]);
+}, []);
 
-  // ---------- SIP: incoming ----------
-  const handleIncomingInvite = (invitation) => {
-    wasAnsweredRef.current = false;
-
-    const number = invitation?.remoteIdentity?.uri?.user || "";
-    setLastIncomingNumber(number);
-    setIncomingCall(invitation);
-    setShowPhonePopup(true);
-    setPhoneStatus("Ringing");
-
-    // Pre-fetch user info by phone
-    if (number) fetchUserByPhoneNumber(number);
-
-    ringAudio.loop = true;
-    ringAudio.volume = 0.7;
-    ringAudio.play().catch(() => { });
-
-    invitation.stateChange.addListener((state) => {
-      if (state === SessionState.Terminated) {
-        stopRingtone();
-        clearTimeout(autoRejectTimerRef.current);
-        setIncomingCall(null);
-        setShowPhonePopup(false);
-        setPhoneStatus("Idle");
-        setShowUserForm(false);
-        setUserData(null);
-        if (!wasAnsweredRef.current) addMissedCall(number);
-      }
-    });
-
-    autoRejectTimerRef.current = setTimeout(() => {
-      invitation.reject().catch(console.error);
-      setShowPhonePopup(false);
-      setPhoneStatus("Idle");
-      stopRingtone();
-      setIncomingCall(null);
-      setShowUserForm(false);
-      setUserData(null);
-      if (!wasAnsweredRef.current) addMissedCall(number);
-    }, 20000);
-  };
-
-  // ---------- SIP: UA startup ----------
-  useEffect(() => {
-    if (!sipConfig) {
-      setPhoneStatus("Not configured");
-      return;
-    }
-
-    const ua = new UserAgent(sipConfig);
-    const registerer = new Registerer(ua);
-
-    // Handle incoming calls
-    ua.delegate = {
-      onInvite: (incomingSession) => {
-        console.log("Incoming call", incomingSession);
-
-        handleIncomingInvite(incomingSession);
-      },
-    };
-
-    setUserAgent(ua);
-
-    ua.start()
-      .then(() => {
-        registerer.register();
-        setPhoneStatus("Idle");
-      })
-      .catch((error) => {
-        console.error("UA failed to start:", error);
-        setPhoneStatus("Connection Failed");
-      });
-
-    return () => {
-      registerer.unregister().catch(console.error);
-      ua.stop();
-      stopRingtone();
-      stopCallTimer();
-    };
-  }, [sipConfig]);
 
   // ---------- Fetch function data (ticket modal) ----------
   useEffect(() => {
@@ -424,112 +330,91 @@ useEffect(() => {
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
-      const markMissedCallAsCalledBack = async (missedCallId) => {
-        if (!missedCallId) return;
+const markMissedCallAsCalledBack = async (missedCallId) => {
+  if (!missedCallId) return;
 
-        try {
-          await fetch(`${baseURL}/missed-calls/${missedCallId}/status`, {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-            },
-            body: JSON.stringify({ status: "called_back" }),
-          });
-        } catch (err) {
-          console.error("Failed to update missed call status:", err);
-        }
-      };
+  try {
+    await fetch(`${baseURL}/missed-calls/${missedCallId}/status`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+      },
+      body: JSON.stringify({ status: "called_back" }),
+    });
+
+    // Refresh badge immediately
+    await fetchMissedCallsFromBackend();
+  } catch (err) {
+    console.error("Failed to update missed call status:", err);
+  }
+};
 
   // ---------- Missed calls ----------
   useEffect(() => {
     fetchMissedCallsFromBackend();
   }, []);
- const addMissedCall = async (raw) => {
-  const agentId = localStorage.getItem("extension");
-  if (!raw || raw.trim() === "") return;
+ const fetchMissedCallsFromBackend = async () => {
+  // ❗ DO NOT refresh while calling back
+  if (callingBackId) return;
 
-  let formattedCaller = raw.startsWith("+255")
-    ? `0${raw.substring(4)}`
-    : raw;
+  const ext = localStorage.getItem("extension");
 
-  const time = new Date().toISOString();
-
-  showAlert(`Missed Call from ${formattedCaller}`, "warning");
-
-  try {
-    await fetch(`${baseURL}/missed-calls`, {
-      method: "POST",
+  const response = await fetch(
+    `${baseURL}/missed-calls?agentId=${ext}&status=pending`,
+    {
       headers: {
-        "Content-Type": "application/json",
         Authorization: `Bearer ${localStorage.getItem("authToken")}`,
       },
-      body: JSON.stringify({
-        caller: formattedCaller,
-        time,
-        agentId,
-      }),
-    });
+    }
+  );
 
-    // 🔥 single source of truth
-    fetchMissedCallsFromBackend();
-  } catch (err) {
-    console.error("Failed to post missed call:", err);
-  }
+  const data = await response.json();
+
+  setMissedCalls(
+    (data || []).map(call => ({
+      ...call,
+      time: new Date(call.time),
+    }))
+  );
 };
 
-// const fetchMissedCallsFromBackend = async () => {
-//   const ext = localStorage.getItem("extension");
 
-//   try {
-//     const response = await fetch(
-//       `${baseURL}/missed-calls?agentId=${ext}&status=pending`,
-//       {
-//         headers: {
-//           Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-//         },
-//       }
-//     );
-
-//     const data = await response.json();
-
-//     setMissedCalls(
-//       (data || []).map(call => ({
-//         ...call,
-//         time: new Date(call.time),
-//       }))
-//     );
-//   } catch (err) {
-//     console.error("Failed to fetch missed calls:", err);
-//   }
-// };
-
-
-  // ---------- MAC: fetch user by phone ----------
-  const fetchUserByPhoneNumber = async (phone) => {
-    try {
-      const response = await fetch(
-        `${baseURL}/mac-system/search-by-phone-number?phone_number=${encodeURIComponent(
-          phone
-        )}`
-      );
-      if (!response.ok) {
-        setUserData(null);
-        setShowUserForm(false);
-        return;
-      }
-      const data = await response.json();
-      setUserData(data);
-      setShowUserForm(true);
-    } catch (error) {
-      console.error("Failed to fetch user data:", error);
-      setUserData(null);
-      setShowUserForm(false);
-    }
-  };
 
   // ---------- Phone controls ----------
   const togglePhonePopup = () => setShowPhonePopup((v) => !v);
+
+  const handleDial = () => {
+    dial(phoneNumber);
+  };
+
+  const handleAcceptCall = () => {
+    acceptCall();
+  };
+
+  const handleRejectCall = () => {
+    rejectCall();
+  };
+
+  const handleEndCall = () => {
+    endCall();
+  };
+
+  const handleBlindTransfer = (targetExt) => {
+    blindTransfer(targetExt);
+  };
+
+  const handleStartConsult = (targetExt) => {
+    startConsult(targetExt);
+  };
+
+  const handleCompleteConsultTransfer = () => {
+    completeConsultTransfer();
+  };
+
+  const handleCancelConsult = () => {
+    cancelConsult();
+  };
 
   // Modal swap functionality
   const swapToTicketModal = () => {
@@ -680,343 +565,8 @@ useEffect(() => {
     };
   }, [showTicketModal]);
 
-  const toggleMute = () => {
-    if (!session) return;
-    const pc = session.sessionDescriptionHandler.peerConnection;
-    pc.getSenders().forEach((sender) => {
-      if (sender.track && sender.track.kind === "audio") {
-        sender.track.enabled = !sender.track.enabled;
-        setIsMuted(!sender.track.enabled);
-      }
-    });
-  };
-  const toggleSpeaker = () => {
-    const el = remoteAudioRef.current;
-    if (el && el.setSinkId) {
-      const deviceId = isSpeakerOn ? "communications" : "default";
-      el.setSinkId(deviceId)
-        .then(() => setIsSpeakerOn(!isSpeakerOn))
-        .catch(() => { });
-    }
-  };
-  const toggleHold = () => {
-    if (!session) return;
-    const pc = session.sessionDescriptionHandler.peerConnection;
-    const senders = pc.getSenders();
-    if (isOnHold)
-      senders.forEach((s) => {
-        if (s.track && s.track.kind === "audio") s.track.enabled = true;
-      });
-    else
-      senders.forEach((s) => {
-        if (s.track && s.track.kind === "audio") s.track.enabled = false;
-      });
-    setIsOnHold(!isOnHold);
-  };
-  const sendDTMF = (digit) => {
-    if (!session?.sessionDescriptionHandler) return;
-    const sender = session.sessionDescriptionHandler.peerConnection
-      .getSenders()
-      .find((s) => s.dtmf);
-    if (sender?.dtmf) sender.dtmf.insertDTMF(digit);
-  };
-
-  const attachMediaStream = (sipSession) => {
-    if (!sipSession) return;
-
-    const pc = sipSession.sessionDescriptionHandler.peerConnection;
-    if (!pc) {
-      console.warn("No peer connection found on session");
-      return;
-    }
-
-    const remoteElement = remoteAudioRef.current;
-    if (!remoteElement) {
-      console.warn("No remote audio element found");
-      return;
-    }
-
-    // Prepare a MediaStream for existing tracks
-    const existing = new MediaStream();
-    pc.getReceivers().forEach((r) => {
-      if (r.track) existing.addTrack(r.track);
-    });
-
-    // Attach any pre-existing tracks
-    if (existing.getTracks().length > 0) {
-      remoteElement.srcObject = existing;
-      remoteElement
-        .play()
-        .catch((err) => console.warn("Autoplay blocked:", err));
-    }
-
-    // Handle future incoming tracks
-    pc.ontrack = (event) => {
-      console.log("Received remote track:", event.track.kind);
-      const stream = event.streams?.[0] || new MediaStream([event.track]);
-      remoteElement.srcObject = stream;
-      remoteElement
-        .play()
-        .catch((err) => console.warn("Autoplay blocked:", err));
-    };
-  };
-
-  const handleAcceptCall = () => {
-    if (!incomingCall) return;
-
-    clearTimeout(autoRejectTimerRef.current);
-    stopRingtone();
-
-    console.log("Accepting call...");
-
-    incomingCall
-      .accept()
-      .then(() => {
-        // Mark call answered
-        wasAnsweredRef.current = true;
-
-        // Attach remote audio
-        attachMediaStream(incomingCall);
-
-        // Set session state
-        setSession(incomingCall);
-        setIncomingCall(null);
-        setPhoneStatus("In Call");
-        startCallTimer();
-
-        // Store call state in localStorage for persistence
-        localStorage.setItem(
-          "activeCallState",
-          JSON.stringify({
-            phoneStatus: "In Call",
-            phoneNumber: lastIncomingNumber || "",
-            callStartTime: new Date().toISOString(),
-            hasActiveCall: true,
-          })
-        );
-
-        // Open ticket modal automatically
-        setTicketPhoneNumber(lastIncomingNumber || "");
-        setShowTicketModal(true);
-        setIsTicketModalOpen(true);
-
-        // Optionally hide phone popup (recommended)
-        setShowPhonePopup(false);
-
-        // Listen for call end
-        incomingCall.stateChange.addListener((state) => {
-          console.log("Call state:", state);
-
-          if (state === SessionState.Terminated) {
-            setPhoneStatus("Idle");
-            setSession(null);
-            stopCallTimer();
-            // Clear call state from localStorage
-            localStorage.removeItem("activeCallState");
-            if (remoteAudioRef.current) {
-              remoteAudioRef.current.srcObject = null;
-            }
-          }
-        });
-      })
-      .catch((error) => {
-        console.error("Accept failed:", error);
-        setPhoneStatus("Idle");
-        setIncomingCall(null);
-        setShowPhonePopup(false);
-        localStorage.removeItem("activeCallState");
-      });
-  };
-
-  const handleRejectCall = () => {
-    if (!incomingCall) return;
-    clearTimeout(autoRejectTimerRef.current);
-    // Handle real SIP invitation
-    incomingCall.reject().catch(console.error);
-    addMissedCall(lastIncomingNumber);
-    setIncomingCall(null);
-    setShowPhonePopup(false);
-    setPhoneStatus("Idle");
-    stopRingtone();
-  };
-
-  const handleEndCall = () => {
-    if (session) {
-      // End active SIP call
-      session.bye().catch(console.error);
-
-      setSession(null);
-      setPhoneStatus("Idle");
-      // Clear call state from localStorage
-      localStorage.removeItem("activeCallState");
-      if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
-
-      stopRingtone();
-      stopCallTimer();
-      setShowPhonePopup(false);
-      setIncomingCall(null);
-    } else if (incomingCall) {
-      // End incoming SIP call (reject)
-      incomingCall.reject().catch(console.error);
-
-      setIncomingCall(null);
-      setPhoneStatus("Idle");
-      // Clear call state from localStorage
-      localStorage.removeItem("activeCallState");
-
-      stopRingtone();
-      stopCallTimer();
-      setShowPhonePopup(false);
-    }
-  };
-
-  const handleDial = () => {
-    if (!userAgent || !phoneNumber) return;
-    const targetURI = UserAgent.makeURI(`sip:${phoneNumber}@${SIP_DOMAIN}`);
-    
-    if (!targetURI) return;
-
-    const inviter = new Inviter(userAgent, targetURI, {
-      sessionDescriptionHandlerOptions: {
-        constraints: { audio: true, video: false },
-      },
-    });
-
-    setSession(inviter);
-    inviter
-      .invite()
-      .then(() => {
-        setPhoneStatus("Dialing");
-        inviter.stateChange.addListener((state) => {
-     if (state === SessionState.Established) {
-  attachMediaStream(inviter);
-  setPhoneStatus("In Call");
-  startCallTimer();
-
-  localStorage.setItem(
-    "activeCallState",
-    JSON.stringify({
-      phoneStatus: "In Call",
-     phoneNumber: phoneNumber || "",
-      callStartTime: new Date().toISOString(),
-      hasActiveCall: true,
-    })
-  );
- 
-}
-
-          if (state === SessionState.Terminated) {
-            setPhoneStatus("Idle");
-            setSession(null);
-            // Clear call state from localStorage
-            localStorage.removeItem("activeCallState");
-            if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
-            stopCallTimer();
-          }
-        });
-      })
-      .catch((error) => {
-        console.error("Call failed:", error);
-        setPhoneStatus("Call Failed");
-      });
-  };
-
   const handleRedial = (number, missedCallId = null) => {
-    if (!userAgent || !number) return;
-    const formatted = number.startsWith("+255")
-      ? `0${number.substring(4)}`
-      : number;
-    console.log("formatted", formatted);
-    const targetURI = UserAgent.makeURI(`sip:${formatted}@${SIP_DOMAIN}`);
-    if (!targetURI) return;
-
-    const inviter = new Inviter(userAgent, targetURI, {
-      sessionDescriptionHandlerOptions: {
-        constraints: { audio: true, video: false },
-      },
-    });
-
-    setSession(inviter);
-    inviter
-      .invite()
-      .then(() => {
-        setPhoneStatus("Dialing");
-     inviter.stateChange.addListener((state) => {
-  if (state === SessionState.Established) {
-    attachMediaStream(inviter);
-    setPhoneStatus("In Call");
-    startCallTimer();
-
-    localStorage.setItem(
-  "activeCallState",
-  JSON.stringify({
-    phoneStatus: "In Call",
-    phoneNumber: phoneNumber || "",
-    callStartTime: new Date().toISOString(),
-    hasActiveCall: true,
-  })
-);
-
- 
-   
-  }
-
-  if (state === SessionState.Terminated) {
-    setPhoneStatus("Idle");
-    setSession(null);
-    localStorage.removeItem("activeCallState");
-    if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
-    stopCallTimer();
-  }
-});
-
-      })
-      .catch((error) => {
-        console.error("Redial invite failed:", error);
-        setPhoneStatus("Call Failed");
-      });
-  };
-
-  // ---------- BLIND TRANSFER ONLY ----------
-  const handleBlindTransfer = async (targetExt) => {
-    const target = String(targetExt || "").trim();
-
-    if (!session) {
-      showAlert("No active call to transfer", "warning");
-      return;
-    }
-
-    if (!target) {
-      showAlert("Please enter an extension", "warning");
-      return;
-    }
-
-    if (target === String(extension)) {
-      showAlert("You cannot transfer to your own extension", "error");
-      return;
-    }
-
-    try {
-      const targetURI = UserAgent.makeURI(`sip:${target}@${SIP_DOMAIN}`);
-      if (!targetURI) {
-        showAlert("Invalid extension format", "error");
-        return;
-      }
-
-      await session.refer(targetURI);
-
-      showAlert(`Call transferred to extension ${target}`, "success");
-
-      // Cleanup
-      setManualTransferExt("");
-      setTimeout(() => {
-        handleEndCall();
-      }, 300);
-
-    } catch (err) {
-      console.error("Blind transfer failed:", err);
-      showAlert("Transfer failed. Try again.", "error");
-    }
+    redial(number, missedCallId);
   };
 
   // ---------- Status menu ----------
@@ -1024,16 +574,39 @@ useEffect(() => {
   const handleClose = () => setAnchorEl(null);
 
   const handleAgentEmergency = async (activity) => {
-    // Update local UI state
+    const isReady = (activity || "").toLowerCase() === "ready";
+
+    if (!isReady) {
+      try {
+        const response = await fetch(`${baseURL}/users/agents-online`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          },
+        });
+        const data = await response.json();
+        const onlineCount = data.agentCount ?? 0;
+        if (onlineCount <= 1) {
+          showAlert(
+            "You cannot go on break. At least 2 agents must be online (including you).",
+            "warning"
+          );
+          return;
+        }
+      } catch (err) {
+        console.error("Failed to check online agents:", err);
+        showAlert("Could not verify online agents. Try again.", "error");
+        return;
+      }
+    }
+
     setAgentStatus(activity);
 
-    // Start/stop status timer
-    if ((activity || "").toLowerCase() !== "ready") startStatusTimer(activity);
+    if (!isReady) startStatusTimer(activity);
     else stopStatusTimer();
 
-    // Translate to backend online/offline
-    const statusToUpdate =
-      (activity || "").toLowerCase() === "ready" ? "online" : "offline";
+    const statusToUpdate = isReady ? "online" : "pause";
     try {
       await fetch(`${baseURL}/users/status/${localStorage.getItem("userId")}`, {
         method: "PUT",
@@ -1048,45 +621,14 @@ useEffect(() => {
     }
   };
 
-  // Check for active call state on mount and when phoneStatus changes
-  useEffect(() => {
-    const activeCallState = localStorage.getItem("activeCallState");
-    if (activeCallState && phoneStatus === "Idle" && !session) {
-      try {
-        const callState = JSON.parse(activeCallState);
-        if (callState.hasActiveCall && callState.phoneStatus === "In Call") {
-          // Restore call state if session exists but state was lost
-          // This handles page refresh scenarios
-          console.log("Restoring active call state from localStorage");
-        }
-      } catch (e) {
-        console.error("Error parsing active call state:", e);
-      }
-    }
-  }, [phoneStatus, session]);
-
-  // Clear call state when call ends
-  useEffect(() => {
-    if (phoneStatus === "Idle" && !session) {
-      localStorage.removeItem("activeCallState");
-    }
-  }, [phoneStatus, session]);
-
   // Determine if there's an active call
   const hasActiveCall = phoneStatus === "In Call" && session !== null;
-// useEffect(() => {
-//   localStorage.setItem("missedCalls", JSON.stringify(missedCalls));
-// }, [missedCalls]);
+useEffect(() => {
+  localStorage.setItem("missedCalls", JSON.stringify(missedCalls));
+}, [missedCalls]);
 
   return (
     <div className="p-6">
-      {/* hidden remote audio for WebRTC (needed esp. on iOS/Safari) */}
-      <audio
-        ref={remoteAudioRef}
-        autoPlay
-        playsInline
-        style={{ opacity: 0, width: 1, height: 1 }}
-      />
 
       {/* Call Status Banner - Shows when on a call even if ticket modal is closed */}
       {hasActiveCall && !showTicketModal && (
@@ -1284,8 +826,13 @@ useEffect(() => {
         <div className="dashboard-single-agent">
           <CallQueueCard />
         </div>
-
+        {/* Total Contact Summary */}
         <div className="dashboard-single-agent">
+          <TotalContactSummary />
+          {/* Contact Summary Grid - 4 Equal Boxes */}
+          <ContactSummaryGrid />
+        </div>
+        {/* <div className="dashboard-single-agent">
           <CallHistoryCard
             onCallBack={(phoneNumber) => {
               setShowPhonePopup(true);
@@ -1294,19 +841,18 @@ useEffect(() => {
             }}
           />
         </div>
-
         <div className="dashboard-single-agent">
           <SingleAgentDashboardCard />
-        </div>
+        </div> */}
 
         <div className="dashboard-single-agent-row_two">
           <OnlineAgentsTable />
           <OnlineSupervisorsTable />
         </div>
 
-        <div className="dashboard-single-agent-row_four">
+        {/* <div className="dashboard-single-agent-row_four">
           <AgentPerformanceScore />
-        </div>
+        </div> */}
       </div>
 
       {/* Status menu */}
@@ -1391,270 +937,38 @@ useEffect(() => {
       </Menu>
 
       {/* Phone popup */}
-      {showPhonePopup && (
-        <div className="phone-popup-overlay">
-          <div className="phone-popup-container">
-            {/* Header */}
-            <div className="phone-popup-header">
-              <div className="phone-popup-title">
-                <MdOutlineLocalPhone className="phone-icon" />
-                <span>
-                  {phoneStatus === "In Call"
-                    ? "Active Call"
-                    : phoneStatus === "Ringing"
-                      ? "Incoming Call"
-                      : "Phone"}
-                </span>
-              </div>
-              <button
-                onClick={togglePhonePopup}
-                className="phone-popup-close"
-                aria-label="Close"
-              >
-                <span>&times;</span>
-              </button>
-            </div>
-
-            {/* Call Status Bar */}
-            {phoneStatus === "In Call" && (
-              <div className="call-status-bar">
-                <div className="call-status-indicator">
-                  <div className="call-status-dot active"></div>
-                  <span>Call in Progress</span>
-                </div>
-                <div className="call-duration">
-                  <span className="duration-label">Duration:</span>
-                  <span className="duration-time">
-                    {formatDuration(callDuration)}
-                  </span>
-                </div>
-                {/* Swap to Ticket Modal Button */}
-                <button
-                  className="swap-to-ticket-btn"
-                  onClick={swapToTicketModal}
-                  title="Switch to Ticket Form"
-                >
-                  📝 Ticket
-                </button>
-              </div>
-            )}
-
-            {/* Main Content */}
-            <div className="phone-popup-content">
-              {/* Incoming Call Display */}
-              {incomingCall && phoneStatus === "Ringing" && (
-                <div className="incoming-call-section">
-                  <div className="caller-info">
-                    <div className="caller-avatar">
-                      <span>
-                        {lastIncomingNumber
-                          ? lastIncomingNumber.charAt(0)
-                          : "?"}
-                      </span>
-                    </div>
-                    <div className="caller-details">
-                      <div className="caller-number">
-                        {lastIncomingNumber || "Unknown"}
-                      </div>
-                      <div className="caller-label">Incoming Call</div>
-                    </div>
-                  </div>
-                  <div className="call-actions">
-                    <button
-                      className="call-btn accept-btn"
-                      onClick={handleAcceptCall}
-                    >
-                      <FiPhoneCall />
-                      <span>Answer</span>
-                    </button>
-                    <button
-                      className="call-btn reject-btn"
-                      onClick={handleRejectCall}
-                    >
-                      <FiPhoneOff />
-                      <span>Decline</span>
-                    </button>
-                  </div>
-                  {/* Note: Ticket modal opens automatically when answering call */}
-                  <div className="call-instruction">
-                    <small style={{ color: "#6c757d", fontStyle: "italic" }}>
-                      💡 Ticket form will open automatically when you answer the
-                      call
-                    </small>
-                  </div>
-                </div>
-              )}
-
-              {/* Dial Pad Section */}
-              {phoneStatus !== "In Call" && phoneStatus !== "Ringing" && (
-                <div className="dial-pad-section">
-                  <div className="phone-number-display">
-                    <input
-                      type="text"
-                      className="phone-number-input"
-                      placeholder="Enter phone number"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                    />
-                  </div>
-
-                  {showKeypad && (
-                    <div className="keypad-grid">
-                      {[
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "*",
-                        "0",
-                        "#",
-                      ].map((digit) => (
-                        <button
-                          key={digit}
-                          className="keypad-btn"
-                          onClick={() => setPhoneNumber((prev) => prev + digit)}
-                        >
-                          {digit}
-                        </button>
-                      ))}
-                      <button
-                        className="keypad-btn backspace-btn"
-                        onClick={() =>
-                          setPhoneNumber((prev) => prev.slice(0, -1))
-                        }
-                        style={{ gridColumn: "span 3" }}
-                      >
-                        <span>⌫</span>
-                        <span>Backspace</span>
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Transfer Section (when in call) */}
-              {phoneStatus === "In Call" && (
-                <div className="transfer-section">
-                  <div className="transfer-header">
-                    <MdOutlineFollowTheSigns className="transfer-icon" />
-                    <span>Transfer Call</span>
-                  </div>
-
-                  <div className="transfer-input-inline">
-                    <TextField
-                      label="Enter Extension"
-                      size="small"
-                      fullWidth
-                      autoFocus
-                      value={manualTransferExt}
-                      onChange={(e) =>
-                        setManualTransferExt(e.target.value.replace(/\D/g, ""))
-                      }
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && manualTransferExt) {
-                          handleBlindTransfer(manualTransferExt);
-                        }
-                      }}
-                      placeholder="e.g. 1021"
-                      inputProps={{ maxLength: 6 }}
-                    />
-
-                    <div className="transfer-actions">
-                      <Button
-                        variant="contained"
-                        fullWidth
-                        onClick={() => handleBlindTransfer(manualTransferExt)}
-                        disabled={!manualTransferExt}
-                      >
-                        Transfer
-                      </Button>
-
-                      <Button
-                        variant="outlined"
-                        fullWidth
-                        onClick={() => setManualTransferExt("")}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-
-              {/* Control Buttons */}
-              <div className="phone-controls">
-                <div className="control-row">
-                  <button
-                    className={`control-btn ${isMuted ? "active" : ""}`}
-                    onClick={toggleMute}
-                    title={isMuted ? "Unmute" : "Mute"}
-                  >
-                    <BsFillMicMuteFill />
-                    <span>{isMuted ? "Unmute" : "Mute"}</span>
-                  </button>
-
-                  <button
-                    className={`control-btn ${isSpeakerOn ? "active" : ""}`}
-                    onClick={toggleSpeaker}
-                    title={isSpeakerOn ? "Speaker On" : "Speaker Off"}
-                  >
-                    <HiMiniSpeakerWave />
-                    <span>Speaker</span>
-                  </button>
-
-                  <button
-                    className={`control-btn ${isOnHold ? "active" : ""}`}
-                    onClick={toggleHold}
-                    title={isOnHold ? "Resume" : "Hold"}
-                  >
-                    <MdPauseCircleOutline />
-                    <span>{isOnHold ? "Resume" : "Hold"}</span>
-                  </button>
-                </div>
-
-                <div className="control-row">
-                  <button
-                    className="control-btn keypad-toggle"
-                    onClick={() => setShowKeypad((p) => !p)}
-                    title={showKeypad ? "Hide Keypad" : "Show Keypad"}
-                  >
-                    <IoKeypadOutline />
-                    <span>Keypad</span>
-                  </button>
-
-                  {phoneStatus !== "In Call" && phoneStatus !== "Ringing" && (
-                    <button
-                      className="control-btn dial-btn"
-                      onClick={handleDial}
-                      disabled={
-                        phoneStatus === "Dialing" || phoneStatus === "Ringing"
-                      }
-                    >
-                      <MdLocalPhone />
-                      <span>Dial</span>
-                    </button>
-                  )}
-
-                  <button
-                    className="control-btn end-call-btn"
-                    onClick={handleEndCall}
-                    title="End Call"
-                  >
-                    <FiPhoneOff />
-                    <span>End</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <PhonePopup
+        showPhonePopup={showPhonePopup}
+        phoneStatus={phoneStatus}
+        incomingCall={incomingCall}
+        lastIncomingNumber={lastIncomingNumber}
+        callDuration={callDuration}
+        phoneNumber={phoneNumber}
+        setPhoneNumber={setPhoneNumber}
+        showKeypad={showKeypad}
+        setShowKeypad={setShowKeypad}
+        isMuted={isMuted}
+        isSpeakerOn={isSpeakerOn}
+        isOnHold={isOnHold}
+        manualTransferExt={manualTransferExt}
+        setManualTransferExt={setManualTransferExt}
+        remoteAudioRef={remoteAudioRef}
+        formatDuration={formatDuration}
+        isConsulting={isConsulting}
+        onClose={togglePhonePopup}
+        onAccept={handleAcceptCall}
+        onReject={handleRejectCall}
+        onEnd={handleEndCall}
+        onDial={handleDial}
+        onToggleMute={toggleMute}
+        onToggleSpeaker={toggleSpeaker}
+        onToggleHold={toggleHold}
+        onBlindTransfer={handleBlindTransfer}
+        onStartConsult={handleStartConsult}
+        onCompleteConsultTransfer={handleCompleteConsultTransfer}
+        onCancelConsult={handleCancelConsult}
+        onSwapToTicket={swapToTicketModal}
+      />
 
       {/* Missed calls dialog */}
       <Dialog
@@ -1669,7 +983,7 @@ useEffect(() => {
             <p>No missed calls!</p>
           ) : (
             <ul style={{ listStyle: "none", padding: 0 }}>
-             {missedCalls.map((call) => (
+              {missedCalls.map((call) => (
 
                 <li
                   key={call.id}
@@ -1694,23 +1008,24 @@ useEffect(() => {
                   color={callingBackId === call.id ? "success" : "primary"}
                   disabled={callingBackId === call.id}
                   startIcon={<FiPhoneCall />}
-                 onClick={async () => {
-                      // 1️⃣ Optimistic UI: remove immediately
-                      setMissedCalls(prev => prev.filter(c => c.id !== call.id));
+                  onClick={() => {
+                    // 🔴 VISUAL STATE FIRST
+                    setCallingBackId(call.id);
 
-                      // 2️⃣ Backend: mark as called_back
-                      await markMissedCallAsCalledBack(call.id);
+                    // 🔴 REMOVE FROM UI
+                    setMissedCalls(prev =>
+                      prev.filter(c => c.id !== call.id)
+                    );
 
-                      // 3️⃣ Reset calling state
-                      setCallingBackId(null);
+                    // 🔴 BACKEND UPDATE
+                    markMissedCallAsCalledBack(call.id);
 
-                      // 4️⃣ Phone flow
-                      setMissedOpen(false);
-                      setShowPhonePopup(true);
-                      setPhoneNumber(call.caller);
-                      handleRedial(call.caller);
-                    }}
-
+                    // 🔴 PHONE FLOW
+                    setMissedOpen(false);
+                    setShowPhonePopup(true);
+                    setPhoneNumber(call.caller);
+                    handleRedial(call.caller, call.id);
+                  }}
                 >
                   {callingBackId === call.id ? "Calling..." : "Call Back"}
                 </Button>

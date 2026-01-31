@@ -1,7 +1,7 @@
 .live-calls-table-container {
   background: white;
   border-radius: 8px;
-  padding: 20px;
+  padding: 12px 20px 20px 20px;
   margin: 20px 0;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -11,6 +11,7 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  margin-top: 0;
   flex-wrap: wrap;
   gap: 15px;
 }
@@ -181,3 +182,8 @@
   font-size: 1em;
   color: #888;
 } 
+.active-spy {
+  background: #4caf50 !important;
+  color: white;
+  box-shadow: 0 0 10px rgba(76, 175, 80, 0.8);
+}

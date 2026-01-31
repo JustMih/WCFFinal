@@ -35,6 +35,7 @@ import InputAdornment from "@mui/material/InputAdornment";
 import ChatIcon from '@mui/icons-material/Chat';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import Download from '@mui/icons-material/Download';
+import InfoIcon from '@mui/icons-material/Info';
 import AttachFile from '@mui/icons-material/AttachFile';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import DescriptionIcon from '@mui/icons-material/Description';
@@ -250,6 +251,19 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
             }
             continue; // Skip adding this Closed action separately
           }
+          // If previous step has the same name (assigned_to_name) as current Closed action, consolidate
+          // This handles cases where the same person assigned and then closed
+          if (prevStep.assigned_to_name === current.assigned_to_name && 
+              prevStep.assigned_to_id === current.assigned_to_id) {
+            // Consolidate: update previous step to "Closed"
+            prevStep.action = "Closed";
+            prevStep.closed_at = current.created_at;
+            prevStep.isConsolidated = true;
+            if (current.reason) {
+              prevStep.reason = current.reason;
+            }
+            continue; // Skip adding this Closed action separately
+          }
         }
       }
 
@@ -309,6 +323,33 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
       created_at: selectedTicket.assigned_at,
       assigned_to_id: selectedTicket.assigned_to_id
     });
+  }
+
+  // Check if ticket is closed and if the person who closed it is the same as the last assignment
+  // If so, update the last step to "Closed" instead of adding a new step
+  if (selectedTicket.status === "Closed" && steps.length > 1) {
+    const lastStep = steps[steps.length - 1];
+    // Try to find who closed from assignment history
+    let closedBy = null;
+    if (Array.isArray(assignmentHistory) && assignmentHistory.length > 0) {
+      const closedAction = assignmentHistory.find(a => a.action === "Closed");
+      if (closedAction) {
+        closedBy = closedAction.assigned_to_name || closedAction.assigned_to_id;
+      }
+    }
+    
+    // If closed by is same as last step's assigned_to_name or assigned_to_id, update last step
+    if (closedBy && (
+      closedBy === lastStep.assigned_to_name || 
+      closedBy === lastStep.assigned_to_id ||
+      (lastStep.assignedTo && closedBy === lastStep.assignedTo.full_name) ||
+      (lastStep.user && closedBy === lastStep.user.full_name)
+    )) {
+      // Update last step to "Closed" instead of adding new step
+      lastStep.action = "Closed";
+      lastStep.closed_at = selectedTicket.date_of_resolution || selectedTicket.updated_at;
+      lastStep.isConsolidated = true;
+    }
   }
 
   // Determine current step index for descending order
@@ -795,6 +836,77 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
 
 export { AssignmentStepper };
 
+// Clarification Stepper Component
+const ClarificationStepper = ({ clarifications }) => {
+  if (!clarifications || clarifications.length === 0) {
+    return null; // Don't show if no clarifications
+  }
+
+  return (
+    <Box sx={{ mt: 3, mb: 2 }}>
+      <Typography 
+        variant="subtitle1" 
+        sx={{ 
+          color: "#3f51b5", 
+          mb: 2, 
+          fontWeight: "bold",
+          fontSize: "1rem"
+        }}
+      >
+        Additional Clarifications
+      </Typography>
+      <Divider sx={{ mb: 2 }} />
+      {clarifications.map((clarification, index) => (
+        <Box
+          key={clarification.id || index}
+          sx={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: 2,
+            mb: 2,
+            p: 2,
+            bgcolor: "#f5f5f5",
+            borderRadius: 1,
+            borderLeft: "4px solid #1976d2",
+            position: "relative"
+          }}
+        >
+          <Box
+            sx={{
+              width: 12,
+              height: 12,
+              borderRadius: "50%",
+              bgcolor: "#1976d2",
+              flexShrink: 0,
+              mt: 0.5
+            }}
+          />
+          <Box sx={{ flex: 1 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: "bold", mb: 0.5, fontSize: "0.9rem" }}>
+              {clarification.edited_by_name || "Unknown"} ({clarification.edited_by_role || "N/A"})
+            </Typography>
+            <Typography variant="body2" sx={{ color: "#333", mb: 1, whiteSpace: "pre-wrap", fontSize: "0.875rem", lineHeight: 1.6 }}>
+              {clarification.clarification_text}
+            </Typography>
+            <Typography variant="caption" sx={{ color: "#666", fontSize: "0.75rem" }}>
+              {clarification.created_at
+                ? new Date(clarification.created_at).toLocaleString("en-GB", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    hour12: true
+                  })
+                : "N/A"}
+            </Typography>
+          </Box>
+        </Box>
+      ))}
+    </Box>
+  );
+};
+
 function AssignmentFlowChat({ assignmentHistory = [], selectedTicket }) {
   const creatorStep = selectedTicket
     ? {
@@ -978,7 +1090,7 @@ export default function TicketDetailsModal({
   selectedTicket,
   assignmentHistory,
   handleCategoryChange,
-  handleUnitChange,
+  handleUnitChange = null, // Make optional
   categories = [],
   units = [],
   convertCategory = {},
@@ -1000,6 +1112,20 @@ export default function TicketDetailsModal({
   // State for all sections (directorates and units) from mapping
   const [allSectionsList, setAllSectionsList] = useState([]);
   
+  // Internal state for forwardUnit if not provided as prop
+  const [internalForwardUnit, setInternalForwardUnit] = useState({});
+  
+  // Internal state for convertCategory if not provided as prop
+  const [internalConvertCategory, setInternalConvertCategory] = useState({});
+  
+  // Use prop forwardUnit if provided, otherwise use internal state
+  const effectiveForwardUnit = Object.keys(forwardUnit).length > 0 ? forwardUnit : internalForwardUnit;
+  const effectiveSetForwardUnit = setForwardUnit && setForwardUnit.toString() !== '() => {}' ? setForwardUnit : setInternalForwardUnit;
+  
+  // Use prop convertCategory if provided, otherwise use internal state
+  const effectiveConvertCategory = Object.keys(convertCategory).length > 0 ? convertCategory : internalConvertCategory;
+  const effectiveSetConvertCategory = setConvertCategory && setConvertCategory.toString() !== '() => {}' ? setConvertCategory : setInternalConvertCategory;
+  
   const [isAttendDialogOpen, setIsAttendDialogOpen] = useState(false);
   const [resolutionDetails, setResolutionDetails] = useState("");
   const [attachment, setAttachment] = useState(null);
@@ -1009,10 +1135,10 @@ export default function TicketDetailsModal({
   const handleFileChange = (e) => {
     const file = e.target.files && e.target.files[0] ? e.target.files[0] : null;
     if (file) {
-      // Check file size (10MB = 10 * 1024 * 1024 bytes)
-      const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+      // Check file size (2MB = 2 * 1024 * 1024 bytes)
+      const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2MB
       if (file.size > MAX_FILE_SIZE) {
-        setFileError(`File size exceeds the maximum limit of 10MB. Your file is ${(file.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`);
+        setFileError(`File size exceeds the maximum limit of 2MB. Your file is ${(file.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`);
         e.target.value = ''; // Clear the input
         setAttachment(null);
         return;
@@ -1030,6 +1156,7 @@ export default function TicketDetailsModal({
   const [isReviewerCloseDialogOpen, setIsReviewerCloseDialogOpen] = useState(false);
   const [selectedRating, setSelectedRating] = useState("");
   const [ratingComment, setRatingComment] = useState("");
+  const [lastInitializedTicketId, setLastInitializedTicketId] = useState(null);
 
   // Reverse modal state
   const [isReverseModalOpen, setIsReverseModalOpen] = useState(false);
@@ -1042,6 +1169,10 @@ export default function TicketDetailsModal({
   const [assignReason, setAssignReason] = useState("");
   const [assignLoading, setAssignLoading] = useState(false);
   const [attendees, setAttendees] = useState([]);
+  
+  // State for clarifications
+  const [clarifications, setClarifications] = useState([]);
+  const [loadingClarifications, setLoadingClarifications] = useState(false);
 
   // Reassign modal state
   const [isReassignModalOpen, setIsReassignModalOpen] = useState(false);
@@ -1168,12 +1299,76 @@ export default function TicketDetailsModal({
            mostRecentAssignment?.assigned_to_role === "Manager";
   };
 
-  // Initialize selectedRating when modal opens
+  // Initialize selectedRating when modal opens (only when ticket changes, not when unit changes)
   useEffect(() => {
-    if (selectedTicket) {
+    if (selectedTicket && selectedTicket.id !== lastInitializedTicketId) {
+      // Only initialize rating when ticket changes, not when unit changes
+      // This preserves user's rating selection when they change unit
       setSelectedRating(selectedTicket.complaint_type || "");
+      setLastInitializedTicketId(selectedTicket.id);
+      
+      // Initialize forwardUnit with section (if directorate) or sub_section (if unit)
+      if (selectedTicket.id && effectiveSetForwardUnit && !effectiveForwardUnit[selectedTicket.id]) {
+        // Check if it's a directorate based on section name
+        const isDirectorate = selectedTicket.section && (
+          selectedTicket.section.includes('Directorate') || 
+          selectedTicket.section.includes('directorate')
+        );
+        
+        // Determine the value to use: section for directorate, sub_section for unit
+        let initialValue = null;
+        if (isDirectorate && selectedTicket.section) {
+          initialValue = selectedTicket.section;
+        } else if (!isDirectorate && selectedTicket.sub_section) {
+          initialValue = selectedTicket.sub_section;
+        } else if (selectedTicket.responsible_unit_name) {
+          initialValue = selectedTicket.responsible_unit_name;
+        } else if (selectedTicket.section && !selectedTicket.section.toLowerCase().includes('unit')) {
+          initialValue = selectedTicket.section;
+        }
+        
+        // Set the initial value if we have one
+        if (initialValue) {
+          effectiveSetForwardUnit((prev) => ({
+            ...prev,
+            [selectedTicket.id]: initialValue
+          }));
+        }
+      }
     }
-  }, [selectedTicket]);
+  }, [selectedTicket?.id, allSectionsList, lastInitializedTicketId]); // Only initialize when ticket ID changes, not when unit changes
+
+  // Fetch clarifications when ticket is selected
+  useEffect(() => {
+    const fetchClarifications = async () => {
+      if (!selectedTicket?.id) {
+        setClarifications([]);
+        return;
+      }
+      
+      setLoadingClarifications(true);
+      try {
+        const token = localStorage.getItem("authToken");
+        const response = await fetch(`${baseURL}/ticket/${selectedTicket.id}/clarifications`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setClarifications(Array.isArray(data) ? data : []);
+        } else {
+          setClarifications([]);
+        }
+      } catch (error) {
+        console.error("Error fetching clarifications:", error);
+        setClarifications([]);
+      } finally {
+        setLoadingClarifications(false);
+      }
+    };
+    
+    fetchClarifications();
+  }, [selectedTicket?.id]);
 
   // Fetch all sections (directorates and units) from units-data and functions
   useEffect(() => {
@@ -1529,6 +1724,11 @@ export default function TicketDetailsModal({
 
   // Send new message
   const handleSendMessage = async () => {
+    // Don't allow sending messages if ticket is closed
+    if (selectedTicket?.status === 'Closed' || selectedTicket?.status === 'Attended and Recommended') {
+      showSnackbar("Cannot send message: Ticket is closed", "warning");
+      return;
+    }
     if (!newMessage.trim() || !selectedTicket?.id || sendingMessage) return;
 
     setSendingMessage(true);
@@ -1683,15 +1883,28 @@ export default function TicketDetailsModal({
     // Hide attend button for attendee/agent if complaint_type is Minor or Major
     !((userRole === "attendee" || userRole === "agent") && 
       (selectedTicket.complaint_type === "Minor" || selectedTicket.complaint_type === "Major")) &&
-    (
-      // For director: show attend button for Minor status
-      (userRole === "director" && selectedTicket.complaint_type === "Minor") ||
-      // For attendee: show attend button for normal tickets (Inquiry/other non-complaint categories)
-      (userRole === "attendee" && selectedTicket.category !== "Complaint") ||
-      // For agent: show attend button for normal tickets (Inquiry/other non-complaint categories)
-      (userRole === "agent" && selectedTicket.category !== "Complaint") ||
-      // For head-of-unit: show attend button only for Minor complaints
-      (userRole === "head-of-unit" && selectedTicket.complaint_type === "Minor") ||
+      (
+        // For director: show attend button for Minor status OR Suggestion/Complement/Compliment OR unrated tickets (N/A)
+        (userRole === "director" && (
+          selectedTicket.complaint_type === "Minor" ||
+          selectedTicket.complaint_type === "N/A" ||
+          !selectedTicket.complaint_type ||
+          selectedTicket.category === "Suggestion" ||
+          selectedTicket.category === "Compliment"
+        )) ||
+        // For attendee: show attend button for normal tickets (Inquiry/other non-complaint categories)
+        (userRole === "attendee" && selectedTicket.category !== "Complaint") ||
+        // For agent: show attend button for normal tickets (Inquiry/other non-complaint categories)
+        (userRole === "agent" && selectedTicket.category !== "Complaint") ||
+        // For head-of-unit: show attend button for Minor complaints OR Suggestion/Complement/Compliment OR unrated tickets (N/A)
+        (userRole === "head-of-unit" && (
+          selectedTicket.complaint_type === "Minor" ||
+          selectedTicket.complaint_type === "N/A" ||
+          !selectedTicket.complaint_type ||
+          selectedTicket.category === "Suggestion" ||
+          selectedTicket.category === "Complement" ||
+          selectedTicket.category === "Compliment"
+        )) ||
       // For non-directors, non-attendees, non-agents, and non-head-of-unit: existing logic
       (userRole !== "director" && userRole !== "attendee" && userRole !== "agent" && userRole !== "head-of-unit" && (
         // For non-managers, only allow if ticket is not rated
@@ -1729,7 +1942,7 @@ export default function TicketDetailsModal({
     // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
     const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
     if (attachment && attachment.size > MAX_FILE_SIZE) {
-      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 2MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
       setFileError(errorMsg);
       showSnackbar(errorMsg, 'error');
       return;
@@ -1983,7 +2196,7 @@ export default function TicketDetailsModal({
     // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
     const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
     if (attachment && attachment.size > MAX_FILE_SIZE) {
-      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 2MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
       setFileError(errorMsg);
       showSnackbar(errorMsg, 'error');
       return;
@@ -2043,7 +2256,7 @@ export default function TicketDetailsModal({
     // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
     const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
     if (attachment && attachment.size > MAX_FILE_SIZE) {
-      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 2MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
       setFileError(errorMsg);
       showSnackbar(errorMsg, 'error');
       return;
@@ -2106,7 +2319,7 @@ export default function TicketDetailsModal({
     // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
     const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
     if (attachment && attachment.size > MAX_FILE_SIZE) {
-      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 2MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
       setFileError(errorMsg);
       showSnackbar(errorMsg, 'error');
       return;
@@ -2173,7 +2386,7 @@ export default function TicketDetailsModal({
     // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
     const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
     if (attachment && attachment.size > MAX_FILE_SIZE) {
-      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 2MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
       setFileError(errorMsg);
       showSnackbar(errorMsg, 'error');
       return;
@@ -2692,7 +2905,7 @@ export default function TicketDetailsModal({
     // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
     const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
     if (attachment && attachment.size > MAX_FILE_SIZE) {
-      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 2MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
       setFileError(errorMsg);
       showSnackbar(errorMsg, 'error');
       return;
@@ -2807,15 +3020,15 @@ export default function TicketDetailsModal({
   const handleConvertOrForward = async (ticketId, mode = "convert") => {
     const userId = localStorage.getItem("userId");
     const token = localStorage.getItem("authToken");
-    const category = convertCategory[ticketId];
-    const unitName = forwardUnit[ticketId];
+    const category = effectiveConvertCategory[ticketId];
+    const unitName = effectiveForwardUnit[ticketId]; // Use effectiveForwardUnit instead of forwardUnit
     
     console.log('🔍 handleConvertOrForward called:', {
       ticketId,
       mode,
-      forwardUnitState: forwardUnit,
+      forwardUnitState: effectiveForwardUnit,
       unitNameFromState: unitName,
-      convertCategoryState: convertCategory,
+      convertCategoryState: effectiveConvertCategory,
       categoryFromState: category
     });
 
@@ -2851,7 +3064,7 @@ export default function TicketDetailsModal({
     
     console.log('Debug - Forward validation:', {
       unitNameFromDropdown: unitName,
-      forwardUnitState: forwardUnit[ticketId],
+      forwardUnitState: effectiveForwardUnit[ticketId],
       currentTicketSection: currentTicket?.section,
       currentTicketSubSection: currentTicket?.sub_section,
       currentTicketResponsibleUnit: currentTicket?.responsible_unit_name,
@@ -2911,17 +3124,33 @@ export default function TicketDetailsModal({
       });
       const data = await response.json();
       if (response.ok) {
+        // Refresh clarifications after forward/convert
+        if (selectedTicket?.id) {
+          try {
+            const token = localStorage.getItem("authToken");
+            const clarifResponse = await fetch(`${baseURL}/ticket/${selectedTicket.id}/clarifications`, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            if (clarifResponse.ok) {
+              const clarifData = await clarifResponse.json();
+              setClarifications(Array.isArray(clarifData) ? clarifData : []);
+            }
+          } catch (error) {
+            console.error("Error refreshing clarifications:", error);
+          }
+        }
+        
         showSnackbar(data.message || "Ticket updated successfully", "success", () => {
           refreshTickets();
           onClose && onClose();
         });
         // Clear both states after successful update
-        setConvertCategory((prev) => {
+        effectiveSetConvertCategory((prev) => {
           const newState = { ...prev };
           delete newState[ticketId];
           return newState;
         });
-        setForwardUnit((prev) => {
+        effectiveSetForwardUnit((prev) => {
           const newState = { ...prev };
           delete newState[ticketId];
           return newState;
@@ -3040,7 +3269,7 @@ export default function TicketDetailsModal({
     // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
     const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
     if (attachment && attachment.size > MAX_FILE_SIZE) {
-      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 2MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
       setFileError(errorMsg);
       showSnackbar(errorMsg, 'error');
       return;
@@ -3122,6 +3351,7 @@ export default function TicketDetailsModal({
             bgcolor: "background.paper",
             boxShadow: 24,
             borderRadius: 2,
+            border: "3px solid #1976d2",
             p: 3
           }}
         >
@@ -3290,6 +3520,11 @@ export default function TicketDetailsModal({
                 <Divider sx={{ mb: 2 }} />
 
                 <AssignmentStepper assignmentHistory={assignmentHistory} selectedTicket={selectedTicket} />
+
+                {/* Additional Clarifications - Show before Current Status */}
+                <Box sx={{ mt: 2 }}>
+                  <ClarificationStepper clarifications={clarifications} />
+                </Box>
 
                 {/* Current Status */}
                 <Box sx={{ mt: 2, p: 2, bgcolor: "white", borderRadius: 1 }}>
@@ -3706,8 +3941,18 @@ export default function TicketDetailsModal({
                               <FormControl size="small" sx={{ minWidth: 120 }}>
                                 <InputLabel sx={{ fontSize: '0.8rem' }}>Convert To</InputLabel>
                                 <Select
-                                  value={convertCategory[selectedTicket.id] || ""}
-                                  onChange={(e) => handleCategoryChange(selectedTicket.id, e.target.value)}
+                                  value={effectiveConvertCategory[selectedTicket.id] || ""}
+                                  onChange={(e) => {
+                                    // Use handleCategoryChange if provided, otherwise use effectiveSetConvertCategory
+                                    if (handleCategoryChange) {
+                                      handleCategoryChange(selectedTicket.id, e.target.value);
+                                    } else {
+                                      effectiveSetConvertCategory((prev) => ({
+                                        ...prev,
+                                        [selectedTicket.id]: e.target.value
+                                      }));
+                                    }
+                                  }}
                                   label="Convert To"
                                   sx={{
                                     fontSize: '0.8rem',
@@ -3761,8 +4006,8 @@ export default function TicketDetailsModal({
                                 placeholder="Please provide a comment/description before forwarding..."
                                 size="small"
                                 required
-                                error={!ratingComment.trim() && selectedRating && forwardUnit[selectedTicket.id]}
-                                helperText={!ratingComment.trim() && selectedRating && forwardUnit[selectedTicket.id] ? "Comment is required before forwarding" : ""}
+                                error={!ratingComment.trim() && selectedRating && effectiveForwardUnit[selectedTicket.id]}
+                                helperText={!ratingComment.trim() && selectedRating && effectiveForwardUnit[selectedTicket.id] ? "Comment is required before forwarding" : ""}
                                 sx={{
                                   '& .MuiInputBase-root': {
                                     fontSize: '0.8rem'
@@ -3787,14 +4032,22 @@ export default function TicketDetailsModal({
                             </Typography>
                             <FormControl fullWidth size="small">
                               <Select
-                                value={forwardUnit[selectedTicket.id] || ""}
+                                value={effectiveForwardUnit[selectedTicket.id] || ""}
                                 onChange={(e) => {
                                   console.log('🔍 Unit dropdown changed:', {
                                     ticketId: selectedTicket.id,
                                     selectedValue: e.target.value,
-                                    previousValue: forwardUnit[selectedTicket.id]
+                                    previousValue: effectiveForwardUnit[selectedTicket.id]
                                   });
-                                  handleUnitChange(selectedTicket.id, e.target.value);
+                                  // Use handleUnitChange if provided, otherwise use effectiveSetForwardUnit
+                                  if (handleUnitChange) {
+                                    handleUnitChange(selectedTicket.id, e.target.value);
+                                  } else {
+                                    effectiveSetForwardUnit((prev) => ({
+                                      ...prev,
+                                      [selectedTicket.id]: e.target.value
+                                    }));
+                                  }
                                 }}
                                 sx={{
                                   fontSize: '0.8rem',
@@ -3923,7 +4176,7 @@ export default function TicketDetailsModal({
                                   (allSectionsList && allSectionsList.some(s => s.name === selectedTicket.section && !s.section_id))
                                 );
                                 const displayValue = isDirectorate ? selectedTicket.section : (selectedTicket.sub_section || selectedTicket.section);
-                                return displayValue && !forwardUnit[selectedTicket.id] && (
+                                return displayValue && !effectiveForwardUnit[selectedTicket.id] && (
                                   String(selectedTicket.category || "").toLowerCase() === "complaint"
                                     ? (selectedRating && ["Minor", "Major"].includes(selectedRating) && ratingComment.trim())
                                     : true
@@ -4069,7 +4322,7 @@ export default function TicketDetailsModal({
                           (userRole === 'reviewer' && 
                            (selectedTicket.assigned_to_id === userId || 
                             selectedTicket.responsible_unit_name === "Public Relation Unit" ||
-                            forwardUnit[selectedTicket.id]))) && (
+                            effectiveForwardUnit[selectedTicket.id]))) && (
                         <>
                           <Tooltip title="Close and resolve this ticket">
                             <Button
@@ -4115,7 +4368,7 @@ export default function TicketDetailsModal({
                      (permissionManager.canCloseAtCurrentStep(selectedTicket) ||
                       (userRole === 'reviewer' && 
                        (selectedTicket.assigned_to_id === userId || 
-                        forwardUnit[selectedTicket.id]))) && (
+                        effectiveForwardUnit[selectedTicket.id]))) && (
                         <>
                           <Tooltip title="Close and resolve this ticket">
                         <Button
@@ -4264,7 +4517,9 @@ export default function TicketDetailsModal({
                       </Tooltip>
                     )}
                     
-                    <Tooltip title="Reverse this ticket back to the previous assignee">
+                    <Tooltip title={userRole === "focal-person" && selectedTicket?.category === "Complaint" 
+                      ? "Reverse this ticket with a recommendation" 
+                      : "Reverse this ticket back to the previous assignee"}>
                     <Button
                       variant="contained"
                       color="warning"
@@ -4272,19 +4527,27 @@ export default function TicketDetailsModal({
                       onClick={() => setIsReverseModalOpen(true)}
                       disabled={isReversing}
                     >
-                      Reverse
+                      {userRole === "focal-person" && selectedTicket?.category === "Complaint" 
+                        ? "Reverse with Recommendation" 
+                        : "Reverse"}
                     </Button>
                     </Tooltip>
-                    <Tooltip title="Assign this ticket to an attendee">
-                    <Button
-                      variant="contained"
-                      color="info"
-                      sx={{ mr: 1 }}
-                      onClick={() => setIsAssignModalOpen(true)}
-                    >
-                      Assign
-                    </Button>
-                    </Tooltip>
+                    {/* Hide Assign button for manager, head-of-unit, and director when category is Compliment, Suggestion, or Complement */}
+                    {/* Hide Assign button for focal-person when category is Complaint */}
+                    {!((userRole === "manager" || userRole === "head-of-unit" || userRole === "director") && 
+                        (selectedTicket?.category === "Compliment" || selectedTicket?.category === "Suggestion" || selectedTicket?.category === "Complement")) &&
+                     !(userRole === "focal-person" && selectedTicket?.category === "Complaint") && (
+                      <Tooltip title={selectedTicket?.status === "Assigned" ? "Reassign this ticket to a different attendee" : "Assign this ticket to an attendee"}>
+                      <Button
+                        variant="contained"
+                        color="info"
+                        sx={{ mr: 1 }}
+                        onClick={() => setIsAssignModalOpen(true)}
+                      >
+                        {selectedTicket?.status === "Assigned" ? "Reassign" : "Assign"}
+                      </Button>
+                      </Tooltip>
+                    )}
                   </>
                 )}
 
@@ -4353,7 +4616,7 @@ export default function TicketDetailsModal({
             permissionManager.canCloseAtCurrentStep(selectedTicket) ||
             String(selectedTicket.assigned_to_id) === String(userId) ||
             selectedTicket.responsible_unit_name === "Public Relation Unit" ||
-            Boolean(forwardUnit?.[selectedTicket.id])
+            Boolean(effectiveForwardUnit?.[selectedTicket.id])
           )
         ) && (
                   <Tooltip title="Cancel and close this dialog">
@@ -4617,7 +4880,7 @@ export default function TicketDetailsModal({
                   // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
                   const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
                   if (attachment && attachment.size > MAX_FILE_SIZE) {
-                    const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+                    const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 2MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
                     setFileError(errorMsg);
                     showSnackbar(errorMsg, 'error');
                     return;
@@ -5842,6 +6105,36 @@ export default function TicketDetailsModal({
             }}
             id="messages-container"
           >
+            {/* Show Ticket Closed message if ticket is closed */}
+            {(selectedTicket?.status === 'Closed' || selectedTicket?.status === 'Attended and Recommended') && (
+              <Alert 
+                severity="info" 
+                icon={<InfoIcon />}
+                sx={{ 
+                  mt: 2, 
+                  mb: 2,
+                  backgroundColor: '#e3f2fd',
+                  border: '1px solid #90caf9',
+                  borderRadius: 2,
+                  '& .MuiAlert-icon': {
+                    color: '#1976d2'
+                  },
+                  '& .MuiAlert-message': {
+                    width: '100%'
+                  }
+                }}
+              >
+                <Typography variant="h6" sx={{ color: '#1976d2', fontWeight: 'bold', mb: 1 }}>
+                  Ticket Closed
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#666', mb: 0.5 }}>
+                  This ticket has been closed. No further messages are available.
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#666' }}>
+                  The ticket has been resolved and completed.
+                </Typography>
+              </Alert>
+            )}
             {ticketMessages.length === 0 ? (
               <Alert severity="info" sx={{ mt: 2 }}>No messages yet. Start the conversation!</Alert>
             ) : (
@@ -5896,7 +6189,11 @@ export default function TicketDetailsModal({
                   fullWidth
                   multiline
                   rows={2}
-                  placeholder="Type your message... Type @ to mention users"
+                  placeholder={
+                    selectedTicket?.status === 'Closed' || selectedTicket?.status === 'Attended and Recommended'
+                      ? "Cannot send message: Ticket is closed"
+                      : "Type your message... Type @ to mention users"
+                  }
                   value={newMessage}
                   onChange={handleMessageTextChange}
                   onKeyDown={handleMentionKeyDown}
@@ -5907,7 +6204,7 @@ export default function TicketDetailsModal({
                     }
                   }}
                   size="small"
-                  disabled={sendingMessage}
+                  disabled={sendingMessage || selectedTicket?.status === 'Closed' || selectedTicket?.status === 'Attended and Recommended'}
                 />
                 {showMentions && filteredMentionUsers.length > 0 && (
                   <ClickAwayListener onClickAway={() => setShowMentions(false)}>
@@ -5960,7 +6257,7 @@ export default function TicketDetailsModal({
               <Button
                 variant="contained"
                 onClick={handleSendMessage}
-                disabled={!newMessage.trim() || sendingMessage}
+                disabled={!newMessage.trim() || sendingMessage || selectedTicket?.status === 'Closed' || selectedTicket?.status === 'Attended and Recommended'}
                 sx={{ 
                   alignSelf: 'flex-end',
                   minWidth: '80px'
