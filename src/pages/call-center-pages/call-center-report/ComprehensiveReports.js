@@ -49,6 +49,7 @@ const REPORT_TYPES = {
   CALL_SUMMARY: 4,
   IVR_INTERACTIONS: 5,
   TICKET_ASSIGNMENTS: 6,
+  MISSED_CALL: 7,
 };
 
 export default function ComprehensiveReports() {
@@ -72,6 +73,7 @@ export default function ComprehensiveReports() {
   const [agentFilter, setAgentFilter] = useState("all");
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
+  const [missedCallStatusFilter, setMissedCallStatusFilter] = useState("all");
 
   // Column selection
   const [columnDialogOpen, setColumnDialogOpen] = useState(false);
@@ -140,6 +142,21 @@ export default function ComprehensiveReports() {
           }
           endpoint = `${baseURL}/reports/ticket-assignments/${startDate}/${endDate}`;
           break;
+        case REPORT_TYPES.MISSED_CALL: {
+          const params = new URLSearchParams();
+          if (startDate) params.set("startDate", startDate);
+          if (endDate) params.set("endDate", endDate);
+          if (missedCallStatusFilter !== "all") params.set("status", missedCallStatusFilter);
+          const url = `${baseURL}/missed-calls${params.toString() ? `?${params.toString()}` : ""}`;
+          const res = await fetch(url, { headers });
+          if (!res.ok) throw new Error("Failed to fetch missed calls");
+          const data = await res.json();
+          const list = Array.isArray(data) ? data : [];
+          list.sort((a, b) => new Date(b.time || 0) - new Date(a.time || 0));
+          setReports(list);
+          setLoading(false);
+          return;
+        }
         default:
           throw new Error("Invalid report type");
       }
@@ -483,6 +500,14 @@ export default function ComprehensiveReports() {
           { key: "actionDetails", label: "Action Details", default: false },
           { key: "createdDate", label: "Created Date", default: true },
         ];
+      case REPORT_TYPES.MISSED_CALL:
+        return [
+          { key: "serial", label: "Serial No", default: true },
+          { key: "caller", label: "Caller", default: true },
+          { key: "time", label: "Time", default: true },
+          { key: "agentId", label: "Assigned Agent", default: true },
+          { key: "status", label: "Status", default: true },
+        ];
       default:
         return [];
     }
@@ -580,6 +605,12 @@ export default function ComprehensiveReports() {
         return (
           (report.agent_name || "").toLowerCase().includes(searchLower) &&
           matchesAgent
+        );
+      case REPORT_TYPES.MISSED_CALL:
+        return (
+          (report.caller || "").toLowerCase().includes(searchLower) ||
+          (report.agentId || "").toLowerCase().includes(searchLower) ||
+          (report.agent_name || "").toLowerCase().includes(searchLower)
         );
       default:
         return true;
@@ -954,6 +985,27 @@ export default function ComprehensiveReports() {
           default:
             return report[columnKey] || "-";
         }
+      case REPORT_TYPES.MISSED_CALL:
+        switch (columnKey) {
+          case "serial":
+            return index + 1;
+          case "caller":
+            return report.caller || "-";
+          case "time":
+            return report.time
+              ? new Date(report.time).toLocaleString()
+              : "-";
+          case "agentId":
+            if (report.agentId) {
+              const name = report.agent_name ? ` (${report.agent_name})` : "";
+              return `Ext ${report.agentId}${name}`;
+            }
+            return "-";
+          case "status":
+            return report.status || "-";
+          default:
+            return report[columnKey] || "-";
+        }
       default:
         return "-";
     }
@@ -1258,6 +1310,7 @@ export default function ComprehensiveReports() {
       [REPORT_TYPES.CALL_SUMMARY]: "Call Summary Report",
       [REPORT_TYPES.IVR_INTERACTIONS]: "IVR Interactions Report",
       [REPORT_TYPES.TICKET_ASSIGNMENTS]: "Ticket Assignments Report",
+      [REPORT_TYPES.MISSED_CALL]: "Missed Call Report",
     };
     return titles[activeTab] || "Report";
   };
@@ -1377,10 +1430,57 @@ export default function ComprehensiveReports() {
         return renderIVRTable();
       case REPORT_TYPES.TICKET_ASSIGNMENTS:
         return renderTicketAssignmentsTable();
+      case REPORT_TYPES.MISSED_CALL:
+        return renderMissedCallTable();
       default:
         return null;
     }
   };
+
+  const renderMissedCallTable = () => (
+    <table className="report-table">
+      <thead>
+        <tr>
+          <th>Sn</th>
+          <th>Caller</th>
+          <th>Time</th>
+          <th>Assigned Agent</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {currentReports.map((report, index) => (
+          <tr key={report.id || index}>
+            <td>{indexOfFirstReport + index + 1}</td>
+            <td>{report.caller || "-"}</td>
+            <td>
+              {report.time
+                ? new Date(report.time).toLocaleString()
+                : "-"}
+            </td>
+            <td>
+              {report.agentId
+                ? `Ext ${report.agentId}${report.agent_name ? ` (${report.agent_name})` : ""}`
+                : "-"}
+            </td>
+            <td>
+              <Chip
+                label={report.status || "-"}
+                size="small"
+                color={
+                  report.status === "called_back"
+                    ? "success"
+                    : report.status === "pending"
+                    ? "warning"
+                    : "default"
+                }
+              />
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
 
   const renderVoiceNoteTable = () => (
     <table className="report-table">
@@ -1389,7 +1489,6 @@ export default function ComprehensiveReports() {
           <th>Sn</th>
           <th>Phone</th>
           <th>Date</th>
-          <th>Audio</th>
           <th>Played</th>
           <th>Assigned Agent</th>
           <th>Duration (s)</th>
@@ -1405,17 +1504,6 @@ export default function ComprehensiveReports() {
               {report.created_at
                 ? new Date(report.created_at).toLocaleString()
                 : "-"}
-            </td>
-            <td>
-              {report.recording_path ? (
-                <audio
-                  controls
-                  src={`${baseURL}${report.recording_path}`}
-                  style={{ maxWidth: 120 }}
-                />
-              ) : (
-                "No file"
-              )}
             </td>
             <td>
               <Chip
@@ -1848,6 +1936,7 @@ export default function ComprehensiveReports() {
           <Tab label="Call Summary" />
           <Tab label="IVR Interactions" />
           <Tab label="Ticket Assignments" />
+          <Tab label="Missed Call Report" />
         </Tabs>
       </Box>
 
@@ -1993,6 +2082,24 @@ export default function ComprehensiveReports() {
                   </Select>
                 </FormControl>
               )}
+
+              {activeTab === REPORT_TYPES.MISSED_CALL && (
+                <FormControl
+                  size="small"
+                  style={{ minWidth: 150, marginRight: 8 }}
+                >
+                  <InputLabel>Status</InputLabel>
+                  <Select
+                    value={missedCallStatusFilter}
+                    label="Status"
+                    onChange={(e) => setMissedCallStatusFilter(e.target.value)}
+                  >
+                    <MenuItem value="all">All</MenuItem>
+                    <MenuItem value="pending">Pending</MenuItem>
+                    <MenuItem value="called_back">Called Back</MenuItem>
+                  </Select>
+                </FormControl>
+              )}
             </div>
 
             <div className="action-buttons">
@@ -2004,6 +2111,7 @@ export default function ComprehensiveReports() {
                 disabled={
                   loading ||
                   (activeTab !== REPORT_TYPES.IVR_INTERACTIONS &&
+                    activeTab !== REPORT_TYPES.MISSED_CALL &&
                     (!startDate || !endDate))
                 }
               >
@@ -2052,6 +2160,8 @@ export default function ComprehensiveReports() {
                   ? "Search by ticket number, subject, or requester..."
                   : activeTab === REPORT_TYPES.AGENT_PERFORMANCE
                   ? "Search by agent name..."
+                  : activeTab === REPORT_TYPES.MISSED_CALL
+                  ? "Search by caller or agent ID..."
                   : "Search..."
               }
               value={search}

@@ -199,6 +199,7 @@ export default function AgentsDashboard() {
       setUserData(null);
     }, []),
     showAlert,
+    allowIncomingRinging: agentStatus === "ready",
   });
 
   const formatRemainingTime = (seconds) => {
@@ -573,16 +574,39 @@ const markMissedCallAsCalledBack = async (missedCallId) => {
   const handleClose = () => setAnchorEl(null);
 
   const handleAgentEmergency = async (activity) => {
-    // Update local UI state
+    const isReady = (activity || "").toLowerCase() === "ready";
+
+    if (!isReady) {
+      try {
+        const response = await fetch(`${baseURL}/users/agents-online`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          },
+        });
+        const data = await response.json();
+        const onlineCount = data.agentCount ?? 0;
+        if (onlineCount <= 1) {
+          showAlert(
+            "You cannot go on break. At least 2 agents must be online (including you).",
+            "warning"
+          );
+          return;
+        }
+      } catch (err) {
+        console.error("Failed to check online agents:", err);
+        showAlert("Could not verify online agents. Try again.", "error");
+        return;
+      }
+    }
+
     setAgentStatus(activity);
 
-    // Start/stop status timer
-    if ((activity || "").toLowerCase() !== "ready") startStatusTimer(activity);
+    if (!isReady) startStatusTimer(activity);
     else stopStatusTimer();
 
-    // Translate to backend online/offline
-    const statusToUpdate =
-      (activity || "").toLowerCase() === "ready" ? "online" : "offline";
+    const statusToUpdate = isReady ? "online" : "pause";
     try {
       await fetch(`${baseURL}/users/status/${localStorage.getItem("userId")}`, {
         method: "PUT",
@@ -826,9 +850,9 @@ useEffect(() => {
           <OnlineSupervisorsTable />
         </div>
 
-        <div className="dashboard-single-agent-row_four">
+        {/* <div className="dashboard-single-agent-row_four">
           <AgentPerformanceScore />
-        </div>
+        </div> */}
       </div>
 
       {/* Status menu */}
