@@ -14,6 +14,14 @@ export default function Login() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(null);
+  const [logoutMessage, setLogoutMessage] = useState(() => {
+    const msg = sessionStorage.getItem("logoutMessage");
+    if (msg) {
+      sessionStorage.removeItem("logoutMessage");
+      return msg;
+    }
+    return null;
+  });
 
   const handleLogin = async (e) => {
     setIsLoading(true);
@@ -36,14 +44,18 @@ export default function Login() {
 
       if (response.ok) {
         const token = data.token;
-        const tokenExpiration = new Date().getTime() + 3600 * 1000; // 1 hour
+        // Use backend expiresAt (daily logout at 8 PM) or fallback to 1 hour
+        const tokenExpiration =
+          typeof data.expiresAt === "number"
+            ? data.expiresAt
+            : new Date().getTime() + 3600 * 1000;
 
         // Core user session (localStorage for persistence)
         localStorage.setItem("authToken", token);
         localStorage.setItem("username", data.user.full_name);
         localStorage.setItem("role", data.user.role);
         localStorage.setItem("unit_section", data.user.unit_section);
-        localStorage.setItem("tokenExpiration", tokenExpiration);
+        localStorage.setItem("tokenExpiration", String(tokenExpiration));
         localStorage.setItem("userId", data.user.id);
         localStorage.setItem("agentStatus", "ready");
 
@@ -168,6 +180,7 @@ export default function Login() {
                 )}
               </Button>
               
+              {logoutMessage && <p className="logout-message">{logoutMessage}</p>}
               {error && <p className="error">{error}</p>}
               {timeRemaining !== null && timeRemaining > 0 && (
                 <p className="lockout-timer">
