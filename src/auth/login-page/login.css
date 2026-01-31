@@ -3,13 +3,32 @@
   min-height: 100vh;
   height: 100%;
   width: 100%;
+  position: relative;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+/* Background slideshow layers */
+.login-bg-slide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
   background-attachment: fixed;
-  position: relative;
-  overflow-x: hidden;
-  overflow-y: auto;
+  opacity: 0;
+  transition: opacity 1.5s ease-in-out;
+  z-index: 0;
+}
+
+.login-bg-slide.active {
+  opacity: 1;
+  z-index: 0;
 }
 
 /* Background elements */
