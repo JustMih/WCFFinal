@@ -616,6 +616,42 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
   // --- Right Part Visibility Control ---
   const [showRightPart, setShowRightPart] = useState(true);
   const [rightPartContent, setRightPartContent] = useState("no-history"); // "no-history", "hidden", "ticket-history"
+
+  // --- Relations for Representative/Employer (managed by super-admin in Lookup Tables) ---
+  const [relations, setRelations] = useState([]);
+  const [relationsLoading, setRelationsLoading] = useState(false);
+  const [relationsError, setRelationsError] = useState("");
+
+  useEffect(() => {
+    const fetchRelations = async () => {
+      try {
+        setRelationsLoading(true);
+        setRelationsError("");
+        const token = localStorage.getItem("authToken");
+        if (!token) {
+          setRelationsError("Auth token missing");
+          return;
+        }
+        const res = await fetch(`${baseURL}/lookup-tables/relations`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          setRelationsError(err.message || "Failed to load relations");
+          return;
+        }
+        const json = await res.json();
+        setRelations(Array.isArray(json.data) ? json.data : []);
+      } catch (e) {
+        console.error("Error fetching relations:", e);
+        setRelationsError("Failed to load relations");
+      } finally {
+        setRelationsLoading(false);
+      }
+    };
+
+    fetchRelations();
+  }, []);
   
   // --- Call Phone Number Preservation ---
   const [callPhoneNumber] = useState(initialPhoneNumber); // Preserve call phone number throughout component lifecycle
@@ -3081,22 +3117,53 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                       <div className="modal-form-row">
                         <div className="modal-form-group">
                           <label style={{ fontSize: "0.875rem" }}>
-                            {formData.requester === "Employer" ? "Representative Position/Role" : "Relationship to Employee"}: <span style={{ color: "red" }}>*</span>
+                            {formData.requester === "Employer"
+                              ? "Representative Position/Role"
+                              : "Relationship to Employee"}: <span style={{ color: "red" }}>*</span>
                           </label>
-                          <input
+                          <select
                             name="relationshipToEmployee"
                             value={formData.relationshipToEmployee}
                             onChange={handleChange}
-                            placeholder={formData.requester === "Employer" ? "e.g., HR Manager, Director, CEO" : "e.g., Parent, Spouse, Child"}
+                            disabled={relationsLoading}
                             style={{
                               height: "32px",
                               fontSize: "0.875rem",
                               padding: "4px 8px",
                               border: formErrors.relationshipToEmployee
                                 ? "1px solid red"
-                                : "1px solid #ccc"
+                                : "1px solid #ccc",
+                              width: "100%",
+                              backgroundColor: relationsLoading ? "#f5f5f5" : "white",
+                              cursor: relationsLoading ? "not-allowed" : "pointer"
                             }}
-                          />
+                          >
+                            <option value="">
+                              {relationsLoading
+                                ? "Loading relationships..."
+                                : relationsError
+                                ? "Error loading relationships"
+                                : formData.requester === "Employer"
+                                ? "Select position/role"
+                                : "Select relationship"}
+                            </option>
+                            {relations.length > 0 ? (
+                              relations.map((rel) => (
+                                <option key={rel.id} value={rel.name}>
+                                  {rel.name}
+                                </option>
+                              ))
+                            ) : !relationsLoading && !relationsError ? (
+                              <option value="" disabled>
+                                No relationships available. Please contact admin.
+                              </option>
+                            ) : null}
+                          </select>
+                          {relationsError && (
+                            <span style={{ color: "orange", fontSize: "0.75rem", display: "block", marginTop: "4px" }}>
+                              {relationsError} - Using default options may not be available.
+                            </span>
+                          )}
                           {formErrors.relationshipToEmployee && (
                             <span style={{ color: "red", fontSize: "0.75rem" }}>
                               {formErrors.relationshipToEmployee}
@@ -3887,12 +3954,12 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                 type="file"
                 accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
                 onChange={(e) => {
-                  const file = e.target.files[0];
+                  const file = e.target.files && e.target.files[0] ? e.target.files[0] : null;
                   if (file) {
-                    // Check file size (50MB limit)
-                    const maxSize = 50 * 1024 * 1024; // 50MB in bytes
-                    if (file.size > maxSize) {
-                      alert(`File size too large! Maximum allowed size is 50MB. Your file is ${(file.size / (1024 * 1024)).toFixed(2)}MB.`);
+                    // Check file size (10MB = 10 * 1024 * 1024 bytes)
+                    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+                    if (file.size > MAX_FILE_SIZE) {
+                      alert(`File size exceeds the maximum limit of 10MB. Your file is ${(file.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`);
                       e.target.value = ''; // Clear the input
                       setAttachment(null);
                       return;
@@ -3912,9 +3979,12 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
               />
               {attachment && (
                 <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
-                  File selected: {attachment.name}
+                  File selected: {attachment.name} ({(attachment.size / (1024 * 1024)).toFixed(2)}MB)
                 </Typography>
               )}
+              <Typography variant="caption" sx={{ color: "gray", mt: 0.5, display: "block", fontSize: "0.75rem" }}>
+                Maximum file size: 10MB
+              </Typography>
             </Box>
 
             <Box sx={{ mt: 2, textAlign: "right" }}>

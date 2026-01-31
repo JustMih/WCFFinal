@@ -21,7 +21,7 @@ import {
 } from "@mui/material";
 // import ColumnSelector from "../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../config";
-import "../crm-tickets/ticket.css";
+import "../crm-tickets-status/ticket.css";
 import TicketActions from "../../../components/reviewer/TicketActions";
 import TicketDetailsModal from '../../../components/TicketDetailsModal';
 import Pagination from '../../../components/Pagination';

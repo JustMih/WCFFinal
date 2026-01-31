@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { baseURL } from '../../config/config';
+import { baseURL } from '../../config';
 import WorkflowStatusIndicator from './WorkflowStatusIndicator';
 import WorkflowActionModal from './WorkflowActionModal';
 
@@ -19,14 +19,37 @@ const WorkflowDashboard = ({ userRole }) => {
 
   const fetchWorkflowTickets = async () => {
     try {
-      const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+      setIsLoading(true);
+      setError('');
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token') || sessionStorage.getItem('authToken') || sessionStorage.getItem('token');
+      
+      if (!token) {
+        setError('Authentication token not found. Please log in again.');
+        setIsLoading(false);
+        return;
+      }
+
       const response = await axios.get(`${baseURL}/ticket/workflow-tickets`, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setTickets(response.data.data || []);
+      
+      if (response.data && response.data.success) {
+        setTickets(response.data.data || []);
+      } else {
+        setTickets(response.data?.data || []);
+      }
     } catch (error) {
-      setError('Failed to fetch workflow tickets');
       console.error('Error fetching workflow tickets:', error);
+      if (error.response) {
+        // Server responded with error status
+        setError(error.response.data?.message || `Failed to fetch workflow tickets: ${error.response.status}`);
+      } else if (error.request) {
+        // Request was made but no response received
+        setError('Network error: Unable to connect to server. Please check your connection.');
+      } else {
+        // Something else happened
+        setError(error.message || 'Failed to fetch workflow tickets');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -175,9 +198,23 @@ const WorkflowDashboard = ({ userRole }) => {
 
       {/* Tickets Grid */}
       <div className="grid gap-6">
-        {filteredTickets.length === 0 ? (
+        {tickets.length === 0 && !isLoading && !error ? (
+          <div className="bg-white rounded-lg shadow p-8 text-center">
+            <p className="text-gray-500 text-lg mb-2">No workflow tickets found</p>
+            <p className="text-gray-400 text-sm">Tickets with workflow paths will appear here</p>
+          </div>
+        ) : filteredTickets.length === 0 && tickets.length > 0 ? (
           <div className="bg-white rounded-lg shadow p-8 text-center">
             <p className="text-gray-500 text-lg">No tickets found matching your criteria</p>
+            <button
+              onClick={() => {
+                setFilter('all');
+                setSearchTerm('');
+              }}
+              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              Clear Filters
+            </button>
           </div>
         ) : (
           filteredTickets.map((ticket) => (

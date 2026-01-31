@@ -1,9 +1,6 @@
 import React from 'react'
 import AgentDashboard from "../crm-dashboard/crm-agent-dashboard/crm-agent-dashboard"
 import ReviewerDashboard from "../crm-dashboard/crm-reviewer-dashboard/crm-reviewer-dashboard"
-import FocalPersonDashboard from "./crm-focal-person-dashboard/crm-focal-person-dashboard"
-import HeadsDashboard from "./crm-heads-dashboard/crm-heads-dashboard"
-
 export default function CRMDashboard() {
   const role = localStorage.getItem("role");
   

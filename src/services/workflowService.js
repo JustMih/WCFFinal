@@ -4,7 +4,7 @@ import { baseURL } from '../config';
 export const getWorkflowStatus = async (ticketId) => {
   try {
     const token = localStorage.getItem('authToken');
-    const response = await fetch(`${baseURL}/reviewer/workflow/${ticketId}/status`, {
+    // const response = await fetch(`${baseURL}/reviewer/workflow/${ticketId}/status`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }

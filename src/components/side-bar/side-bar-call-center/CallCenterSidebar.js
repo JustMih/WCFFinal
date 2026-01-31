@@ -120,7 +120,7 @@ export default function CallCenterSidebar({
                 </div>
               </NavLink>
               {/* Lookup Tables Management - Super Admin Only */}
-              {/* <NavLink
+              <NavLink
                 to="/lookup-tables"
                 className={({ isActive }) =>
                   isActive ? "menu-item active-link" : "menu-item"
@@ -132,7 +132,7 @@ export default function CallCenterSidebar({
                     <span className="menu-text">Lookup Tables</span>
                   )}
                 </div>
-              </NavLink> */}
+              </NavLink>
               {/* Mapping Management - Super Admin Only */}
               {role === "super-admin" && (
                 <NavLink
@@ -144,7 +144,7 @@ export default function CallCenterSidebar({
                   <div className="menu-item">
                     <HiOutlineMap className="menu-icon" />
                     {isSidebarOpen && (
-                      <span className="menu-text">Mapping</span>
+                      <span className="menu-text">Mapping Subjects</span>
                     )}
                   </div>
                 </NavLink>
@@ -304,7 +304,7 @@ export default function CallCenterSidebar({
           {role === "agent" && (
             <>
               <NavLink
-                to="/dashboard"
+                to="/dashboard-old"
                 className={({ isActive }) =>
                   isActive ? "menu-item active-link" : "menu-item"
                 }

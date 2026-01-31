@@ -151,6 +151,8 @@ const getStepStatus = (stepIndex, currentStepIndex) => {
 
 const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, usersList = [] }) => {
   if (!selectedTicket) return null;
+  // Get current user ID to check if they are the one who uploaded the attachment
+  const currentUserId = localStorage.getItem("userId");
   const normalizedCategory = String(selectedTicket.category || "").toLowerCase();
   const isComplaintCategory = normalizedCategory === "complaint";
   const isReviewerManagedCategory = ["complaint", "compliment", "complement", "suggestion"].includes(normalizedCategory);
@@ -344,6 +346,9 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
   return (
     <Box>
       {reversedSteps.map((a, idx) => {
+        // For Closed action: show only "Closed at" and "Closed by", status shown in previous step
+        const isClosedStep = a.action === "Closed" || (selectedTicket.status === "Closed" && idx === 0 && a.action === "Closed");
+        
         // Determine if this is the first step (most recent) and ticket is closed
         const isFirstStep = idx === 0;
         const isClosed = selectedTicket.status === "Closed" && isFirstStep;
@@ -418,8 +423,56 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
 
         // Set who closed
         let closedBy = "";
-        if (isClosed) {
+        if (isClosedStep) {
           closedBy = a.assigned_to_name || a.assignedTo?.full_name || a.user?.full_name || a.assigned_to_id || "N/A";
+        }
+
+        // For Closed step: show "Closed at" and "Closed by" as it was originally with green styling
+        if (isClosedStep) {
+          const closedAt = a.created_at || a.closed_at || selectedTicket.date_of_resolution || selectedTicket.updated_at;
+          return (
+            <Box key={idx} sx={{ display: "flex", alignItems: "flex-start", gap: 2, mb: 2 }}>
+              <Box
+                sx={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: "50%",
+                  bgcolor: "green",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: "white",
+                  fontWeight: "bold",
+                  mt: 0.5
+                }}
+              >
+                {reversedSteps.length - idx}
+              </Box>
+              <Box sx={{ flex: 1 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: "bold", color: "green" }}>
+                  {a.assigned_to_name || a.assignedTo?.full_name || a.user?.full_name || a.assigned_to_id || "Unknown"} ({a.assigned_to_role || a.assignedTo?.role || a.user?.role || "N/A"})
+                </Typography>
+                <Typography variant="body2" sx={{ color: "green" }}>
+                  Closed - {closedAt ? new Date(closedAt).toLocaleString("en-US", {
+                    month: "numeric",
+                    day: "numeric",
+                    year: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                    second: "2-digit",
+                    hour12: true
+                  }) : "Date not available"} (Closed by: {closedBy})
+                </Typography>
+                {a.reason && (
+                  <Box sx={{ mt: 1, p: 1.25, bgcolor: '#d4edda', borderRadius: 1, border: '1px solid #c3e6cb' }}>
+                    <Typography variant="body2" sx={{ color: '#155724', fontStyle: 'italic' }}>
+                      <strong>Description:</strong> {a.reason}
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
+            </Box>
+          );
         }
 
         return (
@@ -443,7 +496,10 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
             <Box sx={{ flex: 1 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
                 <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-                  {a.assigned_to_name || a.assignedTo?.full_name || a.user?.full_name || a.assigned_to_id || "Unknown"} ({a.assigned_to_role || a.assignedTo?.role || a.user?.role || "N/A"})
+                  {/* Show assigned_by_name (mtu aliyetuma) kama attachment ipo, si assigned_to_name (mtu aliyepokea) */}
+                  {a.attachment_path && a.assigned_by_name 
+                    ? `${a.assigned_by_name} (${a.assigned_by_role || "N/A"})`
+                    : a.assigned_to_name || a.assignedTo?.full_name || a.user?.full_name || a.assigned_to_id || "Unknown"} ({a.attachment_path && a.assigned_by_role ? a.assigned_by_role : (a.assigned_to_role || a.assignedTo?.role || a.user?.role || "N/A")})
                 </Typography>
                 {/* Show aging for all assignments except creator, calculating active time for each */}
                 {a.created_at && (
@@ -635,84 +691,100 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
                 )}
               </Typography>
               
-              {/* For Closed actions: show resolution/description, status, and attachment in one consolidated view */}
-              {a.action === "Closed" || (selectedTicket.status === "Closed" && idx === 0) ? (
-                <>
-                  {/* Resolution/Description - use reason from assignment or resolution_details from ticket */}
-                  {(a.reason || (selectedTicket.status === "Closed" && selectedTicket.resolution_details && idx === 0)) && (
-                    <Box sx={{ mt: 1, p: 1.25, bgcolor: '#d4edda', borderRadius: 1, border: '1px solid #c3e6cb' }}>
-                      <Typography variant="body2" sx={{ color: '#155724' }}>
-                        <strong>Resolution:</strong> {a.reason || (selectedTicket.status === "Closed" && selectedTicket.resolution_details && idx === 0 ? selectedTicket.resolution_details : '')}
-                      </Typography>
-                    </Box>
+              {/* Show description for all steps except current (unless Reversed) */}
+              {a.reason && (
+                !(idx === currentAssigneeIdx && selectedTicket.status !== "Closed" && a.action !== "Reversed")
+              ) && (
+                <Box sx={{ mt: 1, p: 1.25, bgcolor: '#f8f9fa', borderRadius: 1, border: '1px solid #e9ecef' }}>
+                  <Typography variant="body2" sx={{ color: '#444', fontStyle: 'italic' }}>
+                    <strong>Description:</strong> {a.reason}
+                  </Typography>
+                </Box>
+              )}
+              
+              {/* Additional workflow details if available */}
+              {(a.workflow_step || a.coordinator_notes || a.dg_notes) && (
+                <Box sx={{ mt: 1, p: 1.5, bgcolor: '#fff3cd', borderRadius: 1, border: '1px solid #ffeaa7' }}>
+                  {a.workflow_step && (
+                    <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 'bold', color: '#856404' }}>
+                      Workflow Step: {a.workflow_step}
+                    </Typography>
                   )}
-                  
-                  {/* Status */}
-                  {selectedTicket.status === "Closed" && (
-                    <Box sx={{ mt: 1, p: 1, bgcolor: '#f8f9fa', borderRadius: 1, border: '1px solid #e9ecef' }}>
-                      <Typography variant="body2" sx={{ color: '#444' }}>
-                        <strong>Status:</strong> Closed
-                      </Typography>
-                    </Box>
+                  {a.coordinator_notes && (
+                    <Typography variant="body2" sx={{ mb: 0.5, color: '#856404' }}>
+                      <strong>Reviewer Notes:</strong> {a.coordinator_notes}
+                    </Typography>
                   )}
-                </>
-              ) : (
-                <>
-                  {/* Justification for non-closed actions */}
-                  {/* Don't show Description for Current step EXCEPT when the action is Reversed (so user can see reversal reason) */}
-                  {a.reason && (
-                    !(idx === currentAssigneeIdx && selectedTicket.status !== "Closed" && a.action !== "Reversed")
-                  ) && (
-                    <Box sx={{ mt: 1, p: 1.25, bgcolor: '#f8f9fa', borderRadius: 1, border: '1px solid #e9ecef' }}>
-                      <Typography variant="body2" sx={{ color: '#444', fontStyle: 'italic' }}>
-                        <strong>Description:</strong> {a.reason}
-                      </Typography>
-                    </Box>
+                  {a.dg_notes && (
+                    <Typography variant="body2" sx={{ color: '#856404' }}>
+                      <strong>DG Notes:</strong> {a.dg_notes}
+                    </Typography>
                   )}
-                  
-                  {/* Additional workflow details if available */}
-                  {(a.workflow_step || a.coordinator_notes || a.dg_notes) && (
-                    <Box sx={{ mt: 1, p: 1.5, bgcolor: '#fff3cd', borderRadius: 1, border: '1px solid #ffeaa7' }}>
-                      {a.workflow_step && (
-                        <Typography variant="body2" sx={{ mb: 0.5, fontWeight: 'bold', color: '#856404' }}>
-                          Workflow Step: {a.workflow_step}
-                        </Typography>
-                      )}
-                      {a.coordinator_notes && (
-                        <Typography variant="body2" sx={{ mb: 0.5, color: '#856404' }}>
-                          <strong>Reviewer Notes:</strong> {a.coordinator_notes}
-                        </Typography>
-                      )}
-                      {a.dg_notes && (
-                        <Typography variant="body2" sx={{ color: '#856404' }}>
-                          <strong>DG Notes:</strong> {a.dg_notes}
-                        </Typography>
-                      )}
-                    </Box>
-                  )}
-                </>
+                </Box>
               )}
               
               {/* Attachment/Evidence link if present, else show 'No attachment' */}
-              {a.attachment_path ? (
-                <Typography
-                  variant="body2"
-                  sx={{ color: '#28a745', fontStyle: 'italic', cursor: 'pointer', textDecoration: 'underline' }}
-                  onClick={() => handleDownloadAttachment(a.attachment_path)}
-                >
-                  Download attachment
-                </Typography>
-              ) : a.evidence_url ? (
-                <Typography variant="body2" color="primary">
-                  <a href={a.evidence_url} target="_blank" rel="noopener noreferrer">
-                    View Evidence
-                  </a>
-                </Typography>
-              ) : (
-                <Typography variant="body2" sx={{ color: 'gray', fontStyle: 'italic' }}>
-                  No attachment
-                </Typography>
-              )}
+              {/* Show attachment kwenye entry ya mtu ambaye alituma (assigned_by_id), si kwenye entry ya mtu ambaye alipokea (assigned_to_id) */}
+              {/* IMPORTANT: Entry inaonyesha mtu ambaye alipokea (assigned_to_id), lakini attachment ina-save kwa mtu ambaye alituma (assigned_by_id) */}
+              {/* Kwa hiyo, attachment inapaswa kuonekana kwenye entry ambayo assigned_by_id ya entry ni sawa na assigned_by_id ya attachment */}
+              {(() => {
+                // Check if this entry has attachment_path
+                if (!a.attachment_path && !a.evidence_url) {
+                  return (
+                    <Typography variant="body2" sx={{ color: 'gray', fontStyle: 'italic' }}>
+                      No attachment
+                    </Typography>
+                  );
+                }
+                
+                // IMPORTANT: Entry inaonyesha mtu ambaye alipokea (assigned_to_id)
+                // Lakini attachment ina-save kwa mtu ambaye alituma (assigned_by_id)
+                // Kwa hiyo, attachment inapaswa kuonekana kwenye entry ambayo:
+                // - Entry ina attachment_path (ya mtu aliyetuma)
+                // - Entry ina assigned_by_id (mtu aliyetuma attachment)
+                // Si kwenye entry ambayo assigned_to_id ni sawa na assigned_by_id ya attachment
+                
+                // Check: Kama entry ina attachment_path, basi attachment inaonekana kwenye entry hii
+                // (kwa sababu attachment ina-save kwa assigned_by_id ya entry hii)
+                // Entry inaonyesha mtu ambaye alipokea (assigned_to_id), lakini attachment ina-save kwa mtu ambaye alituma (assigned_by_id)
+                // Kwa hiyo, attachment inaonekana kwenye entry hii kwa sababu entry hii ina attachment_path
+                // (attachment ina-save kwa assigned_by_id ya entry hii, si assigned_to_id)
+                if (a.attachment_path) {
+                  // Get the name of the user who sent the attachment
+                  // Strategy: Use previous step's assigned_to_name (same as other steps do for "Message from Previous")
+                  // IMPORTANT: reversedSteps is reversed, so previous step in chronological order is next step (idx + 1) in reversed array
+                  // For all steps, use next step's assigned_to_name (which is previous step in chronological order)
+                  const nextStep = reversedSteps[idx + 1];
+                  
+                  // Use next step's assigned_to_name (previous step in chronological order)
+                  // If no next step, use "Previous" as fallback
+                  const senderName = nextStep?.assigned_to_name || 'Previous';
+                  
+                  return (
+                    <Typography
+                      variant="body2"
+                      sx={{ color: '#28a745', fontStyle: 'italic', cursor: 'pointer', textDecoration: 'underline' }}
+                      onClick={() => handleDownloadAttachment(a.attachment_path)}
+                    >
+                      Download attachment - Sent by {senderName}
+                    </Typography>
+                  );
+                } else if (a.evidence_url) {
+                  return (
+                    <Typography variant="body2" color="primary">
+                      <a href={a.evidence_url} target="_blank" rel="noopener noreferrer">
+                        View Evidence
+                      </a>
+                    </Typography>
+                  );
+                } else {
+                  return (
+                    <Typography variant="body2" sx={{ color: 'gray', fontStyle: 'italic' }}>
+                      No attachment
+                    </Typography>
+                  );
+                }
+              })()}
             </Box>
           </Box>
         );
@@ -931,6 +1003,27 @@ export default function TicketDetailsModal({
   const [isAttendDialogOpen, setIsAttendDialogOpen] = useState(false);
   const [resolutionDetails, setResolutionDetails] = useState("");
   const [attachment, setAttachment] = useState(null);
+  const [fileError, setFileError] = useState("");
+
+  // Helper function to handle file selection with size validation
+  const handleFileChange = (e) => {
+    const file = e.target.files && e.target.files[0] ? e.target.files[0] : null;
+    if (file) {
+      // Check file size (10MB = 10 * 1024 * 1024 bytes)
+      const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+      if (file.size > MAX_FILE_SIZE) {
+        setFileError(`File size exceeds the maximum limit of 10MB. Your file is ${(file.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`);
+        e.target.value = ''; // Clear the input
+        setAttachment(null);
+        return;
+      }
+      setFileError(''); // Clear any previous errors
+      setAttachment(file);
+    } else {
+      setAttachment(null);
+      setFileError('');
+    }
+  };
   
   // Reviewer-specific states
   const [resolutionType, setResolutionType] = useState("");
@@ -1627,6 +1720,21 @@ export default function TicketDetailsModal({
   }
 
   const handleAttend = async () => {
+    // Don't submit if there's a file error
+    if (fileError) {
+      showSnackbar('File size exceeds the maximum limit of 10MB. Your file is 362.28MB. Please fix the file error before submitting', 'error');
+      return;
+    }
+
+    // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    if (attachment && attachment.size > MAX_FILE_SIZE) {
+      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+      setFileError(errorMsg);
+      showSnackbar(errorMsg, 'error');
+      return;
+    }
+    
     setAttendLoading(true);
     try {
       console.log('DEBUG handleAttend:', {
@@ -1674,8 +1782,46 @@ export default function TicketDetailsModal({
       console.log('DEBUG: Using default workflow API - not a manager');
       console.log('DEBUG: userRole value:', userRole);
       console.log('DEBUG: complaint_type value:', selectedTicket.complaint_type);
+      console.log('DEBUG: ticket category:', selectedTicket.category);
       
-      // Default workflow for other roles
+      // For Inquiry tickets, use close endpoint directly
+      if (selectedTicket.category === 'Inquiry') {
+        console.log('DEBUG: Inquiry ticket - using close endpoint');
+        const token = localStorage.getItem("authToken");
+        const formData = new FormData();
+        formData.append("status", "Closed");
+        formData.append("resolution_details", resolutionDetails);
+        formData.append("date_of_resolution", new Date().toISOString());
+        if (attachment) {
+          formData.append("attachment", attachment);
+        }
+        
+        const response = await fetch(
+          `${baseURL}/ticket/${selectedTicket.id}/close`,
+          {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${token}`
+              // Do NOT set Content-Type; browser will set it for FormData
+            },
+            body: formData
+          }
+        );
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          showSnackbar(errorData.message || 'Failed to close ticket', 'error');
+          return;
+        }
+        
+        showSnackbar('Inquiry ticket closed successfully', 'success');
+        setIsAttendDialogOpen(false); // Close the attend dialog
+        refreshTickets(); // Refresh to update ticket state
+        onClose(); // Close the modal to refresh the list
+        return;
+      }
+      
+      // Default workflow for other roles (Complaint tickets)
       const response = await fetch(`${baseURL}/workflow/${selectedTicket.id}/attend-and-recommend`, {
         method: 'POST',
         headers: {
@@ -1828,6 +1974,21 @@ export default function TicketDetailsModal({
       return;
     }
 
+    // Don't submit if there's a file error
+    if (fileError) {
+      showSnackbar('File size exceeds the maximum limit of 10MB. Your file is 362.28MB. Please fix the file error before submitting', 'error');
+      return;
+    }
+
+    // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    if (attachment && attachment.size > MAX_FILE_SIZE) {
+      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+      setFileError(errorMsg);
+      showSnackbar(errorMsg, 'error');
+      return;
+    }
+
     setDgApprovalLoading(true);
     try {
       const token = localStorage.getItem("authToken");
@@ -1873,6 +2034,21 @@ export default function TicketDetailsModal({
   };
 
   const handleAttendSubmit = async () => {
+    // Don't submit if there's a file error
+    if (fileError) {
+      showSnackbar('File size exceeds the maximum limit of 10MB. Your file is 362.28MB. Please fix the file error before submitting', 'error');
+      return;
+    }
+
+    // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    if (attachment && attachment.size > MAX_FILE_SIZE) {
+      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+      setFileError(errorMsg);
+      showSnackbar(errorMsg, 'error');
+      return;
+    }
+
     setAttendSubmitLoading(true);
     try {
       const token = localStorage.getItem("authToken");
@@ -1918,6 +2094,21 @@ export default function TicketDetailsModal({
   const handleReviewerCloseSubmit = async () => {
     if (!resolutionType || !resolutionDetails) {
       alert("Please provide both resolution type and details");
+      return;
+    }
+
+    // Don't submit if there's a file error
+    if (fileError) {
+      showSnackbar('File size exceeds the maximum limit of 10MB. Your file is 362.28MB. Please fix the file error before submitting', 'error');
+      return;
+    }
+
+    // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    if (attachment && attachment.size > MAX_FILE_SIZE) {
+      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+      setFileError(errorMsg);
+      showSnackbar(errorMsg, 'error');
       return;
     }
 
@@ -1973,6 +2164,21 @@ export default function TicketDetailsModal({
 
   // Reverse handler
   const handleReverse = async () => {
+    // Don't submit if there's a file error
+    if (fileError) {
+      showSnackbar('File size exceeds the maximum limit of 10MB. Your file is 362.28MB. Please fix the file error before submitting', 'error');
+      return;
+    }
+
+    // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    if (attachment && attachment.size > MAX_FILE_SIZE) {
+      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+      setFileError(errorMsg);
+      showSnackbar(errorMsg, 'error');
+      return;
+    }
+
     setIsReversing(true);
     try {
       const token = localStorage.getItem("authToken");
@@ -2477,6 +2683,21 @@ export default function TicketDetailsModal({
       return;
     }
 
+    // Don't submit if there's a file error
+    if (fileError) {
+      showSnackbar('File size exceeds the maximum limit of 10MB. Your file is 362.28MB. Please fix the file error before submitting', 'error');
+      return;
+    }
+
+    // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    if (attachment && attachment.size > MAX_FILE_SIZE) {
+      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+      setFileError(errorMsg);
+      showSnackbar(errorMsg, 'error');
+      return;
+    }
+
     setForwardToDGLoading(true);
     try {
       const token = localStorage.getItem("authToken");
@@ -2588,20 +2809,19 @@ export default function TicketDetailsModal({
     const token = localStorage.getItem("authToken");
     const category = convertCategory[ticketId];
     const unitName = forwardUnit[ticketId];
+    
+    console.log('🔍 handleConvertOrForward called:', {
+      ticketId,
+      mode,
+      forwardUnitState: forwardUnit,
+      unitNameFromState: unitName,
+      convertCategoryState: convertCategory,
+      categoryFromState: category
+    });
 
     // Get the current ticket to check its section and rating
     const currentTicket = selectedTicket;
     const isComplaintCategory = String(currentTicket?.category || "").toLowerCase() === "complaint";
-
-    // Validate that at least one option is selected
-    // If unitName is empty but ticket has a section, use the ticket's section
-    // Priority: selected unit > ticket section > responsible unit name (avoid sub_section)
-    const effectiveUnitName = unitName || currentTicket?.section || currentTicket?.responsible_unit_name;
-    
-    if (!category && !effectiveUnitName) {
-      showSnackbar("Please select either a category to convert to, or a unit to forward to, or both", "warning");
-      return;
-    }
 
     // Rating rules:
     // - Complaint + forward => rating required (Minor/Major) before forwarding
@@ -2609,13 +2829,43 @@ export default function TicketDetailsModal({
     const isProvidingRating = selectedRating && ["Minor", "Major"].includes(selectedRating);
     const isAlreadyRated = currentTicket?.complaint_type;
     
+    // Validate that at least one option is selected
+    // Priority: selected unit from dropdown > ticket sub_section (specific unit) > responsible unit name > section (avoid generic section names like "Units")
+    // Only use section as fallback if it's not a generic name like "Units"
+    let effectiveUnitName = unitName;
+    
+    // If no unit selected from dropdown, try fallbacks
+    if (!effectiveUnitName) {
+      // Prefer sub_section (specific unit name) over section (which might be generic like "Units")
+      effectiveUnitName = currentTicket?.sub_section || currentTicket?.responsible_unit_name;
+      
+      // Only use section as last resort if it's not a generic name
+      if (!effectiveUnitName && currentTicket?.section) {
+        const sectionName = currentTicket.section.trim().toLowerCase();
+        // Avoid generic section names like "units", "unit", etc.
+        if (sectionName !== "units" && sectionName !== "unit" && sectionName.length > 3) {
+          effectiveUnitName = currentTicket.section;
+        }
+      }
+    }
+    
     console.log('Debug - Forward validation:', {
+      unitNameFromDropdown: unitName,
+      forwardUnitState: forwardUnit[ticketId],
+      currentTicketSection: currentTicket?.section,
+      currentTicketSubSection: currentTicket?.sub_section,
+      currentTicketResponsibleUnit: currentTicket?.responsible_unit_name,
       effectiveUnitName,
       isProvidingRating,
       selectedRating,
       isAlreadyRated,
       currentTicketComplaintType: currentTicket?.complaint_type
     });
+    
+    if (!category && !effectiveUnitName) {
+      showSnackbar("Please select either a category to convert to, or a unit to forward to, or both", "warning");
+      return;
+    }
     
     if (mode === "forward" && isComplaintCategory && effectiveUnitName && !isAlreadyRated && !isProvidingRating) {
       // Check if the rating dropdown is visible to the user
@@ -2778,6 +3028,21 @@ export default function TicketDetailsModal({
     }
     if (!selectedTicket || !selectedTicket.id) {
       showSnackbar('No ticket selected or ticket ID missing', 'error');
+      return;
+    }
+
+    // Don't submit if there's a file error
+    if (fileError) {
+      showSnackbar('File size exceeds the maximum limit of 10MB. Your file is 362.28MB. Please fix the file error before submitting', 'error');
+      return;
+    }
+
+    // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    if (attachment && attachment.size > MAX_FILE_SIZE) {
+      const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+      setFileError(errorMsg);
+      showSnackbar(errorMsg, 'error');
       return;
     }
 
@@ -3522,16 +3787,15 @@ export default function TicketDetailsModal({
                             </Typography>
                             <FormControl fullWidth size="small">
                               <Select
-                                value={forwardUnit[selectedTicket.id] || (() => {
-                                  // If it's a unit (not directorate), use sub_section, otherwise use section
-                                  const isDirectorate = selectedTicket.section && (
-                                    selectedTicket.section.includes('Directorate') || 
-                                    selectedTicket.section.includes('directorate') ||
-                                    (allSectionsList && allSectionsList.some(s => s.name === selectedTicket.section && !s.section_id))
-                                  );
-                                  return isDirectorate ? (selectedTicket.section || "") : (selectedTicket.sub_section || selectedTicket.section || "");
-                                })()}
-                                onChange={(e) => handleUnitChange(selectedTicket.id, e.target.value)}
+                                value={forwardUnit[selectedTicket.id] || ""}
+                                onChange={(e) => {
+                                  console.log('🔍 Unit dropdown changed:', {
+                                    ticketId: selectedTicket.id,
+                                    selectedValue: e.target.value,
+                                    previousValue: forwardUnit[selectedTicket.id]
+                                  });
+                                  handleUnitChange(selectedTicket.id, e.target.value);
+                                }}
                                 sx={{
                                   fontSize: '0.8rem',
                                   height: '32px',
@@ -3578,9 +3842,35 @@ export default function TicketDetailsModal({
                                   ))
                                 ) : (
                                   units && units.length > 0 ? (
-                                    [...new Set(units.map(item => item.function?.section?.name).filter(Boolean))].map((sectionName) => (
-                                      <MenuItem key={sectionName} value={sectionName} sx={{ fontSize: '0.8rem', py: 0.5 }}>{sectionName}</MenuItem>
-                                    ))
+                                    // Use the actual unit/function name, not the section name
+                                    // For units, use function.name (e.g., "Internal Audit Unit"), for directorates use section name
+                                    // Remove duplicates and prioritize function names over section names
+                                    (() => {
+                                      const unitMap = new Map();
+                                      units.forEach((item) => {
+                                        const functionName = item.function?.name || "";
+                                        const sectionName = item.function?.section?.name || "";
+                                        const itemName = item.name || "";
+                                        
+                                        // Priority: function.name > item.name > section.name
+                                        const displayName = functionName || itemName || sectionName;
+                                        const valueToUse = functionName || itemName || sectionName;
+                                        
+                                        if (displayName && !unitMap.has(valueToUse)) {
+                                          unitMap.set(valueToUse, {
+                                            key: item.id || item.function?.id || valueToUse,
+                                            value: valueToUse,
+                                            label: displayName
+                                          });
+                                        }
+                                      });
+                                      
+                                      return Array.from(unitMap.values()).map((unit) => (
+                                        <MenuItem key={unit.key} value={unit.value} sx={{ fontSize: '0.8rem', py: 0.5 }}>
+                                          {unit.label}
+                                        </MenuItem>
+                                      ));
+                                    })()
                                   ) : null
                                 )}
                               </Select>
@@ -4167,7 +4457,7 @@ export default function TicketDetailsModal({
                 <input
                   type="file"
                   accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
-                  onChange={e => setAttachment(e.target.files[0])}
+                  onChange={handleFileChange}
                   style={{
                     width: "100%",
                     padding: "8px 12px",
@@ -4178,11 +4468,19 @@ export default function TicketDetailsModal({
                   }}
                 />
               </Box>
-              {attachment && (
-                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
-                  File selected: {attachment.name}
+              {fileError && (
+                <Typography variant="caption" sx={{ color: "red", mt: 1, display: "block" }}>
+                  {fileError}
                 </Typography>
               )}
+              {attachment && !fileError && (
+                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
+                  File selected: {attachment.name} ({(attachment.size / (1024 * 1024)).toFixed(2)}MB)
+                </Typography>
+              )}
+              <Typography variant="caption" sx={{ color: "gray", mt: 0.5, display: "block", fontSize: "0.75rem" }}>
+                Maximum file size: 10MB
+              </Typography>
             </Box>
 
             <Box sx={{ mt: 2, textAlign: "right" }}>
@@ -4279,7 +4577,7 @@ export default function TicketDetailsModal({
                 <input
                   type="file"
                   accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
-                  onChange={e => setAttachment(e.target.files[0])}
+                  onChange={handleFileChange}
                   style={{
                     width: "100%",
                     padding: "8px 12px",
@@ -4290,11 +4588,19 @@ export default function TicketDetailsModal({
                   }}
                 />
               </Box>
-              {attachment && (
-                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
-                  File selected: {attachment.name}
+              {fileError && (
+                <Typography variant="caption" sx={{ color: "red", mt: 1, display: "block" }}>
+                  {fileError}
                 </Typography>
               )}
+              {attachment && !fileError && (
+                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
+                  File selected: {attachment.name} ({(attachment.size / (1024 * 1024)).toFixed(2)}MB)
+                </Typography>
+              )}
+              <Typography variant="caption" sx={{ color: "gray", mt: 0.5, display: "block", fontSize: "0.75rem" }}>
+                Maximum file size: 10MB
+              </Typography>
             </Box>
 
             <Box sx={{ mt: 2, textAlign: "right" }}>
@@ -4302,6 +4608,21 @@ export default function TicketDetailsModal({
                 variant="contained"
                 color="success"
                 onClick={async () => {
+                  // Don't submit if there's a file error
+                  if (fileError) {
+                    showSnackbar('File size exceeds the maximum limit of 10MB. Your file is 362.28MB. Please fix the file error before submitting', 'error');
+                    return;
+                  }
+
+                  // Check file size before submitting (10MB = 10 * 1024 * 1024 bytes)
+                  const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+                  if (attachment && attachment.size > MAX_FILE_SIZE) {
+                    const errorMsg = `Ticket cannot be submitted because file is too large. Maximum file size is 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`;
+                    setFileError(errorMsg);
+                    showSnackbar(errorMsg, 'error');
+                    return;
+                  }
+
                   setSendToDirectorLoading(true);
                   try {
                     const token = localStorage.getItem("authToken");
@@ -4435,7 +4756,7 @@ export default function TicketDetailsModal({
                 <input
                   type="file"
                   accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
-                  onChange={(e) => setAttachment(e.target.files[0])}
+                  onChange={handleFileChange}
                   style={{
                     width: "100%",
                     padding: "8px 12px",
@@ -4446,11 +4767,19 @@ export default function TicketDetailsModal({
                   }}
                 />
               </Box>
-              {attachment && (
-                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
-                  File selected: {attachment.name}
+              {fileError && (
+                <Typography variant="caption" sx={{ color: "red", mt: 1, display: "block" }}>
+                  {fileError}
                 </Typography>
               )}
+              {attachment && !fileError && (
+                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
+                  File selected: {attachment.name} ({(attachment.size / (1024 * 1024)).toFixed(2)}MB)
+                </Typography>
+              )}
+              <Typography variant="caption" sx={{ color: "gray", mt: 0.5, display: "block", fontSize: "0.75rem" }}>
+                Maximum file size: 10MB
+              </Typography>
             </Box>
 
             <Box sx={{ mt: 2, textAlign: "right" }}>
@@ -4549,7 +4878,7 @@ export default function TicketDetailsModal({
                 <input
                   type="file"
                   accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
-                  onChange={(e) => setAttachment(e.target.files[0])}
+                  onChange={handleFileChange}
                   style={{
                     width: "100%",
                     padding: "8px 12px",
@@ -4560,11 +4889,19 @@ export default function TicketDetailsModal({
                   }}
                 />
               </Box>
-              {attachment && (
-                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
-                  File selected: {attachment.name}
+              {fileError && (
+                <Typography variant="caption" sx={{ color: "red", mt: 1, display: "block" }}>
+                  {fileError}
                 </Typography>
               )}
+              {attachment && !fileError && (
+                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
+                  File selected: {attachment.name} ({(attachment.size / (1024 * 1024)).toFixed(2)}MB)
+                </Typography>
+              )}
+              <Typography variant="caption" sx={{ color: "gray", mt: 0.5, display: "block", fontSize: "0.75rem" }}>
+                Maximum file size: 10MB
+              </Typography>
             </Box>
 
             <Box sx={{ mt: 2, textAlign: "right" }}>
@@ -4923,7 +5260,7 @@ export default function TicketDetailsModal({
                 <input
                   type="file"
                   accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
-                  onChange={(e) => setAttachment(e.target.files[0])}
+                  onChange={handleFileChange}
                   style={{
                     width: "100%",
                     padding: "8px 12px",
@@ -4934,11 +5271,19 @@ export default function TicketDetailsModal({
                   }}
                 />
               </Box>
-              {attachment && (
-                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
-                  File selected: {attachment.name}
+              {fileError && (
+                <Typography variant="caption" sx={{ color: "red", mt: 1, display: "block" }}>
+                  {fileError}
                 </Typography>
               )}
+              {attachment && !fileError && (
+                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
+                  File selected: {attachment.name} ({(attachment.size / (1024 * 1024)).toFixed(2)}MB)
+                </Typography>
+              )}
+              <Typography variant="caption" sx={{ color: "gray", mt: 0.5, display: "block", fontSize: "0.75rem" }}>
+                Maximum file size: 10MB
+              </Typography>
             </Box>
 
             <Box sx={{ mt: 2, textAlign: "right" }}>
@@ -5056,7 +5401,7 @@ export default function TicketDetailsModal({
                 <input
                   type="file"
                   accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
-                  onChange={(e) => setAttachment(e.target.files[0])}
+                  onChange={handleFileChange}
                   style={{
                     width: "100%",
                     padding: "8px 12px",
@@ -5067,11 +5412,19 @@ export default function TicketDetailsModal({
                   }}
                 />
               </Box>
-              {attachment && (
-                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
-                  File selected: {attachment.name}
+              {fileError && (
+                <Typography variant="caption" sx={{ color: "red", mt: 1, display: "block" }}>
+                  {fileError}
                 </Typography>
               )}
+              {attachment && !fileError && (
+                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
+                  File selected: {attachment.name} ({(attachment.size / (1024 * 1024)).toFixed(2)}MB)
+                </Typography>
+              )}
+              <Typography variant="caption" sx={{ color: "gray", mt: 0.5, display: "block", fontSize: "0.75rem" }}>
+                Maximum file size: 10MB
+              </Typography>
             </Box>
 
             <Box sx={{ mt: 2, textAlign: "right" }}>
@@ -5139,7 +5492,7 @@ export default function TicketDetailsModal({
                 <input
                   type="file"
                   accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
-                  onChange={(e) => setAttachment(e.target.files[0])}
+                  onChange={handleFileChange}
                   style={{
                     width: "100%",
                     padding: "8px 12px",
@@ -5150,11 +5503,19 @@ export default function TicketDetailsModal({
                   }}
                 />
               </Box>
-              {attachment && (
-                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
-                  File selected: {attachment.name}
+              {fileError && (
+                <Typography variant="caption" sx={{ color: "red", mt: 1, display: "block" }}>
+                  {fileError}
                 </Typography>
               )}
+              {attachment && !fileError && (
+                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
+                  File selected: {attachment.name} ({(attachment.size / (1024 * 1024)).toFixed(2)}MB)
+                </Typography>
+              )}
+              <Typography variant="caption" sx={{ color: "gray", mt: 0.5, display: "block", fontSize: "0.75rem" }}>
+                Maximum file size: 10MB
+              </Typography>
             </Box>
           </Box>
           <Box sx={{ mt: 2, textAlign: "right" }}>
@@ -5242,7 +5603,7 @@ export default function TicketDetailsModal({
                 <input
                   type="file"
                   accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
-                  onChange={(e) => setAttachment(e.target.files[0])}
+                  onChange={handleFileChange}
                   style={{
                     width: "100%",
                     padding: "8px 12px",
@@ -5253,11 +5614,19 @@ export default function TicketDetailsModal({
                   }}
                 />
               </Box>
-              {attachment && (
-                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
-                  File selected: {attachment.name}
+              {fileError && (
+                <Typography variant="caption" sx={{ color: "red", mt: 1, display: "block" }}>
+                  {fileError}
                 </Typography>
               )}
+              {attachment && !fileError && (
+                <Typography variant="caption" sx={{ color: "green", mt: 1, display: "block" }}>
+                  File selected: {attachment.name} ({(attachment.size / (1024 * 1024)).toFixed(2)}MB)
+                </Typography>
+              )}
+              <Typography variant="caption" sx={{ color: "gray", mt: 0.5, display: "block", fontSize: "0.75rem" }}>
+                Maximum file size: 10MB
+              </Typography>
             </Box>
 
             <Box sx={{ mt: 2, textAlign: "right" }}>
