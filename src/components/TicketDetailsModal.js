@@ -280,7 +280,8 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
           // ONLY use attachment from current (Assigned) action - don't copy from next (Closed) action
           // This ensures attachment stays with the user who actually uploaded it during Assigned action
           attachment_path: current.attachment_path, // Only use current, don't fallback to next
-          reason: next.reason || current.reason || currentWithoutReason.reason
+          // Prioritize reason from Closed action, then from Assigned action
+          reason: next.reason || current.reason || currentWithoutReason.reason || ""
         });
         i++; // Skip the next step since consolidated
       } else {
@@ -331,8 +332,9 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
     const lastStep = steps[steps.length - 1];
     // Try to find who closed from assignment history
     let closedBy = null;
+    let closedAction = null;
     if (Array.isArray(assignmentHistory) && assignmentHistory.length > 0) {
-      const closedAction = assignmentHistory.find(a => a.action === "Closed");
+      closedAction = assignmentHistory.find(a => a.action === "Closed");
       if (closedAction) {
         closedBy = closedAction.assigned_to_name || closedAction.assigned_to_id;
       }
@@ -349,6 +351,18 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
       lastStep.action = "Closed";
       lastStep.closed_at = selectedTicket.date_of_resolution || selectedTicket.updated_at;
       lastStep.isConsolidated = true;
+      // Preserve reason and resolution_details from closed action
+      if (closedAction) {
+        // Use reason from closed action, or resolution_details from ticket, or reason from last step
+        lastStep.reason = closedAction.reason || selectedTicket.resolution_details || lastStep.reason || "";
+        // Preserve attachment_path from closed action if it exists
+        if (closedAction.attachment_path && !lastStep.attachment_path) {
+          lastStep.attachment_path = closedAction.attachment_path;
+        }
+      } else {
+        // If no closedAction found, use resolution_details from ticket
+        lastStep.reason = selectedTicket.resolution_details || lastStep.reason || "";
+      }
     }
   }
 
@@ -510,6 +524,21 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
                       <strong>Description:</strong> {a.reason}
                     </Typography>
                   </Box>
+                )}
+                {/* Show attachment if present */}
+                {a.attachment_path && (
+                  <Typography
+                    variant="body2"
+                    sx={{ color: '#28a745', fontStyle: 'italic', cursor: 'pointer', textDecoration: 'underline', mt: 1 }}
+                    onClick={() => handleDownloadAttachment(a.attachment_path)}
+                  >
+                    Download attachment
+                  </Typography>
+                )}
+                {!a.attachment_path && !a.evidence_url && (
+                  <Typography variant="body2" sx={{ color: 'gray', fontStyle: 'italic', mt: 1 }}>
+                    No attachment
+                  </Typography>
                 )}
               </Box>
             </Box>
