@@ -109,13 +109,23 @@ export default function Login() {
     }
   }, [timeRemaining]);
 
-  // Background slideshow effect
+  // Background slideshow effect with delay
   useEffect(() => {
-    const slideshowInterval = setInterval(() => {
-      setCurrentBgIndex((prevIndex) => (prevIndex + 1) % backgroundImages.length);
-    }, 5000); // Change image every 5 seconds
+    let slideshowInterval = null;
+    
+    // Initial delay before starting slideshow
+    const initialDelay = setTimeout(() => {
+      slideshowInterval = setInterval(() => {
+        setCurrentBgIndex((prevIndex) => (prevIndex + 1) % backgroundImages.length);
+      }, 3000); // Change image every 5 seconds
+    }, 2000); // 2 second delay before first transition
 
-    return () => clearInterval(slideshowInterval);
+    return () => {
+      clearTimeout(initialDelay);
+      if (slideshowInterval) {
+        clearInterval(slideshowInterval);
+      }
+    };
   }, [backgroundImages.length]);
 
   return (
@@ -144,7 +154,7 @@ export default function Login() {
               </div>
               <div className="support-item">
                 <span className="support-label">Email:</span>
-                <span className="support-value">support@wcf.go.tz</span>
+                <span className="support-value">ictsupport@wcf.go.tz</span>
               </div>
             </div>
           </div>
