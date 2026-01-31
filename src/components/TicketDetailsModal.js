@@ -4537,14 +4537,14 @@ export default function TicketDetailsModal({
                     {!((userRole === "manager" || userRole === "head-of-unit" || userRole === "director") && 
                         (selectedTicket?.category === "Compliment" || selectedTicket?.category === "Suggestion" || selectedTicket?.category === "Complement")) &&
                      !(userRole === "focal-person" && selectedTicket?.category === "Complaint") && (
-                      <Tooltip title="Assign this ticket to an attendee">
+                      <Tooltip title={selectedTicket?.status === "Assigned" ? "Reassign this ticket to a different attendee" : "Assign this ticket to an attendee"}>
                       <Button
                         variant="contained"
                         color="info"
                         sx={{ mr: 1 }}
                         onClick={() => setIsAssignModalOpen(true)}
                       >
-                        Assign
+                        {selectedTicket?.status === "Assigned" ? "Reassign" : "Assign"}
                       </Button>
                       </Tooltip>
                     )}
