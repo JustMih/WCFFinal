@@ -160,16 +160,23 @@ export default function LiveCallsCard({
             {data.length > 0 ? (
               data.map((call) => (
                 <tr key={call.linkedid}>
-                  <td>{call.caller}</td>
-                  <td>{call.callee}</td>
+                  <td className="agent-name">{call.caller}</td>
+                  <td className="customer-number">{call.callee}</td>
 
-                  <td>
-                    {call.agent_extension ? (
-                      <strong style={{ color: "#1976d2" }}>
-                        {call.agent_name} ({call.agent_extension})
-                      </strong>
+                  <td className="agent-name">
+                    {call.agent_name ? (
+                      <span style={{ fontWeight: 600, color: "#1976d2" }}>
+                        {call.agent_name}
+                        {call.agent_extension && (
+                          <span style={{ color: "#555", marginLeft: 6 }}>
+                            ({call.agent_extension})
+                          </span>
+                        )}
+                      </span>
                     ) : (
-                      <em style={{ color: "#999" }}>Unassigned</em>
+                      <span style={{ color: "#999", fontStyle: "italic" }}>
+                        Unassigned
+                      </span>
                     )}
                   </td>
 
