@@ -20,67 +20,27 @@
   font-weight: bold;
 }
 
-/* Header */
-.dashboard-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 15px;
-  padding: 15px;
-  width: auto;
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(10px);
-  border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+/* Floating Watch */
+.floating-watch {
+  animation: float 3s ease-in-out infinite;
 }
 
-.header-left {
-  flex: 1;
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-5px);
+  }
 }
 
-.header-top {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 5px;
+.floating-watch .MuiCard-root {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-.back-button {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-  color: white !important;
-  padding: 10px !important;
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4) !important;
-  transition: all 0.3s ease !important;
-  border-radius: 10px !important;
-  min-width: 44px !important;
-  height: 44px !important;
-}
-
-.back-button:hover {
-  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%) !important;
-  transform: translateX(-3px) scale(1.05) !important;
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6) !important;
-}
-
-.back-button:active {
-  transform: translateX(-1px) scale(0.98) !important;
-}
-
-.back-button svg {
-  font-size: 1.5rem !important;
-}
-
-.dashboard-title {
-  font-size: 1.8rem;
-  font-weight: bold;
-  margin: 0;
-  color: #333;
-}
-
-.current-time {
-  font-size: 1rem;
-  color: #666;
-  font-weight: 400;
+.floating-watch .MuiCard-root:hover {
+  transform: scale(1.05);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4) !important;
 }
 
 .public-login-button {

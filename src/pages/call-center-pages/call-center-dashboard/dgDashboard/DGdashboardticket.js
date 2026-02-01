@@ -440,7 +440,7 @@ export default function DGdashboardticket() {
                 legend: {
       show: true,
       floating: false,
-      fontSize: "14px",
+      fontSize: "10px",
                   position: "bottom",
       labels: {
         useSeriesColors: true,
