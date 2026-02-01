@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { Bar, Line } from "react-chartjs-2";
 import ReactApexChart from "react-apexcharts";
 import { baseURL } from "../../../../config";
 import {
@@ -17,7 +16,6 @@ import {
   MdPhone,
   MdPhoneDisabled,
   MdCallEnd,
-  MdTrendingUp,
 } from "react-icons/md";
 import { Box, Card, CardContent, Typography, Grid, CircularProgress, Tabs, Tab } from "@mui/material";
 import AgentDashboard from "../../../crm-pages/crm-dashboard/crm-agent-dashboard/crm-agent-dashboard";
@@ -66,24 +64,6 @@ export default function DGdashboard() {
   const yearlyNoAnswer = callSummary?.noAnsweredCalls || 0;
   const yearlyBusy = callSummary?.busyCalls || 0;
   
-  // Extract and format date range
-  const dateRange = callSummary?.dateRange || {};
-  const formatDateRange = (dateString) => {
-    if (!dateString) return "";
-    try {
-      const date = new Date(dateString);
-      if (isNaN(date.getTime())) return dateString;
-      const day = date.getDate();
-      const month = date.toLocaleDateString("en-US", { month: "short" });
-      const year = date.getFullYear();
-      return `${day} ${month} ${year}`;
-    } catch (error) {
-      return dateString;
-    }
-  };
-  const startDate = formatDateRange(dateRange.startDate);
-  const endDate = formatDateRange(dateRange.endDate);
-
   // Get status distribution from API response
   const statusDistribution = callSummary?.statusDistribution?.yearly || [];
   const getStatusCount = (status) => {
@@ -120,61 +100,22 @@ export default function DGdashboard() {
 
   // Fetch data
   useEffect(() => {
-    const fetchData = async () => {
-      try {
+  const fetchData = async () => {
+    try {
         const response = await fetch(`${baseURL}/call-summary/call-summary`);
-        const data = await response.json();
+      const data = await response.json();
         setCallSummary(data);
-      } catch (error) {
-        console.error("Error fetching data:", error);
+    } catch (error) {
+      console.error("Error fetching data:", error);
       } finally {
         setLoading(false);
-      }
-    };
+    }
+  };
 
     fetchData();
     const interval = setInterval(fetchData, 30000); // Refresh every 30 seconds
     return () => clearInterval(interval);
   }, []);
-
-  // Helper function to format dates safely
-  const formatDate = (dateValue, index) => {
-    if (!dateValue) {
-      // If no date, use index-based label
-      return `Day ${index + 1}`;
-    }
-    try {
-      // Try to parse the date
-      let date;
-      if (typeof dateValue === 'string') {
-        // Handle different date formats
-        if (dateValue.includes('T')) {
-          date = new Date(dateValue);
-        } else if (dateValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
-          date = new Date(dateValue + 'T00:00:00');
-        } else {
-          date = new Date(dateValue);
-        }
-      } else if (dateValue instanceof Date) {
-        date = dateValue;
-      } else {
-        date = new Date(dateValue);
-      }
-
-      if (isNaN(date.getTime())) {
-        // If date is still invalid, return formatted string or index
-        return dateValue.toString() || `Day ${index + 1}`;
-      }
-      
-      // Format as "DD MMM" (e.g., "31 Jan")
-      const day = date.getDate();
-      const month = date.toLocaleDateString("en-US", { month: "short" });
-      return `${day} ${month}`;
-    } catch (error) {
-      // Fallback to index-based label
-      return `Day ${index + 1}`;
-    }
-  };
 
   const formatMonthDate = (dateValue, index) => {
     if (!dateValue) {
@@ -290,7 +231,7 @@ export default function DGdashboard() {
   const areaChartSeries = [
     {
       name: "Daily Total Calls",
-      data: [
+        data: [
         ...(groupedDailyRanges.length > 0
           ? groupedDailyRanges.map((d) => d.count || 0)
           : []),
@@ -300,7 +241,7 @@ export default function DGdashboard() {
     },
     {
       name: "Daily Answered",
-      data: [
+        data: [
         ...(groupedDailyRanges.length > 0
           ? groupedDailyRanges.map((d) => Math.round((d.count || 0) * (finalYearlyAnswered / yearlyTotal)) || 0)
           : []),
@@ -310,7 +251,7 @@ export default function DGdashboard() {
     },
     {
       name: "Monthly Total Calls",
-      data: [
+        data: [
         ...Array(groupedDailyRanges.length).fill(null),
         ...(monthlyTrends.length > 0
           ? monthlyTrends.map((d) => d.count || 0)
@@ -320,7 +261,7 @@ export default function DGdashboard() {
     },
     {
       name: "Monthly Answered",
-      data: [
+        data: [
         ...Array(groupedDailyRanges.length).fill(null),
         ...(monthlyTrends.length > 0
           ? monthlyTrends.map((d) => Math.round((d.count || 0) * (finalYearlyAnswered / yearlyTotal)) || 0)
@@ -330,7 +271,7 @@ export default function DGdashboard() {
     },
     {
       name: "Yearly Total",
-      data: [
+        data: [
         ...Array(groupedDailyRanges.length).fill(null),
         ...Array(monthlyTrends.length).fill(null),
         ...(yearlyTrends.length > 0 ? [yearlyTotal] : [null]),

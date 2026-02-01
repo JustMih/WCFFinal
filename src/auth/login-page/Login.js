@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { ImSpinner9 } from "react-icons/im";
-import wcf_image from "../../asserts/images/wcf_image.jpg";
+// import wcf_image from "../../asserts/images/wcf_image.jpg";
 import wcf_logo from "../../asserts/images/logo.png";
 import loginBg1 from "../../asserts/bg/bg4.PNG";
 import loginBg2 from "../../asserts/bg/bg1.PNG";
