@@ -280,7 +280,8 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
           // ONLY use attachment from current (Assigned) action - don't copy from next (Closed) action
           // This ensures attachment stays with the user who actually uploaded it during Assigned action
           attachment_path: current.attachment_path, // Only use current, don't fallback to next
-          reason: next.reason || current.reason || currentWithoutReason.reason
+          // Prioritize reason from Closed action, then from Assigned action
+          reason: next.reason || current.reason || currentWithoutReason.reason || ""
         });
         i++; // Skip the next step since consolidated
       } else {
@@ -331,8 +332,9 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
     const lastStep = steps[steps.length - 1];
     // Try to find who closed from assignment history
     let closedBy = null;
+    let closedAction = null;
     if (Array.isArray(assignmentHistory) && assignmentHistory.length > 0) {
-      const closedAction = assignmentHistory.find(a => a.action === "Closed");
+      closedAction = assignmentHistory.find(a => a.action === "Closed");
       if (closedAction) {
         closedBy = closedAction.assigned_to_name || closedAction.assigned_to_id;
       }
@@ -349,6 +351,18 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
       lastStep.action = "Closed";
       lastStep.closed_at = selectedTicket.date_of_resolution || selectedTicket.updated_at;
       lastStep.isConsolidated = true;
+      // Preserve reason and resolution_details from closed action
+      if (closedAction) {
+        // Use reason from closed action, or resolution_details from ticket, or reason from last step
+        lastStep.reason = closedAction.reason || selectedTicket.resolution_details || lastStep.reason || "";
+        // Preserve attachment_path from closed action if it exists
+        if (closedAction.attachment_path && !lastStep.attachment_path) {
+          lastStep.attachment_path = closedAction.attachment_path;
+        }
+      } else {
+        // If no closedAction found, use resolution_details from ticket
+        lastStep.reason = selectedTicket.resolution_details || lastStep.reason || "";
+      }
     }
   }
 
@@ -510,6 +524,21 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
                       <strong>Description:</strong> {a.reason}
                     </Typography>
                   </Box>
+                )}
+                {/* Show attachment if present */}
+                {a.attachment_path && (
+                  <Typography
+                    variant="body2"
+                    sx={{ color: '#28a745', fontStyle: 'italic', cursor: 'pointer', textDecoration: 'underline', mt: 1 }}
+                    onClick={() => handleDownloadAttachment(a.attachment_path)}
+                  >
+                    Download attachment
+                  </Typography>
+                )}
+                {!a.attachment_path && !a.evidence_url && (
+                  <Typography variant="body2" sx={{ color: 'gray', fontStyle: 'italic', mt: 1 }}>
+                    No attachment
+                  </Typography>
                 )}
               </Box>
             </Box>
@@ -1299,6 +1328,62 @@ export default function TicketDetailsModal({
            mostRecentAssignment?.assigned_to_role === "Manager";
   };
 
+  // Function to check if this should be "Reassign" instead of "Assign"
+  // Reassign should only show if:
+  // 1. Current user (manager/head/director) previously assigned this ticket to a subordinate
+  // 2. That subordinate returned/reversed it back to the manager/head
+  // 3. Now the manager/head wants to assign it to a different person
+  // This works for ALL ticket categories (Inquiry, Complaint, Suggestion, etc.)
+  const shouldShowReassign = () => {
+    const currentUserId = localStorage.getItem("userId");
+    const currentUserRole = localStorage.getItem("role");
+    
+    // Only for manager, head-of-unit, and director
+    if (currentUserRole !== "manager" && currentUserRole !== "head-of-unit" && currentUserRole !== "director") {
+      return false;
+    }
+    
+    // If no assignment history, it's the first assignment - show "Assign"
+    if (!assignmentHistory || !Array.isArray(assignmentHistory) || assignmentHistory.length === 0) {
+      return false;
+    }
+    
+    // Check if current user has previously assigned this ticket (works for all categories)
+    const userAssignments = assignmentHistory.filter(a => 
+      (a.action === "Assigned" || a.action === "Reassigned") &&
+      (a.assigned_by_id === currentUserId || 
+       String(a.assigned_by_id) === String(currentUserId))
+    );
+    
+    // If user has never assigned before, it's "Assign" (first time assignment)
+    if (userAssignments.length === 0) {
+      return false;
+    }
+    
+    // Check if the most recent action was a return/reverse from a subordinate back to this user
+    const mostRecent = assignmentHistory[assignmentHistory.length - 1];
+    
+    // Check if ticket was returned/reversed back to this user
+    const isReturnedToUser = (
+      (mostRecent.action === "Reversed" || mostRecent.action === "Returned") &&
+      (mostRecent.assigned_to_id === currentUserId || 
+       String(mostRecent.assigned_to_id) === String(currentUserId))
+    );
+    
+    // Also check if ticket is currently assigned to this user (they can reassign it)
+    const isCurrentlyAssignedToUser = (
+      selectedTicket?.assigned_to_id === currentUserId ||
+      String(selectedTicket?.assigned_to_id) === String(currentUserId)
+    );
+    
+    // Show "Reassign" if:
+    // 1. User previously assigned this ticket, AND
+    // 2. Ticket was returned/reversed back to this user, AND
+    // 3. Ticket is currently assigned to this user (or they have permission to reassign)
+    // This logic works for ALL categories (Inquiry, Complaint, Suggestion, Compliment, etc.)
+    return isReturnedToUser && userAssignments.length > 0 && isCurrentlyAssignedToUser;
+  };
+
   // Initialize selectedRating when modal opens (only when ticket changes, not when unit changes)
   useEffect(() => {
     if (selectedTicket && selectedTicket.id !== lastInitializedTicketId) {
@@ -1883,15 +1968,18 @@ export default function TicketDetailsModal({
     // Hide attend button for attendee/agent if complaint_type is Minor or Major
     !((userRole === "attendee" || userRole === "agent") && 
       (selectedTicket.complaint_type === "Minor" || selectedTicket.complaint_type === "Major")) &&
+    // Hide attend button for director if category is Compliment or Suggestion
+    !(userRole === "director" && 
+      (selectedTicket.category === "Compliment" || selectedTicket.category === "Suggestion" || selectedTicket.category === "Complement")) &&
       (
-        // For director: show attend button for Minor status OR Suggestion/Complement/Compliment OR unrated tickets (N/A)
+        // For director: show attend button for Minor status OR unrated tickets (N/A), but NOT for Compliment/Suggestion/Complement
         (userRole === "director" && (
           selectedTicket.complaint_type === "Minor" ||
+          selectedTicket.complaint_type === "Manjor" ||
           selectedTicket.complaint_type === "N/A" ||
-          !selectedTicket.complaint_type ||
-          selectedTicket.category === "Suggestion" ||
-          selectedTicket.category === "Compliment"
-        )) ||
+          !selectedTicket.complaint_type
+        ) && 
+        !(selectedTicket.category === "Compliment" || selectedTicket.category === "Suggestion" || selectedTicket.category === "Complement")) ||
         // For attendee: show attend button for normal tickets (Inquiry/other non-complaint categories)
         (userRole === "attendee" && selectedTicket.category !== "Complaint") ||
         // For agent: show attend button for normal tickets (Inquiry/other non-complaint categories)
@@ -1907,10 +1995,14 @@ export default function TicketDetailsModal({
         )) ||
       // For non-directors, non-attendees, non-agents, and non-head-of-unit: existing logic
       (userRole !== "director" && userRole !== "attendee" && userRole !== "agent" && userRole !== "head-of-unit" && (
+        // For managers: show attend button for Minor, Unrated (N/A), Suggestion, or Compliment (NOT Major)
+        (userRole === "manager" && (
+          (selectedTicket.category === "Complaint" && (selectedTicket.complaint_type === "Minor" || selectedTicket.complaint_type === "N/A" || !selectedTicket.complaint_type)) ||
+          selectedTicket.category === "Suggestion" ||
+          selectedTicket.category === "Compliment"
+        )) ||
         // For non-managers, only allow if ticket is not rated
-        (userRole === "manager" || !selectedTicket.complaint_type) &&
-        // For managers, hide attend button if priority is "Major" or "Minor"
-        !(userRole === "manager" && (selectedTicket.complaint_type === "Major" || selectedTicket.complaint_type === "Minor"))
+        (userRole !== "manager" && !selectedTicket.complaint_type)
       ))
     );
 
@@ -3821,14 +3913,27 @@ export default function TicketDetailsModal({
 
               {/* Action Buttons */}
               <Box sx={{ mt: 2, textAlign: "right" }}>
-                {showAttendButton && userRole !== "reviewer" && (
+                {/* Show Attend button for Manager with Minor or N/A (opens resolution modal) */}
+                {/* Hide Attend button for Manager with Suggestion/Compliment (shown in special section below) */}
+                {/* Hide Attend button for Director with Compliment or Suggestion (shown in special section above) */}
+                {showAttendButton && userRole !== "reviewer" && 
+                 !(userRole === "manager" && 
+                   (selectedTicket?.category === "Compliment" || selectedTicket?.category === "Suggestion" || selectedTicket?.category === "Complement")) &&
+                 !(userRole === "director" && 
+                   (selectedTicket?.category === "Compliment" || selectedTicket?.category === "Suggestion" || selectedTicket?.category === "Complement")) && (
                   <Tooltip title="Attend to this ticket and provide resolution details">
                   <Button 
                     variant="contained" 
                     color="primary" 
                     onClick={() => {
+                      // For manager with Minor or N/A - open attend dialog
+                      if (userRole === "manager" && 
+                          selectedTicket.category === "Complaint" && 
+                          (selectedTicket.complaint_type === "Minor" || selectedTicket.complaint_type === "N/A" || !selectedTicket.complaint_type)) {
+                        setIsAttendDialogOpen(true);
+                      } 
                       // For attendee with Minor/Major complaints from head of unit, open attend dialog
-                      if (userRole === "attendee" && 
+                      else if (userRole === "attendee" && 
                           selectedTicket.category === "Complaint" && 
                           (selectedTicket.complaint_type === "Minor" || selectedTicket.complaint_type === "Major") &&
                           isFromHeadOfUnit) {
@@ -4138,6 +4243,28 @@ export default function TicketDetailsModal({
                                   ? "Please provide a comment/description before forwarding"
                                   : "Forward ticket to selected unit/section")
                               : "Forward ticket to selected unit/section"}>
+                              {/* Show Reverse button for Suggestion or Complement */}
+                              {(selectedTicket.category === "Suggestion" || selectedTicket.category === "Compliment") && (
+                                <Tooltip title="Reverse this ticket back to the previous assignee">
+                                  <Button
+                                    size="small"
+                                    variant="contained"
+                                    color="warning"
+                                    onClick={() => setIsReverseModalOpen(true)}
+                                    disabled={isReversing}
+                                    sx={{
+                                      textTransform: 'none',
+                                      px: 1.5,
+                                      py: 0.5,
+                                      fontSize: '0.75rem',
+                                      minHeight: '32px',
+                                      mr: 1
+                                    }}
+                                  >
+                                    {isReversing ? "Reversing..." : "Reverse"}
+                                  </Button>
+                                </Tooltip>
+                              )}
                               <Button
                                 size="small"
                                 variant="contained"
@@ -4198,6 +4325,7 @@ export default function TicketDetailsModal({
                     */}
                     {(() => {
                       const isComplaint = selectedTicket.category === "Complaint";
+                      const isInquiry = selectedTicket.category === "Inquiry";
                       const isMajor = selectedTicket.complaint_type === "Major";
                       const isReversed = selectedTicket.status === "Reversed";
                       const isHeadOfUnit = selectedTicket.assigned_to_role === "head-of-unit";
@@ -4205,8 +4333,8 @@ export default function TicketDetailsModal({
                       const hasAssignmentHistory = assignmentHistory && assignmentHistory.length > 0;
                       const previousWasManager = hasAssignmentHistory && assignmentHistory[assignmentHistory.length - 1]?.assigned_by_role === "manager";
                       
-                      // ORIGINAL CONDITION - Keep this as is
-                      const originalCondition = isComplaint && isMajor && isReversed && isHeadOfUnit && isAssignedToUser && previousWasManager;
+                      // ORIGINAL CONDITION - Keep this as is, but hide for Inquiry
+                      const originalCondition = isComplaint && !isInquiry && isMajor && isReversed && isHeadOfUnit && isAssignedToUser && previousWasManager;
                       
                       // NEW CONDITIONS FOR DIRECTOR - Add these without removing original
                       const isDirectorate = selectedTicket.responsible_unit_name?.toLowerCase().includes("directorate");
@@ -4228,21 +4356,21 @@ export default function TicketDetailsModal({
                         }
                       }
                       
-                      // NEW: Director case with Attended and Recommended or Reversed status
-                      const directorCondition1 = isComplaint && isMajor && isDirectorate &&
+                      // NEW: Director case with Attended and Recommended or Reversed status (hide for Inquiry)
+                      const directorCondition1 = isComplaint && !isInquiry && isMajor && isDirectorate &&
                                                 (isAttendedAndRecommended || isReversed) &&
                                                 isDirector &&
                                                 isAssignedToUser &&
                                                 cameFromManager;
                       
-                      // NEW: Director case with Attended and Recommended (more flexible - no manager check)
-                      const directorCondition2 = isComplaint && isMajor && isDirectorate &&
+                      // NEW: Director case with Attended and Recommended (more flexible - no manager check, hide for Inquiry)
+                      const directorCondition2 = isComplaint && !isInquiry && isMajor && isDirectorate &&
                                                 isAttendedAndRecommended &&
                                                 isDirector &&
                                                 isAssignedToUser;
                       
-                      // NEW: Director case - even simpler check (just Director + Major + Directorate + status)
-                      const directorCondition3 = isComplaint && isMajor && isDirectorate &&
+                      // NEW: Director case - even simpler check (just Director + Major + Directorate + status, hide for Inquiry)
+                      const directorCondition3 = isComplaint && !isInquiry && isMajor && isDirectorate &&
                                                 (isAttendedAndRecommended || isReversed) &&
                                                 userRole === "director" &&
                                                 selectedTicket.assigned_to_role === "director" &&
@@ -4293,6 +4421,7 @@ export default function TicketDetailsModal({
                         </Button>
                         </Tooltip>
                         <Box sx={{ display: "flex", gap: 1 }}>
+                          
                           <Tooltip title="Close and resolve this ticket">
                           <Button
                             variant="contained"
@@ -4370,6 +4499,29 @@ export default function TicketDetailsModal({
                        (selectedTicket.assigned_to_id === userId || 
                         effectiveForwardUnit[selectedTicket.id]))) && (
                         <>
+                          {/* Show Reverse button for reviewer if category is Suggestion or Complement */}
+                          {userRole === 'reviewer' && 
+                           (selectedTicket.category === "Suggestion" || selectedTicket.category === "Complement") && (
+                            <Tooltip title="Reverse this ticket back to the previous assignee">
+                              <Button
+                                variant="contained"
+                                color="warning"
+                                onClick={() => setIsReverseModalOpen(true)}
+                                disabled={isReversing}
+                                sx={{
+                                  borderRadius: 1.5,
+                                  textTransform: 'none',
+                                  px: 2.5,
+                                  py: 0.75,
+                                  minWidth: 110,
+                                  fontSize: '0.875rem',
+                                  mr: 1
+                                }}
+                              >
+                                {isReversing ? "Reversing..." : "Reverse"}
+                              </Button>
+                            </Tooltip>
+                          )}
                           <Tooltip title="Close and resolve this ticket">
                         <Button
                           variant="contained"
@@ -4494,61 +4646,127 @@ export default function TicketDetailsModal({
                   !["agent", "reviewer", "attendee", "director-general"].includes(localStorage.getItem("role"))) && 
                  selectedTicket?.assigned_to_id === localStorage.getItem("userId") && selectedTicket.status !== "Closed") && (
                   <>
-                    {/* Show Forward to DG button for Director or Head-of-unit with Major Complaint */}
-                    {((userRole === "director" && 
-                       selectedTicket?.category === "Complaint" && 
-                       selectedTicket?.complaint_type === "Major" &&
-                       selectedTicket?.responsible_unit_name?.toLowerCase().includes("directorate") &&
-                       (selectedTicket?.status === "Attended and Recommended" || selectedTicket?.status === "Reversed")) ||
-                      (userRole === "head-of-unit" && 
-                       selectedTicket?.category === "Complaint" && 
-                       selectedTicket?.complaint_type === "Major" &&
-                       selectedTicket?.assigned_to_id === userId)) && (
-                      <Tooltip title="Forward ticket to Director General for final approval">
-                      <Button
-                        variant="contained"
-                        color="warning"
-                        sx={{ mr: 1 }}
-                        onClick={handleForwardToDG}
-                        disabled={forwardToDGLoading}
-                      >
-                        {forwardToDGLoading ? "Forwarding..." : "Forward to Director General"}
-                      </Button>
-                      </Tooltip>
+                    {/* Special case: Director with Compliment or Suggestion - show only Assign, Reverse, Cancel */}
+                    {(userRole === "director" && 
+                      (selectedTicket?.category === "Compliment" || selectedTicket?.category === "Suggestion" || selectedTicket?.category === "Complement")) ? (
+                      <>
+                        <Tooltip title={shouldShowReassign() ? "Reassign this ticket to a different attendee" : "Assign this ticket to an attendee"}>
+                          <Button
+                            variant="contained"
+                            color="info"
+                            sx={{ mr: 1 }}
+                            onClick={() => setIsAssignModalOpen(true)}
+                          >
+                            {shouldShowReassign() ? "Reassign" : "Assign"}
+                          </Button>
+                        </Tooltip>
+                        <Tooltip title="Reverse this ticket back to the previous assignee">
+                          <Button
+                            variant="contained"
+                            color="warning"
+                            sx={{ mr: 1 }}
+                            onClick={() => setIsReverseModalOpen(true)}
+                            disabled={isReversing}
+                          >
+                            Reverse
+                          </Button>
+                        </Tooltip>
+                      </>
+                    ) : (
+                      <>
+                        {/* Special case: Manager with Compliment or Suggestion - show only Attend, Reverse, Cancel */}
+                        {(userRole === "manager" && 
+                          (selectedTicket?.category === "Compliment" || selectedTicket?.category === "Suggestion" || selectedTicket?.category === "Complement")) ? (
+                          <>
+                            {showAttendButton && (
+                              <Tooltip title="Close this ticket with resolution details">
+                                <Button 
+                                  variant="contained" 
+                                  color="primary" 
+                                  onClick={handleReviewerClose}
+                                  sx={{ mr: 1 }}
+                                  disabled={reviewerCloseLoading}
+                                >
+                                  {reviewerCloseLoading ? "Closing..." : "Attend"}
+                                </Button>
+                              </Tooltip>
+                            )}
+                            <Tooltip title="Reverse this ticket back to the previous assignee">
+                              <Button
+                                variant="contained"
+                                color="warning"
+                                sx={{ mr: 1 }}
+                                onClick={() => setIsReverseModalOpen(true)}
+                                disabled={isReversing}
+                              >
+                                Reverse
+                              </Button>
+                            </Tooltip>
+                          </>
+                        ) : (
+                          <>
+                            
+                            <Tooltip title={userRole === "focal-person" && selectedTicket?.category === "Complaint" 
+                              ? "Reverse this ticket with a recommendation" 
+                              : "Reverse this ticket back to the previous assignee"}>
+                            <Button
+                              variant="contained"
+                              color="warning"
+                              sx={{ mr: 1 }}
+                              onClick={() => setIsReverseModalOpen(true)}
+                              disabled={isReversing}
+                            >
+                              {userRole === "focal-person" && selectedTicket?.category === "Complaint" 
+                                ? "Reverse with Recommendation" 
+                                : "Reverse"}
+                            </Button>
+                            </Tooltip>
+                            {/* Hide Assign button for manager, head-of-unit, and director when category is Compliment, Suggestion, or Complement */}
+                            {/* Hide Assign button for focal-person when category is Complaint */}
+                            {!((userRole === "manager" || userRole === "head-of-unit" || userRole === "director") && 
+                                (selectedTicket?.category === "Compliment" || selectedTicket?.category === "Suggestion" || selectedTicket?.category === "Complement")) &&
+                             !(userRole === "focal-person" && selectedTicket?.category === "Complaint") && (
+                              <Tooltip title={shouldShowReassign() ? "Reassign this ticket to a different attendee" : "Assign this ticket to an attendee"}>
+                              <Button
+                                variant="contained"
+                                color="info"
+                                sx={{ mr: 1 }}
+                                onClick={() => setIsAssignModalOpen(true)}
+                              >
+                                {shouldShowReassign() ? "Reassign" : "Assign"}
+                              </Button>
+                              </Tooltip>
+                            )}
+                          </>
+                        )}
+                      </>
                     )}
-                    
-                    <Tooltip title={userRole === "focal-person" && selectedTicket?.category === "Complaint" 
-                      ? "Reverse this ticket with a recommendation" 
-                      : "Reverse this ticket back to the previous assignee"}>
+                  </>
+                )}
+
+                {/* Forward to DG button for Director or Head-of-unit with Major Complaint - always visible even if not assigned, but hide for Inquiry */}
+                {((userRole === "director" && 
+                   selectedTicket?.category === "Complaint" && 
+                   selectedTicket?.category !== "Inquiry" &&
+                   selectedTicket?.complaint_type === "Major" &&
+                   selectedTicket?.responsible_unit_name?.toLowerCase().includes("directorate") &&
+                   selectedTicket?.status !== "Closed") ||
+                  (userRole === "head-of-unit" && 
+                   selectedTicket?.category === "Complaint" && 
+                   selectedTicket?.category !== "Inquiry" &&
+                   selectedTicket?.complaint_type === "Major" &&
+                   selectedTicket?.status !== "Closed")) && (
+                  <Tooltip title="Forward ticket to Director General for final approval">
                     <Button
                       variant="contained"
                       color="warning"
                       sx={{ mr: 1 }}
-                      onClick={() => setIsReverseModalOpen(true)}
-                      disabled={isReversing}
+                      onClick={handleForwardToDG}
+                      disabled={forwardToDGLoading}
                     >
-                      {userRole === "focal-person" && selectedTicket?.category === "Complaint" 
-                        ? "Reverse with Recommendation" 
-                        : "Reverse"}
+                      {forwardToDGLoading ? "Forwarding..." : "Forward to Director General"}
                     </Button>
-                    </Tooltip>
-                    {/* Hide Assign button for manager, head-of-unit, and director when category is Compliment, Suggestion, or Complement */}
-                    {/* Hide Assign button for focal-person when category is Complaint */}
-                    {!((userRole === "manager" || userRole === "head-of-unit" || userRole === "director") && 
-                        (selectedTicket?.category === "Compliment" || selectedTicket?.category === "Suggestion" || selectedTicket?.category === "Complement")) &&
-                     !(userRole === "focal-person" && selectedTicket?.category === "Complaint") && (
-                      <Tooltip title={selectedTicket?.status === "Assigned" ? "Reassign this ticket to a different attendee" : "Assign this ticket to an attendee"}>
-                      <Button
-                        variant="contained"
-                        color="info"
-                        sx={{ mr: 1 }}
-                        onClick={() => setIsAssignModalOpen(true)}
-                      >
-                        {selectedTicket?.status === "Assigned" ? "Reassign" : "Assign"}
-                      </Button>
-                      </Tooltip>
-                    )}
-                  </>
+                  </Tooltip>
                 )}
 
                 {/* Reassign button for previously assigned focal-person or manager who is not currently assigned */}
@@ -4586,10 +4804,51 @@ export default function TicketDetailsModal({
                   </Tooltip>
                 )}
 
-                {/* Manager Send to Director button - visible for all complaints (Major and Minor) */}
+                {/* Attendee Reverse button for Inquiry tickets in Compliance Section or Claims Administration Section */}
+                {/* Also show if previous user (assigned_by_id) was the creator (created_by) */}
+                {userRole === "attendee" && 
+                 selectedTicket?.category === "Inquiry" &&
+                 selectedTicket?.assigned_to_id === localStorage.getItem("userId") &&
+                 selectedTicket?.status !== "Closed" &&
+                 (() => {
+                   // Check if sub-section is Compliance Section or Claims Administration Section
+                   const isComplianceOrClaims = selectedTicket?.sub_section === "Compliance Section" || 
+                                                 selectedTicket?.sub_section === "Claims Administration Section";
+                   
+                   // Check if previous assignment's assigned_by_id matches ticket's created_by
+                   let previousWasCreator = false;
+                   if (assignmentHistory && Array.isArray(assignmentHistory) && assignmentHistory.length > 0) {
+                     const mostRecent = assignmentHistory[assignmentHistory.length - 1];
+                     const ticketCreatedBy = selectedTicket?.created_by;
+                     const previousAssignedById = mostRecent?.assigned_by_id;
+                     
+                     // Check if previous assignment's assigned_by_id equals ticket's created_by
+                     previousWasCreator = previousAssignedById && ticketCreatedBy && 
+                                        (String(previousAssignedById) === String(ticketCreatedBy));
+                   }
+                   
+                   // Show button if sub-section matches OR previous user was creator
+                   return isComplianceOrClaims || previousWasCreator;
+                 })() && (
+                  <Tooltip title="Reverse this ticket back to the previous assignee">
+                  <Button
+                    variant="contained"
+                    color="warning"
+                    sx={{ mr: 1 }}
+                    onClick={() => setIsReverseModalOpen(true)}
+                    disabled={isReversing}
+                  >
+                    Reverse
+                  </Button>
+                  </Tooltip>
+                )}
+
+                {/* Manager Send to Director button - visible for all complaints (Major and Minor), but hide for Compliment/Suggestion/Complement and Inquiry */}
                 {userRole === "manager" && 
                  selectedTicket?.assigned_to_id === localStorage.getItem("userId") &&
-                 selectedTicket?.status !== "Closed" && (
+                 selectedTicket?.status !== "Closed" &&
+                 selectedTicket?.category !== "Inquiry" &&
+                 !(selectedTicket?.category === "Compliment" || selectedTicket?.category === "Suggestion" || selectedTicket?.category === "Complement") && (
                   <Tooltip title="Send this ticket to Director for review">
                   <Button
                     variant="contained"
