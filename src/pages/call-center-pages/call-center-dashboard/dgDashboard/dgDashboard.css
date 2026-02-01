@@ -1,0 +1,115 @@
+.dg-dashboard-container {
+  min-height: 100vh;
+  background: #f5f5f5;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+.dg-dashboard-container .stat-card {
+  background: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  border: 1px solid #e0e0e0;
+}
+
+.dg-dashboard-container .stat-card.stat-card-small {
+  height: 180px;
+  max-height: 180px;
+  min-height: 180px;
+  width: 100%;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.dg-dashboard-container .stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.dg-dashboard-container .MuiCard-root {
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.dg-dashboard-container .stat-card-small .MuiCardContent-root {
+  padding: 16px !important;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Chart container styles */
+.dg-dashboard-container .MuiGrid-container {
+  width: 100%;
+  max-width: 100%;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+.dg-dashboard-container .MuiGrid-item {
+  box-sizing: border-box;
+  padding-left: 16px;
+  padding-top: 16px;
+}
+
+.dg-dashboard-container .MuiCard-root {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.dg-dashboard-container .MuiCardContent-root {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Ensure charts section takes full width */
+.dg-dashboard-container .MuiBox-root {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Responsive chart adjustments - Keep charts in same row */
+@media (max-width: 960px) {
+  /* Charts stay in same row but adjust sizes */
+  .dg-dashboard-container .MuiGrid-container[class*="Charts"] {
+    flex-wrap: nowrap !important;
+  }
+  
+  .dg-dashboard-container .MuiGrid-item {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  /* On very small screens, still keep in row but allow wrapping if absolutely necessary */
+  .dg-dashboard-container .MuiGrid-container {
+    flex-wrap: wrap;
+  }
+  
+  .dg-dashboard-container .MuiGrid-item {
+    flex: 1 1 100%;
+    min-width: 280px;
+  }
+}
+
+@media (max-width: 600px) {
+  /* Adjust chart container padding on mobile */
+  .dg-dashboard-container .MuiCardContent-root {
+    padding: 12px !important;
+  }
+  
+  /* Ensure charts are full width on mobile */
+  .dg-dashboard-container .MuiCard-root {
+    margin-bottom: 16px;
+  }
+}
+
