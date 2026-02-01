@@ -1995,10 +1995,14 @@ export default function TicketDetailsModal({
         )) ||
       // For non-directors, non-attendees, non-agents, and non-head-of-unit: existing logic
       (userRole !== "director" && userRole !== "attendee" && userRole !== "agent" && userRole !== "head-of-unit" && (
+        // For managers: show attend button for Minor, Unrated (N/A), Suggestion, or Compliment (NOT Major)
+        (userRole === "manager" && (
+          (selectedTicket.category === "Complaint" && (selectedTicket.complaint_type === "Minor" || selectedTicket.complaint_type === "N/A" || !selectedTicket.complaint_type)) ||
+          selectedTicket.category === "Suggestion" ||
+          selectedTicket.category === "Compliment"
+        )) ||
         // For non-managers, only allow if ticket is not rated
-        (userRole === "manager" || !selectedTicket.complaint_type) &&
-        // For managers, hide attend button if priority is "Major" or "Minor"
-        !(userRole === "manager" && (selectedTicket.complaint_type === "Major" || selectedTicket.complaint_type === "Minor"))
+        (userRole !== "manager" && !selectedTicket.complaint_type)
       ))
     );
 
@@ -3909,7 +3913,9 @@ export default function TicketDetailsModal({
 
               {/* Action Buttons */}
               <Box sx={{ mt: 2, textAlign: "right" }}>
-                {/* Hide Attend button for Manager or Director with Compliment or Suggestion (shown in special section above for Manager) */}
+                {/* Show Attend button for Manager with Minor or N/A (opens resolution modal) */}
+                {/* Hide Attend button for Manager with Suggestion/Compliment (shown in special section below) */}
+                {/* Hide Attend button for Director with Compliment or Suggestion (shown in special section above) */}
                 {showAttendButton && userRole !== "reviewer" && 
                  !(userRole === "manager" && 
                    (selectedTicket?.category === "Compliment" || selectedTicket?.category === "Suggestion" || selectedTicket?.category === "Complement")) &&
@@ -3920,8 +3926,14 @@ export default function TicketDetailsModal({
                     variant="contained" 
                     color="primary" 
                     onClick={() => {
+                      // For manager with Minor or N/A - open attend dialog
+                      if (userRole === "manager" && 
+                          selectedTicket.category === "Complaint" && 
+                          (selectedTicket.complaint_type === "Minor" || selectedTicket.complaint_type === "N/A" || !selectedTicket.complaint_type)) {
+                        setIsAttendDialogOpen(true);
+                      } 
                       // For attendee with Minor/Major complaints from head of unit, open attend dialog
-                      if (userRole === "attendee" && 
+                      else if (userRole === "attendee" && 
                           selectedTicket.category === "Complaint" && 
                           (selectedTicket.complaint_type === "Minor" || selectedTicket.complaint_type === "Major") &&
                           isFromHeadOfUnit) {
@@ -4667,21 +4679,15 @@ export default function TicketDetailsModal({
                           (selectedTicket?.category === "Compliment" || selectedTicket?.category === "Suggestion" || selectedTicket?.category === "Complement")) ? (
                           <>
                             {showAttendButton && (
-                              <Tooltip title="Attend to this ticket and provide resolution details">
+                              <Tooltip title="Close this ticket with resolution details">
                                 <Button 
                                   variant="contained" 
                                   color="primary" 
-                                  onClick={() => {
-                                    if (userRole === "manager") {
-                                      setIsAttendDialogOpen(true);
-                                    } else {
-                                      handleReviewerClose();
-                                    }
-                                  }}
+                                  onClick={handleReviewerClose}
                                   sx={{ mr: 1 }}
-                                  disabled={attendLoading}
+                                  disabled={reviewerCloseLoading}
                                 >
-                                  {attendLoading ? "Attending..." : "Attend"}
+                                  {reviewerCloseLoading ? "Closing..." : "Attend"}
                                 </Button>
                               </Tooltip>
                             )}
@@ -4794,6 +4800,45 @@ export default function TicketDetailsModal({
                     disabled={agentReverseLoading}
                   >
                     Reverse with Recommendation
+                  </Button>
+                  </Tooltip>
+                )}
+
+                {/* Attendee Reverse button for Inquiry tickets in Compliance Section or Claims Administration Section */}
+                {/* Also show if previous user (assigned_by_id) was the creator (created_by) */}
+                {userRole === "attendee" && 
+                 selectedTicket?.category === "Inquiry" &&
+                 selectedTicket?.assigned_to_id === localStorage.getItem("userId") &&
+                 selectedTicket?.status !== "Closed" &&
+                 (() => {
+                   // Check if sub-section is Compliance Section or Claims Administration Section
+                   const isComplianceOrClaims = selectedTicket?.sub_section === "Compliance Section" || 
+                                                 selectedTicket?.sub_section === "Claims Administration Section";
+                   
+                   // Check if previous assignment's assigned_by_id matches ticket's created_by
+                   let previousWasCreator = false;
+                   if (assignmentHistory && Array.isArray(assignmentHistory) && assignmentHistory.length > 0) {
+                     const mostRecent = assignmentHistory[assignmentHistory.length - 1];
+                     const ticketCreatedBy = selectedTicket?.created_by;
+                     const previousAssignedById = mostRecent?.assigned_by_id;
+                     
+                     // Check if previous assignment's assigned_by_id equals ticket's created_by
+                     previousWasCreator = previousAssignedById && ticketCreatedBy && 
+                                        (String(previousAssignedById) === String(ticketCreatedBy));
+                   }
+                   
+                   // Show button if sub-section matches OR previous user was creator
+                   return isComplianceOrClaims || previousWasCreator;
+                 })() && (
+                  <Tooltip title="Reverse this ticket back to the previous assignee">
+                  <Button
+                    variant="contained"
+                    color="warning"
+                    sx={{ mr: 1 }}
+                    onClick={() => setIsReverseModalOpen(true)}
+                    disabled={isReversing}
+                  >
+                    Reverse
                   </Button>
                   </Tooltip>
                 )}
