@@ -32,7 +32,7 @@ export default function VoiceNoteReport() {
   const [endDate, setEndDate] = useState("");
   const [playedFilter, setPlayedFilter] = useState("all");
   const [disposition, setDisposition] = useState("all");
-const [audioUrls, setAudioUrls] = useState({});
+  const [audioUrls, setAudioUrls] = useState({});
 
   const safe = (v) => (v === null || v === undefined || v === "" ? "-" : v);
 
@@ -76,27 +76,24 @@ const [audioUrls, setAudioUrls] = useState({});
     (currentPage - 1) * reportsPerPage,
     currentPage * reportsPerPage
   );
-const loadAudio = async (id) => {
-  if (audioUrls[id]) return;
 
-  try {
-    const res = await fetch(`${baseURL}/voice-notes/${id}/audio`, {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-      },
-    });
-
-    if (!res.ok) throw new Error("Audio fetch failed");
-
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-
-    setAudioUrls((prev) => ({ ...prev, [id]: url }));
-  } catch (err) {
-    console.error("Audio error:", err);
-    alert("Unable to play audio");
-  }
-};
+  const loadAudio = async (id) => {
+    if (audioUrls[id]) return;
+    try {
+      const res = await fetch(`${baseURL}/voice-notes/${id}/audio`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        },
+      });
+      if (!res.ok) throw new Error("Audio fetch failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      setAudioUrls((prev) => ({ ...prev, [id]: url }));
+    } catch (err) {
+      console.error("Audio error:", err);
+      alert("Unable to play audio");
+    }
+  };
 
   const handleExportPDF = () => {
     const doc = new jsPDF();
@@ -231,29 +228,15 @@ const loadAudio = async (id) => {
         <td>{(currentPage - 1) * reportsPerPage + i + 1}</td>
         <td>{safe(r.clid)}</td>
         <td>{r.created_at ? new Date(r.created_at).toLocaleString() : "-"}</td>
-
-        {/* ✅ AUDIO — THIS IS THE FIX */}
         <td>
           {audioUrls[r.id] ? (
-            <audio
-              controls
-              src={audioUrls[r.id]}
-              style={{ width: 160 }}
-            />
+            <audio controls src={audioUrls[r.id]} style={{ width: 160 }} />
           ) : (
-            <button
-              onClick={() => loadAudio(r.id)}
-              style={{
-                padding: "6px 10px",
-                cursor: "pointer",
-                fontSize: 12,
-              }}
-            >
+            <button onClick={() => loadAudio(r.id)} style={{ padding: "6px 10px", cursor: "pointer", fontSize: 12 }}>
               ▶ Load & Play
             </button>
           )}
         </td>
-
         <td>
           <span
             style={{

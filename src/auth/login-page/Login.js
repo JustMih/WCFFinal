@@ -2,7 +2,12 @@ import React, { useState, useEffect } from "react";
 import { ImSpinner9 } from "react-icons/im";
 import wcf_image from "../../asserts/images/wcf_image.jpg";
 import wcf_logo from "../../asserts/images/logo.png";
-import loginBg from "../../asserts/images/login-bg.png";
+import loginBg1 from "../../asserts/bg/bg4.PNG";
+import loginBg2 from "../../asserts/bg/bg1.PNG";
+import loginBg3 from "../../asserts/bg/bg2.PNG";
+import loginBg4 from "../../asserts/bg/bg3.PNG";
+import loginBg5 from "../../asserts/bg/bg5.PNG";
+import loginBg6 from "../../asserts/bg/bg6.PNG"
 import { TextField, Button } from "@mui/material";
 import { baseURL } from "../../config";
 import { storeDomainCredentials, storeCredentialsObject, validateCredentials } from "../../utils/credentials";
@@ -14,6 +19,10 @@ export default function Login() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(null);
+  
+  // Background images array for slideshow
+  const backgroundImages = [loginBg1, loginBg2, loginBg3, loginBg4, loginBg5, loginBg6];
+  const [currentBgIndex, setCurrentBgIndex] = useState(0);
 
   const handleLogin = async (e) => {
     setIsLoading(true);
@@ -100,18 +109,35 @@ export default function Login() {
     }
   }, [timeRemaining]);
 
+  // Background slideshow effect
+  useEffect(() => {
+    const slideshowInterval = setInterval(() => {
+      setCurrentBgIndex((prevIndex) => (prevIndex + 1) % backgroundImages.length);
+    }, 5000); // Change image every 5 seconds
+
+    return () => clearInterval(slideshowInterval);
+  }, [backgroundImages.length]);
+
   return (
-    <div className="login-container" style={{ backgroundImage: `url(${loginBg})` }}>
+    <div className="login-container">
+      {/* Background slideshow layers */}
+      {backgroundImages.map((bg, index) => (
+        <div
+          key={index}
+          className={`login-bg-slide ${index === currentBgIndex ? 'active' : ''}`}
+          style={{ backgroundImage: `url(${bg})` }}
+        />
+      ))}
       <div className="login-card">
         {/* Left Content Section */}
-        <div className="login-image" style={{marginTop: '20px', marginLeft: '40px' }}>
+        <div className="login-image">
           <div className="content-overlay">
             <div className="slogan">
-              <span className="slogan-our">Our</span> <span className="slogan-slogan">Slogan</span>
+              <span className="slogan-our">Contact</span> <span className="slogan-slogan">Center</span>
             </div>
-            <p className="content-paragraph">
+            {/* <p className="content-paragraph">
             Rightful Compensation, On Time.
-            </p>
+            </p> */}
             <div className="support-info">
               <div className="support-item">
                 <span className="support-label">For Support contact IT SUPPORT</span>

@@ -486,6 +486,166 @@
   color: #888;
 }
 
+/* Call Summary – Three pie charts in one row */
+.call-summary-pie-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.call-summary-pie-cell {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.call-summary-pie-title {
+  margin: 0 0 12px 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #333;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.call-summary-pie-container {
+  height: 260px;
+  width: 100%;
+  max-width: 280px;
+  margin: 0 auto 12px;
+}
+
+.call-summary-pie-empty {
+  height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #888;
+  font-size: 0.9rem;
+  margin-bottom: 8px;
+}
+
+.call-summary-pie-total {
+  text-align: center;
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.call-summary-pie-total strong {
+  color: #333;
+}
+
+@media (max-width: 900px) {
+  .call-summary-pie-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Radial chart – two rings with legend left/right */
+.call-summary-radial-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 32px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+  padding: 24px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.call-summary-radial-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 200px;
+}
+
+.call-summary-radial-legend-left {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.call-summary-radial-legend-right {
+  align-items: flex-start;
+  text-align: left;
+}
+
+.radial-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.call-summary-radial-legend-left .radial-legend-item {
+  flex-direction: row-reverse;
+}
+
+.radial-legend-num {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.radial-legend-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.radial-legend-label {
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #333;
+}
+
+.radial-legend-desc {
+  font-size: 0.8rem;
+  color: #666;
+}
+
+.call-summary-radial-chart {
+  flex-shrink: 0;
+  width: 320px;
+  height: 320px;
+}
+
+.call-summary-radial-inner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+@media (max-width: 900px) {
+  .call-summary-radial-wrapper {
+    flex-direction: column;
+  }
+
+  .call-summary-radial-legend-left,
+  .call-summary-radial-legend-right {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .call-summary-radial-legend-left .radial-legend-item {
+    flex-direction: row;
+  }
+}
+
 /* Responsive adjustments for call summary */
 @media (max-width: 1400px) {
   .call-summary-row {
