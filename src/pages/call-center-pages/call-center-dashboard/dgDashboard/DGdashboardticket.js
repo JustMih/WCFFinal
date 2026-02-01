@@ -14,14 +14,13 @@ import {
   Legend,
 } from "chart.js";
 import {
-  MdPhone,
-  MdPhoneDisabled,
-  MdCallEnd,
+  MdAssignment,
+  MdPending,
+  MdCheckCircle,
+  MdWarning,
   MdTrendingUp,
 } from "react-icons/md";
-import { Box, Card, CardContent, Typography, Grid, CircularProgress, Tabs, Tab } from "@mui/material";
-import AgentDashboard from "../../../crm-pages/crm-dashboard/crm-agent-dashboard/crm-agent-dashboard";
-import DGdashboardticket from "./DGdashboardticket";
+import { Box, Card, CardContent, Typography, Grid, CircularProgress } from "@mui/material";
 import "./dgDashboard.css";
 
 // Register chart.js components
@@ -36,38 +35,20 @@ ChartJS.register(
   Legend
 );
 
-// TabPanel component
-function TabPanel({ children, value, index, ...other }) {
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`dg-tabpanel-${index}`}
-      aria-labelledby={`dg-tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
-    </div>
-  );
-}
-
-export default function DGdashboard() {
-  const [activeTab, setActiveTab] = useState(0);
+export default function DGdashboardticket() {
   const [loading, setLoading] = useState(true);
-  const [callSummary, setCallSummary] = useState(null);
+  const [ticketSummary, setTicketSummary] = useState(null);
 
-  const handleTabChange = (event, newValue) => {
-    setActiveTab(newValue);
-  };
+  // Extract data from ticket summary
+  const stats = ticketSummary?.stats || {};
+  const totalTickets = stats.totalTickets || 0;
+  const openTickets = stats.openTickets || 0;
+  const inProgressTickets = stats.inProgressTickets || 0;
+  const resolvedTickets = stats.resolvedTickets || 0;
+  const overdueTickets = stats.overdueTickets || 0;
 
-  // Extract data from call summary
-  const yearlyTotal = callSummary?.totalCalls || 0;
-  const yearlyAnswered = callSummary?.answeredCalls || 0;
-  const yearlyNoAnswer = callSummary?.noAnsweredCalls || 0;
-  const yearlyBusy = callSummary?.busyCalls || 0;
-  
   // Extract and format date range
-  const dateRange = callSummary?.dateRange || {};
+  const dateRange = ticketSummary?.dateRange || {};
   const formatDateRange = (dateString) => {
     if (!dateString) return "";
     try {
@@ -85,33 +66,29 @@ export default function DGdashboard() {
   const endDate = formatDateRange(dateRange.endDate);
 
   // Get status distribution from API response
-  const statusDistribution = callSummary?.statusDistribution?.yearly || [];
+  const statusDistribution = ticketSummary?.statusDistribution?.data || [];
   const getStatusCount = (status) => {
     const item = statusDistribution.find((s) => s.status === status);
     return item?.count || 0;
   };
 
-  // Override with status distribution if available
-  const finalYearlyAnswered = getStatusCount("ANSWERED") || yearlyAnswered;
-  const finalYearlyNoAnswer = getStatusCount("NO ANSWER") || yearlyNoAnswer;
-  const finalYearlyBusy = getStatusCount("BUSY") || yearlyBusy;
-
   // Calculate monthly and daily totals from trends
-  const monthlyTrends = callSummary?.trends?.monthly || [];
-  const dailyTrends = callSummary?.trends?.daily || [];
+  const monthlyTrends = ticketSummary?.trends?.monthly || [];
+  const dailyTrends = ticketSummary?.trends?.daily || [];
 
   const monthlyTotal = monthlyTrends.reduce((sum, item) => sum + (item.count || 0), 0);
   const dailyTotal = dailyTrends.reduce((sum, item) => sum + (item.count || 0), 0);
 
-  // For monthly and daily breakdowns, we'll use the trends data
-  // Since the API doesn't provide disposition breakdown for monthly/daily, we'll calculate percentages
-  const monthlyAnswered = Math.round(monthlyTotal * (finalYearlyAnswered / yearlyTotal)) || 0;
-  const monthlyNoAnswer = Math.round(monthlyTotal * (finalYearlyNoAnswer / yearlyTotal)) || 0;
-  const monthlyBusy = Math.round(monthlyTotal * (finalYearlyBusy / yearlyTotal)) || 0;
+  // For monthly and daily breakdowns, calculate based on percentages
+  const getPercentage = (value, total) => total > 0 ? value / total : 0;
+  
+  const monthlyOpen = Math.round(monthlyTotal * getPercentage(openTickets, totalTickets)) || 0;
+  const monthlyInProgress = Math.round(monthlyTotal * getPercentage(inProgressTickets, totalTickets)) || 0;
+  const monthlyResolved = Math.round(monthlyTotal * getPercentage(resolvedTickets, totalTickets)) || 0;
 
-  const dailyAnswered = Math.round(dailyTotal * (finalYearlyAnswered / yearlyTotal)) || 0;
-  const dailyNoAnswer = Math.round(dailyTotal * (finalYearlyNoAnswer / yearlyTotal)) || 0;
-  const dailyBusy = Math.round(dailyTotal * (finalYearlyBusy / yearlyTotal)) || 0;
+  const dailyOpen = Math.round(dailyTotal * getPercentage(openTickets, totalTickets)) || 0;
+  const dailyInProgress = Math.round(dailyTotal * getPercentage(inProgressTickets, totalTickets)) || 0;
+  const dailyResolved = Math.round(dailyTotal * getPercentage(resolvedTickets, totalTickets)) || 0;
 
   const calculatePercentage = (count, total) => {
     if (!total || total === 0) return 0;
@@ -122,11 +99,11 @@ export default function DGdashboard() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await fetch(`${baseURL}/call-summary/call-summary`);
+        const response = await fetch(`${baseURL}/ticket-summary/ticket-summary`);
         const data = await response.json();
-        setCallSummary(data);
+        setTicketSummary(data);
       } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error("Error fetching ticket data:", error);
       } finally {
         setLoading(false);
       }
@@ -213,7 +190,7 @@ export default function DGdashboard() {
   };
 
   // ApexCharts area chart data for Daily, Monthly, and Yearly trends
-  const yearlyTrends = callSummary?.trends?.yearly || [];
+  const yearlyTrends = ticketSummary?.trends?.yearly || [];
 
   // Group daily trends into date ranges: 1-10, 11-20, 21-end of month
   const groupDailyByDateRanges = (dailyData) => {
@@ -289,27 +266,27 @@ export default function DGdashboard() {
 
   const areaChartSeries = [
     {
-      name: "Daily Total Calls",
+      name: "Daily Total Tickets",
       data: [
         ...(groupedDailyRanges.length > 0
           ? groupedDailyRanges.map((d) => d.count || 0)
           : []),
         ...Array(monthlyTrends.length).fill(null),
-        ...(yearlyTrends.length > 0 ? [yearlyTotal] : [null]),
+        ...(yearlyTrends.length > 0 ? [totalTickets] : [null]),
       ],
     },
     {
-      name: "Daily Answered",
+      name: "Daily Open",
       data: [
         ...(groupedDailyRanges.length > 0
-          ? groupedDailyRanges.map((d) => Math.round((d.count || 0) * (finalYearlyAnswered / yearlyTotal)) || 0)
+          ? groupedDailyRanges.map((d) => Math.round((d.count || 0) * getPercentage(openTickets, totalTickets)) || 0)
           : []),
         ...Array(monthlyTrends.length).fill(null),
         ...(yearlyTrends.length > 0 ? [null] : [null]),
       ],
     },
     {
-      name: "Monthly Total Calls",
+      name: "Monthly Total Tickets",
       data: [
         ...Array(groupedDailyRanges.length).fill(null),
         ...(monthlyTrends.length > 0
@@ -319,11 +296,11 @@ export default function DGdashboard() {
       ],
     },
     {
-      name: "Monthly Answered",
+      name: "Monthly Resolved",
       data: [
         ...Array(groupedDailyRanges.length).fill(null),
         ...(monthlyTrends.length > 0
-          ? monthlyTrends.map((d) => Math.round((d.count || 0) * (finalYearlyAnswered / yearlyTotal)) || 0)
+          ? monthlyTrends.map((d) => Math.round((d.count || 0) * getPercentage(resolvedTickets, totalTickets)) || 0)
           : []),
         ...(yearlyTrends.length > 0 ? [null] : [null]),
       ],
@@ -333,7 +310,7 @@ export default function DGdashboard() {
       data: [
         ...Array(groupedDailyRanges.length).fill(null),
         ...Array(monthlyTrends.length).fill(null),
-        ...(yearlyTrends.length > 0 ? [yearlyTotal] : [null]),
+        ...(yearlyTrends.length > 0 ? [totalTickets] : [null]),
       ],
     },
   ];
@@ -391,7 +368,7 @@ export default function DGdashboard() {
     },
     yaxis: {
       title: {
-        text: "Number of Calls",
+        text: "Number of Tickets",
       },
       labels: {
         formatter: function (val) {
@@ -421,7 +398,7 @@ export default function DGdashboard() {
     },
   };
 
-  // Radial chart options for call status distribution
+  // Radial chart options for ticket status distribution
   const radialChartOptions = {
     chart: {
       type: "radialBar",
@@ -447,19 +424,19 @@ export default function DGdashboard() {
           },
           total: {
             show: true,
-            label: "Total Calls",
+            label: "Total Tickets",
             fontSize: "16px",
             fontWeight: 600,
             color: "#666",
             formatter: function () {
-              return yearlyTotal;
+              return totalTickets;
             },
           },
         },
       },
     },
-    labels: ["Answered", "No Answer", "Busy"],
-    colors: ["#4caf50", "#ff9800", "#f44336"],
+    labels: statusDistribution.map((s) => s.status || "Unknown"),
+    colors: ["#4caf50", "#ff9800", "#2196f3", "#f44336", "#9c27b0"],
                 legend: {
       show: true,
       floating: false,
@@ -473,7 +450,7 @@ export default function DGdashboard() {
       },
     },
     title: {
-      text: "Call Status Distribution (Yearly)",
+      text: "Ticket Status Distribution",
       align: "center",
       style: {
         fontSize: "16px",
@@ -482,11 +459,7 @@ export default function DGdashboard() {
     },
   };
 
-  const radialChartSeries = [
-    finalYearlyAnswered,
-    finalYearlyNoAnswer,
-    finalYearlyBusy,
-  ];
+  const radialChartSeries = statusDistribution.map((s) => s.count || 0);
 
   if (loading) {
     return (
@@ -504,35 +477,20 @@ export default function DGdashboard() {
   return (
     <div className="dg-dashboard-container">
       <Box sx={{ p: 3 }}>
-        {/* Tabs */}
-        <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
-          <Tabs
-            value={activeTab}
-            onChange={handleTabChange}
-            aria-label="director general dashboard tabs"
-          >
-            <Tab label="Calls Overview" />
-            <Tab label="Tickets Overview" />
-            <Tab label="My Tickets" />
-          </Tabs>
-        </Box>
-
-        {/* Tab Panel for Calls Overview */}
-        <TabPanel value={activeTab} index={0}>
-          {/* 4 Stat Cards */}
+        {/* 5 Stat Cards */}
         <Grid container spacing={2} sx={{ mb: 3, display: 'flex', width: '100%' }}>
-          {/* Card 1: Total Calls */}
-          <Grid item xs={12} sm={6} md={3} sx={{ flex: 1, minWidth: 0 }}>
+          {/* Card 1: Total Tickets */}
+          <Grid item xs={12} sm={6} md={2.4} sx={{ flex: 1, minWidth: 0 }}>
             <Card className="stat-card stat-card-small">
               <CardContent sx={{ p: "16px !important" }}>
                 <Box display="flex" alignItems="center" gap={1} mb={1}>
-                  <MdPhone size={20} style={{ color: "#667eea" }} />
+                  <MdAssignment size={20} style={{ color: "#667eea" }} />
                   <Typography variant="body2" sx={{ fontWeight: 600, fontSize: "0.875rem" }}>
-                    Total Calls
+                    Total Tickets
                   </Typography>
                 </Box>
                 <Typography variant="h6" sx={{ fontWeight: 700, color: "#667eea", mb: 1.5, fontSize: "1.25rem" }}>
-                  {yearlyTotal.toLocaleString()}
+                  {totalTickets.toLocaleString()}
                 </Typography>
                 <Box sx={{ borderTop: "1px solid #e0e0e0", pt: 1 }}>
                   <Box display="flex" justifyContent="space-between" mb={0.5}>
@@ -556,42 +514,42 @@ export default function DGdashboard() {
             </Card>
           </Grid>
 
-          {/* Card 2: Answered Calls */}
-          <Grid item xs={12} sm={6} md={3} sx={{ flex: 1, minWidth: 0 }}>
+          {/* Card 2: Open Tickets */}
+          <Grid item xs={12} sm={6} md={2.4} sx={{ flex: 1, minWidth: 0 }}>
             <Card className="stat-card stat-card-small">
               <CardContent sx={{ p: "16px !important" }}>
                 <Box display="flex" alignItems="center" gap={1} mb={1}>
-                  <MdPhone size={20} style={{ color: "#4caf50" }} />
+                  <MdPending size={20} style={{ color: "#2196f3" }} />
                   <Typography variant="body2" sx={{ fontWeight: 600, fontSize: "0.875rem" }}>
-                    Answered Calls
+                    Open Tickets
                   </Typography>
                 </Box>
-                <Typography variant="h6" sx={{ fontWeight: 700, color: "#4caf50", mb: 1.5, fontSize: "1.25rem" }}>
-                  {finalYearlyAnswered.toLocaleString()}
+                <Typography variant="h6" sx={{ fontWeight: 700, color: "#2196f3", mb: 1.5, fontSize: "1.25rem" }}>
+                  {openTickets.toLocaleString()}
                 </Typography>
                 <Box sx={{ borderTop: "1px solid #e0e0e0", pt: 1 }}>
                   <Box display="flex" justifyContent="space-between" mb={0.5}>
                     <Typography variant="caption" color="textSecondary" sx={{ fontSize: "0.7rem" }}>
                       Monthly:
                     </Typography>
-                    <Typography variant="caption" sx={{ fontWeight: 600, color: "#4caf50", fontSize: "0.7rem" }}>
-                      {monthlyAnswered.toLocaleString()}
+                    <Typography variant="caption" sx={{ fontWeight: 600, color: "#2196f3", fontSize: "0.7rem" }}>
+                      {monthlyOpen.toLocaleString()}
                     </Typography>
                   </Box>
                   <Box display="flex" justifyContent="space-between" mb={0.5}>
                     <Typography variant="caption" color="textSecondary" sx={{ fontSize: "0.7rem" }}>
                       Daily:
                     </Typography>
-                    <Typography variant="caption" sx={{ fontWeight: 600, color: "#4caf50", fontSize: "0.7rem" }}>
-                      {dailyAnswered.toLocaleString()}
+                    <Typography variant="caption" sx={{ fontWeight: 600, color: "#2196f3", fontSize: "0.7rem" }}>
+                      {dailyOpen.toLocaleString()}
                     </Typography>
                   </Box>
                   <Box display="flex" justifyContent="space-between">
                     <Typography variant="caption" color="textSecondary" sx={{ fontSize: "0.7rem" }}>
                       Percentage:
                     </Typography>
-                    <Typography variant="caption" sx={{ fontWeight: 600, color: "#4caf50", fontSize: "0.7rem" }}>
-                      {calculatePercentage(finalYearlyAnswered, yearlyTotal)}%
+                    <Typography variant="caption" sx={{ fontWeight: 600, color: "#2196f3", fontSize: "0.7rem" }}>
+                      {calculatePercentage(openTickets, totalTickets)}%
                     </Typography>
                   </Box>
                 </Box>
@@ -599,18 +557,18 @@ export default function DGdashboard() {
             </Card>
           </Grid>
 
-          {/* Card 3: No Answer Calls */}
-          <Grid item xs={12} sm={6} md={3} sx={{ flex: 1, minWidth: 0 }}>
+          {/* Card 3: In Progress Tickets */}
+          <Grid item xs={12} sm={6} md={2.4} sx={{ flex: 1, minWidth: 0 }}>
             <Card className="stat-card stat-card-small">
               <CardContent sx={{ p: "16px !important" }}>
                 <Box display="flex" alignItems="center" gap={1} mb={1}>
-                  <MdPhoneDisabled size={20} style={{ color: "#ff9800" }} />
+                  <MdTrendingUp size={20} style={{ color: "#ff9800" }} />
                   <Typography variant="body2" sx={{ fontWeight: 600, fontSize: "0.875rem" }}>
-                    No Answer Calls
+                    In Progress
                   </Typography>
                 </Box>
                 <Typography variant="h6" sx={{ fontWeight: 700, color: "#ff9800", mb: 1.5, fontSize: "1.25rem" }}>
-                  {finalYearlyNoAnswer.toLocaleString()}
+                  {inProgressTickets.toLocaleString()}
                 </Typography>
                 <Box sx={{ borderTop: "1px solid #e0e0e0", pt: 1 }}>
                   <Box display="flex" justifyContent="space-between" mb={0.5}>
@@ -618,7 +576,7 @@ export default function DGdashboard() {
                       Monthly:
                     </Typography>
                     <Typography variant="caption" sx={{ fontWeight: 600, color: "#ff9800", fontSize: "0.7rem" }}>
-                      {monthlyNoAnswer.toLocaleString()}
+                      {monthlyInProgress.toLocaleString()}
                     </Typography>
                   </Box>
                   <Box display="flex" justifyContent="space-between" mb={0.5}>
@@ -626,7 +584,7 @@ export default function DGdashboard() {
                       Daily:
                     </Typography>
                     <Typography variant="caption" sx={{ fontWeight: 600, color: "#ff9800", fontSize: "0.7rem" }}>
-                      {dailyNoAnswer.toLocaleString()}
+                      {dailyInProgress.toLocaleString()}
                     </Typography>
                   </Box>
                   <Box display="flex" justifyContent="space-between">
@@ -634,7 +592,7 @@ export default function DGdashboard() {
                       Percentage:
                     </Typography>
                     <Typography variant="caption" sx={{ fontWeight: 600, color: "#ff9800", fontSize: "0.7rem" }}>
-                      {calculatePercentage(finalYearlyNoAnswer, yearlyTotal)}%
+                      {calculatePercentage(inProgressTickets, totalTickets)}%
                     </Typography>
                   </Box>
                 </Box>
@@ -642,42 +600,69 @@ export default function DGdashboard() {
             </Card>
           </Grid>
 
-          {/* Card 4: Busy Calls */}
-          <Grid item xs={12} sm={6} md={3} sx={{ flex: 1, minWidth: 0 }}>
+          {/* Card 4: Resolved Tickets */}
+          <Grid item xs={12} sm={6} md={2.4} sx={{ flex: 1, minWidth: 0 }}>
             <Card className="stat-card stat-card-small">
               <CardContent sx={{ p: "16px !important" }}>
                 <Box display="flex" alignItems="center" gap={1} mb={1}>
-                  <MdCallEnd size={20} style={{ color: "#f44336" }} />
+                  <MdCheckCircle size={20} style={{ color: "#4caf50" }} />
                   <Typography variant="body2" sx={{ fontWeight: 600, fontSize: "0.875rem" }}>
-                    Busy Calls
+                    Resolved
                   </Typography>
                 </Box>
-                <Typography variant="h6" sx={{ fontWeight: 700, color: "#f44336", mb: 1.5, fontSize: "1.25rem" }}>
-                  {finalYearlyBusy.toLocaleString()}
+                <Typography variant="h6" sx={{ fontWeight: 700, color: "#4caf50", mb: 1.5, fontSize: "1.25rem" }}>
+                  {resolvedTickets.toLocaleString()}
                 </Typography>
                 <Box sx={{ borderTop: "1px solid #e0e0e0", pt: 1 }}>
                   <Box display="flex" justifyContent="space-between" mb={0.5}>
                     <Typography variant="caption" color="textSecondary" sx={{ fontSize: "0.7rem" }}>
                       Monthly:
                     </Typography>
-                    <Typography variant="caption" sx={{ fontWeight: 600, color: "#f44336", fontSize: "0.7rem" }}>
-                      {monthlyBusy.toLocaleString()}
+                    <Typography variant="caption" sx={{ fontWeight: 600, color: "#4caf50", fontSize: "0.7rem" }}>
+                      {monthlyResolved.toLocaleString()}
                     </Typography>
                   </Box>
                   <Box display="flex" justifyContent="space-between" mb={0.5}>
                     <Typography variant="caption" color="textSecondary" sx={{ fontSize: "0.7rem" }}>
                       Daily:
                     </Typography>
-                    <Typography variant="caption" sx={{ fontWeight: 600, color: "#f44336", fontSize: "0.7rem" }}>
-                      {dailyBusy.toLocaleString()}
+                    <Typography variant="caption" sx={{ fontWeight: 600, color: "#4caf50", fontSize: "0.7rem" }}>
+                      {dailyResolved.toLocaleString()}
                     </Typography>
                   </Box>
                   <Box display="flex" justifyContent="space-between">
                     <Typography variant="caption" color="textSecondary" sx={{ fontSize: "0.7rem" }}>
                       Percentage:
                     </Typography>
+                    <Typography variant="caption" sx={{ fontWeight: 600, color: "#4caf50", fontSize: "0.7rem" }}>
+                      {calculatePercentage(resolvedTickets, totalTickets)}%
+                    </Typography>
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Card 5: Overdue Tickets */}
+          <Grid item xs={12} sm={6} md={2.4} sx={{ flex: 1, minWidth: 0 }}>
+            <Card className="stat-card stat-card-small">
+              <CardContent sx={{ p: "16px !important" }}>
+                <Box display="flex" alignItems="center" gap={1} mb={1}>
+                  <MdWarning size={20} style={{ color: "#f44336" }} />
+                  <Typography variant="body2" sx={{ fontWeight: 600, fontSize: "0.875rem" }}>
+                    Overdue
+                  </Typography>
+                </Box>
+                <Typography variant="h6" sx={{ fontWeight: 700, color: "#f44336", mb: 1.5, fontSize: "1.25rem" }}>
+                  {overdueTickets.toLocaleString()}
+                </Typography>
+                <Box sx={{ borderTop: "1px solid #e0e0e0", pt: 1 }}>
+                  <Box display="flex" justifyContent="space-between">
+                    <Typography variant="caption" color="textSecondary" sx={{ fontSize: "0.7rem" }}>
+                      Percentage:
+                    </Typography>
                     <Typography variant="caption" sx={{ fontWeight: 600, color: "#f44336", fontSize: "0.7rem" }}>
-                      {calculatePercentage(finalYearlyBusy, yearlyTotal)}%
+                      {calculatePercentage(overdueTickets, totalTickets)}%
                     </Typography>
                   </Box>
                 </Box>
@@ -701,7 +686,7 @@ export default function DGdashboard() {
                     fontSize: { xs: '0.9rem', sm: '1rem', md: '1.1rem' }
                   }}
                 >
-                  Call Trend (Daily, Monthly & Yearly)
+                  Ticket Trend (Daily, Monthly & Yearly)
                 </Typography>
                 <Box sx={{ 
                   width: '100%', 
@@ -736,16 +721,6 @@ export default function DGdashboard() {
             </Card>
           </Grid>
         </Grid>
-        </TabPanel>
-
-        {/* Tab Panel for Tickets Overview */}
-        <TabPanel value={activeTab} index={1}>
-          <DGdashboardticket />
-        </TabPanel>
-        {/* Tab Panel for DG Tasks */}
-        <TabPanel value={activeTab} index={2}>
-          <AgentDashboard />
-        </TabPanel>
       </Box>
     </div>
   );
