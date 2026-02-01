@@ -513,7 +513,7 @@ export default function DGdashboard() {
           >
             <Tab label="Calls Overview" />
             <Tab label="Tickets Overview" />
-            <Tab label="DG Tasks" />
+            <Tab label="My Tickets" />
           </Tabs>
         </Box>
 
