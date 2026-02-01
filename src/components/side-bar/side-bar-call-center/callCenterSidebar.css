@@ -147,3 +147,23 @@
   border-left: none !important;
 }
 
+/* Social Notifications dropdown - ensure it expands and items are clickable */
+.social-notifications-dropdown {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  overflow: visible;
+}
+
+.social-notifications-dropdown .menu-item {
+  padding-left: 2rem;
+  min-height: 44px;
+  box-sizing: border-box;
+}
+
+.social-notifications-dropdown a {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+

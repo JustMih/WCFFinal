@@ -182,17 +182,19 @@ export default function AgentsDashboard() {
   const [consultSession, setConsultSession] = useState(null); // The target agent session
   const [isTransferring, setIsTransferring] = useState(false);
   const [callerId, setCallerId] = useState("");
+  const [lastIncomingNumber, setLastIncomingNumber] = useState("");
   const autoRejectTimerRef = useRef(null);
   const [missedCalls, setMissedCalls] = useState([]);
   const [missedOpen, setMissedOpen] = useState(false);
   const [transferTarget, setTransferTarget] = useState("");
+  const [manualTransferExt, setManualTransferExt] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [phoneStatus, setPhoneStatus] = useState("Idle");
   const [userAgent, setUserAgent] = useState(null);
   const [session, setSession] = useState(null);
   const [incomingCall, setIncomingCall] = useState(null);
   const [ringAudio] = useState(new Audio("/ringtone.mp3"));
-  const [remoteAudio] = useState(new Audio());
+  const remoteAudioRef = useRef(null);
   const [callDuration, setCallDuration] = useState(0);
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeakerOn, setIsSpeakerOn] = useState(true);
@@ -328,7 +330,9 @@ export default function AgentsDashboard() {
 
     ringAudio.loop = true;
     ringAudio.volume = 0.7;
-    remoteAudio.autoplay = true;
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.autoplay = true;
+    }
 
     const ua = new UserAgent(sipConfig);
     const registerer = new Registerer(ua);
@@ -358,10 +362,34 @@ export default function AgentsDashboard() {
 
         setCallerId(incomingCaller);
         setIncomingCall(invitation);
+        setLastIncomingNumber(incomingCaller);
         setShowPhonePopup(true);
         setPhoneStatus("Ringing");
         // Extract phone number and search tickets
         const incomingNumber = invitation.remoteIdentity.uri.user;
+        
+        // Show browser notification
+        if ("Notification" in window && Notification.permission === "granted") {
+          new Notification("📞 Incoming Call", {
+            body: `Call from ${incomingCaller}`,
+            icon: "/phone-icon.png", // You can add a phone icon
+            tag: "incoming-call",
+            requireInteraction: true,
+            silent: false,
+          });
+        } else if ("Notification" in window && Notification.permission !== "denied") {
+          Notification.requestPermission().then((permission) => {
+            if (permission === "granted") {
+              new Notification("📞 Incoming Call", {
+                body: `Call from ${incomingCaller}`,
+                tag: "incoming-call",
+                requireInteraction: true,
+                silent: false,
+              });
+            }
+          });
+        }
+        
         ringAudio
           .play()
           .catch((err) => console.error("🔇 Ringtone error:", err));
@@ -408,6 +436,15 @@ export default function AgentsDashboard() {
     };
   }, []);
 
+  // ✅ Request notification permission on mount
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission().catch((err) => {
+        console.log("Notification permission request failed:", err);
+      });
+    }
+  }, []);
+
   // ✅ Load missed calls from backend on component mount
   useEffect(() => {
     fetchMissedCallsFromBackend();
@@ -440,9 +477,9 @@ export default function AgentsDashboard() {
   };
 
   const toggleSpeaker = () => {
-    if (remoteAudio.setSinkId) {
+    if (remoteAudioRef.current && remoteAudioRef.current.setSinkId) {
       const deviceId = isSpeakerOn ? "communications" : "default";
-      remoteAudio
+      remoteAudioRef.current
         .setSinkId(deviceId)
         .then(() => {
           setIsSpeakerOn(!isSpeakerOn);
@@ -687,7 +724,7 @@ export default function AgentsDashboard() {
             setPhoneStatus("Idle");
             setSession(null);
             setIncomingCall(null);
-            remoteAudio.srcObject = null;
+            if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
             stopTimer();
           }
         });
@@ -717,7 +754,7 @@ export default function AgentsDashboard() {
       session.bye().catch(console.error);
       setSession(null);
       setPhoneStatus("Idle");
-      remoteAudio.srcObject = null;
+      if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
       stopRingtone();
       stopTimer();
       setShowPhonePopup(false);
@@ -821,7 +858,7 @@ export default function AgentsDashboard() {
           if (state === SessionState.Terminated) {
             setPhoneStatus("Idle");
             setSession(null);
-            remoteAudio.srcObject = null;
+            if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
             stopTimer();
           }
         });
@@ -865,7 +902,7 @@ export default function AgentsDashboard() {
             console.log("📴 Call ended");
             setPhoneStatus("Idle");
             setSession(null);
-            remoteAudio.srcObject = null;
+            if (remoteAudioRef.current) remoteAudioRef.current.srcObject = null;
             stopTimer();
           }
         });
@@ -876,8 +913,9 @@ export default function AgentsDashboard() {
       });
   };
 
-  const handleBlindTransfer = async () => {
-    if (!session || !transferTarget) return;
+  const handleBlindTransfer = async (extension = null) => {
+    const targetExt = extension || manualTransferExt;
+    if (!session || !targetExt) return;
 
     try {
       // Step 1: Fetch the list of online users (agents and supervisors)
@@ -898,7 +936,7 @@ export default function AgentsDashboard() {
       // Step 2: Check if the transfer target is an online agent or supervisor
       const isValidTransferTarget = onlineUsers.some(
         (user) =>
-          user.username === transferTarget &&
+          user.username === targetExt &&
           (user.role === "agent" || user.role === "supervisor")
       );
 
@@ -913,7 +951,7 @@ export default function AgentsDashboard() {
 
       // Step 3: Proceed with the transfer if the target is valid
       const targetURI = UserAgent.makeURI(
-        `sip:${transferTarget}@${baseURL}`
+        `sip:${targetExt}@${baseURL}`
       );
       if (!targetURI) {
         console.error("Invalid transfer target URI");
@@ -921,10 +959,11 @@ export default function AgentsDashboard() {
       }
 
       await session.refer(targetURI);
-      console.log(`🔁 Call transferred to ${transferTarget}`);
-      setSnackbarMessage(`🔁 Call transferred to ${transferTarget}`);
+      console.log(`🔁 Call transferred to ${targetExt}`);
+      setSnackbarMessage(`🔁 Call transferred to ${targetExt}`);
       setSnackbarSeverity("success");
       setSnackbarOpen(true);
+      setManualTransferExt(""); // Clear the input
       handleEndCall(); // Optionally end the session on agent's side
     } catch (err) {
       console.error("❌ Call transfer failed:", err);
@@ -941,10 +980,12 @@ export default function AgentsDashboard() {
       .forEach((receiver) => {
         if (receiver.track) remoteStream.addTrack(receiver.track);
       });
-    remoteAudio.srcObject = remoteStream;
-    remoteAudio
-      .play()
-      .catch((err) => console.error("🔇 Audio playback failed:", err));
+    if (remoteAudioRef.current) {
+      remoteAudioRef.current.srcObject = remoteStream;
+      remoteAudioRef.current
+        .play()
+        .catch((err) => console.error("🔇 Audio playback failed:", err));
+    }
   };
 
   const startTimer = () => {
@@ -972,12 +1013,6 @@ export default function AgentsDashboard() {
       : `${pad(mins)}:${pad(secs)}`;
   };
 
-  const iconStyle = (bgColor) => ({
-    backgroundColor: bgColor,
-    padding: 10,
-    borderRadius: "50%",
-    color: "white",
-  });
 
   // Timer logic
   const startStatusTimer = (activity) => {
@@ -1447,197 +1482,268 @@ export default function AgentsDashboard() {
         </MenuItem>
       </Menu>
 
+      {/* Phone popup */}
       {showPhonePopup && (
-        <div className="modern-phone-popup">
-          <div className="modern-phone-header">
-            <span>
-              {phoneStatus === "In Call" ? "Call in Progress" : "Phone"}
-            </span>
-            <button
-              onClick={togglePhonePopup}
-              className="modern-close-btn"
-              aria-label="Close"
-            >
-              ×
-            </button>
-          </div>
-          <div className="modern-phone-body">
+        <div className="phone-popup-overlay">
+          <div className="phone-popup-container">
+            {/* Remote Audio */}
+            <audio ref={remoteAudioRef} autoPlay playsInline />
+            
+            {/* Header */}
+            <div className="phone-popup-header">
+              <div className="phone-popup-title">
+                <MdOutlineLocalPhone className="phone-icon" />
+                <span>
+                  {phoneStatus === "In Call"
+                    ? "Active Call"
+                    : phoneStatus === "Ringing"
+                      ? "Incoming Call"
+                      : "Phone"}
+                </span>
+              </div>
+              <button
+                onClick={togglePhonePopup}
+                className="phone-popup-close"
+                aria-label="Close"
+              >
+                <span>&times;</span>
+              </button>
+            </div>
+
+            {/* Call Status Bar - In Call */}
             {phoneStatus === "In Call" && (
-              <>
-                <div className="modern-phone-status">
-                  <span className="modern-status-badge">In Call</span>
-                  <span className="modern-call-duration">
+              <div className="call-status-bar">
+                <div className="call-status-indicator">
+                  <div className="call-status-dot active"></div>
+                  <span>Call in Progress</span>
+                </div>
+                <div className="call-duration">
+                  <span className="duration-label">Duration:</span>
+                  <span className="duration-time">
                     {formatDuration(callDuration)}
                   </span>
                 </div>
-                <Autocomplete
-                  options={onlineUsers.map((u) => u.username)}
-                  value={transferTarget}
-                  onChange={(_, v) => setTransferTarget(v || "")}
-                  renderInput={(params) => (
-                    <TextField
-                      {...params}
-                      label="Transfer To (Extension)"
-                      variant="outlined"
-                      margin="normal"
-                      fullWidth
-                    />
-                  )}
-                  fullWidth
-                  disableClearable={false}
-                  isOptionEqualToValue={(option, value) => option === value}
-                />
-                <Button
-                  variant="contained"
-                  color="secondary"
-                  onClick={handleBlindTransfer}
-                  disabled={!session || !transferTarget}
-                  fullWidth
-                  className="modern-action-btn"
-                  style={{ marginTop: "10px" }}
-                >
-                  Transfer Call
-                </Button>
-              </>
+              </div>
             )}
 
-            {phoneStatus !== "In Call" && (
-              <>
-                <TextField
-                  label="Phone Number"
-                  variant="outlined"
-                  fullWidth
-                  margin="normal"
-                  required
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                />
-                {showKeypad && (
-                  <div className="modern-keypad" style={{ marginBottom: 10 }}>
-                    {[
-                      "1",
-                      "2",
-                      "3",
-                      "4",
-                      "5",
-                      "6",
-                      "7",
-                      "8",
-                      "9",
-                      "*",
-                      "0",
-                      "#",
-                    ].map((digit) => (
-                      <button
-                        key={digit}
-                        className="modern-keypad-btn"
-                        onClick={() => setPhoneNumber((prev) => prev + digit)}
-                      >
-                        {digit}
-                      </button>
-                    ))}
+            {/* Call Status Bar - Ringing */}
+            {phoneStatus === "Ringing" && (
+              <div className="call-status-bar ringing-status">
+                <div className="call-status-indicator">
+                  <div className="call-status-dot ringing"></div>
+                  <span>📞 Incoming Call - Phone is Ringing</span>
+                </div>
+                <div className="ringing-notification">
+                  <span className="ringing-text">RINGING...</span>
+                </div>
+              </div>
+            )}
+
+            {/* Main Content */}
+            <div className="phone-popup-content">
+              {/* Incoming Call Display */}
+              {incomingCall && phoneStatus === "Ringing" && (
+                <div className="incoming-call-section">
+                  <div className="caller-info">
+                    <div className="caller-avatar">
+                      <span>
+                        {lastIncomingNumber
+                          ? lastIncomingNumber.charAt(0)
+                          : "?"}
+                      </span>
+                    </div>
+                    <div className="caller-details">
+                      <div className="caller-number">
+                        {lastIncomingNumber || "Unknown"}
+                      </div>
+                      <div className="caller-label">Incoming Call</div>
+                    </div>
+                  </div>
+                  <div className="call-actions">
                     <button
-                      className="modern-keypad-btn"
-                      onClick={() =>
-                        setPhoneNumber((prev) => prev.slice(0, -1))
-                      }
-                      style={{
-                        gridColumn: "span 3",
-                        background: "#ffeaea",
-                        color: "#e53935",
-                        fontSize: "1.3rem",
-                      }}
-                      aria-label="Backspace"
+                      className="call-btn accept-btn"
+                      onClick={handleAcceptCall}
                     >
-                      ⌫
+                      <FiPhoneCall />
+                      <span>Answer</span>
+                    </button>
+                    <button
+                      className="call-btn reject-btn"
+                      onClick={handleRejectCall}
+                    >
+                      <FiPhoneOff />
+                      <span>Decline</span>
                     </button>
                   </div>
-                )}
-              </>
-            )}
+                </div>
+              )}
 
-            <div className="modern-phone-actions">
-              <Tooltip title="Toggle Speaker">
-                <IconButton onClick={toggleSpeaker}>
-                  <HiMiniSpeakerWave
-                    fontSize={20}
-                    style={iconStyle(isSpeakerOn ? "green" : "grey")}
-                  />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title={isOnHold ? "Resume Call" : "Hold Call"}>
-                <IconButton onClick={toggleHold}>
-                  <MdPauseCircleOutline
-                    fontSize={20}
-                    style={iconStyle(isOnHold ? "orange" : "#3c8aba")}
-                  />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="Keypad">
-                <IconButton onClick={() => setShowKeypad((prev) => !prev)}>
-                  <IoKeypadOutline
-                    fontSize={20}
-                    style={iconStyle(showKeypad ? "#1976d2" : "#939488")}
-                  />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title="End Call">
-                <IconButton onClick={handleEndCall}>
-                  <MdLocalPhone fontSize={20} style={iconStyle("red")} />
-                </IconButton>
-              </Tooltip>
-              <Tooltip title={isMuted ? "Unmute Mic" : "Mute Mic"}>
-                <IconButton onClick={toggleMute}>
-                  <BsFillMicMuteFill
-                    fontSize={20}
-                    style={iconStyle(isMuted ? "orange" : "grey")}
-                  />
-                </IconButton>
-              </Tooltip>
+              {/* Dial Pad Section */}
+              {phoneStatus !== "In Call" && phoneStatus !== "Ringing" && (
+                <div className="dial-pad-section">
+                  <div className="phone-number-display">
+                    <input
+                      type="text"
+                      className="phone-number-input"
+                      placeholder="Enter phone number"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                    />
+                  </div>
+
+                  {showKeypad && (
+                    <div className="keypad-grid">
+                      {[
+                        "1",
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "6",
+                        "7",
+                        "8",
+                        "9",
+                        "*",
+                        "0",
+                        "#",
+                      ].map((digit) => (
+                        <button
+                          key={digit}
+                          className="keypad-btn"
+                          onClick={() => setPhoneNumber((prev) => prev + digit)}
+                        >
+                          {digit}
+                        </button>
+                      ))}
+                      <button
+                        className="keypad-btn backspace-btn"
+                        onClick={() =>
+                          setPhoneNumber((prev) => prev.slice(0, -1))
+                        }
+                        style={{ gridColumn: "span 3" }}
+                      >
+                        <span>⌫</span>
+                        <span>Backspace</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Transfer Section (when in call) */}
+              {phoneStatus === "In Call" && (
+                <div className="transfer-section">
+                  <div className="transfer-header">
+                    <MdOutlineFollowTheSigns className="transfer-icon" />
+                    <span>Transfer Call</span>
+                  </div>
+
+                  <div className="transfer-input-inline">
+                    <TextField
+                      label="Enter Extension"
+                      size="small"
+                      fullWidth
+                      autoFocus
+                      value={manualTransferExt}
+                      onChange={(e) =>
+                        setManualTransferExt(e.target.value.replace(/\D/g, ""))
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && manualTransferExt) {
+                          handleBlindTransfer(manualTransferExt);
+                        }
+                      }}
+                      placeholder="e.g. 1021"
+                      inputProps={{ maxLength: 6 }}
+                    />
+
+                    <div className="transfer-actions">
+                      <Button
+                        variant="contained"
+                        fullWidth
+                        onClick={() => handleBlindTransfer(manualTransferExt)}
+                        disabled={!manualTransferExt}
+                      >
+                        Transfer
+                      </Button>
+
+                      <Button
+                        variant="outlined"
+                        fullWidth
+                        onClick={() => setManualTransferExt("")}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Control Buttons */}
+              <div className="phone-controls">
+                <div className="control-row">
+                  <button
+                    className={`control-btn ${isMuted ? "active" : ""}`}
+                    onClick={toggleMute}
+                    title={isMuted ? "Unmute" : "Mute"}
+                  >
+                    <BsFillMicMuteFill />
+                    <span>{isMuted ? "Unmute" : "Mute"}</span>
+                  </button>
+
+                  <button
+                    className={`control-btn ${isSpeakerOn ? "active" : ""}`}
+                    onClick={toggleSpeaker}
+                    title={isSpeakerOn ? "Speaker On" : "Speaker Off"}
+                  >
+                    <HiMiniSpeakerWave />
+                    <span>Speaker</span>
+                  </button>
+
+                  <button
+                    className={`control-btn ${isOnHold ? "active" : ""}`}
+                    onClick={toggleHold}
+                    title={isOnHold ? "Resume" : "Hold"}
+                  >
+                    <MdPauseCircleOutline />
+                    <span>{isOnHold ? "Resume" : "Hold"}</span>
+                  </button>
+                </div>
+
+                <div className="control-row">
+                  <button
+                    className="control-btn keypad-toggle"
+                    onClick={() => setShowKeypad((p) => !p)}
+                    title={showKeypad ? "Hide Keypad" : "Show Keypad"}
+                  >
+                    <IoKeypadOutline />
+                    <span>Keypad</span>
+                  </button>
+
+                  {phoneStatus !== "In Call" && phoneStatus !== "Ringing" && (
+                    <button
+                      className="control-btn dial-btn"
+                      onClick={handleDial}
+                      disabled={
+                        phoneStatus === "Dialing" || phoneStatus === "Ringing"
+                      }
+                    >
+                      <MdLocalPhone />
+                      <span>Dial</span>
+                    </button>
+                  )}
+
+                  <button
+                    className="control-btn end-call-btn"
+                    onClick={handleEndCall}
+                    title="End Call"
+                  >
+                    <FiPhoneOff />
+                    <span>End</span>
+                  </button>
+                </div>
+              </div>
             </div>
-
-            {phoneStatus !== "In Call" && (
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleDial}
-                disabled={
-                  phoneStatus === "Dialing" || phoneStatus === "Ringing"
-                }
-                className="modern-action-btn"
-                style={{ marginTop: "10px" }}
-              >
-                Dial
-              </Button>
-            )}
-
-            {incomingCall && phoneStatus !== "In Call" && (
-              <>
-                <div style={{ marginBottom: 10 }}>
-                  <span style={{ fontWeight: 500 }}>From: </span>
-                  {incomingCall.remoteIdentity.displayName ||
-                    incomingCall.remoteIdentity.uri.user}
-                </div>
-                <div className="modern-phone-actions">
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    onClick={handleAcceptCall}
-                    className="modern-action-btn"
-                  >
-                    Accept
-                  </Button>
-                  <Button
-                    variant="contained"
-                    color="secondary"
-                    onClick={handleRejectCall}
-                    className="modern-action-btn"
-                  >
-                    Reject
-                  </Button>
-                </div>
-              </>
-            )}
           </div>
         </div>
       )}
@@ -1823,10 +1929,3 @@ export default function AgentsDashboard() {
     </div>
   );
 }
-
-const iconStyle = (bgColor) => ({
-  backgroundColor: bgColor,
-  padding: 10,
-  borderRadius: "50%",
-  color: "white",
-});

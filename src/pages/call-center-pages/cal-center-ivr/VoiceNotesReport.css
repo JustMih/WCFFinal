@@ -35,3 +35,224 @@
   display: block;
   margin-top: 4px;
 }
+/* ===============================
+   Filters & Controls (EXTENSION)
+================================ */
+
+.voice-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+  align-items: center;
+}
+
+.voice-filters input,
+.voice-filters select {
+  padding: 10px;
+  min-width: 180px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.voice-filters select {
+  background: #fff;
+  cursor: pointer;
+}
+
+/* ===============================
+   Export Buttons (reuse .btn)
+================================ */
+
+.btn-excel {
+  background-color: #28a745;
+}
+
+.btn-pdf {
+  background-color: #dc3545;
+}
+
+.btn-excel:hover {
+  background-color: #218838;
+}
+
+.btn-pdf:hover {
+  background-color: #c82333;
+}
+
+/* ===============================
+   Table Enhancements
+================================ */
+
+.voice-table tbody tr:hover {
+  background-color: #f1f3f5;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.voice-table th {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ===============================
+   Status Badges
+================================ */
+
+.voice-status {
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 12px;
+  display: inline-block;
+}
+
+.voice-status.played {
+  background: #d4edda;
+  color: #155724;
+}
+
+.voice-status.unplayed {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.voice-status.overdue {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+/* ===============================
+   Action Buttons
+================================ */
+
+.btn-play {
+  background-color: #007bff;
+}
+
+.btn-play:hover {
+  background-color: #0069d9;
+}
+
+.btn-pause {
+  background-color: #ffc107;
+  color: #212529;
+}
+
+.btn-pause:hover {
+  background-color: #e0a800;
+}
+
+/* ===============================
+   Pagination polish
+================================ */
+
+.voice-pagination span {
+  font-weight: 500;
+  color: #495057;
+}
+
+/* ===============================
+   Responsive tweaks
+================================ */
+
+@media (max-width: 768px) {
+  .voice-search {
+    width: 100%;
+  }
+
+  .voice-filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .voice-buttons {
+    justify-content: flex-start;
+  }
+}
+/* ===============================
+   Enhanced Inputs & Selects
+================================ */
+
+.voice-search,
+.voice-filters input,
+.voice-filters select {
+  height: 42px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #212529;
+  background-color: #ffffff;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  outline: none;
+  transition: all 0.2s ease-in-out;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+}
+
+/* Hover */
+.voice-search:hover,
+.voice-filters input:hover,
+.voice-filters select:hover {
+  border-color: #0d6efd;
+}
+
+/* Focus (keyboard / click) */
+.voice-search:focus,
+.voice-filters input:focus,
+.voice-filters select:focus {
+  border-color: #0d6efd;
+  box-shadow: 0 0 0 0.15rem rgba(13, 110, 253, 0.25);
+}
+
+/* Placeholder text */
+.voice-search::placeholder,
+.voice-filters input::placeholder {
+  color: #adb5bd;
+  font-size: 13px;
+}
+
+/* Select arrow polish */
+.voice-filters select {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #6c757d 50%),
+    linear-gradient(135deg, #6c757d 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) 18px,
+    calc(100% - 12px) 18px;
+  background-size: 6px 6px, 6px 6px;
+  background-repeat: no-repeat;
+  padding-right: 36px;
+}
+
+/* Disabled inputs */
+.voice-search:disabled,
+.voice-filters input:disabled,
+.voice-filters select:disabled {
+  background-color: #e9ecef;
+  cursor: not-allowed;
+  color: #6c757d;
+}
+
+/* ===============================
+   Filter Section Card Feel
+================================ */
+
+.voice-controls {
+  background: #f8f9fa;
+  padding: 16px;
+  border-radius: 8px;
+  border: 1px solid #e9ecef;
+}
+
+/* ===============================
+   Small screen spacing fix
+================================ */
+
+@media (max-width: 768px) {
+  .voice-search,
+  .voice-filters input,
+  .voice-filters select {
+    width: 100%;
+  }
+}
