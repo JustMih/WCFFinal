@@ -44,7 +44,7 @@ export default function Login() {
 
       if (response.ok) {
         const token = data.token;
-        // Use backend expiresAt (daily logout at 8 PM) or fallback to 1 hour
+        // Use backend expiresAt (daily logout at 2 PM) or fallback to 1 hour
         const tokenExpiration =
           typeof data.expiresAt === "number"
             ? data.expiresAt
