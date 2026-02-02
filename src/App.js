@@ -45,20 +45,29 @@ function clearSessionAndRedirect() {
 function App() {
   const role = localStorage.getItem("role");
 
-  // Global check: if token expired (e.g. daily 2 PM), clear session and redirect
+  // Global check: if token expired (e.g. daily 2 PM for agents, 24h for others), clear session and redirect
   useEffect(() => {
     const checkTokenExpiration = () => {
       const token = localStorage.getItem("authToken");
-      const expiresAt = localStorage.getItem("tokenExpiration");
-      if (!token || !expiresAt) return;
+      const expiresAtRaw = localStorage.getItem("tokenExpiration");
+      if (!token) return;
+      if (!expiresAtRaw) {
+        console.warn("[Session] tokenExpiration missing in localStorage – set on next login.");
+        return;
+      }
       const now = Date.now();
-      const expiry = Number(expiresAt);
-      if (Number.isNaN(expiry) || now >= expiry) {
+      const expiry = Number(expiresAtRaw);
+      if (Number.isNaN(expiry)) {
+        console.warn("[Session] tokenExpiration invalid:", expiresAtRaw);
+        return;
+      }
+      if (now >= expiry) {
+        console.log("[Session] Token expired at", new Date(expiry).toLocaleString(), "– redirecting to login.");
         clearSessionAndRedirect();
       }
     };
     checkTokenExpiration();
-    const intervalMs = 15000;
+    const intervalMs = 5000;
     const intervalId = setInterval(checkTokenExpiration, intervalMs);
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible") checkTokenExpiration();

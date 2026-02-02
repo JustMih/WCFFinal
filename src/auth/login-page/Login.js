@@ -44,11 +44,16 @@ export default function Login() {
 
       if (response.ok) {
         const token = data.token;
-        // Use backend expiresAt (daily logout at 2 PM) or fallback to 1 hour
+        // Use backend expiresAt (agents: DAILY_LOGOUT_TIME; others: 24h) or fallback to 1 hour
         const tokenExpiration =
           typeof data.expiresAt === "number"
             ? data.expiresAt
             : new Date().getTime() + 3600 * 1000;
+
+        if (data.user?.role) {
+          const expDate = new Date(tokenExpiration);
+          console.log("[Login] role:", data.user.role, "| tokenExpiration:", expDate.toLocaleString(), "| ms:", tokenExpiration);
+        }
 
         // Core user session (localStorage for persistence)
         localStorage.setItem("authToken", token);
