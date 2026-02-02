@@ -93,7 +93,7 @@ const Dashboard = () => {
   const initializeSIPClient = () => {
     const configuration = {
       uri: `sip:1004@${baseURL}`,
-      wsServers: ["ws://192.168.21.70:8088"], // Ensure the WebSocket URL is correct
+      wsServers: ["ws://192.168.21.69:8088"], // Ensure the WebSocket URL is correct
       traceSip: true,
       authorizationUser: "1004",
       password: "sip12345",

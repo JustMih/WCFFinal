@@ -24,6 +24,7 @@ const IVRInteractions = () => {
     i.dtmf_digit?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     i.parameter?.toLowerCase().includes(searchTerm.toLowerCase())
   );
+ 
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const paginated = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);

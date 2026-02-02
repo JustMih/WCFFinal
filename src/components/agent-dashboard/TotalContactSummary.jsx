@@ -21,6 +21,8 @@ ChartJS.register(Title, Tooltip, Legend, ArcElement);
 export default function TotalContactSummary() {
   const [contactData, setContactData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [voicemailCount, setVoicemailCount] = useState(0);
+  const [unplayedVoicemailCount, setUnplayedVoicemailCount] = useState(0);
 
   useEffect(() => {
     const agentId = localStorage.getItem("extension");
@@ -46,22 +48,58 @@ export default function TotalContactSummary() {
       });
   }, []);
 
+  // Voicemail count from voice-notes API (same pattern as AgentsDashboard VoiceNotesReport)
+  useEffect(() => {
+    const fetchVoiceNotes = async () => {
+      try {
+        const agentId = localStorage.getItem("userId");
+        const response = await fetch(
+          `${baseURL}/voice-notes?agentId=${agentId}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+            },
+          }
+        );
+        if (!response.ok) throw new Error("Failed to fetch voice notes");
+        const data = await response.json();
+        const notes = data.voiceNotes || [];
+        const storedPlayed =
+          JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
+        const unplayedCount = notes.filter(
+          (note) => !storedPlayed[note.id]
+        ).length;
+        setVoicemailCount(notes.length);
+        setUnplayedVoicemailCount(unplayedCount);
+      } catch (error) {
+        setVoicemailCount(0);
+        setUnplayedVoicemailCount(0);
+      }
+    };
+    fetchVoiceNotes();
+    const handleStorage = (e) => {
+      if (e.key === "playedVoiceNotes") fetchVoiceNotes();
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
   const safe = (obj, key, fallback = 0) => (obj && obj[key] != null ? obj[key] : fallback);
 
-  // Calculate total contacts for each type
+  // Calculate total contacts for each type (voicemail from voice-notes API, same as VoiceNotesReport)
   const getContactTotals = () => {
     if (!contactData) {
-      // Return dummy data when no real data is available
       return {
         inbound: 25,
         outbound: 18,
-        voicemail: 8,
-        social: 15, // Combined social messages
+        voicemail: voicemailCount,
+        social: 15,
       };
     }
 
-    // Calculate social messages (WhatsApp + Instagram + Twitter + Email)
-    const socialTotal = 
+    const socialTotal =
       safe(contactData?.whatsapp, "total", 0) +
       safe(contactData?.instagram, "total", 0) +
       safe(contactData?.twitter, "total", 0) +
@@ -70,7 +108,7 @@ export default function TotalContactSummary() {
     return {
       inbound: safe(contactData?.inbound, "total", 0),
       outbound: safe(contactData?.outbound, "total", 0),
-      voicemail: safe(contactData?.voicemail, "total", 0),
+      voicemail: voicemailCount,
       social: socialTotal,
     };
   };
@@ -95,15 +133,15 @@ export default function TotalContactSummary() {
           contactTotals.social
         ],
         backgroundColor: [
-          "#3B82F6", // Blue for inbound
-          "#10B981", // Green for outbound
-          "#E5E7EB", // Background-matching color for voicemail
+          "#60A5FA", // Pale blue for inbound
+          "#34D399", // Pale green for outbound
+          "#FCD34D", // Pale yellow for voicemail
           "#8B5CF6"  // Purple for social
         ],
         borderColor: [
-          "#2563EB",
-          "#059669", 
-          "#E5E7EB",
+          "#3B82F6",
+          "#10B981",
+          "#FBBF24", // Pale yellow border for voicemail
           "#7C3AED"
         ],
         borderWidth: 2,
@@ -154,21 +192,21 @@ export default function TotalContactSummary() {
       icon: FiPhoneIncoming,
       title: "Inbound Calls",
       count: contactTotals.inbound,
-      color: "#3B82F6",
+      color: "#60A5FA",
       description: "Incoming customer calls"
     },
     {
       icon: HiPhoneOutgoing,
       title: "Outbound Calls", 
       count: contactTotals.outbound,
-      color: "#10B981",
+      color: "#34D399",
       description: "Outgoing agent calls"
     },
     {
       icon: TbPhoneX,
       title: "Voicemail",
       count: contactTotals.voicemail,
-      color: "#94A3B8",
+      color: "#FCD34D",
       description: "Voicemail messages"
     },
     {

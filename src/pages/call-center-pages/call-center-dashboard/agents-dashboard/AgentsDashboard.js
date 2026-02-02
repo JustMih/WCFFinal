@@ -38,7 +38,6 @@ import AdvancedTicketCreateModal from "../../../../components/ticket/AdvancedTic
 import VoiceNotesReport from "../../cal-center-ivr/VoiceNotesReport";
 import TotalContactSummary from "../../../../components/agent-dashboard/TotalContactSummary";
 import ContactSummaryGrid from "../../../../components/agent-dashboard/ContactSummaryGrid";
-import CallHistoryCard from "../../../../components/agent-dashboard/CallHistoryCard";
 
 // Phone components
 import { useSipPhone } from "./useSipPhone";
@@ -52,7 +51,7 @@ export default function AgentsDashboard() {
   // --------- Config ---------
   const extension = localStorage.getItem("extension");
   const sipPassword = localStorage.getItem("sipPassword");
-  const SIP_DOMAIN = "192.168.21.70";
+  const SIP_DOMAIN = "192.168.21.69";
 
 
   // --------- Status / break menu ---------
@@ -833,15 +832,6 @@ useEffect(() => {
           <ContactSummaryGrid />
         </div>
         {/* <div className="dashboard-single-agent">
-          <CallHistoryCard
-            onCallBack={(phoneNumber) => {
-              setShowPhonePopup(true);
-              setPhoneNumber(phoneNumber);
-              handleRedial(phoneNumber);
-            }}
-          />
-        </div>
-        <div className="dashboard-single-agent">
           <SingleAgentDashboardCard />
         </div> */}
 

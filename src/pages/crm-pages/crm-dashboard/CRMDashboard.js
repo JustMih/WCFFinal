@@ -17,9 +17,9 @@ export default function CRMDashboard() {
        {role === "claim-focal-person" && <AgentDashboard />}
        {role === "compliance-focal-person" && <AgentDashboard />}
        {role === "head-of-unit" && <AgentDashboard />}
-       {role === "director" && <AgentDashboard />}
+       {role === "director" && <DGdashboard />}
        {role === "director-general" && <DGdashboard />}
-       {role === "manager" && <AgentDashboard />}
+       {role === "manager" && <DGdashboard />}
        {role === "supervisor" && <AgentDashboard />}
        {role === "super-admin" && <AgentDashboard />}
        {/* {role === "super-admin" && <HeadsDashboard />} */}

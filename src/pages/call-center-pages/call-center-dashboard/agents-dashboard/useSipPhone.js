@@ -4,7 +4,7 @@ import { UserAgent, Inviter, Registerer, SessionState } from "sip.js";
 export function useSipPhone({
   extension,
   sipPassword,
-  SIP_DOMAIN = "192.168.21.70",
+  SIP_DOMAIN = "192.168.21.69",
   onIncomingCall,
   onMissedCall,
   onCallAccepted,
