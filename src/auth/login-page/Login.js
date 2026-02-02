@@ -157,7 +157,7 @@ export default function Login() {
               </div>
               <div className="support-item">
                 <span className="support-label">Email:</span>
-                <span className="support-value">support@wcf.go.tz</span>
+                <span className="support-value">ictsupport@wcf.go.tz</span>
               </div>
             </div>
           </div>
