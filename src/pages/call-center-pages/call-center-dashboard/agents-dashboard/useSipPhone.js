@@ -31,7 +31,7 @@ export function useSipPhone({
   const [isConsulting, setIsConsulting] = useState(false);
 
   const remoteAudioRef = useRef(null);
-  const [ringAudio] = useState(() => new Audio("/ringtone.mp3"));
+  const [ringAudio] = useState(() => new Audio("/dial.mp3"));
 
   const callTimerRef = useRef(null);
   const autoRejectTimerRef = useRef(null);
