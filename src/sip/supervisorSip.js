@@ -21,7 +21,7 @@ export const initSupervisorSIP = async () => {
 
     const supervisorExt = "3001";
     const supervisorPass = "wcf12345";
-    const asteriskIP = "192.168.21.70";
+    const asteriskIP = "192.168.21.69";
 
     userAgent = new UserAgent({
       uri: UserAgent.makeURI(`sip:${supervisorExt}@${asteriskIP}`),

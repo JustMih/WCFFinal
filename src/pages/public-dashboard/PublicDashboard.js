@@ -92,7 +92,7 @@ export default function PublicDashboard() {
 
     fetchDashboardData();
 
-    const socketUrl = baseURL.replace(/\/api$/, "") || "https://192.168.21.70";
+    const socketUrl = baseURL.replace(/\/api$/, "") || "https://192.168.21.69";
     const socket = io(socketUrl, {
       transports: ["websocket", "polling"],
       reconnection: true,

@@ -51,7 +51,7 @@ export default function AgentsDashboard() {
   // --------- Config ---------
   const extension = localStorage.getItem("extension");
   const sipPassword = localStorage.getItem("sipPassword");
-  const SIP_DOMAIN = "192.168.21.70";
+  const SIP_DOMAIN = "192.168.21.69";
 
 
   // --------- Status / break menu ---------
