@@ -92,7 +92,7 @@ export default function PublicDashboard() {
 
     fetchDashboardData();
 
-    const socketUrl = baseURL.replace(/\/api$/, "") || "https://192.168.21.70";
+    const socketUrl = baseURL.replace(/\/api$/, "") || "https://192.168.21.69";
     const socket = io(socketUrl, {
       transports: ["websocket", "polling"],
       reconnection: true,
@@ -274,6 +274,11 @@ return () => {
   const dailyAnswered = getCount(dailyCounts, "ANSWERED");
   const dailyNoAnswer = getCount(dailyCounts, "NO ANSWER");
   const dailyBusy = getCount(dailyCounts, "BUSY");
+
+  // Calculate dropped calls (daily): Daily Total calls - (Daily Answered Calls + Daily Lost Calls)
+  const dailyTotalCalls = dailyTotal || 0;
+  const answeredCallsCount = answeredCalls?.count || dailyAnswered || 0;
+  const droppedCallsCount = Math.max(0, dailyTotalCalls - (answeredCallsCount + lostCallsCount));
 
   // Calculate percentages
   const yearlyAnsweredPercent = calculatePercentage(
@@ -663,39 +668,39 @@ return () => {
                   Call Statistics
                 </Typography>
                 <Grid container spacing={0} sx={{ width: "100%" }}>
-                  <Grid item xs={4} sx={{ flex: "1 1 33.333%", maxWidth: "33.333%" }}>
+                  <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "25%" }}>
                     <Box textAlign="center" sx={{ width: "100%", px: 0.5 }}>
                       <Typography variant="h4" sx={{ fontWeight: 700, color: "#667eea", mb: 0.5 }}>
-                        {dashboardData.callStats.totalRows || yearlyTotal || 0}
+                        {dailyTotalCalls}
                       </Typography>
                       <Typography variant="body2" color="textSecondary" sx={{ fontSize: "0.875rem" }}>
                         Total Calls
                       </Typography>
                       <Typography variant="caption" color="textSecondary" sx={{ fontSize: "0.75rem" }}>
-                        All time
+                        Daily
                       </Typography>
                     </Box>
                   </Grid>
-                  <Grid item xs={4} sx={{ flex: "1 1 33.333%", maxWidth: "33.333%" }}>
+                  <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "25%" }}>
                     <Box textAlign="center" sx={{ width: "100%", px: 0.5 }}>
                       <Typography variant="h4" sx={{ fontWeight: 700, color: "#4caf50", mb: 0.5 }}>
-                        {answeredCalls?.count || dailyAnswered || 0}
+                        {answeredCallsCount}
                       </Typography>
                       <Typography variant="body2" color="textSecondary" sx={{ fontSize: "0.875rem" }}>
-                        Answered Today
+                        Answered Calls
                       </Typography>
                       <Typography variant="caption" color="textSecondary" sx={{ fontSize: "0.75rem" }}>
-                        Daily calls
+                        Answered
                       </Typography>
                     </Box>
                   </Grid>
-                  <Grid item xs={4} sx={{ flex: "1 1 33.333%", maxWidth: "33.333%" }}>
+                  <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "25%" }}>
                     <Box textAlign="center" sx={{ width: "100%", px: 0.5 }}>
                       <Typography variant="h4" sx={{ fontWeight: 700, color: "#f44336", mb: 0.5 }}>
                         {lostCallsCount}
                       </Typography>
                       <Typography variant="body2" color="textSecondary" sx={{ fontSize: "0.875rem" }}>
-                        Lost Today
+                        Lost Calls
                       </Typography>
                       <Button
                         size="small"
@@ -706,6 +711,19 @@ return () => {
                       >
                 View Details
               </Button>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "25%" }}>
+                    <Box textAlign="center" sx={{ width: "100%", px: 0.5 }}>
+                      <Typography variant="h4" sx={{ fontWeight: 700, color: "#ff9800", mb: 0.5 }}>
+                        {droppedCallsCount}
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary" sx={{ fontSize: "0.875rem" }}>
+                        Dropped Calls
+                      </Typography>
+                      <Typography variant="caption" color="textSecondary" sx={{ fontSize: "0.75rem" }}>
+                        Dropped
+                      </Typography>
                     </Box>
                   </Grid>
                 </Grid>

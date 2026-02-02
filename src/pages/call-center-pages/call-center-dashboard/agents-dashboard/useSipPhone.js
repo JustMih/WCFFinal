@@ -4,7 +4,7 @@ import { UserAgent, Inviter, Registerer, SessionState } from "sip.js";
 export function useSipPhone({
   extension,
   sipPassword,
-  SIP_DOMAIN = "192.168.21.70",
+  SIP_DOMAIN = "192.168.21.69",
   onIncomingCall,
   onMissedCall,
   onCallAccepted,
@@ -35,7 +35,7 @@ export function useSipPhone({
   const [isConsulting, setIsConsulting] = useState(false);
 
   const remoteAudioRef = useRef(null);
-  const [ringAudio] = useState(() => new Audio("/ringtone.mp3"));
+  const [ringAudio] = useState(() => new Audio("/dial.mp3"));
 
   const callTimerRef = useRef(null);
   const autoRejectTimerRef = useRef(null);

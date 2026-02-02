@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { RxDashboard } from "react-icons/rx";
-import { MdOutlineSupportAgent, MdEmail, MdNotifications, MdMessage, MdChat, MdWork } from "react-icons/md";
-import { FaInstagram } from "react-icons/fa";
+import { MdOutlineSupportAgent, MdEmail, MdNotifications, MdMessage, MdChat, MdWork, MdPublic } from "react-icons/md";
 import { baseURL } from "../../../config";
 import "./crmSidebar.css";
 
 // MUI Components - Individual imports for better tree shaking
-import IconButton from "@mui/material/IconButton";
 import Badge from "@mui/material/Badge";
 import Tooltip from "@mui/material/Tooltip";
 
@@ -99,7 +97,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
       } else {
         url = `${baseURL}/ticket/dashboard-counts/${userId}`;
       }
-      
+
       const response = await fetch(url, {
         method: "GET",
         headers: {
@@ -150,7 +148,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
         })
         .then(data => {
           const notifications = data.notifications || [];
-          
+
           // Count distinct tickets for tagged messages (unread, for current user, has "mentioned you" in message)
           const taggedTickets = new Set();
           notifications.forEach(n => {
@@ -163,7 +161,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
             }
           });
           const tagged = taggedTickets.size;
-          
+
           // Count distinct tickets for notified (unread, for current user, not tagged, not assigned, not reversed)
           // This matches the notifications page logic - count distinct tickets
           const notifiedTickets = new Set();
@@ -171,24 +169,24 @@ export default function CRMSidebar({ isSidebarOpen }) {
             const isUnread = n.status === 'unread' || n.status === ' ';
             const isForCurrentUser = String(n.recipient_id) === String(userId);
             if (!isForCurrentUser || !isUnread) return;
-            
+
             const messageText = (n.message || n.comment || '').toLowerCase();
             const isTagged = messageText.includes('mentioned you');
-            
+
             // Check if it's reversed
             const isReversedTicket = n.ticket?.status === 'Reversed' || n.ticket?.status === 'reversed';
             const isReversedByText = messageText.includes('reversed back to you') ||
-                                    messageText.includes('reversed to you') ||
-                                    
-                                    messageText.includes('reassigned to focal person') ||
-                                    (messageText.includes('has been reversed') && messageText.includes('to'));
+              messageText.includes('reversed to you') ||
+
+              messageText.includes('reassigned to focal person') ||
+              (messageText.includes('has been reversed') && messageText.includes('to'));
             const isReversed = isReversedTicket && isReversedByText;
-            
+
             // Check if it's assigned (only by message text, not ticket status)
-            const isAssignedByText = (messageText.includes('assigned to you') || 
-                                     messageText.includes('forwarded to you') ||
-                                     messageText.includes('reassigned to you')) && !isTagged && !isReversed;
-            
+            const isAssignedByText = (messageText.includes('assigned to you') ||
+              messageText.includes('forwarded to you') ||
+              messageText.includes('reassigned to you')) && !isTagged && !isReversed;
+
             // Notified: not tagged, not assigned, and not reversed
             if (!isTagged && !isAssignedByText && !isReversed) {
               const ticketId = n.ticket?.id || n.ticket_id;
@@ -196,7 +194,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
             }
           });
           const notified = notifiedTickets.size;
-          
+
           console.log('Sidebar notification counts:', { tagged, notified });
           setTaggedCount(tagged);
           setNotifiedCount(notified);
@@ -242,12 +240,12 @@ export default function CRMSidebar({ isSidebarOpen }) {
     fetchTicketCounts();
     fetchNotificationCount();
     fetchChatUnreadCount();
-    
+
     // Set up interval to refresh chat unread count every 30 seconds
     const chatInterval = setInterval(() => {
       fetchChatUnreadCount();
     }, 30000);
-    
+
     // Listen for custom event when modal opens - decrease count immediately
     const handleNotificationModalOpened = () => {
       setNotifiedCount(prev => {
@@ -256,9 +254,9 @@ export default function CRMSidebar({ isSidebarOpen }) {
         return newCount;
       });
     };
-    
+
     window.addEventListener('notificationModalOpened', handleNotificationModalOpened);
-    
+
     // Listen for localStorage changes (for cross-tab sync)
     const handleStorageChange = (e) => {
       if (e.key === 'notificationCount') {
@@ -272,22 +270,22 @@ export default function CRMSidebar({ isSidebarOpen }) {
       }
     };
     window.addEventListener('storage', handleStorageChange);
-    
+
     // Listen for notification count update event
     const handleNotificationCountUpdated = () => {
       fetchNotificationCount();
     };
-    
+
     // Listen for chat unread count update event
     const handleChatUnreadCountUpdated = () => {
       fetchChatUnreadCount();
     };
     window.addEventListener('notificationCountUpdated', handleNotificationCountUpdated);
     window.addEventListener('chatUnreadCountUpdated', handleChatUnreadCountUpdated);
-    
+
     // Poll for updates every 30 seconds
     const interval = setInterval(fetchNotificationCount, 30000);
-    
+
     return () => {
       clearInterval(chatInterval);
       window.removeEventListener('notificationModalOpened', handleNotificationModalOpened);
@@ -302,13 +300,12 @@ export default function CRMSidebar({ isSidebarOpen }) {
     <aside className={`crm-sidebar ${isSidebarOpen ? "open" : "closed"}`}>
       {/* Logo moved to Navbar */}
       <ul>
-         {(
+        {(
           role === "agent" ||
           role === "attendee" ||
           role === "head-of-unit" ||
           role === "manager" ||
           role === "supervisor" ||
-          role === "director-general" ||
           role === "director" ||
           role === "admin" ||
           role === "super-admin" ||
@@ -316,98 +313,98 @@ export default function CRMSidebar({ isSidebarOpen }) {
           role === "claim-focal-person" ||
           role === "compliance-focal-person"
         ) && (
-          <>
-            <li>
-              <NavLink
-                to="/dashboard"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <RxDashboard className="menu-icon" />
-                  {isSidebarOpen && (
-                    <span className="menu-text">{getDashboardTitle(role)}</span>
-                  )}
-                </div>
-              </NavLink>
+            <>
+              <li>
+                <NavLink
+                  to="/dashboard"
+                  className={({ isActive }) =>
+                    isActive ? "menu-item active-link" : "menu-item"
+                  }
+                >
+                  <div className="menu-item">
+                    <RxDashboard className="menu-icon" />
+                    {isSidebarOpen && (
+                      <span className="menu-text">{getDashboardTitle(role)}</span>
+                    )}
+                  </div>
+                </NavLink>
 
-              <NavLink
-                to="/notifications?type=notified"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <MdEmail className="menu-icon" />
-                  {isSidebarOpen && (
-                    <span className="menu-text" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      Notifications
-                      <span
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          navigate('/notifications?type=notified');
-                        }}
-                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                      >
-                        <Tooltip title="Notified" arrow>
-                          <Badge 
-                            badgeContent={notifiedCount > 0 ? notifiedCount : 0} 
-                            color="error"
-                            max={99}
-                            invisible={notifiedCount === 0}
-                            sx={{
-                              '& .MuiBadge-badge': {
-                                fontSize: '0.7rem',
-                                minWidth: '18px',
-                                height: '18px',
-                                padding: '0 4px',
-                                cursor: 'pointer'
-                              }
-                            }}
-                          >
-                            <MdNotifications 
-                              style={{ fontSize: '1rem', color: '#666', cursor: 'pointer' }}
-                            />
-                          </Badge>
-                        </Tooltip>
+                <NavLink
+                  to="/notifications?type=notified"
+                  className={({ isActive }) =>
+                    isActive ? "menu-item active-link" : "menu-item"
+                  }
+                >
+                  <div className="menu-item">
+                    <MdEmail className="menu-icon" />
+                    {isSidebarOpen && (
+                      <span className="menu-text" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        Notifications
+                        <span
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            navigate('/notifications?type=notified');
+                          }}
+                          style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                        >
+                          <Tooltip title="Notified" arrow>
+                            <Badge
+                              badgeContent={notifiedCount > 0 ? notifiedCount : 0}
+                              color="error"
+                              max={99}
+                              invisible={notifiedCount === 0}
+                              sx={{
+                                '& .MuiBadge-badge': {
+                                  fontSize: '0.7rem',
+                                  minWidth: '18px',
+                                  height: '18px',
+                                  padding: '0 4px',
+                                  cursor: 'pointer'
+                                }
+                              }}
+                            >
+                              <MdNotifications
+                                style={{ fontSize: '1rem', color: '#666', cursor: 'pointer' }}
+                              />
+                            </Badge>
+                          </Tooltip>
+                        </span>
+                        <span
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            navigate('/notifications?type=tagged');
+                          }}
+                          style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                        >
+                          <Tooltip title="Tagged" arrow>
+                            <Badge
+                              badgeContent={taggedCount > 0 ? taggedCount : 0}
+                              color="primary"
+                              max={99}
+                              invisible={taggedCount === 0}
+                              sx={{
+                                '& .MuiBadge-badge': {
+                                  fontSize: '0.7rem',
+                                  minWidth: '18px',
+                                  height: '18px',
+                                  padding: '0 4px',
+                                  cursor: 'pointer'
+                                }
+                              }}
+                            >
+                              <MdMessage
+                                style={{ fontSize: '1rem', color: '#666', cursor: 'pointer' }}
+                              />
+                            </Badge>
+                          </Tooltip>
+                        </span>
                       </span>
-                      <span
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          navigate('/notifications?type=tagged');
-                        }}
-                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                      >
-                        <Tooltip title="Tagged" arrow>
-                          <Badge 
-                            badgeContent={taggedCount > 0 ? taggedCount : 0} 
-                            color="primary"
-                            max={99}
-                            invisible={taggedCount === 0}
-                            sx={{
-                              '& .MuiBadge-badge': {
-                                fontSize: '0.7rem',
-                                minWidth: '18px',
-                                height: '18px',
-                                padding: '0 4px',
-                                cursor: 'pointer'
-                              }
-                            }}
-                          >
-                            <MdMessage 
-                              style={{ fontSize: '1rem', color: '#666', cursor: 'pointer' }}
-                            />
-                          </Badge>
-                        </Tooltip>
-                      </span>
-                    </span>
-                  )}
-                </div>
-              </NavLink>
-{/* 
+                    )}
+                  </div>
+                </NavLink>
+                {/* 
               <NavLink
                 to="/instagram"
                 className={({ isActive }) =>
@@ -422,34 +419,34 @@ export default function CRMSidebar({ isSidebarOpen }) {
                 </div>
               </NavLink> */}
 
-              <NavLink
-                to="/crm-chat"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <MdChat className="menu-icon" />
-                  {isSidebarOpen && (
-                    <span className="menu-text" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      Chat Room
-                      <Tooltip title="Unread Messages" arrow>
-                        <Badge 
-                          badgeContent={chatUnreadCount > 0 ? chatUnreadCount : 0} 
-                          color="error" 
-                          max={99} 
-                          invisible={chatUnreadCount === 0}
-                          sx={{ '& .MuiBadge-badge': { cursor: 'pointer' } }}
-                        >
-                          <MdNotifications style={{ fontSize: '1rem', color: '#666', cursor: 'pointer' }} />
-                        </Badge>
-                      </Tooltip>
-                    </span>
-                  )}
-                </div>
-              </NavLink>
+                <NavLink
+                  to="/crm-chat"
+                  className={({ isActive }) =>
+                    isActive ? "menu-item active-link" : "menu-item"
+                  }
+                >
+                  <div className="menu-item">
+                    <MdChat className="menu-icon" />
+                    {isSidebarOpen && (
+                      <span className="menu-text" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        Chat Room
+                        <Tooltip title="Unread Messages" arrow>
+                          <Badge
+                            badgeContent={chatUnreadCount > 0 ? chatUnreadCount : 0}
+                            color="error"
+                            max={99}
+                            invisible={chatUnreadCount === 0}
+                            sx={{ '& .MuiBadge-badge': { cursor: 'pointer' } }}
+                          >
+                            <MdNotifications style={{ fontSize: '1rem', color: '#666', cursor: 'pointer' }} />
+                          </Badge>
+                        </Tooltip>
+                      </span>
+                    )}
+                  </div>
+                </NavLink>
 
-              {/* <NavLink
+                {/* <NavLink
                 to="/workflow"
                 className={({ isActive }) =>
                   isActive ? "menu-item active-link" : "menu-item"
@@ -463,97 +460,350 @@ export default function CRMSidebar({ isSidebarOpen }) {
                 </div>
               </NavLink> */}
 
-              <div
-                className={`menu-item ${
-                  window.location.pathname.startsWith("/ticket")
-                    ? "active-link"
-                    : ""
-                }`}
-                style={{ padding: "11px 11px", textDecoration: "none" }}
-              >
-                <MdOutlineSupportAgent className="menu-icon" />
-                {isSidebarOpen && (
-                  <span className="menu-text">
-                    Ticket Management
-                  </span>
-                )}
-              </div>
-
-              {isSidebarOpen && (
-                <div className="dropdown-menu submenu">
-                  <div className="menu-section">
-                    <div className="section-header">
-                      <span className="crm-section-title">Ticket Overview</span>
-                      {/* <span className="section-count">
-                        {ticketStats.total || 0}
-                      </span> */}
-                    </div>
-                    <div className="section-items">
-                      {[
-                        {
-                          label: "Assigned",
-                          to: "/ticket/assigned",
-                          value: ticketStats.assigned || 0,
-                          icon: "📋"
-                        },
-                        {
-                          label: "In Progress",
-                          to: "/ticket/in-progress",
-                          value: ticketStats.inProgress || 0,
-                          icon: "⏳"
-                        },
-                        {
-                          label: "Escalated",
-                          to: "/ticket/escalated",
-                          value: ticketStats.escalated || ticketStats.overdue || 0,
-                          icon: "⚠️"
-                        },
-                        {
-                          label: "Closed",
-                          to: "/ticket/closed",
-                          value: ticketStats.closedByAgent || 0,
-                          icon: "🔒"
-                        },
-                        {
-                          label: "Total Opened by Me",
-                          to: "/ticket/all",
-                          value: ticketStats.totalCreatedByMe || 0,
-                          icon: "📊"
-                        }
-                      ].map((item, idx) => (
-                        <NavLink
-                          key={idx}
-                          to={item.to}
-                          className={({ isActive }) =>
-                            isActive
-                              ? "dropdown-item active-link"
-                              : "dropdown-item"
-                          }
-                          style={{ padding: "12px 20px" }}
-                        >
-                          <div className="metric-row">
-                            <span className="crm-metric-icon">{item.icon}</span>
-                            <span className="metric-label">{item.label}</span>
-                            <span className="metric-value-crm">{item.value}</span>
-                          </div>
-                        </NavLink>
-                      ))}
-                    </div>
-                  </div>
-                  {fetchError && (
-                    <div className="section error-message">
-                      <span style={{ color: "red", padding: "0 1rem" }}>
-                        {fetchError}
-                      </span>
-                    </div>
+                <div
+                  className={`menu-item ${window.location.pathname.startsWith("/ticket")
+                      ? "active-link"
+                      : ""
+                    }`}
+                  style={{ padding: "11px 11px", textDecoration: "none" }}
+                >
+                  <MdOutlineSupportAgent className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">
+                      Ticket Management
+                    </span>
                   )}
                 </div>
-              )}
-            </li>
-          </>
-        )}
 
-        
+                {isSidebarOpen && (
+                  <div className="dropdown-menu submenu">
+                    <div className="menu-section">
+                      <div className="section-header">
+                        <span className="crm-section-title">Ticket Overview</span>
+                        {/* <span className="section-count">
+                        {ticketStats.total || 0}
+                      </span> */}
+                      </div>
+                      <div className="section-items">
+                        {[
+                          {
+                            label: "Assigned",
+                            to: "/ticket/assigned",
+                            value: ticketStats.assigned || 0,
+                            icon: "📋"
+                          },
+                          {
+                            label: "In Progress",
+                            to: "/ticket/in-progress",
+                            value: ticketStats.inProgress || 0,
+                            icon: "⏳"
+                          },
+                          {
+                            label: "Escalated",
+                            to: "/ticket/escalated",
+                            value: ticketStats.escalated || ticketStats.overdue || 0,
+                            icon: "⚠️"
+                          },
+                          {
+                            label: "Closed",
+                            to: "/ticket/closed",
+                            value: ticketStats.closedByAgent || 0,
+                            icon: "🔒"
+                          },
+                          {
+                            label: "Total Opened by Me",
+                            to: "/ticket/all",
+                            value: ticketStats.totalCreatedByMe || 0,
+                            icon: "📊"
+                          }
+                        ].map((item, idx) => (
+                          <NavLink
+                            key={idx}
+                            to={item.to}
+                            className={({ isActive }) =>
+                              isActive
+                                ? "dropdown-item active-link"
+                                : "dropdown-item"
+                            }
+                            style={{ padding: "12px 20px" }}
+                          >
+                            <div className="metric-row">
+                              <span className="crm-metric-icon">{item.icon}</span>
+                              <span className="metric-label">{item.label}</span>
+                              <span className="metric-value-crm">{item.value}</span>
+                            </div>
+                          </NavLink>
+                        ))}
+                      </div>
+                    </div>
+                    {fetchError && (
+                      <div className="section error-message">
+                        <span style={{ color: "red", padding: "0 1rem" }}>
+                          {fetchError}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </li>
+            </>
+          )}
+
+        {(
+          role === "director-general"
+        ) && (
+            <>
+              <li>
+                <NavLink
+                  to="/dashboard"
+                  className={({ isActive }) =>
+                    isActive ? "menu-item active-link" : "menu-item"
+                  }
+                >
+                  <div className="menu-item">
+                    <RxDashboard className="menu-icon" />
+                    {isSidebarOpen && (
+                      <span className="menu-text">{getDashboardTitle(role)}</span>
+                    )}
+                  </div>
+                </NavLink>
+                <NavLink
+                  to="/public-dashboard"
+                  className={({ isActive }) =>
+                    isActive ? "menu-item active-link" : "menu-item"
+                  }
+                >
+                  <div className="menu-item">
+                    <MdPublic className="menu-icon" />
+                    {isSidebarOpen && (
+                      <span className="menu-text">
+                        Public Dashboard
+                      </span>
+                    )}
+                  </div>
+                </NavLink>
+
+                <NavLink
+                  to="/notifications?type=notified"
+                  className={({ isActive }) =>
+                    isActive ? "menu-item active-link" : "menu-item"
+                  }
+                >
+                  <div className="menu-item">
+                    <MdEmail className="menu-icon" />
+                    {isSidebarOpen && (
+                      <span className="menu-text" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        Notifications
+                        <span
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            navigate('/notifications?type=notified');
+                          }}
+                          style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                        >
+                          <Tooltip title="Notified" arrow>
+                            <Badge
+                              badgeContent={notifiedCount > 0 ? notifiedCount : 0}
+                              color="error"
+                              max={99}
+                              invisible={notifiedCount === 0}
+                              sx={{
+                                '& .MuiBadge-badge': {
+                                  fontSize: '0.7rem',
+                                  minWidth: '18px',
+                                  height: '18px',
+                                  padding: '0 4px',
+                                  cursor: 'pointer'
+                                }
+                              }}
+                            >
+                              <MdNotifications
+                                style={{ fontSize: '1rem', color: '#666', cursor: 'pointer' }}
+                              />
+                            </Badge>
+                          </Tooltip>
+                        </span>
+                        <span
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            navigate('/notifications?type=tagged');
+                          }}
+                          style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                        >
+                          <Tooltip title="Tagged" arrow>
+                            <Badge
+                              badgeContent={taggedCount > 0 ? taggedCount : 0}
+                              color="primary"
+                              max={99}
+                              invisible={taggedCount === 0}
+                              sx={{
+                                '& .MuiBadge-badge': {
+                                  fontSize: '0.7rem',
+                                  minWidth: '18px',
+                                  height: '18px',
+                                  padding: '0 4px',
+                                  cursor: 'pointer'
+                                }
+                              }}
+                            >
+                              <MdMessage
+                                style={{ fontSize: '1rem', color: '#666', cursor: 'pointer' }}
+                              />
+                            </Badge>
+                          </Tooltip>
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                </NavLink>
+                {/* 
+              <NavLink
+                to="/instagram"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <FaInstagram className="menu-icon" color="#E4405F" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">Instagram Management</span>
+                  )}
+                </div>
+              </NavLink> */}
+
+                <NavLink
+                  to="/crm-chat"
+                  className={({ isActive }) =>
+                    isActive ? "menu-item active-link" : "menu-item"
+                  }
+                >
+                  <div className="menu-item">
+                    <MdChat className="menu-icon" />
+                    {isSidebarOpen && (
+                      <span className="menu-text" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        Chat Room
+                        <Tooltip title="Unread Messages" arrow>
+                          <Badge
+                            badgeContent={chatUnreadCount > 0 ? chatUnreadCount : 0}
+                            color="error"
+                            max={99}
+                            invisible={chatUnreadCount === 0}
+                            sx={{ '& .MuiBadge-badge': { cursor: 'pointer' } }}
+                          >
+                            <MdNotifications style={{ fontSize: '1rem', color: '#666', cursor: 'pointer' }} />
+                          </Badge>
+                        </Tooltip>
+                      </span>
+                    )}
+                  </div>
+                </NavLink>
+
+                {/* <NavLink
+                to="/workflow"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <MdWork className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">Workflow Dashboard</span>
+                  )}
+                </div>
+              </NavLink> */}
+
+                <div
+                  className={`menu-item ${window.location.pathname.startsWith("/ticket")
+                      ? "active-link"
+                      : ""
+                    }`}
+                  style={{ padding: "11px 11px", textDecoration: "none" }}
+                >
+                  <MdOutlineSupportAgent className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">
+                      Ticket Management
+                    </span>
+                  )}
+                </div>
+
+                {isSidebarOpen && (
+                  <div className="dropdown-menu submenu">
+                    <div className="menu-section">
+                      <div className="section-header">
+                        <span className="crm-section-title">Ticket Overview</span>
+                        {/* <span className="section-count">
+                        {ticketStats.total || 0}
+                      </span> */}
+                      </div>
+                      <div className="section-items">
+                        {[
+                          {
+                            label: "Assigned",
+                            to: "/ticket/assigned",
+                            value: ticketStats.assigned || 0,
+                            icon: "📋"
+                          },
+                          {
+                            label: "In Progress",
+                            to: "/ticket/in-progress",
+                            value: ticketStats.inProgress || 0,
+                            icon: "⏳"
+                          },
+                          {
+                            label: "Escalated",
+                            to: "/ticket/escalated",
+                            value: ticketStats.escalated || ticketStats.overdue || 0,
+                            icon: "⚠️"
+                          },
+                          {
+                            label: "Closed",
+                            to: "/ticket/closed",
+                            value: ticketStats.closedByAgent || 0,
+                            icon: "🔒"
+                          },
+                          {
+                            label: "Total Opened by Me",
+                            to: "/ticket/all",
+                            value: ticketStats.totalCreatedByMe || 0,
+                            icon: "📊"
+                          }
+                        ].map((item, idx) => (
+                          <NavLink
+                            key={idx}
+                            to={item.to}
+                            className={({ isActive }) =>
+                              isActive
+                                ? "dropdown-item active-link"
+                                : "dropdown-item"
+                            }
+                            style={{ padding: "12px 20px" }}
+                          >
+                            <div className="metric-row">
+                              <span className="crm-metric-icon">{item.icon}</span>
+                              <span className="metric-label">{item.label}</span>
+                              <span className="metric-value-crm">{item.value}</span>
+                            </div>
+                          </NavLink>
+                        ))}
+                      </div>
+                    </div>
+                    {fetchError && (
+                      <div className="section error-message">
+                        <span style={{ color: "red", padding: "0 1rem" }}>
+                          {fetchError}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </li>
+            </>
+          )}
+
+
         {role === "reviewer" && (
           <>
             <li>
@@ -590,8 +840,8 @@ export default function CRMSidebar({ isSidebarOpen }) {
                         style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                       >
                         <Tooltip title="Notified" arrow>
-                          <Badge 
-                            badgeContent={notifiedCount > 0 ? notifiedCount : 0} 
+                          <Badge
+                            badgeContent={notifiedCount > 0 ? notifiedCount : 0}
                             color="error"
                             max={99}
                             invisible={notifiedCount === 0}
@@ -605,7 +855,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                               }
                             }}
                           >
-                            <MdNotifications 
+                            <MdNotifications
                               style={{ fontSize: '1rem', color: '#666', cursor: 'pointer' }}
                             />
                           </Badge>
@@ -620,8 +870,8 @@ export default function CRMSidebar({ isSidebarOpen }) {
                         style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                       >
                         <Tooltip title="Tagged" arrow>
-                          <Badge 
-                            badgeContent={taggedCount > 0 ? taggedCount : 0} 
+                          <Badge
+                            badgeContent={taggedCount > 0 ? taggedCount : 0}
                             color="primary"
                             max={99}
                             invisible={taggedCount === 0}
@@ -635,7 +885,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
                               }
                             }}
                           >
-                            <MdMessage 
+                            <MdMessage
                               style={{ fontSize: '1rem', color: '#666', cursor: 'pointer' }}
                             />
                           </Badge>
@@ -646,11 +896,10 @@ export default function CRMSidebar({ isSidebarOpen }) {
                 </div>
               </NavLink>
               <div
-                className={`menu-item ${
-                  window.location.pathname.startsWith("/reviewer")
+                className={`menu-item ${window.location.pathname.startsWith("/reviewer")
                     ? "active-link"
                     : ""
-                }`}
+                  }`}
                 style={{ padding: "11px 11px", textDecoration: "none" }}
               >
                 <MdOutlineSupportAgent className="menu-icon" />
