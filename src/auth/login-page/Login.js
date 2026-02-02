@@ -2,7 +2,12 @@ import React, { useState, useEffect } from "react";
 import { ImSpinner9 } from "react-icons/im";
 import wcf_image from "../../asserts/images/wcf_image.jpg";
 import wcf_logo from "../../asserts/images/logo.png";
-import loginBg from "../../asserts/images/login-bg.png";
+import bg1 from "../../asserts/bg/bg1.PNG";
+import bg2 from "../../asserts/bg/bg2.PNG";
+import bg3 from "../../asserts/bg/bg3.PNG";
+import bg4 from "../../asserts/bg/bg4.PNG";
+import bg5 from "../../asserts/bg/bg5.PNG";
+import bg6 from "../../asserts/bg/bg6.PNG";
 import { TextField, Button } from "@mui/material";
 import { baseURL } from "../../config";
 import { storeDomainCredentials, storeCredentialsObject, validateCredentials } from "../../utils/credentials";
@@ -22,6 +27,9 @@ export default function Login() {
     }
     return null;
   });
+  const [currentBgIndex, setCurrentBgIndex] = useState(0);
+  
+  const backgroundImages = [bg1, bg2, bg3, bg4, bg5, bg6];
 
   const handleLogin = async (e) => {
     setIsLoading(true);
@@ -117,18 +125,32 @@ export default function Login() {
     }
   }, [timeRemaining]);
 
+  // Background slideshow effect
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentBgIndex((prevIndex) => (prevIndex + 1) % backgroundImages.length);
+    }, 3000); // Change image every 3 seconds
+
+    return () => clearInterval(interval);
+  }, [backgroundImages.length]);
+
   return (
-    <div className="login-container" style={{ backgroundImage: `url(${loginBg})` }}>
+    <div className="login-container">
+      {/* Background slideshow */}
+      {backgroundImages.map((bg, index) => (
+        <div
+          key={index}
+          className={`login-bg-slide ${index === currentBgIndex ? "active" : ""}`}
+          style={{ backgroundImage: `url(${bg})` }}
+        />
+      ))}
       <div className="login-card">
         {/* Left Content Section */}
         <div className="login-image" style={{marginTop: '20px', marginLeft: '40px' }}>
           <div className="content-overlay">
             <div className="slogan">
-              <span className="slogan-our">Our</span> <span className="slogan-slogan">Slogan</span>
+              <span className="slogan-our">Contact</span> <span className="slogan-slogan">Center</span>
             </div>
-            <p className="content-paragraph">
-            Rightful Compensation, On Time.
-            </p>
             <div className="support-info">
               <div className="support-item">
                 <span className="support-label">For Support contact IT SUPPORT</span>

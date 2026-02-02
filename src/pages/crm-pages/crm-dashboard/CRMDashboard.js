@@ -10,7 +10,7 @@ export default function CRMDashboard() {
   }
    return (
      <>
-       {role === "reviewer" && <ReviewerDashboard />}
+       {role === "reviewer" && <DGdashboard />}
        {(role === "agent") && (<AgentDashboard /> )}
        {role === "attendee" && <AgentDashboard />}
        {role === "focal-person" && <AgentDashboard />}
@@ -20,6 +20,7 @@ export default function CRMDashboard() {
        {role === "director" && <DGdashboard />}
        {role === "director-general" && <DGdashboard />}
        {role === "manager" && <DGdashboard />}
+       {/* {role === "reviewer" && <DGdashboard />} */}
        {role === "supervisor" && <AgentDashboard />}
        {role === "super-admin" && <AgentDashboard />}
        {/* {role === "super-admin" && <HeadsDashboard />} */}
