@@ -40,7 +40,7 @@ import {
   FaStop
 } from "react-icons/fa";
 import "./supervisorDashboard.css";
-import LiveCallsCard from "../../../../components/supervisor-dashboard/LiveCallsCard";
+import LiveCallsCard from "../../../../components/supervisor-dashboard/LiveCallsCard.jsx";
 import CallQueueCard from "../../../../components/supervisor-dashboard/CallQueueCard";
 import ActiveCalls from "../../../../components/active-calls/ActiveCalls";
 

@@ -37,7 +37,7 @@ const DTMFStats = () => {
   }, []);
 
   /* ===============================
-     FILTER (ALL COLUMNS)
+     FILTER
   =============================== */
   const filteredLogs = useMemo(() => {
     const search = searchText.toLowerCase();
@@ -74,78 +74,137 @@ const DTMFStats = () => {
   const digitNames = digits.map(d => digitLabels[d]);
   const digitCounts = digits.map(d => countMap[d]);
 
-  const maxValue = Math.max(...digitCounts, 1); // 🔥 RADIAL FIX
+  const maxValue = Math.max(...digitCounts, 1);
 
   const barColors = [
-    '#3366CC', '#DC3912', '#FF9900', '#109618', '#990099',
-    '#3B3EAC', '#0099C6', '#DD4477', '#66AA00', '#B82E2E'
+    '#3366CC', '#DC3912', '#FF9900', '#109618',
+    '#990099', '#3B3EAC', '#0099C6', '#DD4477'
   ];
 
   /* ===============================
-     RADIAL CHART OPTIONS (FIXED)
+     RADIAL CHART (ENLARGED)
   =============================== */
   const radialOptions = {
     chart: {
       type: 'radialBar',
-      height: 350
+      height: 460
     },
     plotOptions: {
       radialBar: {
         startAngle: -90,
         endAngle: 270,
-        hollow: { size: '45%' },
-        track: { background: '#f0f0f0' },
+        hollow: {
+          size: '55%' // 🔥 bigger center
+        },
+        track: {
+          background: '#f0f0f0',
+          strokeWidth: '100%'
+        },
         dataLabels: {
-          name: { fontSize: '14px' },
-          value: {
+          name: {
             fontSize: '16px',
-            formatter: val => Math.round(val)
+            offsetY: -5
+          },
+          value: {
+            fontSize: '22px',
+            fontWeight: 600
           },
           total: {
             show: true,
             label: 'Total',
+            fontSize: '16px',
             formatter: () =>
               digitCounts.reduce((a, b) => a + b, 0)
           }
         }
       }
     },
+    stroke: {
+      lineCap: 'round',
+      width: 6 // 🔥 thicker arcs
+    },
     yaxis: {
-      max: maxValue // ✅ REQUIRED
+      max: maxValue
     },
     labels: digitNames,
     colors: digits.map((_, i) => barColors[i % barColors.length]),
     legend: {
       show: true,
-      position: 'bottom'
+      position: 'bottom',
+      fontSize: '14px'
     }
   };
 
   /* ===============================
-     BAR CHART OPTIONS
+     BAR CHART (ENLARGED)
   =============================== */
-  const apexBarOptions = {
-    chart: { type: 'bar', height: 350 },
-    plotOptions: {
-      bar: {
-        horizontal: true,
-        borderRadius: 4,
-        distributed: true,
-        barHeight: '15%'
+ const apexBarOptions = {
+  chart: {
+    type: 'bar',
+    height: 460,
+    toolbar: { show: false }
+  },
+
+  plotOptions: {
+    bar: {
+      horizontal: true,
+      borderRadius: 6,
+      distributed: true,
+      barHeight: '45%', // 🔥 thicker bars
+      dataLabels: {
+        position: 'right' // ✅ move numbers outside
       }
+    }
+  },
+
+  dataLabels: {
+    enabled: true,
+    offsetX: 12, // ✅ space between bar & number
+    style: {
+      fontSize: '14px',
+      fontWeight: 600,
+      colors: ['#333'] // 🔥 readable on white
+    }
+  },
+
+  xaxis: {
+    categories: digitNames,
+    min: 0,
+    max: maxValue + 2, // 🔥 breathing room on the right
+    title: {
+      text: 'Number of Users',
+      style: { fontSize: '14px', fontWeight: 600 }
     },
-    dataLabels: {
-      enabled: true,
-      style: { fontSize: '12px', colors: ['#333'] }
-    },
-    xaxis: {
-      categories: digitNames,
-      title: { text: '# of Users' }
-    },
-    yaxis: { labels: { show: false } },
-    colors: digits.map((_, i) => barColors[i % barColors.length]),
-    grid: { show: false }
-  };
+    labels: {
+      style: { fontSize: '13px' }
+    }
+  },
+
+  yaxis: {
+    labels: {
+      style: {
+        fontSize: '13px',
+        fontWeight: 500
+      }
+    }
+  },
+
+  grid: {
+    borderColor: '#e5e7eb',
+    strokeDashArray: 3,
+    xaxis: { lines: { show: true } },
+    yaxis: { lines: { show: false } }
+  },
+
+  tooltip: {
+    enabled: true,
+    y: {
+      formatter: val => `${val} users`
+    }
+  },
+
+  colors: digits.map((_, i) => barColors[i % barColors.length])
+};
 
   /* ===============================
      TABLE COLUMNS
@@ -171,7 +230,7 @@ const DTMFStats = () => {
   ];
 
   /* ===============================
-     EXPORT DATA
+     EXPORT
   =============================== */
   const csvData = filteredLogs.map(item => ({
     digit_pressed: item.digit_pressed,
@@ -195,33 +254,33 @@ const DTMFStats = () => {
      RENDER
   =============================== */
   return (
-    <div style={{ padding: '1rem', maxWidth: '900px', margin: 'auto' }}>
+    <div style={{ padding: '1.5rem', maxWidth: '1200px', margin: 'auto' }}>
       <h3 style={{ textAlign: 'center' }}>IVR DTMF Usage Report</h3>
 
       {/* CHARTS */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2rem', marginBottom: '2rem' }}>
-        <div style={{ flex: 1, minWidth: 320, background: '#fafbfc', padding: 16, borderRadius: 8 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2.5rem', marginBottom: '2.5rem' }}>
+        <div style={{ flex: 1, minWidth: 420, background: '#fafbfc', padding: 20, borderRadius: 10 }}>
           <h4 style={{ textAlign: 'center' }}>Radial Chart</h4>
           <ReactApexChart
             options={radialOptions}
             series={digitCounts}
             type="radialBar"
-            height={320}
+            height={460}
           />
         </div>
 
-        <div style={{ flex: 2, minWidth: 400, background: '#fafbfc', padding: 16, borderRadius: 8 }}>
+        <div style={{ flex: 1.2, minWidth: 520, background: '#fafbfc', padding: 20, borderRadius: 10 }}>
           <h4 style={{ textAlign: 'center' }}>Bar Chart</h4>
           <ReactApexChart
             options={apexBarOptions}
             series={[{ data: digitCounts }]}
             type="bar"
-            height={320}
+            height={460}
           />
         </div>
       </div>
 
-      {/* TABLE HEADER */}
+      {/* EXPORT + SEARCH */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h4>DTMF Usage Table</h4>
         <div style={{ display: 'flex', gap: '1rem' }}>
@@ -232,7 +291,6 @@ const DTMFStats = () => {
         </div>
       </div>
 
-      {/* SEARCH */}
       <input
         type="text"
         placeholder="Search digit, action, caller, language, time..."
@@ -240,20 +298,18 @@ const DTMFStats = () => {
         onChange={e => setSearchText(e.target.value)}
         style={{
           width: '100%',
-          padding: '8px',
-          margin: '10px 0',
+          padding: '10px',
+          margin: '12px 0',
           borderRadius: 6,
           border: '1px solid #ccc'
         }}
       />
 
-      {/* TABLE */}
       <DataTable
         columns={columns}
         data={filteredLogs}
         pagination
         highlightOnHover
-        dense
         striped
         responsive
       />
