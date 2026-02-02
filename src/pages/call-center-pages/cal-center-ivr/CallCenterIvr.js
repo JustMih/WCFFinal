@@ -1,20 +1,36 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { baseURL } from "../../../config";
-import { FaPlay, FaEdit, FaTrash } from "react-icons/fa";  
+import { FaPlay, FaEdit, FaTrash, FaFileExcel } from "react-icons/fa";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 import "./callCenterIvr.css";
 
 export default function CallCenterIvr() {
   const [voices, setVoices] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  /* ===============================
+     FILTER & PAGINATION
+  =============================== */
+  const [searchText, setSearchText] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
+
+  /* ===============================
+     MODALS & FORM STATE
+  =============================== */
   const [fileName, setFileName] = useState("");
   const [file, setFile] = useState(null);
+  const [voiceLanguage, setVoiceLanguage] = useState("english");
   const [editing, setEditing] = useState(false);
   const [currentVoice, setCurrentVoice] = useState(null);
-  const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [voiceToDelete, setVoiceToDelete] = useState(null);
-  const [voiceLanguage, setVoiceLanguage] = useState("english");
 
+  /* ===============================
+     FETCH VOICES
+  =============================== */
   useEffect(() => {
     fetchVoices();
   }, []);
@@ -22,212 +38,310 @@ export default function CallCenterIvr() {
   const fetchVoices = async () => {
     setLoading(true);
     try {
-      const response = await fetch(`${baseURL}/ivr/voices`);
-      if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-      const data = await response.json();
-      console.log("Fetched voices:", data); // Debugging
-      setVoices(data);
-    } catch (error) {
-      console.error("Error fetching voices:", error);
-      alert(`Failed to fetch voices: ${error.message}`);
+      const res = await fetch(`${baseURL}/ivr/voices`);
+      const data = await res.json();
+      setVoices(data || []);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to fetch IVR voices");
     }
     setLoading(false);
   };
+const handleCreateVoice = async (e) => {
+  e.preventDefault();
 
-  const handleFileChange = (e) => {
-    const selectedFile = e.target.files[0];
-    const allowedTypes = ["audio/mp3", "audio/wav"];
-    const maxSize = 10 * 1024 * 1024;
+  if (!file || !fileName) {
+    alert("Please provide file and file name");
+    return;
+  }
 
-    if (!allowedTypes.includes(selectedFile.type)) {
-      alert("Only MP3 and WAV files are allowed");
-      return;
-    }
+  const formData = new FormData();
+  formData.append("voice_file", file);
+  formData.append("file_name", fileName);
+  formData.append("language", voiceLanguage);
 
-    if (selectedFile.size > maxSize) {
-      alert("File size exceeds the limit of 10MB");
-      return;
-    }
+  try {
+    const res = await fetch(`${baseURL}/ivr/voices`, {
+      method: "POST",
+      body: formData,
+    });
 
-    setFile(selectedFile);
+    if (!res.ok) throw new Error("Failed to create voice");
+
+    await fetchVoices();
+
+    // reset
+    setFileName("");
+    setFile(null);
+    setVoiceLanguage("english");
+    setShowModal(false);
+  } catch (err) {
+    console.error(err);
+    alert("Failed to create voice");
+  }
+};
+const handleUpdateVoice = async (e) => {
+  e.preventDefault();
+
+  if (!fileName || !currentVoice) {
+    alert("Missing data");
+    return;
+  }
+
+  const payload = {
+    file_name: fileName,
+    file_path: currentVoice.file_path,
+    language: voiceLanguage,
   };
 
-  const handleFileNameChange = (e) => {
-    setFileName(e.target.value);
-  };
-
-  const handleCreateVoice = async (e) => {
-    e.preventDefault();
-    if (!file || !fileName) {
-      alert("Please provide a file and file name");
-      return;
-    }
-    const formData = new FormData();
-    formData.append("voice_file", file);
-    formData.append("file_name", fileName);
-    formData.append("language", voiceLanguage);
-
-    try {
-      const response = await fetch(`${baseURL}/ivr/voices`, {
-        method: "POST",
-        body: formData,
-      });
-      if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-      await fetchVoices();
-      setFileName("");
-      setFile(null);
-      setShowModal(false);
-    } catch (error) {
-      console.error("Error creating voice:", error);
-      alert(`Failed to create voice: ${error.message}`);
-    }
-  };
-
-  const handleEditVoice = (voice) => {
-    setEditing(true);
-    setCurrentVoice(voice);
-    setFileName(voice.file_name);
-    setVoiceLanguage(voice.language);
-    setShowModal(true);
-  };
-
-  const handleUpdateVoice = async (e) => {
-    e.preventDefault();
-    if (!fileName) {
-      alert("Please provide a file name");
-      return;
-    }
-
-    const updatedVoice = {
-      file_name: fileName,
-      file_path: currentVoice.file_path,
-      language: voiceLanguage,
-    };
-
-    try {
-      const response = await fetch(`${baseURL}/ivr/voices/${currentVoice.id}`, {
+  try {
+    const res = await fetch(
+      `${baseURL}/ivr/voices/${currentVoice.id}`,
+      {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(updatedVoice),
-      });
-      if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-      await fetchVoices();
-      setEditing(false);
-      setCurrentVoice(null);
-      setFileName("");
-      setFile(null);
-      setShowModal(false);
-    } catch (error) {
-      console.error("Error updating voice:", error);
-      alert(`Failed to update voice: ${error.message}`);
-    }
-  };
-
-  const handleDeleteVoice = (id) => {
-    setVoiceToDelete(id);
-    setShowDeleteModal(true);
-  };
-
-  const confirmDelete = async () => {
-    try {
-      const response = await fetch(`${baseURL}/ivr/voices/${voiceToDelete}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-      await fetchVoices();
-      setShowDeleteModal(false);
-    } catch (error) {
-      console.error("Error deleting voice:", error);
-      alert(`Failed to delete voice: ${error.message}`);
-    }
-  };
-
-  const cancelDelete = () => {
-    setShowDeleteModal(false);
-  };
-
-  const handlePlayVoice = async (voiceId) => {
-    const audioUrl = `${baseURL}/ivr/voices/${voiceId}/audio`;
-    console.log("Attempting to play audio from:", audioUrl);
-    try {
-      const response = await fetch(audioUrl, { method: "HEAD" });
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       }
-      const audio = new Audio(audioUrl);
-      await audio.play();
-    } catch (error) {
-      console.error("Error playing audio:", error);
-      alert(`Failed to play audio. Error: ${error.message}`);
-    }
+    );
+
+    if (!res.ok) throw new Error("Failed to update voice");
+
+    await fetchVoices();
+
+    // reset
+    setEditing(false);
+    setCurrentVoice(null);
+    setFileName("");
+    setShowModal(false);
+  } catch (err) {
+    console.error(err);
+    alert("Failed to update voice");
+  }
+};
+
+  /* ===============================
+     FILTERED DATA
+  =============================== */
+  const filteredVoices = useMemo(() => {
+    const search = searchText.toLowerCase();
+    return voices.filter(v =>
+      v.file_name?.toLowerCase().includes(search) ||
+      v.file_path?.toLowerCase().includes(search) ||
+      v.language?.toLowerCase().includes(search)
+    );
+  }, [voices, searchText]);
+
+  /* ===============================
+     PAGINATION
+  =============================== */
+  const totalPages = Math.ceil(filteredVoices.length / pageSize);
+  const paginatedVoices = filteredVoices.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
+  /* ===============================
+     EXPORT TO EXCEL
+  =============================== */
+  const exportExcel = () => {
+    const data = filteredVoices.map(v => ({
+      File_Name: v.file_name,
+      File_Path: v.file_path,
+      Language: v.language,
+      Created_At: v.createdAt
+        ? new Date(v.createdAt).toLocaleString()
+        : "-"
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "IVR Voices");
+
+    const buffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    saveAs(new Blob([buffer]), "ivr_voices.xlsx");
+  };
+
+  /* ===============================
+     PLAY VOICE
+  =============================== */
+const handlePlayVoice = (id) => {
+  try {
+    const audio = new Audio(`${baseURL}/ivr/voices/${id}/audio`);
+    audio.play().catch(err => {
+      console.error("Play failed:", err);
+      alert("Click again to play audio");
+    });
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+  /* ===============================
+     DELETE
+  =============================== */
+  const confirmDelete = async () => {
+    await fetch(`${baseURL}/ivr/voices/${voiceToDelete}`, { method: "DELETE" });
+    setShowDeleteModal(false);
+    fetchVoices();
   };
 
   return (
     <div className="user-table-container">
-      <h2>Call Center IVR Dashboard</h2>
+      <h2>IVR Voice Library</h2>
 
-      <button
-        onClick={() => {
-          setEditing(false);
-          setFileName("");
-          setFile(null);
-          setShowModal(true);
-        }}
-        style={{
-          position: "absolute",
-          right: "20px",
-          padding: "10px 20px",
-          backgroundColor: "#007bff",
-          color: "white",
-          border: "none",
-          borderRadius: "5px",
-          cursor: "pointer",
-        }}
-      >
-        Add New IVR
-      </button>
- 
+      {/* ================= FILTER & ACTIONS ================= */}
+      <div className="voice-controls">
+        <input
+          className="voice-search"
+          placeholder="Search file name, language, path..."
+          value={searchText}
+          onChange={e => {
+            setSearchText(e.target.value);
+            setCurrentPage(1);
+          }}
+        />
+
+        <div className="voice-buttons">
+          <button className="btn btn-excel" onClick={exportExcel}>
+            <FaFileExcel /> Export Excel
+          </button>
+
+          <button
+            className="btn btn-primary"
+            onClick={() => {
+              setEditing(false);
+              setFileName("");
+              setFile(null);
+              setShowModal(true);
+            }}
+          >
+            Add New Voice
+          </button>
+        </div>
+      </div>
+
+      {/* ================= TABLE ================= */}
+      {loading ? (
+        <p>Loading...</p>
+      ) : (
+        <table className="user-table">
+          <thead>
+            <tr>
+              <th>File Name</th>
+              <th>File Path</th>
+              <th>Language</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paginatedVoices.length > 0 ? (
+              paginatedVoices.map(v => (
+                <tr key={v.id}>
+                  <td>{v.file_name}</td>
+                  <td>{v.file_path}</td>
+                  <td>{v.language}</td>
+                  <td>
+                    <button onClick={() => handlePlayVoice(v.id)} className="play-icon">
+                      <FaPlay />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditing(true);
+                        setCurrentVoice(v);
+                        setFileName(v.file_name);
+                        setVoiceLanguage(v.language);
+                        setShowModal(true);
+                      }}
+                      className="edit-icon"
+                    >
+                      <FaEdit />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setVoiceToDelete(v.id);
+                        setShowDeleteModal(true);
+                      }}
+                      className="delete-icon"
+                    >
+                      <FaTrash />
+                    </button>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="4" className="no-results">
+                  No voices found
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      )}
+
+      {/* ================= PAGINATION ================= */}
+      <div className="voice-pagination">
+        <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>
+          Prev
+        </button>
+        <span>Page {currentPage} of {totalPages}</span>
+        <button
+          disabled={currentPage === totalPages}
+          onClick={() => setCurrentPage(p => p + 1)}
+        >
+          Next
+        </button>
+      </div>
+{/* ================= ADD / EDIT MODAL ================= */}
 {showModal && (
   <div className="modal">
     <div className="modal-content">
       <h3>{editing ? "Edit Voice" : "Create Voice"}</h3>
+
       <form onSubmit={editing ? handleUpdateVoice : handleCreateVoice}>
         <div>
-          <label>File Name:</label>
+          <label>File Name</label>
           <input
             type="text"
             value={fileName}
-            onChange={handleFileNameChange}
+            onChange={e => setFileName(e.target.value)}
             required
           />
         </div>
+
         {!editing && (
-          <div>
-            <label>File:</label>
-            <input
-              type="file"
-              accept="audio/mp3,audio/wav"
-              name="voice_file"
-              onChange={handleFileChange}
-              required
-            />
-            <label>Language:</label>
-            <select value={voiceLanguage} onChange={e => setVoiceLanguage(e.target.value)} required>
-              <option value="english">English</option>
-              <option value="swahili">Swahili</option>
-            </select>
-          </div>
+          <>
+            <div>
+              <label>Voice File</label>
+              <input
+                type="file"
+                accept="audio/mp3,audio/wav"
+                onChange={e => setFile(e.target.files[0])}
+                required
+              />
+            </div>
+
+            <div>
+              <label>Language</label>
+              <select
+                value={voiceLanguage}
+                onChange={e => setVoiceLanguage(e.target.value)}
+              >
+                <option value="english">English</option>
+                <option value="swahili">Swahili</option>
+              </select>
+            </div>
+          </>
         )}
+
         <div className="modal-footer">
           <button type="submit">
             {editing ? "Update Voice" : "Create Voice"}
           </button>
           <button
             type="button"
-            onClick={() => setShowModal(false)}
             className="cancel"
+            onClick={() => setShowModal(false)}
           >
             Cancel
           </button>
@@ -237,53 +351,13 @@ export default function CallCenterIvr() {
   </div>
 )}
 
-      <h3>Voice Entries</h3>
-      {loading ? (
-        <p>Loading...</p>
-      ) : voices.length === 0 ? (
-        <p>No voice entries found.</p>
-      ) : (
-        <table className="user-table">
-          <thead>
-            <tr>
-              <th>File Name</th>
-              <th>File Path</th>
-              <th>Actions</th>
-              <th>Language</th>
-            </tr>
-          </thead>
-          <tbody>
-            {voices.map((voice) => (
-              <tr key={voice.id}>
-                <td>{voice.file_name}</td>
-                <td>{voice.file_path}</td>
-                <td>{voice.language}</td>
-
-                <td>
-                 
-                  <button onClick={() => handlePlayVoice(voice.id)} className="play-icon">
-                <FaPlay />
-              </button>
-              <button onClick={() => handleEditVoice(voice)} className="edit-icon">
-                <FaEdit />
-              </button>
-              <button onClick={() => handleDeleteVoice(voice.id)} className="delete-icon">
-                <FaTrash />
-              </button>
-
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-
+      {/* ================= DELETE MODAL ================= */}
       {showDeleteModal && (
         <div className="modal">
           <div className="modal-content">
-            <h3>Are you sure you want to delete this voice entry?</h3>
-            <button onClick={confirmDelete}>Yes, Delete</button>
-            <button onClick={cancelDelete}>Cancel</button>
+            <h3>Delete this voice?</h3>
+            <button onClick={confirmDelete}>Yes</button>
+            <button onClick={() => setShowDeleteModal(false)}>Cancel</button>
           </div>
         </div>
       )}

@@ -20,7 +20,7 @@ import {
   Stack,
 } from "@mui/material";
 import { FiPhoneCall, FiPhoneIncoming, FiPhoneOff } from "react-icons/fi";
-import { MdCallMissed } from "react-icons/md";
+import { MdCallMissed, MdOutlineVoicemail } from "react-icons/md";
 import { baseURL } from "../../config";
 import "./CallHistoryCard.css";
 
@@ -38,7 +38,10 @@ function TabPanel({ children, value, index, ...other }) {
   );
 }
 
-export default function CallHistoryCard({ onCallBack }) {
+export default function CallHistoryCard({
+  onCallBack,
+  voicemailData,
+}) {
   const [activeTab, setActiveTab] = useState(0);
   const [receivedCalls, setReceivedCalls] = useState([]);
   const [lostCalls, setLostCalls] = useState([]);
@@ -47,12 +50,16 @@ export default function CallHistoryCard({ onCallBack }) {
     received: false,
     lost: false,
     dropped: false,
+    voicemail: false,
   });
   const [totals, setTotals] = useState({
     received: 0,
     lost: 0,
     dropped: 0,
+    voicemail: 0,
   });
+  const [voiceNotes, setVoiceNotes] = useState([]);
+  const [unplayedVoicemailCount, setUnplayedVoicemailCount] = useState(0);
   const [pagination, setPagination] = useState({
     received: { page: 1, limit: 5 },
     lost: { page: 1, limit: 5 },
@@ -125,21 +132,76 @@ export default function CallHistoryCard({ onCallBack }) {
     }
   };
 
+  // Voicemail count from voice-notes API (same as AgentsDashboard: userId only, no client-side filter)
+  const fetchVoiceNotes = async () => {
+    try {
+      setLoading((prev) => ({ ...prev, voicemail: true }));
+      const agentId = localStorage.getItem("userId");
+      const response = await fetch(
+        `${baseURL}/voice-notes?agentId=${agentId}`,
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          },
+        }
+      );
+      if (!response.ok) throw new Error("Failed to fetch voice notes");
+      const data = await response.json();
+      const notes = data.voiceNotes || [];
+      const storedPlayed =
+        JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
+      const unplayedCount = notes.filter(
+        (note) => !storedPlayed[note.id]
+      ).length;
+      setVoiceNotes(notes);
+      setTotals((prev) => ({ ...prev, voicemail: notes.length }));
+      setUnplayedVoicemailCount(unplayedCount);
+    } catch (error) {
+      setVoiceNotes([]);
+      setTotals((prev) => ({ ...prev, voicemail: 0 }));
+      setUnplayedVoicemailCount(0);
+    } finally {
+      setLoading((prev) => ({ ...prev, voicemail: false }));
+    }
+  };
+
+  const useParentVoicemail = voicemailData != null;
+  const parentNotes = Array.isArray(voicemailData?.voiceNotes) ? voicemailData.voiceNotes : [];
+  const displayVoiceNotes = useParentVoicemail ? parentNotes : voiceNotes;
+  const displayVoicemailTotal = useParentVoicemail ? parentNotes.length : totals.voicemail;
+  const displayUnplayedCount = useParentVoicemail
+    ? (voicemailData?.unplayedCount ?? displayVoiceNotes.filter((note) => {
+        const stored = JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
+        return !stored[note.id];
+      }).length)
+    : unplayedVoicemailCount;
+
   useEffect(() => {
     fetchReceivedCalls(1, 5);
     fetchLostCalls(1, 5);
     fetchDroppedCalls(1, 5);
-  }, []);
+    if (!useParentVoicemail) {
+      fetchVoiceNotes();
+    }
+    const handleStorage = (e) => {
+      if (e.key === "playedVoiceNotes" && !useParentVoicemail) fetchVoiceNotes();
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, [useParentVoicemail]);
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
-    // Fetch data when switching tabs if not already loaded
     if (newValue === 0 && receivedCalls.length === 0) {
       fetchReceivedCalls(1, 5);
     } else if (newValue === 1 && lostCalls.length === 0) {
       fetchLostCalls(1, 5);
     } else if (newValue === 2 && droppedCalls.length === 0) {
       fetchDroppedCalls(1, 5);
+    } else if (newValue === 3 && !useParentVoicemail) {
+      fetchVoiceNotes();
     }
   };
 
@@ -375,6 +437,14 @@ export default function CallHistoryCard({ onCallBack }) {
               </Box>
             }
           />
+          <Tab
+            label={
+              <Box display="flex" alignItems="center" gap={1}>
+                <MdOutlineVoicemail />
+                <span>Voicemail ({displayVoicemailTotal})</span>
+              </Box>
+            }
+          />
         </Tabs>
       </Box>
 
@@ -411,6 +481,61 @@ export default function CallHistoryCard({ onCallBack }) {
           totals.dropped,
           pagination.dropped.page,
           pagination.dropped.limit
+        )}
+      </TabPanel>
+
+      <TabPanel value={activeTab} index={3}>
+        {loading.voicemail && !useParentVoicemail ? (
+          <Box display="flex" justifyContent="center" p={3}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <Box>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Total: {displayVoicemailTotal} voicemail(s). Unplayed: {displayUnplayedCount}.
+            </Typography>
+            {displayVoiceNotes.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                No voicemails found
+              </Typography>
+            ) : (
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Created</TableCell>
+                      <TableCell>Status</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {displayVoiceNotes.map((note) => {
+                      const storedPlayed =
+                        JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
+                      const isPlayed = !!storedPlayed[note.id];
+                      return (
+                        <TableRow key={note.id} hover>
+                          <TableCell>
+                            <Typography variant="body2">
+                              {note.created_at
+                                ? formatDate(note.created_at)
+                                : "-"}
+                            </Typography>
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={isPlayed ? "Played" : "Unplayed"}
+                              size="small"
+                              color={isPlayed ? "success" : "default"}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </Box>
         )}
       </TabPanel>
     </div>

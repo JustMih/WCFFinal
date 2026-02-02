@@ -3,6 +3,7 @@ import { IconButton, Tooltip, Modal, Box, Typography, Checkbox, ListItemText, Bu
 import { FiSettings, FiDownload, FiFileText } from "react-icons/fi";
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import * as XLSX from 'xlsx';
 
 // Districts data organized by region
 const districtsByRegion = {
@@ -287,6 +288,7 @@ const TableControls = ({
   onColumnsChange,
   onExportPDF,
   onExportCSV,
+  onExportExcel,
   tableData = [],
   tableTitle = "Table Data"
 }) => {
@@ -376,8 +378,9 @@ const TableControls = ({
     { key: "date_of_review_resolution", label: "Review Date" },
     { key: "resolution_details", label: "Resolution Details" },
     { key: "aging_days", label: "Aging (Days)" },
-    { key: "createdBy.name", label: "Created By" },
-    { key: "assignedTo.name", label: "Assigned To" },
+    { key: "creator.full_name", label: "Created By" },
+    { key: "assignee.full_name", label: "Assigned To (Current)" },
+    { key: "age_from_creation", label: "Age (From Creation to Current)" },
     { key: "attendedBy.name", label: "Attended By" },
     { key: "ratedBy.name", label: "Rated By" },
     { key: "functionData.name", label: "Function Name" }
@@ -415,6 +418,34 @@ const TableControls = ({
 
   // Export utility functions
   const getColumnValue = (item, columnKey) => {
+    // Handle creator/createdBy with different property names
+    if (columnKey === 'creator.full_name' || columnKey === 'createdBy.name') {
+      const creator = item.creator || item.createdBy;
+      if (creator) {
+        if (typeof creator === 'string') return creator;
+        if (creator.full_name) return creator.full_name;
+        if (creator.name) return creator.name;
+        if (creator.first_name) {
+          return `${creator.first_name} ${creator.middle_name || ''} ${creator.last_name || ''}`.trim();
+        }
+      }
+      return 'N/A';
+    }
+    
+    // Handle assignee/assignedTo with different property names
+    if (columnKey === 'assignee.full_name' || columnKey === 'assignedTo.name') {
+      const assignee = item.assignee || item.assignedTo;
+      if (assignee) {
+        if (typeof assignee === 'string') return assignee;
+        if (assignee.full_name) return assignee.full_name;
+        if (assignee.name) return assignee.name;
+        if (assignee.first_name) {
+          return `${assignee.first_name} ${assignee.middle_name || ''} ${assignee.last_name || ''}`.trim();
+        }
+      }
+      return 'N/A';
+    }
+    
     if (columnKey.includes('.')) {
       const keys = columnKey.split('.');
       let value = item;
@@ -422,6 +453,25 @@ const TableControls = ({
         value = value?.[key];
         if (value === undefined || value === null) break;
       }
+      
+      // If the final value is an object (like createdBy or assignedTo object), extract name
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        // Check if it has a name property
+        if (value.name) {
+          return value.name;
+        }
+        // Check if it has full_name property
+        if (value.full_name) {
+          return value.full_name;
+        }
+        // Check if it has first_name, middle_name, last_name
+        if (value.first_name) {
+          return `${value.first_name} ${value.middle_name || ''} ${value.last_name || ''}`.trim();
+        }
+        // If it's still an object, return empty string
+        return '';
+      }
+      
       return value || '';
     }
     
@@ -451,6 +501,27 @@ const TableControls = ({
       } else {
         return "N/A";
       }
+    }
+    
+    // Handle age calculation from creation to current time
+    if (columnKey === 'age_from_creation') {
+      if (item.created_at) {
+        const createdDate = new Date(item.created_at);
+        const currentDate = new Date();
+        const diffTime = Math.abs(currentDate - createdDate);
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        const diffHours = Math.floor((diffTime % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const diffMinutes = Math.floor((diffTime % (1000 * 60 * 60)) / (1000 * 60));
+        
+        if (diffDays > 0) {
+          return `${diffDays} day${diffDays > 1 ? 's' : ''} ${diffHours} hour${diffHours !== 1 ? 's' : ''}`;
+        } else if (diffHours > 0) {
+          return `${diffHours} hour${diffHours > 1 ? 's' : ''} ${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''}`;
+        } else {
+          return `${diffMinutes} minute${diffMinutes !== 1 ? 's' : ''}`;
+        }
+      }
+      return "N/A";
     }
     
     return item[columnKey] || '';
@@ -489,16 +560,22 @@ const TableControls = ({
       return '';
     }
     
-    // Handle nested name properties (createdBy.name, assignedTo.name, etc.)
-    if (columnKey.includes('.name')) {
-      if (typeof value === 'string') return value;
+    // Handle nested name properties (createdBy.name, assignedTo.name, creator.full_name, assignee.full_name, etc.)
+    if (columnKey.includes('.name') || columnKey.includes('.full_name') || 
+        columnKey === 'createdBy.name' || columnKey === 'assignedTo.name' ||
+        columnKey === 'creator.full_name' || columnKey === 'assignee.full_name') {
+      if (typeof value === 'string' && value.trim() !== '') return value;
       if (value && typeof value === 'object') {
+        if (value.full_name) return value.full_name;
         if (value.name) return value.name;
         if (value.first_name) {
-          return `${value.first_name} ${value.middle_name || ''} ${value.last_name || ''}`.trim();
+          const fullName = `${value.first_name} ${value.middle_name || ''} ${value.last_name || ''}`.trim();
+          return fullName || '';
         }
       }
-      return '';
+      // If value is already a string from getColumnValue, return it
+      if (typeof value === 'string') return value;
+      return 'N/A';
     }
     
     return String(value);
@@ -650,6 +727,57 @@ const TableControls = ({
       onExportCSV(activeColumns);
     } else {
       exportToCSV(activeColumns);
+    }
+    setIsColumnModalOpen(false);
+  };
+
+  const exportToExcel = (selectedColumns) => {
+    if (!tableData || tableData.length === 0) {
+      alert('No data to export');
+      return;
+    }
+
+    const headers = selectedColumns.map(col => 
+      exportableColumns.find(ec => ec.key === col)?.label || col
+    );
+
+    // Prepare data rows
+    const dataRows = tableData.map((item) => 
+      selectedColumns.map(col => {
+        const value = getColumnValue(item, col);
+        const formattedValue = formatValue(value, col);
+        return formattedValue;
+      })
+    );
+
+    // Create worksheet
+    const worksheetData = [headers, ...dataRows];
+    const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+
+    // Set column widths for better readability
+    const columnWidths = headers.map((header, index) => {
+      const maxLength = Math.max(
+        header.length,
+        ...dataRows.map(row => String(row[index] || '').length)
+      );
+      return { wch: Math.min(Math.max(maxLength + 2, 10), 50) };
+    });
+    worksheet['!cols'] = columnWidths;
+
+    // Create workbook and add worksheet
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
+
+    // Generate Excel file and download
+    const fileName = `${tableTitle}_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+  };
+
+  const handleExportExcel = () => {
+    if (onExportExcel) {
+      onExportExcel(activeColumns);
+    } else {
+      exportToExcel(activeColumns);
     }
     setIsColumnModalOpen(false);
   };
@@ -918,6 +1046,15 @@ const TableControls = ({
                 sx={{ fontSize: "12px" }}
               >
              CSV
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<FiDownload />}
+                onClick={handleExportExcel}
+                size="small"
+                sx={{ fontSize: "12px", color: "#28a745", borderColor: "#28a745" }}
+              >
+             Excel
               </Button>
               <Button
                 variant="contained"

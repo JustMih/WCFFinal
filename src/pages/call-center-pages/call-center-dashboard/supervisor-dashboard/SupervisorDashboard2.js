@@ -40,7 +40,7 @@ import {
   FaStop
 } from "react-icons/fa";
 import "./supervisorDashboard.css";
-import LiveCallsCard from "../../../../components/supervisor-dashboard/LiveCallsCard";
+import LiveCallsCard from "../../../../components/supervisor-dashboard/LiveCallsCard.jsx";
 import CallQueueCard from "../../../../components/supervisor-dashboard/CallQueueCard";
 import ActiveCalls from "../../../../components/active-calls/ActiveCalls";
 
@@ -436,7 +436,7 @@ export default function SupervisorDashboard2() {
         </div>
       
       {/* Active Calls Section */}
-      <ActiveCalls liveCalls={liveCalls} refreshInterval={5000} showTitle={true} />
+      {/* <ActiveCalls liveCalls={liveCalls} refreshInterval={5000} showTitle={true} /> */}
       
       {/* Live Calls Table */}
       <div className="live-calls-table-container">

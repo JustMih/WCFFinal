@@ -114,7 +114,7 @@ export default function SupervisorDashboard() {
   // --------- Config ---------
   const extension = localStorage.getItem("extension");
   const sipPassword = localStorage.getItem("sipPassword");
-  const SIP_DOMAIN = "192.168.21.70"; // unify here (adjust if needed)
+  const SIP_DOMAIN = "192.168.21.69"; // unify here (adjust if needed)
 
   const sipConfig = useMemo(() => {
     if (!extension || !sipPassword) return null;

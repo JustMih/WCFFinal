@@ -5,6 +5,9 @@ import {
   MdOutlineSupportAgent,
   MdOutlineAudiotrack,
   MdPublic,
+  MdOutlineChat,
+  MdOutlineNotifications,
+  MdOutlineAssessment,
 } from "react-icons/md";
 import { TbActivityHeartbeat, TbLogs } from "react-icons/tb";
 import {
@@ -120,7 +123,7 @@ export default function CallCenterSidebar({
                 </div>
               </NavLink>
               {/* Lookup Tables Management - Super Admin Only */}
-              <NavLink
+              {/* <NavLink
                 to="/lookup-tables"
                 className={({ isActive }) =>
                   isActive ? "menu-item active-link" : "menu-item"
@@ -132,7 +135,7 @@ export default function CallCenterSidebar({
                     <span className="menu-text">Lookup Tables</span>
                   )}
                 </div>
-              </NavLink>
+              </NavLink> */}
               {/* Mapping Management - Super Admin Only */}
               {role === "super-admin" && (
                 <NavLink
@@ -339,11 +342,10 @@ export default function CallCenterSidebar({
                 }
               >
                 <div className="menu-item">
-                  <BsChatRightTextFill className="menu-icon" />
+                  <MdOutlineChat className="menu-icon" />
                   {isSidebarOpen && (
                     <span className="menu-text">Agents Chat</span>
                   )}
-                  {/* Display badge if there are unread messages */}
                   {!loading && unreadMessagesCount > 0 && (
                     <Badge
                       badgeContent={unreadMessagesCount}
@@ -354,60 +356,52 @@ export default function CallCenterSidebar({
                 </div>
               </NavLink>
 
-              {/* Social Notifications Toggle */}
+              {/* Social Notifications Toggle - same link style as other items */}
               <div
                 onClick={toggleSocialMenu}
-                className={`menu-item top-level-menu ${
-                  openSocial ? "active-link" : ""
-                }`}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    toggleSocialMenu();
+                  }
+                }}
+                className={`menu-item ${openSocial ? "active-link" : ""}`}
                 style={{ cursor: "pointer" }}
-              >
-                <BsChatRightTextFill className="menu-icon" />
-                {isSidebarOpen && (
-                  <span className="menu-text">Social Notifications</span>
-                )}
-              </div>
-
-              <NavLink
-                to="/voice-notes-report"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
               >
                 <div className="menu-item">
-                  <BsChatRightTextFill className="menu-icon" />
-                  {isSidebarOpen && <span className="menu-text">Report</span>}
+                  <MdOutlineNotifications className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">Social Notifications</span>
+                  )}
                 </div>
-              </NavLink>
-
-              {/* Social Notifications Toggle */}
-              <div
-                onClick={toggleSocialMenu}
-                className={`menu-item top-level-menu ${
-                  openSocial ? "active-link" : ""
-                }`}
-                style={{ cursor: "pointer" }}
-              >
-                <BsChatRightTextFill className="menu-icon" />
-                {isSidebarOpen && (
-                  <span className="menu-text">Social Notifications</span>
-                )}
               </div>
 
-              {/* Dropdown */}
-              <Collapse in={openSocial} timeout="auto" unmountOnExit>
+              {/* Dropdown - directly under Social Notifications toggle */}
+              <Collapse in={openSocial} timeout={200} unmountOnExit>
                 <List
                   component="div"
                   disablePadding
-                  sx={{ marginLeft: "1rem" }}
+                  className="social-notifications-dropdown"
+                  sx={{ marginLeft: 0, paddingLeft: 0 }}
                 >
                   {/* Instagram Toggle */}
                   <div
-                    onClick={toggleInstagramMenu}
-                    className={`menu-item ${
-                      openInstagram ? "active-link" : ""
-                    }`}
-                    style={{ cursor: "pointer" }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleInstagramMenu();
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        toggleInstagramMenu();
+                      }
+                    }}
+                    className={`menu-item ${openInstagram ? "active-link" : ""}`}
+                    style={{ cursor: "pointer", paddingLeft: "2rem" }}
                   >
                     <Badge
                       badgeContent={instagramUnreadCount}
@@ -422,12 +416,12 @@ export default function CallCenterSidebar({
                   </div>
 
                   {/* Instagram Sub-menu */}
-                  <Collapse in={openInstagram} timeout="auto" unmountOnExit>
+                  <Collapse in={openInstagram} timeout={200} unmountOnExit>
                     <List
                       component="div"
                       disablePadding
                       className="instagram-sub-menu"
-                      sx={{ marginLeft: "2rem" }}
+                      sx={{ marginLeft: "2.5rem", paddingLeft: 0 }}
                     >
                       <NavLink
                         to="/social-message?tab=dashboard"
@@ -485,6 +479,7 @@ export default function CallCenterSidebar({
                     className={({ isActive }) =>
                       isActive ? "menu-item active-link" : "menu-item"
                     }
+                    style={{ paddingLeft: "2rem" }}
                   >
                     <div className="menu-item">
                       <FaFacebook className="menu-icon" color="#1877F3" />
@@ -499,6 +494,7 @@ export default function CallCenterSidebar({
                     className={({ isActive }) =>
                       isActive ? "menu-item active-link" : "menu-item"
                     }
+                    style={{ paddingLeft: "2rem" }}
                   >
                     <div className="menu-item">
                       <FaWhatsapp className="menu-icon" color="#25D366" />
@@ -509,6 +505,18 @@ export default function CallCenterSidebar({
                   </NavLink>
                 </List>
               </Collapse>
+
+              <NavLink
+                to="/voice-notes-report"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <MdOutlineAssessment className="menu-icon" />
+                  {isSidebarOpen && <span className="menu-text">Report</span>}
+                </div>
+              </NavLink>
             </>
           )}
         </li>

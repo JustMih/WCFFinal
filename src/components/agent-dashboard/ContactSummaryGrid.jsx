@@ -22,6 +22,8 @@ ChartJS.register(Title, Tooltip, Legend, ArcElement, RadialLinearScale);
 export default function ContactSummaryGrid() {
   const [contactData, setContactData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [voicemailCount, setVoicemailCount] = useState(0);
+  const [unplayedVoicemailCount, setUnplayedVoicemailCount] = useState(0);
 
   useEffect(() => {
     const agentId = localStorage.getItem("extension");
@@ -47,20 +49,58 @@ export default function ContactSummaryGrid() {
       });
   }, []);
 
+  // Voicemail from voice-notes API (same pattern as AgentsDashboard VoiceNotes)
+  useEffect(() => {
+    const fetchVoiceNotes = async () => {
+      try {
+        const agentId = localStorage.getItem("userId");
+        const response = await fetch(
+          `${baseURL}/voice-notes?agentId=${agentId}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+            },
+          }
+        );
+        if (!response.ok) throw new Error("Failed to fetch voice notes");
+        const data = await response.json();
+        const notes = data.voiceNotes || [];
+        const storedPlayed =
+          JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
+        const unplayedCount = notes.filter(
+          (note) => !storedPlayed[note.id]
+        ).length;
+        setVoicemailCount(notes.length);
+        setUnplayedVoicemailCount(unplayedCount);
+      } catch (error) {
+        setVoicemailCount(0);
+        setUnplayedVoicemailCount(0);
+      }
+    };
+    fetchVoiceNotes();
+    const handleStorage = (e) => {
+      if (e.key === "playedVoiceNotes") fetchVoiceNotes();
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, []);
+
   const safe = (obj, key, fallback = 0) => (obj && obj[key] != null ? obj[key] : fallback);
 
-  // Get data with dummy fallback
+  // Get data with dummy fallback (voicemail total from voice-notes API, same as AgentsDashboard)
   const getData = () => {
     if (!contactData) {
       return {
         inbound: { total: 25, answered: 20, dropped: 3, lost: 2 },
         outbound: { total: 18, answered: 15, dropped: 2, lost: 1 },
         social: { total: 15, whatsapp: 8, email: 4, instagram: 2, twitter: 1 },
-        voicemail: { total: 8, new: 5, old: 3 }
+        voicemail: { total: voicemailCount, new: Math.floor(voicemailCount * 0.6), old: Math.floor(voicemailCount * 0.4) }
       };
     }
 
-    const socialTotal = 
+    const socialTotal =
       safe(contactData?.whatsapp, "total", 0) +
       safe(contactData?.instagram, "total", 0) +
       safe(contactData?.twitter, "total", 0) +
@@ -87,9 +127,9 @@ export default function ContactSummaryGrid() {
         twitter: safe(contactData?.twitter, "total", 0)
       },
       voicemail: {
-        total: safe(contactData?.voicemail, "total", 0),
-        new: Math.floor(safe(contactData?.voicemail, "total", 0) * 0.6),
-        old: Math.floor(safe(contactData?.voicemail, "total", 0) * 0.4)
+        total: voicemailCount,
+        new: Math.floor(voicemailCount * 0.6),
+        old: Math.floor(voicemailCount * 0.4)
       }
     };
   };
@@ -206,20 +246,18 @@ export default function ContactSummaryGrid() {
     );
   };
 
-  // Voicemail Donut Chart
+  // Voicemail Donut Chart (played/unplayed from voice-notes API, same as AgentsDashboard)
   const VoicemailDonutChart = () => {
-    // Calculate voicemail data
     const totalVoicemails = data.voicemail.total;
-    const newVoicemails = Math.floor(totalVoicemails * 0.3); // 30% new
-    const playedVoicemails = Math.floor(totalVoicemails * 0.5); // 50% played
-    const notPlayedVoicemails = totalVoicemails - newVoicemails - playedVoicemails; // 20% not played
+    const playedVoicemails = totalVoicemails - unplayedVoicemailCount;
+    const notPlayedVoicemails = unplayedVoicemailCount;
 
     const chartData = {
-      labels: ['Played', 'Not Played', 'New'],
+      labels: ['Played', 'Not Played'],
       datasets: [{
-        data: [playedVoicemails, notPlayedVoicemails, newVoicemails],
-        backgroundColor: ['#3B82F6', '#10B981', '#E5E7EB'], // Blue, Green, Light Grey
-        borderColor: ['#2563EB', '#059669', '#D1D5DB'],
+        data: totalVoicemails > 0 ? [playedVoicemails, notPlayedVoicemails] : [0, 0],
+        backgroundColor: ['#3B82F6', '#10B981'],
+        borderColor: ['#2563EB', '#059669'],
         borderWidth: 1,
       }]
     };

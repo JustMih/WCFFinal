@@ -1262,6 +1262,10 @@ useEffect(() => {
               setPhoneNumber(phoneNumber);
               handleRedial(phoneNumber);
             }}
+            voicemailData={{
+              voiceNotes,
+              unplayedCount: unplayedVoiceNotes,
+            }}
           />
         </div>
 

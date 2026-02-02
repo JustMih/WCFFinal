@@ -469,17 +469,7 @@ export default function Navbar({
       const isAssigned = isForCurrentUser && isUnread && isAssignedByText && !isReversed;
       const isNotified = !isTaggedMessage && !isAssigned && !isReversed;
       
-      // If it's a "Notified" type, open the modal instead of navigating
-      // Uses: Notification Details Dialog (notificationDialogOpen)
-      if (isNotified) {
-        setSelectedNotification(notif);
-        setNotificationDialogOpen(true);
-        return;
-      }
-      
-      // For "Tagged Message" and "Assigned", navigate to ticket page
-      // When navigating to /ticket/assigned, it uses: TicketDetailsModal (from assigned.js page)
-      // Get ticket ID - try multiple sources
+      // Get ticket ID first - try multiple sources
       let ticketId = null;
       
       // First, try ticket_id from notification
@@ -514,7 +504,8 @@ export default function Navbar({
         }
       }
       
-      // Navigate to ticket page if we have a ticket ID
+      // If we have a ticket ID, check if it's assigned to the current user
+      // This is important for "assigned to reviewer" notifications that might be classified as "Notified"
       if (ticketId) {
         let actualTicketId = ticketId;
         
@@ -536,7 +527,74 @@ export default function Navbar({
           }
         }
         
-        // Search in assigned tickets first
+        // Check if ticket is assigned to current user (even if notification is classified as "Notified")
+        // This ensures "assigned to reviewer" notifications open TicketDetailsModal with forward functions
+        let isTicketAssignedToUser = false;
+        try {
+          const assignedResponse = await fetch(`${baseURL}/ticket/assigned/${userId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (assignedResponse.ok) {
+            const assignedData = await assignedResponse.json();
+            const tickets = assignedData.tickets || assignedData.data || assignedData;
+            if (Array.isArray(tickets)) {
+              const foundTicket = tickets.find(t => {
+                const ticketIdMatch = t.ticket_id && t.ticket_id.toLowerCase() === actualTicketId.toLowerCase();
+                const idMatch = t.id && (t.id === actualTicketId || t.id.toLowerCase() === actualTicketId.toLowerCase());
+                // Also check if the ticket_id from notification matches
+                const notifTicketIdMatch = notif.ticket?.ticket_id && notif.ticket.ticket_id.toLowerCase() === actualTicketId.toLowerCase();
+                return ticketIdMatch || idMatch || notifTicketIdMatch;
+              });
+              if (foundTicket) {
+                isTicketAssignedToUser = true;
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Error checking assigned tickets:", err);
+        }
+        
+        // If ticket is assigned to user, navigate to assigned page (which has TicketDetailsModal with forward functions)
+        if (isTicketAssignedToUser) {
+          console.log('Ticket is assigned to user - navigating to assigned page with TicketDetailsModal');
+          window.location.href = `/ticket/assigned?ticketId=${encodeURIComponent(actualTicketId)}`;
+          return;
+        }
+      }
+      
+      // If it's a "Notified" type and ticket is not assigned, open the notification dialog
+      // Uses: Notification Details Dialog (notificationDialogOpen)
+      if (isNotified) {
+        setSelectedNotification(notif);
+        setNotificationDialogOpen(true);
+        return;
+      }
+      
+      // For "Tagged Message" and "Assigned", navigate to ticket page
+      // When navigating to /ticket/assigned, it uses: TicketDetailsModal (from assigned.js page)
+      // Navigate to ticket page if we have a ticket ID
+      if (ticketId) {
+        let actualTicketId = ticketId;
+        
+        // If ticketId is a UUID, try to get the actual ticket_id (if not already done above)
+        if (ticketId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+          try {
+            const response = await fetch(`${baseURL}/ticket/${ticketId}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+              const ticketData = await response.json();
+              const fetchedTicketId = ticketData.ticket?.ticket_id || ticketData.ticket_id;
+              if (fetchedTicketId) {
+                actualTicketId = fetchedTicketId;
+              }
+            }
+          } catch (err) {
+            console.error("Error fetching ticket:", err);
+          }
+        }
+        
+        // Search in assigned tickets first (for tagged/assigned notifications that weren't caught earlier)
         let foundInAssigned = false;
         try {
           const assignedResponse = await fetch(`${baseURL}/ticket/assigned/${userId}`, {

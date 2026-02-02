@@ -4,12 +4,13 @@ import { UserAgent, Inviter, Registerer, SessionState } from "sip.js";
 export function useSipPhone({
   extension,
   sipPassword,
-  SIP_DOMAIN = "192.168.21.70",
+  SIP_DOMAIN = "192.168.21.69",
   onIncomingCall,
   onMissedCall,
   onCallAccepted,
   onCallEnded,
   showAlert,
+  allowIncomingRinging = true,
 }) {
   // ---------- Core state ----------
   const [phoneStatus, setPhoneStatus] = useState("Idle");
@@ -18,6 +19,9 @@ export function useSipPhone({
   const [incomingCall, setIncomingCall] = useState(null);
   const [lastIncomingNumber, setLastIncomingNumber] = useState("");
   const [callDuration, setCallDuration] = useState(0);
+
+  const allowRingingRef = useRef(allowIncomingRinging);
+  allowRingingRef.current = allowIncomingRinging;
 
   // --------- Call control ---------
   const [isMuted, setIsMuted] = useState(false);
@@ -158,6 +162,11 @@ export function useSipPhone({
 
   // ---------- Incoming call ----------
   const handleIncomingInvite = (invitation) => {
+    if (!allowRingingRef.current) {
+      invitation.reject().catch(console.error);
+      return;
+    }
+
     wasAnsweredRef.current = false;
 
     const number = invitation?.remoteIdentity?.uri?.user || "";

@@ -36,7 +36,8 @@ import OnlineSupervisorsTable from "../../../../components/agent-dashboard/Onlin
 import AgentPerformanceScore from "../../../../components/agent-dashboard/AgentPerformanceScore";
 import AdvancedTicketCreateModal from "../../../../components/ticket/AdvancedTicketCreateModal";
 import VoiceNotesReport from "../../cal-center-ivr/VoiceNotesReport";
-import CallHistoryCard from "../../../../components/agent-dashboard/CallHistoryCard";
+import TotalContactSummary from "../../../../components/agent-dashboard/TotalContactSummary";
+import ContactSummaryGrid from "../../../../components/agent-dashboard/ContactSummaryGrid";
 
 // Phone components
 import { useSipPhone } from "./useSipPhone";
@@ -50,7 +51,7 @@ export default function AgentsDashboard() {
   // --------- Config ---------
   const extension = localStorage.getItem("extension");
   const sipPassword = localStorage.getItem("sipPassword");
-  const SIP_DOMAIN = "192.168.21.70";
+  const SIP_DOMAIN = "192.168.21.69";
 
 
   // --------- Status / break menu ---------
@@ -197,6 +198,7 @@ export default function AgentsDashboard() {
       setUserData(null);
     }, []),
     showAlert,
+    allowIncomingRinging: agentStatus === "ready",
   });
 
   const formatRemainingTime = (seconds) => {
@@ -571,16 +573,39 @@ const markMissedCallAsCalledBack = async (missedCallId) => {
   const handleClose = () => setAnchorEl(null);
 
   const handleAgentEmergency = async (activity) => {
-    // Update local UI state
+    const isReady = (activity || "").toLowerCase() === "ready";
+
+    if (!isReady) {
+      try {
+        const response = await fetch(`${baseURL}/users/agents-online`, {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          },
+        });
+        const data = await response.json();
+        const onlineCount = data.agentCount ?? 0;
+        if (onlineCount <= 1) {
+          showAlert(
+            "You cannot go on break. At least 2 agents must be online (including you).",
+            "warning"
+          );
+          return;
+        }
+      } catch (err) {
+        console.error("Failed to check online agents:", err);
+        showAlert("Could not verify online agents. Try again.", "error");
+        return;
+      }
+    }
+
     setAgentStatus(activity);
 
-    // Start/stop status timer
-    if ((activity || "").toLowerCase() !== "ready") startStatusTimer(activity);
+    if (!isReady) startStatusTimer(activity);
     else stopStatusTimer();
 
-    // Translate to backend online/offline
-    const statusToUpdate =
-      (activity || "").toLowerCase() === "ready" ? "online" : "offline";
+    const statusToUpdate = isReady ? "online" : "pause";
     try {
       await fetch(`${baseURL}/users/status/${localStorage.getItem("userId")}`, {
         method: "PUT",
@@ -800,29 +825,24 @@ useEffect(() => {
         <div className="dashboard-single-agent">
           <CallQueueCard />
         </div>
-
+        {/* Total Contact Summary */}
         <div className="dashboard-single-agent">
-          <CallHistoryCard
-            onCallBack={(phoneNumber) => {
-              setShowPhonePopup(true);
-              setPhoneNumber(phoneNumber);
-              handleRedial(phoneNumber);
-            }}
-          />
+          <TotalContactSummary />
+          {/* Contact Summary Grid - 4 Equal Boxes */}
+          <ContactSummaryGrid />
         </div>
-
-        <div className="dashboard-single-agent">
+        {/* <div className="dashboard-single-agent">
           <SingleAgentDashboardCard />
-        </div>
+        </div> */}
 
         <div className="dashboard-single-agent-row_two">
           <OnlineAgentsTable />
           <OnlineSupervisorsTable />
         </div>
 
-        <div className="dashboard-single-agent-row_four">
+        {/* <div className="dashboard-single-agent-row_four">
           <AgentPerformanceScore />
-        </div>
+        </div> */}
       </div>
 
       {/* Status menu */}
@@ -953,7 +973,7 @@ useEffect(() => {
             <p>No missed calls!</p>
           ) : (
             <ul style={{ listStyle: "none", padding: 0 }}>
-             {missedCalls.map((call) => (
+              {missedCalls.map((call) => (
 
                 <li
                   key={call.id}
