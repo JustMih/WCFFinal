@@ -19,6 +19,7 @@ import {
 } from "react-icons/md";
 import { Box, Card, CardContent, Typography, Grid, CircularProgress, Tabs, Tab } from "@mui/material";
 import AgentDashboard from "../../../crm-pages/crm-dashboard/crm-agent-dashboard/crm-agent-dashboard";
+import ReviewerDashboard from "../../../crm-pages/crm-dashboard/crm-reviewer-dashboard/crm-reviewer-dashboard";
 import DGdashboardticket from "./DGdashboardticket";
 import "./dgDashboard.css";
 
@@ -53,6 +54,7 @@ export default function DGdashboard() {
   const [activeTab, setActiveTab] = useState(0);
   const [loading, setLoading] = useState(true);
   const [callSummary, setCallSummary] = useState(null);
+  const role = localStorage.getItem("role");
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
@@ -683,9 +685,9 @@ export default function DGdashboard() {
         <TabPanel value={activeTab} index={1}>
           <DGdashboardticket />
         </TabPanel>
-        {/* Tab Panel for DG Tasks */}
+        {/* Tab Panel for DG Tasks / My Tickets */}
         <TabPanel value={activeTab} index={2}>
-          <AgentDashboard />
+          {role === "reviewer" ? <ReviewerDashboard /> : <AgentDashboard />}
         </TabPanel>
       </Box>
     </div>
