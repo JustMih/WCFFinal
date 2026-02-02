@@ -436,7 +436,7 @@ export default function SupervisorDashboard2() {
         </div>
       
       {/* Active Calls Section */}
-      <ActiveCalls liveCalls={liveCalls} refreshInterval={5000} showTitle={true} />
+      {/* <ActiveCalls liveCalls={liveCalls} refreshInterval={5000} showTitle={true} /> */}
       
       {/* Live Calls Table */}
       <div className="live-calls-table-container">

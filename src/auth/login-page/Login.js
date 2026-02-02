@@ -1,13 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { ImSpinner9 } from "react-icons/im";
-// import wcf_image from "../../asserts/images/wcf_image.jpg";
+import wcf_image from "../../asserts/images/wcf_image.jpg";
 import wcf_logo from "../../asserts/images/logo.png";
-import loginBg1 from "../../asserts/bg/bg4.PNG";
-import loginBg2 from "../../asserts/bg/bg1.PNG";
-import loginBg3 from "../../asserts/bg/bg2.PNG";
-import loginBg4 from "../../asserts/bg/bg3.PNG";
-import loginBg5 from "../../asserts/bg/bg5.PNG";
-import loginBg6 from "../../asserts/bg/bg6.PNG"
+import loginBg from "../../asserts/images/login-bg.png";
 import { TextField, Button } from "@mui/material";
 import { baseURL } from "../../config";
 import { storeDomainCredentials, storeCredentialsObject, validateCredentials } from "../../utils/credentials";
@@ -19,10 +14,14 @@ export default function Login() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState(null);
-  
-  // Background images array for slideshow
-  const backgroundImages = [loginBg1, loginBg2, loginBg3, loginBg4, loginBg5, loginBg6];
-  const [currentBgIndex, setCurrentBgIndex] = useState(0);
+  const [logoutMessage, setLogoutMessage] = useState(() => {
+    const msg = sessionStorage.getItem("logoutMessage");
+    if (msg) {
+      sessionStorage.removeItem("logoutMessage");
+      return msg;
+    }
+    return null;
+  });
 
   const handleLogin = async (e) => {
     setIsLoading(true);
@@ -45,14 +44,23 @@ export default function Login() {
 
       if (response.ok) {
         const token = data.token;
-        const tokenExpiration = new Date().getTime() + 3600 * 1000; // 1 hour
+        // Use backend expiresAt (agents: DAILY_LOGOUT_TIME; others: 24h) or fallback to 1 hour
+        const tokenExpiration =
+          typeof data.expiresAt === "number"
+            ? data.expiresAt
+            : new Date().getTime() + 3600 * 1000;
+
+        if (data.user?.role) {
+          const expDate = new Date(tokenExpiration);
+          console.log("[Login] role:", data.user.role, "| tokenExpiration:", expDate.toLocaleString(), "| ms:", tokenExpiration);
+        }
 
         // Core user session (localStorage for persistence)
         localStorage.setItem("authToken", token);
         localStorage.setItem("username", data.user.full_name);
         localStorage.setItem("role", data.user.role);
         localStorage.setItem("unit_section", data.user.unit_section);
-        localStorage.setItem("tokenExpiration", tokenExpiration);
+        localStorage.setItem("tokenExpiration", String(tokenExpiration));
         localStorage.setItem("userId", data.user.id);
         localStorage.setItem("agentStatus", "ready");
 
@@ -109,52 +117,25 @@ export default function Login() {
     }
   }, [timeRemaining]);
 
-  // Background slideshow effect with delay
-  useEffect(() => {
-    let slideshowInterval = null;
-    
-    // Initial delay before starting slideshow
-    const initialDelay = setTimeout(() => {
-      slideshowInterval = setInterval(() => {
-        setCurrentBgIndex((prevIndex) => (prevIndex + 1) % backgroundImages.length);
-      }, 3000); // Change image every 5 seconds
-    }, 2000); // 2 second delay before first transition
-
-    return () => {
-      clearTimeout(initialDelay);
-      if (slideshowInterval) {
-        clearInterval(slideshowInterval);
-      }
-    };
-  }, [backgroundImages.length]);
-
   return (
-    <div className="login-container">
-      {/* Background slideshow layers */}
-      {backgroundImages.map((bg, index) => (
-        <div
-          key={index}
-          className={`login-bg-slide ${index === currentBgIndex ? 'active' : ''}`}
-          style={{ backgroundImage: `url(${bg})` }}
-        />
-      ))}
+    <div className="login-container" style={{ backgroundImage: `url(${loginBg})` }}>
       <div className="login-card">
         {/* Left Content Section */}
-        <div className="login-image">
+        <div className="login-image" style={{marginTop: '20px', marginLeft: '40px' }}>
           <div className="content-overlay">
             <div className="slogan">
-              <span className="slogan-our">Contact</span> <span className="slogan-slogan">Center</span>
+              <span className="slogan-our">Our</span> <span className="slogan-slogan">Slogan</span>
             </div>
-            {/* <p className="content-paragraph">
+            <p className="content-paragraph">
             Rightful Compensation, On Time.
-            </p> */}
+            </p>
             <div className="support-info">
               <div className="support-item">
                 <span className="support-label">For Support contact IT SUPPORT</span>
               </div>
               <div className="support-item">
                 <span className="support-label">Email:</span>
-                <span className="support-value">ictsupport@wcf.go.tz</span>
+                <span className="support-value">support@wcf.go.tz</span>
               </div>
             </div>
           </div>
@@ -204,6 +185,7 @@ export default function Login() {
                 )}
               </Button>
               
+              {logoutMessage && <p className="logout-message">{logoutMessage}</p>}
               {error && <p className="error">{error}</p>}
               {timeRemaining !== null && timeRemaining > 0 && (
                 <p className="lockout-timer">
