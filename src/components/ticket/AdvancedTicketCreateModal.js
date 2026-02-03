@@ -628,6 +628,11 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
   const [relationsLoading, setRelationsLoading] = useState(false);
   const [relationsError, setRelationsError] = useState("");
 
+  // --- Channels State ---
+  const [channels, setChannels] = useState([]);
+  const [channelsLoading, setChannelsLoading] = useState(false);
+  const [channelsError, setChannelsError] = useState("");
+
   useEffect(() => {
     const fetchRelations = async () => {
       try {
@@ -657,6 +662,38 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
     };
 
     fetchRelations();
+  }, []);
+
+  // Fetch channels
+  useEffect(() => {
+    const fetchChannels = async () => {
+      try {
+        setChannelsLoading(true);
+        setChannelsError("");
+        const token = localStorage.getItem("authToken");
+        if (!token) {
+          setChannelsError("Auth token missing");
+          return;
+        }
+        const res = await fetch(`${baseURL}/channel`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          setChannelsError(err.message || "Failed to load channels");
+          return;
+        }
+        const json = await res.json();
+        setChannels(Array.isArray(json.data) ? json.data : []);
+      } catch (e) {
+        console.error("Error fetching channels:", e);
+        setChannelsError("Failed to load channels");
+      } finally {
+        setChannelsLoading(false);
+      }
+    };
+
+    fetchChannels();
   }, []);
   
   // --- Call Phone Number Preservation ---
@@ -3291,6 +3328,7 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                         name="channel"
                         value={formData.channel}
                         onChange={handleChange}
+                        disabled={channelsLoading}
                         style={{
                           height: "32px",
                           fontSize: "0.875rem",
@@ -3302,16 +3340,17 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                         }}
                       >
                         <option value="">Select Channel</option>
-                        <option value="Call Center">Call Center</option>
-                        <option value="Staff Phone Number">Staff Phone Number</option>
-                        {/* <option value="Email">Email</option> */}
-                        <option value="Walk in">Walk in</option>
-                        {/* <option value="Letter">Letter</option> */}
-                        <option value="Exhibition">Exhibition</option>
-                        <option value="Social Media">Social Media</option>
-                        <option value="Suggestion Box">Suggestion Box</option>
-                        <option value="e-mrejesho">e-mrejesho</option>
-
+                        {channelsLoading ? (
+                          <option value="">Loading channels...</option>
+                        ) : channelsError ? (
+                          <option value="">Error loading channels</option>
+                        ) : (
+                          channels.map((channel) => (
+                            <option key={channel.id} value={channel.name}>
+                              {channel.name}
+                            </option>
+                          ))
+                        )}
                       </select>
                       {formErrors.channel && (
                         <span style={{ color: "red", fontSize: "0.75rem" }}>
