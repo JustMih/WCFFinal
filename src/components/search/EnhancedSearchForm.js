@@ -54,7 +54,7 @@ const EnhancedSearchForm = ({
     setIsEmployerSearching(true);
     try {
       const response = await fetch(
-        "https://demomspapi.wcf.go.tz/api/v1/search/details",
+        "https://mspapi.wcf.go.tz/api/v1/search/details",
         {
           method: "POST",
           headers: {
@@ -115,7 +115,7 @@ const EnhancedSearchForm = ({
     setIsEmployeeSearching(true);
     try {
       const response = await fetch(
-        "https://demomspapi.wcf.go.tz/api/v1/search/details",
+        "https://mspapi.wcf.go.tz/api/v1/search/details",
         {
           method: "POST",
           headers: {

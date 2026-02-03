@@ -332,7 +332,7 @@ const AgentCRM = () => {
     }
     try {
       const response = await fetch(
-        "https://demomspapi.wcf.go.tz/api/v1/search/details",
+        "https://mspapi.wcf.go.tz/api/v1/search/details",
         {
           method: "POST",
           headers: {
@@ -1458,7 +1458,7 @@ const AgentCRM = () => {
 
     try {
       const response = await fetch(
-        "https://demomspapi.wcf.go.tz/api/v1/search/details",
+        "https://mspapi.wcf.go.tz/api/v1/search/details",
         {
           method: "POST",
           headers: {
@@ -1554,7 +1554,7 @@ const AgentCRM = () => {
         console.log("API payload:", payload);
         
         const response = await fetch(
-          "https://demomspapi.wcf.go.tz/api/v1/search/details",
+          "https://mspapi.wcf.go.tz/api/v1/search/details",
           {
             method: "POST",
             headers: {
@@ -1793,7 +1793,7 @@ const AgentCRM = () => {
     }
 
     if (selectedInstitutionName) {
-      fetch("https://demomspapi.wcf.go.tz/api/v1/search/details", {
+      fetch("https://mspapi.wcf.go.tz/api/v1/search/details", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1884,7 +1884,7 @@ const AgentCRM = () => {
       formData.institution.trim() !== ""
     ) {
       // Call the external API with institution name (trimmed)
-      fetch("https://demomspapi.wcf.go.tz/api/v1/search/details", {
+      fetch("https://mspapi.wcf.go.tz/api/v1/search/details", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1918,7 +1918,7 @@ const AgentCRM = () => {
       formData.institution.trim() !== "" &&
       !selectedInstitution
     ) {
-      fetch("https://demomspapi.wcf.go.tz/api/v1/search/details", {
+      fetch("https://mspapi.wcf.go.tz/api/v1/search/details", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1993,7 +1993,7 @@ const AgentCRM = () => {
       setIsEmployerSearching(true);
       try {
         const response = await fetch(
-          "https://demomspapi.wcf.go.tz/api/v1/search/details",
+          "https://mspapi.wcf.go.tz/api/v1/search/details",
           {
             method: "POST",
             headers: {
@@ -2048,7 +2048,7 @@ const AgentCRM = () => {
     setIsEmployerSearching(true);
     try {
       const response = await fetch(
-        "https://demomspapi.wcf.go.tz/api/v1/search/details",
+        "https://mspapi.wcf.go.tz/api/v1/search/details",
         {
           method: "POST",
           headers: {
@@ -2182,7 +2182,7 @@ const AgentCRM = () => {
     setIsEmployeeSearching(true);
     try {
       const response = await fetch(
-        "https://demomspapi.wcf.go.tz/api/v1/search/details",
+        "https://mspapi.wcf.go.tz/api/v1/search/details",
         {
           method: "POST",
           headers: {

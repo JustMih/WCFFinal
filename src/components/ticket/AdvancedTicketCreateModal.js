@@ -803,7 +803,7 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
     
     // Fetch institution details
     if (employer.name) {
-      fetch("https://demomspapi.wcf.go.tz/api/v1/search/details", {
+      fetch("https://mspapi.wcf.go.tz/api/v1/search/details", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1040,7 +1040,7 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
 
     try {
       const response = await fetch(
-        "https://demomspapi.wcf.go.tz/api/v1/search/details",
+        "https://mspapi.wcf.go.tz/api/v1/search/details",
         {
           method: "POST",
           headers: {
@@ -1369,7 +1369,7 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
       selectedInstitutionName = rawData.name || updatedFormData.institution || "";
     }
     if (selectedInstitutionName) {
-      fetch("https://demomspapi.wcf.go.tz/api/v1/search/details", {
+      fetch("https://mspapi.wcf.go.tz/api/v1/search/details", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1416,7 +1416,7 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
     setIsSearching(true);
     try {
       const response = await fetch(
-        "https://demomspapi.wcf.go.tz/api/v1/search/details",
+        "https://mspapi.wcf.go.tz/api/v1/search/details",
         {
           method: "POST",
           headers: {
