@@ -4,7 +4,7 @@ import {
   MdAutoAwesomeMotion,
   MdDisabledVisible
 } from "react-icons/md";
-import { FaEye, FaPlus, FaSearch } from "react-icons/fa";
+import { FaEye, FaPlus, FaSearch, FaSitemap } from "react-icons/fa";
 import { FaUsersLine } from "react-icons/fa6";
 import { GrLineChart } from "react-icons/gr";
 import { FiSettings } from "react-icons/fi";
@@ -39,6 +39,7 @@ import Pagination from "../../../../components/Pagination";
 import TableControls from "../../../../components/TableControls";
 import PhoneSearchSection from "../../../../components/shared/PhoneSearchSection";
 import TicketUpdates from "../../../../components/ticket/TicketUpdates";
+import TicketDetailsModal from "../../../../components/TicketDetailsModal";
 import axios from "axios";
 
 // Add styled components for better typeahead styling
@@ -147,6 +148,10 @@ const AgentCRM = () => {
   const [comment, setComment] = useState("");
   const [ticketComments, setTicketComments] = useState([]);
   const [isUpdating, setIsUpdating] = useState(false);
+
+  // State for TicketDetailsModal (new modal)
+  const [showTicketDetailsModal, setShowTicketDetailsModal] = useState(false);
+  const [selectedTicketForDetails, setSelectedTicketForDetails] = useState(null);
 
   // State for function data and selections
   const [functionData, setFunctionData] = useState([]);
@@ -323,6 +328,10 @@ const AgentCRM = () => {
   const [selectedTicketForJustification, setSelectedTicketForJustification] = useState(null);
   const [assignmentHistory, setAssignmentHistory] = useState([]);
   // --- End Justification History State ---
+
+  // State for TicketDetailsModal
+  const [ticketDetailsAssignmentHistory, setTicketDetailsAssignmentHistory] = useState([]);
+
 
   // Handler to search institutions
   const handleInstitutionSearch = async (query) => {
@@ -811,6 +820,24 @@ const AgentCRM = () => {
     // Phone search is now handled by the PhoneSearchSection component
   };
 
+  const openTicketDetailsModal = async (ticket) => {
+    setSelectedTicketForDetails(ticket);
+    setShowTicketDetailsModal(true);
+    
+    // Fetch assignment history for TicketDetailsModal
+    try {
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(`${baseURL}/ticket/${ticket.id}/assignments`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setTicketDetailsAssignmentHistory(data);
+    } catch (e) {
+      setTicketDetailsAssignmentHistory([]);
+    }
+  };
+
+
   const getFilteredTickets = () => {
     return customerTickets.filter((ticket) => {
       // Search by name, phone, NIDA, or institution (from table controls)
@@ -841,10 +868,10 @@ const AgentCRM = () => {
       // Category (from TicketFilters)
       const matchesCategory =
         !filters.category || ticket.category === filters.category;
-      // Region (from TicketFilters or TableControls) - normalize for comparison
+      // Region (from TicketFilters or TableControls) - normalize for comparison (case-insensitive)
       const normalizeRegion = (region) => {
         if (!region || region === "") return "";
-        // Convert to lowercase, trim, and normalize spaces/hyphens
+        // Convert to lowercase, trim, and normalize spaces/hyphens for case-insensitive comparison
         return String(region).toLowerCase().trim().replace(/\s+/g, "-").replace(/-+/g, "-");
       };
       // If no region filter is set, show all tickets
@@ -859,10 +886,11 @@ const AgentCRM = () => {
           matchesRegion = normalizedTicketRegion === normalizedFilterRegion;
         }
       }
-      // District (from TicketFilters or TableControls) - normalize for comparison
+      // District (from TicketFilters or TableControls) - normalize for comparison (case-insensitive)
       const normalizeDistrict = (district) => {
         if (!district) return "";
-        return district.toLowerCase().trim().replace(/\s+/g, "-");
+        // Convert to lowercase, trim, and normalize spaces/hyphens for case-insensitive comparison
+        return String(district).toLowerCase().trim().replace(/\s+/g, "-").replace(/-+/g, "-");
       };
       const matchesDistrict =
         !filters.district || 
@@ -992,13 +1020,33 @@ const AgentCRM = () => {
         <td>{ticket.assigned_to_role}</td>
       )}
       <td>
-        <button
-          className="view-ticket-details-btn"
-          onClick={() => openDetailsModal(ticket)}
-          title="View Details"
-        >
-          <FaEye />
-        </button>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <button
+            className="view-ticket-details-btn"
+            onClick={() => openDetailsModal(ticket)}
+            title="View Details"
+          >
+            <FaEye />
+          </button>
+          <button
+            className="view-ticket-details-btn"
+            onClick={() => openTicketDetailsModal(ticket)}
+            title="View Ticket Workflow"
+            style={{
+              backgroundColor: "#1976d2",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              padding: "6px 10px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center"
+            }}
+          >
+            <FaSitemap style={{ fontSize: "14px" }} />
+          </button>
+        </div>
       </td>
     </tr>
   );
@@ -2437,195 +2485,6 @@ const AgentCRM = () => {
     }
   };
 
-  function AssignmentFlowChat({ assignmentHistory = [], selectedTicket }) {
-    const creatorStep = selectedTicket
-      ? {
-          assigned_to_name: getCreatorName(selectedTicket),
-          assigned_to_role: 'Creator',
-          reason: selectedTicket.description,
-          created_at: selectedTicket.created_at,
-        }
-      : null;
-    
-    // Filter out duplicate assignments - keep only the most recent assignment for each person/role combination
-    // This prevents showing the same person multiple times in the workflow history
-    // BUT: Always keep reassignments as they show important workflow transitions
-    const assignmentMap = new Map();
-    
-    // First pass: collect all assignments, keeping only the most recent for each person/role
-    assignmentHistory.forEach((assignment) => {
-      const key = `${assignment.assigned_to_id}_${assignment.assigned_to_role}`;
-      const existing = assignmentMap.get(key);
-      const isReassignment = assignment.action && assignment.action.toLowerCase().includes('reassign');
-      
-      // Always keep reassignments, or if no existing record, or if this is more recent
-      if (!existing || isReassignment || new Date(assignment.created_at) > new Date(existing.created_at)) {
-        assignmentMap.set(key, assignment);
-      }
-    });
-    
-    // Convert back to array and sort by created_at to maintain chronological order
-    const filteredHistory = Array.from(assignmentMap.values())
-      .sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-    
-    // Always add all assignments as steps, even if assignee is same as creator
-    const steps = creatorStep ? [creatorStep, ...filteredHistory] : filteredHistory;
-    
-    // Helper function to get aging status color
-    const getAgingStatusColor = (status) => {
-      switch (status) {
-        case 'On Time':
-          return '#4caf50'; // Green
-        case 'Warning':
-          return '#ff9800'; // Orange
-        case 'Overdue':
-          return '#f44336'; // Red
-        case 'Critical':
-          return '#d32f2f'; // Dark Red
-        default:
-          return '#757575'; // Gray
-      }
-    };
-
-    return (
-      <Box sx={{ maxWidth: 500 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1, justifyContent: 'space-between' }}>
-          {/* <Typography sx={{ color: "#3f51b5", wordBreak: 'break-word', whiteSpace: 'pre-line' }}>
-            Ticket History
-          </Typography> */}
-        </Box>
-        <Divider sx={{ mb: 2 }} />
-        {steps.map((a, idx) => {
-          let message;
-          if (idx === 0) {
-            message = selectedTicket.description
-              ? `Created the ticket\nDescription: ${selectedTicket.description}`
-              : 'Created the ticket';
-          } else {
-            const prevUser = steps[idx - 1]?.assigned_to_name || 'Previous User';
-            if (selectedTicket.status === "Closed" && idx === steps.length - 1) {
-              if (a.reason && selectedTicket.resolution_details) {
-                message = `Message from ${prevUser}: ${a.reason}\nResolution: ${selectedTicket.resolution_details}`;
-              } else if (a.reason) {
-                message = `Message from ${prevUser}: ${a.reason}`;
-              } else if (selectedTicket.resolution_details) {
-                message = `Resolution: ${selectedTicket.resolution_details}`;
-              } else {
-                message = `Message from ${prevUser}: No message`;
-              }
-            } else {
-              // Build message with workflow details
-              let baseMessage;
-              
-              // Check if the NEXT step is a reassignment (meaning current person is being reassigned FROM)
-              const nextStep = steps[idx + 1];
-              const isBeingReassignedFrom = nextStep && 
-                nextStep.action && 
-                nextStep.action.toLowerCase().includes('reassign') &&
-                nextStep.assigned_to_id !== a.assigned_to_id;
-              
-              // Handle reassignment differently
-              if (a.action && a.action.toLowerCase().includes('reassign')) {
-                // This person was reassigned TO - show the reassignment message
-                // Include the reason from the previous assignment (the person being reassigned FROM)
-                const currentUser = a.assigned_to_name || 'Unknown';
-                baseMessage = `Reassigned from ${prevUser} to ${currentUser}`;
-                // Use reason from current reassignment, or fallback to previous assignment's reason
-                // The reason from the person being reassigned FROM should be shown here
-                const reassignmentReason = a.reason || steps[idx - 1]?.reason;
-                if (reassignmentReason) {
-                  baseMessage += `\nReason: ${reassignmentReason}`;
-                }
-              } else if (isBeingReassignedFrom) {
-                // This person is being reassigned FROM - show only status, no message
-                // The message/reason will be shown with the reassignment TO entry
-                baseMessage = `Reassigned`;
-              } else {
-                // Regular assignment - show message from previous user
-                baseMessage = `Message from ${prevUser}: ${a.reason || 'No message'}`;
-              }
-              
-              // Add workflow-specific details
-              if (a.workflow_step) {
-                baseMessage += `\n\nWorkflow Step: ${a.workflow_step}`;
-              }
-              
-              if (a.coordinator_notes) {
-                baseMessage += `\n\nReviewer Notes: ${a.coordinator_notes}`;
-              }
-              
-              if (a.dg_notes) {
-                baseMessage += `\n\nDG Notes: ${a.dg_notes}`;
-              }
-              
-              // Show current resolution details from the ticket
-              if (selectedTicket.resolution_details) {
-                baseMessage += `\n\nResolution Details: ${selectedTicket.resolution_details}`;
-              }
-              
-              message = baseMessage;
-            }
-          }
-          
-          // Display aging information for non-creator steps
-          const showAging = idx > 0 && a.aging_formatted;
-          
-          return (
-            <Box key={idx} sx={{ display: "flex", mb: 2, alignItems: "flex-start" }}>
-              <Avatar sx={{ bgcolor: idx === 0 ? "#43a047" : "#1976d2", mr: 2 }}>
-                {a.assigned_to_name ? a.assigned_to_name[0] : "?"}
-              </Avatar>
-              <Paper elevation={2} sx={{ p: 2, bgcolor: idx === 0 ? "#e8f5e9" : "#f5f5f5", flex: 1 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                  <Typography sx={{ fontWeight: "bold" }}>
-                    {a.assigned_to_name || a.assigned_to_id || 'Unknown'} {" "}
-                    <span style={{ color: "#888", fontWeight: "normal" }}>
-                      ({a.assigned_to_role || "N/A"})
-                    </span>
-                  </Typography>
-                  {showAging && (
-                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', ml: 1 }}>
-                      <Typography 
-                        variant="caption" 
-                        sx={{ 
-                          color: getAgingStatusColor(a.aging_status),
-                          fontWeight: 'bold',
-                          fontSize: '0.7rem'
-                        }}
-                      >
-                        {a.aging_status}
-                      </Typography>
-                      <Typography 
-                        variant="caption" 
-                        sx={{ 
-                          color: '#666',
-                          fontSize: '0.7rem'
-                        }}
-                      >
-                        {a.aging_formatted}
-                      </Typography>
-                    </Box>
-                  )}
-                </Box>
-                <Typography variant="body2" sx={{ color: idx === 0 ? "#43a047" : "#1976d2", wordBreak: 'break-word', whiteSpace: 'pre-line', overflowWrap: 'break-word' }}>
-                  {message}
-                </Typography>
-                <Typography variant="caption" sx={{ color: "#888" }}>
-                  {a.created_at ? new Date(a.created_at).toLocaleString() : ""}
-                  {a.created_at && (
-                    <span style={{ color: "#666", marginLeft: 8 }}>
-                      ({formatTimeDifference(a.created_at)} ago)
-                    </span>
-                  )}
-                </Typography>
-              </Paper>
-            </Box>
-          );
-        })}
-      </Box>
-    );
-  }
-
   if (loading) {
     return (
       <div className="p-6">
@@ -2806,6 +2665,20 @@ const AgentCRM = () => {
 
         </div>
       </div>
+
+      {/* Ticket Details Modal - New Modal */}
+      <TicketDetailsModal
+        open={showTicketDetailsModal}
+        onClose={() => {
+          setShowTicketDetailsModal(false);
+          setSelectedTicketForDetails(null);
+          setTicketDetailsAssignmentHistory([]);
+        }}
+        selectedTicket={selectedTicketForDetails}
+        assignmentHistory={ticketDetailsAssignmentHistory}
+        refreshTickets={fetchCustomerTickets}
+        refreshDashboardCounts={() => {}}
+      />
 
       {/* Split Ticket Details & History Modal */}
       <Modal open={showDetailsModal} onClose={() => setShowDetailsModal(false)}>
@@ -3973,6 +3846,7 @@ const AgentCRM = () => {
           </Box>
         </Box>
       </Modal>
+
 
       {/* Advanced Ticket Create Modal */}
       <AdvancedTicketCreateModal

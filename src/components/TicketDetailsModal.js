@@ -3692,15 +3692,33 @@ export default function TicketDetailsModal({
                               ? new Date(last.created_at).toLocaleString()
                               : "N/A"}
                           </Typography>
-                          {last.reason && (
-                            <Typography sx={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}>
-                              <strong>Message:</strong> {last.reason}
-                            </Typography>
+                          {selectedTicket.status === "Closed" ? (
+                            // If closed, show description
+                            selectedTicket.description && (
+                              <Typography sx={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}>
+                                <strong>Description:</strong> {selectedTicket.description}
+                              </Typography>
+                            )
+                          ) : (
+                            // If not closed, show last.reason as Message
+                            last.reason && (
+                              <Typography sx={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}>
+                                <strong>Message:</strong> {last.reason}
+                              </Typography>
+                            )
                           )}
-                          {selectedTicket.status === "Closed" && selectedTicket.resolution_details && (
-                              <Typography sx={{ wordBreak: 'break-word', whiteSpace: 'pre-line', mt: 1 }}>
-                              <strong>Resolution Details:</strong> {selectedTicket.resolution_details}
-                            </Typography>
+                          {selectedTicket.status === "Closed" && (
+                            <>
+                              {selectedTicket.resolution_details ? (
+                                <Typography sx={{ wordBreak: 'break-word', whiteSpace: 'pre-line', mt: 1 }}>
+                                  <strong>Resolution Details:</strong> {selectedTicket.resolution_details}
+                                </Typography>
+                              ) : selectedTicket.description ? (
+                                <Typography sx={{ wordBreak: 'break-word', whiteSpace: 'pre-line', mt: 1 }}>
+                                  <strong>Resolution Details:</strong> {selectedTicket.description}
+                                </Typography>
+                              ) : null}
+                            </>
                           )}
                           {selectedTicket.status === "Closed" && selectedTicket.resolution_type && (
                             <Typography sx={{ mt: 1 }}>
@@ -3871,11 +3889,11 @@ export default function TicketDetailsModal({
                 {/* Resolution Details and Closed By - Show only when ticket is closed */}
                 {selectedTicket.status === "Closed" && (
                   <>
-                    {selectedTicket.resolution_details && (
+                    {(selectedTicket.resolution_details || selectedTicket.description) && (
                       <div style={{ flex: "1 1 100%", marginTop: "16px" }}>
                         <Typography sx={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}>
                           <strong>Resolution Details:</strong>{" "}
-                          {selectedTicket.resolution_details}
+                          {selectedTicket.resolution_details || selectedTicket.description || "N/A"}
                         </Typography>
               </div>
                     )}
