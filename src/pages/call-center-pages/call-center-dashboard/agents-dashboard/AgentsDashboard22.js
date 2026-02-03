@@ -86,7 +86,7 @@ export default function AgentsDashboard() {
       setLoading(true);
       try {
         const response = await fetch(
-          "https://demomspapi.wcf.go.tz/api/v1/search/details",
+          "https://mspapi.wcf.go.tz/api/v1/search/details",
           {
             method: "POST",
             headers: {
@@ -133,7 +133,7 @@ export default function AgentsDashboard() {
 
     try {
       const response = await fetch(
-        "https://demomspapi.wcf.go.tz/api/v1/search/details",
+        "https://mspapi.wcf.go.tz/api/v1/search/details",
         {
           method: "POST",
           headers: {

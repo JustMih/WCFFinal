@@ -122,7 +122,7 @@ const ClaimRedirectButton = ({
           if (employerName) {
             try {
               const employerSearchResponse = await axios.post(
-                "https://demomspapi.wcf.go.tz/api/v1/search/details",
+                "https://mspapi.wcf.go.tz/api/v1/search/details",
                 {
                   type: "employer",
                   name: employerName,
@@ -231,7 +231,7 @@ const ClaimRedirectButton = ({
       // Try to get the registration number by searching for the employer
       try {
         const employerSearchResponse = await axios.post(
-          "https://demomspapi.wcf.go.tz/api/v1/search/details",
+          "https://mspapi.wcf.go.tz/api/v1/search/details",
           {
             type: "employer",
             name: employerName,
@@ -258,7 +258,7 @@ const ClaimRedirectButton = ({
     if (!registrationNumber && employerData && employerData.name && !employerData.registration_number) {
       try {
         const employerSearchResponse = await axios.post(
-          "https://demomspapi.wcf.go.tz/api/v1/search/details",
+          "https://mspapi.wcf.go.tz/api/v1/search/details",
           {
             type: "employer",
             name: employerData.name,

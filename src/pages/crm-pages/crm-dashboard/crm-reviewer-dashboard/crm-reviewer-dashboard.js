@@ -8,7 +8,7 @@ import Avatar from "@mui/material/Avatar";
 import Paper from "@mui/material/Paper";
 
 // React Icons
-import { FaEye, FaSearch, FaPlus } from "react-icons/fa";
+import { FaEye, FaSearch, FaPlus, FaSitemap } from "react-icons/fa";
 import { FiSettings } from "react-icons/fi";
 import { MdOutlineSupportAgent, MdImportExport, MdSwapHoriz } from "react-icons/md";
 import ChatIcon from '@mui/icons-material/Chat';
@@ -765,10 +765,20 @@ export default function ReviewerDashboard() {
       matchesFilters = matchesFilters && t.priority === filters.priority;
     }
     if (filters.region && filters.region !== "") {
-      matchesFilters = matchesFilters && t.region === filters.region;
+      // Case-insensitive region comparison
+      const normalizeRegion = (region) => {
+        if (!region || region === "") return "";
+        return String(region).toLowerCase().trim().replace(/\s+/g, "-").replace(/-+/g, "-");
+      };
+      matchesFilters = matchesFilters && normalizeRegion(t.region) === normalizeRegion(filters.region);
     }
     if (filters.district && filters.district !== "") {
-      matchesFilters = matchesFilters && t.district === filters.district;
+      // Case-insensitive district comparison
+      const normalizeDistrict = (district) => {
+        if (!district || district === "") return "";
+        return String(district).toLowerCase().trim().replace(/\s+/g, "-").replace(/-+/g, "-");
+      };
+      matchesFilters = matchesFilters && normalizeDistrict(t.district) === normalizeDistrict(filters.district);
     }
     if (filters.ticketId && filters.ticketId !== "") {
       matchesFilters = matchesFilters && (
@@ -892,13 +902,33 @@ export default function ReviewerDashboard() {
         <td>{ticket.assigned_to_role}</td>
       )}
       <td>
-        <button
-          className="view-ticket-details-btn"
-          onClick={() => openDetailsModal(ticket)}
-          title="View Details"
-        >
-          <FaEye />
-        </button>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <button
+            className="view-ticket-details-btn"
+            onClick={() => openDetailsModal(ticket)}
+            title="View Details"
+          >
+            <FaEye />
+          </button>
+          <button
+            className="view-ticket-details-btn"
+            onClick={() => openDetailsModal(ticket)}
+            title="View Ticket Details"
+            style={{
+              backgroundColor: "#1976d2",
+              color: "white",
+              border: "none",
+              borderRadius: "4px",
+              padding: "6px 10px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center"
+            }}
+          >
+            <FaSitemap style={{ fontSize: "14px" }} />
+          </button>
+        </div>
       </td>
     </tr>
   );
