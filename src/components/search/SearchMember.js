@@ -14,7 +14,7 @@ const SearchMember = ({ onResultSelect, type = 'employee' }) => {
         setError(null);
 
         try {
-            const response = await axios.post('https://demomspapi.wcf.go.tz/api/v1/search/details', {
+            const response = await axios.post('https://mspapi.wcf.go.tz/api/v1/search/details', {
                 type: type,
                 name: searchTerm,
                 employer_registration_number: ''

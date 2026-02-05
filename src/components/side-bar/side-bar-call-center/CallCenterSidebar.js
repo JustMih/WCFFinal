@@ -147,7 +147,7 @@ export default function CallCenterSidebar({
                   <div className="menu-item">
                     <HiOutlineMap className="menu-icon" />
                     {isSidebarOpen && (
-                      <span className="menu-text">Mapping Subjects</span>
+                      <span className="menu-text">Mapping</span>
                     )}
                   </div>
                 </NavLink>

@@ -27,6 +27,12 @@ import {
   InputLabel,
   Snackbar,
   InputAdornment,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -60,19 +66,25 @@ const MappingManagement = () => {
   const [sectionsData, setSectionsData] = useState([]);
   const [functionsData, setFunctionsData] = useState([]);
   const [functionDataList, setFunctionDataList] = useState([]);
+  const [channelsData, setChannelsData] = useState([]);
+  const [relationsData, setRelationsData] = useState([]);
 
   // Modal states
   const [openSectionModal, setOpenSectionModal] = useState(false);
   const [openFunctionModal, setOpenFunctionModal] = useState(false);
   const [openFunctionDataModal, setOpenFunctionDataModal] = useState(false);
+  const [openChannelModal, setOpenChannelModal] = useState(false);
+  const [openRelationModal, setOpenRelationModal] = useState(false);
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [deleteItem, setDeleteItem] = useState(null);
-  const [deleteType, setDeleteType] = useState(null); // 'section', 'function', 'functionData'
+  const [deleteType, setDeleteType] = useState(null); // 'section', 'function', 'functionData', 'channel', 'relation'
   
   // Form states
   const [sectionForm, setSectionForm] = useState({ name: "", id: null });
   const [functionForm, setFunctionForm] = useState({ name: "", section_id: "", id: null });
   const [functionDataForm, setFunctionDataForm] = useState({ name: "", function_id: "", id: null });
+  const [channelForm, setChannelForm] = useState({ name: "", id: null });
+  const [relationForm, setRelationForm] = useState({ name: "", description: "", id: null });
   
   // Snackbar
   const [snackbar, setSnackbar] = useState({ open: false, message: "", severity: "success" });
@@ -119,8 +131,74 @@ const MappingManagement = () => {
     }
   };
 
+  // Fetch channels
+  const fetchChannels = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem("authToken");
+      const response = await fetch(`${baseURL}/channel`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch channels");
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        setChannelsData(result.data || []);
+      } else {
+        throw new Error(result.message || "Failed to fetch channels");
+      }
+    } catch (err) {
+      console.error("Error fetching channels:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch relations
+  const fetchRelations = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem("authToken");
+      const response = await fetch(`${baseURL}/lookup-tables/relations`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch relations");
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        setRelationsData(result.data || []);
+      } else {
+        throw new Error(result.message || "Failed to fetch relations");
+      }
+    } catch (err) {
+      console.error("Error fetching relations:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchAllMappings();
+    fetchChannels();
+    fetchRelations();
   }, []);
 
   // ========== SECTION CRUD ==========
@@ -460,6 +538,223 @@ const MappingManagement = () => {
     }
   };
 
+  // ========== CHANNEL CRUD ==========
+  const handleOpenChannelModal = (channel = null) => {
+    if (channel) {
+      setChannelForm({ name: channel.name, id: channel.id });
+    } else {
+      setChannelForm({ name: "", id: null });
+    }
+    setOpenChannelModal(true);
+  };
+
+  const handleSaveChannel = async () => {
+    try {
+      const token = localStorage.getItem("authToken");
+      const url = channelForm.id
+        ? `${baseURL}/channel/${channelForm.id}`
+        : `${baseURL}/channel`;
+      const method = channelForm.id ? "PUT" : "POST";
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name: channelForm.name }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = "Failed to save channel";
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.message || errorJson.error || errorMessage;
+        } catch {
+          errorMessage = errorText || `Server error: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        setSnackbar({
+          open: true,
+          message: channelForm.id ? "Channel updated successfully" : "Channel created successfully",
+          severity: "success",
+        });
+        setOpenChannelModal(false);
+        fetchChannels();
+      } else {
+        throw new Error(result.message || "Failed to save channel");
+      }
+    } catch (err) {
+      console.error("Error saving channel:", err);
+      setSnackbar({
+        open: true,
+        message: err.message || "Failed to save channel",
+        severity: "error",
+      });
+    }
+  };
+
+  const handleDeleteChannel = async () => {
+    try {
+      const token = localStorage.getItem("authToken");
+      const response = await fetch(`${baseURL}/channel/${deleteItem.id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = "Failed to delete channel";
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.message || errorJson.error || errorMessage;
+        } catch {
+          errorMessage = errorText || `Server error: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        setSnackbar({
+          open: true,
+          message: "Channel deleted successfully",
+          severity: "success",
+        });
+        setOpenDeleteDialog(false);
+        setDeleteItem(null);
+        fetchChannels();
+      } else {
+        throw new Error(result.message || "Failed to delete channel");
+      }
+    } catch (err) {
+      console.error("Error deleting channel:", err);
+      setSnackbar({
+        open: true,
+        message: err.message || "Failed to delete channel",
+        severity: "error",
+      });
+    }
+  };
+
+  // ========== RELATIONS CRUD ==========
+  const handleOpenRelationModal = (relation = null) => {
+    if (relation) {
+      setRelationForm({ name: relation.name, description: relation.description || "", id: relation.id });
+    } else {
+      setRelationForm({ name: "", description: "", id: null });
+    }
+    setOpenRelationModal(true);
+  };
+
+  const handleSaveRelation = async () => {
+    try {
+      const token = localStorage.getItem("authToken");
+      const url = relationForm.id
+        ? `${baseURL}/lookup-tables/relations/${relationForm.id}`
+        : `${baseURL}/lookup-tables/relations`;
+      const method = relationForm.id ? "PUT" : "POST";
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ 
+          name: relationForm.name,
+          description: relationForm.description || null,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = "Failed to save relation";
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.message || errorJson.error || errorMessage;
+        } catch {
+          errorMessage = errorText || `Server error: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        setSnackbar({
+          open: true,
+          message: relationForm.id ? "Relation updated successfully" : "Relation created successfully",
+          severity: "success",
+        });
+        setOpenRelationModal(false);
+        fetchRelations();
+      } else {
+        throw new Error(result.message || "Failed to save relation");
+      }
+    } catch (err) {
+      console.error("Error saving relation:", err);
+      setSnackbar({
+        open: true,
+        message: err.message || "Failed to save relation",
+        severity: "error",
+      });
+    }
+  };
+
+  const handleDeleteRelation = async () => {
+    try {
+      const token = localStorage.getItem("authToken");
+      const response = await fetch(`${baseURL}/lookup-tables/relations/${deleteItem.id}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorMessage = "Failed to delete relation";
+        try {
+          const errorJson = JSON.parse(errorText);
+          errorMessage = errorJson.message || errorJson.error || errorMessage;
+        } catch {
+          errorMessage = errorText || `Server error: ${response.status} ${response.statusText}`;
+        }
+        throw new Error(errorMessage);
+      }
+
+      const result = await response.json();
+      if (result.success) {
+        setSnackbar({
+          open: true,
+          message: "Relation deleted successfully",
+          severity: "success",
+        });
+        setOpenDeleteDialog(false);
+        setDeleteItem(null);
+        fetchRelations();
+      } else {
+        throw new Error(result.message || "Failed to delete relation");
+      }
+    } catch (err) {
+      console.error("Error deleting relation:", err);
+      setSnackbar({
+        open: true,
+        message: err.message || "Failed to delete relation",
+        severity: "error",
+      });
+    }
+  };
+
   // ========== DELETE HANDLER ==========
   const handleDeleteClick = (item, type) => {
     setDeleteItem(item);
@@ -474,6 +769,10 @@ const MappingManagement = () => {
       handleDeleteFunction();
     } else if (deleteType === "functionData") {
       handleDeleteFunctionData();
+    } else if (deleteType === "channel") {
+      handleDeleteChannel();
+    } else if (deleteType === "relation") {
+      handleDeleteRelation();
     }
   };
 
@@ -1770,6 +2069,249 @@ const MappingManagement = () => {
     );
   };
 
+  // Render Channels View
+  const renderChannelsView = () => {
+    const filteredChannels = searchQuery
+      ? channelsData.filter((channel) =>
+          channel.name?.toLowerCase().includes(searchQuery.toLowerCase().trim())
+        )
+      : channelsData;
+
+    if (loading) {
+      return (
+        <Box display="flex" justifyContent="center" p={4}>
+          <CircularProgress />
+        </Box>
+      );
+    }
+
+    if (error) {
+      return (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      );
+    }
+
+    return (
+      <Box>
+        <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
+          <Typography variant="body2" fontWeight="bold">Total Channels: {filteredChannels.length}</Typography>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpenChannelModal()}
+          >
+            Add Channel
+          </Button>
+        </Box>
+        {filteredChannels.length === 0 ? (
+          <Alert severity="info">
+            {searchQuery ? "No channels found matching your search." : "No channels found. Please add channels first."}
+          </Alert>
+        ) : (
+          <TableContainer component={Paper} variant="outlined">
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell><strong>#</strong></TableCell>
+                  <TableCell><strong>Channel Name</strong></TableCell>
+                  <TableCell><strong>Created By</strong></TableCell>
+                  <TableCell><strong>Updated By</strong></TableCell>
+                  <TableCell><strong>Created Date</strong></TableCell>
+                  <TableCell><strong>Updated Date</strong></TableCell>
+                  <TableCell align="center"><strong>Actions</strong></TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredChannels.map((channel, index) => (
+                  <TableRow key={channel.id} hover>
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary">
+                        {index + 1}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight="medium">
+                        {channel.name}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary">
+                        {channel.creator?.full_name || channel.creator?.email || channel.creator?.username || 'N/A'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary">
+                        {channel.updater?.full_name || channel.updater?.email || channel.updater?.username || 'N/A'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary">
+                        {channel.created_at ? new Date(channel.created_at).toLocaleDateString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric'
+                        }) : 'N/A'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary">
+                        {channel.updated_at ? new Date(channel.updated_at).toLocaleDateString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric'
+                        }) : 'N/A'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Box sx={{ display: "flex", justifyContent: "center", gap: 1 }}>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleOpenChannelModal(channel)}
+                          color="primary"
+                        >
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleDeleteClick(channel, "channel")}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </Box>
+    );
+  };
+
+  // Render Relations View
+  const renderRelationsView = () => {
+    const filteredRelations = searchQuery
+      ? relationsData.filter((relation) =>
+          relation.name?.toLowerCase().includes(searchQuery.toLowerCase().trim()) ||
+          relation.description?.toLowerCase().includes(searchQuery.toLowerCase().trim())
+        )
+      : relationsData;
+
+    if (loading) {
+      return (
+        <Box display="flex" justifyContent="center" p={4}>
+          <CircularProgress />
+        </Box>
+      );
+    }
+
+    if (error) {
+      return (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      );
+    }
+
+    return (
+      <Box>
+        <Box sx={{ display: "flex", justifyContent: "space-between", mb: 2 }}>
+          <Typography variant="body2" fontWeight="bold">Total Relations: {filteredRelations.length}</Typography>
+          <Button
+            variant="contained"
+            size="small"
+            startIcon={<AddIcon />}
+            onClick={() => handleOpenRelationModal()}
+          >
+            Add Relation
+          </Button>
+        </Box>
+        {filteredRelations.length === 0 ? (
+          <Alert severity="info">
+            {searchQuery ? "No relations found matching your search." : "No relations found. Please add relations first."}
+          </Alert>
+        ) : (
+          <TableContainer component={Paper} variant="outlined">
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell><strong>#</strong></TableCell>
+                  <TableCell><strong>Relation Name</strong></TableCell>
+                  <TableCell><strong>Description</strong></TableCell>
+                  <TableCell><strong>Created Date</strong></TableCell>
+                  <TableCell><strong>Updated Date</strong></TableCell>
+                  <TableCell align="center"><strong>Actions</strong></TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredRelations.map((relation, index) => (
+                  <TableRow key={relation.id} hover>
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary">
+                        {index + 1}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight="medium">
+                        {relation.name}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary">
+                        {relation.description || 'N/A'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary">
+                        {relation.createdAt ? new Date(relation.createdAt).toLocaleDateString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric'
+                        }) : 'N/A'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" color="text.secondary">
+                        {relation.updatedAt ? new Date(relation.updatedAt).toLocaleDateString('en-GB', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric'
+                        }) : 'N/A'}
+                      </Typography>
+                    </TableCell>
+                    <TableCell align="center">
+                      <Box sx={{ display: "flex", justifyContent: "center", gap: 1 }}>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleOpenRelationModal(relation)}
+                          color="primary"
+                        >
+                          <EditIcon />
+                        </IconButton>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleDeleteClick(relation, "relation")}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+      </Box>
+    );
+  };
+
   return (
     <Box sx={{ width: "100%", minHeight: "100vh", p: 2 }}>
       <Paper sx={{ mb: 2, p: 2 }}>
@@ -1786,7 +2328,7 @@ const MappingManagement = () => {
         <TextField
           fullWidth
           size="small"
-          placeholder="Search sections, functions, or function data..."
+          placeholder="Search sections, sub-section, subject, channel or relations..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           variant="outlined"
@@ -1806,6 +2348,8 @@ const MappingManagement = () => {
             <Tab label="Sections View" />
             <Tab label="Sub-Sections View" />
             <Tab label="Subjects View" />
+            <Tab label="Channels View" />
+            <Tab label="Relations View" />
           </Tabs>
         </Box>
 
@@ -1817,6 +2361,12 @@ const MappingManagement = () => {
         </TabPanel>
         <TabPanel value={value} index={2}>
           {renderFunctionDataView()}
+        </TabPanel>
+        <TabPanel value={value} index={3}>
+          {renderChannelsView()}
+        </TabPanel>
+        <TabPanel value={value} index={4}>
+          {renderRelationsView()}
         </TabPanel>
       </Paper>
 
@@ -1924,6 +2474,64 @@ const MappingManagement = () => {
           <Button size="small" onClick={() => setOpenFunctionDataModal(false)}>Cancel</Button>
           <Button size="small" onClick={handleSaveFunctionData} variant="contained">
             {functionDataForm.id ? "Update" : "Create"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Channel Modal */}
+      <Dialog open={openChannelModal} onClose={() => setOpenChannelModal(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{channelForm.id ? "Edit Channel" : "Create Channel"}</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Channel Name"
+            fullWidth
+            variant="outlined"
+            value={channelForm.name}
+            onChange={(e) => setChannelForm({ ...channelForm, name: e.target.value })}
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button size="small" onClick={() => setOpenChannelModal(false)}>Cancel</Button>
+          <Button size="small" onClick={handleSaveChannel} variant="contained">
+            {channelForm.id ? "Update" : "Create"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Relation Modal */}
+      <Dialog open={openRelationModal} onClose={() => setOpenRelationModal(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{relationForm.id ? "Edit Relation" : "Create Relation"}</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Relation Name"
+            fullWidth
+            variant="outlined"
+            value={relationForm.name}
+            onChange={(e) => setRelationForm({ ...relationForm, name: e.target.value })}
+            sx={{ mt: 2 }}
+            required
+          />
+          <TextField
+            margin="dense"
+            label="Description"
+            fullWidth
+            variant="outlined"
+            multiline
+            rows={3}
+            value={relationForm.description}
+            onChange={(e) => setRelationForm({ ...relationForm, description: e.target.value })}
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button size="small" onClick={() => setOpenRelationModal(false)}>Cancel</Button>
+          <Button size="small" onClick={handleSaveRelation} variant="contained">
+            {relationForm.id ? "Update" : "Create"}
           </Button>
         </DialogActions>
       </Dialog>

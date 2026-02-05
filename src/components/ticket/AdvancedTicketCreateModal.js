@@ -292,267 +292,273 @@ const defaultFormData = {
 
 // Sample data for regions and districts
 const regionsData = [
-  { value: "arusha", label: "Arusha" },
-  { value: "dar-es-salaam", label: "Dar es Salaam" },
-  { value: "dodoma", label: "Dodoma" },
-  { value: "geita", label: "Geita" },
-  { value: "iringa", label: "Iringa" },
-  { value: "kagera", label: "Kagera" },
-  { value: "katavi", label: "Katavi" },
-  { value: "kigoma", label: "Kigoma" },
-  { value: "kilimanjaro", label: "Kilimanjaro" },
-  { value: "lindi", label: "Lindi" },
-  { value: "manyara", label: "Manyara" },
-  { value: "mara", label: "Mara" },
-  { value: "mbeya", label: "Mbeya" },
-  { value: "morogoro", label: "Morogoro" },
-  { value: "mtwara", label: "Mtwara" },
-  { value: "mwanza", label: "Mwanza" },
-  { value: "njombe", label: "Njombe" },
-  { value: "pwani", label: "Pwani" },
-  { value: "rukwa", label: "Rukwa" },
-  { value: "ruvuma", label: "Ruvuma" },
-  { value: "shinyanga", label: "Shinyanga" },
-  { value: "simiyu", label: "Simiyu" },
-  { value: "singida", label: "Singida" },
-  { value: "songwe", label: "Songwe" },
-  { value: "tabora", label: "Tabora" },
-  { value: "tanga", label: "Tanga" },
-  { value: "zanzibar-urban", label: "Zanzibar Urban" },
-  { value: "zanzibar-rural", label: "Zanzibar Rural" }
+  { value: "Arusha", label: "Arusha" },
+  { value: "Dar-Es-Salaam", label: "Dar es Salaam" },
+  { value: "Dodoma", label: "Dodoma" },
+  { value: "Geita", label: "Geita" },
+  { value: "Iringa", label: "Iringa" },
+  { value: "Kagera", label: "Kagera" },
+  { value: "Katavi", label: "Katavi" },
+  { value: "Kigoma", label: "Kigoma" },
+  { value: "Kilimanjaro", label: "Kilimanjaro" },
+  { value: "Lindi", label: "Lindi" },
+  { value: "Manyara", label: "Manyara" },
+  { value: "Mara", label: "Mara" },
+  { value: "Mbeya", label: "Mbeya" },
+  { value: "Morogoro", label: "Morogoro" },
+  { value: "Mtwara", label: "Mtwara" },
+  { value: "Mwanza", label: "Mwanza" },
+  { value: "Njombe", label: "Njombe" },
+  { value: "Pwani", label: "Pwani" },
+  { value: "Rukwa", label: "Rukwa" },
+  { value: "Ruvuma", label: "Ruvuma" },
+  { value: "Shinyanga", label: "Shinyanga" },
+  { value: "Simiyu", label: "Simiyu" },
+  { value: "Singida", label: "Singida" },
+  { value: "Songwe", label: "Songwe" },
+  { value: "Tabora", label: "Tabora" },
+  { value: "Tanga", label: "Tanga" },
+  { value: "Unguja North", label: "Unguja North" },
+  { value: "Unguja South", label: "Unguja South" },
+  { value: "Pemba North", label: "Pemba North" },
+  { value: "Pemba South", label: "Pemba South" }
 ];
 
 const districtsData = {
-  "arusha": [
-    { value: "arusha-city", label: "Arusha City" },
-    { value: "arusha-rural", label: "Arusha Rural" },
-    { value: "karatu", label: "Karatu" },
-    { value: "longido", label: "Longido" },
-    { value: "meru", label: "Meru" },
-    { value: "monduli", label: "Monduli" },
-    { value: "ngorongoro", label: "Ngorongoro" }
+  "Arusha": [
+    { value: "Arusha-City", label: "Arusha City" },
+    { value: "Arusha-Rural", label: "Arusha Rural" },
+    { value: "Karatu", label: "Karatu" },
+    { value: "Longido", label: "Longido" },
+    { value: "Meru", label: "Meru" },
+    { value: "Monduli", label: "Monduli" },
+    { value: "Ngorongoro", label: "Ngorongoro" }
   ],
-  "dar-es-salaam": [
-    { value: "ilala", label: "Ilala" },
-    { value: "kinondoni", label: "Kinondoni" },
-    { value: "temeke", label: "Temeke" },
-    { value: "kigamboni", label: "Kigamboni" },
-    { value: "ubungo", label: "Ubungo" }
+  "Dar-Es-Salaam": [
+    { value: "Ilala", label: "Ilala" },
+    { value: "Kinondoni", label: "Kinondoni" },
+    { value: "Temeke", label: "Temeke" },
+    { value: "Kigamboni", label: "Kigamboni" },
+    { value: "Ubungo", label: "Ubungo" }
   ],
-  "dodoma": [
-    { value: "dodoma-city", label: "Dodoma City" },
-    { value: "dodoma-rural", label: "Dodoma Rural" },
-    { value: "bahi", label: "Bahi" },
-    { value: "chamwino", label: "Chamwino" },
-    { value: "chemba", label: "Chemba" },
-    { value: "kongwa", label: "Kongwa" },
-    { value: "mpwapwa", label: "Mpwapwa" },
-    { value: "kondoa", label: "Kondoa" }
+  "Dodoma": [
+    { value: "Dodoma-City", label: "Dodoma City" },
+    { value: "Dodoma-Rural", label: "Dodoma Rural" },
+    { value: "Bahi", label: "Bahi" },
+    { value: "Chamwino", label: "Chamwino" },
+    { value: "Chemba", label: "Chemba" },
+    { value: "Kongwa", label: "Kongwa" },
+    { value: "Mpwapwa", label: "Mpwapwa" },
+    { value: "Kondoa", label: "Kondoa" }
   ],
-  "mwanza": [
-    { value: "mwanza-city", label: "Mwanza City" },
-    { value: "ilemela", label: "Ilemela" },
-    { value: "nyamagana", label: "Nyamagana" },
-    { value: "buchosa", label: "Buchosa" },
-    { value: "magu", label: "Magu" },
-    { value: "misungwi", label: "Misungwi" },
-    { value: "kwimba", label: "Kwimba" },
-    { value: "ukerewe", label: "Ukerewe" },
-    { value: "sengerema", label: "Sengerema" }
+  "Mwanza": [
+    { value: "Mwanza-City", label: "Mwanza City" },
+    { value: "Ilemela", label: "Ilemela" },
+    { value: "Nyamagana", label: "Nyamagana" },
+    { value: "Buchosa", label: "Buchosa" },
+    { value: "Magu", label: "Magu" },
+    { value: "Misungwi", label: "Misungwi" },
+    { value: "Kwimba", label: "Kwimba" },
+    { value: "Ukerewe", label: "Ukerewe" },
+    { value: "Sengerema", label: "Sengerema" }
   ],
-  "mbeya": [
-    { value: "mbeya-city", label: "Mbeya City" },
-    { value: "mbeya-rural", label: "Mbeya Rural" },
-    { value: "chunya", label: "Chunya" },
-    { value: "kyela", label: "Kyela" },
-    { value: "mbarali", label: "Mbarali" },
-    { value: "rujewa", label: "Rujewa" }
+  "Mbeya": [
+    { value: "Mbeya-City", label: "Mbeya City" },
+    { value: "Mbeya-Rural", label: "Mbeya Rural" },
+    { value: "Chunya", label: "Chunya" },
+    { value: "Kyela", label: "Kyela" },
+    { value: "Mbarali", label: "Mbarali" },
+    { value: "Rujewa", label: "Rujewa" }
   ],
-  "kilimanjaro": [
-    { value: "moshi-city", label: "Moshi City" },
-    { value: "moshi-rural", label: "Moshi Rural" },
-    { value: "hai", label: "Hai" },
-    { value: "siha", label: "Siha" },
-    { value: "rombo", label: "Rombo" },
-    { value: "mwanga", label: "Mwanga" },
-    { value: "same", label: "Same" }
+  "Kilimanjaro": [
+    { value: "Moshi-City", label: "Moshi City" },
+    { value: "Moshi-Rural", label: "Moshi Rural" },
+    { value: "Hai", label: "Hai" },
+    { value: "Siha", label: "Siha" },
+    { value: "Rombo", label: "Rombo" },
+    { value: "Mwanga", label: "Mwanga" },
+    { value: "Same", label: "Same" }
   ],
-  "tanga": [
-    { value: "tanga-city", label: "Tanga City" },
-    { value: "tanga-rural", label: "Tanga Rural" },
-    { value: "muheza", label: "Muheza" },
-    { value: "pangani", label: "Pangani" },
-    { value: "handeni", label: "Handeni" },
-    { value: "kilindi", label: "Kilindi" },
-    { value: "korogwe", label: "Korogwe" },
-    { value: "lushoto", label: "Lushoto" },
-    { value: "mkinga", label: "Mkinga" }
+  "Tanga": [
+    { value: "Tanga-City", label: "Tanga City" },
+    { value: "Tanga-Rural", label: "Tanga Rural" },
+    { value: "Muheza", label: "Muheza" },
+    { value: "Pangani", label: "Pangani" },
+    { value: "Handeni", label: "Handeni" },
+    { value: "Kilindi", label: "Kilindi" },
+    { value: "Korogwe", label: "Korogwe" },
+    { value: "Lushoto", label: "Lushoto" },
+    { value: "Mkinga", label: "Mkinga" }
   ],
-  "morogoro": [
-    { value: "morogoro-city", label: "Morogoro City" },
-    { value: "morogoro-rural", label: "Morogoro Rural" },
-    { value: "kilosa", label: "Kilosa" },
-    { value: "ulanga", label: "Ulanga" },
-    { value: "kilombero", label: "Kilombero" },
-    { value: "malinyi", label: "Malinyi" },
-    { value: "gairo", label: "Gairo" },
-    { value: "mvomero", label: "Mvomero" }
+  "Morogoro": [
+    { value: "Morogoro-City", label: "Morogoro City" },
+    { value: "Morogoro-Rural", label: "Morogoro Rural" },
+    { value: "Kilosa", label: "Kilosa" },
+    { value: "Ulanga", label: "Ulanga" },
+    { value: "Kilombero", label: "Kilombero" },
+    { value: "Malinyi", label: "Malinyi" },
+    { value: "Gairo", label: "Gairo" },
+    { value: "Mvomero", label: "Mvomero" }
   ],
-  "geita": [
-    { value: "geita", label: "Geita" },
-    { value: "nyang'hwale", label: "Nyang'hwale" },
-    { value: "chato", label: "Chato" },
-    { value: "mbogwe", label: "Mbogwe" },
-    { value: "bukombe", label: "Bukombe" }
+  "Geita": [
+    { value: "Geita", label: "Geita" },
+    { value: "Nyang'hwale", label: "Nyang'hwale" },
+    { value: "Chato", label: "Chato" },
+    { value: "Mbogwe", label: "Mbogwe" },
+    { value: "Bukombe", label: "Bukombe" }
   ],
-  "iringa": [
-    { value: "iringa-rural", label: "Iringa Rural" },
-    { value: "kilolo", label: "Kilolo" },
-    { value: "mufindi", label: "Mufindi" },
-    { value: "iringa-urban", label: "Iringa Urban" }
+  "Iringa": [
+    { value: "Iringa-Rural", label: "Iringa Rural" },
+    { value: "Kilolo", label: "Kilolo" },
+    { value: "Mufindi", label: "Mufindi" },
+    { value: "Iringa-Urban", label: "Iringa Urban" }
   ],
-  "kagera": [
-    { value: "bukoba-rural", label: "Bukoba Rural" },
-    { value: "bukoba-urban", label: "Bukoba Urban" },
-    { value: "karagwe", label: "Karagwe" },
-    { value: "kibondo", label: "Kibondo" },
-    { value: "kakonko", label: "Kakonko" },
-    { value: "muleba", label: "Muleba" },
-    { value: "ngara", label: "Ngara" },
-    { value: "biharamulo", label: "Biharamulo" },
-    { value: "chato", label: "Chato" }
+  "Kagera": [
+    { value: "Bukoba-Rural", label: "Bukoba Rural" },
+    { value: "Bukoba-Urban", label: "Bukoba Urban" },
+    { value: "Karagwe", label: "Karagwe" },
+    { value: "Kibondo", label: "Kibondo" },
+    { value: "Kakonko", label: "Kakonko" },
+    { value: "Muleba", label: "Muleba" },
+    { value: "Ngara", label: "Ngara" },
+    { value: "Biharamulo", label: "Biharamulo" },
+    { value: "Chato", label: "Chato" }
   ],
-  "katavi": [
-    { value: "mpanda-rural", label: "Mpanda Rural" },
-    { value: "mpanda-urban", label: "Mpanda Urban" },
-    { value: "mlele", label: "Mlele" }
+  "Katavi": [
+    { value: "Mpanda-Rural", label: "Mpanda Rural" },
+    { value: "Mpanda-Urban", label: "Mpanda Urban" },
+    { value: "Mlele", label: "Mlele" }
   ],
-  "kigoma": [
-    { value: "kigoma-rural", label: "Kigoma Rural" },
-    { value: "kigoma-urban", label: "Kigoma Urban" },
-    { value: "kasulu", label: "Kasulu" },
-    { value: "kibondo", label: "Kibondo" },
-    { value: "buhigwe", label: "Buhigwe" },
-    { value: "ulongwe", label: "Ulongwe" }
+  "Kigoma": [
+    { value: "Kigoma-Rural", label: "Kigoma Rural" },
+    { value: "Kigoma-Urban", label: "Kigoma Urban" },
+    { value: "Kasulu", label: "Kasulu" },
+    { value: "Kibondo", label: "Kibondo" },
+    { value: "Buhigwe", label: "Buhigwe" },
+    { value: "Ulongwe", label: "Ulongwe" }
   ],
-  "lindi": [
-    { value: "lindi-rural", label: "Lindi Rural" },
-    { value: "lindi-urban", label: "Lindi Urban" },
-    { value: "kilwa", label: "Kilwa" },
-    { value: "liwale", label: "Liwale" },
-    { value: "ruangwa", label: "Ruangwa" },
-    { value: "nachingwea", label: "Nachingwea" }
+  "Lindi": [
+    { value: "Lindi-Rural", label: "Lindi Rural" },
+    { value: "Lindi-Urban", label: "Lindi Urban" },
+    { value: "Kilwa", label: "Kilwa" },
+    { value: "Liwale", label: "Liwale" },
+    { value: "Ruangwa", label: "Ruangwa" },
+    { value: "Nachingwea", label: "Nachingwea" }
   ],
-  "manyara": [
-    { value: "babati-rural", label: "Babati Rural" },
-    { value: "babati-urban", label: "Babati Urban" },
-    { value: "hanang", label: "Hanang" },
-    { value: "kiteto", label: "Kiteto" },
-    { value: "mbulu", label: "Mbulu" },
-    { value: "simanjiro", label: "Simanjiro" }
+  "Manyara": [
+    { value: "Babati-Rural", label: "Babati Rural" },
+    { value: "Babati-Urban", label: "Babati Urban" },
+    { value: "Hanang", label: "Hanang" },
+    { value: "Kiteto", label: "Kiteto" },
+    { value: "Mbulu", label: "Mbulu" },
+    { value: "Simanjiro", label: "Simanjiro" }
   ],
-  "mara": [
-    { value: "musoma-rural", label: "Musoma Rural" },
-    { value: "musoma-urban", label: "Musoma Urban" },
-    { value: "tarime", label: "Tarime" },
-    { value: "serengeti", label: "Serengeti" },
-    { value: "bunda", label: "Bunda" },
-    { value: "butiama", label: "Butiama" },
-    { value: "rorya", label: "Rorya" }
+  "Mara": [
+    { value: "Musoma-Rural", label: "Musoma Rural" },
+    { value: "Musoma-Urban", label: "Musoma Urban" },
+    { value: "Tarime", label: "Tarime" },
+    { value: "Serengeti", label: "Serengeti" },
+    { value: "Bunda", label: "Bunda" },
+    { value: "Butiama", label: "Butiama" },
+    { value: "Rorya", label: "Rorya" }
   ],
-  "mtwara": [
-    { value: "mtwara-rural", label: "Mtwara Rural" },
-    { value: "mtwara-urban", label: "Mtwara Urban" },
-    { value: "masasi", label: "Masasi" },
-    { value: "newala", label: "Newala" },
-    { value: "tandahimba", label: "Tandahimba" },
-    { value: "nanyumbu", label: "Nanyumbu" }
+  "Mtwara": [
+    { value: "Mtwara-Rural", label: "Mtwara Rural" },
+    { value: "Mtwara-Urban", label: "Mtwara Urban" },
+    { value: "Masasi", label: "Masasi" },
+    { value: "Newala", label: "Newala" },
+    { value: "Tandahimba", label: "Tandahimba" },
+    { value: "Nanyumbu", label: "Nanyumbu" }
   ],
-  "njombe": [
-    { value: "njombe-rural", label: "Njombe Rural" },
-    { value: "njombe-urban", label: "Njombe Urban" },
-    { value: "wanging'ombe", label: "Wanging'ombe" },
-    { value: "ludewa", label: "Ludewa" },
-    { value: "makete", label: "Makete" }
+  "Njombe": [
+    { value: "Njombe-Rural", label: "Njombe Rural" },
+    { value: "Njombe-Urban", label: "Njombe Urban" },
+    { value: "Wanging'ombe", label: "Wanging'ombe" },
+    { value: "Ludewa", label: "Ludewa" },
+    { value: "Makete", label: "Makete" }
   ],
-  "pwani": [
-    { value: "kibaha-rural", label: "Kibaha Rural" },
-    { value: "kibaha-urban", label: "Kibaha Urban" },
-    { value: "bagamoyo", label: "Bagamoyo" },
-    { value: "kisarawe", label: "Kisarawe" },
-    { value: "mkuranga", label: "Mkuranga" },
-    { value: "rufiji", label: "Rufiji" },
-    { value: "kibiti", label: "Kibiti" }
+  "Pwani": [
+    { value: "Kibaha-Rural", label: "Kibaha Rural" },
+    { value: "Kibaha-Urban", label: "Kibaha Urban" },
+    { value: "Bagamoyo", label: "Bagamoyo" },
+    { value: "Kisarawe", label: "Kisarawe" },
+    { value: "Mkuranga", label: "Mkuranga" },
+    { value: "Rufiji", label: "Rufiji" },
+    { value: "Kibiti", label: "Kibiti" }
   ],
-  "rukwa": [
-    { value: "sumbawanga-rural", label: "Sumbawanga Rural" },
-    { value: "sumbawanga-urban", label: "Sumbawanga Urban" },
-    { value: "nkcasi", label: "Nkasi" },
-    { value: "kalambo", label: "Kalambo" }
+  "Rukwa": [
+    { value: "Sumbawanga-Rural", label: "Sumbawanga Rural" },
+    { value: "Sumbawanga-Urban", label: "Sumbawanga Urban" },
+    { value: "Nkcasi", label: "Nkasi" },
+    { value: "Kalambo", label: "Kalambo" }
   ],
-  "ruvuma": [
-    { value: "songea-rural", label: "Songea Rural" },
-    { value: "songea-urban", label: "Songea Urban" },
-    { value: "tunduru", label: "Tunduru" },
-    { value: "namtumbo", label: "Namtumbo" },
-    { value: "nyasa", label: "Nyasa" },
-    { value: "mbinga", label: "Mbinga" }
+  "Ruvuma": [
+    { value: "Songea-Rural", label: "Songea Rural" },
+    { value: "Songea-Urban", label: "Songea Urban" },
+    { value: "Tunduru", label: "Tunduru" },
+    { value: "Namtumbo", label: "Namtumbo" },
+    { value: "Nyasa", label: "Nyasa" },
+    { value: "Mbinga", label: "Mbinga" }
   ],
-  "shinyanga": [
-    { value: "shinyanga-rural", label: "Shinyanga Rural" },
-    { value: "shinyanga-urban", label: "Shinyanga Urban" },
-    { value: "kahama", label: "Kahama" },
-    { value: "kishapu", label: "Kishapu" },
-    { value: "maswa", label: "Maswa" },
-    { value: "meatu", label: "Meatu" }
+  "Shinyanga": [
+    { value: "Shinyanga-Rural", label: "Shinyanga Rural" },
+    { value: "Shinyanga-Urban", label: "Shinyanga Urban" },
+    { value: "Kahama", label: "Kahama" },
+    { value: "Kishapu", label: "Kishapu" },
+    { value: "Maswa", label: "Maswa" },
+    { value: "Meatu", label: "Meatu" }
   ],
-  "simiyu": [
-    { value: "bariadi", label: "Bariadi" },
-    { value: "busega", label: "Busega" },
-    { value: "itilima", label: "Itilima" },
-    { value: "maswa", label: "Maswa" },
-    { value: "meatu", label: "Meatu" }
+  "Simiyu": [
+    { value: "Bariadi", label: "Bariadi" },
+    { value: "Busega", label: "Busega" },
+    { value: "Itilima", label: "Itilima" },
+    { value: "Maswa", label: "Maswa" },
+    { value: "Meatu", label: "Meatu" }
   ],
-  "singida": [
-    { value: "singida-rural", label: "Singida Rural" },
-    { value: "singida-urban", label: "Singida Urban" },
-    { value: "ikungi", label: "Ikungi" },
-    { value: "manyoni", label: "Manyoni" },
-    { value: "mkalama", label: "Mkalama" },
-    { value: "itigi", label: "Itigi" }
+  "Singida": [
+    { value: "Singida-Rural", label: "Singida Rural" },
+    { value: "Singida-Urban", label: "Singida Urban" },
+    { value: "Ikungi", label: "Ikungi" },
+    { value: "Manyoni", label: "Manyoni" },
+    { value: "Mkalama", label: "Mkalama" },
+    { value: "Itigi", label: "Itigi" }
   ],
-  "songwe": [
-    { value: "mbeya-city", label: "Mbeya City" },
-    { value: "mbeya-rural", label: "Mbeya Rural" },
-    { value: "chunya", label: "Chunya" },
-    { value: "kyela", label: "Kyela" },
-    { value: "mbarali", label: "Mbarali" },
-    { value: "rujewa", label: "Rujewa" },
-    { value: "ileje", label: "Ileje" },
-    { value: "mbozi", label: "Mbozi" }
+  "Songwe": [
+    { value: "Mbeya-City", label: "Mbeya City" },
+    { value: "Mbeya-Rural", label: "Mbeya Rural" },
+    { value: "Chunya", label: "Chunya" },
+    { value: "Kyela", label: "Kyela" },
+    { value: "Mbarali", label: "Mbarali" },
+    { value: "Rujewa", label: "Rujewa" },
+    { value: "Ileje", label: "Ileje" },
+    { value: "Mbozi", label: "Mbozi" }
   ],
-  "tabora": [
-    { value: "tabora-urban", label: "Tabora Urban" },
-    { value: "tabora-rural", label: "Tabora Rural" },
-    { value: "igunga", label: "Igunga" },
-    { value: "nkasi", label: "Nkasi" },
-    { value: "uroki", label: "Uroki" },
-    { value: "sikonge", label: "Sikonge" },
-    { value: "kaliua", label: "Kaliua" }
+  "Tabora": [
+    { value: "Tabora-Urban", label: "Tabora Urban" },
+    { value: "Tabora-Rural", label: "Tabora Rural" },
+    { value: "Igunga", label: "Igunga" },
+    { value: "Nkasi", label: "Nkasi" },
+    { value: "Uroki", label: "Uroki" },
+    { value: "Sikonge", label: "Sikonge" },
+    { value: "Kaliua", label: "Kaliua" }
   ],
-  "zanzibar-urban": [
-    { value: "magharibi", label: "Magharibi" },
-    { value: "kaskazini-unguja", label: "Kaskazini Unguja" },
-    { value: "kusini-unguja", label: "Kusini Unguja" },
-    { value: "mjini-magharibi", label: "Mjini Magharibi" }
+  "Unguja North": [
+    { value: "Kaskazini-Unguja", label: "Kaskazini Unguja" },
+    { value: "Mjini-Magharibi", label: "Mjini Magharibi" }
   ],
-  "zanzibar-rural": [
-    { value: "kaskazini-pemba", label: "Kaskazini Pemba" },
-    { value: "kusini-pemba", label: "Kusini Pemba" },
-    { value: "mjini-kaskazini", label: "Mjini Kaskazini" },
-    { value: "wete", label: "Wete" },
-    { value: "chake-chake", label: "Chake Chake" },
-    { value: "mkoani", label: "Mkoani" }
+  "Unguja South": [
+    { value: "Magharibi", label: "Magharibi" },
+    { value: "Kusini-Unguja", label: "Kusini Unguja" }
+  ],
+  "Pemba North": [
+    { value: "Kaskazini-Pemba", label: "Kaskazini Pemba" },
+    { value: "Mjini-Kaskazini", label: "Mjini Kaskazini" },
+    { value: "Wete", label: "Wete" }
+  ],
+  "Pemba South": [
+    { value: "Kusini-Pemba", label: "Kusini Pemba" },
+    { value: "Chake-Chake", label: "Chake Chake" },
+    { value: "Mkoani", label: "Mkoani" }
   ]
 };
 
@@ -622,6 +628,11 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
   const [relationsLoading, setRelationsLoading] = useState(false);
   const [relationsError, setRelationsError] = useState("");
 
+  // --- Channels State ---
+  const [channels, setChannels] = useState([]);
+  const [channelsLoading, setChannelsLoading] = useState(false);
+  const [channelsError, setChannelsError] = useState("");
+
   useEffect(() => {
     const fetchRelations = async () => {
       try {
@@ -651,6 +662,38 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
     };
 
     fetchRelations();
+  }, []);
+
+  // Fetch channels
+  useEffect(() => {
+    const fetchChannels = async () => {
+      try {
+        setChannelsLoading(true);
+        setChannelsError("");
+        const token = localStorage.getItem("authToken");
+        if (!token) {
+          setChannelsError("Auth token missing");
+          return;
+        }
+        const res = await fetch(`${baseURL}/channel`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          setChannelsError(err.message || "Failed to load channels");
+          return;
+        }
+        const json = await res.json();
+        setChannels(Array.isArray(json.data) ? json.data : []);
+      } catch (e) {
+        console.error("Error fetching channels:", e);
+        setChannelsError("Failed to load channels");
+      } finally {
+        setChannelsLoading(false);
+      }
+    };
+
+    fetchChannels();
   }, []);
   
   // --- Call Phone Number Preservation ---
@@ -803,7 +846,7 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
     
     // Fetch institution details
     if (employer.name) {
-      fetch("https://demomspapi.wcf.go.tz/api/v1/search/details", {
+      fetch("https://mspapi.wcf.go.tz/api/v1/search/details", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1040,7 +1083,7 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
 
     try {
       const response = await fetch(
-        "https://demomspapi.wcf.go.tz/api/v1/search/details",
+        "https://mspapi.wcf.go.tz/api/v1/search/details",
         {
           method: "POST",
           headers: {
@@ -1369,7 +1412,7 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
       selectedInstitutionName = rawData.name || updatedFormData.institution || "";
     }
     if (selectedInstitutionName) {
-      fetch("https://demomspapi.wcf.go.tz/api/v1/search/details", {
+      fetch("https://mspapi.wcf.go.tz/api/v1/search/details", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -1416,7 +1459,7 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
     setIsSearching(true);
     try {
       const response = await fetch(
-        "https://demomspapi.wcf.go.tz/api/v1/search/details",
+        "https://mspapi.wcf.go.tz/api/v1/search/details",
         {
           method: "POST",
           headers: {
@@ -3285,6 +3328,7 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                         name="channel"
                         value={formData.channel}
                         onChange={handleChange}
+                        disabled={channelsLoading}
                         style={{
                           height: "32px",
                           fontSize: "0.875rem",
@@ -3296,16 +3340,17 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                         }}
                       >
                         <option value="">Select Channel</option>
-                        <option value="Call Center">Call Center</option>
-                        <option value="Staff Phone Number">Staff Phone Number</option>
-                        <option value="Email">Email</option>
-                        <option value="Walk in">Walk in</option>
-                        {/* <option value="Letter">Letter</option> */}
-                        <option value="Exhibition">Exhibition</option>
-                        <option value="Social Media">Social Media</option>
-                        <option value="Suggestion Box">Suggestion Box</option>
-                        <option value="e-mrejesho">e-mrejesho</option>
-
+                        {channelsLoading ? (
+                          <option value="">Loading channels...</option>
+                        ) : channelsError ? (
+                          <option value="">Error loading channels</option>
+                        ) : (
+                          channels.map((channel) => (
+                            <option key={channel.id} value={channel.name}>
+                              {channel.name}
+                            </option>
+                          ))
+                        )}
                       </select>
                       {formErrors.channel && (
                         <span style={{ color: "red", fontSize: "0.75rem" }}>

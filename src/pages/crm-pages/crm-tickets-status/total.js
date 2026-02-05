@@ -185,8 +185,17 @@ export default function Crm() {
     const matchesStatus = !filters.status || ticket.status === filters.status;
     const matchesPriority = !filters.priority || ticket.priority === filters.priority;
     const matchesCategory = !filters.category || ticket.category === filters.category;
-    const matchesRegion = !filters.region || ticket.region === filters.region;
-    const matchesDistrict = !filters.district || ticket.district === filters.district;
+    // Case-insensitive region and district comparison
+    const normalizeRegion = (region) => {
+      if (!region || region === "") return "";
+      return String(region).toLowerCase().trim().replace(/\s+/g, "-").replace(/-+/g, "-");
+    };
+    const normalizeDistrict = (district) => {
+      if (!district || district === "") return "";
+      return String(district).toLowerCase().trim().replace(/\s+/g, "-").replace(/-+/g, "-");
+    };
+    const matchesRegion = !filters.region || normalizeRegion(ticket.region) === normalizeRegion(filters.region);
+    const matchesDistrict = !filters.district || normalizeDistrict(ticket.district) === normalizeDistrict(filters.district);
     const matchesTicketId = !filters.ticketId || 
       (ticket.ticket_id && ticket.ticket_id.toLowerCase().includes(filters.ticketId.toLowerCase())) ||
       (ticket.id && ticket.id.toLowerCase().includes(filters.ticketId.toLowerCase()));

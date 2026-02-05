@@ -19,6 +19,8 @@ export default function RecordedSounds() {
   const [search, setSearch] = useState("");
   const [extensionFilter, setExtensionFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+    const [fromDate, setFromDate] = useState("");
+    const [toDate, setToDate] = useState("");
 
   // pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -92,26 +94,51 @@ export default function RecordedSounds() {
   /* ===============================
      FILTER LOGIC
   =============================== */
-  const filteredNotes = useMemo(() => {
-    return voiceNotes.filter((n) => {
-      const matchSearch =
-        n.clid?.toLowerCase().includes(search.toLowerCase()) ||
-        String(n.id).includes(search);
+      const filteredNotes = useMemo(() => {
+        return voiceNotes.filter((n) => {
+          const createdAt = new Date(n.created_at);
 
-      const matchExt = extensionFilter
-        ? String(n.assigned_extension) === extensionFilter
-        : true;
+          const matchSearch =
+            n.clid?.toLowerCase().includes(search.toLowerCase()) ||
+            String(n.id).includes(search);
 
-      const matchStatus =
-        statusFilter === ""
-          ? true
-          : statusFilter === "played"
-          ? playedStatus[n.id]
-          : !playedStatus[n.id];
+          const matchExt = extensionFilter
+            ? String(n.assigned_extension) === extensionFilter
+            : true;
 
-      return matchSearch && matchExt && matchStatus;
-    });
-  }, [voiceNotes, search, extensionFilter, statusFilter, playedStatus]);
+          const matchStatus =
+            statusFilter === ""
+              ? true
+              : statusFilter === "played"
+              ? playedStatus[n.id]
+              : !playedStatus[n.id];
+
+          const matchFromDate = fromDate
+            ? createdAt >= new Date(fromDate)
+            : true;
+
+          const matchToDate = toDate
+            ? createdAt <= new Date(toDate + "T23:59:59")
+            : true;
+
+          return (
+            matchSearch &&
+            matchExt &&
+            matchStatus &&
+            matchFromDate &&
+            matchToDate
+          );
+        });
+      }, [
+        voiceNotes,
+        search,
+        extensionFilter,
+        statusFilter,
+        fromDate,
+        toDate,
+        playedStatus,
+      ]);
+
 
   /* ===============================
      PAGINATION
@@ -176,6 +203,25 @@ export default function RecordedSounds() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
+          <div className="date-filters">
+            <div className="date-field">
+              <label>From</label>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+              />
+            </div>
+
+            <div className="date-field">
+              <label>To</label>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+              />
+            </div>
+          </div>
 
         <select
           value={extensionFilter}
