@@ -77,7 +77,27 @@ export default function DGdashboardticket() {
   const dailyTrends = ticketSummary?.trends?.daily || [];
 
   const monthlyTotal = monthlyTrends.reduce((sum, item) => sum + (item.count || 0), 0);
-  const dailyTotal = dailyTrends.reduce((sum, item) => sum + (item.count || 0), 0);
+  
+  // Daily should reflect TODAY only (current day), not the sum of all daily trend points
+  const getTodayDailyCount = (dailyData) => {
+    if (!Array.isArray(dailyData) || dailyData.length === 0) return 0;
+    const today = new Date();
+    const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(
+      today.getDate()
+    ).padStart(2, "0")}`;
+
+    const match = dailyData.find((d) => {
+      const raw = d?.date;
+      if (!raw) return false;
+      // API may return "YYYY-MM-DD" or ISO timestamps
+      const key = typeof raw === "string" ? raw.slice(0, 10) : "";
+      return key === todayKey;
+    });
+
+    return match?.count || 0;
+  };
+
+  const dailyTotal = getTodayDailyCount(dailyTrends);
 
   // For monthly and daily breakdowns, calculate based on percentages
   const getPercentage = (value, total) => total > 0 ? value / total : 0;
@@ -246,72 +266,25 @@ export default function DGdashboardticket() {
 
   const groupedDailyRanges = groupDailyByDateRanges(dailyTrends);
 
-  const areaChartCategories = [
-    // Daily range labels (1-10, 11-20, 21-end)
-    ...(groupedDailyRanges.length > 0
-      ? groupedDailyRanges.map((d) => d.label)
-      : []),
-    // Monthly labels from API
-    ...(monthlyTrends.length > 0
-      ? monthlyTrends.map((d, index) => {
-          const dateValue = d.year && d.month ? `${d.year}-${String(d.month).padStart(2, '0')}` : null;
-          return formatMonthDate(dateValue, index);
-        })
-      : []),
-    // Yearly label
-    ...(yearlyTrends.length > 0
-      ? yearlyTrends.map((d) => `${d.year} Total`)
-      : ["Yearly Total"]),
-  ];
+  // Trend chart (Daily / Monthly / Yearly) - keep it similar to the Call Summary Trend style
+  const areaChartCategories = ["Daily", "Monthly", "Yearly"];
 
   const areaChartSeries = [
     {
-      name: "Daily Total Tickets",
-      data: [
-        ...(groupedDailyRanges.length > 0
-          ? groupedDailyRanges.map((d) => d.count || 0)
-          : []),
-        ...Array(monthlyTrends.length).fill(null),
-        ...(yearlyTrends.length > 0 ? [totalTickets] : [null]),
-      ],
+      name: "Total Tickets",
+      data: [dailyTotal || 0, monthlyTotal || 0, totalTickets || 0],
     },
     {
-      name: "Daily Open",
-      data: [
-        ...(groupedDailyRanges.length > 0
-          ? groupedDailyRanges.map((d) => Math.round((d.count || 0) * getPercentage(openTickets, totalTickets)) || 0)
-          : []),
-        ...Array(monthlyTrends.length).fill(null),
-        ...(yearlyTrends.length > 0 ? [null] : [null]),
-      ],
+      name: "Open",
+      data: [dailyOpen || 0, monthlyOpen || 0, openTickets || 0],
     },
     {
-      name: "Monthly Total Tickets",
-      data: [
-        ...Array(groupedDailyRanges.length).fill(null),
-        ...(monthlyTrends.length > 0
-          ? monthlyTrends.map((d) => d.count || 0)
-          : []),
-        ...(yearlyTrends.length > 0 ? [null] : [null]),
-      ],
+      name: "Resolved",
+      data: [dailyResolved || 0, monthlyResolved || 0, resolvedTickets || 0],
     },
     {
-      name: "Monthly Resolved",
-      data: [
-        ...Array(groupedDailyRanges.length).fill(null),
-        ...(monthlyTrends.length > 0
-          ? monthlyTrends.map((d) => Math.round((d.count || 0) * getPercentage(resolvedTickets, totalTickets)) || 0)
-          : []),
-        ...(yearlyTrends.length > 0 ? [null] : [null]),
-      ],
-    },
-    {
-      name: "Yearly Total",
-      data: [
-        ...Array(groupedDailyRanges.length).fill(null),
-        ...Array(monthlyTrends.length).fill(null),
-        ...(yearlyTrends.length > 0 ? [totalTickets] : [null]),
-      ],
+      name: "In Progress",
+      data: [dailyInProgress || 0, monthlyInProgress || 0, inProgressTickets || 0],
     },
   ];
 
@@ -329,37 +302,43 @@ export default function DGdashboardticket() {
     dataLabels: {
       enabled: false,
     },
+    markers: {
+      size: 3,
+      strokeWidth: 0,
+      hover: {
+        size: 5,
+      },
+    },
     stroke: {
       curve: "smooth",
-      width: [2.5, 2, 2.5, 2, 3],
-      dashArray: [0, 0, 5, 5, 0],
+      width: 2.5,
+      dashArray: 0,
     },
     fill: {
       type: "gradient",
       gradient: {
         shadeIntensity: 1,
-        opacityFrom: 0.7,
-        opacityTo: 0.3,
+        opacityFrom: 0.55,
+        opacityTo: 0.15,
         stops: [0, 90, 100],
       },
     },
     colors: [
       "rgb(75, 192, 192)",
       "rgb(76, 175, 80)",
+      "rgb(255, 152, 0)",
       "rgb(102, 126, 234)",
-      "rgb(76, 175, 80)",
-      "rgb(156, 39, 176)",
     ],
     xaxis: {
+      type: "category",
       categories: areaChartCategories,
       labels: {
-        rotate: -45,
-        rotateAlways: true,
+        rotate: 0,
+        rotateAlways: false,
         style: {
-          fontSize: "10px",
-          fontWeight: 500,
+          fontSize: "12px",
+          fontWeight: 600,
         },
-        maxHeight: 80,
         formatter: function (value) {
           // Keep the formatted value as is
           return value;
@@ -373,10 +352,10 @@ export default function DGdashboardticket() {
       labels: {
         formatter: function (val) {
           return Math.round(val);
-                  },
-                },
-              },
-                legend: {
+        },
+      },
+    },
+    legend: {
       position: "top",
       horizontalAlign: "left",
       fontSize: "10px",
@@ -387,14 +366,22 @@ export default function DGdashboardticket() {
       onItemClick: {
         toggleDataSeries: true,
       },
-                },
-                tooltip: {
+    },
+    tooltip: {
       shared: true,
       intersect: false,
     },
     grid: {
       borderColor: "#e0e0e0",
       strokeDashArray: 1,
+    },
+    noData: {
+      text: "No trend data available",
+      align: "center",
+      verticalAlign: "middle",
+      style: {
+        color: "#666",
+      },
     },
   };
 
