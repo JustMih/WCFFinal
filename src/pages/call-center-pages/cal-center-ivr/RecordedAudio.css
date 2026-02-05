@@ -168,3 +168,102 @@
     justify-content: flex-end;
   }
 }
+.recording-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  background: #ffffff;
+  padding: 16px 18px;
+  border-radius: 12px;
+  margin-bottom: 18px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.06);
+}
+.recording-controls input,
+.recording-controls select {
+  height: 42px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid #d0d7de;
+  font-size: 14px;
+  background: #fff;
+  min-width: 170px;
+  transition: all 0.2s ease;
+}
+
+.recording-controls input::placeholder {
+  color: #94a3b8;
+}
+
+.recording-controls input:focus,
+.recording-controls select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+.recording-controls input[type="date"] {
+  padding-right: 10px;
+  color: #334155;
+}
+.recording-export {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.recording-export .btn-export {
+  height: 42px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.recording-export .btn-export:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
+}
+.recording-export {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.recording-export .btn-export {
+  height: 42px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.recording-export .btn-export:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.35);
+}
+@media (max-width: 900px) {
+  .recording-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .recording-controls input,
+  .recording-controls select {
+    width: 100%;
+  }
+
+  .recording-export {
+    margin-left: 0;
+    justify-content: flex-end;
+  }
+}

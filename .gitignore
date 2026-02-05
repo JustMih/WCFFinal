@@ -30,3 +30,15 @@ src/config.js
 #.env
 localhost+1-key.pem
 localhost+1.pem
+agentsDashboard/useSipPhone.js
+call-center-dashboard/agents-dashboard/useSipPhone.js       
+src/pages/call-center-pages/call-center-dashboard/agents-dashboard/useSipPhone.js
+sip/supervisorSip.js
+src/sip/supervisorSip.js        
+pages/dashboard/dashboard.js
+src/pages/dashboard/dashboard.js                                
+pages/public-dashboard/PublicDashboard.js                   
+src/pages/public-dashboard/PublicDashboard.js
+pages/call-center-pages/call-center-dashboard/supervisor-dashboard/SupervisorDashboard.js
+src/pages/call-center-pages/call-center-dashboard/supervisor-dashboard/SupervisorDashboard.js   
+                                                     
