@@ -1,5 +1,4 @@
- // export default RecordedAudio;
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import axios from "axios";
 import "./RecordedAudio.css";
 import { baseURL } from "../../../config";
@@ -14,8 +13,12 @@ const RecordedAudio = () => {
   const [playedStatus, setPlayedStatus] = useState({});
   const audioRef = useRef(null);
 
-  /* 🔍 FILTER */
+  /* 🔍 FILTERS */
   const [search, setSearch] = useState("");
+  const [callerFilter, setCallerFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   /* PAGINATION */
   const [currentPage, setCurrentPage] = useState(1);
@@ -46,15 +49,15 @@ const RecordedAudio = () => {
   const formatDate = (dt) =>
     dt ? new Date(dt.replace(" ", "T")).toLocaleString() : "N/A";
 
-  /* 🎨 ROW COLOR LOGIC */
+  /* 🎨 ROW COLOR LOGIC (UNCHANGED) */
   const getRowColor = (rec) => {
-    if (playedStatus[rec.filename]) return "#d4edda"; // green
+    if (playedStatus[rec.filename]) return "#d4edda";
 
     const start = new Date(rec.cdrstarttime.replace(" ", "T"));
     const hours = (Date.now() - start.getTime()) / 36e5;
 
-    if (hours >= 24) return "#f8d7da"; // red
-    return "#fff3cd"; // yellow
+    if (hours >= 24) return "#f8d7da";
+    return "#fff3cd";
   };
 
   const handlePlay = (rec) => {
@@ -65,7 +68,7 @@ const RecordedAudio = () => {
     localStorage.setItem("playedRecordings", JSON.stringify(updated));
   };
 
-  /* 🔊 Play AFTER src is set */
+  /* 🔊 AUTO PLAY */
   useEffect(() => {
     if (currentRec && audioRef.current) {
       audioRef.current.load();
@@ -73,19 +76,59 @@ const RecordedAudio = () => {
     }
   }, [currentRec]);
 
-  /* 🔍 FILTER BY ALL COLUMNS */
-  const filteredRecordings = recordings.filter((rec) => {
-    const rowText = Object.values({
-      filename: rec.filename,
-      caller: rec.caller,
-      callTime: rec.cdrstarttime,
-      status: playedStatus[rec.filename] ? "played" : "not played",
-    })
-      .join(" ")
-      .toLowerCase();
+  /* 🔍 FILTER LOGIC (ADDITIVE ONLY) */
+  const filteredRecordings = useMemo(() => {
+    return recordings.filter((rec) => {
+      const createdAt = new Date(rec.cdrstarttime.replace(" ", "T"));
 
-    return rowText.includes(search.toLowerCase());
-  });
+      const matchSearch =
+        search === "" ||
+        Object.values({
+          filename: rec.filename,
+          caller: rec.caller,
+          callTime: rec.cdrstarttime,
+          status: playedStatus[rec.filename] ? "played" : "not played",
+        })
+          .join(" ")
+          .toLowerCase()
+          .includes(search.toLowerCase());
+
+      const matchCaller = callerFilter
+        ? rec.caller?.toLowerCase().includes(callerFilter.toLowerCase())
+        : true;
+
+      const matchStatus =
+        statusFilter === ""
+          ? true
+          : statusFilter === "played"
+          ? playedStatus[rec.filename]
+          : !playedStatus[rec.filename];
+
+      const matchFromDate = fromDate
+        ? createdAt >= new Date(fromDate)
+        : true;
+
+      const matchToDate = toDate
+        ? createdAt <= new Date(toDate + "T23:59:59")
+        : true;
+
+      return (
+        matchSearch &&
+        matchCaller &&
+        matchStatus &&
+        matchFromDate &&
+        matchToDate
+      );
+    });
+  }, [
+    recordings,
+    search,
+    callerFilter,
+    statusFilter,
+    fromDate,
+    toDate,
+    playedStatus,
+  ]);
 
   /* PAGINATION */
   const indexOfLast = currentPage * rowsPerPage;
@@ -148,11 +191,11 @@ const RecordedAudio = () => {
     <div className="recording-container">
       <h2 className="recording-title">Recorded Calls</h2>
 
-      {/* 🔍 SEARCH + EXPORT */}
+      {/* 🔍 FILTERS */}
       <div className="recording-controls">
         <input
           type="text"
-          placeholder="Search by filename, caller, date, status…"
+          placeholder="Global search…"
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
@@ -161,17 +204,57 @@ const RecordedAudio = () => {
           className="recording-search"
         />
 
+        <input
+          type="text"
+          placeholder="Caller"
+          value={callerFilter}
+          onChange={(e) => {
+            setCallerFilter(e.target.value);
+            setCurrentPage(1);
+          }}
+        />
+
+        <select
+          value={statusFilter}
+          onChange={(e) => {
+            setStatusFilter(e.target.value);
+            setCurrentPage(1);
+          }}
+        >
+          <option value="">All Status</option>
+          <option value="played">Played</option>
+          <option value="unplayed">Not Played</option>
+        </select>
+
+        <input
+          type="date"
+          value={fromDate}
+          onChange={(e) => {
+            setFromDate(e.target.value);
+            setCurrentPage(1);
+          }}
+        />
+
+        <input
+          type="date"
+          value={toDate}
+          onChange={(e) => {
+            setToDate(e.target.value);
+            setCurrentPage(1);
+          }}
+        />
+
         <div className="recording-export">
           <button onClick={exportCSV} className="btn btn-export">
-            ⬇ Export CSV
+            ⬇ CSV
           </button>
           <button onClick={exportPDF} className="btn btn-export">
-            ⬇ Export PDF
+            ⬇ PDF
           </button>
         </div>
       </div>
 
-      {/* 🎧 GLOBAL AUDIO PLAYER */}
+      {/* 🎧 AUDIO PLAYER */}
       {currentRec && (
         <div className="audio-player">
           <strong>Now Playing:</strong> {currentRec.filename}
