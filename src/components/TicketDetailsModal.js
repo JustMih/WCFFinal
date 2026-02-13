@@ -3844,6 +3844,13 @@ export default function TicketDetailsModal({
                     {selectedTicket.requester || "N/A"}
                   </Typography>
                 </div>
+                {selectedTicket.claim_number && (
+                  <div style={{ flex: "1 1 45%" }}>
+                    <Typography>
+                      <strong>Claim Number:</strong> {selectedTicket.claim_number || "N/A"}
+                    </Typography>
+                  </div>
+                )}
                 <div style={{ flex: "1 1 45%" }}>
                   <Typography>
                     <strong>Rated:</strong>{" "}
