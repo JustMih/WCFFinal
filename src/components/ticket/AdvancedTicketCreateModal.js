@@ -1849,6 +1849,21 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
           claimNumber: ""
         });
         
+        // Reset all form-related state
+        setFormErrors({});
+        setSelectedClaimIndex(0);
+        setSearchSuggestions([]);
+        setInputValue("");
+        setSelectedFunction("");
+        setSelectedSection("");
+        setInstitutionSearch("");
+        setInstitutionSuggestions([]);
+        setHistorySearch("");
+        setTicketNumberSearch("");
+        setTicketNumberSearchResults([]);
+        setCreationFoundTickets([]);
+        setCreationActiveTicketId(null);
+        
         // Reset search state
         resetSearch();
         
