@@ -288,6 +288,7 @@ const defaultFormData = {
   requesterAddress: "",
   relationshipToEmployee: "",
   dependents: [],
+  is_new_registration: false, // Flag to identify new registration
 };
 
 // Sample data for regions and districts
@@ -562,7 +563,7 @@ const districtsData = {
   ]
 };
 
-function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber = "", functionData = [] }) {
+function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber = "", functionData = [], onSuccess }) {
   // Debug functionData prop
   useEffect(() => {
     console.log("AdvancedTicketCreateModal - functionData received:", functionData);
@@ -989,7 +990,9 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
         requesterPhoneNumber: prev.phoneNumber || callPhoneNumber || "",
         requesterEmail: "",
         requesterAddress: "",
-        relationshipToEmployee: ""
+        relationshipToEmployee: "",
+        // Mark as new registration
+        is_new_registration: true
       }));
     } else if (type === "employee") {
       setFormData(prev => ({
@@ -1009,7 +1012,9 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
         requesterPhoneNumber: "",
         requesterEmail: "",
         requesterAddress: "",
-        relationshipToEmployee: ""
+        relationshipToEmployee: "",
+        // Mark as new registration
+        is_new_registration: true
       }));
     }
   };
@@ -1051,6 +1056,8 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
       claimNumber: "",
       // Clear dependents
       dependents: [],
+      // Reset new registration flag
+      is_new_registration: false,
       // Clear representative fields
       requesterName: "",
       requesterPhoneNumber: "",
@@ -1712,6 +1719,10 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
       // Get claim information from selected claim or fallback
       const claimId = selectedClaim?.claim_number || selectedSuggestion?.claimId || formData.claimNumber || null;
       const notificationReportId = selectedClaim?.notification_report_id || formData.notification_report_id || null;
+      
+      // Get the active/selected claim number (the one user selected via selectedClaimIndex)
+      // This is the claim number that should be saved to the ticket
+      const activeClaimNumber = selectedClaim?.claim_number || null;
 
       const ticketData = {
         ...formData,
@@ -1725,7 +1736,8 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
         shouldClose: action === "closed",
         // Add claim number for routing decision (use selected claim)
         claimId: claimId,
-        claimNumber: selectedClaim?.claim_number || formData.claimNumber || claimId || "",
+        // Save the active/selected claim number (the one user selected)
+        claimNumber: activeClaimNumber || "",
         notification_report_id: notificationReportId,
         // Add routing information for backend
         hasClaim: Boolean(claimId),
@@ -1785,6 +1797,12 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
       console.log("- Is empty:", ticketData.phoneNumber === "");
       console.log("- Is null:", ticketData.phoneNumber === null);
       console.log("- Is undefined:", ticketData.phoneNumber === undefined);
+      
+      // Debug new registration flag
+      console.log("🔍 FRONTEND NEW REGISTRATION DEBUG:");
+      console.log("- formData.is_new_registration:", formData.is_new_registration);
+      console.log("- ticketData.is_new_registration:", ticketData.is_new_registration);
+      console.log("- Type:", typeof ticketData.is_new_registration);
       
       if (formData.requester === "Employer") {
         ticketData.employerRegistrationNumber = formData.nidaNumber;
@@ -1846,11 +1864,32 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
           allocated_user_username: "",
           allocated_user_name: "",
           allocated_user_id: "",
-          claimNumber: ""
+          claimNumber: "",
+          is_new_registration: false
         });
+        
+        // Reset all form-related state
+        setFormErrors({});
+        setSelectedClaimIndex(0);
+        setSearchSuggestions([]);
+        setInputValue("");
+        setSelectedFunction("");
+        setSelectedSection("");
+        setInstitutionSearch("");
+        setInstitutionSuggestions([]);
+        setHistorySearch("");
+        setTicketNumberSearch("");
+        setTicketNumberSearchResults([]);
+        setCreationFoundTickets([]);
+        setCreationActiveTicketId(null);
         
         // Reset search state
         resetSearch();
+        
+        // Call onSuccess callback if provided (to refresh dashboard/tickets)
+        if (onSuccess) {
+          onSuccess(data);
+        }
         
         // Close the modal after a short delay to show success message
         setTimeout(() => {

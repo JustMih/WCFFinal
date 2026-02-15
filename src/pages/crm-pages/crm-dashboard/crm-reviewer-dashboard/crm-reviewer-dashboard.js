@@ -2077,6 +2077,11 @@ export default function ReviewerDashboard() {
         onOpen={() => setShowAdvancedTicketModal(true)}
         functionData={functionData}
         initialPhoneNumber={phoneSearch}
+        onSuccess={() => {
+          // Refresh tickets and dashboard counts after successful ticket creation
+          fetchTickets();
+          fetchDashboardCounts(userId);
+        }}
       />
 
       {/* TicketDetailsModal */}

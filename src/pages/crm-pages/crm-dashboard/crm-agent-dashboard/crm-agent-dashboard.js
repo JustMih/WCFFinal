@@ -2770,6 +2770,7 @@ const AgentCRM = () => {
                     ["Requester", selectedTicket.requester || "N/A"],
                     ["Region", selectedTicket.region || "N/A"],
                     ["Channel", selectedTicket.channel || "N/A"],
+                    ...(selectedTicket.claim_number ? [["Claim Number", selectedTicket.claim_number]] : []),
                     ["Section", selectedTicket.responsible_unit_name || "Unit"],
                     ["Sub-section", selectedTicket.sub_section || "N/A"],
                     ["Subject", selectedTicket.subject || "N/A"],
@@ -3855,6 +3856,11 @@ const AgentCRM = () => {
         onOpen={() => setShowAdvancedTicketModal(true)}
         initialPhoneNumber={ticketPhoneNumber}
         functionData={functionData}
+        onSuccess={() => {
+          // Refresh tickets after successful ticket creation
+          fetchCustomerTickets();
+          fetchDashboardData(userId, token);
+        }}
       />
 
     </div>
