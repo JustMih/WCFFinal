@@ -17,7 +17,6 @@ import {
   CardContent,
   Typography,
   CircularProgress,
-  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -31,12 +30,10 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import {
-  FileDownload,
   PictureAsPdf,
   TableChart,
   Refresh,
   Search,
-  FilterList,
   ViewColumn,
 } from "@mui/icons-material";
 import "./comprehensiveReports.css";
@@ -50,13 +47,15 @@ const REPORT_TYPES = {
   IVR_INTERACTIONS: 5,
   TICKET_ASSIGNMENTS: 6,
   MISSED_CALL: 7,
+  ESCALLATION: 8,
+  NOTIFICATIONS: 9,
+  CHATS: 10,
 };
 
 export default function ComprehensiveReports() {
   const [activeTab, setActiveTab] = useState(0);
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [reportsPerPage] = useState(10);
@@ -91,7 +90,6 @@ export default function ComprehensiveReports() {
 
   const fetchReports = async () => {
     setLoading(true);
-    setError(null);
     try {
       let endpoint = "";
       const headers = {
@@ -157,6 +155,217 @@ export default function ComprehensiveReports() {
           setLoading(false);
           return;
         }
+        case REPORT_TYPES.ESCALLATION: {
+          const userId = localStorage.getItem("userId");
+          if (!userId) {
+            throw new Error("User not authenticated. Please log in.");
+          }
+          
+          // Fetch escalated/overdue tickets
+          const escalationRes = await fetch(`${baseURL}/ticket/overdue/${userId}`, { headers });
+          if (!escalationRes.ok) {
+            const errorData = await escalationRes.json().catch(() => ({}));
+            // If 404 with "No escalated tickets found" or "User not found", return empty array
+            if (escalationRes.status === 404) {
+              const errorMessage = errorData.message || "";
+              if (errorMessage.includes("No escalated tickets") || errorMessage.includes("User not found")) {
+                setReports([]);
+                setLoading(false);
+                return;
+              }
+              // If it's a different 404 (route not found), show error
+              throw new Error(errorData.message || "Escalation endpoint not found. Please ensure the server is running.");
+            }
+            throw new Error(errorData.message || "Failed to fetch escalated tickets");
+          }
+          const escalationData = await escalationRes.json();
+          
+          // Handle different response structures
+          let list = [];
+          if (escalationData.assignments && Array.isArray(escalationData.assignments)) {
+            // Response structure: { assignments: [...] }
+            list = escalationData.assignments.map(item => {
+              const ticket = item.ticket || {};
+              return {
+                ...ticket,
+                assignment_id: item.id,
+                escalated_at: ticket.created_at || ticket.updated_at || item.created_at,
+                // Flatten assignment data
+                assigned_to_name: ticket.assignee?.full_name || ticket.assigned_to_name,
+                assigned_to_id: ticket.assignee?.id || ticket.assigned_to_id,
+              };
+            });
+          } else if (escalationData.tickets && Array.isArray(escalationData.tickets)) {
+            // Response structure: { tickets: [...] }
+            list = escalationData.tickets;
+          } else if (Array.isArray(escalationData)) {
+            // Response is directly an array
+            list = escalationData;
+          } else if (escalationData.escalatedFrom && Array.isArray(escalationData.escalatedFrom)) {
+            // Alternative response structure
+            list = escalationData.escalatedFrom.map(item => ({
+              ...item.ticket,
+              escalated_at: item.created_at,
+            }));
+          }
+          
+          // Filter by date range if provided
+          if (startDate || endDate) {
+            list = list.filter((item) => {
+              const itemDate = item.created_at || item.escalated_at;
+              if (!itemDate) return false;
+              const dateStr = new Date(itemDate).toISOString().split("T")[0];
+              if (startDate && dateStr < startDate) return false;
+              if (endDate && dateStr > endDate) return false;
+              return true;
+            });
+          }
+          
+          list.sort((a, b) => {
+            const dateA = new Date(a.created_at || a.escalated_at || 0).getTime();
+            const dateB = new Date(b.created_at || b.escalated_at || 0).getTime();
+            return dateB - dateA;
+          });
+          
+          setReports(list);
+          setLoading(false);
+          return;
+        }
+        case REPORT_TYPES.NOTIFICATIONS: {
+          const userId = localStorage.getItem("userId");
+          if (!userId) {
+            throw new Error("User not authenticated. Please log in.");
+          }
+          
+          // Try the all endpoint first (returns all notifications - read and unread)
+          let notificationsRes;
+          let notificationsData;
+          let list = [];
+          
+          try {
+            // Build query parameters for date filtering
+            const params = new URLSearchParams();
+            if (startDate) params.set("startDate", startDate);
+            if (endDate) params.set("endDate", endDate);
+            const queryString = params.toString() ? `?${params.toString()}` : "";
+            
+            // Try the /all endpoint first
+            notificationsRes = await fetch(`${baseURL}/notifications/user-all/${userId}`, { headers });
+            
+            if (notificationsRes.ok) {
+              notificationsData = await notificationsRes.json();
+              // Handle response structure - could be { notifications: [...] } or just [...]
+              if (notificationsData.notifications && Array.isArray(notificationsData.notifications)) {
+                list = notificationsData.notifications;
+              } else if (Array.isArray(notificationsData)) {
+                list = notificationsData;
+              }
+            } else {
+              // If /all endpoint doesn't exist (404), fallback to /user endpoint and fetch all
+              console.warn("All notifications endpoint not found, fetching from user endpoint...");
+              const userRes = await fetch(`${baseURL}/notifications/user/${userId}`, { headers });
+              if (!userRes.ok) {
+                const errorData = await userRes.json().catch(() => ({}));
+                throw new Error(errorData.message || "Failed to fetch notifications");
+              }
+              const userData = await userRes.json();
+              if (userData.notifications && Array.isArray(userData.notifications)) {
+                list = userData.notifications;
+              } else if (Array.isArray(userData)) {
+                list = userData;
+              }
+            }
+          } catch (error) {
+            console.error("Error fetching notifications:", error);
+            throw new Error(error.message || "Failed to fetch notifications");
+          }
+          
+          // Filter by date range if provided (in case backend didn't filter)
+          if (startDate || endDate) {
+            list = list.filter((notification) => {
+              if (!notification.created_at) return false;
+              const notificationDate = new Date(notification.created_at).toISOString().split("T")[0];
+              if (startDate && notificationDate < startDate) return false;
+              if (endDate && notificationDate > endDate) return false;
+              return true;
+            });
+          }
+          
+          // Sort by created_at descending (already sorted by backend, but ensure it)
+          list.sort((a, b) => {
+            const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+            const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+            return dateB - dateA;
+          });
+          
+          setReports(list);
+          setLoading(false);
+          return;
+        }
+        case REPORT_TYPES.CHATS: {
+          const userId = localStorage.getItem("userId");
+          if (!userId) {
+            throw new Error("User not authenticated. Please log in.");
+          }
+          // Fetch all conversations first
+          const conversationsRes = await fetch(`${baseURL}/users/conversations/${userId}`, { headers });
+          if (!conversationsRes.ok) {
+            throw new Error("Failed to fetch conversations");
+          }
+          const conversationsData = await conversationsRes.json();
+          // Handle response structure - could be { conversations: [...] } or just [...]
+          let conversations = [];
+          if (conversationsData.conversations && Array.isArray(conversationsData.conversations)) {
+            conversations = conversationsData.conversations;
+          } else if (Array.isArray(conversationsData)) {
+            conversations = conversationsData;
+          }
+          
+          // Fetch messages for each conversation
+          const allMessages = [];
+          for (const conv of conversations) {
+            const otherUserId = conv.userId === userId ? conv.otherUserId : conv.userId;
+            if (!otherUserId) continue; // Skip if no other user ID
+            
+            try {
+              const messagesRes = await fetch(`${baseURL}/users/messages/${userId}/${otherUserId}`, { headers });
+              if (messagesRes.ok) {
+                const messagesData = await messagesRes.json();
+                const messages = Array.isArray(messagesData) ? messagesData : [];
+                // Add all messages (read and unread) to the list
+                allMessages.push(...messages.map(msg => ({
+                  ...msg,
+                  otherUserId: otherUserId,
+                  otherUserName: conv.name || conv.full_name || otherUserId,
+                })));
+              }
+            } catch (err) {
+              console.error(`Error fetching messages for conversation with ${otherUserId}:`, err);
+            }
+          }
+          
+          // Filter by date range if provided
+          let filteredMessages = allMessages;
+          if (startDate || endDate) {
+            filteredMessages = allMessages.filter((msg) => {
+              if (!msg.createdAt && !msg.timestamp) return false;
+              const msgDate = new Date(msg.createdAt || msg.timestamp).toISOString().split("T")[0];
+              if (startDate && msgDate < startDate) return false;
+              if (endDate && msgDate > endDate) return false;
+              return true;
+            });
+          }
+          
+          filteredMessages.sort((a, b) => {
+            const dateA = new Date(a.createdAt || a.timestamp || 0).getTime();
+            const dateB = new Date(b.createdAt || b.timestamp || 0).getTime();
+            return dateB - dateA;
+          });
+          
+          setReports(filteredMessages);
+          setLoading(false);
+          return;
+        }
         default:
           throw new Error("Invalid report type");
       }
@@ -182,7 +391,6 @@ export default function ComprehensiveReports() {
         calculateCallStats(data);
       }
     } catch (error) {
-      setError(error.message);
       setSnackbarMessage(error.message || "Error loading reports.");
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
@@ -508,6 +716,45 @@ export default function ComprehensiveReports() {
           { key: "agentId", label: "Assigned Agent", default: true },
           { key: "status", label: "Status", default: true },
         ];
+      case REPORT_TYPES.ESCALLATION:
+        return [
+          { key: "serial", label: "Serial No", default: true },
+          { key: "ticketNumber", label: "Ticket #", default: true },
+          { key: "subject", label: "Subject", default: true },
+          { key: "status", label: "Status", default: true },
+          { key: "category", label: "Category", default: true },
+          { key: "assignedTo", label: "Assigned To", default: true },
+          { key: "escalatedAt", label: "Escalated At", default: true },
+          { key: "createdAt", label: "Created At", default: false },
+          { key: "description", label: "Description", default: false },
+        ];
+      case REPORT_TYPES.NOTIFICATIONS:
+        return [
+          { key: "serial", label: "Serial No", default: true },
+          { key: "ticketNumber", label: "Ticket #", default: true },
+          { key: "ticketSubject", label: "Ticket Subject", default: true },
+          { key: "message", label: "Message", default: true },
+          { key: "comment", label: "Comment", default: true },
+          { key: "channel", label: "Channel", default: true },
+          { key: "status", label: "Status", default: true },
+          { key: "category", label: "Category", default: false },
+          { key: "ticketStatus", label: "Ticket Status", default: false },
+          { key: "ticketCategory", label: "Ticket Category", default: false },
+          { key: "createdAt", label: "Created At", default: true },
+          { key: "updatedAt", label: "Updated At", default: false },
+        ];
+      case REPORT_TYPES.CHATS:
+        return [
+          { key: "serial", label: "Serial No", default: true },
+          { key: "sender", label: "Sender", default: true },
+          { key: "receiver", label: "Receiver", default: true },
+          { key: "message", label: "Message", default: true },
+          { key: "status", label: "Status", default: true },
+          { key: "isRead", label: "Read", default: true },
+          { key: "timestamp", label: "Timestamp", default: true },
+          { key: "deliveredAt", label: "Delivered At", default: false },
+          { key: "readAt", label: "Read At", default: false },
+        ];
       default:
         return [];
     }
@@ -611,6 +858,35 @@ export default function ComprehensiveReports() {
           (report.caller || "").toLowerCase().includes(searchLower) ||
           (report.agentId || "").toLowerCase().includes(searchLower) ||
           (report.agent_name || "").toLowerCase().includes(searchLower)
+        );
+      case REPORT_TYPES.ESCALLATION:
+        return (
+          (report.ticket_id || "").toLowerCase().includes(searchLower) ||
+          (report.ticket_number || "").toLowerCase().includes(searchLower) ||
+          (report.subject || "").toLowerCase().includes(searchLower) ||
+          (report.status || "").toLowerCase().includes(searchLower) ||
+          (report.category || "").toLowerCase().includes(searchLower) ||
+          (report.assignee?.full_name || "").toLowerCase().includes(searchLower) ||
+          (report.assigned_to_name || "").toLowerCase().includes(searchLower)
+        );
+      case REPORT_TYPES.NOTIFICATIONS:
+        return (
+          (report.ticket?.ticket_id || "").toLowerCase().includes(searchLower) ||
+          (report.ticket_id || "").toLowerCase().includes(searchLower) ||
+          (report.ticket?.subject || "").toLowerCase().includes(searchLower) ||
+          (report.message || "").toLowerCase().includes(searchLower) ||
+          (report.comment || "").toLowerCase().includes(searchLower) ||
+          (report.channel || "").toLowerCase().includes(searchLower) ||
+          (report.status || "").toLowerCase().includes(searchLower)
+        );
+      case REPORT_TYPES.CHATS:
+        return (
+          (report.senderId || "").toLowerCase().includes(searchLower) ||
+          (report.receiverId || "").toLowerCase().includes(searchLower) ||
+          (report.otherUserId || "").toLowerCase().includes(searchLower) ||
+          (report.otherUserName || "").toLowerCase().includes(searchLower) ||
+          (report.message || "").toLowerCase().includes(searchLower) ||
+          (report.status || "").toLowerCase().includes(searchLower)
         );
       default:
         return true;
@@ -1006,6 +1282,95 @@ export default function ComprehensiveReports() {
           default:
             return report[columnKey] || "-";
         }
+      case REPORT_TYPES.ESCALLATION:
+        switch (columnKey) {
+          case "serial":
+            return index + 1;
+          case "ticketNumber":
+            return report.ticket_id || report.ticket_number || "-";
+          case "subject":
+            return report.subject || "-";
+          case "status":
+            return report.status || "-";
+          case "category":
+            return report.category || "-";
+          case "assignedTo":
+            return report.assignee?.full_name || report.assigned_to_name || "-";
+          case "escalatedAt":
+            return report.escalated_at || report.updated_at
+              ? new Date(report.escalated_at || report.updated_at).toLocaleString()
+              : "-";
+          case "createdAt":
+            return report.created_at
+              ? new Date(report.created_at).toLocaleString()
+              : "-";
+          case "description":
+            return report.description || "-";
+          default:
+            return report[columnKey] || "-";
+        }
+      case REPORT_TYPES.NOTIFICATIONS:
+        switch (columnKey) {
+          case "serial":
+            return index + 1;
+          case "ticketNumber":
+            return report.ticket?.ticket_id || report.ticket_id || "-";
+          case "ticketSubject":
+            return report.ticket?.subject || "-";
+          case "message":
+            return report.message || "-";
+          case "comment":
+            return report.comment || "-";
+          case "channel":
+            return report.channel || "-";
+          case "status":
+            return report.status || "-";
+          case "category":
+            return report.category || "-";
+          case "ticketStatus":
+            return report.ticket?.status || "-";
+          case "ticketCategory":
+            return report.ticket?.category || "-";
+          case "createdAt":
+            return report.created_at
+              ? new Date(report.created_at).toLocaleString()
+              : "-";
+          case "updatedAt":
+            return report.updated_at
+              ? new Date(report.updated_at).toLocaleString()
+              : "-";
+          default:
+            return report[columnKey] || "-";
+        }
+      case REPORT_TYPES.CHATS:
+        switch (columnKey) {
+          case "serial":
+            return index + 1;
+          case "sender":
+            return report.senderId || "-";
+          case "receiver":
+            return report.receiverId || report.otherUserId || "-";
+          case "message":
+            return report.message || "-";
+          case "status":
+            return report.status || "sent";
+          case "isRead":
+            return report.isRead ? "Yes" : "No";
+          case "timestamp":
+            return report.createdAt || report.timestamp
+              ? new Date(report.createdAt || report.timestamp).toLocaleString()
+              : "-";
+          case "deliveredAt":
+            return report.deliveredAt
+              ? new Date(report.deliveredAt).toLocaleString()
+              : "-";
+          case "readAt":
+            return report.readAt
+              ? new Date(report.readAt).toLocaleString()
+              : "-";
+          default:
+            return report[columnKey] || "-";
+        }
       default:
         return "-";
     }
@@ -1311,6 +1676,9 @@ export default function ComprehensiveReports() {
       [REPORT_TYPES.IVR_INTERACTIONS]: "IVR Interactions Report",
       [REPORT_TYPES.TICKET_ASSIGNMENTS]: "Ticket Assignments Report",
       [REPORT_TYPES.MISSED_CALL]: "Missed Call Report",
+      [REPORT_TYPES.ESCALLATION]: "Escallation Report",
+      [REPORT_TYPES.NOTIFICATIONS]: "Notification Report",
+      [REPORT_TYPES.CHATS]: "Chats Report",
     };
     return titles[activeTab] || "Report";
   };
@@ -1432,6 +1800,12 @@ export default function ComprehensiveReports() {
         return renderTicketAssignmentsTable();
       case REPORT_TYPES.MISSED_CALL:
         return renderMissedCallTable();
+      case REPORT_TYPES.ESCALLATION:
+        return renderEscallationTable();
+      case REPORT_TYPES.NOTIFICATIONS:
+        return renderNotificationsTable();
+      case REPORT_TYPES.CHATS:
+        return renderChatsTable();
       default:
         return null;
     }
@@ -1481,6 +1855,270 @@ export default function ComprehensiveReports() {
       </tbody>
     </table>
   );
+
+  const renderEscallationTable = () => {
+    const columns = getColumnDefinitions();
+    const selected = selectedColumns[activeTab] || [];
+    const selectedColumnsDef = columns.filter((col) =>
+      selected.includes(col.key)
+    );
+
+    return (
+      <table className="report-table">
+        <thead>
+          <tr>
+            {selectedColumnsDef.map((col) => (
+              <th key={col.key}>{col.label}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {currentReports.map((report, index) => (
+            <tr key={report.id || index}>
+              {selectedColumnsDef.map((col) => {
+                const value = getColumnValue(col.key, report, index);
+                if (col.key === "status") {
+                  return (
+                    <td key={col.key}>
+                      <Chip
+                        label={value}
+                        size="small"
+                        color={
+                          value === "Escalated"
+                            ? "error"
+                            : value === "Closed"
+                            ? "success"
+                            : "warning"
+                        }
+                      />
+                    </td>
+                  );
+                }
+                if (col.key === "category") {
+                  return (
+                    <td key={col.key}>
+                      <Chip
+                        label={value}
+                        size="small"
+                        color={
+                          value === "Complaint"
+                            ? "error"
+                            : value === "Inquiry"
+                            ? "info"
+                            : "default"
+                        }
+                      />
+                    </td>
+                  );
+                }
+                if (col.key === "subject") {
+                  return (
+                    <td key={col.key} className="subject-cell">
+                      {value}
+                    </td>
+                  );
+                }
+                if (col.key === "description") {
+                  return (
+                    <td
+                      key={col.key}
+                      style={{ maxWidth: "300px", wordWrap: "break-word" }}
+                    >
+                      {value}
+                    </td>
+                  );
+                }
+                return <td key={col.key}>{value}</td>;
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  };
+
+  const renderNotificationsTable = () => {
+    const columns = getColumnDefinitions();
+    const selected = selectedColumns[activeTab] || [];
+    const selectedColumnsDef = columns.filter((col) =>
+      selected.includes(col.key)
+    );
+
+    return (
+      <table className="report-table">
+        <thead>
+          <tr>
+            {selectedColumnsDef.map((col) => (
+              <th key={col.key}>{col.label}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {currentReports.map((report, index) => (
+            <tr key={report.id || index}>
+              {selectedColumnsDef.map((col) => {
+                const value = getColumnValue(col.key, report, index);
+                if (col.key === "status") {
+                  return (
+                    <td key={col.key}>
+                      <Chip
+                        label={value}
+                        size="small"
+                        color={
+                          value === "read"
+                            ? "default"
+                            : value === "unread"
+                            ? "warning"
+                            : "info"
+                        }
+                      />
+                    </td>
+                  );
+                }
+                if (col.key === "channel") {
+                  return (
+                    <td key={col.key}>
+                      <Chip
+                        label={value}
+                        size="small"
+                        color={
+                          value === "email"
+                            ? "primary"
+                            : value === "sms"
+                            ? "secondary"
+                            : "default"
+                        }
+                      />
+                    </td>
+                  );
+                }
+                if (col.key === "ticketStatus") {
+                  return (
+                    <td key={col.key}>
+                      <Chip
+                        label={value}
+                        size="small"
+                        color={
+                          value === "Closed"
+                            ? "success"
+                            : value === "Open"
+                            ? "error"
+                            : "warning"
+                        }
+                      />
+                    </td>
+                  );
+                }
+                if (col.key === "ticketCategory") {
+                  return (
+                    <td key={col.key}>
+                      <Chip
+                        label={value}
+                        size="small"
+                        color={
+                          value === "Complaint"
+                            ? "error"
+                            : value === "Inquiry"
+                            ? "info"
+                            : "default"
+                        }
+                      />
+                    </td>
+                  );
+                }
+                if (col.key === "ticketSubject") {
+                  return (
+                    <td key={col.key} className="subject-cell">
+                      {value}
+                    </td>
+                  );
+                }
+                if (col.key === "message" || col.key === "comment") {
+                  return (
+                    <td
+                      key={col.key}
+                      style={{ maxWidth: "300px", wordWrap: "break-word" }}
+                    >
+                      {value}
+                    </td>
+                  );
+                }
+                return <td key={col.key}>{value}</td>;
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  };
+
+  const renderChatsTable = () => {
+    const columns = getColumnDefinitions();
+    const selected = selectedColumns[activeTab] || [];
+    const selectedColumnsDef = columns.filter((col) =>
+      selected.includes(col.key)
+    );
+
+    return (
+      <table className="report-table">
+        <thead>
+          <tr>
+            {selectedColumnsDef.map((col) => (
+              <th key={col.key}>{col.label}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {currentReports.map((report, index) => (
+            <tr key={report.id || index}>
+              {selectedColumnsDef.map((col) => {
+                const value = getColumnValue(col.key, report, index);
+                if (col.key === "status") {
+                  return (
+                    <td key={col.key}>
+                      <Chip
+                        label={value}
+                        size="small"
+                        color={
+                          value === "delivered"
+                            ? "success"
+                            : value === "sent"
+                            ? "info"
+                            : "default"
+                        }
+                      />
+                    </td>
+                  );
+                }
+                if (col.key === "isRead") {
+                  return (
+                    <td key={col.key}>
+                      <Chip
+                        label={value}
+                        size="small"
+                        color={value === "Yes" ? "success" : "warning"}
+                      />
+                    </td>
+                  );
+                }
+                if (col.key === "message") {
+                  return (
+                    <td
+                      key={col.key}
+                      style={{ maxWidth: "300px", wordWrap: "break-word" }}
+                    >
+                      {value}
+                    </td>
+                  );
+                }
+                return <td key={col.key}>{value}</td>;
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  };
 
   const renderVoiceNoteTable = () => (
     <table className="report-table">
@@ -1937,6 +2575,9 @@ export default function ComprehensiveReports() {
           <Tab label="IVR Interactions" />
           <Tab label="Ticket Assignments" />
           <Tab label="Missed Call Report" />
+          <Tab label="Escallation" />
+          <Tab label="Notifications" />
+          <Tab label="Chats" />
         </Tabs>
       </Box>
 
@@ -2112,6 +2753,9 @@ export default function ComprehensiveReports() {
                   loading ||
                   (activeTab !== REPORT_TYPES.IVR_INTERACTIONS &&
                     activeTab !== REPORT_TYPES.MISSED_CALL &&
+                    activeTab !== REPORT_TYPES.ESCALLATION &&
+                    activeTab !== REPORT_TYPES.NOTIFICATIONS &&
+                    activeTab !== REPORT_TYPES.CHATS &&
                     (!startDate || !endDate))
                 }
               >
@@ -2162,6 +2806,12 @@ export default function ComprehensiveReports() {
                   ? "Search by agent name..."
                   : activeTab === REPORT_TYPES.MISSED_CALL
                   ? "Search by caller or agent ID..."
+                  : activeTab === REPORT_TYPES.ESCALLATION
+                  ? "Search by ticket number, subject, status, or category..."
+                  : activeTab === REPORT_TYPES.NOTIFICATIONS
+                  ? "Search by ticket number, subject, message, or comment..."
+                  : activeTab === REPORT_TYPES.CHATS
+                  ? "Search by sender, receiver, or message..."
                   : "Search..."
               }
               value={search}
