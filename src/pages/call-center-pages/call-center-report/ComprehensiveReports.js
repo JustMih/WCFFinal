@@ -250,7 +250,7 @@ export default function ComprehensiveReports() {
             const queryString = params.toString() ? `?${params.toString()}` : "";
             
             // Try the /all endpoint first
-            notificationsRes = await fetch(`${baseURL}/notifications/user-all/${userId}`, { headers });
+            notificationsRes = await fetch(`${baseURL}/notifications/user/${userId}`, { headers });
             
             if (notificationsRes.ok) {
               notificationsData = await notificationsRes.json();
