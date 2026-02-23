@@ -35,6 +35,11 @@ import {
   Refresh,
   Search,
   ViewColumn,
+  Phone,
+  PhoneCallback,
+  PhoneDisabled,
+  PhoneMissed,
+  AccessTime,
 } from "@mui/icons-material";
 import "./comprehensiveReports.css";
 
@@ -156,80 +161,56 @@ export default function ComprehensiveReports() {
           return;
         }
         case REPORT_TYPES.ESCALLATION: {
-          const userId = localStorage.getItem("userId");
-          if (!userId) {
-            throw new Error("User not authenticated. Please log in.");
-          }
-          
-          // Fetch escalated/overdue tickets
-          const escalationRes = await fetch(`${baseURL}/ticket/overdue/${userId}`, { headers });
-          if (!escalationRes.ok) {
-            const errorData = await escalationRes.json().catch(() => ({}));
-            // If 404 with "No escalated tickets found" or "User not found", return empty array
-            if (escalationRes.status === 404) {
-              const errorMessage = errorData.message || "";
-              if (errorMessage.includes("No escalated tickets") || errorMessage.includes("User not found")) {
-                setReports([]);
-                setLoading(false);
-                return;
-              }
-              // If it's a different 404 (route not found), show error
-              throw new Error(errorData.message || "Escalation endpoint not found. Please ensure the server is running.");
+          // Fetch escalation report from reports endpoint (similar to other reports)
+          try {
+            if (!startDate || !endDate) {
+              throw new Error("Start date and end date are required for escalation report");
             }
-            throw new Error(errorData.message || "Failed to fetch escalated tickets");
-          }
-          const escalationData = await escalationRes.json();
-          
-          // Handle different response structures
-          let list = [];
-          if (escalationData.assignments && Array.isArray(escalationData.assignments)) {
-            // Response structure: { assignments: [...] }
-            list = escalationData.assignments.map(item => {
-              const ticket = item.ticket || {};
-              return {
-                ...ticket,
-                assignment_id: item.id,
-                escalated_at: ticket.created_at || ticket.updated_at || item.created_at,
-                // Flatten assignment data
-                assigned_to_name: ticket.assignee?.full_name || ticket.assigned_to_name,
-                assigned_to_id: ticket.assignee?.id || ticket.assigned_to_id,
-              };
+            
+            // Use the reports endpoint for escalation report
+            const escalationRes = await fetch(
+              `${baseURL}/reports/escalation-report/${startDate}/${endDate}`,
+              { headers }
+            );
+            
+            if (!escalationRes.ok) {
+              const errorData = await escalationRes.json().catch(() => ({}));
+              // If 404 with "No escalated tickets found", return empty array
+              if (escalationRes.status === 404) {
+                const errorMessage = errorData.message || "";
+                if (errorMessage.includes("No escalated tickets")) {
+                  setReports([]);
+                  setLoading(false);
+                  return;
+                }
+              }
+              throw new Error(errorData.message || errorData.error || "Failed to fetch escalation report");
+            }
+            
+            const escalationData = await escalationRes.json();
+            
+            // Handle response structure - backend returns array of escalated tickets
+            let list = [];
+            if (Array.isArray(escalationData)) {
+              list = escalationData;
+            } else if (escalationData.escalations && Array.isArray(escalationData.escalations)) {
+              list = escalationData.escalations;
+            }
+            
+            // Sort by escalated_at or created_at descending
+            list.sort((a, b) => {
+              const dateA = new Date(a.escalated_at || a.created_at || 0).getTime();
+              const dateB = new Date(b.escalated_at || b.created_at || 0).getTime();
+              return dateB - dateA;
             });
-          } else if (escalationData.tickets && Array.isArray(escalationData.tickets)) {
-            // Response structure: { tickets: [...] }
-            list = escalationData.tickets;
-          } else if (Array.isArray(escalationData)) {
-            // Response is directly an array
-            list = escalationData;
-          } else if (escalationData.escalatedFrom && Array.isArray(escalationData.escalatedFrom)) {
-            // Alternative response structure
-            list = escalationData.escalatedFrom.map(item => ({
-              ...item.ticket,
-              escalated_at: item.created_at,
-            }));
+            
+            setReports(list);
+            setLoading(false);
+            return;
+          } catch (error) {
+            console.error("Error fetching escalation report:", error);
+            throw new Error(error.message || "Failed to fetch escalation report");
           }
-          
-          // Filter by date range if provided
-          if (startDate || endDate) {
-            list = list.filter((item) => {
-              const itemDate = item.created_at || item.escalated_at;
-              if (!itemDate) return false;
-              const dateStr = new Date(itemDate).toISOString().split("T")[0];
-              if (startDate && dateStr < startDate) return false;
-              if (endDate && dateStr > endDate) return false;
-              return true;
-            });
-          }
-          
-          list.sort((a, b) => {
-            const dateA = new Date(a.created_at || a.escalated_at || 0).getTime();
-            const dateB = new Date(b.created_at || b.escalated_at || 0).getTime();
-            return dateB - dateA;
-          });
-          
-          setReports(list);
-          setLoading(false);
-          return;
         }
         case REPORT_TYPES.NOTIFICATIONS: {
           const userId = localStorage.getItem("userId");
@@ -237,70 +218,47 @@ export default function ComprehensiveReports() {
             throw new Error("User not authenticated. Please log in.");
           }
           
-          // Try the all endpoint first (returns all notifications - read and unread)
-          let notificationsRes;
-          let notificationsData;
-          let list = [];
-          
+          // Fetch notifications report from reports endpoint (similar to other reports)
           try {
-            // Build query parameters for date filtering
-            const params = new URLSearchParams();
-            if (startDate) params.set("startDate", startDate);
-            if (endDate) params.set("endDate", endDate);
-            const queryString = params.toString() ? `?${params.toString()}` : "";
-            
-            // Try the /all endpoint first
-            notificationsRes = await fetch(`${baseURL}/notifications/user/${userId}`, { headers });
-            
-            if (notificationsRes.ok) {
-              notificationsData = await notificationsRes.json();
-              // Handle response structure - could be { notifications: [...] } or just [...]
-              if (notificationsData.notifications && Array.isArray(notificationsData.notifications)) {
-                list = notificationsData.notifications;
-              } else if (Array.isArray(notificationsData)) {
-                list = notificationsData;
-              }
-            } else {
-              // If /all endpoint doesn't exist (404), fallback to /user endpoint and fetch all
-              console.warn("All notifications endpoint not found, fetching from user endpoint...");
-              const userRes = await fetch(`${baseURL}/notifications/user/${userId}`, { headers });
-              if (!userRes.ok) {
-                const errorData = await userRes.json().catch(() => ({}));
-                throw new Error(errorData.message || "Failed to fetch notifications");
-              }
-              const userData = await userRes.json();
-              if (userData.notifications && Array.isArray(userData.notifications)) {
-                list = userData.notifications;
-              } else if (Array.isArray(userData)) {
-                list = userData;
-              }
+            if (!startDate || !endDate) {
+              throw new Error("Start date and end date are required for notifications report");
             }
-          } catch (error) {
-            console.error("Error fetching notifications:", error);
-            throw new Error(error.message || "Failed to fetch notifications");
-          }
-          
-          // Filter by date range if provided (in case backend didn't filter)
-          if (startDate || endDate) {
-            list = list.filter((notification) => {
-              if (!notification.created_at) return false;
-              const notificationDate = new Date(notification.created_at).toISOString().split("T")[0];
-              if (startDate && notificationDate < startDate) return false;
-              if (endDate && notificationDate > endDate) return false;
-              return true;
+            
+            // Use the reports endpoint for notifications report
+            const notificationsRes = await fetch(
+              `${baseURL}/reports/notification-report/${startDate}/${endDate}`,
+              { headers }
+            );
+            
+            if (!notificationsRes.ok) {
+              const errorData = await notificationsRes.json().catch(() => ({}));
+              throw new Error(errorData.message || errorData.error || "Failed to fetch notifications report");
+            }
+            
+            const notificationsData = await notificationsRes.json();
+            
+            // Handle response structure - backend returns array of notifications
+            let list = [];
+            if (Array.isArray(notificationsData)) {
+              list = notificationsData;
+            } else if (notificationsData.notifications && Array.isArray(notificationsData.notifications)) {
+              list = notificationsData.notifications;
+            }
+            
+            // Sort by created_at descending (already sorted by backend, but ensure it)
+            list.sort((a, b) => {
+              const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+              const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+              return dateB - dateA;
             });
+            
+            setReports(list);
+            setLoading(false);
+            return;
+          } catch (error) {
+            console.error("Error fetching notifications report:", error);
+            throw new Error(error.message || "Failed to fetch notifications report");
           }
-          
-          // Sort by created_at descending (already sorted by backend, but ensure it)
-          list.sort((a, b) => {
-            const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
-            const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
-            return dateB - dateA;
-          });
-          
-          setReports(list);
-          setLoading(false);
-          return;
         }
         case REPORT_TYPES.CHATS: {
           const userId = localStorage.getItem("userId");
@@ -1706,52 +1664,83 @@ export default function ComprehensiveReports() {
       return null;
     }
 
+    const totalCalls = summaryStats.total || 0;
+    const answeredPercentage = totalCalls > 0 ? Math.round((summaryStats.answered / totalCalls) * 100) : 0;
+    const noAnswerPercentage = totalCalls > 0 ? Math.round((summaryStats.noAnswer / totalCalls) * 100) : 0;
+    const busyPercentage = totalCalls > 0 ? Math.round((summaryStats.busy / totalCalls) * 100) : 0;
+
+    const formatDuration = (seconds) => {
+      if (!seconds || seconds === 0) return "0s";
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      if (mins > 0) {
+        return `${mins}m ${secs}s`;
+      }
+      return `${secs}s`;
+    };
+
     return (
       <div className="summary-cards-container">
-        <Card className="summary-card">
-          <CardContent>
-            <Typography color="textSecondary" gutterBottom>
-              Total Calls
-            </Typography>
-            <Typography variant="h4">{summaryStats.total}</Typography>
+        <Card className="summary-card summary-card-total">
+          <CardContent className="summary-card-content">
+            <div className="summary-card-icon">
+              <Phone />
+            </div>
+            <div className="summary-card-info">
+              <Typography className="summary-card-label">Total Calls</Typography>
+              <Typography className="summary-card-value">{summaryStats.total.toLocaleString()}</Typography>
+            </div>
           </CardContent>
         </Card>
-        <Card className="summary-card">
-          <CardContent>
-            <Typography color="textSecondary" gutterBottom>
-              Answered
-            </Typography>
-            <Typography variant="h4" style={{ color: "#4caf50" }}>
-              {summaryStats.answered}
-            </Typography>
+
+        <Card className="summary-card summary-card-answered">
+          <CardContent className="summary-card-content">
+            <div className="summary-card-icon">
+              <PhoneCallback />
+            </div>
+            <div className="summary-card-info">
+              <Typography className="summary-card-label">Answered</Typography>
+              <Typography className="summary-card-value">{summaryStats.answered.toLocaleString()}</Typography>
+              <Typography className="summary-card-percentage">{answeredPercentage}%</Typography>
+            </div>
           </CardContent>
         </Card>
-        <Card className="summary-card">
-          <CardContent>
-            <Typography color="textSecondary" gutterBottom>
-              No Answer
-            </Typography>
-            <Typography variant="h4" style={{ color: "#ff9800" }}>
-              {summaryStats.noAnswer}
-            </Typography>
+
+        <Card className="summary-card summary-card-no-answer">
+          <CardContent className="summary-card-content">
+            <div className="summary-card-icon">
+              <PhoneMissed />
+            </div>
+            <div className="summary-card-info">
+              <Typography className="summary-card-label">No Answer</Typography>
+              <Typography className="summary-card-value">{summaryStats.noAnswer.toLocaleString()}</Typography>
+              <Typography className="summary-card-percentage">{noAnswerPercentage}%</Typography>
+            </div>
           </CardContent>
         </Card>
-        <Card className="summary-card">
-          <CardContent>
-            <Typography color="textSecondary" gutterBottom>
-              Busy
-            </Typography>
-            <Typography variant="h4" style={{ color: "#f44336" }}>
-              {summaryStats.busy}
-            </Typography>
+
+        <Card className="summary-card summary-card-busy">
+          <CardContent className="summary-card-content">
+            <div className="summary-card-icon">
+              <PhoneDisabled />
+            </div>
+            <div className="summary-card-info">
+              <Typography className="summary-card-label">Busy</Typography>
+              <Typography className="summary-card-value">{summaryStats.busy.toLocaleString()}</Typography>
+              <Typography className="summary-card-percentage">{busyPercentage}%</Typography>
+            </div>
           </CardContent>
         </Card>
-        <Card className="summary-card">
-          <CardContent>
-            <Typography color="textSecondary" gutterBottom>
-              Avg Duration (s)
-            </Typography>
-            <Typography variant="h4">{summaryStats.avgDuration}</Typography>
+
+        <Card className="summary-card summary-card-duration">
+          <CardContent className="summary-card-content">
+            <div className="summary-card-icon">
+              <AccessTime />
+            </div>
+            <div className="summary-card-info">
+              <Typography className="summary-card-label">Avg Duration</Typography>
+              <Typography className="summary-card-value">{formatDuration(summaryStats.avgDuration)}</Typography>
+            </div>
           </CardContent>
         </Card>
       </div>
