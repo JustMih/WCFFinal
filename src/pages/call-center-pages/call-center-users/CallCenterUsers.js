@@ -167,9 +167,9 @@ export default function CallCenterUsers() {
     });
   };
   const handleAddUser = async () => {
-    // Validate that focal-person must have sub_section if it's for a directorate
+    // Validate that focal-person and manager must have sub_section if it's for a directorate
     // For units, sub-section is not required
-    if (newUserData.role === "focal-person") {
+    if (newUserData.role === "focal-person" || newUserData.role === "manager") {
       const unitSection = (
         newUserData.unit_section ||
         selectedSection ||
@@ -182,8 +182,9 @@ export default function CallCenterUsers() {
         isDirectorate &&
         (!newUserData.sub_section || newUserData.sub_section.trim() === "")
       ) {
+        const roleLabel = newUserData.role === "focal-person" ? "Focal person" : "Manager";
         setSnackbarMessage(
-          "Focal person for directorate must have a sub-section (function)"
+          `${roleLabel} for directorate must have a sub-section (function)`
         );
         setSnackbarSeverity("error");
         setSnackbarOpen(true);
@@ -247,14 +248,14 @@ export default function CallCenterUsers() {
   };
 
   const handleUpdateUser = async () => {
-    // Validate that focal-person must have sub_section if it's for a directorate
+    // Validate that focal-person and manager must have sub_section if it's for a directorate
     // For units, sub-section is not required
     const roleToCheck = currentUser.role || (currentUser && currentUser.role);
     const unitSectionToCheck =
       currentUser.unit_section || selectedSection || "";
     const subSectionToCheck = currentUser.sub_section || "";
 
-    if (roleToCheck === "focal-person") {
+    if (roleToCheck === "focal-person" || roleToCheck === "manager") {
       const unitSection = (unitSectionToCheck || "").toLowerCase();
       const isDirectorate = unitSection.includes("directorate");
 
@@ -263,8 +264,9 @@ export default function CallCenterUsers() {
         isDirectorate &&
         (!subSectionToCheck || subSectionToCheck.trim() === "")
       ) {
+        const roleLabel = roleToCheck === "focal-person" ? "Focal person" : "Manager";
         setSnackbarMessage(
-          "Focal person for directorate must have a sub-section (function)"
+          `${roleLabel} for directorate must have a sub-section (function)`
         );
         setSnackbarSeverity("error");
         setSnackbarOpen(true);
