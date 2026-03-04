@@ -931,6 +931,7 @@ useEffect(() => {
       {/* Phone popup */}
       <PhonePopup
         showPhonePopup={showPhonePopup}
+        extension={extension}
         phoneStatus={phoneStatus}
         incomingCall={incomingCall}
         lastIncomingNumber={lastIncomingNumber}
