@@ -42,6 +42,8 @@ import ContactSummaryGrid from "../../../../components/agent-dashboard/ContactSu
 // Phone components
 import { useSipPhone } from "./useSipPhone";
 import PhonePopup from "./PhonePopup";
+import { SIP_DOMAIN_CONFIG } from "../../../../config";
+
 
 export default function AgentsDashboard() {
   // --------- Phone popup state ---------
@@ -51,7 +53,7 @@ export default function AgentsDashboard() {
   // --------- Config ---------
   const extension = localStorage.getItem("extension");
   const sipPassword = localStorage.getItem("sipPassword");
-  const SIP_DOMAIN = "192.168.21.69";
+  const SIP_DOMAIN = SIP_DOMAIN_CONFIG;
 
 
   // --------- Status / break menu ---------
@@ -929,6 +931,7 @@ useEffect(() => {
       {/* Phone popup */}
       <PhonePopup
         showPhonePopup={showPhonePopup}
+        extension={extension}
         phoneStatus={phoneStatus}
         incomingCall={incomingCall}
         lastIncomingNumber={lastIncomingNumber}
