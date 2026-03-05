@@ -31,6 +31,7 @@ import MenuItem from "@mui/material/MenuItem";
 // import ColumnSelector from "../../../../components/colums-select/ColumnSelector";
 import TicketFilters from "../../../../components/ticket/TicketFilters";
 import TicketDetailsModal from "../../../../components/TicketDetailsModal";
+import ClaimRedirectButton from "../../../../components/ticket/ClaimRedirectButton.jsx";
 import Pagination from "../../../../components/Pagination";
 import TableControls from "../../../../components/TableControls";
 import AdvancedTicketCreateModal from "../../../../components/ticket/AdvancedTicketCreateModal";
@@ -1352,6 +1353,39 @@ export default function ReviewerDashboard() {
                     ["Requester", selectedTicket.requester || "N/A"],
                     ["Region", selectedTicket.region || "N/A"],
                     ["Channel", selectedTicket.channel || "N/A"],
+                    ...(() => {
+                      const claimNum = selectedTicket.claim_number;
+                      const notifReportId = selectedTicket.notification_report_id;
+                      const hasValidClaimNumber = claimNum != null && claimNum !== "" && claimNum !== 0 && String(claimNum).trim() !== "0";
+                      const hasNotificationReportId = notifReportId != null && notifReportId !== "" && notifReportId !== 0 && String(notifReportId).trim() !== "0";
+                      const hasValidClaim = hasValidClaimNumber || hasNotificationReportId;
+                      const idForRedirect = hasNotificationReportId ? notifReportId : claimNum;
+                      const displayClaimNumber = claimNum || notifReportId || "N/A";
+                      return hasValidClaim && idForRedirect ? [["Claim Number", (
+                        <ClaimRedirectButton
+                          key="claim-link"
+                          notificationReportId={idForRedirect}
+                          claimNumber={selectedTicket.claim_number}
+                          employerId=""
+                          buttonText={displayClaimNumber}
+                          searchType="claim"
+                          isEmployerSearch={false}
+                          employerData={null}
+                          openMode="new-tab"
+                          openEarlyNewTab={true}
+                          style={{
+                            background: "none",
+                            color: "#1976d2",
+                            textDecoration: "underline",
+                            padding: 0,
+                            minHeight: "auto",
+                            fontSize: "inherit",
+                            fontWeight: "inherit",
+                            cursor: "pointer",
+                          }}
+                        />
+                      )]] : [];
+                    })(),
                     ["Section", selectedTicket.responsible_unit_name || "Unit"],
                     ["Sub-section", selectedTicket.sub_section || "N/A"],
                     ["Subject", selectedTicket.subject || "N/A"],
