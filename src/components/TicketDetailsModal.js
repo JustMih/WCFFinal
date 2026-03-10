@@ -44,6 +44,7 @@ import { baseURL } from "../config";
 import { PermissionManager } from "../utils/permissions";
 import TicketUpdates from './ticket/TicketUpdates';
 import ActionMessageModal from "./ticket/ActionMessageModal";
+import ClaimRedirectButton from "./ticket/ClaimRedirectButton.jsx";
 
 const getCreatorName = (selectedTicket) =>
   selectedTicket.created_by ||
@@ -3844,13 +3845,54 @@ export default function TicketDetailsModal({
                     {selectedTicket.requester || "N/A"}
                   </Typography>
                 </div>
-                {selectedTicket.claim_number && (
-                  <div style={{ flex: "1 1 45%" }}>
-                    <Typography>
-                      <strong>Claim Number:</strong> {selectedTicket.claim_number || "N/A"}
-                    </Typography>
-                  </div>
-                )}
+                {(() => {
+                  // Same validation as ticket creation: valid claim_number or notification_report_id
+                  const claimNum = selectedTicket.claim_number;
+                  const notifReportId = selectedTicket.notification_report_id;
+                  const hasValidClaimNumber =
+                    claimNum != null &&
+                    claimNum !== "" &&
+                    claimNum !== 0 &&
+                    String(claimNum).trim() !== "0";
+                  const hasNotificationReportId =
+                    notifReportId != null &&
+                    notifReportId !== "" &&
+                    notifReportId !== 0 &&
+                    String(notifReportId).trim() !== "0";
+                  const hasValidClaim = hasValidClaimNumber || hasNotificationReportId;
+                  // Use notification_report_id for redirect (same as creation), else claim_number
+                  const idForRedirect = hasNotificationReportId ? notifReportId : claimNum;
+                  const displayClaimNumber = claimNum || notifReportId || "N/A";
+                  if (!hasValidClaim || !idForRedirect) return null;
+                  return (
+                    <div style={{ flex: "1 1 45%" }}>
+                      <Typography component="span">
+                        <strong>Claim Number:</strong>{" "}
+                        <ClaimRedirectButton
+                          notificationReportId={idForRedirect}
+                          claimNumber={selectedTicket.claim_number}
+                          employerId=""
+                          buttonText={displayClaimNumber}
+                          searchType="claim"
+                          isEmployerSearch={false}
+                          employerData={null}
+                          openMode="new-tab"
+                          openEarlyNewTab={true}
+                          style={{
+                            background: "none",
+                            color: "#1976d2",
+                            textDecoration: "underline",
+                            padding: 0,
+                            minHeight: "auto",
+                            fontSize: "inherit",
+                            fontWeight: "inherit",
+                            cursor: "pointer",
+                          }}
+                        />
+                      </Typography>
+                    </div>
+                  );
+                })()}
                 <div style={{ flex: "1 1 45%" }}>
                   <Typography>
                     <strong>Rated:</strong>{" "}

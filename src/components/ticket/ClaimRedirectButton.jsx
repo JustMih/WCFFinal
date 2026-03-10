@@ -67,6 +67,11 @@ const ClaimRedirectButton = ({
       }
       return;
     }
+    // Avoid sending 0 as claim number (MAC returns 404 for profile/0)
+    if (idToSend === 0 || idToSend === "0" || String(idToSend).trim() === "0") {
+      alert("Invalid claim number. Cannot open in MAC.");
+      return;
+    }
 
     setIsLoading(true);
 
@@ -381,10 +386,13 @@ const ClaimRedirectButton = ({
   const showProfileButton = responseData?.results?.some(result => result.registration_number) || 
                            (employerData && employerData.registration_number);
 
+  const claimId = notificationReportId ?? claimNumber;
+  const hasValidClaimId = claimId != null && claimId !== "" && claimId !== 0 && String(claimId).trim() !== "0";
+
   return (
     <div style={containerStyle}>
-      {/* Show claim button only for employee/claim searches and when we have a valid notificationReportId */}
-      {!isEmployerSearch && notificationReportId && (
+      {/* Show claim button only for employee/claim searches and when we have a valid notificationReportId (not 0) */}
+      {!isEmployerSearch && hasValidClaimId && (
         <button
           onClick={handleClaimRedirect}
           disabled={isLoading}
