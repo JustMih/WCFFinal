@@ -46,6 +46,7 @@ import ComprehensiveReports from "../call-center-pages/call-center-report/Compre
 import InstagramPage from "../instagram/InstagramPage";
 import LookupTablesManagement from "../super-admin/LookupTablesManagement";
 import MappingManagement from "../super-admin/MappingManagement";
+import SystemLogsPage from "../admin/SystemLogsPage";
 import PublicDashboard from "../public-dashboard/PublicDashboard";
 
 export default function Dashboard() {
@@ -128,6 +129,12 @@ export default function Dashboard() {
                   path="/public-dashboard"
                   element={<PrivateRoute element={<PublicDashboard />} />}
                 />
+                {(role === "admin" || role === "super-admin") && (
+                  <Route
+                    path="/system-logs"
+                    element={<PrivateRoute element={<SystemLogsPage />} />}
+                  />
+                )}
                 <Route
                   path="/dashboard2"
                   element={<PrivateRoute element={<Dashboard2 />} />}
