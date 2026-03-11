@@ -23,6 +23,7 @@ export default function TotalContactSummary() {
   const [loading, setLoading] = useState(true);
   const [voicemailCount, setVoicemailCount] = useState(0);
   const [unplayedVoicemailCount, setUnplayedVoicemailCount] = useState(0);
+  const [directionSummary, setDirectionSummary] = useState(null);
 
   useEffect(() => {
     const agentId = localStorage.getItem("extension");
@@ -46,6 +47,22 @@ export default function TotalContactSummary() {
         setContactData(null);
         setLoading(false);
       });
+  }, []);
+
+  // Inbound / Outbound answered, IVR, dropped, lost for the current day (from call_summary)
+  useEffect(() => {
+    const fetchDirectionSummary = async () => {
+      try {
+        const res = await fetch(`${baseURL}/call-summary/call-summary-by-direction`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setDirectionSummary(data);
+      } catch (err) {
+        setDirectionSummary(null);
+      }
+    };
+
+    fetchDirectionSummary();
   }, []);
 
   // Voicemail count from voice-notes API (same pattern as AgentsDashboard VoiceNotesReport)
@@ -115,6 +132,9 @@ export default function TotalContactSummary() {
 
   const contactTotals = getContactTotals();
   const totalContacts = Object.values(contactTotals).reduce((sum, val) => sum + val, 0);
+
+  const inboundDirection = directionSummary?.inbound || {};
+  const outboundDirection = directionSummary?.outbound || {};
 
   // Prepare chart data
   const chartData = {
@@ -191,7 +211,7 @@ export default function TotalContactSummary() {
     {
       icon: FiPhoneIncoming,
       title: "Inbound Calls",
-      count: contactTotals.inbound,
+      count: inboundDirection.totalCalls ?? contactTotals.inbound,
       color: "#60A5FA",
       description: "Incoming customer calls"
     },
@@ -250,7 +270,14 @@ export default function TotalContactSummary() {
                   <div className="contact-item-details">
                     <div className="contact-item-title">{item.title}</div>
                     <div className="contact-item-count">{item.count}</div>
-                    <div className="contact-item-description">{item.description}</div>
+                    <div className="contact-item-description">
+                      {item.description}
+                      {item.breakdown && (
+                        <div className="contact-item-breakdown">
+                          Answered: {item.breakdown.answered} | IVR: {item.breakdown.ivr} | Dropped: {item.breakdown.dropped} | Lost: {item.breakdown.lost}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

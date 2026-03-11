@@ -8,7 +8,6 @@
   flex-direction: column;
   gap: 16px;
   min-height: 400px;
-  max-height: 450px;
   background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
   flex: 1 1 420px;
   max-width: 460px;
@@ -182,9 +181,17 @@
   font-size: 0.7rem;
   color: #64748b;
   font-style: italic;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+
+.contact-item-breakdown {
+  margin-top: 2px;
+  font-size: 0.7rem;
+  color: #0f172a;
+  font-style: normal;
+  white-space: normal;
+  overflow-wrap: break-word;
 }
 
 /* Loading State */
@@ -212,6 +219,7 @@
   .total-contact-summary-card {
     padding: 16px;
     min-height: 350px;
+    max-width: 100%;
   }
   
   .contact-summary-header {
@@ -255,6 +263,39 @@
   
   .contact-item-description {
     font-size: 0.65rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .total-contact-summary-card {
+    padding: 12px;
+    border-radius: 12px;
+    min-height: 320px;
+  }
+
+  .contact-summary-content {
+    gap: 12px;
+  }
+
+  .pie-chart-container {
+    height: 140px;
+  }
+
+  .contact-item {
+    align-items: flex-start;
+  }
+
+  .contact-item-title {
+    font-size: 0.78rem;
+  }
+
+  .contact-item-count {
+    font-size: 0.95rem;
+  }
+
+  .contact-item-description,
+  .contact-item-breakdown {
+    font-size: 0.62rem;
   }
 }
 

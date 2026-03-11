@@ -24,6 +24,7 @@ export default function ContactSummaryGrid() {
   const [loading, setLoading] = useState(true);
   const [voicemailCount, setVoicemailCount] = useState(0);
   const [unplayedVoicemailCount, setUnplayedVoicemailCount] = useState(0);
+  const [directionSummary, setDirectionSummary] = useState(null);
 
   useEffect(() => {
     const agentId = localStorage.getItem("extension");
@@ -47,6 +48,22 @@ export default function ContactSummaryGrid() {
         setContactData(null);
         setLoading(false);
       });
+  }, []);
+
+  // Inbound / Outbound answered, IVR, dropped, lost for the current day (from call_summary)
+  useEffect(() => {
+    const fetchDirectionSummary = async () => {
+      try {
+        const res = await fetch(`${baseURL}/call-summary/call-summary-by-direction`);
+        if (!res.ok) return;
+        const data = await res.json();
+        setDirectionSummary(data);
+      } catch (err) {
+        setDirectionSummary(null);
+      }
+    };
+
+    fetchDirectionSummary();
   }, []);
 
   // Voicemail from voice-notes API (same pattern as AgentsDashboard VoiceNotes)
@@ -134,6 +151,8 @@ export default function ContactSummaryGrid() {
     };
   };
 
+  const inboundDirection = directionSummary?.inbound || {};
+  const outboundDirection = directionSummary?.outbound || {};
   const data = getData();
 
   // Inbound Calls Summary Box
@@ -142,20 +161,32 @@ export default function ContactSummaryGrid() {
       <div className="summary-header">
         <FiPhoneIncoming size={20} />
         <h4>Inbound Calls</h4>
-        <span className="total-count">{data.inbound.total}</span>
+        <span className="total-count">
+          {inboundDirection.totalCalls ?? data.inbound.total}
+        </span>
       </div>
       <div className="summary-content">
         <div className="status-row">
           <span>Answered</span>
-          <span className="count">{data.inbound.answered}</span>
+          <span className="count">
+            {inboundDirection.answered ?? data.inbound.answered}
+          </span>
+        </div>
+        <div className="status-row">
+          <span>IVR</span>
+          <span className="count">{inboundDirection.ivr ?? 0}</span>
         </div>
         <div className="status-row">
           <span>Dropped</span>
-          <span className="count">{data.inbound.dropped}</span>
+          <span className="count">
+            {inboundDirection.dropped ?? data.inbound.dropped}
+          </span>
         </div>
         <div className="status-row">
           <span>Lost</span>
-          <span className="count">{data.inbound.lost}</span>
+          <span className="count">
+            {inboundDirection.lost ?? data.inbound.lost}
+          </span>
         </div>
       </div>
     </div>
@@ -167,20 +198,32 @@ export default function ContactSummaryGrid() {
       <div className="summary-header">
         <HiPhoneOutgoing size={20} />
         <h4>Outbound Calls</h4>
-        <span className="total-count">{data.outbound.total}</span>
+        <span className="total-count">
+          {outboundDirection.totalCalls ?? data.outbound.total}
+        </span>
       </div>
       <div className="summary-content">
         <div className="status-row">
           <span>Answered</span>
-          <span className="count">{data.outbound.answered}</span>
+          <span className="count">
+            {outboundDirection.answered ?? data.outbound.answered}
+          </span>
+        </div>
+        <div className="status-row">
+          <span>IVR</span>
+          <span className="count">{outboundDirection.ivr ?? 0}</span>
         </div>
         <div className="status-row">
           <span>Dropped</span>
-          <span className="count">{data.outbound.dropped}</span>
+          <span className="count">
+            {outboundDirection.dropped ?? data.outbound.dropped}
+          </span>
         </div>
         <div className="status-row">
           <span>Lost</span>
-          <span className="count">{data.outbound.lost}</span>
+          <span className="count">
+            {outboundDirection.lost ?? data.outbound.lost}
+          </span>
         </div>
       </div>
     </div>
