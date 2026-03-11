@@ -696,7 +696,7 @@ return () => {
                         {ivrCallsCount}
                       </Typography>
                       <Typography variant="body2" color="textSecondary" sx={{ fontSize: "0.875rem" }}>
-                        IVR Calls
+                        IVR Answered
                       </Typography>
                     </Box>
                   </Grid>
