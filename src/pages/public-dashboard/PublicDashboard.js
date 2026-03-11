@@ -686,7 +686,7 @@ return () => {
                         {answeredCallsCount}
                       </Typography>
                       <Typography variant="body2" color="textSecondary" sx={{ fontSize: "0.875rem" }}>
-                        Answered Calls
+                        Answered Calls (Agent)
                       </Typography>
                     </Box>
                   </Grid>
