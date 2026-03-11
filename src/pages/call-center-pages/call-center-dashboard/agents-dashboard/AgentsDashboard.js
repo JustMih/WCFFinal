@@ -629,7 +629,7 @@ useEffect(() => {
 }, [missedCalls]);
 
   return (
-    <div className="p-6">
+    <div className="agents-dashboard-root">
 
       {/* Call Status Banner - Shows when on a call even if ticket modal is closed */}
       {hasActiveCall && !showTicketModal && (
