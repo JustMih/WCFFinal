@@ -2765,6 +2765,7 @@ const AgentCRM = () => {
                               selectedTicket.last_name || "N/A",
                           ],
                           // ["Last Name", selectedTicket.last_name || "N/A"]
+                          
                         ]),
                     ["Ticket Number", selectedTicket.ticket_id || "N/A"],
                     ["Phone", selectedTicket.phone_number || "N/A"],
