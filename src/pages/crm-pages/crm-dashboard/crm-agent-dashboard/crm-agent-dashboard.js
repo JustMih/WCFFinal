@@ -2780,55 +2780,63 @@ const AgentCRM = () => {
                       const idForRedirect = hasNotificationReportId ? notifReportId : claimNum;
                       const displayClaimNumber = claimNum || notifReportId || "N/A";
                       return hasValidClaim && idForRedirect ? [["Claim Number", (
-                        <ClaimRedirectButton
-                          key="claim-link"
-                          notificationReportId={idForRedirect}
-                          claimNumber={selectedTicket.claim_number}
-                          employerId={selectedTicket.employer_registration_number || ""}
-                          buttonText={displayClaimNumber}
-                          searchType="claim"
-                          isEmployerSearch={false}
-                          employerData={null}
-                          openMode="new-tab"
-                          openEarlyNewTab={true}
-                          style={{
-                            background: "none",
-                            color: "#1976d2",
-                            textDecoration: "underline",
-                            padding: 0,
-                            minHeight: "auto",
-                            fontSize: "inherit",
-                            fontWeight: "inherit",
-                            cursor: "pointer",
-                          }}
-                        />
+                        <Tooltip title="View employee profile in MAC">
+                          <span>
+                            <ClaimRedirectButton
+                              key="claim-link"
+                              notificationReportId={idForRedirect}
+                              claimNumber={selectedTicket.claim_number}
+                              employerId={selectedTicket.employer_registration_number || ""}
+                              buttonText={displayClaimNumber}
+                              searchType="claim"
+                              isEmployerSearch={false}
+                              employerData={null}
+                              openMode="new-tab"
+                              openEarlyNewTab={true}
+                              style={{
+                                background: "none",
+                                color: "#1976d2",
+                                textDecoration: "underline",
+                                padding: 0,
+                                minHeight: "auto",
+                                fontSize: "inherit",
+                                fontWeight: "inherit",
+                                cursor: "pointer",
+                              }}
+                            />
+                          </span>
+                        </Tooltip>
                       )]] : [];
                     })(),
                     ...(String(selectedTicket.employer_registration_number || "").trim() ? [["Employer Registration No.", (
-                      <ClaimRedirectButton
-                        key="employer-link"
-                        notificationReportId={String(selectedTicket.employer_registration_number || "").trim()}
-                        employerId={String(selectedTicket.employer_registration_number || "").trim()}
-                        buttonText={String(selectedTicket.employer_registration_number || "").trim() || "View Employer Profile"}
-                        searchType="employer"
-                        isEmployerSearch={true}
-                        employerData={{
-                          registration_number: String(selectedTicket.employer_registration_number || "").trim(),
-                          name: selectedTicket.institution || "Employer",
-                        }}
-                        openMode="new-tab"
-                        openEarlyNewTab={true}
-                        style={{
-                          background: "none",
-                          color: "#1976d2",
-                          textDecoration: "underline",
-                          padding: 0,
-                          minHeight: "auto",
-                          fontSize: "inherit",
-                          fontWeight: "inherit",
-                          cursor: "pointer",
-                        }}
-                      />
+                      <Tooltip title="View employer profile in MAC">
+                        <span>
+                          <ClaimRedirectButton
+                            key="employer-link"
+                            notificationReportId={String(selectedTicket.employer_registration_number || "").trim()}
+                            employerId={String(selectedTicket.employer_registration_number || "").trim()}
+                            buttonText={String(selectedTicket.employer_registration_number || "").trim() || "View Employer Profile"}
+                            searchType="employer"
+                            isEmployerSearch={true}
+                            employerData={{
+                              registration_number: String(selectedTicket.employer_registration_number || "").trim(),
+                              name: selectedTicket.institution || "Employer",
+                            }}
+                            openMode="new-tab"
+                            openEarlyNewTab={true}
+                            style={{
+                              background: "none",
+                              color: "#1976d2",
+                              textDecoration: "underline",
+                              padding: 0,
+                              minHeight: "auto",
+                              fontSize: "inherit",
+                              fontWeight: "inherit",
+                              cursor: "pointer",
+                            }}
+                          />
+                        </span>
+                      </Tooltip>
                     )]] : []),
                     ["Section", selectedTicket.responsible_unit_name || "Unit"],
                     ["Sub-section", selectedTicket.sub_section || "N/A"],
