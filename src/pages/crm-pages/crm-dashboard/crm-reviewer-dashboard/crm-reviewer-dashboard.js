@@ -1366,7 +1366,7 @@ export default function ReviewerDashboard() {
                           key="claim-link"
                           notificationReportId={idForRedirect}
                           claimNumber={selectedTicket.claim_number}
-                          employerId=""
+                          employerId={selectedTicket.employer_registration_number || ""}
                           buttonText={displayClaimNumber}
                           searchType="claim"
                           isEmployerSearch={false}
@@ -1386,6 +1386,32 @@ export default function ReviewerDashboard() {
                         />
                       )]] : [];
                     })(),
+                    ...(String(selectedTicket.employer_registration_number || "").trim() ? [["Employer Registration No.", (
+                      <ClaimRedirectButton
+                        key="employer-link"
+                        notificationReportId={String(selectedTicket.employer_registration_number || "").trim()}
+                        employerId={String(selectedTicket.employer_registration_number || "").trim()}
+                        buttonText={String(selectedTicket.employer_registration_number || "").trim() || "View Employer Profile"}
+                        searchType="employer"
+                        isEmployerSearch={true}
+                        employerData={{
+                          registration_number: String(selectedTicket.employer_registration_number || "").trim(),
+                          name: selectedTicket.institution || "Employer",
+                        }}
+                        openMode="new-tab"
+                        openEarlyNewTab={true}
+                        style={{
+                          background: "none",
+                          color: "#1976d2",
+                          textDecoration: "underline",
+                          padding: 0,
+                          minHeight: "auto",
+                          fontSize: "inherit",
+                          fontWeight: "inherit",
+                          cursor: "pointer",
+                        }}
+                      />
+                    )]] : []),
                     ["Section", selectedTicket.responsible_unit_name || "Unit"],
                     ["Sub-section", selectedTicket.sub_section || "N/A"],
                     ["Subject", selectedTicket.subject || "N/A"],

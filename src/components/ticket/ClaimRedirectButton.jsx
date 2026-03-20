@@ -19,6 +19,9 @@ const ClaimRedirectButton = ({
   isEmployerSearch = false, // New prop to indicate if this is an employer search
   employerData = null // New prop to pass employer data directly
 }) => {
+  const normalizedButtonText = String(buttonText ?? "").trim();
+  const displayButtonText = normalizedButtonText || (isEmployerSearch ? "View Employer Profile" : "View Claim in MAC");
+
   // Debug logging to see if component is being rendered
   console.log('🔍 ClaimRedirectButton rendered with props:', {
     notificationReportId,
@@ -399,7 +402,7 @@ const ClaimRedirectButton = ({
           className={className}
           style={defaultStyle}
         >
-          {isLoading ? 'Loading...' : buttonText}
+          {isLoading ? 'Loading...' : displayButtonText}
         </button>
       )}
       
@@ -418,16 +421,20 @@ const ClaimRedirectButton = ({
           registrationNumber = result.registration_number;
         }
         
-        //          return (
-        //    <button
-        //      key={`profile-${index}-${employerName}`}
-        //      onClick={() => handleViewProfile(registrationNumber)}
-        //      className={className}
-        //      style={profileButtonStyle}
-        //    >
-        //      {isEmployerSearch ? `View Profile - ${employerName}` : `View ${employerName} Profile`}
-        //    </button>
-        //  );
+        return (
+          <button
+            key={`profile-${index}-${employerName || registrationNumber || "employer"}`}
+            onClick={() => handleViewProfile(registrationNumber)}
+            className={className}
+            style={profileButtonStyle}
+          >
+            {normalizedButtonText
+              ? displayButtonText
+              : (isEmployerSearch
+                  ? `View Profile - ${employerName || registrationNumber || "Employer"}`
+                  : `View ${employerName || "Employer"} Profile`)}
+          </button>
+        );
       })}
       
              {/* Show profile button for employerData if no resultsWithRegistration */}
@@ -444,7 +451,7 @@ const ClaimRedirectButton = ({
            className={className}
            style={employerData?.registration_number ? profileButtonStyle : defaultStyle}
          >
-           {buttonText}
+          {displayButtonText}
          </button>
        )}
        
