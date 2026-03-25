@@ -890,7 +890,7 @@ export default function CallCenterUsers() {
 
             {/* Section and Sub-Section dropdowns for focal-person */}
             {(isEditing ? currentUser?.role : newUserData.role) ===
-            "focal-person" ? (
+            "focal-person" || (isEditing ? currentUser?.role : newUserData.role) === "manager" ? (
               <>
                 <FormControl fullWidth size="small">
                   <InputLabel>Section (Directorate/Unit)</InputLabel>
