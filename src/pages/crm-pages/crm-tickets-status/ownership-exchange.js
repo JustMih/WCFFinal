@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Alert, Button, MenuItem, Snackbar, TextField } from "@mui/material";
+import { Alert, Autocomplete, Button, Snackbar, TextField } from "@mui/material";
 import { baseURL } from "../../../config";
 import "./ticket.css";
 
@@ -10,7 +10,7 @@ export default function OwnershipExchange() {
   const [staff, setStaff] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [selectedTicketId, setSelectedTicketId] = useState("");
+  const [selectedTicketIds, setSelectedTicketIds] = useState([]);
   const [selectedStaffId, setSelectedStaffId] = useState("");
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -90,19 +90,57 @@ export default function OwnershipExchange() {
     });
   }, [tickets, search]);
 
-  const selectedTicket = useMemo(
-    () => tickets.find((ticket) => String(ticket.id) === String(selectedTicketId)),
-    [tickets, selectedTicketId]
+  const selectedTickets = useMemo(
+    () =>
+      tickets.filter((ticket) =>
+        selectedTicketIds.includes(String(ticket.id))
+      ),
+    [tickets, selectedTicketIds]
   );
 
   const availableStaff = useMemo(() => {
-    if (!selectedTicket?.assigned_to_id) return staff;
-    return staff.filter((user) => String(user.id) !== String(selectedTicket.assigned_to_id));
-  }, [staff, selectedTicket]);
+    if (selectedTickets.length === 0) return staff;
+    const currentOwners = new Set(
+      selectedTickets
+        .map((ticket) => String(ticket?.assigned_to_id || ""))
+        .filter(Boolean)
+    );
+    return staff.filter((user) => !currentOwners.has(String(user.id)));
+  }, [staff, selectedTickets]);
+
+  const allFilteredSelected =
+    filteredTickets.length > 0 &&
+    filteredTickets.every((ticket) =>
+      selectedTicketIds.includes(String(ticket.id))
+    );
+
+  const toggleSelectAllFiltered = () => {
+    if (allFilteredSelected) {
+      const filteredSet = new Set(filteredTickets.map((ticket) => String(ticket.id)));
+      setSelectedTicketIds((prev) =>
+        prev.filter((ticketId) => !filteredSet.has(ticketId))
+      );
+      return;
+    }
+    const merged = new Set([
+      ...selectedTicketIds,
+      ...filteredTickets.map((ticket) => String(ticket.id)),
+    ]);
+    setSelectedTicketIds(Array.from(merged));
+  };
+
+  const toggleTicketSelection = (ticketId) => {
+    const normalizedId = String(ticketId);
+    setSelectedTicketIds((prev) =>
+      prev.includes(normalizedId)
+        ? prev.filter((id) => id !== normalizedId)
+        : [...prev, normalizedId]
+    );
+  };
 
   const handleSubmit = async () => {
-    if (!selectedTicketId || !selectedStaffId) {
-      showMessage("Select a ticket and a staff member first", "warning");
+    if (selectedTicketIds.length === 0 || !selectedStaffId) {
+      showMessage("Select at least one ticket and a staff member first", "warning");
       return;
     }
     if (!reason.trim()) {
@@ -119,26 +157,47 @@ export default function OwnershipExchange() {
     try {
       setSubmitting(true);
       const token = localStorage.getItem("authToken");
-      const response = await fetch(`${baseURL}/ticket/${selectedTicketId}/ownership-exchange`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          assigned_to_id: targetUser.id,
-          assigned_to_role: targetUser.role,
-          reassignment_reason: reason.trim(),
-        }),
+      const requestBody = JSON.stringify({
+        assigned_to_id: targetUser.id,
+        assigned_to_role: targetUser.role,
+        reassignment_reason: reason.trim(),
       });
+      const results = await Promise.all(
+        selectedTicketIds.map(async (ticketId) => {
+          const response = await fetch(`${baseURL}/ticket/${ticketId}/ownership-exchange`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: requestBody,
+          });
+          const payload = await response.json().catch(() => ({}));
+          return {
+            ticketId,
+            ok: response.ok,
+            message: payload?.message || (response.ok ? "Success" : "Failed"),
+          };
+        })
+      );
 
-      const payload = await response.json().catch(() => ({}));
-      if (!response.ok) {
-        throw new Error(payload?.message || "Ownership exchange failed");
+      const successCount = results.filter((result) => result.ok).length;
+      const failed = results.filter((result) => !result.ok);
+
+      if (failed.length > 0) {
+        const firstFailure = failed[0];
+        showMessage(
+          `Transferred ${successCount}/${results.length}. First failure on ticket ${firstFailure.ticketId}: ${firstFailure.message}`,
+          successCount > 0 ? "warning" : "error"
+        );
+      } else {
+        showMessage(
+          `Ticket ownership exchanged successfully for ${successCount} ticket(s)`,
+          "success"
+        );
       }
 
-      showMessage(payload?.message || "Ticket ownership exchanged successfully", "success");
-      setSelectedTicketId("");
+      setSelectedTicketIds([]);
       setSelectedStaffId("");
       setReason("");
       fetchData();
@@ -175,7 +234,14 @@ export default function OwnershipExchange() {
         <table className="user-table">
           <thead>
             <tr>
-              <th>Select</th>
+              <th>
+                <input
+                  type="checkbox"
+                  checked={allFilteredSelected}
+                  onChange={toggleSelectAllFiltered}
+                  aria-label="Select all filtered tickets"
+                />
+              </th>
               <th>Ticket ID</th>
               <th>Subject</th>
               <th>Status</th>
@@ -192,10 +258,9 @@ export default function OwnershipExchange() {
                 <tr key={ticket.id}>
                   <td>
                     <input
-                      type="radio"
-                      name="selectedTicket"
-                      checked={String(selectedTicketId) === String(ticket.id)}
-                      onChange={() => setSelectedTicketId(String(ticket.id))}
+                      type="checkbox"
+                      checked={selectedTicketIds.includes(String(ticket.id))}
+                      onChange={() => toggleTicketSelection(ticket.id)}
                     />
                   </td>
                   <td>{ticket.ticket_id || ticket.id}</td>
@@ -210,20 +275,28 @@ export default function OwnershipExchange() {
       </div>
 
       <div style={{ marginTop: 18, display: "grid", gap: 12, maxWidth: 560 }}>
-        <TextField
-          select
-          label="Transfer ownership to"
-          value={selectedStaffId}
-          onChange={(e) => setSelectedStaffId(e.target.value)}
-          size="small"
-          disabled={!selectedTicketId || submitting}
-        >
-          {availableStaff.map((user) => (
-            <MenuItem key={user.id} value={String(user.id)}>
-              {(user.full_name || user.username || user.id) + ` (${user.role})`}
-            </MenuItem>
-          ))}
-        </TextField>
+        <Autocomplete
+          options={availableStaff}
+          getOptionLabel={(user) =>
+            `${user.full_name || user.username || user.id} (${user.role})`
+          }
+          value={
+            availableStaff.find((user) => String(user.id) === String(selectedStaffId)) || null
+          }
+          onChange={(_, selectedUser) => {
+            setSelectedStaffId(selectedUser ? String(selectedUser.id) : "");
+          }}
+          isOptionEqualToValue={(option, value) => String(option.id) === String(value.id)}
+          disabled={selectedTicketIds.length === 0 || submitting}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              size="small"
+              label="Transfer ownership to"
+              placeholder="Search user by name, username or ID"
+            />
+          )}
+        />
 
         <TextField
           multiline
@@ -237,10 +310,10 @@ export default function OwnershipExchange() {
         <Button
           variant="contained"
           onClick={handleSubmit}
-          disabled={submitting || !selectedTicketId || !selectedStaffId || !reason.trim()}
+          disabled={submitting || selectedTicketIds.length === 0 || !selectedStaffId || !reason.trim()}
           sx={{ width: "fit-content" }}
         >
-          {submitting ? "Exchanging..." : "Exchange Ownership"}
+          {submitting ? "Exchanging..." : `Exchange Ownership (${selectedTicketIds.length})`}
         </Button>
       </div>
 
