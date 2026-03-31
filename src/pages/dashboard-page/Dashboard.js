@@ -14,6 +14,7 @@ import CRMInProgressTickets from "../crm-pages/crm-tickets-status/inprogress";
 import CRMOverdueTickets from "../crm-pages/crm-tickets-status/overdue";
 import CRMClosedTickets from "../crm-pages/crm-tickets-status/closed";
 import CRMTotalTickets from "../crm-pages/crm-tickets-status/total";
+import CRMOwnershipExchange from "../crm-pages/crm-tickets-status/ownership-exchange";
 import CRMReviewerTickets from "../crm-pages/crm-reviewer-tickets/crm-reviewer-tickets";
 import CRMChat from "../crm-pages/crm-chat/CRMChat";
 import WorkflowDashboard from "../../components/workflow/WorkflowDashboard";
@@ -46,6 +47,7 @@ import ComprehensiveReports from "../call-center-pages/call-center-report/Compre
 import InstagramPage from "../instagram/InstagramPage";
 import LookupTablesManagement from "../super-admin/LookupTablesManagement";
 import MappingManagement from "../super-admin/MappingManagement";
+import SystemLogsPage from "../admin/SystemLogsPage";
 import PublicDashboard from "../public-dashboard/PublicDashboard";
 
 export default function Dashboard() {
@@ -128,6 +130,12 @@ export default function Dashboard() {
                   path="/public-dashboard"
                   element={<PrivateRoute element={<PublicDashboard />} />}
                 />
+                {(role === "admin" || role === "super-admin") && (
+                  <Route
+                    path="/system-logs"
+                    element={<PrivateRoute element={<SystemLogsPage />} />}
+                  />
+                )}
                 <Route
                   path="/dashboard2"
                   element={<PrivateRoute element={<Dashboard2 />} />}
@@ -279,6 +287,12 @@ export default function Dashboard() {
                   path="/ticket/all"
                   element={<PrivateRoute element={<CRMTotalTickets />} />}
                 />
+                {(role === "admin" || role === "super-admin") && (
+                  <Route
+                    path="/ticket/ownership-exchange"
+                    element={<PrivateRoute element={<CRMOwnershipExchange />} />}
+                  />
+                )}
                 <Route
                   path="/reviewer/:status"
                   element={<PrivateRoute element={<CRMReviewerTickets />} />}

@@ -1,0 +1,142 @@
+.system-logs-page {
+  padding: 16px 24px;
+}
+
+.system-logs-header h2 {
+  margin: 0;
+}
+
+.system-logs-header p {
+  margin: 4px 0 16px;
+  color: #666;
+}
+
+.system-logs-filters {
+  background: #fff;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.system-logs-filters .filter-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.system-logs-filters .filter-item {
+  display: flex;
+  flex-direction: column;
+  min-width: 160px;
+}
+
+.system-logs-filters .filter-item.long {
+  flex: 1;
+}
+
+.system-logs-filters label {
+  font-size: 12px;
+  color: #555;
+  margin-bottom: 2px;
+}
+
+.system-logs-filters input,
+.system-logs-filters select {
+  padding: 6px 8px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  font-size: 13px;
+}
+
+.filter-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.filter-actions button {
+  padding: 6px 10px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.filter-actions button:first-of-type {
+  background-color: #1976d2;
+  color: white;
+}
+
+.filter-actions button:last-of-type {
+  background-color: #e0e0e0;
+}
+
+.system-logs-table-wrapper {
+  background: #fff;
+  border-radius: 8px;
+  padding: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  min-height: 120px;
+}
+
+.system-logs-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.system-logs-table th,
+.system-logs-table td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #eee;
+  text-align: left;
+}
+
+.system-logs-table th {
+  background: #f5f5f5;
+  font-weight: 600;
+}
+
+.system-logs-path {
+  max-width: 320px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.system-logs-loading,
+.system-logs-error,
+.system-logs-empty {
+  padding: 16px;
+  text-align: center;
+  color: #666;
+}
+
+.system-logs-error {
+  color: #c62828;
+}
+
+.system-logs-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.system-logs-pagination button {
+  padding: 4px 10px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  background-color: #fafafa;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.system-logs-pagination button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+

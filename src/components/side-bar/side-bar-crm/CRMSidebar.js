@@ -515,7 +515,17 @@ export default function CRMSidebar({ isSidebarOpen }) {
                             to: "/ticket/all",
                             value: ticketStats.totalCreatedByMe || 0,
                             icon: "📊"
-                          }
+                          },
+                          ...((role === "admin" || role === "super-admin")
+                            ? [
+                                {
+                                  label: "Ticket Transfer",
+                                  to: "/ticket/ownership-exchange",
+                                  value: "",
+                                  icon: "🔁"
+                                }
+                              ]
+                            : [])
                         ].map((item, idx) => (
                           <NavLink
                             key={idx}
