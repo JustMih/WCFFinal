@@ -42,6 +42,7 @@ import Message from "../call-center-pages/call-center-social-message/CallCenterS
 import IvrCardsPage from "../call-center-pages/cal-center-ivr/IvrCardsPage";
 import DTMFStats from "../call-center-pages/cal-center-ivr/DTMFStats";
 import VoiceNoteReport from "../call-center-pages/call-center-report/voice-note-report";
+import OffHoursReport from "../call-center-pages/call-center-report/OffHoursReport";
 import ComprehensiveReports from "../call-center-pages/call-center-report/ComprehensiveReports";
 import InstagramPage from "../instagram/InstagramPage";
 import LookupTablesManagement from "../super-admin/LookupTablesManagement";
@@ -213,6 +214,7 @@ export default function Dashboard() {
                 <Route path="/livestream" element={<Livestream />} />
                 <Route path="/recorded-audio" element={<RecordedAudio />} />
                 <Route path="/dtmf-stats" element={<DTMFStats />} />
+                <Route path="/off-hours-report" element={<OffHoursReport />} />
                 <Route path="/ivr-cards" element={<IvrCardsPage />} />
                 <Route
                   path="/social-message"

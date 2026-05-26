@@ -1,0 +1,162 @@
+.off-hours-container {
+  padding: 1.5rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.off-hours-title {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+  color: #1f2937;
+}
+
+.off-hours-subtitle {
+  margin: 0 0 1.25rem;
+  color: #6b7280;
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.off-hours-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.off-hours-summary-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-top: 4px solid #374151;
+  border-radius: 8px;
+  padding: 1rem;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.off-hours-summary-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.off-hours-summary-label {
+  font-size: 0.8rem;
+  color: #6b7280;
+  margin-top: 0.25rem;
+}
+
+.off-hours-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 1.25rem;
+}
+
+.off-hours-search {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  min-width: 180px;
+}
+
+.off-hours-table-wrapper {
+  overflow-x: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.off-hours-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.off-hours-table th,
+.off-hours-table td {
+  padding: 0.65rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.off-hours-table th {
+  background: #f9fafb;
+  font-weight: 600;
+  color: #374151;
+}
+
+.off-hours-table tbody tr:hover {
+  background: #f9fafb;
+}
+
+.off-hours-transcription {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.off-hours-pagination {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.off-hours-error {
+  color: #dc2626;
+  margin-bottom: 1rem;
+}
+
+.off-hours-btn {
+  padding: 6px 12px;
+  border: none;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.off-hours-btn-play {
+  background-color: #007bff;
+}
+
+.off-hours-phone-status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+  padding: 10px 14px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  color: #1e40af;
+}
+
+.off-hours-actions-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.off-hours-actions-cell a.off-hours-btn {
+  text-decoration: none;
+  display: inline-block;
+}
+
+.off-hours-btn-pause {
+  background-color: #ffc107;
+  color: #212529;
+  margin-left: 5px;
+}
+
+.off-hours-emergency-tag {
+  font-size: 0.75rem;
+  color: #c62828;
+  font-weight: 600;
+}

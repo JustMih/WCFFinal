@@ -43,6 +43,7 @@ const categories = [
       { to: '/ivr-interactions', label: 'IVR Interactions Reports', icon: <MdOutlineAudiotrack /> },
       { to: '/livestream', label: 'Live Streaming', icon: <MdOutlineAudiotrack /> },
       { to: '/dtmf-stats', label: 'DTMF Usage Report', icon: <MdOutlineAudiotrack /> },
+      { to: '/off-hours-report', label: 'Off-Hours Calls Report', icon: <FaRegFileAlt /> },
     ],
   },
 ];
