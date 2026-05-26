@@ -33,6 +33,7 @@ import {
   MdPhoneDisabled,
 } from "react-icons/md";
 import { baseURL } from "../../config";
+import { dedupeLostCallsClient } from "../../utils/missedCallDedupe";
 import io from "socket.io-client";
 import ActiveCalls from "../../components/active-calls/ActiveCalls";
 import ReactApexChart from "react-apexcharts";
@@ -458,7 +459,8 @@ return () => {
       const response = await fetch(`${baseURL}/calls/lost-calls-today`);
       if (response.ok) {
         const data = await response.json();
-        setLostCalls(Array.isArray(data) ? data : []);
+        const list = Array.isArray(data) ? data : [];
+        setLostCalls(dedupeLostCallsClient(list, "call_time"));
       } else {
         console.error("Failed to fetch lost calls:", response.status);
       }

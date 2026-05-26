@@ -213,10 +213,7 @@ export default function AgentsDashboard() {
     }, [fetchUserByPhoneNumber]),
     onMissedCall: addMissedCall,
     onCallAccepted: useCallback((number) => {
-      setTicketPhoneNumber(number || "");
-      setShowTicketModal(true);
-      setIsTicketModalOpen(true);
-      setShowPhonePopup(false);
+      if (number) setTicketPhoneNumber(number);
     }, []),
     onCallEnded: useCallback(() => {
       setShowUserForm(false);
@@ -490,6 +487,11 @@ const markMissedCallAsCalledBack = async (missedCallId) => {
   };
 
   const handleAcceptCall = () => {
+    // Open ticket modal immediately so the agent isn't blocked by SIP/WebRTC setup
+    setTicketPhoneNumber(lastIncomingNumber || phoneNumber || "");
+    setShowTicketModal(true);
+    setIsTicketModalOpen(true);
+    setShowPhonePopup(false);
     acceptCall();
   };
 

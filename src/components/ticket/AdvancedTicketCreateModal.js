@@ -3808,8 +3808,9 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                             >
                               <ChatIcon fontSize="small" />
                             </IconButton>
-                            {/* Show "Notify User" button only for agent role and non-closed tickets */}
-                            {ticket.status !== "Closed" && localStorage.getItem("role") === "agent" && (
+                            {/* Notify: agent and attendee (non-closed tickets) */}
+                            {ticket.status !== "Closed" &&
+                              ["agent", "attendee"].includes(localStorage.getItem("role")) && (
                               <Button
                                 variant="contained"
                                 color="secondary"

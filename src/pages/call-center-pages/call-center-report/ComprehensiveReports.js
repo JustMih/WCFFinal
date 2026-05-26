@@ -62,6 +62,16 @@ import {
 } from "@mui/icons-material";
 import "./comprehensiveReports.css";
 
+/** Format CDR duration/billsec (seconds) for table display */
+const formatSecondsToMinutes = (value) => {
+  const seconds = Number(value);
+  if (!Number.isFinite(seconds) || seconds <= 0) return "0s";
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  if (mins > 0) return `${mins}m ${secs}s`;
+  return `${secs}s`;
+};
+
 export default function ComprehensiveReports() {
   const navigate = useNavigate();
   const { reportSlug } = useParams();
@@ -574,9 +584,12 @@ export default function ComprehensiveReports() {
           { key: "phone", label: "Phone", default: true },
           { key: "date", label: "Date", default: true },
           { key: "played", label: "Played", default: true },
-          { key: "agent", label: "Assigned Agent", default: true },
-          { key: "duration", label: "Duration (s)", default: true },
-          { key: "transcription", label: "Transcription", default: false },
+          {
+            key: "assignedExtension",
+            label: "Assigned Extension",
+            default: true,
+          },
+          { key: "agentName", label: "Agent Name", default: true },
         ];
       case REPORT_TYPES.CDR:
         return [
@@ -585,8 +598,8 @@ export default function ComprehensiveReports() {
           { key: "source", label: "Source", default: true },
           { key: "destination", label: "Destination", default: true },
           { key: "startTime", label: "Start Time", default: true },
-          { key: "duration", label: "Duration (s)", default: true },
-          { key: "billed", label: "Billed (s)", default: true },
+          { key: "duration", label: "Duration (min)", default: true },
+          { key: "billed", label: "Billed (min)", default: true },
           { key: "disposition", label: "Disposition", default: true },
           { key: "recording", label: "Recording File", default: false },
         ];
@@ -874,12 +887,18 @@ export default function ComprehensiveReports() {
       .map((col) => col.key);
 
     setSelectedColumns((prev) => {
+      const validKeys = new Set(columns.map((col) => col.key));
       const current = prev[activeTab];
       if (current && current.length > 0) {
-        // Keep existing selection if it exists
+        const pruned = current.filter((key) => validKeys.has(key));
+        if (pruned.length !== current.length) {
+          return {
+            ...prev,
+            [activeTab]: pruned.length > 0 ? pruned : defaultSelected,
+          };
+        }
         return prev;
       }
-      // Initialize with defaults if no selection exists
       return { ...prev, [activeTab]: defaultSelected };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1010,6 +1029,26 @@ export default function ComprehensiveReports() {
     indexOfLastReport
   );
 
+  const getAssignedAgentDisplay = (report) => {
+    if (report.assigned_extension) {
+      return `Ext ${report.assigned_extension}${
+        report.assigned_agent_name ? ` (${report.assigned_agent_name})` : ""
+      }`;
+    }
+
+    if (report.assigned_agent_name) {
+      return report.assigned_agent_name;
+    }
+
+    return "-";
+  };
+
+  const getAssignedExtensionDisplay = (report) =>
+    report.assigned_extension ? `Ext ${report.assigned_extension}` : "-";
+
+  const getAssignedAgentNameDisplay = (report) =>
+    report.assigned_agent_name || "-";
+
   // Helper function to get column value from report
   const getColumnValue = (columnKey, report, index) => {
     switch (activeTab) {
@@ -1025,12 +1064,10 @@ export default function ComprehensiveReports() {
               : "-";
           case "played":
             return report.is_played ? "Yes" : "No";
-          case "agent":
-            return report.assigned_agent_id || "-";
-          case "duration":
-            return report.duration_seconds || "-";
-          case "transcription":
-            return report.transcription || "-";
+          case "assignedExtension":
+            return getAssignedExtensionDisplay(report);
+          case "agentName":
+            return getAssignedAgentNameDisplay(report);
           default:
             return "-";
         }
@@ -1049,9 +1086,9 @@ export default function ComprehensiveReports() {
               ? new Date(report.cdrstarttime).toLocaleString()
               : "-";
           case "duration":
-            return report.duration || "-";
+            return formatSecondsToMinutes(report.duration);
           case "billed":
-            return report.billsec || "-";
+            return formatSecondsToMinutes(report.billsec);
           case "disposition":
             return report.disposition || "-";
           case "recording":
@@ -2316,55 +2353,51 @@ export default function ComprehensiveReports() {
     );
   };
 
-  const renderVoiceNoteTable = () => (
-    <table className="report-table">
-      <thead>
-        <tr>
-          <th>Sn</th>
-          <th>Phone</th>
-          <th>Date</th>
-          <th>Played</th>
-          <th>Assigned Agent</th>
-          <th>Duration (s)</th>
-          <th>Transcription</th>
-        </tr>
-      </thead>
-      <tbody>
-        {currentReports.map((report, index) => (
-          <tr key={report.id || index}>
-            <td>{indexOfFirstReport + index + 1}</td>
-            <td>{report.clid}</td>
-            <td>
-              {report.created_at
-                ? new Date(report.created_at).toLocaleString()
-                : "-"}
-            </td>
-            <td>
-              <Chip
-                label={report.is_played ? "Yes" : "No"}
-                size="small"
-                color={report.is_played ? "success" : "warning"}
-              />
-            </td>
-            <td>
-          {report.assigned_extension
-            ? `Ext ${report.assigned_extension}${
-                report.assigned_agent_name
-                  ? ` (${report.assigned_agent_name})`
-                  : ""
-              }`
-            : "-"}
-        </td>
+  const renderVoiceNoteTable = () => {
+    const columns = getColumnDefinitions();
+    const selected = selectedColumns[activeTab] || [];
+    const selectedColumnsDef = columns.filter((col) =>
+      selected.includes(col.key)
+    );
 
-            <td>{report.duration_seconds || "-"}</td>
-            <td className="transcription-cell">
-              {report.transcription || "-"}
-            </td>
+    return (
+      <table className="report-table">
+        <thead>
+          <tr>
+            {selectedColumnsDef.map((col) => (
+              <th key={col.key}>{col.label}</th>
+            ))}
           </tr>
-        ))}
-      </tbody>
-    </table>
-  );
+        </thead>
+        <tbody>
+          {currentReports.map((report, index) => (
+            <tr key={report.id || index}>
+              {selectedColumnsDef.map((col) => {
+                if (col.key === "serial") {
+                  return (
+                    <td key={col.key}>{indexOfFirstReport + index + 1}</td>
+                  );
+                }
+                const value = getColumnValue(col.key, report, index);
+                if (col.key === "played") {
+                  return (
+                    <td key={col.key}>
+                      <Chip
+                        label={value}
+                        size="small"
+                        color={value === "Yes" ? "success" : "warning"}
+                      />
+                    </td>
+                  );
+                }
+                return <td key={col.key}>{value}</td>;
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  };
 
   const renderCDRTable = () => (
     <table className="report-table">
@@ -2375,8 +2408,8 @@ export default function ComprehensiveReports() {
           <th>Source</th>
           <th>Destination</th>
           <th>Start Time</th>
-          <th>Duration (s)</th>
-          <th>Billed (s)</th>
+          <th>Duration (min)</th>
+          <th>Billed (min)</th>
           <th>Disposition</th>
           <th>Recording</th>
         </tr>
@@ -2393,8 +2426,8 @@ export default function ComprehensiveReports() {
                 ? new Date(report.cdrstarttime).toLocaleString()
                 : "-"}
             </td>
-            <td>{report.duration || "-"}</td>
-            <td>{report.billsec || "-"}</td>
+            <td>{formatSecondsToMinutes(report.duration)}</td>
+            <td>{formatSecondsToMinutes(report.billsec)}</td>
             <td>
               <Chip
                 label={report.disposition || "-"}

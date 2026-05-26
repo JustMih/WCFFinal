@@ -41,13 +41,11 @@ export default function RecordedSounds() {
         const notes = res.data.voiceNotes || [];
         setVoiceNotes(notes);
 
-        const storedPlayed =
-          JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
-        const valid = {};
+        const fromDb = {};
         notes.forEach((n) => {
-          if (storedPlayed[n.id]) valid[n.id] = true;
+          if (n.is_played) fromDb[n.id] = true;
         });
-        setPlayedStatus(valid);
+        setPlayedStatus(fromDb);
       } catch (e) {
         setError("Failed to load voice notes");
       } finally {
@@ -61,7 +59,26 @@ export default function RecordedSounds() {
   /* ===============================
      PLAY / PAUSE
   =============================== */
-  const handlePlayVoice = (id) => {
+  const isPlayed = (note) => Boolean(playedStatus[note.id] || note.is_played);
+
+  const markAsPlayedInDb = async (id) => {
+    const token = localStorage.getItem("authToken");
+    await axios.put(
+      `${baseURL}/voice-notes/${id}/mark-played`,
+      {},
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        withCredentials: true,
+      }
+    );
+
+    setPlayedStatus((prev) => ({ ...prev, [id]: true }));
+    setVoiceNotes((prev) =>
+      prev.map((n) => (n.id === id ? { ...n, is_played: 1 } : n))
+    );
+  };
+
+  const handlePlayVoice = async (id) => {
     const url = `${baseURL}/voice-notes/${id}/audio`;
 
     if (currentAudio) {
@@ -70,19 +87,25 @@ export default function RecordedSounds() {
     }
 
     const audio = new Audio(url);
-    audio.play();
 
-    setCurrentAudio(audio);
-    setCurrentlyPlayingId(id);
+    try {
+      await audio.play();
+      setCurrentAudio(audio);
+      setCurrentlyPlayingId(id);
+      audio.onended = () => {
+        setCurrentlyPlayingId(null);
+        setCurrentAudio(null);
+      };
+    } catch (playErr) {
+      console.error("Audio play failed:", playErr);
+    }
 
-    const updated = { ...playedStatus, [id]: true };
-    setPlayedStatus(updated);
-    localStorage.setItem("playedVoiceNotes", JSON.stringify(updated));
-
-    audio.onended = () => {
-      setCurrentlyPlayingId(null);
-      setCurrentAudio(null);
-    };
+    try {
+      await markAsPlayedInDb(id);
+    } catch (markErr) {
+      console.error("Mark played failed:", markErr);
+      setError("Could not save played status to database. Please log in and try again.");
+    }
   };
 
   const handlePauseVoice = () => {
@@ -111,8 +134,8 @@ export default function RecordedSounds() {
             statusFilter === ""
               ? true
               : statusFilter === "played"
-              ? playedStatus[n.id]
-              : !playedStatus[n.id];
+              ? isPlayed(n)
+              : !isPlayed(n);
 
           const matchFromDate = fromDate
             ? createdAt >= new Date(fromDate)
@@ -159,7 +182,7 @@ export default function RecordedSounds() {
       Caller: n.clid,
       Extension: n.assigned_extension,
       Agent: n.assigned_agent_name || "",
-      Status: playedStatus[n.id] ? "Played" : "Not Played",
+      Status: isPlayed(n) ? "Played" : "Not Played",
       Date: new Date(n.created_at).toLocaleString(),
     }));
 
@@ -181,7 +204,7 @@ export default function RecordedSounds() {
         n.clid,
         n.assigned_extension,
         n.assigned_agent_name || "-",
-        playedStatus[n.id] ? "Played" : "Not Played",
+        isPlayed(n) ? "Played" : "Not Played",
         new Date(n.created_at).toLocaleString(),
       ]),
     });
@@ -281,10 +304,10 @@ export default function RecordedSounds() {
                   <td>
                     <span
                       className={`voice-status ${
-                        playedStatus[note.id] ? "played" : "unplayed"
+                        isPlayed(note) ? "played" : "unplayed"
                       }`}
                     >
-                      {playedStatus[note.id] ? "Played" : "Not Played"}
+                      {isPlayed(note) ? "Played" : "Not Played"}
                     </span>
                   </td>
                   <td>
