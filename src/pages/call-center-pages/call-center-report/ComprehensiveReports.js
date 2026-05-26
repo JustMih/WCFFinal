@@ -1,5 +1,26 @@
 import React, { useEffect, useState } from "react";
+import { FiPhoneCall } from "react-icons/fi";
 import { baseURL } from "../../../config";
+import {
+  buildHolidaySet,
+  filterOffHoursRecords,
+  buildSummary,
+} from "../../../utils/offHoursHelper";
+import { playVoiceNoteAudio } from "../../../utils/voiceNoteAudio";
+import { markVoiceNotePlayed } from "../../../utils/voiceNotePlayed";
+import {
+  enrichRecordClient,
+  buildEmergencyMap,
+} from "../../../utils/offHoursReportClient";
+import {
+  isPendingCallback,
+  getCallbackPhone,
+  markMissedCallCalledBack,
+  normalizeCallbackStatus,
+  callbackStatusLabel,
+  formatOutboundNumber,
+} from "../../../utils/missedCallActions";
+import { useSipPhone } from "../call-center-dashboard/agents-dashboard/useSipPhone";
 import {
   Snackbar,
   Alert,
@@ -41,7 +62,11 @@ import {
   PhoneMissed,
   AccessTime,
 } from "@mui/icons-material";
+import Tooltip from "@mui/material/Tooltip";
 import "./comprehensiveReports.css";
+import "./OffHoursReport.css";
+
+const SIP_DOMAIN = "192.168.21.69";
 
 const REPORT_TYPES = {
   VOICE_NOTE: 0,
@@ -55,7 +80,118 @@ const REPORT_TYPES = {
   ESCALLATION: 8,
   NOTIFICATIONS: 9,
   CHATS: 10,
+  OFF_HOURS: 11,
 };
+
+const OFF_HOURS_CATEGORY_OPTIONS = [
+  { value: "all", label: "All Categories" },
+  { value: "public_holiday", label: "Public Holiday" },
+  { value: "sunday", label: "Sunday" },
+  { value: "saturday_outside_hours", label: "Saturday (Outside Hours)" },
+  { value: "weekday_after_hours", label: "Weekday After Hours" },
+];
+
+const OFF_HOURS_CATEGORY_COLORS = {
+  public_holiday: "#e91e63",
+  sunday: "#9c27b0",
+  saturday_outside_hours: "#ff9800",
+  weekday_after_hours: "#2196f3",
+};
+
+const OFF_HOURS_SUMMARY_CARDS = [
+  { key: "total", label: "Total Off-Hours", color: "#374151" },
+  { key: "public_holiday", label: "Public Holiday", color: "#e91e63" },
+  { key: "sunday", label: "Sunday", color: "#9c27b0" },
+  { key: "saturday_outside_hours", label: "Saturday", color: "#ff9800" },
+  { key: "weekday_after_hours", label: "After Work Hours", color: "#2196f3" },
+];
+
+const OFF_HOURS_MISSED_SUMMARY_CARDS = [
+  { key: "callbacks_pending", label: "Pending Callback", color: "#ef4444" },
+  { key: "callbacks_done", label: "Called Back", color: "#22c55e" },
+];
+
+const OFF_HOURS_SOURCE_LABELS = {
+  cdr: "CDR",
+  "voice-notes": "Voice Notes",
+  "missed-calls": "Missed Calls",
+};
+
+const OFF_HOURS_CALLBACK_STATUS_COLORS = {
+  pending: "#ef4444",
+  called_back: "#22c55e",
+  ignored: "#9ca3af",
+};
+
+const authHeaders = () => ({
+  "Content-Type": "application/json",
+  Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+});
+
+async function fetchOffHoursFallback(startDate, endDate, source) {
+  const holidaysRes = await fetch(`${baseURL}/holidays`, {
+    headers: authHeaders(),
+  });
+  const holidays = holidaysRes.ok ? await holidaysRes.json() : [];
+
+  let rawRecords = [];
+  let timestampField = "created_at";
+
+  if (source === "missed-calls") {
+    timestampField = "time";
+    const dataRes = await fetch(
+      `${baseURL}/missed-calls?startDate=${startDate}&endDate=${endDate}`,
+      { headers: authHeaders() }
+    );
+    if (!dataRes.ok) throw new Error("Failed to load missed calls");
+    rawRecords = await dataRes.json();
+  } else {
+    const [emergencyRes, dataRes] = await Promise.all([
+      fetch(`${baseURL}/emergency`, { headers: authHeaders() }),
+      fetch(
+        source === "cdr"
+          ? `${baseURL}/reports/cdr-report/${startDate}/${endDate}/all`
+          : `${baseURL}/reports/voice-note-report/${startDate}/${endDate}`,
+        { headers: authHeaders() }
+      ),
+    ]);
+    const emergencyList = emergencyRes.ok ? await emergencyRes.json() : [];
+    if (dataRes.ok) {
+      rawRecords = await dataRes.json();
+    } else if (dataRes.status !== 404) {
+      throw new Error("Failed to load report data");
+    }
+    timestampField = source === "cdr" ? "cdrstarttime" : "created_at";
+    const holidayDates = buildHolidaySet(holidays);
+    const filtered = filterOffHoursRecords(
+      rawRecords,
+      timestampField,
+      holidayDates
+    );
+    const emergencyByPhone = buildEmergencyMap(emergencyList);
+    const records = filtered.map((r) =>
+      enrichRecordClient(r, emergencyByPhone, source)
+    );
+    return { summary: buildSummary(records), records };
+  }
+
+  const holidayDates = buildHolidaySet(holidays);
+  const filtered = filterOffHoursRecords(
+    rawRecords,
+    timestampField,
+    holidayDates
+  );
+  const records = filtered.map((r) => ({
+    ...r,
+    caller_display: r.caller,
+    callback_status: r.status,
+    callback_agent_name: r.agent_name,
+    callback_time: r.called_back_at,
+    callback_agent_extension: r.called_back_by,
+  }));
+
+  return { summary: buildSummary(records), records };
+}
 
 export default function ComprehensiveReports() {
   const [activeTab, setActiveTab] = useState(0);
@@ -78,6 +214,32 @@ export default function ComprehensiveReports() {
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [missedCallStatusFilter, setMissedCallStatusFilter] = useState("all");
+
+  // Off-hours report
+  const [offHoursSource, setOffHoursSource] = useState("voice-notes");
+  const [offHoursCategoryFilter, setOffHoursCategoryFilter] = useState("all");
+  const [offHoursSummary, setOffHoursSummary] = useState(null);
+  const [offHoursPlayedStatus, setOffHoursPlayedStatus] = useState({});
+  const [offHoursCurrentAudio, setOffHoursCurrentAudio] = useState(null);
+  const [offHoursPlayingId, setOffHoursPlayingId] = useState(null);
+  const [offHoursCallingBackId, setOffHoursCallingBackId] = useState(null);
+
+  const extension = localStorage.getItem("extension");
+  const sipPassword = localStorage.getItem("sipPassword");
+  const sipReady = Boolean(extension && sipPassword);
+
+  const { phoneStatus, remoteAudioRef, redial, endCall } = useSipPhone({
+    extension: sipReady ? extension : null,
+    sipPassword: sipReady ? sipPassword : null,
+    SIP_DOMAIN,
+    allowIncomingRinging: false,
+  });
+
+  useEffect(() => {
+    if (phoneStatus === "Idle" || phoneStatus === "Call Failed") {
+      setOffHoursCallingBackId(null);
+    }
+  }, [phoneStatus]);
 
   // Column selection
   const [columnDialogOpen, setColumnDialogOpen] = useState(false);
@@ -260,6 +422,47 @@ export default function ComprehensiveReports() {
             throw new Error(error.message || "Failed to fetch notifications report");
           }
         }
+        case REPORT_TYPES.OFF_HOURS: {
+          if (!startDate || !endDate) {
+            throw new Error("Please select start and end dates");
+          }
+          const endpoint = `${baseURL}/reports/off-hours-report/${startDate}/${endDate}?source=${offHoursSource}`;
+          const response = await fetch(endpoint, {
+            method: "GET",
+            headers,
+          });
+
+          let data;
+          if (response.status === 404) {
+            data = await fetchOffHoursFallback(
+              startDate,
+              endDate,
+              offHoursSource
+            );
+          } else if (!response.ok) {
+            throw new Error("Failed to fetch off-hours report");
+          } else {
+            data = await response.json();
+          }
+
+          const loadedRecords = data.records || [];
+          setReports(loadedRecords);
+          setOffHoursSummary(data.summary || null);
+
+          if (offHoursSource === "voice-notes") {
+            const storedPlayed =
+              JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
+            const validPlayed = {};
+            loadedRecords.forEach((note) => {
+              if (storedPlayed[note.id] || note.is_played) {
+                validPlayed[note.id] = true;
+              }
+            });
+            setOffHoursPlayedStatus(validPlayed);
+          }
+          setLoading(false);
+          return;
+        }
         case REPORT_TYPES.CHATS: {
           const userId = localStorage.getItem("userId");
           if (!userId) {
@@ -417,6 +620,305 @@ export default function ComprehensiveReports() {
 
   const handleSnackbarClose = () => {
     setSnackbarOpen(false);
+  };
+
+  const getOffHoursTimestamp = (record) =>
+    record.time || record.created_at || record.cdrstarttime;
+
+  const isOffHoursNotePlayed = (note) =>
+    offHoursPlayedStatus[note.id] || note.is_played;
+
+  const getOffHoursRowColor = (note) => {
+    if (isOffHoursNotePlayed(note)) return "#d4edda";
+    const createdAt = new Date(note.created_at);
+    const hoursAgo = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60);
+    return hoursAgo >= 24 ? "#f8d7da" : "#fff3cd";
+  };
+
+  const renderOffHoursCallbackStatus = (record) => {
+    const status = normalizeCallbackStatus(record);
+    return (
+      <Chip
+        label={callbackStatusLabel(status)}
+        size="small"
+        sx={{
+          backgroundColor:
+            OFF_HOURS_CALLBACK_STATUS_COLORS[status] || "#666",
+          color: "#fff",
+          fontWeight: "bold",
+        }}
+      />
+    );
+  };
+
+  const handleOffHoursCallBack = async (record) => {
+    const phone = getCallbackPhone(record);
+    if (!phone) {
+      setSnackbarMessage("No phone number for this missed call.");
+      setSnackbarSeverity("warning");
+      setSnackbarOpen(true);
+      return;
+    }
+
+    if (!sipReady) {
+      setSnackbarMessage(
+        "SIP phone not ready. Open the Agent Dashboard and log in with your extension first."
+      );
+      setSnackbarSeverity("warning");
+      setSnackbarOpen(true);
+      return;
+    }
+
+    setOffHoursCallingBackId(record.id);
+    try {
+      await markMissedCallCalledBack(record.id, extension);
+      setReports((prev) =>
+        prev.map((r) =>
+          r.id === record.id
+            ? {
+                ...r,
+                status: "called_back",
+                callback_status: "called_back",
+                callback_agent_extension: extension,
+                callback_time: new Date().toISOString(),
+              }
+            : r
+        )
+      );
+      redial(formatOutboundNumber(phone) || phone);
+      setSnackbarMessage(`Calling back ${phone}...`);
+      setSnackbarSeverity("info");
+      setSnackbarOpen(true);
+    } catch (err) {
+      setOffHoursCallingBackId(null);
+      setSnackbarMessage(err.message || "Could not start callback.");
+      setSnackbarSeverity("error");
+      setSnackbarOpen(true);
+    }
+  };
+
+  const handleOffHoursPlayVoice = async (record) => {
+    if (offHoursCurrentAudio) {
+      offHoursCurrentAudio.pause();
+      offHoursCurrentAudio.currentTime = 0;
+    }
+
+    try {
+      const { audio } = await playVoiceNoteAudio(record);
+      setOffHoursCurrentAudio(audio);
+      setOffHoursPlayingId(record.id);
+
+      try {
+        await markVoiceNotePlayed(record.id, audio.duration);
+        setReports((prev) =>
+          prev.map((r) =>
+            r.id === record.id
+              ? {
+                  ...r,
+                  is_played: 1,
+                  duration_seconds:
+                    r.duration_seconds || Math.round(audio.duration || 0),
+                }
+              : r
+          )
+        );
+      } catch (markErr) {
+        console.warn("Could not save played status:", markErr);
+      }
+
+      const updatedStatus = { ...offHoursPlayedStatus, [record.id]: true };
+      setOffHoursPlayedStatus(updatedStatus);
+      localStorage.setItem("playedVoiceNotes", JSON.stringify(updatedStatus));
+
+      audio.onended = () => {
+        setOffHoursPlayingId(null);
+        setOffHoursCurrentAudio(null);
+      };
+    } catch (playError) {
+      console.error("Error playing audio:", playError);
+      setSnackbarMessage(
+        "Audio is on the server — not available from local API. Try static URL or use live config."
+      );
+      setSnackbarSeverity("warning");
+      setSnackbarOpen(true);
+    }
+  };
+
+  const handleOffHoursPauseVoice = () => {
+    if (offHoursCurrentAudio) {
+      offHoursCurrentAudio.pause();
+      setOffHoursPlayingId(null);
+    }
+  };
+
+  const exportOffHoursPDF = () => {
+    const doc = new jsPDF();
+    doc.text("Off-Hours Calls Report", 14, 14);
+    doc.setFontSize(10);
+    doc.text(`Date Range: ${startDate} to ${endDate}`, 14, 22);
+    doc.text(
+      `Source: ${OFF_HOURS_SOURCE_LABELS[offHoursSource] || offHoursSource}`,
+      14,
+      28
+    );
+    if (offHoursCategoryFilter !== "all") {
+      doc.text(
+        `Category: ${
+          OFF_HOURS_CATEGORY_OPTIONS.find(
+            (c) => c.value === offHoursCategoryFilter
+          )?.label
+        }`,
+        14,
+        34
+      );
+    }
+
+    const startY = offHoursCategoryFilter !== "all" ? 40 : 34;
+
+    if (offHoursSource === "cdr") {
+      autoTable(doc, {
+        startY,
+        head: [
+          [
+            "Sn",
+            "Caller ID",
+            "Routed To",
+            "Date/Time",
+            "Category",
+            "Disposition",
+            "Duration (s)",
+          ],
+        ],
+        body: filteredReports.map((r, idx) => [
+          idx + 1,
+          r.caller_display || r.clid || "-",
+          r.routed_to_label || r.routed_to || "-",
+          getOffHoursTimestamp(r)
+            ? new Date(getOffHoursTimestamp(r)).toLocaleString()
+            : "-",
+          r.off_hours_label || "-",
+          r.disposition || "-",
+          r.duration || "-",
+        ]),
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [245, 158, 66] },
+      });
+    } else if (offHoursSource === "missed-calls") {
+      autoTable(doc, {
+        startY,
+        head: [
+          [
+            "Sn",
+            "Caller ID",
+            "Date/Time",
+            "Category",
+            "Callback Status",
+            "Called Back By",
+            "Callback Time",
+          ],
+        ],
+        body: filteredReports.map((r, idx) => [
+          idx + 1,
+          r.caller_display || r.caller || "-",
+          getOffHoursTimestamp(r)
+            ? new Date(getOffHoursTimestamp(r)).toLocaleString()
+            : "-",
+          r.off_hours_label || "-",
+          r.callback_status || r.status || "-",
+          r.callback_agent_name || r.callback_agent_extension || "-",
+          r.callback_time
+            ? new Date(r.callback_time).toLocaleString()
+            : "-",
+        ]),
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [245, 158, 66] },
+      });
+    } else {
+      autoTable(doc, {
+        startY,
+        head: [
+          [
+            "Sn",
+            "Phone",
+            "Routed To",
+            "Date/Time",
+            "Category",
+            "Played",
+            "Duration (s)",
+          ],
+        ],
+        body: filteredReports.map((r, idx) => [
+          idx + 1,
+          r.caller_display || r.clid || "-",
+          r.routed_to_label || r.routed_to || "-",
+          getOffHoursTimestamp(r)
+            ? new Date(getOffHoursTimestamp(r)).toLocaleString()
+            : "-",
+          r.off_hours_label || "-",
+          isOffHoursNotePlayed(r) ? "Yes" : "No",
+          r.duration_seconds || "-",
+        ]),
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [245, 158, 66] },
+      });
+    }
+
+    doc.save(`off_hours_report_${startDate}_to_${endDate}.pdf`);
+    setSnackbarMessage("PDF exported successfully!");
+    setSnackbarSeverity("success");
+    setSnackbarOpen(true);
+  };
+
+  const exportOffHoursCSV = () => {
+    let rows = [];
+    if (offHoursSource === "cdr") {
+      rows = filteredReports.map((r, idx) => ({
+        Sn: idx + 1,
+        "Caller ID": r.caller_display || r.clid || "-",
+        "Routed To": r.routed_to_label || r.routed_to || "-",
+        "Date/Time": getOffHoursTimestamp(r)
+          ? new Date(getOffHoursTimestamp(r)).toLocaleString()
+          : "-",
+        Category: r.off_hours_label || "-",
+        Disposition: r.disposition || "-",
+        "Duration (s)": r.duration || "-",
+      }));
+    } else if (offHoursSource === "missed-calls") {
+      rows = filteredReports.map((r, idx) => ({
+        Sn: idx + 1,
+        "Caller ID": r.caller_display || r.caller || "-",
+        "Date/Time": getOffHoursTimestamp(r)
+          ? new Date(getOffHoursTimestamp(r)).toLocaleString()
+          : "-",
+        Category: r.off_hours_label || "-",
+        "Callback Status": r.callback_status || r.status || "-",
+        "Called Back By":
+          r.callback_agent_name || r.callback_agent_extension || "-",
+        "Callback Time": r.callback_time
+          ? new Date(r.callback_time).toLocaleString()
+          : "-",
+      }));
+    } else {
+      rows = filteredReports.map((r, idx) => ({
+        Sn: idx + 1,
+        Phone: r.caller_display || r.clid || "-",
+        "Routed To": r.routed_to_label || r.routed_to || "-",
+        "Date/Time": getOffHoursTimestamp(r)
+          ? new Date(getOffHoursTimestamp(r)).toLocaleString()
+          : "-",
+        Category: r.off_hours_label || "-",
+        Played: isOffHoursNotePlayed(r) ? "Yes" : "No",
+        "Duration (s)": r.duration_seconds || "-",
+      }));
+    }
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Off-Hours");
+    XLSX.writeFile(wb, `off_hours_report_${startDate}_to_${endDate}.csv`);
+    setSnackbarMessage("CSV exported successfully!");
+    setSnackbarSeverity("success");
+    setSnackbarOpen(true);
   };
 
   // Column definitions for each report type
@@ -846,6 +1348,23 @@ export default function ComprehensiveReports() {
           (report.message || "").toLowerCase().includes(searchLower) ||
           (report.status || "").toLowerCase().includes(searchLower)
         );
+      case REPORT_TYPES.OFF_HOURS: {
+        const phone = (
+          report.caller_display ||
+          report.caller_phone ||
+          report.clid ||
+          report.caller ||
+          report.src ||
+          ""
+        ).toLowerCase();
+        const routed = (report.routed_to_label || report.routed_to || "").toLowerCase();
+        const matchesSearch =
+          phone.includes(searchLower) || routed.includes(searchLower);
+        const matchesCategory =
+          offHoursCategoryFilter === "all" ||
+          report.off_hours_category === offHoursCategoryFilter;
+        return matchesSearch && matchesCategory;
+      }
       default:
         return true;
     }
@@ -1336,6 +1855,17 @@ export default function ComprehensiveReports() {
 
   // CSV Export Function
   const handleExportCSV = () => {
+    if (activeTab === REPORT_TYPES.OFF_HOURS) {
+      if (filteredReports.length === 0) {
+        setSnackbarMessage("No data to export");
+        setSnackbarSeverity("warning");
+        setSnackbarOpen(true);
+        return;
+      }
+      exportOffHoursCSV();
+      return;
+    }
+
     if (filteredReports.length === 0) {
       setSnackbarMessage("No data to export");
       setSnackbarSeverity("warning");
@@ -1380,6 +1910,17 @@ export default function ComprehensiveReports() {
 
   // PDF Export Function
   const handleExportPDF = () => {
+    if (activeTab === REPORT_TYPES.OFF_HOURS) {
+      if (filteredReports.length === 0) {
+        setSnackbarMessage("No data to export");
+        setSnackbarSeverity("warning");
+        setSnackbarOpen(true);
+        return;
+      }
+      exportOffHoursPDF();
+      return;
+    }
+
     if (filteredReports.length === 0) {
       setSnackbarMessage("No data to export");
       setSnackbarSeverity("warning");
@@ -1637,6 +2178,7 @@ export default function ComprehensiveReports() {
       [REPORT_TYPES.ESCALLATION]: "Escallation Report",
       [REPORT_TYPES.NOTIFICATIONS]: "Notification Report",
       [REPORT_TYPES.CHATS]: "Chats Report",
+      [REPORT_TYPES.OFF_HOURS]: "Off-Hours Calls Report",
     };
     return titles[activeTab] || "Report";
   };
@@ -1646,6 +2188,12 @@ export default function ComprehensiveReports() {
     setReports([]);
     setCurrentPage(1);
     setSearch("");
+    setOffHoursSummary(null);
+    setOffHoursPlayingId(null);
+    if (offHoursCurrentAudio) {
+      offHoursCurrentAudio.pause();
+      setOffHoursCurrentAudio(null);
+    }
     setSummaryStats({
       total: 0,
       answered: 0,
@@ -1656,7 +2204,41 @@ export default function ComprehensiveReports() {
     });
   };
 
+  const renderOffHoursSummaryCards = () => {
+    if (activeTab !== REPORT_TYPES.OFF_HOURS || !offHoursSummary) {
+      return null;
+    }
+
+    const cards = [
+      ...OFF_HOURS_SUMMARY_CARDS,
+      ...(offHoursSource === "missed-calls"
+        ? OFF_HOURS_MISSED_SUMMARY_CARDS
+        : []),
+    ];
+
+    return (
+      <div className="off-hours-summary">
+        {cards.map((card) => (
+          <div
+            key={card.key}
+            className="off-hours-summary-card"
+            style={{ borderTopColor: card.color }}
+          >
+            <div className="off-hours-summary-value">
+              {offHoursSummary[card.key] ?? 0}
+            </div>
+            <div className="off-hours-summary-label">{card.label}</div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   const renderSummaryCards = () => {
+    if (activeTab === REPORT_TYPES.OFF_HOURS) {
+      return renderOffHoursSummaryCards();
+    }
+
     if (
       activeTab !== REPORT_TYPES.CDR &&
       activeTab !== REPORT_TYPES.CALL_SUMMARY
@@ -1795,9 +2377,271 @@ export default function ComprehensiveReports() {
         return renderNotificationsTable();
       case REPORT_TYPES.CHATS:
         return renderChatsTable();
+      case REPORT_TYPES.OFF_HOURS:
+        return renderOffHoursTable();
       default:
         return null;
     }
+  };
+
+  const renderOffHoursTable = () => {
+    if (offHoursSource === "missed-calls") {
+      return (
+        <>
+          {phoneStatus !== "Idle" && (
+            <div className="off-hours-phone-status">
+              <span>Phone: {phoneStatus}</span>
+              <Button size="small" variant="outlined" onClick={() => endCall()}>
+                Hang up
+              </Button>
+            </div>
+          )}
+          <audio ref={remoteAudioRef} autoPlay style={{ display: "none" }} />
+          <table className="off-hours-table report-table">
+            <thead>
+              <tr>
+                <th>Sn</th>
+                <th>Caller ID</th>
+                <th>Date/Time</th>
+                <th>Category</th>
+                <th>Callback Status</th>
+                <th>Called Back By</th>
+                <th>Callback Time</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {currentReports.map((record, index) => {
+                const phone = getCallbackPhone(record);
+                const pending = isPendingCallback(record);
+                const isCalling = offHoursCallingBackId === record.id;
+
+                return (
+                  <tr
+                    key={record.id || index}
+                    style={{
+                      backgroundColor: pending ? "#fff3cd" : "#d4edda",
+                    }}
+                  >
+                    <td>{indexOfFirstReport + index + 1}</td>
+                    <td>{phone || "-"}</td>
+                    <td>
+                      {getOffHoursTimestamp(record)
+                        ? new Date(
+                            getOffHoursTimestamp(record)
+                          ).toLocaleString()
+                        : "-"}
+                    </td>
+                    <td>
+                      <Chip
+                        label={record.off_hours_label}
+                        size="small"
+                        sx={{
+                          backgroundColor:
+                            OFF_HOURS_CATEGORY_COLORS[
+                              record.off_hours_category
+                            ] || "#666",
+                          color: "#fff",
+                          fontWeight: "bold",
+                        }}
+                      />
+                    </td>
+                    <td>{renderOffHoursCallbackStatus(record)}</td>
+                    <td>
+                      {record.callback_agent_name ||
+                        record.callback_agent_extension ||
+                        "—"}
+                    </td>
+                    <td>
+                      {record.callback_time
+                        ? new Date(record.callback_time).toLocaleString()
+                        : "—"}
+                    </td>
+                    <td className="off-hours-actions-cell">
+                      {pending && phone ? (
+                        <Tooltip
+                          title={
+                            sipReady
+                              ? "Call back via your agent phone (same as Agent Dashboard)"
+                              : "Log in on Agent Dashboard with SIP extension first"
+                          }
+                        >
+                          <span>
+                            <Button
+                              variant="contained"
+                              size="small"
+                              color={isCalling ? "success" : "primary"}
+                              disabled={!sipReady || isCalling}
+                              startIcon={<FiPhoneCall />}
+                              onClick={() => handleOffHoursCallBack(record)}
+                            >
+                              {isCalling ? "Calling..." : "Call Back"}
+                            </Button>
+                          </span>
+                        </Tooltip>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </>
+      );
+    }
+
+    if (offHoursSource === "cdr") {
+      return (
+        <table className="off-hours-table report-table">
+          <thead>
+            <tr>
+              <th>Sn</th>
+              <th>Caller ID</th>
+              <th>Routed To</th>
+              <th>Destination</th>
+              <th>Date/Time</th>
+              <th>Category</th>
+              <th>Disposition</th>
+              <th>Duration (s)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {currentReports.map((record, index) => (
+              <tr key={record.id || index}>
+                <td>{indexOfFirstReport + index + 1}</td>
+                <td>{record.caller_display || record.clid || "-"}</td>
+                <td>
+                  {record.routed_to_label || record.routed_to || "—"}
+                  {record.is_emergency_route && (
+                    <span className="off-hours-emergency-tag"> Emergency</span>
+                  )}
+                </td>
+                <td>
+                  {record.destination_display ||
+                    record.routed_to_label ||
+                    "—"}
+                </td>
+                <td>
+                  {getOffHoursTimestamp(record)
+                    ? new Date(getOffHoursTimestamp(record)).toLocaleString()
+                    : "-"}
+                </td>
+                <td>
+                  <Chip
+                    label={record.off_hours_label}
+                    size="small"
+                    sx={{
+                      backgroundColor:
+                        OFF_HOURS_CATEGORY_COLORS[record.off_hours_category] ||
+                        "#666",
+                      color: "#fff",
+                      fontWeight: "bold",
+                    }}
+                  />
+                </td>
+                <td>{record.disposition || "-"}</td>
+                <td>{record.duration || "-"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      );
+    }
+
+    return (
+      <>
+        <audio ref={remoteAudioRef} autoPlay style={{ display: "none" }} />
+        <table className="off-hours-table report-table">
+          <thead>
+            <tr>
+              <th>Sn</th>
+              <th>ID</th>
+              <th>Caller ID</th>
+              <th>Routed To</th>
+              <th>Created At</th>
+              <th>Category</th>
+              <th>Status</th>
+              <th>Actions</th>
+              <th>Duration (s)</th>
+              <th>Transcription</th>
+            </tr>
+          </thead>
+          <tbody>
+            {currentReports.map((record, index) => {
+              const isPlayed = isOffHoursNotePlayed(record);
+              const isPlaying = offHoursPlayingId === record.id;
+
+              return (
+                <tr
+                  key={record.id || index}
+                  style={{ backgroundColor: getOffHoursRowColor(record) }}
+                >
+                  <td>{indexOfFirstReport + index + 1}</td>
+                  <td>{record.id}</td>
+                  <td>{record.caller_display || record.clid || "-"}</td>
+                  <td>
+                    {record.routed_to_label || record.routed_to || "—"}
+                    {record.is_emergency_route && (
+                      <span className="off-hours-emergency-tag"> Emergency</span>
+                    )}
+                  </td>
+                  <td>
+                    {getOffHoursTimestamp(record)
+                      ? new Date(getOffHoursTimestamp(record)).toLocaleString()
+                      : "-"}
+                  </td>
+                  <td>
+                    <Chip
+                      label={record.off_hours_label}
+                      size="small"
+                      sx={{
+                        backgroundColor:
+                          OFF_HOURS_CATEGORY_COLORS[
+                            record.off_hours_category
+                          ] || "#666",
+                        color: "#fff",
+                        fontWeight: "bold",
+                      }}
+                    />
+                  </td>
+                  <td>{isPlayed ? "Played" : "Not Played"}</td>
+                  <td>
+                    {record.id ? (
+                      <>
+                        <button
+                          type="button"
+                          className="off-hours-btn off-hours-btn-play"
+                          onClick={() => handleOffHoursPlayVoice(record)}
+                        >
+                          Play
+                        </button>
+                        {isPlaying && (
+                          <button
+                            type="button"
+                            className="off-hours-btn off-hours-btn-pause"
+                            onClick={handleOffHoursPauseVoice}
+                          >
+                            Pause
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      "No file"
+                    )}
+                  </td>
+                  <td>{record.duration_seconds || "-"}</td>
+                  <td className="off-hours-transcription">
+                    {record.transcription || "-"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </>
+    );
   };
 
   const renderMissedCallTable = () => (
@@ -2567,8 +3411,21 @@ export default function ComprehensiveReports() {
           <Tab label="Escallation" />
           <Tab label="Notifications" />
           <Tab label="Chats" />
+          <Tab label="Off-Hours Calls" />
         </Tabs>
       </Box>
+
+      {activeTab === REPORT_TYPES.OFF_HOURS && (
+        <Typography
+          variant="body2"
+          color="textSecondary"
+          sx={{ mb: 2, maxWidth: 900 }}
+        >
+          Weekend, public holiday, and after-work activity (Mon–Fri before
+          08:00 or after 20:00, Sat before 09:00 or after 13:00, all day Sunday
+          and holidays). Use Missed Calls source to callback pending callers.
+        </Typography>
+      )}
 
       {/* Summary Cards for Call Reports */}
       {renderSummaryCards()}
@@ -2730,6 +3587,51 @@ export default function ComprehensiveReports() {
                   </Select>
                 </FormControl>
               )}
+
+              {activeTab === REPORT_TYPES.OFF_HOURS && (
+                <>
+                  <FormControl
+                    size="small"
+                    style={{ minWidth: 140, marginRight: 8 }}
+                  >
+                    <InputLabel>Source</InputLabel>
+                    <Select
+                      value={offHoursSource}
+                      label="Source"
+                      onChange={(e) => {
+                        setOffHoursSource(e.target.value);
+                        setReports([]);
+                        setOffHoursSummary(null);
+                        setCurrentPage(1);
+                      }}
+                    >
+                      <MenuItem value="voice-notes">Voice Notes</MenuItem>
+                      <MenuItem value="cdr">CDR</MenuItem>
+                      <MenuItem value="missed-calls">Missed Calls</MenuItem>
+                    </Select>
+                  </FormControl>
+                  <FormControl
+                    size="small"
+                    style={{ minWidth: 180, marginRight: 8 }}
+                  >
+                    <InputLabel>Category</InputLabel>
+                    <Select
+                      value={offHoursCategoryFilter}
+                      label="Category"
+                      onChange={(e) => {
+                        setOffHoursCategoryFilter(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                    >
+                      {OFF_HOURS_CATEGORY_OPTIONS.map((opt) => (
+                        <MenuItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </>
+              )}
             </div>
 
             <div className="action-buttons">
@@ -2750,7 +3652,8 @@ export default function ComprehensiveReports() {
               >
                 Load Report
               </Button>
-              {filteredReports.length > 0 && (
+              {filteredReports.length > 0 &&
+                activeTab !== REPORT_TYPES.OFF_HOURS && (
                 <Button
                   variant="outlined"
                   color="info"
@@ -2801,6 +3704,8 @@ export default function ComprehensiveReports() {
                   ? "Search by ticket number, subject, message, or comment..."
                   : activeTab === REPORT_TYPES.CHATS
                   ? "Search by sender, receiver, or message..."
+                  : activeTab === REPORT_TYPES.OFF_HOURS
+                  ? "Search by phone or routed destination..."
                   : "Search..."
               }
               value={search}
