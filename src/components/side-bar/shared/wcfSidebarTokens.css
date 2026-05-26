@@ -1,0 +1,28 @@
+:root {
+  --wcf-navy: #305fa7;
+  --wcf-white: #ffffff;
+  --wcf-sidebar-bg: #305fa7;
+  --wcf-sidebar-width-open: 260px;
+  --wcf-sidebar-width-closed: 72px;
+  --wcf-blue: #3b71b7;
+  --wcf-blue-light: #5a8fd4;
+  --wcf-green: #8cc63f;
+  --wcf-gray: #939598;
+  --wcf-sidebar-text: rgba(255, 255, 255, 0.72);
+  --wcf-sidebar-text-active: #ffffff;
+  --wcf-sidebar-active-bg: rgba(255, 255, 255, 0.16);
+  --wcf-sidebar-hover-bg: rgba(255, 255, 255, 0.1);
+  --wcf-sidebar-border: rgba(255, 255, 255, 0.08);
+  --wcf-surface-border: rgba(15, 27, 46, 0.08);
+  --wcf-shadow-sm: 0 1px 3px rgba(13, 27, 46, 0.08);
+  --wcf-shadow-md: 0 4px 12px rgba(13, 27, 46, 0.12);
+  --wcf-radius-md: 10px;
+  --wcf-radius-lg: 12px;
+  --wcf-font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+}
+
+.light-mode,
+.dark-mode {
+  --sidebar-color: var(--wcf-sidebar-bg);
+}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { WcfLoadingOverlay } from "../../components/shared/WcfLoader";
 import {
   Button,
   Dialog,
@@ -37,7 +38,11 @@ import ActiveCalls from "../../components/active-calls/ActiveCalls";
 import ReactApexChart from "react-apexcharts";
 import "./PublicDashboard.css";
 
-export default function PublicDashboard() {
+export default function PublicDashboard({
+  suppressLoadingUI = false,
+  onInitialLoadComplete,
+  className = "",
+}) {
   const [dashboardData, setDashboardData] = useState({
     agentStatus: { onlineCount: 0, offlineCount: 0 },
     liveCalls: [],
@@ -51,6 +56,12 @@ export default function PublicDashboard() {
   const [lostCalls, setLostCalls] = useState([]);
   const [showLostCallsModal, setShowLostCallsModal] = useState(false);
   const [lostCallsLoading, setLostCallsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!loading && suppressLoadingUI && onInitialLoadComplete) {
+      onInitialLoadComplete();
+    }
+  }, [loading, suppressLoadingUI, onInitialLoadComplete]);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -464,9 +475,17 @@ return () => {
   };
 
   if (loading) {
+    if (suppressLoadingUI) {
+      return <div className={`public-dashboard public-dashboard--preload ${className}`.trim()} aria-hidden />;
+    }
     return (
-      <div className="public-dashboard">
-        <div className="dashboard-loading">Loading Dashboard...</div>
+      <div className={`public-dashboard public-dashboard--loading ${className}`.trim()}>
+        <WcfLoadingOverlay
+          fullPage
+          transparent
+          message="Loading dashboard..."
+          label="Loading dashboard"
+        />
       </div>
     );
   }
@@ -485,7 +504,7 @@ return () => {
   const watchTime = formatWatchTime(currentTime);
 
   return (
-    <div className="public-dashboard">
+    <div className={`public-dashboard ${className}`.trim()}>
       {/* Floating Watch Display */}
       <Box
         sx={{

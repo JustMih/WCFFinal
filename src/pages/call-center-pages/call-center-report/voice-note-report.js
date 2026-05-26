@@ -1,5 +1,6 @@
  import React, { useEffect, useState } from "react";
 import { baseURL } from "../../../config";
+import ReportDateRangePicker from "../../../components/shared/ReportDateRangePicker";
 import {
   Snackbar,
   Alert,
@@ -153,9 +154,14 @@ export default function VoiceNoteReport() {
         <Tab label="CDR Report" />
       </Tabs>
 
-      <div className="controls" style={{ gap: 8 }}>
-        <TextField type="date" label="Start Date" InputLabelProps={{ shrink: true }} size="small" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-        <TextField type="date" label="End Date" InputLabelProps={{ shrink: true }} size="small" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+      <div className="controls report-filters-row" style={{ gap: 8 }}>
+        <ReportDateRangePicker
+          startDate={startDate}
+          endDate={endDate}
+          onStartDateChange={setStartDate}
+          onEndDateChange={setEndDate}
+          disabled={loading}
+        />
 
         {activeTab === 0 ? (
           <FormControl size="small">
