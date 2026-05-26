@@ -3164,8 +3164,9 @@ const AgentCRM = () => {
                   >
                     New Ticket
                   </Button>
-                  {/* Show "Notify User" button only for agent role */}
-                  {selectedTicket.status !== "Closed" && role === "agent" && (
+                  {/* Notify: agent and attendee */}
+                  {selectedTicket.status !== "Closed" &&
+                    (role === "agent" || role === "attendee") && (
                     <Button
                       variant="contained"
                       color="secondary"

@@ -187,3 +187,13 @@
   color: white;
   box-shadow: 0 0 10px rgba(76, 175, 80, 0.8);
 }
+
+.spy-action-message {
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  color: #1565c0;
+  background: #e3f2fd;
+  border-radius: 6px;
+  border-left: 4px solid #1976d2;
+}

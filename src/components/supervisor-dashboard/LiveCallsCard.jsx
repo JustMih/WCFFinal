@@ -19,32 +19,49 @@ export default function LiveCallsCard({
   const [filteredLiveCalls, setFilteredLiveCalls] = useState([]);
   const [activeCalls, setActiveCalls] = useState([]);
   const [spyingOn, setSpyingOn] = useState(null);
+  const [spyMode, setSpyMode] = useState(null);
+  const [actionMessage, setActionMessage] = useState("");
+
+  const modeLabels = {
+    listen: "Listening (spy)",
+    whisper: "Whispering to agent",
+    barge: "Barged into call",
+  };
 
   /* ================================
-     SPY ACTION (BACKEND CONTROLLED)
+     SPY / WHISPER / BARGE (AMI → supervisor phone)
      ================================ */
   const spyAction = async (linkedid, mode) => {
     try {
+      setActionMessage("");
+
+      const supervisorExtension = localStorage.getItem("extension") || undefined;
+
       const response = await fetch(`${baseURL}/livestream/spy`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("authToken")}`,
         },
-        body: JSON.stringify({ linkedid, mode }),
+        body: JSON.stringify({ linkedid, mode, supervisorExtension }),
       });
 
+      const data = await response.json().catch(() => ({}));
+
       if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text);
+        throw new Error(data.error || "Could not start supervisor intervention");
       }
 
-      const data = await response.json();
-      console.log("✅ Spy started:", data);
-
       setSpyingOn(linkedid);
+      setSpyMode(mode);
+      setActionMessage(
+        `${modeLabels[mode] || mode} on ${data.agent_name || "agent"} (ext ${
+          data.agent_extension || "—"
+        }). Your phone (${data.supervisor_extension}) should ring now.`
+      );
     } catch (err) {
       console.error("❌ Spy failed:", err);
+      setActionMessage("");
       alert(err.message || "Spy failed");
     }
   };
@@ -98,6 +115,8 @@ export default function LiveCallsCard({
       );
       if (!stillActive) {
         setSpyingOn(null);
+        setSpyMode(null);
+        setActionMessage("");
       }
     }
   }, [activeCalls, spyingOn]);
@@ -141,6 +160,9 @@ export default function LiveCallsCard({
             <span className="loading-indicator">(Loading...)</span>
           )}
         </h4>
+        {actionMessage && (
+          <p className="spy-action-message">{actionMessage}</p>
+        )}
       </div>
 
       <div className="table-responsive">
@@ -201,7 +223,9 @@ export default function LiveCallsCard({
                       {/* LISTEN */}
                       <button
                         className={`action-button listen ${
-                          spyingOn === call.linkedid ? "active-spy" : ""
+                          spyingOn === call.linkedid && spyMode === "listen"
+                            ? "active-spy"
+                            : ""
                         }`}
                         disabled={call.status !== "active"}
                         onClick={() =>
@@ -214,7 +238,11 @@ export default function LiveCallsCard({
 
                       {/* WHISPER */}
                       <button
-                        className="action-button whisper"
+                        className={`action-button whisper ${
+                          spyingOn === call.linkedid && spyMode === "whisper"
+                            ? "active-spy"
+                            : ""
+                        }`}
                         disabled={call.status !== "active"}
                         onClick={() =>
                           spyAction(call.linkedid, "whisper")
@@ -226,7 +254,11 @@ export default function LiveCallsCard({
 
                       {/* BARGE */}
                       <button
-                        className="action-button intervene"
+                        className={`action-button intervene ${
+                          spyingOn === call.linkedid && spyMode === "barge"
+                            ? "active-spy"
+                            : ""
+                        }`}
                         disabled={call.status !== "active"}
                         onClick={() =>
                           spyAction(call.linkedid, "barge")
