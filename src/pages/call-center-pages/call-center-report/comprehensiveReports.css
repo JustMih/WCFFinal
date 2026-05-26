@@ -19,174 +19,135 @@
 /* Summary Cards */
 .summary-cards-container {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 18px;
   margin-bottom: 32px;
 }
 
 .summary-card {
-  border-radius: 16px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  border-radius: 20px;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.08);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
   overflow: hidden;
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  background: #ffffff;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.summary-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(
+    90deg,
+    var(--summary-accent, #4f46e5) 0%,
+    var(--summary-accent-soft, #7c3aed) 100%
+  );
 }
 
 .summary-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+  transform: translateY(-4px);
+  box-shadow: 0 20px 36px rgba(15, 23, 42, 0.12);
 }
 
 .summary-card-content {
-  padding: 24px !important;
+  padding: 22px !important;
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
   position: relative;
 }
 
 .summary-card-icon {
-  width: 56px;
-  height: 56px;
-  border-radius: 12px;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  font-size: 28px;
+  font-size: 24px;
   color: white;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: linear-gradient(
+    135deg,
+    var(--summary-accent, #4f46e5) 0%,
+    var(--summary-accent-soft, #7c3aed) 100%
+  );
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.16);
 }
 
 .summary-card-info {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .summary-card-label {
-  font-size: 13px;
-  font-weight: 500;
+  font-size: 12px;
+  font-weight: 600;
   color: #64748b;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 8px;
+  letter-spacing: 0.08em;
+  margin-bottom: 10px;
   line-height: 1.2;
 }
 
 .summary-card-value {
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 700;
-  color: #1e293b;
-  line-height: 1.2;
-  margin-bottom: 4px;
+  color: #0f172a;
+  line-height: 1.1;
+  margin-bottom: 6px;
 }
 
 .summary-card-percentage {
   font-size: 12px;
   font-weight: 600;
-  color: #64748b;
-  opacity: 0.8;
+  color: var(--summary-accent, #4f46e5);
+  background: var(--summary-tint, rgba(79, 70, 229, 0.12));
+  width: fit-content;
+  padding: 4px 10px;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
 }
 
 /* Total Calls Card */
 .summary-card-total {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
-
-.summary-card-total .summary-card-content {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
-
-.summary-card-total .summary-card-icon {
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
-}
-
-.summary-card-total .summary-card-label,
-.summary-card-total .summary-card-value,
-.summary-card-total .summary-card-percentage {
-  color: white;
+  --summary-accent: #4f46e5;
+  --summary-accent-soft: #7c3aed;
+  --summary-tint: rgba(79, 70, 229, 0.12);
 }
 
 /* Answered Card */
 .summary-card-answered {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-}
-
-.summary-card-answered .summary-card-content {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-}
-
-.summary-card-answered .summary-card-icon {
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
-}
-
-.summary-card-answered .summary-card-label,
-.summary-card-answered .summary-card-value,
-.summary-card-answered .summary-card-percentage {
-  color: white;
+  --summary-accent: #059669;
+  --summary-accent-soft: #10b981;
+  --summary-tint: rgba(5, 150, 105, 0.12);
 }
 
 /* No Answer Card */
 .summary-card-no-answer {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-}
-
-.summary-card-no-answer .summary-card-content {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-}
-
-.summary-card-no-answer .summary-card-icon {
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
-}
-
-.summary-card-no-answer .summary-card-label,
-.summary-card-no-answer .summary-card-value,
-.summary-card-no-answer .summary-card-percentage {
-  color: white;
+  --summary-accent: #d97706;
+  --summary-accent-soft: #f59e0b;
+  --summary-tint: rgba(217, 119, 6, 0.12);
 }
 
 /* Busy Card */
 .summary-card-busy {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-}
-
-.summary-card-busy .summary-card-content {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-}
-
-.summary-card-busy .summary-card-icon {
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
-}
-
-.summary-card-busy .summary-card-label,
-.summary-card-busy .summary-card-value,
-.summary-card-busy .summary-card-percentage {
-  color: white;
+  --summary-accent: #dc2626;
+  --summary-accent-soft: #ef4444;
+  --summary-tint: rgba(220, 38, 38, 0.12);
 }
 
 /* Duration Card */
 .summary-card-duration {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-}
-
-.summary-card-duration .summary-card-content {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-}
-
-.summary-card-duration .summary-card-icon {
-  background: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(10px);
-}
-
-.summary-card-duration .summary-card-label,
-.summary-card-duration .summary-card-value,
-.summary-card-duration .summary-card-percentage {
-  color: white;
+  --summary-accent: #2563eb;
+  --summary-accent-soft: #3b82f6;
+  --summary-tint: rgba(37, 99, 235, 0.12);
 }
 
 /* Filters Card */
@@ -363,6 +324,19 @@
     grid-template-columns: repeat(2, 1fr);
   }
 
+  .summary-card-content {
+    padding: 18px !important;
+  }
+
+  .summary-card-icon {
+    width: 48px;
+    height: 48px;
+  }
+
+  .summary-card-value {
+    font-size: 26px;
+  }
+
   .filters-container {
     flex-direction: column;
   }
@@ -395,6 +369,14 @@
 @media (max-width: 480px) {
   .summary-cards-container {
     grid-template-columns: 1fr;
+  }
+
+  .summary-card-content {
+    gap: 12px;
+  }
+
+  .summary-card-value {
+    font-size: 24px;
   }
 
   .date-filters {
