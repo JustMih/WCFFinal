@@ -40,6 +40,7 @@ import TableControls from "../../../../components/TableControls";
 import PhoneSearchSection from "../../../../components/shared/PhoneSearchSection";
 import TicketUpdates from "../../../../components/ticket/TicketUpdates";
 import TicketDetailsModal from "../../../../components/TicketDetailsModal";
+import ClaimRedirectButton from "../../../../components/ticket/ClaimRedirectButton.jsx";
 import axios from "axios";
 
 // Add styled components for better typeahead styling
@@ -2764,12 +2765,80 @@ const AgentCRM = () => {
                               selectedTicket.last_name || "N/A",
                           ],
                           // ["Last Name", selectedTicket.last_name || "N/A"]
+                          
                         ]),
                     ["Ticket Number", selectedTicket.ticket_id || "N/A"],
                     ["Phone", selectedTicket.phone_number || "N/A"],
                     ["Requester", selectedTicket.requester || "N/A"],
                     ["Region", selectedTicket.region || "N/A"],
                     ["Channel", selectedTicket.channel || "N/A"],
+                    ...(() => {
+                      const claimNum = selectedTicket.claim_number;
+                      const notifReportId = selectedTicket.notification_report_id;
+                      const hasValidClaimNumber = claimNum != null && claimNum !== "" && claimNum !== 0 && String(claimNum).trim() !== "0";
+                      const hasNotificationReportId = notifReportId != null && notifReportId !== "" && notifReportId !== 0 && String(notifReportId).trim() !== "0";
+                      const hasValidClaim = hasValidClaimNumber || hasNotificationReportId;
+                      const idForRedirect = hasNotificationReportId ? notifReportId : claimNum;
+                      const displayClaimNumber = claimNum || notifReportId || "N/A";
+                      return hasValidClaim && idForRedirect ? [["Claim Number", (
+                        <Tooltip title="View employee profile in MAC">
+                          <span>
+                            <ClaimRedirectButton
+                              key="claim-link"
+                              notificationReportId={idForRedirect}
+                              claimNumber={selectedTicket.claim_number}
+                              employerId={selectedTicket.employer_registration_number || ""}
+                              buttonText={displayClaimNumber}
+                              searchType="claim"
+                              isEmployerSearch={false}
+                              employerData={null}
+                              openMode="new-tab"
+                              openEarlyNewTab={true}
+                              style={{
+                                background: "none",
+                                color: "#1976d2",
+                                textDecoration: "underline",
+                                padding: 0,
+                                minHeight: "auto",
+                                fontSize: "inherit",
+                                fontWeight: "inherit",
+                                cursor: "pointer",
+                              }}
+                            />
+                          </span>
+                        </Tooltip>
+                      )]] : [];
+                    })(),
+                    ...(String(selectedTicket.employer_registration_number || "").trim() ? [["Employer Registration No.", (
+                      <Tooltip title="View employer profile in MAC">
+                        <span>
+                          <ClaimRedirectButton
+                            key="employer-link"
+                            notificationReportId={String(selectedTicket.employer_registration_number || "").trim()}
+                            employerId={String(selectedTicket.employer_registration_number || "").trim()}
+                            buttonText={String(selectedTicket.employer_registration_number || "").trim() || "View Employer Profile"}
+                            searchType="employer"
+                            isEmployerSearch={true}
+                            employerData={{
+                              registration_number: String(selectedTicket.employer_registration_number || "").trim(),
+                              name: selectedTicket.institution || "Employer",
+                            }}
+                            openMode="new-tab"
+                            openEarlyNewTab={true}
+                            style={{
+                              background: "none",
+                              color: "#1976d2",
+                              textDecoration: "underline",
+                              padding: 0,
+                              minHeight: "auto",
+                              fontSize: "inherit",
+                              fontWeight: "inherit",
+                              cursor: "pointer",
+                            }}
+                          />
+                        </span>
+                      </Tooltip>
+                    )]] : []),
                     ["Section", selectedTicket.responsible_unit_name || "Unit"],
                     ["Sub-section", selectedTicket.sub_section || "N/A"],
                     ["Subject", selectedTicket.subject || "N/A"],
@@ -3095,8 +3164,9 @@ const AgentCRM = () => {
                   >
                     New Ticket
                   </Button>
-                  {/* Show "Notify User" button only for agent role */}
-                  {selectedTicket.status !== "Closed" && role === "agent" && (
+                  {/* Notify: agent and attendee */}
+                  {selectedTicket.status !== "Closed" &&
+                    (role === "agent" || role === "attendee") && (
                     <Button
                       variant="contained"
                       color="secondary"
@@ -3855,6 +3925,11 @@ const AgentCRM = () => {
         onOpen={() => setShowAdvancedTicketModal(true)}
         initialPhoneNumber={ticketPhoneNumber}
         functionData={functionData}
+        onSuccess={() => {
+          // Refresh tickets after successful ticket creation
+          fetchCustomerTickets();
+          fetchDashboardData(userId, token);
+        }}
       />
 
     </div>

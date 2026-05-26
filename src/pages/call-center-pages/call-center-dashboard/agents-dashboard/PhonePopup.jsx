@@ -3,16 +3,19 @@ import {
   MdPauseCircleOutline,
   MdLocalPhone,
   MdOutlineFollowTheSigns,
+  MdCallMissed,
 } from "react-icons/md";
 import { HiMiniSpeakerWave } from "react-icons/hi2";
 import { IoKeypadOutline } from "react-icons/io5";
 import { BsFillMicMuteFill } from "react-icons/bs";
-import { FiPhoneOff, FiPhoneCall } from "react-icons/fi";
-import { useState } from "react";
+import { FiPhoneOff, FiPhoneCall, FiPhoneIncoming } from "react-icons/fi";
+import { useState, useEffect } from "react";
 import { TextField, Button } from "@mui/material";
+import { baseURL } from "../../../../config";
 
 export default function PhonePopup({
   showPhonePopup,
+  extension,
   phoneStatus,
   incomingCall,
   lastIncomingNumber,
@@ -43,8 +46,94 @@ export default function PhonePopup({
   onCancelConsult,
   onSwapToTicket,
 }) {
+  const [activeView, setActiveView] = useState("phone"); // "phone" | "logs"
+  const [logs, setLogs] = useState([]);
+  const [logsLoading, setLogsLoading] = useState(false);
+
+  const extractPhoneNumber = (raw) => {
+    if (!raw) return "-";
+    const clid = String(raw);
+    const match = clid.match(/<(\d+)>/) || clid.match(/(\d+)/);
+    return match ? match[1] : clid;
+  };
+
+  const toDigits = (val) => String(val || "").replace(/\D/g, "");
+
+  const fetchLogs = async () => {
+    if (logsLoading) return;
+    setLogsLoading(true);
+    try {
+      const limit = 20;
+      const offset = 0;
+
+      const [receivedRes, lostRes, droppedRes] = await Promise.all([
+        fetch(`${baseURL}/calls/received-calls?limit=${limit}&offset=${offset}`),
+        fetch(`${baseURL}/calls/lost-calls?limit=${limit}&offset=${offset}`),
+        fetch(`${baseURL}/calls/dropped-calls?limit=${limit}&offset=${offset}`),
+      ]);
+
+      const [receivedData, lostData, droppedData] = await Promise.all([
+        receivedRes.ok ? receivedRes.json() : { calls: [] },
+        lostRes.ok ? lostRes.json() : { calls: [] },
+        droppedRes.ok ? droppedRes.json() : { calls: [] },
+      ]);
+
+      const agentExt = toDigits(localStorage.getItem("extension"));
+
+      const normalize = (call, type) => {
+        const callerRaw = call?.caller ?? call?.source ?? call?.src ?? "";
+        const destRaw =
+          call?.destination ?? call?.dest ?? call?.dst ?? call?.destination_number ?? "";
+
+        const callerDigits = toDigits(callerRaw);
+        const destDigits = toDigits(destRaw);
+
+        let rawNumber = callerRaw;
+
+        // Heuristic: if one side matches our extension, the other is the remote party.
+        if (agentExt) {
+          if (callerDigits === agentExt && destDigits) {
+            rawNumber = destRaw;
+          } else if (destDigits === agentExt && callerDigits) {
+            rawNumber = callerRaw;
+          }
+        }
+
+        return {
+          id: `${type}-${call?.id || call?.call_time || Math.random().toString(36).slice(2)}`,
+          number: extractPhoneNumber(rawNumber),
+          time: call?.call_time,
+          type, // "received" | "lost" | "dropped"
+        };
+      };
+
+      const merged = [
+        ...(receivedData.calls || []).map((c) => normalize(c, "received")),
+        ...(lostData.calls || []).map((c) => normalize(c, "lost")),
+        ...(droppedData.calls || []).map((c) => normalize(c, "dropped")),
+      ].sort((a, b) => {
+        const at = a.time ? new Date(a.time).getTime() : 0;
+        const bt = b.time ? new Date(b.time).getTime() : 0;
+        return bt - at;
+      });
+
+      setLogs(merged);
+    } catch (error) {
+      console.error("Failed to fetch call logs:", error);
+      setLogs([]);
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeView === "logs") {
+      fetchLogs();
+    }
+  }, [activeView]);
+
   return (
-    <>
+  <> 
       {/* hidden remote audio for WebRTC (needed esp. on iOS/Safari) */}
       <audio
         ref={remoteAudioRef}
@@ -72,12 +161,56 @@ export default function PhonePopup({
                           : "Phone"}
                 </span>
               </div>
+
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <button
+                  onClick={onClose}
+                  className="phone-popup-close"
+                  aria-label="Close"
+                >
+                  <span>&times;</span>
+                </button>
+              </div>
+            </div>
+
+            {/* MicroSIP-style top tabs */}
+            <div
+              style={{
+                display: "flex",
+                gap: "4px",
+                padding: "4px 12px 0",
+                borderBottom: "1px solid #e0e0e0",
+              }}
+            >
               <button
-                onClick={onClose}
-                className="phone-popup-close"
-                aria-label="Close"
+                type="button"
+                onClick={() => setActiveView("phone")}
+                style={{
+                  padding: "4px 10px",
+                  fontSize: "12px",
+                  borderRadius: "4px 4px 0 0",
+                  border: "1px solid #ccc",
+                  borderBottom: activeView === "phone" ? "1px solid white" : "1px solid #ccc",
+                  backgroundColor: activeView === "phone" ? "#ffffff" : "#f5f5f5",
+                  cursor: "pointer",
+                }}
               >
-                <span>&times;</span>
+                Phone
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveView("logs")}
+                style={{
+                  padding: "4px 10px",
+                  fontSize: "12px",
+                  borderRadius: "4px 4px 0 0",
+                  border: "1px solid #ccc",
+                  borderBottom: activeView === "logs" ? "1px solid white" : "1px solid #ccc",
+                  backgroundColor: activeView === "logs" ? "#ffffff" : "#f5f5f5",
+                  cursor: "pointer",
+                }}
+              >
+                Logs
               </button>
             </div>
 
@@ -109,6 +242,8 @@ export default function PhonePopup({
 
             {/* Main Content */}
             <div className="phone-popup-content">
+              {activeView === "phone" && (
+                <>
               {/* Incoming Call Display */}
               {incomingCall && phoneStatus === "Ringing" && (
                 <div className="incoming-call-section">
@@ -416,6 +551,169 @@ export default function PhonePopup({
                   </button>
                 </div>
               </div>
+              </>
+              )}
+
+              {activeView === "logs" && (
+                <div
+                  style={{
+                    padding: "8px 0",
+                    maxHeight: "360px",
+                    overflow: "hidden",
+                    display: "flex",
+                    flexDirection: "column",
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: "12px",
+                      marginBottom: "4px",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      padding: "0 4px",
+                      color: "#6c757d",
+                    }}
+                  >
+                    <span>
+                      Recent calls{extension ? ` · Ext ${extension}` : ""}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      flex: 1,
+                      overflowY: "auto",
+                    }}
+                  >
+                    {logsLoading ? (
+                      <div
+                        style={{
+                          padding: "12px",
+                          fontSize: "12px",
+                          color: "#6c757d",
+                          textAlign: "center",
+                        }}
+                      >
+                        Loading...
+                      </div>
+                    ) : logs.length === 0 ? (
+                      <div
+                        style={{
+                          padding: "12px",
+                          fontSize: "12px",
+                          color: "#6c757d",
+                          textAlign: "center",
+                        }}
+                      >
+                        No recent calls
+                      </div>
+                    ) : (
+                      logs.map((log) => {
+                        let IconComponent = FiPhoneCall;
+                        let iconColor = "#2563eb"; // blue for outbound/other
+                        let label = "Call";
+
+                        if (log.type === "received") {
+                          IconComponent = FiPhoneIncoming;
+                          iconColor = "#16a34a"; // green inbound
+                          label = "Incoming";
+                        } else if (log.type === "lost") {
+                          IconComponent = MdCallMissed;
+                          iconColor = "#dc2626"; // red missed
+                          label = "Missed";
+                        }
+
+                        return (
+                          <button
+                            key={log.id}
+                            type="button"
+                            onClick={() => {
+                              if (!log.number || log.number === "-") return;
+                              let dialNumber = log.number || "";
+                              if (dialNumber.startsWith("+255")) {
+                                dialNumber = `0${dialNumber.slice(4)}`;
+                              } else if (dialNumber.startsWith("255")) {
+                                dialNumber = `0${dialNumber.slice(3)}`;
+                              }
+                              setActiveView("phone");
+                              setPhoneNumber(dialNumber);
+                              onDial();
+                            }}
+                            style={{
+                              width: "100%",
+                              border: "none",
+                              background: "transparent",
+                              padding: "4px 8px",
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              cursor: "pointer",
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: "8px",
+                              }}
+                            >
+                              <span
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  width: 20,
+                                  height: 20,
+                                  borderRadius: "50%",
+                                  backgroundColor: "#f3f4f6",
+                                  color: iconColor,
+                                  fontSize: "14px",
+                                }}
+                              >
+                                <IconComponent />
+                              </span>
+                              <div
+                                style={{
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  alignItems: "flex-start",
+                                }}
+                              >
+                                <span
+                                  style={{
+                                    fontSize: "13px",
+                                    fontWeight: 500,
+                                  }}
+                                >
+                                  {log.number}
+                                </span>
+                                {log.time && (
+                                  <span
+                                    style={{
+                                      fontSize: "11px",
+                                      color: "#9ca3af",
+                                    }}
+                                  >
+                                    {new Date(log.time).toLocaleString()}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <span
+                              style={{
+                                fontSize: "11px",
+                                color: "#9ca3af",
+                                marginLeft: "8px",
+                              }}
+                            >
+                              {label}
+                            </span>
+                          </button>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

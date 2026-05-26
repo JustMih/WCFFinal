@@ -1,5 +1,6 @@
 import { UserAgent, Registerer, Inviter } from "sip.js";
 import { baseURL } from "../config";
+import { SIP_DOMAIN_CONFIG } from "../config";
 
 let userAgent = null;
 let registerer = null;
@@ -21,7 +22,7 @@ export const initSupervisorSIP = async () => {
 
     const supervisorExt = "3001";
     const supervisorPass = "wcf12345";
-    const asteriskIP = "192.168.21.69";
+    const asteriskIP = SIP_DOMAIN_CONFIG;
 
     userAgent = new UserAgent({
       uri: UserAgent.makeURI(`sip:${supervisorExt}@${asteriskIP}`),

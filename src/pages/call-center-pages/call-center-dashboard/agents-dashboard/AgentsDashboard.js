@@ -42,6 +42,8 @@ import ContactSummaryGrid from "../../../../components/agent-dashboard/ContactSu
 // Phone components
 import { useSipPhone } from "./useSipPhone";
 import PhonePopup from "./PhonePopup";
+import { SIP_DOMAIN_CONFIG } from "../../../../config";
+
 
 export default function AgentsDashboard() {
   // --------- Phone popup state ---------
@@ -51,7 +53,7 @@ export default function AgentsDashboard() {
   // --------- Config ---------
   const extension = localStorage.getItem("extension");
   const sipPassword = localStorage.getItem("sipPassword");
-  const SIP_DOMAIN = "192.168.21.69";
+  const SIP_DOMAIN = SIP_DOMAIN_CONFIG;
 
 
   // --------- Status / break menu ---------
@@ -188,10 +190,7 @@ export default function AgentsDashboard() {
     }, [fetchUserByPhoneNumber]),
     onMissedCall: addMissedCall,
     onCallAccepted: useCallback((number) => {
-      setTicketPhoneNumber(number || "");
-      setShowTicketModal(true);
-      setIsTicketModalOpen(true);
-      setShowPhonePopup(false);
+      if (number) setTicketPhoneNumber(number);
     }, []),
     onCallEnded: useCallback(() => {
       setShowUserForm(false);
@@ -388,6 +387,11 @@ const markMissedCallAsCalledBack = async (missedCallId) => {
   };
 
   const handleAcceptCall = () => {
+    // Open ticket modal immediately so the agent isn't blocked by SIP/WebRTC setup
+    setTicketPhoneNumber(lastIncomingNumber || phoneNumber || "");
+    setShowTicketModal(true);
+    setIsTicketModalOpen(true);
+    setShowPhonePopup(false);
     acceptCall();
   };
 
@@ -627,7 +631,7 @@ useEffect(() => {
 }, [missedCalls]);
 
   return (
-    <div className="p-6">
+    <div className="agents-dashboard-root">
 
       {/* Call Status Banner - Shows when on a call even if ticket modal is closed */}
       {hasActiveCall && !showTicketModal && (
@@ -929,6 +933,7 @@ useEffect(() => {
       {/* Phone popup */}
       <PhonePopup
         showPhonePopup={showPhonePopup}
+        extension={extension}
         phoneStatus={phoneStatus}
         incomingCall={incomingCall}
         lastIncomingNumber={lastIncomingNumber}

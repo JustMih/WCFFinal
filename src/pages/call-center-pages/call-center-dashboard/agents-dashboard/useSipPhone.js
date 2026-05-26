@@ -256,9 +256,14 @@ export function useSipPhone({
 
     console.log("Accepting call...");
 
+    const number = lastIncomingNumber;
+    wasAnsweredRef.current = true;
+
+    // Open ticket modal immediately — don't wait for WebRTC/SIP negotiation
+    onCallAccepted?.(number);
+
     try {
       await incomingCall.accept();
-      wasAnsweredRef.current = true;
 
       attachMediaStream(incomingCall);
       setSession(incomingCall);
@@ -270,13 +275,11 @@ export function useSipPhone({
         "activeCallState",
         JSON.stringify({
           phoneStatus: "In Call",
-          phoneNumber: lastIncomingNumber || "",
+          phoneNumber: number || "",
           callStartTime: new Date().toISOString(),
           hasActiveCall: true,
         })
       );
-
-      onCallAccepted?.(lastIncomingNumber);
 
       incomingCall.stateChange.addListener((state) => {
         console.log("Call state:", state);

@@ -375,7 +375,7 @@ const TableControls = ({
   const exportableColumns = [
     { key: "id", label: "#" },
     { key: "ticket_id", label: "Ticket ID" },
-    { key: "fullName", label: "Full Name" },
+    { key: "fullName", label: "Employee" },
     { key: "phone_number", label: "Phone" },
     { key: "nida_number", label: "NIDA" },
     { key: "employer", label: "Employer" },
@@ -391,6 +391,13 @@ const TableControls = ({
     { key: "converted_to", label: "Converted To" },
     { key: "assigned_to_role", label: "Assigned Role" },
     { key: "status", label: "Status" },
+    { key: "claim_number", label: "Claim Number" },
+    { key: "is_new_registration", label: "Is New Registration" },
+    { key: "representative_name", label: "Representative Name" },
+    { key: "representative_phone", label: "Representative Phone" },
+    { key: "representative_email", label: "Representative Email" },
+    { key: "representative_address", label: "Representative Address" },
+    { key: "representative_relationship", label: "Representative Relationship" },
     { key: "created_at", label: "Created At" },
     { key: "date_of_resolution", label: "Date of Resolution" },
     { key: "date_of_feedback", label: "Date of Feedback" },
@@ -402,7 +409,7 @@ const TableControls = ({
     { key: "age_from_creation", label: "Age (From Creation to Current)" },
     { key: "attendedBy.name", label: "Attended By" },
     { key: "ratedBy.name", label: "Rated By" },
-    { key: "functionData.name", label: "Function Name" }
+    // { key: "functionData.name", label: "Function Name" }
   ];
 
   const handleColumnsChange = (selectedColumns) => {
@@ -437,9 +444,13 @@ const TableControls = ({
 
   // Export utility functions
   const getColumnValue = (item, columnKey) => {
+    // Handle nested assignment structure (assignment.ticket.*)
+    // If item has a 'ticket' property, use it as the base item for ticket fields
+    const baseItem = item.ticket || item;
+    
     // Handle creator/createdBy with different property names
     if (columnKey === 'creator.full_name' || columnKey === 'createdBy.name') {
-      const creator = item.creator || item.createdBy;
+      const creator = baseItem.creator || baseItem.createdBy || item.creator || item.createdBy;
       if (creator) {
         if (typeof creator === 'string') return creator;
         if (creator.full_name) return creator.full_name;
@@ -453,7 +464,7 @@ const TableControls = ({
     
     // Handle assignee/assignedTo with different property names
     if (columnKey === 'assignee.full_name' || columnKey === 'assignedTo.name') {
-      const assignee = item.assignee || item.assignedTo;
+      const assignee = baseItem.assignee || baseItem.assignedTo || item.assignee || item.assignedTo;
       if (assignee) {
         if (typeof assignee === 'string') return assignee;
         if (assignee.full_name) return assignee.full_name;
@@ -465,9 +476,40 @@ const TableControls = ({
       return 'N/A';
     }
     
+    // Handle attendedBy with different property names
+    if (columnKey === 'attendedBy.name' || columnKey === 'attendedBy.full_name') {
+      const attendedBy = baseItem.attendedBy || baseItem.attended_by || item.attendedBy || item.attended_by;
+      if (attendedBy) {
+        if (typeof attendedBy === 'string') return attendedBy;
+        if (attendedBy.full_name) return attendedBy.full_name;
+        if (attendedBy.name) return attendedBy.name;
+        if (attendedBy.first_name) {
+          return `${attendedBy.first_name} ${attendedBy.middle_name || ''} ${attendedBy.last_name || ''}`.trim();
+        }
+      }
+      // Fallback to direct fields if attendedBy object is not available
+      if (baseItem.attended_by_name || item.attended_by_name) return baseItem.attended_by_name || item.attended_by_name;
+      if (baseItem.closed_by_name || item.closed_by_name) return baseItem.closed_by_name || item.closed_by_name;
+      return '';
+    }
+    
+    // Handle ratedBy with different property names
+    if (columnKey === 'ratedBy.name' || columnKey === 'ratedBy.full_name') {
+      const ratedBy = baseItem.ratedBy || baseItem.rated_by || item.ratedBy || item.rated_by;
+      if (ratedBy) {
+        if (typeof ratedBy === 'string') return ratedBy;
+        if (ratedBy.full_name) return ratedBy.full_name;
+        if (ratedBy.name) return ratedBy.name;
+        if (ratedBy.first_name) {
+          return `${ratedBy.first_name} ${ratedBy.middle_name || ''} ${ratedBy.last_name || ''}`.trim();
+        }
+      }
+      return '';
+    }
+    
     if (columnKey.includes('.')) {
       const keys = columnKey.split('.');
-      let value = item;
+      let value = baseItem;
       for (const key of keys) {
         value = value?.[key];
         if (value === undefined || value === null) break;
@@ -495,28 +537,57 @@ const TableControls = ({
     }
     
     // Handle fullName specially - construct from individual name fields
-    if (columnKey === 'fullName') {
-      if (item.first_name && item.first_name.trim() !== "") {
-        return `${item.first_name} ${item.middle_name || ""} ${item.last_name || ""}`.trim();
-      } else if (typeof item.institution === "string") {
-        return item.institution;
-      } else if (item.institution && typeof item.institution === "object" && typeof item.institution.name === "string") {
-        return item.institution.name;
-      } else {
-        return "N/A";
+    if (columnKey === 'fullName' || columnKey === 'fullname' || columnKey === 'FullName') {
+      // Try both snake_case and camelCase versions
+      const firstName = (baseItem.first_name || baseItem.firstName || item.first_name || item.firstName || "");
+      const middleName = (baseItem.middle_name || baseItem.middleName || item.middle_name || item.middleName || "");
+      const lastName = (baseItem.last_name || baseItem.lastName || item.last_name || item.lastName || "");
+      
+      // Trim and filter out empty strings
+      const nameParts = [
+        typeof firstName === 'string' ? firstName.trim() : "",
+        typeof middleName === 'string' ? middleName.trim() : "",
+        typeof lastName === 'string' ? lastName.trim() : ""
+      ].filter(part => part !== "");
+      
+      if (nameParts.length > 0) {
+        return nameParts.join(" ");
       }
+      
+      // If no first_name/last_name, check for representative_name (for representative/employer tickets)
+      const representativeName = baseItem.representative_name || baseItem.representativeName || item.representative_name || item.representativeName;
+      if (representativeName && typeof representativeName === 'string' && representativeName.trim() !== "") {
+        return representativeName.trim();
+      }
+      
+      // Fallback to institution if it's a string
+      const institution = baseItem.institution || item.institution;
+      if (typeof institution === "string" && institution.trim() !== "") {
+        return institution.trim();
+      }
+      
+      // Fallback to institution object
+      if (institution && typeof institution === "object" && institution.name && typeof institution.name === "string") {
+        return institution.name.trim();
+      }
+      
+      // Return empty string if nothing found
+      return "";
     }
     
     // Handle employer field - check both direct field and nested object
     if (columnKey === 'employer') {
-      if (item.employer && typeof item.employer === "string") {
-        return item.employer;
-      } else if (item.employer && typeof item.employer === "object" && item.employer.name) {
-        return item.employer.name;
-      } else if (item.institution && typeof item.institution === "string") {
-        return item.institution;
-      } else if (item.institution && typeof item.institution === "object" && item.institution.name) {
-        return item.institution.name;
+      const employer = baseItem.employer || item.employer;
+      const institution = baseItem.institution || item.institution;
+      
+      if (employer && typeof employer === "string") {
+        return employer;
+      } else if (employer && typeof employer === "object" && employer.name) {
+        return employer.name;
+      } else if (institution && typeof institution === "string") {
+        return institution;
+      } else if (institution && typeof institution === "object" && institution.name) {
+        return institution.name;
       } else {
         return "N/A";
       }
@@ -524,8 +595,9 @@ const TableControls = ({
     
     // Handle age calculation from creation to current time
     if (columnKey === 'age_from_creation') {
-      if (item.created_at) {
-        const createdDate = new Date(item.created_at);
+      const createdAt = baseItem.created_at || item.created_at;
+      if (createdAt) {
+        const createdDate = new Date(createdAt);
         const currentDate = new Date();
         const diffTime = Math.abs(currentDate - createdDate);
         const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
@@ -543,7 +615,8 @@ const TableControls = ({
       return "N/A";
     }
     
-    return item[columnKey] || '';
+    // For all other fields, try baseItem first (for nested assignment structure), then fall back to item
+    return baseItem[columnKey] !== undefined ? baseItem[columnKey] : (item[columnKey] || '');
   };
 
   const formatValue = (value, columnKey) => {
@@ -556,19 +629,42 @@ const TableControls = ({
     
     // Format IDs as sequential numbers (1, 2, 3...) - only for 'id' column
     if (columnKey === 'id') {
-      // Find the index of this item in the tableData array
-      const index = tableData.findIndex(item => item.id === value);
+      // For nested assignment structure, check both item.id and item.ticket?.id
+      // Find the index based on the actual item in tableData
+      const index = tableData.findIndex(item => {
+        // Check if this is the same item by comparing IDs
+        if (item.id === value) return true;
+        // For nested structure, check ticket.id
+        if (item.ticket && item.ticket.id === value) return true;
+        // Also check if the value matches the item's ticket id
+        if (item.ticket && item.ticket.id && item.ticket.id === value) return true;
+        return false;
+      });
+      // Return sequential number (1-based index) or the value if not found
       return index !== -1 ? (index + 1).toString() : value.toString();
     }
     
     // Format phone numbers as text to prevent scientific notation
-    if (columnKey === 'phone_number') {
+    if (columnKey === 'phone_number' || columnKey === 'representative_phone') {
       return String(value);
     }
     
     // Format NIDA numbers as text to prevent scientific notation
     if (columnKey === 'nida_number') {
       return String(value);
+    }
+    
+    // Format is_new_registration as Yes/No
+    if (columnKey === 'is_new_registration') {
+      if (value === true || value === 'true' || value === 1 || value === '1') {
+        return 'Yes';
+      }
+      return 'No';
+    }
+    
+    // Format claim_number as text
+    if (columnKey === 'claim_number') {
+      return value ? String(value) : '';
     }
     
     // Format dates
@@ -606,20 +702,47 @@ const TableControls = ({
       return;
     }
 
-    const headers = selectedColumns.map(col => 
-      exportableColumns.find(ec => ec.key === col)?.label || col
-    );
+    // Remove duplicates and normalize column keys (handle both 'fullName' and 'employee')
+    const seenKeys = new Set();
+    const normalizedColumns = selectedColumns.map(col => {
+      // Normalize 'employee' to 'fullName' to avoid duplicates
+      if (col === 'employee' || col === 'Employee') {
+        return 'fullName';
+      }
+      return col;
+    }).filter(col => {
+      if (seenKeys.has(col)) {
+        return false; // Skip duplicates
+      }
+      seenKeys.add(col);
+      return true;
+    });
+
+    const headers = normalizedColumns.map(col => {
+      const columnDef = exportableColumns.find(ec => ec.key === col);
+      if (columnDef) {
+        return columnDef.label;
+      }
+      // Fallback: capitalize first letter if no match found
+      return col.charAt(0).toUpperCase() + col.slice(1);
+    });
 
     const csvContent = [
       headers.join(','),
       ...tableData.map((item, index) => 
-        selectedColumns.map(col => {
-          const value = getColumnValue(item, col);
-          const formattedValue = formatValue(value, col);
+        normalizedColumns.map(col => {
+          // Normalize 'employee' to 'fullName' for value extraction
+          const actualCol = (col === 'employee' || col === 'Employee') ? 'fullName' : col;
+          // For 'id' column, use sequential number based on index (1, 2, 3...)
+          if (actualCol === 'id') {
+            return `"${(index + 1)}"`;
+          }
+          const value = getColumnValue(item, actualCol);
+          const formattedValue = formatValue(value, actualCol);
           
           // Add tab prefix to phone numbers and NIDA to force Excel to treat as text
           let finalValue = formattedValue;
-          if (col === 'phone_number' || col === 'nida_number') {
+          if (actualCol === 'phone_number' || actualCol === 'nida_number') {
             finalValue = `\t${formattedValue}`;
           }
           
@@ -646,9 +769,31 @@ const TableControls = ({
       return;
     }
 
-    const headers = selectedColumns.map(col => 
-      exportableColumns.find(ec => ec.key === col)?.label || col
-    );
+    // Remove duplicates and normalize column keys (handle both 'fullName' and 'employee')
+    const uniqueColumns = [];
+    const seenKeys = new Set();
+    const normalizedColumns = selectedColumns.map(col => {
+      // Normalize 'employee' to 'fullName' to avoid duplicates
+      if (col === 'employee' || col === 'Employee') {
+        return 'fullName';
+      }
+      return col;
+    }).filter(col => {
+      if (seenKeys.has(col)) {
+        return false; // Skip duplicates
+      }
+      seenKeys.add(col);
+      return true;
+    });
+
+    const headers = normalizedColumns.map(col => {
+      const columnDef = exportableColumns.find(ec => ec.key === col);
+      if (columnDef) {
+        return columnDef.label;
+      }
+      // Fallback: capitalize first letter if no match found
+      return col.charAt(0).toUpperCase() + col.slice(1);
+    });
 
     // Determine orientation based on number of columns
     const isLandscape = selectedColumns.length > 6;
@@ -681,9 +826,17 @@ const TableControls = ({
         <tbody>
           ${tableData.map((item, index) => 
             `<tr style="${index % 2 === 0 ? 'background-color: #f8f9fa;' : ''}">
-              ${selectedColumns.map(col => {
-                const value = getColumnValue(item, col);
-                const formattedValue = formatValue(value, col);
+              ${normalizedColumns.map(col => {
+                // Normalize 'employee' to 'fullName' for value extraction
+                const actualCol = (col === 'employee' || col === 'Employee') ? 'fullName' : col;
+                // For 'id' column, use sequential number based on index (1, 2, 3...)
+                let formattedValue;
+                if (actualCol === 'id') {
+                  formattedValue = (index + 1).toString();
+                } else {
+                  const value = getColumnValue(item, actualCol);
+                  formattedValue = formatValue(value, actualCol);
+                }
                 return `<td style="border: 1px solid #bdc3c7; padding: 5px; text-align: left; word-wrap: break-word; max-width: ${isLandscape ? '120px' : '150px'};">${formattedValue}</td>`;
               }).join('')}
             </tr>`
@@ -756,15 +909,42 @@ const TableControls = ({
       return;
     }
 
-    const headers = selectedColumns.map(col => 
-      exportableColumns.find(ec => ec.key === col)?.label || col
-    );
+    // Remove duplicates and normalize column keys (handle both 'fullName' and 'employee')
+    const seenKeys = new Set();
+    const normalizedColumns = selectedColumns.map(col => {
+      // Normalize 'employee' to 'fullName' to avoid duplicates
+      if (col === 'employee' || col === 'Employee') {
+        return 'fullName';
+      }
+      return col;
+    }).filter(col => {
+      if (seenKeys.has(col)) {
+        return false; // Skip duplicates
+      }
+      seenKeys.add(col);
+      return true;
+    });
+
+    const headers = normalizedColumns.map(col => {
+      const columnDef = exportableColumns.find(ec => ec.key === col);
+      if (columnDef) {
+        return columnDef.label;
+      }
+      // Fallback: capitalize first letter if no match found
+      return col.charAt(0).toUpperCase() + col.slice(1);
+    });
 
     // Prepare data rows
-    const dataRows = tableData.map((item) => 
-      selectedColumns.map(col => {
-        const value = getColumnValue(item, col);
-        const formattedValue = formatValue(value, col);
+    const dataRows = tableData.map((item, index) => 
+      normalizedColumns.map(col => {
+        // Normalize 'employee' to 'fullName' for value extraction
+        const actualCol = (col === 'employee' || col === 'Employee') ? 'fullName' : col;
+        // For 'id' column, use sequential number based on index (1, 2, 3...)
+        if (actualCol === 'id') {
+          return (index + 1).toString();
+        }
+        const value = getColumnValue(item, actualCol);
+        const formattedValue = formatValue(value, actualCol);
         return formattedValue;
       })
     );

@@ -44,12 +44,38 @@ import { baseURL } from "../config";
 import { PermissionManager } from "../utils/permissions";
 import TicketUpdates from './ticket/TicketUpdates';
 import ActionMessageModal from "./ticket/ActionMessageModal";
+import ClaimRedirectButton from "./ticket/ClaimRedirectButton.jsx";
 
 const getCreatorName = (selectedTicket) =>
   selectedTicket.created_by ||
   (selectedTicket.creator && selectedTicket.creator.name) ||
   `${selectedTicket.first_name || ""} ${selectedTicket.last_name || ""}`.trim() ||
   "N/A";
+
+/**
+ * MAC expects numeric notification_report_id for URL: .../profile/19890
+ * Claim number format: "OAC/901076645/19890 - (01-Sep-2022)" or "ODS/802609335/412"
+ * Extract the third segment (profile id) e.g. 19890.
+ */
+const getNotificationReportIdForRedirect = (claimNumber, notificationReportId) => {
+  if (notificationReportId != null && notificationReportId !== "" && notificationReportId !== 0) {
+    return String(notificationReportId).trim();
+  }
+  if (!claimNumber || claimNumber === 0 || String(claimNumber).trim() === "0") return null;
+  const str = String(claimNumber).trim();
+  if (str.includes("/")) {
+    const segments = str.split("/").map((s) => s.trim()).filter(Boolean);
+    if (segments.length >= 3) {
+      const thirdSegment = segments[2];
+      const match = thirdSegment.match(/^\d+/);
+      if (match) return match[0];
+    }
+    const lastSegment = segments[segments.length - 1];
+    const lastMatch = lastSegment && lastSegment.match(/^\d+/);
+    if (lastMatch) return lastMatch[0];
+  }
+  return str;
+};
 
 // Utility function to format time difference in human-readable format
 const formatTimeDifference = (dateString) => {
@@ -1134,6 +1160,9 @@ export default function TicketDetailsModal({
   const [isFlowModalOpen, setIsFlowModalOpen] = useState(false);
   const userRole = localStorage.getItem("role");
   const userId = localStorage.getItem("userId");
+  /** Same family as backend: cannot close Complaints directly — use Reverse with Recommendation to manager */
+  const FOCAL_PERSON_ROLES = ["focal-person", "claim-focal-person", "compliance-focal-person"];
+  const isFocalPersonRole = FOCAL_PERSON_ROLES.includes(userRole);
   
   // Initialize PermissionManager for permission checking
   const permissionManager = new PermissionManager(userRole, userUnitSection);
@@ -1308,10 +1337,16 @@ export default function TicketDetailsModal({
     );
   };
 
-  // Function to check if user has reassign permission (focal-person, manager, or head-of-unit role)
+  // Function to check if user has reassign permission (focal roles, manager, or head-of-unit role)
   const hasReassignPermission = () => {
-    const userRole = localStorage.getItem("role");
-    return userRole === "focal-person" || userRole === "manager" || userRole === "head-of-unit";
+    const r = localStorage.getItem("role");
+    return (
+      r === "focal-person" ||
+      r === "claim-focal-person" ||
+      r === "compliance-focal-person" ||
+      r === "manager" ||
+      r === "head-of-unit"
+    );
   };
 
   // Function to check if ticket came from a manager (most recent assignment was to a manager)
@@ -1965,6 +2000,11 @@ export default function TicketDetailsModal({
      userRole === "reviewer") &&
     // Exclude these roles
     userRole !== "director-general" &&
+    // Focal roles: no Attend/Close for Complaints (like agent/attendee) — use Reverse with Recommendation → manager
+    !(
+      isFocalPersonRole &&
+      String(selectedTicket.category || "").toLowerCase() === "complaint"
+    ) &&
     // Hide attend button for attendee/agent if complaint_type is Minor or Major
     !((userRole === "attendee" || userRole === "agent") && 
       (selectedTicket.complaint_type === "Minor" || selectedTicket.complaint_type === "Major")) &&
@@ -3844,6 +3884,8 @@ export default function TicketDetailsModal({
                     {selectedTicket.requester || "N/A"}
                   </Typography>
                 </div>
+
+                
                 <div style={{ flex: "1 1 45%" }}>
                   <Typography>
                     <strong>Rated:</strong>{" "}
@@ -3851,6 +3893,94 @@ export default function TicketDetailsModal({
                   </Typography>
                 </div>
 
+                {(() => {
+                  // Same validation as ticket creation: valid claim_number or notification_report_id
+                  const claimNum = selectedTicket.claim_number;
+                  const notifReportId = selectedTicket.notification_report_id;
+                  const hasValidClaimNumber =
+                    claimNum != null &&
+                    claimNum !== "" &&
+                    claimNum !== 0 &&
+                    String(claimNum).trim() !== "0";
+                  const hasNotificationReportId =
+                    notifReportId != null &&
+                    notifReportId !== "" &&
+                    notifReportId !== 0 &&
+                    String(notifReportId).trim() !== "0";
+                  const hasValidClaim = hasValidClaimNumber || hasNotificationReportId;
+                  // MAC expects numeric notification_report_id; extract from "ODS/x/y" format if needed
+                  const idForRedirect = getNotificationReportIdForRedirect(claimNum, notifReportId);
+                  const displayClaimNumber = claimNum || notifReportId || "N/A";
+                  if (!hasValidClaim || !idForRedirect) return null;
+                  return (
+                    <div style={{ flex: "1 1 45%" }}>
+                      <Typography component="span">
+                        <strong>Claim Number:</strong>{" "}
+                        <Tooltip title="View employee profile in MAC">
+                          <span>
+                            <ClaimRedirectButton
+                              notificationReportId={idForRedirect}
+                              claimNumber={selectedTicket.claim_number}
+                              employerId={selectedTicket.employer_registration_number || ""}
+                              buttonText={displayClaimNumber}
+                              searchType="claim"
+                              isEmployerSearch={false}
+                              employerData={null}
+                              openMode="new-tab"
+                              openEarlyNewTab={true}
+                              style={{
+                                background: "none",
+                                color: "#1976d2",
+                                textDecoration: "underline",
+                                padding: 0,
+                                minHeight: "auto",
+                                fontSize: "inherit",
+                                fontWeight: "inherit",
+                                cursor: "pointer",
+                              }}
+                            />
+                          </span>
+                        </Tooltip>
+                      </Typography>
+                    </div>
+                  );
+                })()}
+
+                
+{String(selectedTicket.employer_registration_number || "").trim() && (
+                  <div style={{ flex: "1 1 45%" }}>
+                    <Typography component="span">
+                      <strong>Employer Registration No.:</strong>{" "}
+                      <Tooltip title="View employer profile in MAC">
+                        <span>
+                          <ClaimRedirectButton
+                            notificationReportId={String(selectedTicket.employer_registration_number || "").trim()}
+                            employerId={String(selectedTicket.employer_registration_number || "").trim()}
+                            buttonText={String(selectedTicket.employer_registration_number || "").trim() || "View Employer Profile"}
+                            searchType="employer"
+                            isEmployerSearch={true}
+                            employerData={{
+                              registration_number: String(selectedTicket.employer_registration_number || "").trim(),
+                              name: selectedTicket.institution || "Employer",
+                            }}
+                            openMode="new-tab"
+                            openEarlyNewTab={true}
+                            style={{
+                              background: "none",
+                              color: "#1976d2",
+                              textDecoration: "underline",
+                              padding: 0,
+                              minHeight: "auto",
+                              fontSize: "inherit",
+                              fontWeight: "inherit",
+                              cursor: "pointer",
+                            }}
+                          />
+                        </span>
+                      </Tooltip>
+                    </Typography>
+                  </div>
+                )}
                 <div style={{ flex: "1 1 45%" }}>
                   <Typography>
                     <strong>Subject:</strong> {selectedTicket.subject || "N/A"}
@@ -4660,7 +4790,7 @@ export default function TicketDetailsModal({
                 })()}
 
                 {/* Reverse, Assign, and Reassign buttons for focal persons and other roles */}
-                {((["focal-person", "head-of-unit", "manager", "director"].includes(localStorage.getItem("role")) || 
+                {((["focal-person", "claim-focal-person", "compliance-focal-person", "head-of-unit", "manager", "director"].includes(localStorage.getItem("role")) || 
                   !["agent", "reviewer", "attendee", "director-general"].includes(localStorage.getItem("role"))) && 
                  selectedTicket?.assigned_to_id === localStorage.getItem("userId") && selectedTicket.status !== "Closed") && (
                   <>
@@ -4724,8 +4854,8 @@ export default function TicketDetailsModal({
                         ) : (
                           <>
                             
-                            <Tooltip title={userRole === "focal-person" && selectedTicket?.category === "Complaint" 
-                              ? "Reverse this ticket with a recommendation" 
+                            <Tooltip title={isFocalPersonRole && selectedTicket?.category === "Complaint" 
+                              ? "Return to your manager with a recommendation (focal persons cannot close complaints)" 
                               : "Reverse this ticket back to the previous assignee"}>
                             <Button
                               variant="contained"
@@ -4734,16 +4864,16 @@ export default function TicketDetailsModal({
                               onClick={() => setIsReverseModalOpen(true)}
                               disabled={isReversing}
                             >
-                              {userRole === "focal-person" && selectedTicket?.category === "Complaint" 
+                              {isFocalPersonRole && selectedTicket?.category === "Complaint" 
                                 ? "Reverse with Recommendation" 
                                 : "Reverse"}
                             </Button>
                             </Tooltip>
                             {/* Hide Assign button for manager, head-of-unit, and director when category is Compliment, Suggestion, or Complement */}
-                            {/* Hide Assign button for focal-person when category is Complaint */}
+                            {/* Hide Assign button for focal roles when category is Complaint */}
                             {!((userRole === "manager" || userRole === "head-of-unit" || userRole === "director") && 
                                 (selectedTicket?.category === "Compliment" || selectedTicket?.category === "Suggestion" || selectedTicket?.category === "Complement")) &&
-                             !(userRole === "focal-person" && selectedTicket?.category === "Complaint") && (
+                             !(isFocalPersonRole && selectedTicket?.category === "Complaint") && (
                               <Tooltip title={shouldShowReassign() ? "Reassign this ticket to a different attendee" : "Assign this ticket to an attendee"}>
                               <Button
                                 variant="contained"

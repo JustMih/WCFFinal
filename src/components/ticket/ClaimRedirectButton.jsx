@@ -19,6 +19,9 @@ const ClaimRedirectButton = ({
   isEmployerSearch = false, // New prop to indicate if this is an employer search
   employerData = null // New prop to pass employer data directly
 }) => {
+  const normalizedButtonText = String(buttonText ?? "").trim();
+  const displayButtonText = normalizedButtonText || (isEmployerSearch ? "View Employer Profile" : "View Claim in MAC");
+
   // Debug logging to see if component is being rendered
   console.log('🔍 ClaimRedirectButton rendered with props:', {
     notificationReportId,
@@ -65,6 +68,11 @@ const ClaimRedirectButton = ({
           results: [employerData]
         });
       }
+      return;
+    }
+    // Avoid sending 0 as claim number (MAC returns 404 for profile/0)
+    if (idToSend === 0 || idToSend === "0" || String(idToSend).trim() === "0") {
+      alert("Invalid claim number. Cannot open in MAC.");
       return;
     }
 
@@ -381,17 +389,20 @@ const ClaimRedirectButton = ({
   const showProfileButton = responseData?.results?.some(result => result.registration_number) || 
                            (employerData && employerData.registration_number);
 
+  const claimId = notificationReportId ?? claimNumber;
+  const hasValidClaimId = claimId != null && claimId !== "" && claimId !== 0 && String(claimId).trim() !== "0";
+
   return (
     <div style={containerStyle}>
-      {/* Show claim button only for employee/claim searches and when we have a valid notificationReportId */}
-      {!isEmployerSearch && notificationReportId && (
+      {/* Show claim button only for employee/claim searches and when we have a valid notificationReportId (not 0) */}
+      {!isEmployerSearch && hasValidClaimId && (
         <button
           onClick={handleClaimRedirect}
           disabled={isLoading}
           className={className}
           style={defaultStyle}
         >
-          {isLoading ? 'Loading...' : buttonText}
+          {isLoading ? 'Loading...' : displayButtonText}
         </button>
       )}
       
@@ -410,16 +421,20 @@ const ClaimRedirectButton = ({
           registrationNumber = result.registration_number;
         }
         
-        //          return (
-        //    <button
-        //      key={`profile-${index}-${employerName}`}
-        //      onClick={() => handleViewProfile(registrationNumber)}
-        //      className={className}
-        //      style={profileButtonStyle}
-        //    >
-        //      {isEmployerSearch ? `View Profile - ${employerName}` : `View ${employerName} Profile`}
-        //    </button>
-        //  );
+        return (
+          <button
+            key={`profile-${index}-${employerName || registrationNumber || "employer"}`}
+            onClick={() => handleViewProfile(registrationNumber)}
+            className={className}
+            style={profileButtonStyle}
+          >
+            {normalizedButtonText
+              ? displayButtonText
+              : (isEmployerSearch
+                  ? `View Profile - ${employerName || registrationNumber || "Employer"}`
+                  : `View ${employerName || "Employer"} Profile`)}
+          </button>
+        );
       })}
       
              {/* Show profile button for employerData if no resultsWithRegistration */}
@@ -436,7 +451,7 @@ const ClaimRedirectButton = ({
            className={className}
            style={employerData?.registration_number ? profileButtonStyle : defaultStyle}
          >
-           {buttonText}
+          {displayButtonText}
          </button>
        )}
        

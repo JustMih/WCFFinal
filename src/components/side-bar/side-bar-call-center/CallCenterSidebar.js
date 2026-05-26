@@ -138,19 +138,34 @@ export default function CallCenterSidebar({
               </NavLink> */}
               {/* Mapping Management - Super Admin Only */}
               {role === "super-admin" && (
-                <NavLink
-                  to="/mapping"
-                  className={({ isActive }) =>
-                    isActive ? "menu-item active-link" : "menu-item"
-                  }
-                >
-                  <div className="menu-item">
-                    <HiOutlineMap className="menu-icon" />
-                    {isSidebarOpen && (
-                      <span className="menu-text">Mapping</span>
-                    )}
-                  </div>
-                </NavLink>
+                <>
+                  <NavLink
+                    to="/mapping"
+                    className={({ isActive }) =>
+                      isActive ? "menu-item active-link" : "menu-item"
+                    }
+                  >
+                    <div className="menu-item">
+                      <HiOutlineMap className="menu-icon" />
+                      {isSidebarOpen && (
+                        <span className="menu-text">Mapping</span>
+                      )}
+                    </div>
+                  </NavLink>
+                  {/* <NavLink
+                    to="/system-logs"
+                    className={({ isActive }) =>
+                      isActive ? "menu-item active-link" : "menu-item"
+                    }
+                  >
+                    <div className="menu-item">
+                      <TbLogs className="menu-icon" />
+                      {isSidebarOpen && (
+                        <span className="menu-text">System Logs</span>
+                      )}
+                    </div>
+                  </NavLink> */}
+                </>
               )}
               {/*IVR management */}
               <NavLink

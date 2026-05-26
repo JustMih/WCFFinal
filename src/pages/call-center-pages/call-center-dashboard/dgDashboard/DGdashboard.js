@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import ReactApexChart from "react-apexcharts";
 import { baseURL } from "../../../../config";
+import io from "socket.io-client";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -12,11 +13,7 @@ import {
   Tooltip as ChartTooltip,
   Legend,
 } from "chart.js";
-import {
-  MdPhone,
-  MdPhoneDisabled,
-  MdCallEnd,
-} from "react-icons/md";
+import { MdPhone, MdPhoneDisabled, MdCallEnd, MdQueue } from "react-icons/md";
 import { Box, Card, CardContent, Typography, Grid, CircularProgress, Tabs, Tab } from "@mui/material";
 import AgentDashboard from "../../../crm-pages/crm-dashboard/crm-agent-dashboard/crm-agent-dashboard";
 import ReviewerDashboard from "../../../crm-pages/crm-dashboard/crm-reviewer-dashboard/crm-reviewer-dashboard";
@@ -53,71 +50,181 @@ function TabPanel({ children, value, index, ...other }) {
 export default function DGdashboard() {
   const [activeTab, setActiveTab] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [callSummary, setCallSummary] = useState(null);
+  const [dashboardData, setDashboardData] = useState({
+    agentStatus: { onlineCount: 0, offlineCount: 0 },
+    liveCalls: [],
+    callStats: { dailyCounts: [], totalRows: 0 },
+    queueStatus: [],
+    callStatusSummary: { active: 0, inQueue: 0, answered: 0, dropped: 0, lost: 0 },
+  });
+  const [callSummaryData, setCallSummaryData] = useState(null);
   const role = localStorage.getItem("role");
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue);
   };
 
-  // Extract data from call summary
-  const yearlyTotal = callSummary?.totalCalls || 0;
-  const yearlyAnswered = callSummary?.answeredCalls || 0;
-  const yearlyNoAnswer = callSummary?.noAnsweredCalls || 0;
-  const yearlyBusy = callSummary?.busyCalls || 0;
-  
-  // Get status distribution from API response
-  const statusDistribution = callSummary?.statusDistribution?.yearly || [];
-  const getStatusCount = (status) => {
-    const item = statusDistribution.find((s) => s.status === status);
-    return item?.count || 0;
-  };
+  // Call summary from API: { currentDay, currentMonth, currentYear } with totalCalls, answered (with agent), ivr, dropped, lost
+  const day =
+    callSummaryData?.currentDay || {
+      totalCalls: 0,
+      answered: 0,
+      ivr: 0,
+      dropped: 0,
+      lost: 0,
+    };
+  const month =
+    callSummaryData?.currentMonth || {
+      totalCalls: 0,
+      answered: 0,
+      ivr: 0,
+      dropped: 0,
+      lost: 0,
+    };
+  const year =
+    callSummaryData?.currentYear || {
+      totalCalls: 0,
+      answered: 0,
+      ivr: 0,
+      dropped: 0,
+      lost: 0,
+    };
 
-  // Override with status distribution if available
-  const finalYearlyAnswered = getStatusCount("ANSWERED") || yearlyAnswered;
-  const finalYearlyNoAnswer = getStatusCount("NO ANSWER") || yearlyNoAnswer;
-  const finalYearlyBusy = getStatusCount("BUSY") || yearlyBusy;
+  const dailyTotal = day.totalCalls ?? 0;
+  const dailyAnswered = day.answered ?? 0;
+  const dailyIvr = day.ivr ?? 0;
+  const dailyDropped = day.dropped ?? 0;
+  const dailyLost = day.lost ?? 0;
 
-  // Calculate monthly and daily totals from trends
-  const monthlyTrends = callSummary?.trends?.monthly || [];
-  const dailyTrends = callSummary?.trends?.daily || [];
+  const monthlyTotal = month.totalCalls ?? 0;
+  const monthlyAnswered = month.answered ?? 0;
+  const monthlyIvr = month.ivr ?? 0;
+  const monthlyDropped = month.dropped ?? 0;
+  const monthlyLost = month.lost ?? 0;
 
-  const monthlyTotal = monthlyTrends.reduce((sum, item) => sum + (item.count || 0), 0);
-  const dailyTotal = dailyTrends.reduce((sum, item) => sum + (item.count || 0), 0);
-
-  // For monthly and daily breakdowns, we'll use the trends data
-  // Since the API doesn't provide disposition breakdown for monthly/daily, we'll calculate percentages
-  const monthlyAnswered = Math.round(monthlyTotal * (finalYearlyAnswered / yearlyTotal)) || 0;
-  const monthlyNoAnswer = Math.round(monthlyTotal * (finalYearlyNoAnswer / yearlyTotal)) || 0;
-  const monthlyBusy = Math.round(monthlyTotal * (finalYearlyBusy / yearlyTotal)) || 0;
-
-  const dailyAnswered = Math.round(dailyTotal * (finalYearlyAnswered / yearlyTotal)) || 0;
-  const dailyNoAnswer = Math.round(dailyTotal * (finalYearlyNoAnswer / yearlyTotal)) || 0;
-  const dailyBusy = Math.round(dailyTotal * (finalYearlyBusy / yearlyTotal)) || 0;
+  const yearlyTotal = year.totalCalls ?? 0;
+  const yearlyAnswered = year.answered ?? 0;
+  const yearlyIvr = year.ivr ?? 0;
+  const yearlyDropped = year.dropped ?? 0;
+  const yearlyLost = year.lost ?? 0;
 
   const calculatePercentage = (count, total) => {
     if (!total || total === 0) return 0;
     return ((count / total) * 100).toFixed(1);
   };
 
-  // Fetch data
+  // Fetch data same as PublicDashboard: public/dashboard + call-summary/call-summary, socket, 2s polling
   useEffect(() => {
-  const fetchData = async () => {
-    try {
-        const response = await fetch(`${baseURL}/call-summary/call-summary`);
-      const data = await response.json();
-        setCallSummary(data);
-    } catch (error) {
-      console.error("Error fetching data:", error);
+    const fetchCallSummary = async () => {
+      try {
+        const res = await fetch(`${baseURL}/call-summary/call-summary`);
+        if (res.ok) {
+          const data = await res.json();
+          setCallSummaryData(data);
+        }
+      } catch (err) {
+        console.error("Error fetching call summary:", err);
+      }
+    };
+
+    const fetchDashboardData = async () => {
+      try {
+        const response = await fetch(`${baseURL}/public/dashboard`);
+        if (response.ok) {
+          const data = await response.json();
+          setDashboardData({
+            agentStatus: data.agentStatus || { onlineCount: 0, offlineCount: 0 },
+            liveCalls: Array.isArray(data.liveCalls) ? data.liveCalls : [],
+            callStats: data.callStats || { totalCounts: [], monthlyCounts: [], dailyCounts: [], totalRows: 0 },
+            queueStatus: Array.isArray(data.queueStatus) ? data.queueStatus : [],
+            callStatusSummary: data.callStatusSummary || { active: 0, inQueue: 0, answered: 0, dropped: 0, lost: 0 },
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
       } finally {
         setLoading(false);
-    }
-  };
+      }
+    };
 
-    fetchData();
-    const interval = setInterval(fetchData, 30000); // Refresh every 30 seconds
-    return () => clearInterval(interval);
+    fetchDashboardData();
+    fetchCallSummary();
+
+    const socketUrl = baseURL.replace(/\/api$/, "") || "";
+    const socket = io(socketUrl, {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+    });
+
+    socket.on("connect", () => console.log("DG dashboard: connected to socket"));
+    socket.on("public_dashboard_update", (data) => {
+      setDashboardData((prev) => ({
+        ...prev,
+        agentStatus: data.agentStatus || prev.agentStatus,
+        liveCalls: Array.isArray(data.liveCalls) ? data.liveCalls : prev.liveCalls,
+        callStats: {
+          ...prev.callStats,
+          totalCounts: data.callStats?.totalCounts ?? prev.callStats.totalCounts,
+          monthlyCounts: data.callStats?.monthlyCounts ?? prev.callStats.monthlyCounts,
+          dailyCounts: data.callStats?.dailyCounts ?? prev.callStats.dailyCounts,
+        },
+        queueStatus: Array.isArray(data.queueStatus) ? data.queueStatus : prev.queueStatus,
+        callStatusSummary: data.callStatusSummary || prev.callStatusSummary,
+      }));
+    });
+    socket.on("disconnect", () => console.log("DG dashboard: socket disconnected"));
+    socket.on("connect_error", (err) => console.error("DG dashboard socket error:", err));
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const [dashboardResponse, callSummaryResponse] = await Promise.all([
+          fetch(`${baseURL}/public/dashboard`),
+          fetch(`${baseURL}/call-summary/call-summary`),
+        ]);
+        if (dashboardResponse.ok) {
+          const data = await dashboardResponse.json();
+          setDashboardData({
+            agentStatus: data.agentStatus || { onlineCount: 0, offlineCount: 0 },
+            liveCalls: Array.isArray(data.liveCalls) ? data.liveCalls : [],
+            callStats: data.callStats || { totalCounts: [], monthlyCounts: [], dailyCounts: [], totalRows: 0 },
+            queueStatus: Array.isArray(data.queueStatus) ? data.queueStatus : [],
+            callStatusSummary: data.callStatusSummary || { active: 0, inQueue: 0, answered: 0, dropped: 0, lost: 0 },
+          });
+        }
+        if (callSummaryResponse.ok) {
+          const summaryData = await callSummaryResponse.json();
+          setCallSummaryData(summaryData);
+        }
+      } catch (error) {
+        console.error("Error polling DG dashboard data:", error);
+      }
+    }, 2000);
+
+    const fallbackInterval = setInterval(() => {
+      if (!socket.connected) {
+        fetchDashboardData();
+        fetchCallSummary();
+      }
+    }, 10000);
+
+    return () => {
+      socket.disconnect();
+      clearInterval(pollInterval);
+      clearInterval(fallbackInterval);
+    };
   }, []);
+
+  // Trend chart uses same shape as PublicDashboard: Daily, Monthly, Yearly with Total, Answered, IVR, Dropped, Lost
+  const areaChartCategories = ["Daily", "Monthly", "Yearly"];
+  const areaChartSeries = [
+    { name: "Total Calls", data: [dailyTotal || 0, monthlyTotal || 0, yearlyTotal || 0] },
+    { name: "Answered", data: [dailyAnswered || 0, monthlyAnswered || 0, yearlyAnswered || 0] },
+    { name: "IVR", data: [dailyIvr || 0, monthlyIvr || 0, yearlyIvr || 0] },
+    { name: "Dropped", data: [dailyDropped || 0, monthlyDropped || 0, yearlyDropped || 0] },
+    { name: "Lost", data: [dailyLost || 0, monthlyLost || 0, yearlyLost || 0] },
+  ];
 
   const formatMonthDate = (dateValue, index) => {
     if (!dateValue) {
@@ -155,132 +262,6 @@ export default function DGdashboard() {
     }
   };
 
-  // ApexCharts area chart data for Daily, Monthly, and Yearly trends
-  const yearlyTrends = callSummary?.trends?.yearly || [];
-
-  // Group daily trends into date ranges: 1-10, 11-20, 21-end of month
-  const groupDailyByDateRanges = (dailyData) => {
-    const grouped = {};
-    
-    dailyData.forEach((d) => {
-      if (d.date) {
-        try {
-          const date = new Date(d.date);
-          if (!isNaN(date.getTime())) {
-            const day = date.getDate();
-            const month = date.getMonth() + 1;
-            const year = date.getFullYear();
-            const daysInMonth = new Date(year, month, 0).getDate();
-            
-            // Determine which range the day falls into
-            let rangeKey, rangeLabel;
-            if (day >= 1 && day <= 10) {
-              rangeKey = `${year}-${String(month).padStart(2, '0')}-1-10`;
-              rangeLabel = `1-10 ${date.toLocaleDateString("en-US", { month: "short" })}`;
-            } else if (day >= 11 && day <= 20) {
-              rangeKey = `${year}-${String(month).padStart(2, '0')}-11-20`;
-              rangeLabel = `11-20 ${date.toLocaleDateString("en-US", { month: "short" })}`;
-            } else if (day >= 21) {
-              rangeKey = `${year}-${String(month).padStart(2, '0')}-21-${daysInMonth}`;
-              rangeLabel = `21-${daysInMonth} ${date.toLocaleDateString("en-US", { month: "short" })}`;
-            } else {
-              return; // Skip invalid days
-            }
-            
-            if (!grouped[rangeKey]) {
-              grouped[rangeKey] = {
-                label: rangeLabel,
-                count: 0,
-                month: month,
-                year: year,
-                sortKey: `${year}-${String(month).padStart(2, '0')}-${rangeKey.split('-')[2]}`
-              };
-            }
-            grouped[rangeKey].count += d.count || 0;
-          }
-        } catch (error) {
-          console.error("Error grouping daily data:", error);
-        }
-      }
-    });
-    
-    // Convert to array and sort by date
-    return Object.values(grouped).sort((a, b) => {
-      return a.sortKey.localeCompare(b.sortKey);
-    });
-  };
-
-  const groupedDailyRanges = groupDailyByDateRanges(dailyTrends);
-
-  const areaChartCategories = [
-    // Daily range labels (1-10, 11-20, 21-end)
-    ...(groupedDailyRanges.length > 0
-      ? groupedDailyRanges.map((d) => d.label)
-      : []),
-    // Monthly labels from API
-    ...(monthlyTrends.length > 0
-      ? monthlyTrends.map((d, index) => {
-          const dateValue = d.year && d.month ? `${d.year}-${String(d.month).padStart(2, '0')}` : null;
-          return formatMonthDate(dateValue, index);
-        })
-      : []),
-    // Yearly label
-    ...(yearlyTrends.length > 0
-      ? yearlyTrends.map((d) => `${d.year} Total`)
-      : ["Yearly Total"]),
-  ];
-
-  const areaChartSeries = [
-    {
-      name: "Daily Total Calls",
-        data: [
-        ...(groupedDailyRanges.length > 0
-          ? groupedDailyRanges.map((d) => d.count || 0)
-          : []),
-        ...Array(monthlyTrends.length).fill(null),
-        ...(yearlyTrends.length > 0 ? [yearlyTotal] : [null]),
-      ],
-    },
-    {
-      name: "Daily Answered",
-        data: [
-        ...(groupedDailyRanges.length > 0
-          ? groupedDailyRanges.map((d) => Math.round((d.count || 0) * (finalYearlyAnswered / yearlyTotal)) || 0)
-          : []),
-        ...Array(monthlyTrends.length).fill(null),
-        ...(yearlyTrends.length > 0 ? [null] : [null]),
-      ],
-    },
-    {
-      name: "Monthly Total Calls",
-        data: [
-        ...Array(groupedDailyRanges.length).fill(null),
-        ...(monthlyTrends.length > 0
-          ? monthlyTrends.map((d) => d.count || 0)
-          : []),
-        ...(yearlyTrends.length > 0 ? [null] : [null]),
-      ],
-    },
-    {
-      name: "Monthly Answered",
-        data: [
-        ...Array(groupedDailyRanges.length).fill(null),
-        ...(monthlyTrends.length > 0
-          ? monthlyTrends.map((d) => Math.round((d.count || 0) * (finalYearlyAnswered / yearlyTotal)) || 0)
-          : []),
-        ...(yearlyTrends.length > 0 ? [null] : [null]),
-      ],
-    },
-    {
-      name: "Yearly Total",
-        data: [
-        ...Array(groupedDailyRanges.length).fill(null),
-        ...Array(monthlyTrends.length).fill(null),
-        ...(yearlyTrends.length > 0 ? [yearlyTotal] : [null]),
-      ],
-    },
-  ];
-
   const areaChartOptions = {
     chart: {
       type: "area",
@@ -295,37 +276,43 @@ export default function DGdashboard() {
     dataLabels: {
       enabled: false,
     },
+    markers: {
+      size: 3,
+      strokeWidth: 0,
+      hover: {
+        size: 5,
+      },
+    },
     stroke: {
       curve: "smooth",
-      width: [2.5, 2, 2.5, 2, 3],
-      dashArray: [0, 0, 5, 5, 0],
+      width: 2.5,
+      dashArray: 0,
     },
     fill: {
       type: "gradient",
       gradient: {
         shadeIntensity: 1,
-        opacityFrom: 0.7,
-        opacityTo: 0.3,
+        opacityFrom: 0.55,
+        opacityTo: 0.15,
         stops: [0, 90, 100],
       },
     },
     colors: [
-      "rgb(75, 192, 192)",
-      "rgb(76, 175, 80)",
-      "rgb(102, 126, 234)",
-      "rgb(76, 175, 80)",
-      "rgb(156, 39, 176)",
+      "rgb(102, 126, 234)", // Total
+      "rgb(76, 175, 80)",   // Answered
+      "rgb(156, 39, 176)",  // IVR
+      "rgb(255, 152, 0)",   // Dropped
+      "rgb(244, 67, 54)",   // Lost
     ],
     xaxis: {
       categories: areaChartCategories,
       labels: {
-        rotate: -45,
-        rotateAlways: true,
+        rotate: 0,
+        rotateAlways: false,
         style: {
-          fontSize: "10px",
-          fontWeight: 500,
+          fontSize: "12px",
+          fontWeight: 600,
         },
-        maxHeight: 80,
         formatter: function (value) {
           // Keep the formatted value as is
           return value;
@@ -339,22 +326,22 @@ export default function DGdashboard() {
       labels: {
         formatter: function (val) {
           return Math.round(val);
-                  },
-                },
-              },
-                legend: {
+        },
+      },
+    },
+    legend: {
       position: "top",
       horizontalAlign: "left",
-      fontSize: "10px",
+      fontSize: "12px",
       itemMargin: {
-        horizontal: 8,
-        vertical: 4,
+        horizontal: 10,
+        vertical: 6,
       },
       onItemClick: {
         toggleDataSeries: true,
       },
-                },
-                tooltip: {
+    },
+    tooltip: {
       shared: true,
       intersect: false,
     },
@@ -362,9 +349,17 @@ export default function DGdashboard() {
       borderColor: "#e0e0e0",
       strokeDashArray: 1,
     },
+    noData: {
+      text: "No trend data available",
+      align: "center",
+      verticalAlign: "middle",
+      style: {
+        color: "#666",
+      },
+    },
   };
 
-  // Radial chart options for call status distribution
+  // Radial chart options for call status distribution (Yearly)
   const radialChartOptions = {
     chart: {
       type: "radialBar",
@@ -401,9 +396,9 @@ export default function DGdashboard() {
         },
       },
     },
-    labels: ["Answered", "No Answer", "Busy"],
-    colors: ["#4caf50", "#ff9800", "#f44336"],
-                legend: {
+    labels: ["Answered", "IVR", "Dropped", "Lost"],
+    colors: ["#4caf50", "#9c27b0", "#ff9800", "#f44336"],
+    legend: {
       show: true,
       floating: false,
       fontSize: "14px",
@@ -425,11 +420,7 @@ export default function DGdashboard() {
     },
   };
 
-  const radialChartSeries = [
-    finalYearlyAnswered,
-    finalYearlyNoAnswer,
-    finalYearlyBusy,
-  ];
+  const radialChartSeries = [yearlyAnswered, yearlyIvr, yearlyDropped, yearlyLost];
 
   if (loading) {
     return (
@@ -510,7 +501,7 @@ export default function DGdashboard() {
                   </Typography>
                 </Box>
                 <Typography variant="h6" sx={{ fontWeight: 700, color: "#4caf50", mb: 1.5, fontSize: "1.25rem" }}>
-                  {finalYearlyAnswered.toLocaleString()}
+                  {yearlyAnswered.toLocaleString()}
                 </Typography>
                 <Box sx={{ borderTop: "1px solid #e0e0e0", pt: 1 }}>
                   <Box display="flex" justifyContent="space-between" mb={0.5}>
@@ -534,7 +525,7 @@ export default function DGdashboard() {
                       Percentage:
                     </Typography>
                     <Typography variant="caption" sx={{ fontWeight: 600, color: "#4caf50", fontSize: "0.7rem" }}>
-                      {calculatePercentage(finalYearlyAnswered, yearlyTotal)}%
+                      {calculatePercentage(yearlyAnswered, yearlyTotal)}%
                     </Typography>
                   </Box>
                 </Box>
@@ -542,18 +533,61 @@ export default function DGdashboard() {
             </Card>
           </Grid>
 
-          {/* Card 3: No Answer Calls */}
+          {/* Card 3: IVR Calls */}
           <Grid item xs={12} sm={6} md={3} sx={{ flex: 1, minWidth: 0 }}>
             <Card className="stat-card stat-card-small">
               <CardContent sx={{ p: "16px !important" }}>
                 <Box display="flex" alignItems="center" gap={1} mb={1}>
-                  <MdPhoneDisabled size={20} style={{ color: "#ff9800" }} />
+                  <MdQueue size={20} style={{ color: "#9c27b0" }} />
                   <Typography variant="body2" sx={{ fontWeight: 600, fontSize: "0.875rem" }}>
-                    No Answer Calls
+                    IVR Calls
+                  </Typography>
+                </Box>
+                <Typography variant="h6" sx={{ fontWeight: 700, color: "#9c27b0", mb: 1.5, fontSize: "1.25rem" }}>
+                  {yearlyIvr.toLocaleString()}
+                </Typography>
+                <Box sx={{ borderTop: "1px solid #e0e0e0", pt: 1 }}>
+                  <Box display="flex" justifyContent="space-between" mb={0.5}>
+                    <Typography variant="caption" color="textSecondary" sx={{ fontSize: "0.7rem" }}>
+                      Monthly:
+                    </Typography>
+                    <Typography variant="caption" sx={{ fontWeight: 600, color: "#9c27b0", fontSize: "0.7rem" }}>
+                      {monthlyIvr.toLocaleString()}
+                    </Typography>
+                  </Box>
+                  <Box display="flex" justifyContent="space-between" mb={0.5}>
+                    <Typography variant="caption" color="textSecondary" sx={{ fontSize: "0.7rem" }}>
+                      Daily:
+                    </Typography>
+                    <Typography variant="caption" sx={{ fontWeight: 600, color: "#9c27b0", fontSize: "0.7rem" }}>
+                      {dailyIvr.toLocaleString()}
+                    </Typography>
+                  </Box>
+                  <Box display="flex" justifyContent="space-between">
+                    <Typography variant="caption" color="textSecondary" sx={{ fontSize: "0.7rem" }}>
+                      Percentage:
+                    </Typography>
+                    <Typography variant="caption" sx={{ fontWeight: 600, color: "#9c27b0", fontSize: "0.7rem" }}>
+                      {calculatePercentage(yearlyIvr, yearlyTotal)}%
+                    </Typography>
+                  </Box>
+                </Box>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* Card 4: Dropped Calls */}
+          <Grid item xs={12} sm={6} md={3} sx={{ flex: 1, minWidth: 0 }}>
+            <Card className="stat-card stat-card-small">
+              <CardContent sx={{ p: "16px !important" }}>
+                <Box display="flex" alignItems="center" gap={1} mb={1}>
+                  <MdCallEnd size={20} style={{ color: "#ff9800" }} />
+                  <Typography variant="body2" sx={{ fontWeight: 600, fontSize: "0.875rem" }}>
+                    Dropped Calls
                   </Typography>
                 </Box>
                 <Typography variant="h6" sx={{ fontWeight: 700, color: "#ff9800", mb: 1.5, fontSize: "1.25rem" }}>
-                  {finalYearlyNoAnswer.toLocaleString()}
+                  {yearlyDropped.toLocaleString()}
                 </Typography>
                 <Box sx={{ borderTop: "1px solid #e0e0e0", pt: 1 }}>
                   <Box display="flex" justifyContent="space-between" mb={0.5}>
@@ -561,7 +595,7 @@ export default function DGdashboard() {
                       Monthly:
                     </Typography>
                     <Typography variant="caption" sx={{ fontWeight: 600, color: "#ff9800", fontSize: "0.7rem" }}>
-                      {monthlyNoAnswer.toLocaleString()}
+                      {monthlyDropped.toLocaleString()}
                     </Typography>
                   </Box>
                   <Box display="flex" justifyContent="space-between" mb={0.5}>
@@ -569,7 +603,7 @@ export default function DGdashboard() {
                       Daily:
                     </Typography>
                     <Typography variant="caption" sx={{ fontWeight: 600, color: "#ff9800", fontSize: "0.7rem" }}>
-                      {dailyNoAnswer.toLocaleString()}
+                      {dailyDropped.toLocaleString()}
                     </Typography>
                   </Box>
                   <Box display="flex" justifyContent="space-between">
@@ -577,7 +611,7 @@ export default function DGdashboard() {
                       Percentage:
                     </Typography>
                     <Typography variant="caption" sx={{ fontWeight: 600, color: "#ff9800", fontSize: "0.7rem" }}>
-                      {calculatePercentage(finalYearlyNoAnswer, yearlyTotal)}%
+                      {calculatePercentage(yearlyDropped, yearlyTotal)}%
                     </Typography>
                   </Box>
                 </Box>
@@ -585,18 +619,18 @@ export default function DGdashboard() {
             </Card>
           </Grid>
 
-          {/* Card 4: Busy Calls */}
+          {/* Card 5: Lost Calls */}
           <Grid item xs={12} sm={6} md={3} sx={{ flex: 1, minWidth: 0 }}>
             <Card className="stat-card stat-card-small">
               <CardContent sx={{ p: "16px !important" }}>
                 <Box display="flex" alignItems="center" gap={1} mb={1}>
-                  <MdCallEnd size={20} style={{ color: "#f44336" }} />
+                  <MdPhoneDisabled size={20} style={{ color: "#f44336" }} />
                   <Typography variant="body2" sx={{ fontWeight: 600, fontSize: "0.875rem" }}>
-                    Busy Calls
+                    Lost Calls
                   </Typography>
                 </Box>
                 <Typography variant="h6" sx={{ fontWeight: 700, color: "#f44336", mb: 1.5, fontSize: "1.25rem" }}>
-                  {finalYearlyBusy.toLocaleString()}
+                  {yearlyLost.toLocaleString()}
                 </Typography>
                 <Box sx={{ borderTop: "1px solid #e0e0e0", pt: 1 }}>
                   <Box display="flex" justifyContent="space-between" mb={0.5}>
@@ -604,7 +638,7 @@ export default function DGdashboard() {
                       Monthly:
                     </Typography>
                     <Typography variant="caption" sx={{ fontWeight: 600, color: "#f44336", fontSize: "0.7rem" }}>
-                      {monthlyBusy.toLocaleString()}
+                      {monthlyLost.toLocaleString()}
                     </Typography>
                   </Box>
                   <Box display="flex" justifyContent="space-between" mb={0.5}>
@@ -612,7 +646,7 @@ export default function DGdashboard() {
                       Daily:
                     </Typography>
                     <Typography variant="caption" sx={{ fontWeight: 600, color: "#f44336", fontSize: "0.7rem" }}>
-                      {dailyBusy.toLocaleString()}
+                      {dailyLost.toLocaleString()}
                     </Typography>
                   </Box>
                   <Box display="flex" justifyContent="space-between">
@@ -620,7 +654,7 @@ export default function DGdashboard() {
                       Percentage:
                     </Typography>
                     <Typography variant="caption" sx={{ fontWeight: 600, color: "#f44336", fontSize: "0.7rem" }}>
-                      {calculatePercentage(finalYearlyBusy, yearlyTotal)}%
+                      {calculatePercentage(yearlyLost, yearlyTotal)}%
                     </Typography>
                   </Box>
                 </Box>
