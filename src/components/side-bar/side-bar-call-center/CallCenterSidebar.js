@@ -122,6 +122,19 @@ export default function CallCenterSidebar({
                   {isSidebarOpen && <span className="menu-text">Users</span>}
                 </div>
               </NavLink>
+              <NavLink
+                to="/system-logs"
+                className={({ isActive }) =>
+                  isActive ? "menu-item active-link" : "menu-item"
+                }
+              >
+                <div className="menu-item">
+                  <TbLogs className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">System Logs</span>
+                  )}
+                </div>
+              </NavLink>
               {/* Lookup Tables Management - Super Admin Only */}
               {/* <NavLink
                 to="/lookup-tables"
@@ -152,19 +165,6 @@ export default function CallCenterSidebar({
                       )}
                     </div>
                   </NavLink>
-                  {/* <NavLink
-                    to="/system-logs"
-                    className={({ isActive }) =>
-                      isActive ? "menu-item active-link" : "menu-item"
-                    }
-                  >
-                    <div className="menu-item">
-                      <TbLogs className="menu-icon" />
-                      {isSidebarOpen && (
-                        <span className="menu-text">System Logs</span>
-                      )}
-                    </div>
-                  </NavLink> */}
                 </>
               )}
               {/*IVR management */}

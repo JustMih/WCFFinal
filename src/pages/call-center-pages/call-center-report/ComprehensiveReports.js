@@ -419,6 +419,19 @@ export default function ComprehensiveReports() {
     setSnackbarOpen(false);
   };
 
+  const formatSecondsToMinutes = (seconds) => {
+    if (seconds === null || seconds === undefined || seconds === "") {
+      return "-";
+    }
+
+    const numericSeconds = Number(seconds);
+    if (Number.isNaN(numericSeconds)) {
+      return "-";
+    }
+
+    return (numericSeconds / 60).toFixed(2);
+  };
+
   // Column definitions for each report type
   const getColumnDefinitions = () => {
     switch (activeTab) {
@@ -428,7 +441,12 @@ export default function ComprehensiveReports() {
           { key: "phone", label: "Phone", default: true },
           { key: "date", label: "Date", default: true },
           { key: "played", label: "Played", default: true },
-          { key: "agent", label: "Assigned Agent", default: true },
+          {
+            key: "assignedExtension",
+            label: "Assigned Extension",
+            default: true,
+          },
+          { key: "agentName", label: "Agent Name", default: true },
           { key: "duration", label: "Duration (s)", default: true },
           { key: "transcription", label: "Transcription", default: false },
         ];
@@ -439,8 +457,8 @@ export default function ComprehensiveReports() {
           { key: "source", label: "Source", default: true },
           { key: "destination", label: "Destination", default: true },
           { key: "startTime", label: "Start Time", default: true },
-          { key: "duration", label: "Duration (s)", default: true },
-          { key: "billed", label: "Billed (s)", default: true },
+          { key: "duration", label: "Duration (min)", default: true },
+          { key: "billed", label: "Billed (min)", default: true },
           { key: "disposition", label: "Disposition", default: true },
           { key: "recording", label: "Recording File", default: false },
         ];
@@ -858,6 +876,26 @@ export default function ComprehensiveReports() {
     indexOfLastReport
   );
 
+  const getAssignedAgentDisplay = (report) => {
+    if (report.assigned_extension) {
+      return `Ext ${report.assigned_extension}${
+        report.assigned_agent_name ? ` (${report.assigned_agent_name})` : ""
+      }`;
+    }
+
+    if (report.assigned_agent_name) {
+      return report.assigned_agent_name;
+    }
+
+    return "-";
+  };
+
+  const getAssignedExtensionDisplay = (report) =>
+    report.assigned_extension ? `Ext ${report.assigned_extension}` : "-";
+
+  const getAssignedAgentNameDisplay = (report) =>
+    report.assigned_agent_name || "-";
+
   // Helper function to get column value from report
   const getColumnValue = (columnKey, report, index) => {
     switch (activeTab) {
@@ -873,8 +911,10 @@ export default function ComprehensiveReports() {
               : "-";
           case "played":
             return report.is_played ? "Yes" : "No";
-          case "agent":
-            return report.assigned_agent_id || "-";
+          case "assignedExtension":
+            return getAssignedExtensionDisplay(report);
+          case "agentName":
+            return getAssignedAgentNameDisplay(report);
           case "duration":
             return report.duration_seconds || "-";
           case "transcription":
@@ -897,9 +937,9 @@ export default function ComprehensiveReports() {
               ? new Date(report.cdrstarttime).toLocaleString()
               : "-";
           case "duration":
-            return report.duration || "-";
+            return formatSecondsToMinutes(report.duration);
           case "billed":
-            return report.billsec || "-";
+            return formatSecondsToMinutes(report.billsec);
           case "disposition":
             return report.disposition || "-";
           case "recording":
@@ -2140,14 +2180,8 @@ export default function ComprehensiveReports() {
               />
             </td>
             <td>
-          {report.assigned_extension
-            ? `Ext ${report.assigned_extension}${
-                report.assigned_agent_name
-                  ? ` (${report.assigned_agent_name})`
-                  : ""
-              }`
-            : "-"}
-        </td>
+              {getAssignedAgentDisplay(report)}
+            </td>
 
             <td>{report.duration_seconds || "-"}</td>
             <td className="transcription-cell">
@@ -2168,8 +2202,8 @@ export default function ComprehensiveReports() {
           <th>Source</th>
           <th>Destination</th>
           <th>Start Time</th>
-          <th>Duration (s)</th>
-          <th>Billed (s)</th>
+          <th>Duration (min)</th>
+          <th>Billed (min)</th>
           <th>Disposition</th>
           <th>Recording</th>
         </tr>
@@ -2186,8 +2220,8 @@ export default function ComprehensiveReports() {
                 ? new Date(report.cdrstarttime).toLocaleString()
                 : "-"}
             </td>
-            <td>{report.duration || "-"}</td>
-            <td>{report.billsec || "-"}</td>
+            <td>{formatSecondsToMinutes(report.duration)}</td>
+            <td>{formatSecondsToMinutes(report.billsec)}</td>
             <td>
               <Chip
                 label={report.disposition || "-"}
