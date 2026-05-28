@@ -41,10 +41,11 @@ export function useSupervisorInterventionSocket({ onNotify, enabled = true }) {
 
     socket.on("supervisor_intervention", (payload) => {
       if (!payload) return;
+      const mode = payload.mode || "listen";
+      if (mode !== "whisper" && mode !== "barge") return;
+
       const target = String(payload.agent_extension || "");
       if (target !== String(agentExtension)) return;
-
-      const mode = payload.mode || "listen";
       const entry = {
         ...payload,
         mode,

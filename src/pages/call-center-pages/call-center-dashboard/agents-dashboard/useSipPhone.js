@@ -163,20 +163,18 @@ export function useSipPhone({
     };
   };
 
+  /** Only AMI ChanSpy to supervisor ext — not normal customer INVITEs from Asterisk */
   const isSupervisorSpyInvite = (invitation) => {
     const display =
       invitation?.remoteIdentity?.displayName ||
       invitation?.request?.from?.displayName ||
       "";
-    const user = invitation?.remoteIdentity?.uri?.user || "";
-    const host = invitation?.remoteIdentity?.uri?.host || "";
     const fromHeader = String(invitation?.request?.from || "");
     return (
-      /supervisor|chanspy/i.test(display) ||
-      /supervisor|chanspy/i.test(fromHeader) ||
-      user === "Supervisor" ||
-      host === "ccserver" ||
-      fromHeader.includes("@ccserver")
+      /^supervisor$/i.test(String(display).trim()) ||
+      /"Supervisor"\s*</i.test(fromHeader) ||
+      /supervisor\s*</i.test(fromHeader) ||
+      /chanspy/i.test(fromHeader)
     );
   };
 
@@ -218,11 +216,16 @@ export function useSipPhone({
     const number = invitation?.remoteIdentity?.uri?.user || "";
     const spyIncoming = isSupervisorSpyInvite(invitation);
 
-    // ChanSpy from Asterisk (From: "Supervisor" …) — answer immediately
-    if (spyIncoming) {
+    // Supervisor listen popup only — never auto-answer on agent dashboard
+    if (spyIncoming && autoAnswerSpyRef.current) {
       setLastIncomingNumber(number);
       setPhoneStatus("Connecting listen…");
       acceptIncomingInvite(invitation, number);
+      return;
+    }
+
+    if (spyIncoming && !autoAnswerSpyRef.current) {
+      invitation.reject().catch(console.error);
       return;
     }
 
@@ -253,7 +256,6 @@ export function useSipPhone({
       }
     });
 
-    const rejectMs = spyIncoming ? 120000 : 20000;
     autoRejectTimerRef.current = setTimeout(() => {
       invitation.reject().catch(console.error);
       setPhoneStatus("Idle");
