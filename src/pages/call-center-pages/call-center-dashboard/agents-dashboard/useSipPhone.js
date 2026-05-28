@@ -169,11 +169,14 @@ export function useSipPhone({
       invitation?.request?.from?.displayName ||
       "";
     const user = invitation?.remoteIdentity?.uri?.user || "";
+    const host = invitation?.remoteIdentity?.uri?.host || "";
+    const fromHeader = String(invitation?.request?.from || "");
     return (
       /supervisor|chanspy/i.test(display) ||
+      /supervisor|chanspy/i.test(fromHeader) ||
       user === "Supervisor" ||
-      user === "s" ||
-      !user
+      host === "ccserver" ||
+      fromHeader.includes("@ccserver")
     );
   };
 
@@ -210,20 +213,21 @@ export function useSipPhone({
 
   // ---------- Incoming call ----------
   const handleIncomingInvite = (invitation) => {
-    if (!allowRingingRef.current) {
-      invitation.reject().catch(console.error);
-      return;
-    }
-
     wasAnsweredRef.current = false;
 
     const number = invitation?.remoteIdentity?.uri?.user || "";
     const spyIncoming = isSupervisorSpyInvite(invitation);
 
-    if (autoAnswerSpyRef.current && spyIncoming) {
+    // ChanSpy / supervisor originate — always accept (even if agent status ≠ ready)
+    if (spyIncoming && (autoAnswerSpyRef.current || allowRingingRef.current)) {
       setLastIncomingNumber(number);
       setPhoneStatus("Connecting listen…");
       acceptIncomingInvite(invitation, number);
+      return;
+    }
+
+    if (!allowRingingRef.current) {
+      invitation.reject().catch(console.error);
       return;
     }
 

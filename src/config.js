@@ -1,20 +1,20 @@
-// Production / demo (uncomment to use)
-// export const baseURL = "https://democc.wcf.go.tz/api";
-// export const amiURL = "http://127.0.0.1:5075";
+// on development
+export const baseURL = "https://democc.wcf.go.tz/api";
+export const amiURL = "http://127.0.0.1:5075";
 // export const SIP_DOMAIN_CONFIG = "democc.wcf.go.tz";
+export const serverURL = "http://192.168.21.70:5070";
+// on development
 
-// Local development
-export const baseURL = "http://127.0.0.1:5070/api";
-
-// AMI proxy — remote host when API is local but Asterisk/AMI is on 192.168.21.70
-export const amiURL = "http://192.168.21.70:5075";
+// export const baseURL="https://democc.wcf.go.tz"
 // export const amiURL = "http://127.0.0.1:5075";
+// export const amiURL = "http://192.168.21.70:5075";
 
 /**
  * Where .wav files are served (no /api).
  * When API is local but DB/files are on 192.168.21.70, point here.
  */
-export const serverURL = "http://192.168.21.70:5070";
+// export const serverURL = "http://192.168.21.70:5070";
+// export const serverURL = baseURL.replace(/\/api\/?$/, "");
 
 /** SIP / WebRTC host (must match Asterisk TLS cert on port 8089). */
 export const SIP_DOMAIN_CONFIG =
