@@ -1,18 +1,22 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   FaHeadphones,
   FaUserShield,
   FaComments,
+  FaPhone,
 } from "react-icons/fa";
+import { Button, IconButton, Tooltip } from "@mui/material";
 import "./LiveCallsCard.css";
-import { baseURL } from "../../config";
+import { baseURL, SIP_DOMAIN_CONFIG } from "../../config";
 import WcfLoader from "../shared/WcfLoader";
 import SupervisorSipBar from "./SupervisorSipBar";
+import PhonePopup from "../../pages/call-center-pages/call-center-dashboard/agents-dashboard/PhonePopup";
+import "../../pages/call-center-pages/call-center-dashboard/agents-dashboard/agentsDashboard.css";
+import { useSipPhone } from "../../pages/call-center-pages/call-center-dashboard/agents-dashboard/useSipPhone";
 
 export default function LiveCallsCard({
   isLoading,
   searchTerm,
-  onSearch,
   currentPage,
   totalPages,
   onPageChange,
@@ -23,6 +27,52 @@ export default function LiveCallsCard({
   const [spyingOn, setSpyingOn] = useState(null);
   const [spyMode, setSpyMode] = useState(null);
   const [actionMessage, setActionMessage] = useState("");
+  const [showPhonePopup, setShowPhonePopup] = useState(false);
+  const [showKeypad, setShowKeypad] = useState(false);
+  const [listenDisplayName, setListenDisplayName] = useState("Supervisor listen");
+
+  const extension = localStorage.getItem("extension");
+  const sipPassword = localStorage.getItem("sipPassword");
+  const sipReady = Boolean(extension && sipPassword);
+
+  const {
+    phoneStatus,
+    incomingCall,
+    lastIncomingNumber,
+    callDuration,
+    phoneNumber,
+    setPhoneNumber,
+    isMuted,
+    isSpeakerOn,
+    isOnHold,
+    manualTransferExt,
+    setManualTransferExt,
+    remoteAudioRef,
+    formatDuration,
+    isConsulting,
+    acceptCall,
+    rejectCall,
+    endCall,
+    dial,
+    toggleMute,
+    toggleSpeaker,
+    toggleHold,
+    blindTransfer,
+    startConsult,
+    completeConsultTransfer,
+    cancelConsult,
+  } = useSipPhone({
+    extension: sipReady ? extension : null,
+    sipPassword: sipReady ? sipPassword : null,
+    SIP_DOMAIN: SIP_DOMAIN_CONFIG,
+    allowIncomingRinging: true,
+    autoAnswerSpyCalls: true,
+  });
+
+  const sipReadyForListen =
+    phoneStatus === "Idle" ||
+    phoneStatus === "Ready" ||
+    phoneStatus?.includes("Registered");
 
   const modeLabels = {
     listen: "Listening (spy)",
@@ -30,12 +80,37 @@ export default function LiveCallsCard({
     barge: "Barged into call",
   };
 
-  /* ================================
-     SPY / WHISPER / BARGE (AMI → supervisor phone)
-     ================================ */
-  const spyAction = async (linkedid, mode) => {
+  useEffect(() => {
+    if (
+      phoneStatus === "Ringing" ||
+      phoneStatus === "In Call" ||
+      phoneStatus === "Connecting listen…"
+    ) {
+      setShowPhonePopup(true);
+    }
+  }, [phoneStatus]);
+
+  const togglePhonePopup = () => setShowPhonePopup((v) => !v);
+
+  const handleAcceptListen = useCallback(() => {
+    acceptCall();
+  }, [acceptCall]);
+
+  const handleEndListen = useCallback(() => {
+    endCall();
+    setSpyingOn(null);
+    setSpyMode(null);
+    setActionMessage("");
+  }, [endCall]);
+
+  const spyAction = async (linkedid, mode, agentName, agentExt) => {
     try {
       setActionMessage("");
+      setListenDisplayName(
+        agentName
+          ? `Listen: ${agentName} (ext ${agentExt || "—"})`
+          : "Supervisor listen"
+      );
 
       const response = await fetch(`${baseURL}/livestream/spy`, {
         method: "POST",
@@ -51,20 +126,20 @@ export default function LiveCallsCard({
       if (!response.ok) {
         const hint =
           data.asterisk_state === "Unavailable"
-            ? " Register extension on this page (yellow bar) until status is Idle."
+            ? " Wait until the phone bar shows Idle, then try again."
             : "";
-        throw new Error((data.error || "Could not start supervisor intervention") + hint);
+        throw new Error(
+          (data.error || "Could not start supervisor intervention") + hint
+        );
       }
 
+      setShowPhonePopup(true);
       setSpyingOn(linkedid);
       setSpyMode(mode);
-      const steps = Array.isArray(data.instructions)
-        ? data.instructions.join(" ")
-        : `Answer your phone (extension ${data.supervisor_extension}) when it rings to hear the agent.`;
       setActionMessage(
-        `${modeLabels[mode] || mode} on ${data.agent_name || "agent"} (ext ${
-          data.agent_extension || "—"
-        }). ${steps}`
+        `Listen started on ${data.agent_name || agentName || "agent"} (ext ${
+          data.agent_extension || agentExt || "—"
+        }). When the phone popup rings, click Answer.`
       );
     } catch (err) {
       console.error("❌ Spy failed:", err);
@@ -73,9 +148,6 @@ export default function LiveCallsCard({
     }
   };
 
-  /* ================================
-     FETCH LIVE CALLS
-     ================================ */
   useEffect(() => {
     const fetchLiveCalls = async () => {
       try {
@@ -100,9 +172,6 @@ export default function LiveCallsCard({
     return () => clearInterval(interval);
   }, []);
 
-  /* ================================
-     SEARCH FILTER
-     ================================ */
   useEffect(() => {
     const term =
       typeof searchTerm === "string" ? searchTerm.toLowerCase() : "";
@@ -119,14 +188,9 @@ export default function LiveCallsCard({
     setFilteredLiveCalls(filtered);
   }, [liveCalls, searchTerm]);
 
-  /* ================================
-     CLEAR SPY STATE WHEN CALL ENDS
-     ================================ */
   useEffect(() => {
     if (spyingOn) {
-      const stillActive = activeCalls.some(
-        (c) => c.linkedid === spyingOn
-      );
+      const stillActive = activeCalls.some((c) => c.linkedid === spyingOn);
       if (!stillActive) {
         setSpyingOn(null);
         setSpyMode(null);
@@ -135,12 +199,25 @@ export default function LiveCallsCard({
     }
   }, [activeCalls, spyingOn]);
 
-  const data =
-    filteredLiveCalls.length > 0 ? filteredLiveCalls : activeCalls;
+  const supervisorExt = extension ? String(extension) : "";
 
-  /* ================================
-     HELPERS
-     ================================ */
+  const data = (
+    filteredLiveCalls.length > 0 ? filteredLiveCalls : activeCalls
+  ).filter((call) => {
+    if (call.status === "active") return true;
+    if (
+      supervisorExt &&
+      String(call.agent_extension) === supervisorExt &&
+      (call.status === "lost" ||
+        call.status === "dropped" ||
+        call.status === "ended" ||
+        call.callee === "s")
+    ) {
+      return false;
+    }
+    return call.status === "active" || call.status === "calling";
+  });
+
   const calculateDuration = (answeredAt) => {
     if (!answeredAt) return "00:00:00";
 
@@ -162,12 +239,20 @@ export default function LiveCallsCard({
     return "unknown";
   };
 
-  /* ================================
-     RENDER
-     ================================ */
+  const displayIncomingNumber =
+    phoneStatus === "Ringing" || phoneStatus === "In Call"
+      ? listenDisplayName
+      : lastIncomingNumber;
+
   return (
     <div className="live-calls-table-container">
-      <SupervisorSipBar />
+      <SupervisorSipBar
+        extension={extension}
+        phoneStatus={phoneStatus}
+        acceptCall={handleAcceptListen}
+        rejectCall={rejectCall}
+        endCall={handleEndListen}
+      />
 
       <div className="live-calls-header">
         <h4>
@@ -175,16 +260,67 @@ export default function LiveCallsCard({
           {isLoading && (
             <span
               className="loading-indicator"
-              style={{ display: "inline-flex", marginLeft: 8, verticalAlign: "middle" }}
+              style={{
+                display: "inline-flex",
+                marginLeft: 8,
+                verticalAlign: "middle",
+              }}
             >
               <WcfLoader size="sm" label="Loading live calls" />
             </span>
           )}
         </h4>
+        <div className="live-calls-actions">
+          <Tooltip title="Supervisor phone (answer Listen here)">
+            <IconButton
+              color="primary"
+              onClick={togglePhonePopup}
+              aria-label="Open supervisor phone"
+            >
+              <FaPhone />
+            </IconButton>
+          </Tooltip>
+        </div>
         {actionMessage && (
           <p className="spy-action-message">{actionMessage}</p>
         )}
       </div>
+
+      <PhonePopup
+        showPhonePopup={showPhonePopup}
+        extension={extension}
+        phoneStatus={phoneStatus}
+        incomingCall={incomingCall}
+        lastIncomingNumber={displayIncomingNumber}
+        callDuration={callDuration}
+        phoneNumber={phoneNumber}
+        setPhoneNumber={setPhoneNumber}
+        showKeypad={showKeypad}
+        setShowKeypad={setShowKeypad}
+        isMuted={isMuted}
+        isSpeakerOn={isSpeakerOn}
+        isOnHold={isOnHold}
+        manualTransferExt={manualTransferExt}
+        setManualTransferExt={setManualTransferExt}
+        remoteAudioRef={remoteAudioRef}
+        formatDuration={formatDuration}
+        isConsulting={isConsulting}
+        onClose={() => setShowPhonePopup(false)}
+        onAccept={handleAcceptListen}
+        onReject={rejectCall}
+        onEnd={handleEndListen}
+        onDial={dial}
+        onToggleMute={toggleMute}
+        onToggleSpeaker={toggleSpeaker}
+        onToggleHold={toggleHold}
+        onBlindTransfer={blindTransfer}
+        onStartConsult={startConsult}
+        onCompleteConsultTransfer={completeConsultTransfer}
+        onCancelConsult={cancelConsult}
+        incomingLabel="Listen to agent call"
+        incomingHint="Click Answer to hear the agent. The customer cannot hear you."
+        showDialPad={false}
+      />
 
       <div className="table-responsive">
         <table className="live-calls-table">
@@ -241,7 +377,6 @@ export default function LiveCallsCard({
 
                   <td>
                     <div className="action-buttons">
-                      {/* LISTEN */}
                       <button
                         className={`action-button listen ${
                           spyingOn === call.linkedid && spyMode === "listen"
@@ -249,21 +384,29 @@ export default function LiveCallsCard({
                             : ""
                         }`}
                         disabled={
-                          call.status !== "active" || !call.agent_extension
+                          call.status !== "active" ||
+                          !call.agent_extension ||
+                          !sipReadyForListen
                         }
                         onClick={() =>
-                          spyAction(call.linkedid, "listen")
+                          spyAction(
+                            call.linkedid,
+                            "listen",
+                            call.agent_name,
+                            call.agent_extension
+                          )
                         }
                         title={
-                          call.agent_extension
-                            ? "Listen in browser (ext from profile)"
-                            : "No agent on call yet"
+                          !sipReadyForListen
+                            ? "Wait until supervisor phone shows Idle"
+                            : call.agent_extension
+                              ? "Listen on active call"
+                              : "No agent on call yet"
                         }
                       >
                         <FaHeadphones />
                       </button>
 
-                      {/* WHISPER */}
                       <button
                         className={`action-button whisper ${
                           spyingOn === call.linkedid && spyMode === "whisper"
@@ -272,14 +415,18 @@ export default function LiveCallsCard({
                         }`}
                         disabled={call.status !== "active"}
                         onClick={() =>
-                          spyAction(call.linkedid, "whisper")
+                          spyAction(
+                            call.linkedid,
+                            "whisper",
+                            call.agent_name,
+                            call.agent_extension
+                          )
                         }
                         title="Whisper"
                       >
                         <FaComments />
                       </button>
 
-                      {/* BARGE */}
                       <button
                         className={`action-button intervene ${
                           spyingOn === call.linkedid && spyMode === "barge"
@@ -288,7 +435,12 @@ export default function LiveCallsCard({
                         }`}
                         disabled={call.status !== "active"}
                         onClick={() =>
-                          spyAction(call.linkedid, "barge")
+                          spyAction(
+                            call.linkedid,
+                            "barge",
+                            call.agent_name,
+                            call.agent_extension
+                          )
                         }
                         title="Barge"
                       >

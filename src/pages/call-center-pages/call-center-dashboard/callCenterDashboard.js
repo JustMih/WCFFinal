@@ -1,7 +1,7 @@
 import React from 'react'
 import AgentsDashboard from './agents-dashboard/AgentsDashboard';
 import AdminAndSuperAdminDashboard from './admin-and-super-admin-dashboard/Admin&SuperAdminDashboard';
-import SupervisorDashboard from './supervisor-dashboard/SupervisorDashboard';
+import SupervisorDashboard2 from './supervisor-dashboard/SupervisorDashboard2';
 import DGdashboard from './dgDashboard/DGdashboard';
 
 export default function callCenterDashboard() {
@@ -12,7 +12,7 @@ export default function callCenterDashboard() {
         <AdminAndSuperAdminDashboard />
       )}
       {role === "agent" && <AgentsDashboard />}
-      {role === "supervisor" && (<SupervisorDashboard />)}
+      {role === "supervisor" && (<SupervisorDashboard2 />)}
       {role === "director-general" && (<DGdashboard />)}
     </>
   );
