@@ -1,9 +1,6 @@
 import React, { useEffect, useState } from "react";
-<<<<<<< HEAD
 import { FiPhoneCall } from "react-icons/fi";
-=======
 import { useNavigate, useParams } from "react-router-dom";
->>>>>>> 6497ef3ebafa4da67311cf514e24678be9a7cfb2
 import { baseURL } from "../../../config";
 import PauseReport from "./PauseReport";
 import WcfLoader from "../../../components/shared/WcfLoader";
@@ -90,21 +87,6 @@ import "./OffHoursReport.css";
 
 const SIP_DOMAIN = "192.168.21.69";
 
-<<<<<<< HEAD
-const REPORT_TYPES = {
-  VOICE_NOTE: 0,
-  CDR: 1,
-  TICKET_CRM: 2,
-  AGENT_PERFORMANCE: 3,
-  CALL_SUMMARY: 4,
-  IVR_INTERACTIONS: 5,
-  TICKET_ASSIGNMENTS: 6,
-  MISSED_CALL: 7,
-  ESCALLATION: 8,
-  NOTIFICATIONS: 9,
-  CHATS: 10,
-  OFF_HOURS: 11,
-=======
 /** Format CDR duration/billsec (seconds) for table display */
 const formatSecondsToMinutes = (value) => {
   const seconds = Number(value);
@@ -113,7 +95,6 @@ const formatSecondsToMinutes = (value) => {
   const secs = Math.floor(seconds % 60);
   if (mins > 0) return `${mins}m ${secs}s`;
   return `${secs}s`;
->>>>>>> 6497ef3ebafa4da67311cf514e24678be9a7cfb2
 };
 
 const OFF_HOURS_CATEGORY_OPTIONS = [
@@ -665,7 +646,6 @@ export default function ComprehensiveReports() {
     setSnackbarOpen(false);
   };
 
-<<<<<<< HEAD
   const getOffHoursTimestamp = (record) =>
     record.time || record.created_at || record.cdrstarttime;
 
@@ -963,7 +943,8 @@ export default function ComprehensiveReports() {
     setSnackbarMessage("CSV exported successfully!");
     setSnackbarSeverity("success");
     setSnackbarOpen(true);
-=======
+  };
+
   const getAuthToken = () =>
     localStorage.getItem("authToken") ||
     localStorage.getItem("token") ||
@@ -1093,7 +1074,6 @@ export default function ComprehensiveReports() {
       );
     }
     return "-";
->>>>>>> 6497ef3ebafa4da67311cf514e24678be9a7cfb2
   };
 
   // Column definitions for each report type
@@ -2070,8 +2050,7 @@ export default function ComprehensiveReports() {
   };
 
   // CSV Export Function
-<<<<<<< HEAD
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     if (activeTab === REPORT_TYPES.OFF_HOURS) {
       if (filteredReports.length === 0) {
         setSnackbarMessage("No data to export");
@@ -2083,9 +2062,6 @@ export default function ComprehensiveReports() {
       return;
     }
 
-=======
-  const handleExportCSV = async () => {
->>>>>>> 6497ef3ebafa4da67311cf514e24678be9a7cfb2
     if (filteredReports.length === 0) {
       setSnackbarMessage("No data to export");
       setSnackbarSeverity("warning");
@@ -2145,8 +2121,7 @@ export default function ComprehensiveReports() {
   };
 
   // PDF Export Function
-<<<<<<< HEAD
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     if (activeTab === REPORT_TYPES.OFF_HOURS) {
       if (filteredReports.length === 0) {
         setSnackbarMessage("No data to export");
@@ -2158,9 +2133,6 @@ export default function ComprehensiveReports() {
       return;
     }
 
-=======
-  const handleExportPDF = async () => {
->>>>>>> 6497ef3ebafa4da67311cf514e24678be9a7cfb2
     if (filteredReports.length === 0) {
       setSnackbarMessage("No data to export");
       setSnackbarSeverity("warning");
@@ -2437,27 +2409,7 @@ export default function ComprehensiveReports() {
     setSnackbarOpen(true);
   };
 
-  const getReportTitle = () => {
-<<<<<<< HEAD
-    const titles = {
-      [REPORT_TYPES.VOICE_NOTE]: "Voice Note Report",
-      [REPORT_TYPES.CDR]: "CDR Report",
-      [REPORT_TYPES.TICKET_CRM]: "Ticket CRM Report",
-      [REPORT_TYPES.AGENT_PERFORMANCE]: "Agent Performance Report",
-      [REPORT_TYPES.CALL_SUMMARY]: "Call Summary Report",
-      [REPORT_TYPES.IVR_INTERACTIONS]: "IVR Interactions Report",
-      [REPORT_TYPES.TICKET_ASSIGNMENTS]: "Ticket Assignments Report",
-      [REPORT_TYPES.MISSED_CALL]: "Missed Call Report",
-      [REPORT_TYPES.ESCALLATION]: "Escallation Report",
-      [REPORT_TYPES.NOTIFICATIONS]: "Notification Report",
-      [REPORT_TYPES.CHATS]: "Chats Report",
-      [REPORT_TYPES.OFF_HOURS]: "Off-Hours Calls Report",
-    };
-    return titles[activeTab] || "Report";
-=======
-    return getReportLabel(activeTab);
->>>>>>> 6497ef3ebafa4da67311cf514e24678be9a7cfb2
-  };
+  const getReportTitle = () => getReportLabel(activeTab);
 
   useEffect(() => {
     const valid = REPORTS.some((r) => r.slug === reportSlug);
@@ -3753,30 +3705,10 @@ export default function ComprehensiveReports() {
         </FormControl>
       </div>
 
-<<<<<<< HEAD
-      {/* Tabs */}
-      <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
-        <Tabs
-          value={activeTab}
-          onChange={handleTabChange}
-          variant="scrollable"
-          scrollButtons="auto"
-        >
-          <Tab label="Voice Note Report" />
-          <Tab label="CDR Report" />
-          <Tab label="Ticket CRM Report" />
-          <Tab label="Agent Performance" />
-          <Tab label="Call Summary" />
-          <Tab label="IVR Interactions" />
-          <Tab label="Ticket Assignments" />
-          <Tab label="Missed Call Report" />
-          <Tab label="Escallation" />
-          <Tab label="Notifications" />
-          <Tab label="Chats" />
-          <Tab label="Off-Hours Calls" />
-        </Tabs>
-      </Box>
-
+      {activeTab === REPORT_TYPES.PAUSE ? (
+        <PauseReport embedded />
+      ) : (
+        <>
       {activeTab === REPORT_TYPES.OFF_HOURS && (
         <Typography
           variant="body2"
@@ -3788,13 +3720,6 @@ export default function ComprehensiveReports() {
           and holidays). Use Missed Calls source to callback pending callers.
         </Typography>
       )}
-
-=======
-      {activeTab === REPORT_TYPES.PAUSE ? (
-        <PauseReport embedded />
-      ) : (
-        <>
->>>>>>> 6497ef3ebafa4da67311cf514e24678be9a7cfb2
       {/* Summary Cards for Call Reports */}
       {renderSummaryCards()}
 
@@ -3943,7 +3868,6 @@ export default function ComprehensiveReports() {
                   </Select>
                 </FormControl>
               )}
-<<<<<<< HEAD
 
               {activeTab === REPORT_TYPES.OFF_HOURS && (
                 <>
@@ -3990,8 +3914,6 @@ export default function ComprehensiveReports() {
                 </>
               )}
             </div>
-=======
->>>>>>> 6497ef3ebafa4da67311cf514e24678be9a7cfb2
 
             <div className="action-buttons">
               <Button
@@ -4040,7 +3962,6 @@ export default function ComprehensiveReports() {
               >
                 Export CSV
               </Button>
-            </div>
             </div>
           </div>
 
