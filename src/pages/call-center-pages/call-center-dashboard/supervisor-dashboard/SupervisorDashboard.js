@@ -178,8 +178,19 @@ export default function SupervisorDashboard() {
       setShowPhonePopup(true);
     }, []),
     showAlert,
-    allowIncomingRinging: agentStatus === "ready",
+    allowIncomingRinging: true,
+    autoAnswerSpyCalls: true,
   });
+
+  useEffect(() => {
+    if (
+      phoneStatus === "Ringing" ||
+      phoneStatus === "In Call" ||
+      phoneStatus === "Connecting listen…"
+    ) {
+      setShowPhonePopup(true);
+    }
+  }, [phoneStatus]);
 
   const timeIntervals = getTimeIntervalsSeconds(userDefinedTimes);
 
@@ -822,6 +833,9 @@ export default function SupervisorDashboard() {
         onStartConsult={handleStartConsult}
         onCompleteConsultTransfer={handleCompleteConsultTransfer}
         onCancelConsult={handleCancelConsult}
+        incomingLabel="Listen to agent call"
+        incomingHint="Click Answer to hear the agent (listen-only)."
+        showDialPad={false}
       />
 
       {/* Snackbar */}

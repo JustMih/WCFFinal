@@ -55,6 +55,37 @@ ChartJS.register(
   Legend
 );
 
+function SupervisorMetricCard({
+  period,
+  variant,
+  icon: Icon,
+  value,
+  badge,
+  title,
+  sublabel,
+}) {
+  return (
+    <div className={`supervisor-stat-card ${variant}`}>
+      <div className="supervisor-stat-card__icon-wrap">
+        <Icon />
+      </div>
+      <div className="supervisor-stat-card__body">
+        <span className="supervisor-stat-card__period">{period}</span>
+        <span className="supervisor-stat-card__count">{value}</span>
+        <div className="supervisor-stat-card__summary">
+          <div className="supervisor-stat-card__desc">
+            <div className="supervisor-stat-card__label">{title}</div>
+            <div className="supervisor-stat-card__sublabel">{sublabel}</div>
+          </div>
+          {badge ? (
+            <span className="supervisor-stat-card__percent">{badge}</span>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Dummy data for development
 const dummyLiveCalls = [
   {
@@ -238,8 +269,15 @@ export default function SupervisorDashboard2() {
 
       // Fetch SLA metrics
       const slaResponse = await fetch(`${baseURL}/calls/sla-metrics`);
-      const slaData = await slaResponse.json();
-      setSlaMetrics(slaData);
+      if (slaResponse.ok) {
+        const slaData = await slaResponse.json();
+        setSlaMetrics(slaData);
+      }
+
+      const queueResponse = await fetch(`${baseURL}/queue-call-stats`);
+      if (queueResponse.ok) {
+        setQueueData(await queueResponse.json());
+      }
     } catch (error) {
       console.error("Error fetching data:", error);
       // Keep using dummy data if API calls fail
@@ -254,12 +292,10 @@ export default function SupervisorDashboard2() {
   const fetchQueueData = async () => {
     try {
       const response = await fetch(`${baseURL}/queue-call-stats`);
-      if (!response.ok) throw new Error('Failed to fetch queue data');
-      const data = await response.json();
-      setQueueData(data);
+      if (!response.ok) return;
+      setQueueData(await response.json());
     } catch (error) {
       console.error('Error fetching queue data:', error);
-      setQueueData(null);
     }
   };
 
@@ -267,8 +303,9 @@ export default function SupervisorDashboard2() {
   const fetchAlerts = async () => {
     try {
       const response = await fetch(`${baseURL}/alerts/active`);
-      const data = await response.json();
-      setAlerts(data);
+      if (response.ok) {
+        setAlerts(await response.json());
+      }
     } catch (error) {
       console.error("Error fetching alerts:", error);
       // Keep using dummy data if API call fails
@@ -324,12 +361,24 @@ export default function SupervisorDashboard2() {
     const searchValue = e.target.value.toLowerCase();
     setSearchTerm(searchValue);
     
-    const filtered = liveCalls.filter(call => 
-      call.id.toLowerCase().includes(searchValue) ||
-      call.agent.toLowerCase().includes(searchValue) ||
-      call.customer.toLowerCase().includes(searchValue) ||
-      call.callType.toLowerCase().includes(searchValue)
-    );
+    const sourceCalls = Array.isArray(liveCalls) ? liveCalls : [];
+    const filtered = sourceCalls.filter((call) => {
+      const id = String(call?.id ?? "").toLowerCase();
+      const agent = String(call?.agent ?? call?.agent_name ?? "").toLowerCase();
+      const customer = String(call?.customer ?? call?.caller ?? "").toLowerCase();
+      const callType = String(call?.callType ?? "").toLowerCase();
+      const status = String(call?.status ?? "").toLowerCase();
+      const callee = String(call?.callee ?? "").toLowerCase();
+
+      return (
+        id.includes(searchValue) ||
+        agent.includes(searchValue) ||
+        customer.includes(searchValue) ||
+        callType.includes(searchValue) ||
+        status.includes(searchValue) ||
+        callee.includes(searchValue)
+      );
+    });
     setFilteredLiveCalls(filtered);
   };
 
@@ -364,7 +413,7 @@ export default function SupervisorDashboard2() {
 
   // Update useEffect to initialize filteredLiveCalls
   useEffect(() => {
-    setFilteredLiveCalls(liveCalls);
+    setFilteredLiveCalls(Array.isArray(liveCalls) ? liveCalls : []);
   }, [liveCalls]);
 
   // Add pagination handlers
@@ -427,7 +476,7 @@ export default function SupervisorDashboard2() {
   };
 
   return (
-    <div className="call-center-agent-container">
+    <div className="supervisor-dashboard-root call-center-agent-container">
         <h3 className="call-center-agent-title">Supervisor Dashboard 2</h3>
 
       {/* Queue Monitoring Section */}
@@ -444,48 +493,44 @@ export default function SupervisorDashboard2() {
       </div>
          {/* SLA Metrics Cards */}
          <div className="live-calls-table-container">
-        <div className="call-center-agent-summary">
-        <div className="call-center-agent-card">
-          <div className="call-center-agent-card-icon">
-            <div className="call-center-agent-data">
-              <p className="call-center-agent-value">
-                {slaMetrics.serviceLevel}%
-              </p>
-            </div>
-            <h4>Service Level</h4>
-          </div>
+        <div className="call-center-agent-summary sla-metrics-grid">
+          <SupervisorMetricCard
+            period="SLA"
+            variant="sla-service-level"
+            icon={FaClipboardCheck}
+            value={`${slaMetrics.serviceLevel}%`}
+            badge={null}
+            title="Service Level"
+            sublabel="Current"
+          />
+          <SupervisorMetricCard
+            period="SLA"
+            variant="sla-avg-response"
+            icon={FaClock}
+            value={`${slaMetrics.averageResponseTime}s`}
+            badge={null}
+            title="Avg Response Time"
+            sublabel="Seconds"
+          />
+          <SupervisorMetricCard
+            period="SLA"
+            variant="sla-avg-handle"
+            icon={FaHeadphones}
+            value={`${slaMetrics.averageHandleTime}s`}
+            badge={null}
+            title="Avg Handle Time"
+            sublabel="Seconds"
+          />
+          <SupervisorMetricCard
+            period="SLA"
+            variant="sla-abandonment"
+            icon={FaExclamationTriangle}
+            value={`${slaMetrics.abandonmentRate}%`}
+            badge={null}
+            title="Abandonment Rate"
+            sublabel="Percent"
+          />
         </div>
-        <div className="call-center-agent-card">
-          <div className="call-center-agent-card-icon">
-            <div className="call-center-agent-data">
-              <p className="call-center-agent-value">
-                {slaMetrics.averageResponseTime}s
-              </p>
-            </div>
-            <h4>Avg Response Time</h4>
-          </div>
-        </div>
-        <div className="call-center-agent-card">
-          <div className="call-center-agent-card-icon">
-            <div className="call-center-agent-data">
-              <p className="call-center-agent-value">
-                {slaMetrics.averageHandleTime}s
-              </p>
-            </div>
-            <h4>Avg Handle Time</h4>
-          </div>
-        </div>
-        <div className="call-center-agent-card">
-          <div className="call-center-agent-card-icon">
-            <div className="call-center-agent-data">
-              <p className="call-center-agent-value">
-                {slaMetrics.abandonmentRate}%
-              </p>
-            </div>
-            <h4>Abandonment Rate</h4>
-          </div>
-        </div>
-      </div>
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import ReportDateRangePicker from "../../../components/shared/ReportDateRangePicker";
+import WcfLoader from "../../../components/shared/WcfLoader";
 import "./VoiceNotesReport.css";
 
 export default function RecordedSounds() {
@@ -61,20 +62,29 @@ export default function RecordedSounds() {
   =============================== */
   const isPlayed = (note) => Boolean(playedStatus[note.id] || note.is_played);
 
-  const markAsPlayedInDb = async (id) => {
+  const markAsPlayedInDb = async (id, durationSeconds = null) => {
     const token = localStorage.getItem("authToken");
-    await axios.put(
-      `${baseURL}/voice-notes/${id}/mark-played`,
-      {},
-      {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        withCredentials: true,
-      }
-    );
+    const body =
+      durationSeconds != null && durationSeconds > 0
+        ? { duration_seconds: Math.round(durationSeconds) }
+        : {};
+    await axios.put(`${baseURL}/voice-notes/${id}/mark-played`, body, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      withCredentials: true,
+    });
 
     setPlayedStatus((prev) => ({ ...prev, [id]: true }));
     setVoiceNotes((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, is_played: 1 } : n))
+      prev.map((n) =>
+        n.id === id
+          ? {
+              ...n,
+              is_played: 1,
+              duration_seconds:
+                n.duration_seconds || Math.round(durationSeconds || 0),
+            }
+          : n
+      )
     );
   };
 
@@ -92,19 +102,17 @@ export default function RecordedSounds() {
       await audio.play();
       setCurrentAudio(audio);
       setCurrentlyPlayingId(id);
+      if (audio.duration && !Number.isNaN(audio.duration)) {
+        await markAsPlayedInDb(id, audio.duration);
+      } else {
+        audio.onloadedmetadata = () => markAsPlayedInDb(id, audio.duration);
+      }
       audio.onended = () => {
         setCurrentlyPlayingId(null);
         setCurrentAudio(null);
       };
     } catch (playErr) {
       console.error("Audio play failed:", playErr);
-    }
-
-    try {
-      await markAsPlayedInDb(id);
-    } catch (markErr) {
-      console.error("Mark played failed:", markErr);
-      setError("Could not save played status to database. Please log in and try again.");
     }
   };
 
@@ -212,7 +220,13 @@ export default function RecordedSounds() {
     doc.save("voice_notes.pdf");
   };
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) {
+    return (
+      <div className="wcf-loading-container">
+        <WcfLoader size="md" message="Loading voice notes..." label="Loading voice notes" />
+      </div>
+    );
+  }
   if (error) return <div className="error">{error}</div>;
 
   return (

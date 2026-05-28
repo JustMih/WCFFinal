@@ -11,6 +11,9 @@ export const REPORT_TYPES = {
   NOTIFICATIONS: 9,
   CHATS: 10,
   PAUSE: 11,
+  OFF_HOURS: 12,
+  SLA_CALL_CENTER: 13,
+  SLA_TICKET: 14,
 };
 
 export const REPORTS = [
@@ -26,6 +29,9 @@ export const REPORTS = [
   { slug: "notifications", label: "Notifications", type: REPORT_TYPES.NOTIFICATIONS },
   { slug: "chats", label: "Chats", type: REPORT_TYPES.CHATS },
   { slug: "pause", label: "Pause Report", type: REPORT_TYPES.PAUSE },
+  { slug: "off-hours", label: "Off-Hours Calls", type: REPORT_TYPES.OFF_HOURS },
+  { slug: "call-center-sla", label: "Call Center SLA", type: REPORT_TYPES.SLA_CALL_CENTER },
+  { slug: "ticket-sla", label: "Ticket SLA", type: REPORT_TYPES.SLA_TICKET },
 ];
 
 const LEGACY_TAB_MAP = {
@@ -56,7 +62,7 @@ export const resolveTypeFromLegacyTab = (tabParam) => {
   const lower = tabParam.toLowerCase();
   if (LEGACY_TAB_MAP[lower] !== undefined) return LEGACY_TAB_MAP[lower];
   const num = Number(tabParam);
-  if (!Number.isNaN(num) && num >= 0 && num <= REPORT_TYPES.PAUSE) return num;
+  if (!Number.isNaN(num) && num >= 0 && num <= REPORT_TYPES.SLA_TICKET) return num;
   const bySlug = REPORTS.find((r) => r.slug === lower);
   return bySlug ? bySlug.type : null;
 };

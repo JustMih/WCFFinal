@@ -1,0 +1,43 @@
+.ivr-tabs-page {
+  padding: 24px;
+  min-height: 100%;
+  box-sizing: border-box;
+}
+
+.ivr-tabs-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.ivr-tabs-title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #1a2b42;
+}
+
+.ivr-tabs-controls {
+  background: var(--wcf-white, #fff);
+  border: 1px solid #e8edf3;
+  border-radius: 12px;
+  padding: 6px 10px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.ivr-tabs-panel {
+  margin-top: 16px;
+  background: var(--wcf-white, #fff);
+  border: 1px solid #e8edf3;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  min-height: 320px;
+}
+
+.ivr-tabs-empty {
+  margin: 0;
+  color: #5c6b7a;
+  font-size: 0.9rem;
+}

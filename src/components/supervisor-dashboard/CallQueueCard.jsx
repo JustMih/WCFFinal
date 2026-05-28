@@ -133,7 +133,7 @@ const CallQueueCard = () => {
             {calling.length > 0 ? (
               calling.map((call) => (
                 <tr
-                  key={call.id}
+                  key={call.linkedid || call.id}
                   className={
                     call.priority === "High" ? "priority-row-high" : ""
                   }

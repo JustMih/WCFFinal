@@ -32,10 +32,11 @@ export function getVoiceNoteAudioUrls(record) {
   }
 
   if (record.id) {
-    urls.push(`${serverURL}/api/voice-notes/${record.id}/audio`);
     if (serverURL !== apiHost) {
-      urls.push(`${baseURL}/voice-notes/${record.id}/audio`);
+      urls.push(`${serverURL}/api/voice-notes/${record.id}/audio`);
     }
+    urls.push(`${apiHost}/api/voice-notes/${record.id}/audio`);
+    urls.push(`${baseURL}/voice-notes/${record.id}/audio`);
   }
 
   return [...new Set(urls)];

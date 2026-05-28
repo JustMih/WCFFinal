@@ -52,6 +52,7 @@ import {
   formatPauseDuration,
   PAUSE_MENU_ITEMS,
 } from "../../../../utils/pauseActivities";
+import { useSupervisorInterventionSocket } from "../../../../hooks/useSupervisorInterventionSocket";
 
 const PAUSE_MENU_ICONS = {
   ready: <GiTrafficLightsReadyToGo fontSize="large" />,
@@ -126,6 +127,10 @@ export default function AgentsDashboard() {
     setSnackbarSeverity(severity);
     setSnackbarOpen(true);
   }, []);
+
+  const { intervention, clearIntervention } = useSupervisorInterventionSocket({
+    onNotify: showAlert,
+  });
 
   const fetchUserByPhoneNumber = useCallback(async (phone) => {
     try {
@@ -218,7 +223,8 @@ export default function AgentsDashboard() {
     onCallEnded: useCallback(() => {
       setShowUserForm(false);
       setUserData(null);
-    }, []),
+      clearIntervention();
+    }, [clearIntervention]),
     showAlert,
     allowIncomingRinging: agentStatus === "ready",
   });
@@ -748,6 +754,19 @@ useEffect(() => {
 
   return (
     <div className="agents-dashboard-root">
+      {intervention && (
+        <Alert
+          severity={intervention.severity || "info"}
+          onClose={clearIntervention}
+          sx={{
+            mb: 2,
+            fontWeight: 500,
+            "& .MuiAlert-message": { width: "100%" },
+          }}
+        >
+          <strong>{intervention.title}</strong> — {intervention.message}
+        </Alert>
+      )}
 
       {/* Call Status Banner - Shows when on a call even if ticket modal is closed */}
       {hasActiveCall && !showTicketModal && (

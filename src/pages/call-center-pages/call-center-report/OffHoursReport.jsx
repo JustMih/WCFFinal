@@ -22,6 +22,7 @@ import {
   buildSummary,
 } from "../../../utils/offHoursHelper";
 import { playVoiceNoteAudio } from "../../../utils/voiceNoteAudio";
+import { markVoiceNotePlayed } from "../../../utils/voiceNotePlayed";
 import {
   enrichRecordClient,
   buildEmergencyMap,
@@ -36,6 +37,7 @@ import {
 } from "../../../utils/missedCallActions";
 import { useSipPhone } from "../call-center-dashboard/agents-dashboard/useSipPhone";
 import "./OffHoursReport.css";
+import WcfLoader from "../../../components/shared/WcfLoader";
 
 const SIP_DOMAIN = "192.168.21.69";
 
@@ -333,6 +335,24 @@ export default function OffHoursReport() {
       setCurrentAudio(audio);
       setCurrentlyPlayingId(record.id);
 
+      try {
+        await markVoiceNotePlayed(record.id, audio.duration);
+        setRecords((prev) =>
+          prev.map((r) =>
+            r.id === record.id
+              ? {
+                  ...r,
+                  is_played: 1,
+                  duration_seconds:
+                    r.duration_seconds || Math.round(audio.duration || 0),
+                }
+              : r
+          )
+        );
+      } catch (markErr) {
+        console.warn("Could not save played status:", markErr);
+      }
+
       const updatedStatus = { ...playedStatus, [record.id]: true };
       setPlayedStatus(updatedStatus);
       localStorage.setItem("playedVoiceNotes", JSON.stringify(updatedStatus));
@@ -583,6 +603,11 @@ export default function OffHoursReport() {
       <audio ref={remoteAudioRef} autoPlay style={{ display: "none" }} />
 
       <div className="off-hours-table-wrapper">
+        {loading && (
+          <div className="wcf-loading-container">
+            <WcfLoader size="lg" message="Loading report..." label="Loading report" />
+          </div>
+        )}
         {source === "missed-calls" ? (
           <table className="off-hours-table">
             <thead>
@@ -598,11 +623,7 @@ export default function OffHoursReport() {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={8}>Loading...</td>
-                </tr>
-              ) : currentRecords.length === 0 ? (
+              {currentRecords.length === 0 ? (
                 <tr>
                   <td colSpan={8}>No off-hours missed calls found.</td>
                 </tr>
@@ -697,11 +718,7 @@ export default function OffHoursReport() {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={8}>Loading...</td>
-                </tr>
-              ) : currentRecords.length === 0 ? (
+              {currentRecords.length === 0 ? (
                 <tr>
                   <td colSpan={8}>No off-hours records found.</td>
                 </tr>
@@ -759,11 +776,7 @@ export default function OffHoursReport() {
               </tr>
             </thead>
             <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={10}>Loading...</td>
-                </tr>
-              ) : currentRecords.length === 0 ? (
+              {currentRecords.length === 0 ? (
                 <tr>
                   <td colSpan={10}>No off-hours records found.</td>
                 </tr>

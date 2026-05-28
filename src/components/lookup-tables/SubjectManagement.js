@@ -25,6 +25,7 @@ import {
 } from "@mui/material";
 import { Edit, Delete, Add } from "@mui/icons-material";
 import { baseURL } from "../../config";
+import WcfLoader from "../shared/WcfLoader";
 
 const formatDate = (dateString) => {
   if (!dateString) return "N/A";
@@ -219,7 +220,11 @@ const SubjectManagement = () => {
   };
 
   if (loading) {
-    return <Typography>Loading...</Typography>;
+    return (
+      <div className="wcf-loading-container">
+        <WcfLoader size="md" message="Loading subjects..." label="Loading subjects" />
+      </div>
+    );
   }
 
   return (
