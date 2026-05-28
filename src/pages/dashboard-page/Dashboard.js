@@ -42,6 +42,7 @@ import Livestream from "../call-center-pages/cal-center-ivr/Livestream";
 import RecordedAudio from "../call-center-pages/cal-center-ivr/RecordedAudio";
 import Message from "../call-center-pages/call-center-social-message/CallCenterSocialMessage";
 import IvrCardsPage from "../call-center-pages/cal-center-ivr/IvrCardsPage";
+import IvrCategoryTabsPage from "../call-center-pages/cal-center-ivr/IvrCategoryTabsPage";
 import DTMFStats from "../call-center-pages/cal-center-ivr/DTMFStats";
 import VoiceNoteReport from "../call-center-pages/call-center-report/voice-note-report";
 import OffHoursReport from "../call-center-pages/call-center-report/OffHoursReport";
@@ -271,6 +272,7 @@ export default function Dashboard() {
                 <Route path="/dtmf-stats" element={<DTMFStats />} />
                 <Route path="/off-hours-report" element={<OffHoursReport />} />
                 <Route path="/ivr-cards" element={<IvrCardsPage />} />
+                <Route path="/ivr-categories" element={<IvrCategoryTabsPage />} />
                 <Route
                   path="/social-message"
                   element={<PrivateRoute element={<Message />} />}

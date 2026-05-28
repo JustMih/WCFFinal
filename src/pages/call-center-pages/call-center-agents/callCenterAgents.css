@@ -19,7 +19,7 @@
 }
 
 .call-center-agent-card {
-  background-color: var(--sidebar-color);
+  background-color: var(--wcf-white);
   border-radius: 10px;
   padding: 1px 10px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);

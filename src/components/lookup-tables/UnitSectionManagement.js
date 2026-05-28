@@ -21,6 +21,7 @@ import {
 } from "@mui/material";
 import { Edit, Delete, Add } from "@mui/icons-material";
 import { baseURL } from "../../config";
+import WcfLoader from "../shared/WcfLoader";
 
 // Helper function to format dates consistently
 const formatDate = (dateString) => {
@@ -187,7 +188,11 @@ const UnitSectionManagement = () => {
   };
 
   if (loading) {
-    return <Typography>Loading...</Typography>;
+    return (
+      <div className="wcf-loading-container">
+        <WcfLoader size="md" message="Loading unit sections..." label="Loading unit sections" />
+      </div>
+    );
   }
 
   return (

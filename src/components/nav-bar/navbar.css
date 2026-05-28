@@ -1,6 +1,6 @@
 .navbar {
   background-color: var(--navbar-background, var(--wcf-sidebar-bg, #0d1b2e));
-  color: var(--wcf-sidebar-text-active, #ffffff);
+  color: var(--wcf-sidebar-text-active, #305fa7);
   padding: 10px;
   height: 30px;
   display: flex;
@@ -32,7 +32,7 @@
   font-size: 18px;
   font-weight: bold;
   margin-right: 20px;
-  color: var(--wcf-sidebar-text-active, #ffffff);
+  color: var(--wcf-sidebar-text-active, #305fa7);
 }
 
 .navbar-right {
@@ -55,7 +55,7 @@
 }
 
 .theme-button:hover {
-  color: var(--wcf-sidebar-text-active, #ffffff);
+  color: var(--wcf-sidebar-text-active, #305fa7);
 }
 
 .navbar-profile-container {
@@ -68,8 +68,8 @@
   align-items: center;
   justify-content: space-between;
   padding: 2px 10px;
-  background-color: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
+  background-color: var(--wcf-sidebar-bg);
+  color: var(--wcf-sidebar-text);
   border-radius: var(--wcf-radius-md);
   gap: 5px;
   font-size: 15px;
@@ -78,7 +78,7 @@
 
 .navbar-profile-icon {
   font-size: 1.5rem;
-  color: #ffffff;
+  color: #305fa7;
 }
 
 .navbar-dropdown-menu {
@@ -107,7 +107,7 @@
   border: none;
   cursor: pointer;
   font-family: var(--content-font, var(--wcf-font-ui));
-  color: rgba(255, 255, 255, 0.9);
+  color: var(--wcf-sidebar-text, #305fa7);
   font-size: 0.8rem;
   width: 100%;
   padding: 10px;
@@ -119,46 +119,46 @@
 .navbar-service-button:hover {
   background-color: var(--wcf-sidebar-hover-bg);
   font-weight: 600;
-  color: #ffffff;
+  color: #305fa7;
 }
 
 .menu-icon {
   font-size: 1.5rem;
-  color: var(--wcf-sidebar-text, rgba(255, 255, 255, 0.85));
+  color: var(--wcf-sidebar-text, #305fa7);
   cursor: pointer;
 }
 
 .navbar-icon {
   font-size: 1.5rem;
-  color: var(--wcf-sidebar-text, rgba(255, 255, 255, 0.85));
+  color: var(--wcf-sidebar-text, #305fa7);
   margin-right: 15px;
   cursor: pointer;
   transition: color 0.15s ease;
 }
 
 .navbar-icon:hover {
-  color: var(--wcf-sidebar-text-active, #ffffff);
+  color: var(--wcf-sidebar-text-active, #305fa7);
 }
 
 .navbar-system-icons {
   display: flex;
   align-items: center;
-  color: var(--wcf-sidebar-text, rgba(255, 255, 255, 0.72));
+  color: var(--wcf-sidebar-text, #305fa7);
   gap: 10px;
   transition: color 0.15s ease;
 }
 
 .navbar-left .MuiIconButton-root:hover .navbar-system-icons {
-  color: var(--wcf-sidebar-text-active, #ffffff);
+  color: var(--wcf-sidebar-text-active, #305fa7);
 }
 
 .active-button {
   background-color: var(--wcf-sidebar-active-bg) !important;
-  color: var(--wcf-sidebar-text-active, #ffffff) !important;
+  color: var(--wcf-sidebar-text-active, #305fa7) !important;
 }
 
 .active-button .navbar-system-icons {
-  color: var(--wcf-sidebar-text-active, #ffffff) !important;
+  color: var(--wcf-sidebar-text-active, #305fa7) !important;
 }
 
 .navbar-system-icons:hover {
@@ -204,7 +204,7 @@
 }
 
 .notification-message {
-  color: rgba(255, 255, 255, 0.92);
+  color: #305fa7;
   font-size: 14px;
   margin-bottom: 4px;
   line-height: 1.4;

@@ -1,6 +1,7 @@
 import React from 'react';
 import InstagramDataItem from './InstagramDataItem';
 import './InstagramDataList.css';
+import WcfLoader from "../shared/WcfLoader";
 
 const InstagramDataList = ({ 
   data, 
@@ -21,7 +22,9 @@ const InstagramDataList = ({
   if (loading && data.length === 0) {
     return (
       <div className="instagram-data-list">
-        <div className="loading">Loading...</div>
+        <div className="wcf-loading-container">
+          <WcfLoader size="md" message="Loading Instagram data..." label="Loading Instagram data" />
+        </div>
       </div>
     );
   }

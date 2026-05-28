@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { baseURL } from "../../../config";
 import PauseReport from "./PauseReport";
+import OffHoursReport from "./OffHoursReport";
 import WcfLoader from "../../../components/shared/WcfLoader";
 import ReportDateRangePicker from "../../../components/shared/ReportDateRangePicker";
 import TicketWorkflowExpandPanel from "../../../components/workflow/TicketWorkflowExpandPanel";
@@ -2867,6 +2868,8 @@ export default function ComprehensiveReports() {
 
       {activeTab === REPORT_TYPES.PAUSE ? (
         <PauseReport embedded />
+      ) : activeTab === REPORT_TYPES.OFF_HOURS ? (
+        <OffHoursReport />
       ) : (
         <>
       {/* Summary Cards for Call Reports */}

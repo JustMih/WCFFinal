@@ -18,6 +18,7 @@ import {
 } from "@mui/material";
 // import ColumnSelector from "../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../config";
+import WcfLoader from "../../../components/shared/WcfLoader";
 import "./ticket.css";
 import ChatIcon from '@mui/icons-material/Chat';
 import Dialog from '@mui/material/Dialog';
@@ -451,7 +452,9 @@ export default function Crm() {
   if (loading) {
     return (
       <div className="p-6">
-        <h3 className="title">Loading...</h3>
+        <div className="wcf-loading-container">
+          <WcfLoader size="md" message="Loading tickets..." label="Loading tickets" />
+        </div>
       </div>
     );
   }

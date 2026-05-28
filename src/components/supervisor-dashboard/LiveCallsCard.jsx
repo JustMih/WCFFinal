@@ -6,6 +6,7 @@ import {
 } from "react-icons/fa";
 import "./LiveCallsCard.css";
 import { baseURL } from "../../config";
+import WcfLoader from "../shared/WcfLoader";
 
 export default function LiveCallsCard({
   isLoading,
@@ -75,8 +76,14 @@ export default function LiveCallsCard({
         const response = await fetch(`${baseURL}/livestream/live-calls`);
         const data = await response.json();
 
-        setLiveCalls(data);
-        setActiveCalls(data.filter((c) => c.status === "active"));
+        const calls = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.data)
+            ? data.data
+            : [];
+
+        setLiveCalls(calls);
+        setActiveCalls(calls.filter((c) => c.status === "active"));
       } catch (error) {
         console.error("❌ Error fetching live calls:", error);
       }
@@ -94,7 +101,8 @@ export default function LiveCallsCard({
     const term =
       typeof searchTerm === "string" ? searchTerm.toLowerCase() : "";
 
-    const filtered = liveCalls.filter(
+    const sourceCalls = Array.isArray(liveCalls) ? liveCalls : [];
+    const filtered = sourceCalls.filter(
       (call) =>
         call.caller?.toLowerCase().includes(term) ||
         call.callee?.toLowerCase().includes(term) ||
@@ -157,7 +165,12 @@ export default function LiveCallsCard({
         <h4>
           Live Calls{" "}
           {isLoading && (
-            <span className="loading-indicator">(Loading...)</span>
+            <span
+              className="loading-indicator"
+              style={{ display: "inline-flex", marginLeft: 8, verticalAlign: "middle" }}
+            >
+              <WcfLoader size="sm" label="Loading live calls" />
+            </span>
           )}
         </h4>
         {actionMessage && (

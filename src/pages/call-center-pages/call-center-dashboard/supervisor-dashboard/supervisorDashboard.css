@@ -143,7 +143,7 @@
 .supervisor-dashboard-root .call-center-agent-title {
   font-size: 1.35rem;
   font-weight: 700;
-  color: #1a2b42;
+  /* color: #1a2b42; */
   margin: 0 0 16px;
 }
 
@@ -153,6 +153,22 @@
   gap: 12px;
   margin-bottom: 12px;
   align-items: stretch;
+}
+
+.supervisor-dashboard-root .call-center-agent-summary.sla-metrics-grid {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+@media (max-width: 1100px) {
+  .supervisor-dashboard-root .call-center-agent-summary.sla-metrics-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .supervisor-dashboard-root .call-center-agent-summary.sla-metrics-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 1100px) {
@@ -176,9 +192,14 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 4px 14px rgba(15, 23, 42, 0.06);
+  box-shadow:
+    0 1px 3px rgba(15, 23, 42, 0.08),
+    0 4px 14px rgba(15, 23, 42, 0.06);
   border: 1px solid #e8edf3;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
   position: relative;
   overflow: hidden;
   box-sizing: border-box;
@@ -211,6 +232,22 @@
   background: linear-gradient(180deg, #ef5350, #c62828);
 }
 
+.supervisor-dashboard-root .supervisor-stat-card.sla-service-level::before {
+  background: linear-gradient(180deg, #42a5f5, #1565c0);
+}
+
+.supervisor-dashboard-root .supervisor-stat-card.sla-avg-response::before {
+  background: linear-gradient(180deg, #26a69a, #00695c);
+}
+
+.supervisor-dashboard-root .supervisor-stat-card.sla-avg-handle::before {
+  background: linear-gradient(180deg, #ab47bc, #6a1b9a);
+}
+
+.supervisor-dashboard-root .supervisor-stat-card.sla-abandonment::before {
+  background: linear-gradient(180deg, #ffa726, #ef6c00);
+}
+
 .supervisor-dashboard-root .supervisor-stat-card__icon-wrap {
   flex-shrink: 0;
   width: 40px;
@@ -222,19 +259,53 @@
   font-size: 1.25rem;
 }
 
-.supervisor-dashboard-root .supervisor-stat-card.answered-calls .supervisor-stat-card__icon-wrap {
+.supervisor-dashboard-root
+  .supervisor-stat-card.answered-calls
+  .supervisor-stat-card__icon-wrap {
   background: rgba(76, 175, 80, 0.12);
   color: #2e7d32;
 }
 
-.supervisor-dashboard-root .supervisor-stat-card.no-answer-calls .supervisor-stat-card__icon-wrap {
+.supervisor-dashboard-root
+  .supervisor-stat-card.no-answer-calls
+  .supervisor-stat-card__icon-wrap {
   background: rgba(255, 152, 0, 0.12);
   color: #e65100;
 }
 
-.supervisor-dashboard-root .supervisor-stat-card.busy-calls .supervisor-stat-card__icon-wrap {
+.supervisor-dashboard-root
+  .supervisor-stat-card.busy-calls
+  .supervisor-stat-card__icon-wrap {
   background: rgba(244, 67, 54, 0.12);
   color: #c62828;
+}
+
+.supervisor-dashboard-root
+  .supervisor-stat-card.sla-service-level
+  .supervisor-stat-card__icon-wrap {
+  background: rgba(66, 165, 245, 0.12);
+  color: #1565c0;
+}
+
+.supervisor-dashboard-root
+  .supervisor-stat-card.sla-avg-response
+  .supervisor-stat-card__icon-wrap {
+  background: rgba(38, 166, 154, 0.12);
+  color: #00695c;
+}
+
+.supervisor-dashboard-root
+  .supervisor-stat-card.sla-avg-handle
+  .supervisor-stat-card__icon-wrap {
+  background: rgba(171, 71, 188, 0.12);
+  color: #6a1b9a;
+}
+
+.supervisor-dashboard-root
+  .supervisor-stat-card.sla-abandonment
+  .supervisor-stat-card__icon-wrap {
+  background: rgba(255, 167, 38, 0.12);
+  color: #ef6c00;
 }
 
 .supervisor-dashboard-root .supervisor-stat-card__body {
@@ -306,17 +377,23 @@
   line-height: 1.3;
 }
 
-.supervisor-dashboard-root .supervisor-stat-card.answered-calls .supervisor-stat-card__percent {
+.supervisor-dashboard-root
+  .supervisor-stat-card.answered-calls
+  .supervisor-stat-card__percent {
   color: #2e7d32;
   background: rgba(76, 175, 80, 0.12);
 }
 
-.supervisor-dashboard-root .supervisor-stat-card.no-answer-calls .supervisor-stat-card__percent {
+.supervisor-dashboard-root
+  .supervisor-stat-card.no-answer-calls
+  .supervisor-stat-card__percent {
   color: #e65100;
   background: rgba(255, 152, 0, 0.12);
 }
 
-.supervisor-dashboard-root .supervisor-stat-card.busy-calls .supervisor-stat-card__percent {
+.supervisor-dashboard-root
+  .supervisor-stat-card.busy-calls
+  .supervisor-stat-card__percent {
   color: #c62828;
   background: rgba(244, 67, 54, 0.12);
 }
@@ -446,7 +523,9 @@
   padding: 16px;
   border-radius: 14px;
   border: 1px solid #e8edf3;
-  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 4px 14px rgba(15, 23, 42, 0.06);
+  box-shadow:
+    0 1px 3px rgba(15, 23, 42, 0.08),
+    0 4px 14px rgba(15, 23, 42, 0.06);
 }
 
 .supervisor-dashboard-root .chart-card h4 {
