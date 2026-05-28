@@ -1,169 +1,50 @@
-.call-center-sidebar {
-  background-color: var(--sidebar-color);
-  width: 240px;
-  transition: width 0.3s ease;
-  overflow: hidden;
-}
+@import "../shared/wcfSidebar.css";
 
-.call-center-sidebar.closed {
-  width: 60px;
-}
-
-.sidebar-logo {
-  height: 40px;
-  display: block;
-  margin: 10px auto;
-  transition: opacity 0.3s ease;
-}
-
-.call-center-sidebar ul {
-  list-style: none;
-  padding: 0;
-}
-
-.call-center-sidebar li {
-  padding: 5px;
-  cursor: pointer;
-}
-
-.menu-item {
-  position: relative;
-  display: flex;
-  align-items: center;
-  padding: 12px 16px;
-  color: #333;
-  text-decoration: none;
-  transition: all 0.3s ease;
-}
-
-.menu-item:hover {
-  background-color: rgba(0, 0, 0, 0.04);
-}
-
-.menu-icon {
-  font-size: 1.5rem;
-  margin-right: 12px;
-  min-width: 24px;
-}
-
-.menu-text {
-  font-size: 0.9rem;
-  white-space: nowrap;
-  margin-right: 10px;
-}
-
-.active-link {
-  background-color: rgba(0, 0, 0, 0.08);
-  /* border-left: 4px solid #2196f3; */
-}
-
-/* Nested menu styles */
-.MuiCollapse-root .menu-item {
-  padding-left: 32px;
-}
-
-.MuiCollapse-root .menu-icon {
-  font-size: 1.2rem;
-}
-
-/* Notification badge styles */
-.notification-badge {
-  position: absolute;
-  top: 50%;
-  right: 16px;
-  transform: translateY(-50%);
-  background-color: #e1306c;
-  color: white;
-  border-radius: 50%;
-  padding: 2px 6px;
-  font-size: 0.75rem;
-  min-width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: bold;
-}
-
-/* Collapsed sidebar styles */
-.call-center-sidebar.closed .menu-text {
-  display: none;
-}
-
+/* Call Center–specific overrides */
 .call-center-sidebar.closed .notification-badge {
-  right: 8px;
+  right: 6px;
 }
 
-/* Platform-specific colors */
-.instagram-badge { background-color: #E1306C; }
-.facebook-badge { background-color: #1877F3; }
-.whatsapp-badge { background-color: #25D366; }
-.telegram-badge { background-color: #0088cc; }
-.gmail-badge { background-color: #EA4335; }
-.linkedin-badge { background-color: #0077B5; }
-
-/* Instagram sub-menu styling */
-.instagram-sub-menu .menu-item {
-  background: rgba(102, 126, 234, 0.05);
-  border-radius: 8px;
-  margin: 2px 0;
-  padding: 8px 12px;
-}
-
-.instagram-sub-menu .menu-item:hover {
-  background: rgba(102, 126, 234, 0.1);
-}
-
-.instagram-sub-menu .active-link .menu-item {
-  background: rgba(102, 126, 234, 0.15);
-  color: #667eea;
-}
-
-.instagram-sub-menu .menu-icon {
-  font-size: 1.2rem;
-  margin-right: 8px;
-}
-
-.instagram-sub-menu .menu-text {
-  font-size: 0.85rem;
-  font-weight: 400;
-}
-
-/* Sub-menu indentation */
-.MuiCollapse-root .MuiList-root {
-  margin-left: 1rem;
-}
-
-.MuiCollapse-root .MuiList-root .menu-item {
-  padding-left: 1rem;
-  border-left: 2px solid #e2e8f0;
-  margin-left: 0.5rem;
-}
-
-/* Override indentation for top-level menu items */
-.top-level-menu {
+.call-center-sidebar .top-level-menu {
   margin-left: 0 !important;
-  padding-left: 15px !important;
+  padding-left: 10px !important;
   border-left: none !important;
 }
 
-/* Social Notifications dropdown - ensure it expands and items are clickable */
-.social-notifications-dropdown {
+.call-center-sidebar .instagram-sub-menu a.sidebar-nav-link:hover {
+  background: var(--wcf-sidebar-hover-bg);
+}
+
+.call-center-sidebar .instagram-sub-menu a.sidebar-nav-link.active-link {
+  background: var(--wcf-sidebar-active-bg);
+}
+
+.call-center-sidebar .social-notifications-dropdown {
   list-style: none;
   padding: 0;
   margin: 0;
-  overflow: visible;
 }
 
-.social-notifications-dropdown .menu-item {
-  padding-left: 2rem;
-  min-height: 44px;
-  box-sizing: border-box;
-}
-
-.social-notifications-dropdown a {
+.call-center-sidebar .social-notifications-dropdown a {
   text-decoration: none;
   color: inherit;
   display: block;
 }
 
+.call-center-sidebar .notification-badge {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  background-color: #e1306c;
+  color: white;
+  border-radius: 50%;
+  padding: 2px 5px;
+  font-size: 0.7rem;
+  min-width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}

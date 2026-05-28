@@ -1,5 +1,24 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { baseURL } from "../../../config";
+import PauseReport from "./PauseReport";
+import WcfLoader from "../../../components/shared/WcfLoader";
+import ReportDateRangePicker from "../../../components/shared/ReportDateRangePicker";
+import TicketWorkflowExpandPanel from "../../../components/workflow/TicketWorkflowExpandPanel";
+import {
+  enrichTicketWithWorkflow,
+  runWithConcurrency,
+  buildWorkflowSteps,
+  formatWorkflowTrailForExport,
+  computeTotalTicketDuration,
+} from "../../../utils/workflowTrailExport";
+import {
+  REPORT_TYPES,
+  REPORTS,
+  slugToType,
+  getReportBySlug,
+  getReportLabel,
+} from "./reportConfig";
 import {
   Snackbar,
   Alert,
@@ -9,14 +28,11 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  Tabs,
-  Tab,
   Box,
   Chip,
   Card,
   CardContent,
   Typography,
-  CircularProgress,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -25,6 +41,7 @@ import {
   FormControlLabel,
   FormGroup,
   Divider,
+  IconButton,
 } from "@mui/material";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -40,25 +57,26 @@ import {
   PhoneDisabled,
   PhoneMissed,
   AccessTime,
+  ExpandMore,
+  ExpandLess,
 } from "@mui/icons-material";
 import "./comprehensiveReports.css";
 
-const REPORT_TYPES = {
-  VOICE_NOTE: 0,
-  CDR: 1,
-  TICKET_CRM: 2,
-  AGENT_PERFORMANCE: 3,
-  CALL_SUMMARY: 4,
-  IVR_INTERACTIONS: 5,
-  TICKET_ASSIGNMENTS: 6,
-  MISSED_CALL: 7,
-  ESCALLATION: 8,
-  NOTIFICATIONS: 9,
-  CHATS: 10,
+/** Format CDR duration/billsec (seconds) for table display */
+const formatSecondsToMinutes = (value) => {
+  const seconds = Number(value);
+  if (!Number.isFinite(seconds) || seconds <= 0) return "0s";
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  if (mins > 0) return `${mins}m ${secs}s`;
+  return `${secs}s`;
 };
 
 export default function ComprehensiveReports() {
-  const [activeTab, setActiveTab] = useState(0);
+  const navigate = useNavigate();
+  const { reportSlug } = useParams();
+  const currentReport = getReportBySlug(reportSlug);
+  const [activeTab, setActiveTab] = useState(() => slugToType(reportSlug));
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
@@ -82,6 +100,13 @@ export default function ComprehensiveReports() {
   // Column selection
   const [columnDialogOpen, setColumnDialogOpen] = useState(false);
   const [selectedColumns, setSelectedColumns] = useState({});
+
+  // Ticket CRM workflow expand
+  const [expandedTicketId, setExpandedTicketId] = useState(null);
+  const [assignmentCache, setAssignmentCache] = useState({});
+  const [assignmentLoading, setAssignmentLoading] = useState({});
+  const [assignmentErrors, setAssignmentErrors] = useState({});
+  const [exportingWorkflow, setExportingWorkflow] = useState(false);
 
   // Summary stats
   const [summaryStats, setSummaryStats] = useState({
@@ -419,17 +444,135 @@ export default function ComprehensiveReports() {
     setSnackbarOpen(false);
   };
 
-  const formatSecondsToMinutes = (seconds) => {
-    if (seconds === null || seconds === undefined || seconds === "") {
-      return "-";
+  const getAuthToken = () =>
+    localStorage.getItem("authToken") ||
+    localStorage.getItem("token") ||
+    sessionStorage.getItem("authToken") ||
+    sessionStorage.getItem("token");
+
+  const fetchTicketAssignments = async (ticketId) => {
+    if (assignmentCache[ticketId]) return assignmentCache[ticketId];
+
+    const token = getAuthToken();
+    if (!token) {
+      setAssignmentErrors((prev) => ({
+        ...prev,
+        [ticketId]: "Authentication required to load workflow history.",
+      }));
+      return null;
     }
 
-    const numericSeconds = Number(seconds);
-    if (Number.isNaN(numericSeconds)) {
-      return "-";
+    setAssignmentLoading((prev) => ({ ...prev, [ticketId]: true }));
+    setAssignmentErrors((prev) => ({ ...prev, [ticketId]: null }));
+
+    try {
+      const res = await fetch(`${baseURL}/ticket/${ticketId}/assignments`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        throw new Error("Failed to load assignment history");
+      }
+      const data = await res.json();
+      const list = Array.isArray(data) ? data : data.assignments || [];
+      setAssignmentCache((prev) => ({ ...prev, [ticketId]: list }));
+      return list;
+    } catch (err) {
+      setAssignmentErrors((prev) => ({
+        ...prev,
+        [ticketId]: err.message || "Failed to load workflow history",
+      }));
+      return null;
+    } finally {
+      setAssignmentLoading((prev) => ({ ...prev, [ticketId]: false }));
+    }
+  };
+
+  const toggleTicketExpand = async (report) => {
+    const ticketId = report.id;
+    if (!ticketId) return;
+
+    if (expandedTicketId === ticketId) {
+      setExpandedTicketId(null);
+      return;
     }
 
-    return (numericSeconds / 60).toFixed(2);
+    setExpandedTicketId(ticketId);
+    if (!assignmentCache[ticketId]) {
+      await fetchTicketAssignments(ticketId);
+    }
+  };
+
+  const fetchAssignmentsForExport = async (ticketId, cache) => {
+    if (cache[ticketId] !== undefined) {
+      return { assignments: cache[ticketId], unavailable: false };
+    }
+
+    const token = getAuthToken();
+    if (!token) {
+      return { assignments: [], unavailable: true };
+    }
+
+    try {
+      const res = await fetch(`${baseURL}/ticket/${ticketId}/assignments`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        return { assignments: [], unavailable: true };
+      }
+      const data = await res.json();
+      const list = Array.isArray(data) ? data : data.assignments || [];
+      cache[ticketId] = list;
+      return { assignments: list, unavailable: false };
+    } catch {
+      return { assignments: [], unavailable: true };
+    }
+  };
+
+  const enrichReportsWithWorkflow = async (reports) => {
+    const cache = { ...assignmentCache };
+
+    const enriched = await runWithConcurrency(reports, 5, async (report) => {
+      if (!report.id) {
+        return enrichTicketWithWorkflow(report, [], false);
+      }
+
+      const { assignments, unavailable } = await fetchAssignmentsForExport(
+        report.id,
+        cache
+      );
+      return enrichTicketWithWorkflow(report, assignments, unavailable);
+    });
+
+    setAssignmentCache((prev) => ({ ...prev, ...cache }));
+    return enriched;
+  };
+
+  const confirmExportIfLarge = () => {
+    if (filteredReports.length <= 150) return true;
+    return window.confirm(
+      `Export will load workflow history for ${filteredReports.length} tickets. This may take a while. Continue?`
+    );
+  };
+
+  const getWorkflowTrailForReport = (report) => {
+    if (report._workflowTrail) return report._workflowTrail;
+    if (report.id && assignmentCache[report.id]) {
+      return formatWorkflowTrailForExport(
+        buildWorkflowSteps(report, assignmentCache[report.id])
+      );
+    }
+    return "-";
+  };
+
+  const getWorkflowTotalDurationForReport = (report) => {
+    if (report._workflowTotalDuration) return report._workflowTotalDuration;
+    if (report.id && assignmentCache[report.id]) {
+      return computeTotalTicketDuration(
+        report,
+        buildWorkflowSteps(report, assignmentCache[report.id])
+      );
+    }
+    return "-";
   };
 
   // Column definitions for each report type
@@ -447,8 +590,6 @@ export default function ComprehensiveReports() {
             default: true,
           },
           { key: "agentName", label: "Agent Name", default: true },
-          { key: "duration", label: "Duration (s)", default: true },
-          { key: "transcription", label: "Transcription", default: false },
         ];
       case REPORT_TYPES.CDR:
         return [
@@ -535,16 +676,16 @@ export default function ComprehensiveReports() {
           { key: "evidenceUrl", label: "Evidence URL", default: false },
           { key: "agingDays", label: "Aging Days", default: false },
           { key: "isEscalated", label: "Is Escalated", default: false },
-          { key: "workflowPath", label: "Workflow Path", default: false },
+          { key: "workflowPath", label: "Workflow Path", default: true },
           {
             key: "currentWorkflowStep",
             label: "Current Workflow Step",
-            default: false,
+            default: true,
           },
           {
             key: "workflowCompleted",
             label: "Workflow Completed",
-            default: false,
+            default: true,
           },
           {
             key: "currentWorkflowRole",
@@ -608,6 +749,8 @@ export default function ComprehensiveReports() {
             label: "Workflow Completed At",
             default: false,
           },
+          { key: "workflowTrail", label: "Workflow Trail", default: true },
+          { key: "workflowTotalDuration", label: "Total Duration", default: true },
         ];
       case REPORT_TYPES.AGENT_PERFORMANCE:
         return [
@@ -744,16 +887,26 @@ export default function ComprehensiveReports() {
       .map((col) => col.key);
 
     setSelectedColumns((prev) => {
+      const validKeys = new Set(columns.map((col) => col.key));
       const current = prev[activeTab];
       if (current && current.length > 0) {
-        // Keep existing selection if it exists
+        const pruned = current.filter((key) => validKeys.has(key));
+        if (pruned.length !== current.length) {
+          return {
+            ...prev,
+            [activeTab]: pruned.length > 0 ? pruned : defaultSelected,
+          };
+        }
         return prev;
       }
-      // Initialize with defaults if no selection exists
       return { ...prev, [activeTab]: defaultSelected };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
+
+  useEffect(() => {
+    setExpandedTicketId(null);
+  }, [currentPage, activeTab]);
 
   const handleColumnToggle = (columnKey) => {
     setSelectedColumns((prev) => {
@@ -915,10 +1068,6 @@ export default function ComprehensiveReports() {
             return getAssignedExtensionDisplay(report);
           case "agentName":
             return getAssignedAgentNameDisplay(report);
-          case "duration":
-            return report.duration_seconds || "-";
-          case "transcription":
-            return report.transcription || "-";
           default:
             return "-";
         }
@@ -1069,7 +1218,11 @@ export default function ComprehensiveReports() {
           case "workflowCompleted":
             return report.workflow_completed ? "Yes" : "No";
           case "currentWorkflowRole":
-            return report.current_workflow_role || "-";
+            return (
+              report.current_workflow_role ||
+              report.workflow_current_role ||
+              "-"
+            );
           case "workflowNotes":
             return report.workflow_notes || "-";
           case "reviewNotes":
@@ -1136,6 +1289,10 @@ export default function ComprehensiveReports() {
             return report.workflow_completed_at
               ? new Date(report.workflow_completed_at).toLocaleString()
               : "-";
+          case "workflowTrail":
+            return getWorkflowTrailForReport(report);
+          case "workflowTotalDuration":
+            return getWorkflowTotalDurationForReport(report);
           default:
             return report[columnKey] || "-";
         }
@@ -1375,7 +1532,7 @@ export default function ComprehensiveReports() {
   };
 
   // CSV Export Function
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     if (filteredReports.length === 0) {
       setSnackbarMessage("No data to export");
       setSnackbarSeverity("warning");
@@ -1396,7 +1553,23 @@ export default function ComprehensiveReports() {
       return;
     }
 
-    const csvData = filteredReports.map((report, idx) => {
+    let dataSource = filteredReports;
+    if (activeTab === REPORT_TYPES.TICKET_CRM) {
+      if (!confirmExportIfLarge()) return;
+      setExportingWorkflow(true);
+      try {
+        dataSource = await enrichReportsWithWorkflow(filteredReports);
+      } catch {
+        setSnackbarMessage("Failed to load workflow data for export");
+        setSnackbarSeverity("error");
+        setSnackbarOpen(true);
+        return;
+      } finally {
+        setExportingWorkflow(false);
+      }
+    }
+
+    const csvData = dataSource.map((report, idx) => {
       const row = {};
       selectedColumnsDef.forEach((col) => {
         row[col.label] = getColumnValue(col.key, report, idx);
@@ -1419,7 +1592,7 @@ export default function ComprehensiveReports() {
   };
 
   // PDF Export Function
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     if (filteredReports.length === 0) {
       setSnackbarMessage("No data to export");
       setSnackbarSeverity("warning");
@@ -1440,9 +1613,32 @@ export default function ComprehensiveReports() {
       return;
     }
 
+    let dataSource = filteredReports;
+    if (activeTab === REPORT_TYPES.TICKET_CRM) {
+      if (!confirmExportIfLarge()) return;
+      setExportingWorkflow(true);
+      try {
+        dataSource = await enrichReportsWithWorkflow(filteredReports);
+      } catch {
+        setSnackbarMessage("Failed to load workflow data for export");
+        setSnackbarSeverity("error");
+        setSnackbarOpen(true);
+        return;
+      } finally {
+        setExportingWorkflow(false);
+      }
+    }
+
+    const hasWorkflowExportCols = selectedColumnsDef.some(
+      (col) =>
+        col.key === "workflowTrail" || col.key === "workflowTotalDuration"
+    );
+
     // Determine if we need landscape and smaller fonts based on column count
     const columnCount = selectedColumnsDef.length;
-    const useLandscape = columnCount > 8;
+    const useLandscape =
+      columnCount > 8 ||
+      (activeTab === REPORT_TYPES.TICKET_CRM && hasWorkflowExportCols);
 
     // Use landscape orientation for wide tables
     const doc = new jsPDF(useLandscape ? "landscape" : "portrait", "mm", "a4");
@@ -1499,15 +1695,20 @@ export default function ComprehensiveReports() {
             "Date of Review Resolution": "Review Res",
             "Workflow Started At": "Wf Start",
             "Workflow Completed At": "Wf End",
+            "Workflow Trail": "Trail",
+            "Total Duration": "Duration",
           };
           return shortLabels[col.label] || col.label.substring(0, 12);
         }
         return col.label;
       }),
     ];
-    const tableData = filteredReports.map((report, idx) =>
+    const tableData = dataSource.map((report, idx) =>
       selectedColumnsDef.map((col) => {
         const value = getColumnValue(col.key, report, idx);
+        if (col.key === "workflowTrail") {
+          return typeof value === "string" ? value : String(value);
+        }
         // Truncate long text for PDF based on column count
         const maxLength = columnCount > 10 ? 25 : columnCount > 6 ? 35 : 45;
         if (typeof value === "string" && value.length > maxLength) {
@@ -1533,9 +1734,10 @@ export default function ComprehensiveReports() {
       let width = "auto";
 
       // For many columns, use smart width distribution
-      if (columnCount > 8) {
-        // Calculate smart widths based on column type and content
-        if (col.key === "serial" || col.key === "id") {
+      if (columnCount > 8 || col.key === "workflowTrail") {
+        if (col.key === "workflowTrail") {
+          width = availableWidth * 0.45;
+        } else if (col.key === "serial" || col.key === "id") {
           width = availableWidth * 0.025; // 2.5% for serial/ID
         } else if (
           col.key === "description" ||
@@ -1571,12 +1773,15 @@ export default function ComprehensiveReports() {
 
       columnStyles[index] = {
         cellWidth: width,
-        fontSize: fontSize,
+        fontSize: col.key === "workflowTrail" ? Math.max(5, fontSize - 1) : fontSize,
         cellPadding: cellPadding,
         halign: col.key === "serial" || col.key === "id" ? "center" : "left",
-        valign: "top", // Top align for better readability with wrapped text
+        valign: "top",
         overflow: "linebreak",
         lineWidth: 0.1,
+        ...(col.key === "workflowTrail"
+          ? { minCellHeight: 24, cellWidth: width || availableWidth * 0.45 }
+          : {}),
       };
     });
 
@@ -1665,24 +1870,17 @@ export default function ComprehensiveReports() {
   };
 
   const getReportTitle = () => {
-    const titles = {
-      [REPORT_TYPES.VOICE_NOTE]: "Voice Note Report",
-      [REPORT_TYPES.CDR]: "CDR Report",
-      [REPORT_TYPES.TICKET_CRM]: "Ticket CRM Report",
-      [REPORT_TYPES.AGENT_PERFORMANCE]: "Agent Performance Report",
-      [REPORT_TYPES.CALL_SUMMARY]: "Call Summary Report",
-      [REPORT_TYPES.IVR_INTERACTIONS]: "IVR Interactions Report",
-      [REPORT_TYPES.TICKET_ASSIGNMENTS]: "Ticket Assignments Report",
-      [REPORT_TYPES.MISSED_CALL]: "Missed Call Report",
-      [REPORT_TYPES.ESCALLATION]: "Escallation Report",
-      [REPORT_TYPES.NOTIFICATIONS]: "Notification Report",
-      [REPORT_TYPES.CHATS]: "Chats Report",
-    };
-    return titles[activeTab] || "Report";
+    return getReportLabel(activeTab);
   };
 
-  const handleTabChange = (event, newValue) => {
-    setActiveTab(newValue);
+  useEffect(() => {
+    const valid = REPORTS.some((r) => r.slug === reportSlug);
+    if (!valid) {
+      navigate("/reports/voice-note", { replace: true });
+      return;
+    }
+    const nextType = slugToType(reportSlug);
+    setActiveTab(nextType);
     setReports([]);
     setCurrentPage(1);
     setSearch("");
@@ -1694,6 +1892,13 @@ export default function ComprehensiveReports() {
       totalDuration: 0,
       avgDuration: 0,
     });
+  }, [reportSlug, navigate]);
+
+  const handleReportSelect = (event) => {
+    const slug = event.target.value;
+    if (slug !== reportSlug) {
+      navigate(`/reports/${slug}`);
+    }
   };
 
   const renderSummaryCards = () => {
@@ -1790,9 +1995,8 @@ export default function ComprehensiveReports() {
   const renderTable = () => {
     if (loading) {
       return (
-        <div className="loading-container">
-          <CircularProgress />
-          <Typography style={{ marginTop: 16 }}>Loading reports...</Typography>
+        <div className="wcf-loading-container">
+          <WcfLoader size="lg" message="Loading reports..." label="Loading reports" />
         </div>
       );
     }
@@ -2149,49 +2353,51 @@ export default function ComprehensiveReports() {
     );
   };
 
-  const renderVoiceNoteTable = () => (
-    <table className="report-table">
-      <thead>
-        <tr>
-          <th>Sn</th>
-          <th>Phone</th>
-          <th>Date</th>
-          <th>Played</th>
-          <th>Assigned Agent</th>
-          <th>Duration (s)</th>
-          <th>Transcription</th>
-        </tr>
-      </thead>
-      <tbody>
-        {currentReports.map((report, index) => (
-          <tr key={report.id || index}>
-            <td>{indexOfFirstReport + index + 1}</td>
-            <td>{report.clid}</td>
-            <td>
-              {report.created_at
-                ? new Date(report.created_at).toLocaleString()
-                : "-"}
-            </td>
-            <td>
-              <Chip
-                label={report.is_played ? "Yes" : "No"}
-                size="small"
-                color={report.is_played ? "success" : "warning"}
-              />
-            </td>
-            <td>
-              {getAssignedAgentDisplay(report)}
-            </td>
+  const renderVoiceNoteTable = () => {
+    const columns = getColumnDefinitions();
+    const selected = selectedColumns[activeTab] || [];
+    const selectedColumnsDef = columns.filter((col) =>
+      selected.includes(col.key)
+    );
 
-            <td>{report.duration_seconds || "-"}</td>
-            <td className="transcription-cell">
-              {report.transcription || "-"}
-            </td>
+    return (
+      <table className="report-table">
+        <thead>
+          <tr>
+            {selectedColumnsDef.map((col) => (
+              <th key={col.key}>{col.label}</th>
+            ))}
           </tr>
-        ))}
-      </tbody>
-    </table>
-  );
+        </thead>
+        <tbody>
+          {currentReports.map((report, index) => (
+            <tr key={report.id || index}>
+              {selectedColumnsDef.map((col) => {
+                if (col.key === "serial") {
+                  return (
+                    <td key={col.key}>{indexOfFirstReport + index + 1}</td>
+                  );
+                }
+                const value = getColumnValue(col.key, report, index);
+                if (col.key === "played") {
+                  return (
+                    <td key={col.key}>
+                      <Chip
+                        label={value}
+                        size="small"
+                        color={value === "Yes" ? "success" : "warning"}
+                      />
+                    </td>
+                  );
+                }
+                return <td key={col.key}>{value}</td>;
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  };
 
   const renderCDRTable = () => (
     <table className="report-table">
@@ -2250,122 +2456,182 @@ export default function ComprehensiveReports() {
     const selectedColumnsDef = columns.filter((col) =>
       selected.includes(col.key)
     );
+    const colSpan = selectedColumnsDef.length + 1;
 
     return (
-      <table className="report-table">
+      <table className="report-table report-table--ticket-crm">
         <thead>
           <tr>
+            <th className="report-table-expand-col" aria-label="Expand workflow" />
             {selectedColumnsDef.map((col) => (
               <th key={col.key}>{col.label}</th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {currentReports.map((report, index) => (
-            <tr key={report.id || index}>
-              {selectedColumnsDef.map((col) => {
-                const value = getColumnValue(col.key, report, index);
-                // Special rendering for certain columns
-                if (col.key === "status") {
-                  return (
-                    <td key={col.key}>
-                      <Chip
-                        label={value}
+          {currentReports.map((report, index) => {
+            const ticketId = report.id;
+            const isExpanded = expandedTicketId === ticketId;
+
+            return (
+              <React.Fragment key={ticketId || index}>
+                <tr
+                  className={
+                    isExpanded ? "report-table-row-expanded" : undefined
+                  }
+                >
+                  <td className="report-table-expand-col">
+                    {ticketId ? (
+                      <IconButton
                         size="small"
-                        color={
-                          value === "Closed"
-                            ? "success"
-                            : value === "Open"
-                            ? "error"
-                            : "warning"
+                        aria-label={
+                          isExpanded
+                            ? "Collapse workflow timeline"
+                            : "Expand workflow timeline"
                         }
+                        aria-expanded={isExpanded}
+                        onClick={() => toggleTicketExpand(report)}
+                      >
+                        {isExpanded ? (
+                          <ExpandLess fontSize="small" />
+                        ) : (
+                          <ExpandMore fontSize="small" />
+                        )}
+                      </IconButton>
+                    ) : null}
+                  </td>
+                  {selectedColumnsDef.map((col) => {
+                    const value = getColumnValue(col.key, report, index);
+                    if (col.key === "status") {
+                      return (
+                        <td key={col.key}>
+                          <Chip
+                            label={value}
+                            size="small"
+                            color={
+                              value === "Closed"
+                                ? "success"
+                                : value === "Open"
+                                ? "error"
+                                : "warning"
+                            }
+                          />
+                        </td>
+                      );
+                    }
+                    if (col.key === "category") {
+                      return (
+                        <td key={col.key}>
+                          <Chip
+                            label={value}
+                            size="small"
+                            color={
+                              value === "Complaint"
+                                ? "error"
+                                : value === "Inquiry"
+                                ? "info"
+                                : "default"
+                            }
+                          />
+                        </td>
+                      );
+                    }
+                    if (col.key === "complaintType") {
+                      return (
+                        <td key={col.key}>
+                          <Chip
+                            label={value}
+                            size="small"
+                            color={
+                              value === "Major"
+                                ? "error"
+                                : value === "Minor"
+                                ? "warning"
+                                : "default"
+                            }
+                          />
+                        </td>
+                      );
+                    }
+                    if (col.key === "isEscalated") {
+                      return (
+                        <td key={col.key}>
+                          <Chip
+                            label={value}
+                            size="small"
+                            color={value === "Yes" ? "error" : "default"}
+                          />
+                        </td>
+                      );
+                    }
+                    if (col.key === "workflowCompleted") {
+                      return (
+                        <td key={col.key}>
+                          <Chip
+                            label={value}
+                            size="small"
+                            color={value === "Yes" ? "success" : "default"}
+                          />
+                        </td>
+                      );
+                    }
+                    if (col.key === "workflowPath" && value && value !== "-") {
+                      return (
+                        <td key={col.key}>
+                          <Chip
+                            label={value.replace(/_/g, " ")}
+                            size="small"
+                            variant="outlined"
+                          />
+                        </td>
+                      );
+                    }
+                    if (
+                      col.key === "workflowTrail" ||
+                      col.key === "description" ||
+                      col.key === "resolutionDetails" ||
+                      col.key === "workflowNotes" ||
+                      col.key === "reviewNotes" ||
+                      col.key === "approvalNotes"
+                    ) {
+                      return (
+                        <td
+                          key={col.key}
+                          className={
+                            col.key === "workflowTrail"
+                              ? "report-table-workflow-trail-cell"
+                              : "report-table-wrap-cell"
+                          }
+                        >
+                          {value}
+                        </td>
+                      );
+                    }
+                    if (col.key === "subject") {
+                      return (
+                        <td key={col.key} className="subject-cell">
+                          {value}
+                        </td>
+                      );
+                    }
+                    return <td key={col.key}>{value}</td>;
+                  })}
+                </tr>
+                {isExpanded && ticketId && (
+                  <tr className="report-row-expand">
+                    <td colSpan={colSpan}>
+                      <TicketWorkflowExpandPanel
+                        ticket={report}
+                        assignments={assignmentCache[ticketId] || []}
+                        loading={!!assignmentLoading[ticketId]}
+                        error={assignmentErrors[ticketId]}
                       />
                     </td>
-                  );
-                }
-                if (col.key === "category") {
-                  return (
-                    <td key={col.key}>
-                      <Chip
-                        label={value}
-                        size="small"
-                        color={
-                          value === "Complaint"
-                            ? "error"
-                            : value === "Inquiry"
-                            ? "info"
-                            : "default"
-                        }
-                      />
-                    </td>
-                  );
-                }
-                if (col.key === "complaintType") {
-                  return (
-                    <td key={col.key}>
-                      <Chip
-                        label={value}
-                        size="small"
-                        color={
-                          value === "Major"
-                            ? "error"
-                            : value === "Minor"
-                            ? "warning"
-                            : "default"
-                        }
-                      />
-                    </td>
-                  );
-                }
-                if (col.key === "isEscalated") {
-                  return (
-                    <td key={col.key}>
-                      <Chip
-                        label={value}
-                        size="small"
-                        color={value === "Yes" ? "error" : "default"}
-                      />
-                    </td>
-                  );
-                }
-                if (col.key === "workflowCompleted") {
-                  return (
-                    <td key={col.key}>
-                      <Chip
-                        label={value}
-                        size="small"
-                        color={value === "Yes" ? "success" : "default"}
-                      />
-                    </td>
-                  );
-                }
-                if (col.key === "subject") {
-                  return (
-                    <td key={col.key} className="subject-cell">
-                      {value}
-                    </td>
-                  );
-                }
-                if (
-                  col.key === "description" ||
-                  col.key === "resolutionDetails" ||
-                  col.key === "workflowNotes" ||
-                  col.key === "reviewNotes" ||
-                  col.key === "approvalNotes"
-                ) {
-                  return (
-                    <td
-                      key={col.key}
-                      style={{ maxWidth: "300px", wordWrap: "break-word" }}
-                    >
-                      {value}
-                    </td>
-                  );
-                }
-                return <td key={col.key}>{value}</td>;
-              })}
-            </tr>
-          ))}
+                  </tr>
+                )}
+              </React.Fragment>
+            );
+          })}
         </tbody>
       </table>
     );
@@ -2573,37 +2839,36 @@ export default function ComprehensiveReports() {
 
   return (
     <div className="comprehensive-reports-container">
-      <div className="reports-header">
-        <Typography variant="h4" className="reports-title">
-          Call Center Reports
-        </Typography>
-        <Typography variant="body2" color="textSecondary">
-          Comprehensive reporting and analytics for your call center
-        </Typography>
+      <div className="report-page-toolbar">
+        <div className="reports-header">
+          <Typography variant="h5" className="reports-title">
+            {currentReport.label}
+          </Typography>
+          <Typography variant="body2" className="reports-subtitle">
+            Call center analytics and operational reporting
+          </Typography>
+        </div>
+        <FormControl size="small" className="report-type-select">
+          <InputLabel id="report-type-label">Report</InputLabel>
+          <Select
+            labelId="report-type-label"
+            label="Report"
+            value={currentReport.slug}
+            onChange={handleReportSelect}
+          >
+            {REPORTS.map((r) => (
+              <MenuItem key={r.slug} value={r.slug}>
+                {r.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       </div>
 
-      {/* Tabs */}
-      <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
-        <Tabs
-          value={activeTab}
-          onChange={handleTabChange}
-          variant="scrollable"
-          scrollButtons="auto"
-        >
-          <Tab label="Voice Note Report" />
-          <Tab label="CDR Report" />
-          <Tab label="Ticket CRM Report" />
-          <Tab label="Agent Performance" />
-          <Tab label="Call Summary" />
-          <Tab label="IVR Interactions" />
-          <Tab label="Ticket Assignments" />
-          <Tab label="Missed Call Report" />
-          <Tab label="Escallation" />
-          <Tab label="Notifications" />
-          <Tab label="Chats" />
-        </Tabs>
-      </Box>
-
+      {activeTab === REPORT_TYPES.PAUSE ? (
+        <PauseReport embedded />
+      ) : (
+        <>
       {/* Summary Cards for Call Reports */}
       {renderSummaryCards()}
 
@@ -2611,32 +2876,20 @@ export default function ComprehensiveReports() {
       <Card className="filters-card">
         <CardContent>
           <div className="filters-container">
-            <div className="date-filters">
-              <TextField
-                type="date"
-                label="Start Date"
-                InputLabelProps={{ shrink: true }}
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                size="small"
-                style={{ marginRight: 8 }}
-              />
-              <TextField
-                type="date"
-                label="End Date"
-                InputLabelProps={{ shrink: true }}
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                size="small"
-                style={{ marginRight: 8 }}
-              />
-            </div>
+            <div className="report-filters-row">
+            <ReportDateRangePicker
+              className="report-filter-dates"
+              startDate={startDate}
+              endDate={endDate}
+              onStartDateChange={setStartDate}
+              onEndDateChange={setEndDate}
+              disabled={loading}
+            />
 
-            <div className="additional-filters">
               {activeTab === REPORT_TYPES.VOICE_NOTE && (
                 <FormControl
                   size="small"
-                  style={{ minWidth: 150, marginRight: 8 }}
+                  className="filter-field"
                 >
                   <InputLabel>Played Status</InputLabel>
                   <Select
@@ -2654,7 +2907,7 @@ export default function ComprehensiveReports() {
               {activeTab === REPORT_TYPES.CDR && (
                 <FormControl
                   size="small"
-                  style={{ minWidth: 150, marginRight: 8 }}
+                  className="filter-field"
                 >
                   <InputLabel>Disposition</InputLabel>
                   <Select
@@ -2675,7 +2928,7 @@ export default function ComprehensiveReports() {
                 <>
                   <FormControl
                     size="small"
-                    style={{ minWidth: 150, marginRight: 8 }}
+                    className="filter-field"
                   >
                     <InputLabel>Status</InputLabel>
                     <Select
@@ -2696,7 +2949,7 @@ export default function ComprehensiveReports() {
                   </FormControl>
                   <FormControl
                     size="small"
-                    style={{ minWidth: 150, marginRight: 8 }}
+                    className="filter-field"
                   >
                     <InputLabel>Category</InputLabel>
                     <Select
@@ -2714,7 +2967,7 @@ export default function ComprehensiveReports() {
                   </FormControl>
                   <FormControl
                     size="small"
-                    style={{ minWidth: 150, marginRight: 8 }}
+                    className="filter-field"
                   >
                     <InputLabel>Complaint Type</InputLabel>
                     <Select
@@ -2733,7 +2986,7 @@ export default function ComprehensiveReports() {
               {activeTab === REPORT_TYPES.AGENT_PERFORMANCE && (
                 <FormControl
                   size="small"
-                  style={{ minWidth: 150, marginRight: 8 }}
+                  className="filter-field"
                 >
                   <InputLabel>Agent</InputLabel>
                   <Select
@@ -2750,7 +3003,7 @@ export default function ComprehensiveReports() {
               {activeTab === REPORT_TYPES.MISSED_CALL && (
                 <FormControl
                   size="small"
-                  style={{ minWidth: 150, marginRight: 8 }}
+                  className="filter-field"
                 >
                   <InputLabel>Status</InputLabel>
                   <Select
@@ -2764,7 +3017,6 @@ export default function ComprehensiveReports() {
                   </Select>
                 </FormControl>
               )}
-            </div>
 
             <div className="action-buttons">
               <Button
@@ -2799,7 +3051,7 @@ export default function ComprehensiveReports() {
                 color="secondary"
                 startIcon={<PictureAsPdf />}
                 onClick={handleExportPDF}
-                disabled={filteredReports.length === 0}
+                disabled={filteredReports.length === 0 || exportingWorkflow}
               >
                 Export PDF
               </Button>
@@ -2808,10 +3060,11 @@ export default function ComprehensiveReports() {
                 color="success"
                 startIcon={<TableChart />}
                 onClick={handleExportCSV}
-                disabled={filteredReports.length === 0}
+                disabled={filteredReports.length === 0 || exportingWorkflow}
               >
                 Export CSV
               </Button>
+            </div>
             </div>
           </div>
 
@@ -2854,6 +3107,15 @@ export default function ComprehensiveReports() {
       {/* Report Table */}
       <Card className="table-card">
         <CardContent>
+          {exportingWorkflow && (
+            <div className="export-workflow-overlay">
+              <WcfLoader
+                size="md"
+                message="Preparing workflow data for export…"
+                label="Preparing export"
+              />
+            </div>
+          )}
           <div className="table-header">
             <Typography variant="h6">{getReportTitle()}</Typography>
             <Typography variant="body2" color="textSecondary">
@@ -2899,10 +3161,12 @@ export default function ComprehensiveReports() {
           </Button>
         </div>
       )}
+        </>
+      )}
 
       {/* Column Selection Dialog */}
       <Dialog
-        open={columnDialogOpen}
+        open={columnDialogOpen && activeTab !== REPORT_TYPES.PAUSE}
         onClose={() => setColumnDialogOpen(false)}
         maxWidth="sm"
         fullWidth
@@ -2918,14 +3182,14 @@ export default function ComprehensiveReports() {
               <Button
                 size="small"
                 onClick={handleSelectAllColumns}
-                style={{ marginRight: 8 }}
+                className="filter-field"
               >
                 Select All
               </Button>
               <Button
                 size="small"
                 onClick={handleDeselectAllColumns}
-                style={{ marginRight: 8 }}
+                className="filter-field"
               >
                 Deselect All
               </Button>

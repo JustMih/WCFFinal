@@ -7,7 +7,6 @@ import {
   MdPublic,
   MdOutlineChat,
   MdOutlineNotifications,
-  MdOutlineAssessment,
 } from "react-icons/md";
 import { TbActivityHeartbeat, TbLogs } from "react-icons/tb";
 import {
@@ -23,10 +22,15 @@ import { GiVrHeadset } from "react-icons/gi";
 import { BsChatRightTextFill } from "react-icons/bs";
 import { HiOutlineMap } from "react-icons/hi2";
 import "./callCenterSidebar.css";
+import SidebarHeader from "../shared/SidebarHeader";
+import logo from "../../../asserts/images/logo.png";
 import { baseURL } from "../../../config";
 import { Collapse, List, ListItemButton, Badge } from "@mui/material";
+import ReportsSidebarMenu from "./ReportsSidebarMenu";
+
 export default function CallCenterSidebar({
   isSidebarOpen,
+  onToggleSidebar,
   role,
   instagramUnreadCount = 0,
 }) {
@@ -64,63 +68,70 @@ export default function CallCenterSidebar({
 
   return (
     <aside
-      className={`call-center-sidebar ${isSidebarOpen ? "open" : "closed"}`}
+      className={`wcf-sidebar call-center-sidebar ${isSidebarOpen ? "open" : "closed"}`}
     >
-      {/* Logo moved to Navbar */}
-
+      <SidebarHeader
+        logo={logo}
+        title="Contact Center"
+        subtitle="WCF"
+        isOpen={isSidebarOpen}
+        onToggle={onToggleSidebar}
+      />
+      <nav className="wcf-sidebar-nav">
       <ul>
         <li>
           {(role === "admin" || role === "super-admin") && (
             <>
               <NavLink
                 to="/dashboard"
+                end
                 className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
+                  isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                 }
               >
-                <div className="menu-item">
+                <span className="sidebar-nav-row">
                   <RxDashboard className="menu-icon" />
                   {isSidebarOpen && (
                     <span className="menu-text">Admin Dashboard</span>
                   )}
-                </div>
+                </span>
               </NavLink>
               <NavLink
                 to="/public-dashboard"
                 className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
+                  isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                 }
               >
-                <div className="menu-item">
+                <span className="sidebar-nav-row">
                   <MdPublic className="menu-icon" />
                   {isSidebarOpen && (
                     <span className="menu-text">Live Dashboard</span>
                   )}
-                </div>
+                </span>
               </NavLink>
               <NavLink
                 to="/extension"
                 className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
+                  isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                 }
               >
-                <div className="menu-item">
+                <span className="sidebar-nav-row">
                   <TiFlowSwitch className="menu-icon" />
                   {isSidebarOpen && (
                     <span className="menu-text">Extension</span>
                   )}
-                </div>
+                </span>
               </NavLink>
               <NavLink
                 to="/users"
                 className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
+                  isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                 }
               >
-                <div className="menu-item">
+                <span className="sidebar-nav-row">
                   <FaRegUser className="menu-icon" />
                   {isSidebarOpen && <span className="menu-text">Users</span>}
-                </div>
+                </span>
               </NavLink>
               <NavLink
                 to="/system-logs"
@@ -139,15 +150,15 @@ export default function CallCenterSidebar({
               {/* <NavLink
                 to="/lookup-tables"
                 className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
+                  isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                 }
               >
-                <div className="menu-item">
+                <span className="sidebar-nav-row">
                   <FaRegUser className="menu-icon" />
                   {isSidebarOpen && (
                     <span className="menu-text">Lookup Tables</span>
                   )}
-                </div>
+                </span>
               </NavLink> */}
               {/* Mapping Management - Super Admin Only */}
               {role === "super-admin" && (
@@ -155,15 +166,15 @@ export default function CallCenterSidebar({
                   <NavLink
                     to="/mapping"
                     className={({ isActive }) =>
-                      isActive ? "menu-item active-link" : "menu-item"
+                      isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                     }
                   >
-                    <div className="menu-item">
+                    <span className="sidebar-nav-row">
                       <HiOutlineMap className="menu-icon" />
                       {isSidebarOpen && (
                         <span className="menu-text">Mapping</span>
                       )}
-                    </div>
+                    </span>
                   </NavLink>
                 </>
               )}
@@ -171,15 +182,15 @@ export default function CallCenterSidebar({
               <NavLink
                 to="/ivr-cards"
                 className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
+                  isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                 }
               >
-                <div className="menu-item">
+                <span className="sidebar-nav-row">
                   <GiVrHeadset className="menu-icon" />
                   {isSidebarOpen && (
                     <span className="menu-text">IVR Management</span>
                   )}
-                </div>
+                </span>
               </NavLink>
             </>
           )}
@@ -188,23 +199,36 @@ export default function CallCenterSidebar({
               <NavLink
                 to="/dashboard-old"
                 className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
+                  isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                 }
               >
-                <div className="menu-item">
+                <span className="sidebar-nav-row">
                   <RxDashboard className="menu-icon" />
                   {isSidebarOpen && (
                     <span className="menu-text">Agent Dashboard</span>
                   )}
-                </div>
+                </span>
+              </NavLink>
+              <NavLink
+                to="/public-dashboard"
+                className={({ isActive }) =>
+                  isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
+                }
+              >
+                <span className="sidebar-nav-row">
+                  <MdPublic className="menu-icon" />
+                  {isSidebarOpen && (
+                    <span className="menu-text">Live Dashboard</span>
+                  )}
+                </span>
               </NavLink>
               <NavLink
                 to="/agent-chat"
                 className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
+                  isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                 }
               >
-                <div className="menu-item">
+                <span className="sidebar-nav-row">
                   <BsChatRightTextFill className="menu-icon" />
                   {isSidebarOpen && (
                     <span className="menu-text">Supervisor Chat</span>
@@ -217,45 +241,22 @@ export default function CallCenterSidebar({
                       sx={{ marginLeft: 1 }}
                     />
                   )}
-                </div>
+                </span>
               </NavLink>
               <NavLink
                 to="/voice-notes"
                 className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
+                  isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                 }
               >
-                <div className="menu-item">
+                <span className="sidebar-nav-row">
                   <MdOutlineAudiotrack className="menu-icon" />
                   {isSidebarOpen && (
                     <span className="menu-text">Voice Notes Reports</span>
                   )}
-                </div>
+                </span>
               </NavLink>
-              <NavLink
-                to="/voice-notes-report"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <BsChatRightTextFill className="menu-icon" />
-                  {isSidebarOpen && <span className="menu-text">Report</span>}
-                </div>
-              </NavLink>
-              <NavLink
-                to="/public-dashboard"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <MdPublic className="menu-icon" />
-                  {isSidebarOpen && (
-                    <span className="menu-text">Live Dashboard</span>
-                  )}
-                </div>
-              </NavLink>
+              <ReportsSidebarMenu isSidebarOpen={isSidebarOpen} />
             </>
           )}
           {(role === "supervisor" || role === "director-general") && (
@@ -263,10 +264,10 @@ export default function CallCenterSidebar({
               <NavLink
                 to="/dashboard-old"
                 className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
+                  isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                 }
               >
-                <div className="menu-item">
+                <span className="sidebar-nav-row">
                   <RxDashboard className="menu-icon" />
                   {isSidebarOpen && (
                     <span className="menu-text">
@@ -275,15 +276,15 @@ export default function CallCenterSidebar({
                         : "Supervisor Dashboard"}
                     </span>
                   )}
-                </div>
+                </span>
               </NavLink>
               <NavLink
                 to="/dashboard2"
                 className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
+                  isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                 }
               >
-                <div className="menu-item">
+                <span className="sidebar-nav-row">
                   <RxDashboard className="menu-icon" />
                   {isSidebarOpen && (
                     <span className="menu-text">
@@ -292,71 +293,71 @@ export default function CallCenterSidebar({
                         : "Supervisor Dashboard Two"}
                     </span>
                   )}
-                </div>
+                </span>
               </NavLink>
 
               <NavLink
                 to="/public-dashboard"
                 className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
+                  isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                 }
               >
-                <div className="menu-item">
+                <span className="sidebar-nav-row">
                   <MdPublic className="menu-icon" />
                   {isSidebarOpen && (
                     <span className="menu-text">Public Dashboard</span>
                   )}
-                </div>
+                </span>
               </NavLink>
 
                 <NavLink
                 to="/ivr-cards"
                 className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
+                  isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                 }
               >
-                <div className="menu-item">
+                <span className="sidebar-nav-row">
                   <GiVrHeadset className="menu-icon" />
                   {isSidebarOpen && (
                     <span className="menu-text">IVR Management</span>
                   )}
-                </div>
+                </span>
               </NavLink>
         
               
               <NavLink
                 to="/agents"
                 className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
+                  isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                 }
               >
-                <div className="menu-item">
+                <span className="sidebar-nav-row">
                   <MdOutlineSupportAgent className="menu-icon" />
                   {isSidebarOpen && <span className="menu-text">Agents</span>}
-                </div>
+                </span>
               </NavLink>
 
               {/* <NavLink
                 to="/agents-logs"
                 className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
+                  isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                 }
               >
-                <div className="menu-item">
+                <span className="sidebar-nav-row">
                   <TbLogs className="menu-icon" />
                   {isSidebarOpen && (
                     <span className="menu-text">Agents Logs</span>
                   )}
-                </div>
+                </span>
               </NavLink> */}
 
               <NavLink
                 to="/supervisor-chat"
                 className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
+                  isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                 }
               >
-                <div className="menu-item">
+                <span className="sidebar-nav-row">
                   <MdOutlineChat className="menu-icon" />
                   {isSidebarOpen && (
                     <span className="menu-text">Agents Chat</span>
@@ -368,7 +369,7 @@ export default function CallCenterSidebar({
                       sx={{ marginLeft: 1 }}
                     />
                   )}
-                </div>
+                </span>
               </NavLink>
 
               {/* Social Notifications Toggle - same link style as other items */}
@@ -382,15 +383,15 @@ export default function CallCenterSidebar({
                     toggleSocialMenu();
                   }
                 }}
-                className={`menu-item ${openSocial ? "active-link" : ""}`}
+                className={`sidebar-nav-link sidebar-nav-toggle ${openSocial ? "active-link" : ""}`}
                 style={{ cursor: "pointer" }}
               >
-                <div className="menu-item">
+                <span className="sidebar-nav-row">
                   <MdOutlineNotifications className="menu-icon" />
                   {isSidebarOpen && (
                     <span className="menu-text">Social Notifications</span>
                   )}
-                </div>
+                </span>
               </div>
 
               {/* Dropdown - directly under Social Notifications toggle */}
@@ -415,19 +416,21 @@ export default function CallCenterSidebar({
                         toggleInstagramMenu();
                       }
                     }}
-                    className={`menu-item ${openInstagram ? "active-link" : ""}`}
-                    style={{ cursor: "pointer", paddingLeft: "2rem" }}
+                    className={`sidebar-nav-link sidebar-nav-toggle ${openInstagram ? "active-link" : ""}`}
+                    style={{ cursor: "pointer" }}
                   >
-                    <Badge
-                      badgeContent={instagramUnreadCount}
-                      color="error"
-                      sx={{ marginRight: 1 }}
-                    >
-                      <FaInstagram className="menu-icon" color="#E1306C" />
-                    </Badge>
-                    {isSidebarOpen && (
-                      <span className="menu-text">Instagram</span>
-                    )}
+                    <span className="sidebar-nav-row sidebar-nav-row--nested">
+                      <Badge
+                        badgeContent={instagramUnreadCount}
+                        color="error"
+                        sx={{ marginRight: 1 }}
+                      >
+                        <FaInstagram className="menu-icon" color="#E1306C" />
+                      </Badge>
+                      {isSidebarOpen && (
+                        <span className="menu-text">Instagram</span>
+                      )}
+                    </span>
                   </div>
 
                   {/* Instagram Sub-menu */}
@@ -441,38 +444,38 @@ export default function CallCenterSidebar({
                       <NavLink
                         to="/social-message?tab=dashboard"
                         className={({ isActive }) =>
-                          isActive ? "menu-item active-link" : "menu-item"
+                          isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                         }
                       >
-                        <div className="menu-item">
+                        <span className="sidebar-nav-row">
                           <RxDashboard className="menu-icon" color="#667eea" />
                           {isSidebarOpen && (
                             <span className="menu-text">Dashboard</span>
                           )}
-                        </div>
+                        </span>
                       </NavLink>
 
                       <NavLink
                         to="/social-message?tab=message"
                         className={({ isActive }) =>
-                          isActive ? "menu-item active-link" : "menu-item"
+                          isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                         }
                       >
-                        <div className="menu-item">
+                        <span className="sidebar-nav-row">
                           <FaTelegram className="menu-icon" color="#667eea" />
                           {isSidebarOpen && (
                             <span className="menu-text">Messages</span>
                           )}
-                        </div>
+                        </span>
                       </NavLink>
 
                       <NavLink
                         to="/social-message?tab=comment"
                         className={({ isActive }) =>
-                          isActive ? "menu-item active-link" : "menu-item"
+                          isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                         }
                       >
-                        <div className="menu-item">
+                        <span className="sidebar-nav-row">
                           <FaComments className="menu-icon" color="#667eea" />
                           {isSidebarOpen && (
                             <span className="menu-text">Comments</span>
@@ -484,7 +487,7 @@ export default function CallCenterSidebar({
                               sx={{ marginLeft: 1 }}
                             />
                           )}
-                        </div>
+                        </span>
                       </NavLink>
                     </List>
                   </Collapse>
@@ -492,50 +495,44 @@ export default function CallCenterSidebar({
                   <NavLink
                     to="/social-message/facebook"
                     className={({ isActive }) =>
-                      isActive ? "menu-item active-link" : "menu-item"
+                      isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                     }
                     style={{ paddingLeft: "2rem" }}
                   >
-                    <div className="menu-item">
+                    <span className="sidebar-nav-row">
                       <FaFacebook className="menu-icon" color="#1877F3" />
                       {isSidebarOpen && (
                         <span className="menu-text">Facebook</span>
                       )}
-                    </div>
+                    </span>
                   </NavLink>
 
                   <NavLink
                     to="/social-message/whatsapp"
                     className={({ isActive }) =>
-                      isActive ? "menu-item active-link" : "menu-item"
+                      isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                     }
                     style={{ paddingLeft: "2rem" }}
                   >
-                    <div className="menu-item">
+                    <span className="sidebar-nav-row">
                       <FaWhatsapp className="menu-icon" color="#25D366" />
                       {isSidebarOpen && (
                         <span className="menu-text">WhatsApp</span>
                       )}
-                    </div>
+                    </span>
                   </NavLink>
                 </List>
               </Collapse>
 
-              <NavLink
-                to="/voice-notes-report"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
-                }
-              >
-                <div className="menu-item">
-                  <MdOutlineAssessment className="menu-icon" />
-                  {isSidebarOpen && <span className="menu-text">Report</span>}
-                </div>
-              </NavLink>
+              <ReportsSidebarMenu isSidebarOpen={isSidebarOpen} />
             </>
+          )}
+          {(role === "admin" || role === "super-admin") && (
+            <ReportsSidebarMenu isSidebarOpen={isSidebarOpen} />
           )}
         </li>
       </ul>
+      </nav>
     </aside>
   );
 }
