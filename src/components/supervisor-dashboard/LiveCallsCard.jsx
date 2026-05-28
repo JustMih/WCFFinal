@@ -6,11 +6,8 @@ import {
 } from "react-icons/fa";
 import "./LiveCallsCard.css";
 import { baseURL } from "../../config";
-<<<<<<< HEAD
 import WcfLoader from "../shared/WcfLoader";
-=======
 import SupervisorSipBar from "./SupervisorSipBar";
->>>>>>> 808575ff61fed34238dfeadb004494b6eac68c1b
 
 export default function LiveCallsCard({
   isLoading,

@@ -4,6 +4,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { baseURL } from "../../../config";
 import PauseReport from "./PauseReport";
 import OffHoursReport from "./OffHoursReport";
+import CallCenterSlaReport from "./CallCenterSlaReport";
+import TicketSlaReport from "./TicketSlaReport";
 import WcfLoader from "../../../components/shared/WcfLoader";
 import ReportDateRangePicker from "../../../components/shared/ReportDateRangePicker";
 import TicketWorkflowExpandPanel from "../../../components/workflow/TicketWorkflowExpandPanel";
@@ -3689,6 +3691,10 @@ export default function ComprehensiveReports() {
         <PauseReport embedded />
       ) : activeTab === REPORT_TYPES.OFF_HOURS ? (
         <OffHoursReport />
+      ) : activeTab === REPORT_TYPES.SLA_CALL_CENTER ? (
+        <CallCenterSlaReport embedded />
+      ) : activeTab === REPORT_TYPES.SLA_TICKET ? (
+        <TicketSlaReport embedded />
       ) : (
         <>
       {activeTab === REPORT_TYPES.OFF_HOURS && (
@@ -4047,7 +4053,12 @@ export default function ComprehensiveReports() {
 
       {/* Column Selection Dialog */}
       <Dialog
-        open={columnDialogOpen && activeTab !== REPORT_TYPES.PAUSE}
+        open={
+          columnDialogOpen &&
+          activeTab !== REPORT_TYPES.PAUSE &&
+          activeTab !== REPORT_TYPES.SLA_CALL_CENTER &&
+          activeTab !== REPORT_TYPES.SLA_TICKET
+        }
         onClose={() => setColumnDialogOpen(false)}
         maxWidth="sm"
         fullWidth
