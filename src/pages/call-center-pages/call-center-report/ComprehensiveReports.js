@@ -32,11 +32,15 @@ import {
   buildEmergencyMap,
 } from "../../../utils/offHoursReportClient";
 import {
+  getOffHoursTimestamp,
+  isOffHoursNotePlayed,
+  getOffHoursRowColor,
+  OffHoursCallbackStatusChip,
+} from "../../../utils/offHoursReportShared";
+import {
   isPendingCallback,
   getCallbackPhone,
   markMissedCallCalledBack,
-  normalizeCallbackStatus,
-  callbackStatusLabel,
   formatOutboundNumber,
 } from "../../../utils/missedCallActions";
 import { useSipPhone } from "../call-center-dashboard/agents-dashboard/useSipPhone";
@@ -129,12 +133,6 @@ const OFF_HOURS_SOURCE_LABELS = {
   cdr: "CDR",
   "voice-notes": "Voice Notes",
   "missed-calls": "Missed Calls",
-};
-
-const OFF_HOURS_CALLBACK_STATUS_COLORS = {
-  pending: "#ef4444",
-  called_back: "#22c55e",
-  ignored: "#9ca3af",
 };
 
 const authHeaders = () => ({
@@ -646,35 +644,6 @@ export default function ComprehensiveReports() {
     setSnackbarOpen(false);
   };
 
-  const getOffHoursTimestamp = (record) =>
-    record.time || record.created_at || record.cdrstarttime;
-
-  const isOffHoursNotePlayed = (note) =>
-    offHoursPlayedStatus[note.id] || note.is_played;
-
-  const getOffHoursRowColor = (note) => {
-    if (isOffHoursNotePlayed(note)) return "#d4edda";
-    const createdAt = new Date(note.created_at);
-    const hoursAgo = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60);
-    return hoursAgo >= 24 ? "#f8d7da" : "#fff3cd";
-  };
-
-  const renderOffHoursCallbackStatus = (record) => {
-    const status = normalizeCallbackStatus(record);
-    return (
-      <Chip
-        label={callbackStatusLabel(status)}
-        size="small"
-        sx={{
-          backgroundColor:
-            OFF_HOURS_CALLBACK_STATUS_COLORS[status] || "#666",
-          color: "#fff",
-          fontWeight: "bold",
-        }}
-      />
-    );
-  };
-
   const handleOffHoursCallBack = async (record) => {
     const phone = getCallbackPhone(record);
     if (!phone) {
@@ -879,7 +848,7 @@ export default function ComprehensiveReports() {
             ? new Date(getOffHoursTimestamp(r)).toLocaleString()
             : "-",
           r.off_hours_label || "-",
-          isOffHoursNotePlayed(r) ? "Yes" : "No",
+          isOffHoursNotePlayed(r, offHoursPlayedStatus) ? "Yes" : "No",
           r.duration_seconds || "-",
         ]),
         styles: { fontSize: 8 },
@@ -931,7 +900,7 @@ export default function ComprehensiveReports() {
           ? new Date(getOffHoursTimestamp(r)).toLocaleString()
           : "-",
         Category: r.off_hours_label || "-",
-        Played: isOffHoursNotePlayed(r) ? "Yes" : "No",
+        Played: isOffHoursNotePlayed(r, offHoursPlayedStatus) ? "Yes" : "No",
         "Duration (s)": r.duration_seconds || "-",
       }));
     }
@@ -2686,7 +2655,9 @@ export default function ComprehensiveReports() {
                         }}
                       />
                     </td>
-                    <td>{renderOffHoursCallbackStatus(record)}</td>
+                    <td>
+                      <OffHoursCallbackStatusChip record={record} />
+                    </td>
                     <td>
                       {record.callback_agent_name ||
                         record.callback_agent_extension ||
@@ -2810,13 +2781,21 @@ export default function ComprehensiveReports() {
           </thead>
           <tbody>
             {currentReports.map((record, index) => {
-              const isPlayed = isOffHoursNotePlayed(record);
+              const isPlayed = isOffHoursNotePlayed(
+                record,
+                offHoursPlayedStatus
+              );
               const isPlaying = offHoursPlayingId === record.id;
 
               return (
                 <tr
                   key={record.id || index}
-                  style={{ backgroundColor: getOffHoursRowColor(record) }}
+                  style={{
+                    backgroundColor: getOffHoursRowColor(
+                      record,
+                      offHoursPlayedStatus
+                    ),
+                  }}
                 >
                   <td>{indexOfFirstReport + index + 1}</td>
                   <td>{record.id}</td>
