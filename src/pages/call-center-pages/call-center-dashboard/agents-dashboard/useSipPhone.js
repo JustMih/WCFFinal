@@ -218,8 +218,8 @@ export function useSipPhone({
     const number = invitation?.remoteIdentity?.uri?.user || "";
     const spyIncoming = isSupervisorSpyInvite(invitation);
 
-    // ChanSpy / supervisor originate — always accept (even if agent status ≠ ready)
-    if (spyIncoming && (autoAnswerSpyRef.current || allowRingingRef.current)) {
+    // ChanSpy from Asterisk (From: "Supervisor" …) — answer immediately
+    if (spyIncoming) {
       setLastIncomingNumber(number);
       setPhoneStatus("Connecting listen…");
       acceptIncomingInvite(invitation, number);
@@ -253,6 +253,7 @@ export function useSipPhone({
       }
     });
 
+    const rejectMs = spyIncoming ? 120000 : 20000;
     autoRejectTimerRef.current = setTimeout(() => {
       invitation.reject().catch(console.error);
       setPhoneStatus("Idle");
@@ -261,7 +262,7 @@ export function useSipPhone({
       if (!wasAnsweredRef.current) {
         onMissedCall?.(number);
       }
-    }, 20000);
+    }, rejectMs);
   };
 
   // ---------- UA startup ----------

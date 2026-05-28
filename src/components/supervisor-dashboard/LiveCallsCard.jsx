@@ -4,9 +4,11 @@ import {
   FaUserShield,
   FaComments,
 } from "react-icons/fa";
+import { Button } from "@mui/material";
 import "./LiveCallsCard.css";
-import { baseURL } from "../../config";
+import { baseURL, SIP_DOMAIN_CONFIG } from "../../config";
 import SupervisorSipBar from "./SupervisorSipBar";
+import { useSipPhone } from "../../pages/call-center-pages/call-center-dashboard/agents-dashboard/useSipPhone";
 
 export default function LiveCallsCard({
   isLoading,
@@ -22,6 +24,29 @@ export default function LiveCallsCard({
   const [spyingOn, setSpyingOn] = useState(null);
   const [spyMode, setSpyMode] = useState(null);
   const [actionMessage, setActionMessage] = useState("");
+
+  const extension = localStorage.getItem("extension");
+  const sipPassword = localStorage.getItem("sipPassword");
+  const sipReady = Boolean(extension && sipPassword);
+
+  const {
+    phoneStatus,
+    remoteAudioRef,
+    acceptCall,
+    rejectCall,
+    endCall,
+  } = useSipPhone({
+    extension: sipReady ? extension : null,
+    sipPassword: sipReady ? sipPassword : null,
+    SIP_DOMAIN: SIP_DOMAIN_CONFIG,
+    allowIncomingRinging: true,
+    autoAnswerSpyCalls: true,
+  });
+
+  const sipReadyForListen =
+    phoneStatus === "Idle" ||
+    phoneStatus === "Ready" ||
+    phoneStatus?.includes("Registered");
 
   const modeLabels = {
     listen: "Listening (spy)",
@@ -61,9 +86,7 @@ export default function LiveCallsCard({
         ? data.instructions.join(" ")
         : `Answer your phone (extension ${data.supervisor_extension}) when it rings to hear the agent.`;
       setActionMessage(
-        `${modeLabels[mode] || mode} on ${data.agent_name || "agent"} (ext ${
-          data.agent_extension || "—"
-        }). ${steps}`
+        `Step 2: Your phone is ringing — click the orange bar above → Answer listen (within 20s on old builds; auto-answer after redeploy). Then you hear ${data.agent_name || "the agent"} (ext ${data.agent_extension || "—"}).`
       );
     } catch (err) {
       console.error("❌ Spy failed:", err);
@@ -127,8 +150,24 @@ export default function LiveCallsCard({
     }
   }, [activeCalls, spyingOn]);
 
-  const data =
-    filteredLiveCalls.length > 0 ? filteredLiveCalls : activeCalls;
+  const supervisorExt = extension ? String(extension) : "";
+
+  const data = (
+    filteredLiveCalls.length > 0 ? filteredLiveCalls : activeCalls
+  ).filter((call) => {
+    if (call.status === "active") return true;
+    if (
+      supervisorExt &&
+      String(call.agent_extension) === supervisorExt &&
+      (call.status === "lost" ||
+        call.status === "dropped" ||
+        call.status === "ended" ||
+        call.callee === "s")
+    ) {
+      return false;
+    }
+    return call.status === "active" || call.status === "calling";
+  });
 
   /* ================================
      HELPERS
@@ -159,7 +198,29 @@ export default function LiveCallsCard({
      ================================ */
   return (
     <div className="live-calls-table-container">
-      <SupervisorSipBar />
+      <SupervisorSipBar
+        extension={extension}
+        phoneStatus={phoneStatus}
+        remoteAudioRef={remoteAudioRef}
+        acceptCall={acceptCall}
+        rejectCall={rejectCall}
+        endCall={endCall}
+      />
+
+      {phoneStatus === "Ringing" && (
+        <div className="listen-answer-banner">
+          <strong>Listen call ringing</strong> — click{" "}
+          <Button
+            size="small"
+            variant="contained"
+            color="success"
+            onClick={acceptCall}
+          >
+            Answer listen
+          </Button>{" "}
+          in the orange bar above (you have ~20 seconds).
+        </div>
+      )}
 
       <div className="live-calls-header">
         <h4>
@@ -236,14 +297,18 @@ export default function LiveCallsCard({
                             : ""
                         }`}
                         disabled={
-                          call.status !== "active" || !call.agent_extension
+                          call.status !== "active" ||
+                          !call.agent_extension ||
+                          !sipReadyForListen
                         }
                         onClick={() =>
                           spyAction(call.linkedid, "listen")
                         }
                         title={
-                          call.agent_extension
-                            ? "Listen in browser (ext from profile)"
+                          !sipReadyForListen
+                            ? "Wait until supervisor phone shows Idle"
+                            : call.agent_extension
+                            ? "Listen: only when status is active"
                             : "No agent on call yet"
                         }
                       >
