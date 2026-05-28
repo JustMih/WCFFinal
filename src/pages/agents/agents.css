@@ -14,7 +14,7 @@
 }
 
 .agent-card {
-  background-color: var(--sidebar-color);
+  background-color: var(--wcf-white) !important;
   border-radius: 10px;
   padding: 10px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);

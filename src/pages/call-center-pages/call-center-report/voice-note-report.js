@@ -16,6 +16,7 @@ import {
 } from "@mui/material";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import WcfLoader from "../../../components/shared/WcfLoader";
 import { markVoiceNotePlayed } from "../../../utils/voiceNotePlayed";
 import { getVoiceNoteAudioUrls } from "../../../utils/voiceNoteAudio";
 
@@ -235,7 +236,7 @@ export default function VoiceNoteReport() {
           </FormControl>
         )}
 
-        <Button variant="contained" onClick={fetchReports} disabled={!startDate || !endDate}>
+        <Button variant="contained" onClick={fetchReports} disabled={loading || !startDate || !endDate}>
           Load
         </Button>
 
@@ -273,7 +274,17 @@ export default function VoiceNoteReport() {
 
        <tbody>
   {loading ? (
-    <tr><td colSpan={activeTab === 0 ? 6 : 8}>Loading…</td></tr>
+    <tr>
+      <td colSpan={activeTab === 0 ? 6 : 8}>
+        <div className="wcf-loading-container">
+          <WcfLoader
+            size="md"
+            message={activeTab === 0 ? "Loading voice note report..." : "Loading CDR report..."}
+            label={activeTab === 0 ? "Loading voice note report" : "Loading CDR report"}
+          />
+        </div>
+      </td>
+    </tr>
   ) : currentReports.length === 0 ? (
     <tr><td colSpan={activeTab === 0 ? 6 : 8}>No records found</td></tr>
   ) : (

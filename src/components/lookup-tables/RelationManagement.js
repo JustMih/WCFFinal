@@ -21,6 +21,7 @@ import {
 } from "@mui/material";
 import { Edit, Delete, Add } from "@mui/icons-material";
 import { baseURL } from "../../config";
+import WcfLoader from "../shared/WcfLoader";
 
 const formatDate = (dateString) => {
   if (!dateString) return "N/A";
@@ -183,7 +184,11 @@ const RelationManagement = () => {
   };
 
   if (loading) {
-    return <Typography>Loading...</Typography>;
+    return (
+      <div className="wcf-loading-container">
+        <WcfLoader size="md" message="Loading relations..." label="Loading relations" />
+      </div>
+    );
   }
 
   return (

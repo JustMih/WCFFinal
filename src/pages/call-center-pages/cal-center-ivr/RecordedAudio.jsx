@@ -4,6 +4,7 @@ import "./RecordedAudio.css";
 import { baseURL } from "../../../config";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import WcfLoader from "../../../components/shared/WcfLoader";
 
 const RecordedAudio = () => {
   const [recordings, setRecordings] = useState([]);
@@ -184,7 +185,13 @@ const RecordedAudio = () => {
     doc.save("recorded_calls.pdf");
   };
 
-  if (loading) return <div>Loading recordings...</div>;
+  if (loading) {
+    return (
+      <div className="wcf-loading-container">
+        <WcfLoader size="md" message="Loading recordings..." label="Loading recordings" />
+      </div>
+    );
+  }
   if (error) return <div className="error">{error}</div>;
 
   return (

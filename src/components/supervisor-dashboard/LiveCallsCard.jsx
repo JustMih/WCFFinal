@@ -6,9 +6,18 @@ import {
 } from "react-icons/fa";
 import { Button } from "@mui/material";
 import "./LiveCallsCard.css";
+<<<<<<< HEAD
 import { baseURL, SIP_DOMAIN_CONFIG } from "../../config";
 import SupervisorSipBar from "./SupervisorSipBar";
 import { useSipPhone } from "../../pages/call-center-pages/call-center-dashboard/agents-dashboard/useSipPhone";
+=======
+import { baseURL } from "../../config";
+<<<<<<< HEAD
+import WcfLoader from "../shared/WcfLoader";
+=======
+import SupervisorSipBar from "./SupervisorSipBar";
+>>>>>>> 808575ff61fed34238dfeadb004494b6eac68c1b
+>>>>>>> 645bc95b3861116c66439c476ae915e348657d5a
 
 export default function LiveCallsCard({
   isLoading,
@@ -104,8 +113,14 @@ export default function LiveCallsCard({
         const response = await fetch(`${baseURL}/livestream/live-calls`);
         const data = await response.json();
 
-        setLiveCalls(data);
-        setActiveCalls(data.filter((c) => c.status === "active"));
+        const calls = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.data)
+            ? data.data
+            : [];
+
+        setLiveCalls(calls);
+        setActiveCalls(calls.filter((c) => c.status === "active"));
       } catch (error) {
         console.error("❌ Error fetching live calls:", error);
       }
@@ -123,7 +138,8 @@ export default function LiveCallsCard({
     const term =
       typeof searchTerm === "string" ? searchTerm.toLowerCase() : "";
 
-    const filtered = liveCalls.filter(
+    const sourceCalls = Array.isArray(liveCalls) ? liveCalls : [];
+    const filtered = sourceCalls.filter(
       (call) =>
         call.caller?.toLowerCase().includes(term) ||
         call.callee?.toLowerCase().includes(term) ||
@@ -226,7 +242,12 @@ export default function LiveCallsCard({
         <h4>
           Live Calls{" "}
           {isLoading && (
-            <span className="loading-indicator">(Loading...)</span>
+            <span
+              className="loading-indicator"
+              style={{ display: "inline-flex", marginLeft: 8, verticalAlign: "middle" }}
+            >
+              <WcfLoader size="sm" label="Loading live calls" />
+            </span>
           )}
         </h4>
         {actionMessage && (

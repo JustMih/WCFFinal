@@ -302,6 +302,41 @@
   margin: 0;
 }
 
+.wcf-sidebar .ivr-sub-menu {
+  max-height: none;
+  overflow: visible;
+  padding: 2px 0 6px;
+  margin: 0;
+}
+
+.wcf-sidebar .sidebar-subheader {
+  padding: 6px 12px 4px 36px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--wcf-sidebar-text);
+  opacity: 0.9;
+}
+
+.wcf-sidebar a.sidebar-subheader-link {
+  display: block;
+  text-decoration: none;
+  border-radius: 8px;
+  margin: 2px 0 0;
+}
+
+.wcf-sidebar a.sidebar-subheader-link:hover {
+  background: var(--wcf-sidebar-hover-bg);
+  opacity: 1;
+}
+
+.wcf-sidebar .sidebar-sublist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
 .wcf-sidebar .sidebar-nav-chevron {
   margin-left: auto;
   color: var(--wcf-sidebar-text);

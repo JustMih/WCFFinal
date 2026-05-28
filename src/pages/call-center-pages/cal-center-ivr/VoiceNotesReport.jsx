@@ -5,6 +5,7 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import ReportDateRangePicker from "../../../components/shared/ReportDateRangePicker";
+import WcfLoader from "../../../components/shared/WcfLoader";
 import "./VoiceNotesReport.css";
 
 export default function RecordedSounds() {
@@ -219,7 +220,13 @@ export default function RecordedSounds() {
     doc.save("voice_notes.pdf");
   };
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) {
+    return (
+      <div className="wcf-loading-container">
+        <WcfLoader size="md" message="Loading voice notes..." label="Loading voice notes" />
+      </div>
+    );
+  }
   if (error) return <div className="error">{error}</div>;
 
   return (
