@@ -777,7 +777,7 @@ export default function ComprehensiveReports() {
         head: [
           [
             "Sn",
-            "Caller ID",
+            "Source",
             "Routed To",
             "Date/Time",
             "Category",
@@ -870,7 +870,7 @@ export default function ComprehensiveReports() {
     if (offHoursSource === "cdr") {
       rows = filteredReports.map((r, idx) => ({
         Sn: idx + 1,
-        "Caller ID": r.caller_display || r.clid || "-",
+        Source: r.caller_display || r.clid || "-",
         "Routed To": r.routed_to_label || r.routed_to || "-",
         "Date/Time": getOffHoursTimestamp(r)
           ? new Date(getOffHoursTimestamp(r)).toLocaleString()
@@ -2712,9 +2712,8 @@ export default function ComprehensiveReports() {
           <thead>
             <tr>
               <th>Sn</th>
-              <th>Caller ID</th>
+              <th>Source</th>
               <th>Routed To</th>
-              <th>Destination</th>
               <th>Date/Time</th>
               <th>Category</th>
               <th>Disposition</th>
@@ -2731,11 +2730,6 @@ export default function ComprehensiveReports() {
                   {record.is_emergency_route && (
                     <span className="off-hours-emergency-tag"> Emergency</span>
                   )}
-                </td>
-                <td>
-                  {record.destination_display ||
-                    record.routed_to_label ||
-                    "—"}
                 </td>
                 <td>
                   {getOffHoursTimestamp(record)

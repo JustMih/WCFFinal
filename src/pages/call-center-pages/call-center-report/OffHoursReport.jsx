@@ -405,7 +405,7 @@ export default function OffHoursReport() {
         head: [
           [
             "Sn",
-            "Caller ID",
+            "Source",
             "Routed To",
             "Date/Time",
             "Category",
@@ -708,9 +708,8 @@ export default function OffHoursReport() {
             <thead>
               <tr>
                 <th>Sn</th>
-                <th>Caller ID</th>
+                <th>Source</th>
                 <th>Routed To</th>
-                <th>Destination</th>
                 <th>Date/Time</th>
                 <th>Category</th>
                 <th>Disposition</th>
@@ -720,7 +719,7 @@ export default function OffHoursReport() {
             <tbody>
               {currentRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={8}>No off-hours records found.</td>
+                  <td colSpan={7}>No off-hours records found.</td>
                 </tr>
               ) : (
                 currentRecords.map((record, index) => (
@@ -733,7 +732,6 @@ export default function OffHoursReport() {
                         <span className="off-hours-emergency-tag"> Emergency</span>
                       )}
                     </td>
-                    <td>{record.destination_display || record.routed_to_label || "—"}</td>
                     <td>
                       {getTimestamp(record)
                         ? new Date(getTimestamp(record)).toLocaleString()
