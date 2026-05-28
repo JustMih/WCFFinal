@@ -48,7 +48,11 @@ export default function LiveCallsCard({
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        throw new Error(data.error || "Could not start supervisor intervention");
+        const hint =
+          data.asterisk_state === "Unavailable"
+            ? " Register extension on this page (yellow bar) until status is Idle."
+            : "";
+        throw new Error((data.error || "Could not start supervisor intervention") + hint);
       }
 
       setSpyingOn(linkedid);
@@ -231,11 +235,17 @@ export default function LiveCallsCard({
                             ? "active-spy"
                             : ""
                         }`}
-                        disabled={call.status !== "active"}
+                        disabled={
+                          call.status !== "active" || !call.agent_extension
+                        }
                         onClick={() =>
                           spyAction(call.linkedid, "listen")
                         }
-                        title="Listen"
+                        title={
+                          call.agent_extension
+                            ? "Listen in browser (ext from profile)"
+                            : "No agent on call yet"
+                        }
                       >
                         <FaHeadphones />
                       </button>
