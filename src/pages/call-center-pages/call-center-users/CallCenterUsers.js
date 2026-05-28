@@ -33,6 +33,11 @@ import {
 } from "@mui/material";
 
 export default function CallCenterUsers() {
+  const loggedInUserId = localStorage.getItem("userId") || "";
+  const loggedInUserRole = localStorage.getItem("role") || "";
+  const isAdminUser =
+    loggedInUserRole === "admin" || loggedInUserRole === "super-admin";
+  const loggedInUserName = localStorage.getItem("username") || "Current User";
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -66,6 +71,14 @@ export default function CallCenterUsers() {
   const [sectionsList, setSectionsList] = useState([]); // Directorates and units
   const [functionsList, setFunctionsList] = useState([]); // Functions (sub-sections)
   const [selectedSection, setSelectedSection] = useState(""); // Selected section (directorate/unit)
+  const [showHandoverModal, setShowHandoverModal] = useState(false);
+  const [activeHandovers, setActiveHandovers] = useState([]);
+  const [handoverForm, setHandoverForm] = useState({
+    from_user_id: loggedInUserId,
+    to_user_id: "",
+    return_at: "",
+    reason: "",
+  });
 
   const fetchUsers = async () => {
     try {
@@ -90,6 +103,35 @@ export default function CallCenterUsers() {
 
   useEffect(() => {
     fetchUsers();
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("openHandover") === "true") {
+      setHandoverForm((prev) => ({ ...prev, from_user_id: loggedInUserId }));
+      setShowHandoverModal(true);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, [loggedInUserId]);
+
+  const fetchActiveHandovers = async () => {
+    try {
+      const response = await fetch(`${baseURL}/users/handover/active`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        },
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      setActiveHandovers(data.handovers || []);
+    } catch (handoverError) {
+      console.error("Failed to fetch handovers:", handoverError);
+    }
+  };
+
+  useEffect(() => {
+    fetchActiveHandovers();
   }, []);
 
   // Fetch sections and functions when modal opens and role is focal-person
@@ -430,6 +472,82 @@ export default function CallCenterUsers() {
     });
   };
 
+  const handleStartHandover = async () => {
+    const payload = {
+      from_user_id: isAdminUser ? handoverForm.from_user_id : loggedInUserId,
+      to_user_id: handoverForm.to_user_id,
+      return_at: handoverForm.return_at,
+      reason: handoverForm.reason,
+    };
+
+    if (!payload.from_user_id || !payload.to_user_id || !payload.return_at) {
+      setSnackbarMessage("Please fill required handover fields.");
+      setSnackbarSeverity("error");
+      setSnackbarOpen(true);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${baseURL}/users/handover/start`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.message || "Failed to start handover");
+      }
+
+      setSnackbarMessage("Handover started successfully.");
+      setSnackbarSeverity("success");
+      setSnackbarOpen(true);
+      setShowHandoverModal(false);
+      setHandoverForm({
+        from_user_id: loggedInUserId,
+        to_user_id: "",
+        return_at: "",
+        reason: "",
+      });
+      fetchActiveHandovers();
+    } catch (handoverError) {
+      setSnackbarMessage(handoverError.message || "Failed to start handover.");
+      setSnackbarSeverity("error");
+      setSnackbarOpen(true);
+    }
+  };
+
+  const handleRevokeHandover = async (handoverId) => {
+    try {
+      const response = await fetch(
+        `${baseURL}/users/handover/${handoverId}/revoke`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.message || "Failed to revoke handover");
+      }
+
+      setSnackbarMessage("Handover revoked successfully.");
+      setSnackbarSeverity("success");
+      setSnackbarOpen(true);
+      fetchActiveHandovers();
+    } catch (handoverError) {
+      setSnackbarMessage(handoverError.message || "Failed to revoke handover.");
+      setSnackbarSeverity("error");
+      setSnackbarOpen(true);
+    }
+  };
+
   // Enhanced search: search by ID, name, email, role, unit_section, sub_section, designation, report_to
   // We use text-based search instead of ID-only because:
   // 1. Users don't always know the exact ID
@@ -488,6 +606,15 @@ export default function CallCenterUsers() {
           onChange={(e) => setSearch(e.target.value)}
           className="search-input"
         />
+        <button
+          className="add-user-button"
+          onClick={() => {
+            setHandoverForm((prev) => ({ ...prev, from_user_id: loggedInUserId }));
+            setShowHandoverModal(true);
+          }}
+        >
+          Handover
+        </button>
         <button
           className="add-user-button"
           onClick={() => {
@@ -695,6 +822,60 @@ export default function CallCenterUsers() {
           </TableBody>
         </Table>
       </TableContainer>
+
+      <Box sx={{ mt: 3 }}>
+        <Typography variant="h6" sx={{ mb: 1 }}>
+          Active Handovers
+        </Typography>
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>From User</TableCell>
+                <TableCell>To User</TableCell>
+                <TableCell>Return At</TableCell>
+                <TableCell>Role</TableCell>
+                <TableCell>Action</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {activeHandovers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} align="center">
+                    No active handovers
+                  </TableCell>
+                </TableRow>
+              ) : (
+                activeHandovers.map((handover) => (
+                  <TableRow key={handover.id}>
+                    <TableCell>
+                      {handover.fromUser?.full_name || handover.from_user_id}
+                    </TableCell>
+                    <TableCell>
+                      {handover.toUser?.full_name || handover.to_user_id}
+                    </TableCell>
+                    <TableCell>
+                      {handover.return_at
+                        ? new Date(handover.return_at).toLocaleString()
+                        : "N/A"}
+                    </TableCell>
+                    <TableCell>{handover.from_user_role || "N/A"}</TableCell>
+                    <TableCell>
+                      <Button
+                        size="small"
+                        color="error"
+                        onClick={() => handleRevokeHandover(handover.id)}
+                      >
+                        Revoke
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      </Box>
 
       {/* Pagination Controls */}
       {filteredUsers.length > 0 && (
@@ -1546,6 +1727,114 @@ export default function CallCenterUsers() {
                 Cancel
               </Button>
             </Box>
+          </Box>
+        </Box>
+      </Modal>
+
+      <Modal open={showHandoverModal} onClose={() => setShowHandoverModal(false)}>
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: 500,
+            bgcolor: "background.paper",
+            boxShadow: 24,
+            p: 4,
+            borderRadius: 2,
+          }}
+        >
+          <Typography variant="h6" sx={{ mb: 2 }}>
+            Start User Handover
+          </Typography>
+
+          {isAdminUser ? (
+            <FormControl fullWidth margin="normal" size="small">
+              <InputLabel>From User</InputLabel>
+              <Select
+                value={handoverForm.from_user_id}
+                label="From User"
+                onChange={(e) =>
+                  setHandoverForm((prev) => ({
+                    ...prev,
+                    from_user_id: e.target.value,
+                  }))
+                }
+              >
+                {users.map((user) => (
+                  <MenuItem key={user.id} value={user.id}>
+                    {user.full_name} ({user.role})
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          ) : (
+            <TextField
+              fullWidth
+              margin="normal"
+              size="small"
+              label="From User"
+              value={loggedInUserName}
+              disabled
+            />
+          )}
+
+          <FormControl fullWidth margin="normal" size="small">
+            <InputLabel>To User</InputLabel>
+            <Select
+              value={handoverForm.to_user_id}
+              label="To User"
+              onChange={(e) =>
+                setHandoverForm((prev) => ({
+                  ...prev,
+                  to_user_id: e.target.value,
+                }))
+              }
+            >
+              {users
+                .filter((user) => user.id !== handoverForm.from_user_id)
+                .map((user) => (
+                  <MenuItem key={user.id} value={user.id}>
+                    {user.full_name} ({user.role})
+                  </MenuItem>
+                ))}
+            </Select>
+          </FormControl>
+
+          <TextField
+            fullWidth
+            margin="normal"
+            size="small"
+            type="datetime-local"
+            label="Return Date"
+            InputLabelProps={{ shrink: true }}
+            value={handoverForm.return_at}
+            onChange={(e) =>
+              setHandoverForm((prev) => ({ ...prev, return_at: e.target.value }))
+            }
+          />
+
+          <TextField
+            fullWidth
+            margin="normal"
+            size="small"
+            label="Reason (optional)"
+            multiline
+            minRows={2}
+            value={handoverForm.reason}
+            onChange={(e) =>
+              setHandoverForm((prev) => ({ ...prev, reason: e.target.value }))
+            }
+          />
+
+          <Box sx={{ display: "flex", gap: 1, justifyContent: "flex-end", mt: 2 }}>
+            <Button variant="outlined" onClick={() => setShowHandoverModal(false)}>
+              Cancel
+            </Button>
+            <Button variant="contained" onClick={handleStartHandover}>
+              Start Handover
+            </Button>
           </Box>
         </Box>
       </Modal>

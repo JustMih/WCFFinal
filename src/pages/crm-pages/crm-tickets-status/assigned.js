@@ -433,7 +433,33 @@ export default function Crm() {
       {activeColumns.includes("subject") && <td>{ticket.subject || "N/A"}</td>}
       {activeColumns.includes("category") && <td>{ticket.category || "N/A"}</td>}
       {activeColumns.includes("assigned_to_role") && (
-        <td>{ticket.assigned_to_role || "N/A"}</td>
+        <td>
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+            <span>{ticket.assigned_to_role || "N/A"}</span>
+            {ticket.handover_active && (
+              <>
+                <span
+                  style={{
+                    background: "#fff4e5",
+                    color: "#9a3412",
+                    border: "1px solid #fed7aa",
+                    borderRadius: "999px",
+                    fontSize: "11px",
+                    padding: "2px 8px",
+                    width: "fit-content",
+                  }}
+                >
+                  Handed Over As {ticket.effective_role || ticket.assigned_to_role}
+                </span>
+                {ticket.handover_block_reason && (
+                  <span style={{ color: "#b91c1c", fontSize: "11px" }}>
+                    {ticket.handover_block_reason}
+                  </span>
+                )}
+              </>
+            )}
+          </div>
+        </td>
       )}
       <td>
         <Tooltip title="Ticket Details">
