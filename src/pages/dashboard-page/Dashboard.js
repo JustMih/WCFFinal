@@ -53,6 +53,8 @@ import LookupTablesManagement from "../super-admin/LookupTablesManagement";
 import MappingManagement from "../super-admin/MappingManagement";
 import SystemLogsPage from "../admin/SystemLogsPage";
 import PublicDashboard from "../public-dashboard/PublicDashboard";
+import HandoverPage from "../handover/HandoverPage";
+import HandoverInitiatorBanner from "../../components/handover/HandoverInitiatorBanner";
 
 export default function Dashboard() {
   const [isDarkMode, setDarkMode] = useState(false);
@@ -136,6 +138,7 @@ export default function Dashboard() {
         setActiveSystem={setActiveSystem}
         activeSystem={activeSystem}
       />
+      <HandoverInitiatorBanner />
       <div className="layout">
         {activeSystem === "call-center" && (
           <CallCenterSidebar
@@ -196,6 +199,10 @@ export default function Dashboard() {
                 <Route
                   path="/users"
                   element={<PrivateRoute element={<CallCenterUsers />} />}
+                />
+                <Route
+                  path="/handover"
+                  element={<PrivateRoute element={<HandoverPage />} />}
                 />
                 <Route
                   path="/agents-logs"
@@ -359,6 +366,10 @@ export default function Dashboard() {
                 <Route
                   path="/instagram"
                   element={<PrivateRoute element={<InstagramPage />} />}
+                />
+                <Route
+                  path="/handover"
+                  element={<PrivateRoute element={<HandoverPage />} />}
                 />
               </>
             )}
