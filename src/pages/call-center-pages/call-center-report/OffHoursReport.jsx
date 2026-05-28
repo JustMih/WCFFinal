@@ -22,6 +22,7 @@ import {
   buildSummary,
 } from "../../../utils/offHoursHelper";
 import { playVoiceNoteAudio } from "../../../utils/voiceNoteAudio";
+import { markVoiceNotePlayed } from "../../../utils/voiceNotePlayed";
 import {
   enrichRecordClient,
   buildEmergencyMap,
@@ -333,6 +334,24 @@ export default function OffHoursReport() {
       const { audio } = await playVoiceNoteAudio(record);
       setCurrentAudio(audio);
       setCurrentlyPlayingId(record.id);
+
+      try {
+        await markVoiceNotePlayed(record.id, audio.duration);
+        setRecords((prev) =>
+          prev.map((r) =>
+            r.id === record.id
+              ? {
+                  ...r,
+                  is_played: 1,
+                  duration_seconds:
+                    r.duration_seconds || Math.round(audio.duration || 0),
+                }
+              : r
+          )
+        );
+      } catch (markErr) {
+        console.warn("Could not save played status:", markErr);
+      }
 
       const updatedStatus = { ...playedStatus, [record.id]: true };
       setPlayedStatus(updatedStatus);

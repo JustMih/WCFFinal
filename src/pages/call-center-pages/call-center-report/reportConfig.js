@@ -27,7 +27,7 @@ export const REPORTS = [
   { slug: "notifications", label: "Notifications", type: REPORT_TYPES.NOTIFICATIONS },
   { slug: "chats", label: "Chats", type: REPORT_TYPES.CHATS },
   { slug: "pause", label: "Pause Report", type: REPORT_TYPES.PAUSE },
-  { slug: "off-hours", label: "Off-Hours Calls Report", type: REPORT_TYPES.OFF_HOURS },
+  { slug: "off-hours", label: "Off-Hours Calls", type: REPORT_TYPES.OFF_HOURS },
 ];
 
 const LEGACY_TAB_MAP = {
