@@ -6,6 +6,7 @@ import {
 } from "react-icons/fa";
 import "./LiveCallsCard.css";
 import { baseURL } from "../../config";
+import SupervisorSipBar from "./SupervisorSipBar";
 
 export default function LiveCallsCard({
   isLoading,
@@ -35,15 +36,13 @@ export default function LiveCallsCard({
     try {
       setActionMessage("");
 
-      const supervisorExtension = localStorage.getItem("extension") || undefined;
-
       const response = await fetch(`${baseURL}/livestream/spy`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${localStorage.getItem("authToken")}`,
         },
-        body: JSON.stringify({ linkedid, mode, supervisorExtension }),
+        body: JSON.stringify({ linkedid, mode }),
       });
 
       const data = await response.json().catch(() => ({}));
@@ -54,10 +53,13 @@ export default function LiveCallsCard({
 
       setSpyingOn(linkedid);
       setSpyMode(mode);
+      const steps = Array.isArray(data.instructions)
+        ? data.instructions.join(" ")
+        : `Answer your phone (extension ${data.supervisor_extension}) when it rings to hear the agent.`;
       setActionMessage(
         `${modeLabels[mode] || mode} on ${data.agent_name || "agent"} (ext ${
           data.agent_extension || "—"
-        }). Your phone (${data.supervisor_extension}) should ring now.`
+        }). ${steps}`
       );
     } catch (err) {
       console.error("❌ Spy failed:", err);
@@ -153,6 +155,8 @@ export default function LiveCallsCard({
      ================================ */
   return (
     <div className="live-calls-table-container">
+      <SupervisorSipBar />
+
       <div className="live-calls-header">
         <h4>
           Live Calls{" "}

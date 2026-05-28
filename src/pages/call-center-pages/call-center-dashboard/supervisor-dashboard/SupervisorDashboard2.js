@@ -238,8 +238,15 @@ export default function SupervisorDashboard2() {
 
       // Fetch SLA metrics
       const slaResponse = await fetch(`${baseURL}/calls/sla-metrics`);
-      const slaData = await slaResponse.json();
-      setSlaMetrics(slaData);
+      if (slaResponse.ok) {
+        const slaData = await slaResponse.json();
+        setSlaMetrics(slaData);
+      }
+
+      const queueResponse = await fetch(`${baseURL}/queue-call-stats`);
+      if (queueResponse.ok) {
+        setQueueData(await queueResponse.json());
+      }
     } catch (error) {
       console.error("Error fetching data:", error);
       // Keep using dummy data if API calls fail
@@ -254,12 +261,10 @@ export default function SupervisorDashboard2() {
   const fetchQueueData = async () => {
     try {
       const response = await fetch(`${baseURL}/queue-call-stats`);
-      if (!response.ok) throw new Error('Failed to fetch queue data');
-      const data = await response.json();
-      setQueueData(data);
+      if (!response.ok) return;
+      setQueueData(await response.json());
     } catch (error) {
       console.error('Error fetching queue data:', error);
-      setQueueData(null);
     }
   };
 
@@ -267,8 +272,9 @@ export default function SupervisorDashboard2() {
   const fetchAlerts = async () => {
     try {
       const response = await fetch(`${baseURL}/alerts/active`);
-      const data = await response.json();
-      setAlerts(data);
+      if (response.ok) {
+        setAlerts(await response.json());
+      }
     } catch (error) {
       console.error("Error fetching alerts:", error);
       // Keep using dummy data if API call fails
