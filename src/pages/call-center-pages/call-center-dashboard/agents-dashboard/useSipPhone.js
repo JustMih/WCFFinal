@@ -264,7 +264,7 @@ export function useSipPhone({
       if (!wasAnsweredRef.current) {
         onMissedCall?.(number);
       }
-    }, rejectMs);
+    }, 20000);
   };
 
   // ---------- UA startup ----------
