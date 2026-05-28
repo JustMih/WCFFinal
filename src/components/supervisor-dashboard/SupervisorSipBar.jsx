@@ -9,7 +9,6 @@ import "./SupervisorSipBar.css";
 export default function SupervisorSipBar({
   extension,
   phoneStatus,
-  remoteAudioRef,
   acceptCall,
   rejectCall,
   endCall,
@@ -42,7 +41,6 @@ export default function SupervisorSipBar({
           : "supervisor-sip-bar--warn"
       }`}
     >
-      <audio ref={remoteAudioRef} autoPlay playsInline style={{ display: "none" }} />
       <strong>Supervisor phone (ext {extension}):</strong>{" "}
       <span>{phoneStatus || "Connecting…"}</span>
       {isRinging && (
