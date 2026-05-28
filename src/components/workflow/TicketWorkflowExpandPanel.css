@@ -1,0 +1,155 @@
+.ticket-workflow-expand-panel {
+  padding: 12px 16px 8px;
+  text-align: left;
+}
+
+.ticket-workflow-expand-loading {
+  display: flex;
+  justify-content: center;
+  padding: 24px;
+}
+
+.ticket-workflow-expand-error {
+  color: #b91c1c;
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.ticket-workflow-expand-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+.ticket-workflow-expand-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.workflow-path-chip {
+  font-weight: 600 !important;
+}
+
+.ticket-workflow-expand-empty {
+  margin: 8px 0 0;
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.ticket-workflow-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 8px;
+}
+
+.ticket-workflow-timeline-item {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 14px;
+  position: relative;
+}
+
+.ticket-workflow-timeline-item:not(:last-child)::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 18px;
+  bottom: -14px;
+  width: 2px;
+  background: color-mix(in srgb, var(--wcf-blue, #305fa7) 35%, transparent);
+}
+
+.ticket-workflow-timeline-marker {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  margin-top: 4px;
+  border-radius: 50%;
+  background: var(--wcf-blue, #305fa7);
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--wcf-blue, #305fa7) 40%, transparent);
+  z-index: 1;
+}
+
+.ticket-workflow-timeline-item:first-child .ticket-workflow-timeline-marker {
+  background: var(--wcf-green, #29694e);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--wcf-green, #29694e) 40%, transparent);
+}
+
+.ticket-workflow-timeline-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.ticket-workflow-timeline-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  margin-bottom: 4px;
+}
+
+.ticket-workflow-timeline-name {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--text-color, #1e293b);
+}
+
+.ticket-workflow-timeline-role {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.ticket-workflow-timeline-date {
+  margin-left: auto;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.ticket-workflow-timeline-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.ticket-workflow-timeline-message {
+  font-size: 0.8125rem;
+  color: #475569;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.workflow-step-message {
+  display: inline;
+}
+
+.workflow-show-more {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: 4px;
+  color: var(--wcf-blue, #305fa7);
+  cursor: pointer;
+  font-size: inherit;
+  text-decoration: underline;
+}
+
+.workflow-show-more:hover {
+  color: var(--wcf-green, #29694e);
+}
+
+.ticket-workflow-expand-hint {
+  margin: 12px 0 0;
+  font-size: 0.7rem;
+  color: #94a3b8;
+}

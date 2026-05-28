@@ -36,3 +36,8 @@ export async function fetchHttpLogs(params) {
   return response.data;
 }
 
+export async function fetchAuditLogs(params) {
+  const response = await api.get("/logs/audit", { params });
+  return response.data;
+}
+

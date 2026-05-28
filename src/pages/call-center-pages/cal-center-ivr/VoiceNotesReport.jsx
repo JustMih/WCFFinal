@@ -1,9 +1,10 @@
- import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { baseURL } from "../../../config";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+import ReportDateRangePicker from "../../../components/shared/ReportDateRangePicker";
 import "./VoiceNotesReport.css";
 
 export default function RecordedSounds() {
@@ -226,32 +227,22 @@ export default function RecordedSounds() {
       <h2 className="voice-title">Recorded Voice Notes</h2>
 
       {/* ================= FILTERS ================= */}
-      <div className="voice-controls">
+      <div className="voice-controls report-filters-row">
         <input
           className="voice-search"
           placeholder="Search Caller / ID"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-          <div className="date-filters">
-            <div className="date-field">
-              <label>From</label>
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-              />
-            </div>
-
-            <div className="date-field">
-              <label>To</label>
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-              />
-            </div>
-          </div>
+          <ReportDateRangePicker
+            className="date-filters"
+            startDate={fromDate}
+            endDate={toDate}
+            onStartDateChange={setFromDate}
+            onEndDateChange={setToDate}
+            startLabel="From"
+            endLabel="To"
+          />
 
         <select
           value={extensionFilter}

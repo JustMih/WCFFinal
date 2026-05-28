@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
 import { baseURL } from "../../../config";
+import ReportDateRangePicker from "../../../components/shared/ReportDateRangePicker";
 import {
   Snackbar,
   Alert,
@@ -155,7 +156,7 @@ export default function VoiceNoteReport() {
       startY: 22,
       head: [
         activeTab === 0
-          ? ["#", "Phone", "Date", "Played", "Agent", "Duration", "Transcription"]
+          ? ["#", "Phone", "Date", "Played", "Agent"]
           : [
               "#",
               "Caller ID",
@@ -175,8 +176,6 @@ export default function VoiceNoteReport() {
               r.created_at ? new Date(r.created_at).toLocaleString() : "-",
               isPlayedNote(r) ? "Yes" : "No",
               r.assigned_agent_id ? `Agent #${r.assigned_agent_id}` : "-",
-              safe(r.duration_seconds),
-              safe(r.transcription),
             ]
           : [
               i + 1,
@@ -205,9 +204,14 @@ export default function VoiceNoteReport() {
         <Tab label="CDR Report" />
       </Tabs>
 
-      <div className="controls" style={{ gap: 8 }}>
-        <TextField type="date" label="Start Date" InputLabelProps={{ shrink: true }} size="small" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-        <TextField type="date" label="End Date" InputLabelProps={{ shrink: true }} size="small" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+      <div className="controls report-filters-row" style={{ gap: 8 }}>
+        <ReportDateRangePicker
+          startDate={startDate}
+          endDate={endDate}
+          onStartDateChange={setStartDate}
+          onEndDateChange={setEndDate}
+          disabled={loading}
+        />
 
         {activeTab === 0 ? (
           <FormControl size="small">
@@ -252,8 +256,6 @@ export default function VoiceNoteReport() {
               <th>Audio</th>
               <th>Played</th>
               <th>Agent</th>
-              <th>Duration</th>
-              <th>Transcription</th>
             </tr>
           ) : (
             <tr>
@@ -271,9 +273,9 @@ export default function VoiceNoteReport() {
 
        <tbody>
   {loading ? (
-    <tr><td colSpan={8}>Loading…</td></tr>
+    <tr><td colSpan={activeTab === 0 ? 6 : 8}>Loading…</td></tr>
   ) : currentReports.length === 0 ? (
-    <tr><td colSpan={8}>No records found</td></tr>
+    <tr><td colSpan={activeTab === 0 ? 6 : 8}>No records found</td></tr>
   ) : (
     currentReports.map((r, i) => (
       <tr key={r.id}>
@@ -320,9 +322,6 @@ export default function VoiceNoteReport() {
     ? `Ext ${r.assigned_extension}${r.assigned_agent_name ? ` (${r.assigned_agent_name})` : ""}`
     : "-"}
 </td>
-
-        <td>{safe(r.duration_seconds)}</td>
-        <td>{safe(r.transcription)}</td>
       </tr>
     ))
   )}
