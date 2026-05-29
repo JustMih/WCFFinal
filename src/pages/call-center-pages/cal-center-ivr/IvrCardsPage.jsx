@@ -3,9 +3,6 @@
 import React, { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { GiVrHeadset } from "react-icons/gi";
-import { MdOutlineAudiotrack } from "react-icons/md";
-import { TbActivityHeartbeat } from "react-icons/tb";
-import { FaRegFileAlt } from "react-icons/fa";
 import { IoMdArrowRoundBack } from "react-icons/io";
 import "./IvrCardsPage.css";
 import { IVR_CATEGORIES } from "./ivrConfig";
