@@ -1,8 +1,10 @@
 import Swal from "sweetalert2";
 import "sweetalert2/dist/sweetalert2.min.css";
+import "./handoverSwal.css";
 
 const swalBase = {
   customClass: {
+    container: "handover-swal-container",
     popup: "handover-swal-popup",
     title: "handover-swal-title",
     htmlContainer: "handover-swal-html",
