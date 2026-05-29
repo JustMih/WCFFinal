@@ -112,6 +112,19 @@ const OFF_HOURS_CATEGORY_OPTIONS = [
   { value: "weekday_after_hours", label: "Weekday After Hours" },
 ];
 
+const missedCallSource = (r) =>
+  r.call_source || r.caller_display || r.caller_phone || r.caller || "—";
+
+const missedCallDestination = (r) =>
+  r.call_destination || r.destination || r.cdr_dst || r.cdr_did || "—";
+
+const missedCallEmergency = (r) =>
+  r.emergency_number_label ||
+  r.emergency_number ||
+  r.routed_to_label ||
+  r.routed_to ||
+  "—";
+
 const OFF_HOURS_CATEGORY_COLORS = {
   public_holiday: "#e91e63",
   sunday: "#9c27b0",
@@ -805,7 +818,9 @@ export default function ComprehensiveReports() {
         head: [
           [
             "Sn",
-            "Caller ID",
+            "Source",
+            "Destination",
+            "Emergency Number",
             "Date/Time",
             "Category",
             "Callback Status",
@@ -815,7 +830,9 @@ export default function ComprehensiveReports() {
         ],
         body: filteredReports.map((r, idx) => [
           idx + 1,
-          r.caller_display || r.caller || "-",
+          missedCallSource(r),
+          missedCallDestination(r),
+          missedCallEmergency(r),
           getOffHoursTimestamp(r)
             ? new Date(getOffHoursTimestamp(r)).toLocaleString()
             : "-",
@@ -882,7 +899,9 @@ export default function ComprehensiveReports() {
     } else if (offHoursSource === "missed-calls") {
       rows = filteredReports.map((r, idx) => ({
         Sn: idx + 1,
-        "Caller ID": r.caller_display || r.caller || "-",
+        Source: missedCallSource(r),
+        Destination: missedCallDestination(r),
+        "Emergency Number": missedCallEmergency(r),
         "Date/Time": getOffHoursTimestamp(r)
           ? new Date(getOffHoursTimestamp(r)).toLocaleString()
           : "-",
@@ -2613,7 +2632,9 @@ export default function ComprehensiveReports() {
             <thead>
               <tr>
                 <th>Sn</th>
-                <th>Caller ID</th>
+                <th>Source</th>
+                <th>Destination</th>
+                <th>Emergency Number</th>
                 <th>Date/Time</th>
                 <th>Category</th>
                 <th>Callback Status</th>
@@ -2636,7 +2657,11 @@ export default function ComprehensiveReports() {
                     }}
                   >
                     <td>{indexOfFirstReport + index + 1}</td>
-                    <td>{phone || "-"}</td>
+                    <td>{missedCallSource(record)}</td>
+                    <td>{missedCallDestination(record)}</td>
+                    <td title={record.emergency_number_label || ""}>
+                      {missedCallEmergency(record)}
+                    </td>
                     <td>
                       {getOffHoursTimestamp(record)
                         ? new Date(

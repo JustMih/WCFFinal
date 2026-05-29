@@ -57,12 +57,53 @@ async function fetchOffHoursFallback(startDate, endDate, source) {
 
   if (source === "missed-calls") {
     timestampField = "time";
-    const dataRes = await fetch(
-      `${baseURL}/missed-calls?startDate=${startDate}&endDate=${endDate}`,
-      { headers: authHeaders() }
-    );
+    const [dataRes, emergencyRes, cdrRes] = await Promise.all([
+      fetch(
+        `${baseURL}/missed-calls?startDate=${startDate}&endDate=${endDate}`,
+        { headers: authHeaders() }
+      ),
+      fetch(`${baseURL}/emergency`, { headers: authHeaders() }),
+      fetch(
+        `${baseURL}/reports/cdr-report/${startDate}/${endDate}/all`,
+        { headers: authHeaders() }
+      ),
+    ]);
     if (!dataRes.ok) throw new Error("Failed to load missed calls");
     rawRecords = await dataRes.json();
+    const emergencyList = emergencyRes.ok ? await emergencyRes.json() : [];
+    const cdrLegs = cdrRes.ok ? await cdrRes.json() : [];
+    const holidayDates = buildHolidaySet(holidays);
+    const filtered = filterOffHoursRecords(
+      rawRecords,
+      timestampField,
+      holidayDates
+    );
+    const emergencyByPhone = buildEmergencyMap(emergencyList);
+    const records = filtered.map((r) => {
+      const caller = r.caller || r.caller_display;
+      const enriched = enrichRecordClient(
+        { ...r, clid: caller, src: caller, cdrstarttime: r.time },
+        emergencyByPhone,
+        "cdr"
+      );
+      return {
+        ...r,
+        caller_display: caller,
+        call_source: caller,
+        callback_status: r.status,
+        callback_agent_name: r.agent_name,
+        callback_time: r.called_back_at,
+        callback_agent_extension: r.called_back_by,
+        call_destination:
+          enriched.routed_to || cdrLegs.find((c) => c.dst)?.dst || "—",
+        destination: enriched.routed_to || "—",
+        emergency_number: enriched.routed_to || "—",
+        emergency_number_label: enriched.routed_to_label,
+        routed_to: enriched.routed_to,
+        routed_to_label: enriched.routed_to_label,
+      };
+    });
+    return { summary: buildSummary(records), records };
   } else {
     const [emergencyRes, dataRes] = await Promise.all([
       fetch(`${baseURL}/emergency`, { headers: authHeaders() }),
@@ -150,6 +191,19 @@ const CALLBACK_STATUS_COLORS = {
   called_back: "#22c55e",
   ignored: "#9ca3af",
 };
+
+const missedCallSource = (r) =>
+  r.call_source || r.caller_display || r.caller_phone || r.caller || "—";
+
+const missedCallDestination = (r) =>
+  r.call_destination || r.destination || r.cdr_dst || r.cdr_did || "—";
+
+const missedCallEmergency = (r) =>
+  r.emergency_number_label ||
+  r.emergency_number ||
+  r.routed_to_label ||
+  r.routed_to ||
+  "—";
 
 export default function OffHoursReport() {
   const [records, setRecords] = useState([]);
@@ -241,9 +295,14 @@ export default function OffHoursReport() {
       ""
     ).toLowerCase();
     const routed = (record.routed_to_label || record.routed_to || "").toLowerCase();
+    const dest = missedCallDestination(record).toLowerCase();
+    const emergency = missedCallEmergency(record).toLowerCase();
     const term = search.toLowerCase();
     const matchesSearch =
-      phone.includes(term) || routed.includes(term);
+      phone.includes(term) ||
+      routed.includes(term) ||
+      dest.includes(term) ||
+      emergency.includes(term);
     const matchesCategory =
       categoryFilter === "all" || record.off_hours_category === categoryFilter;
     return matchesSearch && matchesCategory;
@@ -431,7 +490,9 @@ export default function OffHoursReport() {
         head: [
           [
             "Sn",
-            "Caller ID",
+            "Source",
+            "Destination",
+            "Emergency Number",
             "Date/Time",
             "Category",
             "Callback Status",
@@ -441,7 +502,9 @@ export default function OffHoursReport() {
         ],
         body: filteredRecords.map((r, idx) => [
           idx + 1,
-          r.caller_display || r.caller || "-",
+          missedCallSource(r),
+          missedCallDestination(r),
+          missedCallEmergency(r),
           getTimestamp(r) ? new Date(getTimestamp(r)).toLocaleString() : "-",
           r.off_hours_label || "-",
           r.callback_status || r.status || "-",
@@ -613,7 +676,9 @@ export default function OffHoursReport() {
             <thead>
               <tr>
                 <th>Sn</th>
-                <th>Caller ID</th>
+                <th>Source</th>
+                <th>Destination</th>
+                <th>Emergency Number</th>
                 <th>Date/Time</th>
                 <th>Category</th>
                 <th>Callback Status</th>
@@ -625,7 +690,7 @@ export default function OffHoursReport() {
             <tbody>
               {currentRecords.length === 0 ? (
                 <tr>
-                  <td colSpan={8}>No off-hours missed calls found.</td>
+                  <td colSpan={10}>No off-hours missed calls found.</td>
                 </tr>
               ) : (
                 currentRecords.map((record, index) => {
@@ -641,7 +706,11 @@ export default function OffHoursReport() {
                       }}
                     >
                       <td>{indexOfFirst + index + 1}</td>
-                      <td>{phone || "-"}</td>
+                      <td>{missedCallSource(record)}</td>
+                      <td>{missedCallDestination(record)}</td>
+                      <td title={record.emergency_number_label || ""}>
+                        {missedCallEmergency(record)}
+                      </td>
                       <td>
                         {getTimestamp(record)
                           ? new Date(getTimestamp(record)).toLocaleString()
