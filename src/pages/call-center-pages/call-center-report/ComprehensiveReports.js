@@ -128,6 +128,18 @@ const OFF_HOURS_CATEGORY_COLORS = {
   weekday_after_hours: "#2196f3",
 };
 
+const DTMF_CHART_COLORS = [
+  "#6366f1",
+  "#8b5cf6",
+  "#ec4899",
+  "#f97316",
+  "#eab308",
+  "#22c55e",
+  "#14b8a6",
+  "#3b82f6",
+  "#a855f7",
+];
+
 const OFF_HOURS_SUMMARY_CARDS = [
   { key: "total", label: "Total Off-Hours", color: "#374151" },
   { key: "public_holiday", label: "Public Holiday", color: "#e91e63" },

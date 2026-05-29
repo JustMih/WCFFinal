@@ -304,14 +304,14 @@ return () => {
   const monthlyLost = month.lost ?? 0;
   const monthlyTotal =
     month.totalCalls ??
-    monthlyAnswered + monthlyIvr + monthlyLost + monthlyDropped;
+    monthlyAnswered + monthlyLost + monthlyDropped;
 
   const yearlyAnswered = year.answered ?? 0;
   const yearlyDropped = year.dropped ?? 0;
   const yearlyLost = year.lost ?? 0;
   const yearlyTotal =
     year.totalCalls ??
-    yearlyAnswered + yearlyIvr + yearlyLost + yearlyDropped;
+    yearlyAnswered + yearlyLost + yearlyDropped;
 
   // Helper function to calculate percentage
   const calculatePercentage = (count, total) => {
@@ -683,7 +683,7 @@ return () => {
                   <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "25%" }}>
                     <Box textAlign="center" sx={{ width: "100%", px: 0.5 }}>
                       <Typography variant="h4" sx={{ fontWeight: 700, color: "#667eea", mb: 0.5 }}>
-                        {dailyTotalCalls}
+                        {dailyTotal}
                       </Typography>
                       <Typography variant="body2" color="textSecondary" sx={{ fontSize: "0.875rem" }}>
                         Total Calls
