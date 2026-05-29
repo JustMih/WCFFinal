@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { baseURL } from "../../config";
 import {
   Autocomplete,
@@ -20,12 +20,18 @@ import {
   confirmRevokeHandover,
   confirmStartHandover,
 } from "../../utils/handoverAlerts";
+import {
+  buildHandoverBlockState,
+  formatHandoverUserLabel,
+  getActorHandoverBlockMessage,
+} from "../../utils/handoverBlockedUsers";
 
 export default function HandoverPage() {
   const loggedInUserId = localStorage.getItem("userId") || "";
 
   const [users, setUsers] = useState([]);
   const [activeHandovers, setActiveHandovers] = useState([]);
+  const [handoverParticipants, setHandoverParticipants] = useState([]);
   const [form, setForm] = useState({
     from_user_id: loggedInUserId,
     to_user_id: "",
@@ -41,6 +47,26 @@ export default function HandoverPage() {
   const authHeaders = {
     Authorization: `Bearer ${localStorage.getItem("authToken")}`,
   };
+
+  const { blockedUserIds, reasonByUserId } = useMemo(
+    () => buildHandoverBlockState(handoverParticipants),
+    [handoverParticipants]
+  );
+
+  const actorBlockMessage = useMemo(
+    () => getActorHandoverBlockMessage(handoverParticipants, loggedInUserId),
+    [handoverParticipants, loggedInUserId]
+  );
+
+  const selectableUsers = useMemo(
+    () =>
+      users.filter(
+        (user) =>
+          String(user.id) !== String(loggedInUserId) &&
+          !blockedUserIds.has(String(user.id))
+      ),
+    [users, loggedInUserId, blockedUserIds]
+  );
 
   const showToast = (message, severity = "success") =>
     setToast({ open: true, message, severity });
@@ -76,12 +102,35 @@ export default function HandoverPage() {
     }
   };
 
+  const fetchBlockedParticipants = async () => {
+    try {
+      const response = await fetch(
+        `${baseURL}/users/handover/blocked-participants`,
+        {
+          method: "GET",
+          headers: authHeaders,
+        }
+      );
+      if (!response.ok) return;
+      const data = await response.json();
+      setHandoverParticipants(data.participants || []);
+    } catch (error) {
+      showToast("Failed to load handover availability.", "error");
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
     fetchActiveHandovers();
+    fetchBlockedParticipants();
   }, []);
 
   const handleStartHandover = async () => {
+    if (actorBlockMessage) {
+      showToast(actorBlockMessage, "error");
+      return;
+    }
+
     const normalizedReturnAt = form.return_at
       ? `${form.return_at}T23:59:59`
       : "";
@@ -129,6 +178,7 @@ export default function HandoverPage() {
         reason: "",
       });
       fetchActiveHandovers();
+      fetchBlockedParticipants();
     } catch (error) {
       showToast(error.message || "Failed to start handover.", "error");
     }
@@ -152,6 +202,7 @@ export default function HandoverPage() {
       }
       showToast("Handover revoked successfully.");
       fetchActiveHandovers();
+      fetchBlockedParticipants();
     } catch (error) {
       showToast(error.message || "Failed to revoke handover.", "error");
     }
@@ -168,6 +219,12 @@ export default function HandoverPage() {
           Start Handover
         </Typography>
 
+        {actorBlockMessage ? (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            {actorBlockMessage}
+          </Alert>
+        ) : null}
+
         <Box
           sx={{
             display: "grid",
@@ -177,7 +234,8 @@ export default function HandoverPage() {
         >
           <Autocomplete
             fullWidth
-            options={users.filter((user) => user.id !== loggedInUserId)}
+            disabled={Boolean(actorBlockMessage)}
+            options={selectableUsers}
             value={users.find((u) => u.id === form.to_user_id) || null}
             onChange={(_, selectedUser) =>
               setForm((prev) => ({
@@ -185,9 +243,7 @@ export default function HandoverPage() {
                 to_user_id: selectedUser?.id || "",
               }))
             }
-            getOptionLabel={(option) =>
-              option?.full_name ? `${option.full_name} (${option.role})` : ""
-            }
+            getOptionLabel={(option) => formatHandoverUserLabel(option, reasonByUserId)}
             renderInput={(params) => (
               <TextField
                 {...params}
@@ -207,6 +263,7 @@ export default function HandoverPage() {
             label="Return Date"
             InputLabelProps={{ shrink: true }}
             value={form.return_at}
+            disabled={Boolean(actorBlockMessage)}
             onChange={(e) => setForm((prev) => ({ ...prev, return_at: e.target.value }))}
           />
         </Box>
@@ -219,11 +276,16 @@ export default function HandoverPage() {
           multiline
           minRows={2}
           value={form.reason}
+          disabled={Boolean(actorBlockMessage)}
           onChange={(e) => setForm((prev) => ({ ...prev, reason: e.target.value }))}
         />
 
         <Box sx={{ display: "flex", justifyContent: "flex-end", mt: 1 }}>
-          <Button variant="contained" onClick={handleStartHandover}>
+          <Button
+            variant="contained"
+            onClick={handleStartHandover}
+            disabled={Boolean(actorBlockMessage)}
+          >
             Start Handover
           </Button>
         </Box>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { FaArrowRight, FaPlus } from "react-icons/fa";
 import { FaRegQuestionCircle } from "react-icons/fa";
 import { AiFillEdit } from "react-icons/ai";
@@ -6,6 +6,11 @@ import { HiMiniLockClosed, HiMiniLockOpen } from "react-icons/hi2";
 import { RxReset } from "react-icons/rx";
 import { MdDeleteForever } from "react-icons/md";
 import { baseURL } from "../../../config";
+import {
+  buildHandoverBlockState,
+  formatHandoverUserLabel,
+  getActorHandoverBlockMessage,
+} from "../../../utils/handoverBlockedUsers";
 import "./callCenterUsers.css";
 import {
   Tooltip,
@@ -73,6 +78,7 @@ export default function CallCenterUsers() {
   const [selectedSection, setSelectedSection] = useState(""); // Selected section (directorate/unit)
   const [showHandoverModal, setShowHandoverModal] = useState(false);
   const [activeHandovers, setActiveHandovers] = useState([]);
+  const [handoverParticipants, setHandoverParticipants] = useState([]);
   const [handoverForm, setHandoverForm] = useState({
     from_user_id: loggedInUserId,
     to_user_id: "",
@@ -130,9 +136,54 @@ export default function CallCenterUsers() {
     }
   };
 
+  const fetchBlockedParticipants = async () => {
+    try {
+      const response = await fetch(
+        `${baseURL}/users/handover/blocked-participants`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          },
+        }
+      );
+      if (!response.ok) return;
+      const data = await response.json();
+      setHandoverParticipants(data.participants || []);
+    } catch (handoverError) {
+      console.error("Failed to fetch blocked participants:", handoverError);
+    }
+  };
+
   useEffect(() => {
     fetchActiveHandovers();
+    fetchBlockedParticipants();
   }, []);
+
+  const effectiveFromUserId = isAdminUser
+    ? handoverForm.from_user_id
+    : loggedInUserId;
+
+  const { blockedUserIds, reasonByUserId } = useMemo(
+    () => buildHandoverBlockState(handoverParticipants),
+    [handoverParticipants]
+  );
+
+  const actorBlockMessage = useMemo(
+    () =>
+      getActorHandoverBlockMessage(handoverParticipants, effectiveFromUserId),
+    [handoverParticipants, effectiveFromUserId]
+  );
+
+  const selectableHandoverUsers = useMemo(
+    () =>
+      users.filter(
+        (user) =>
+          String(user.id) !== String(effectiveFromUserId) &&
+          !blockedUserIds.has(String(user.id))
+      ),
+    [users, effectiveFromUserId, blockedUserIds]
+  );
 
   // Fetch sections and functions when modal opens and role is focal-person
   useEffect(() => {
@@ -473,6 +524,13 @@ export default function CallCenterUsers() {
   };
 
   const handleStartHandover = async () => {
+    if (actorBlockMessage) {
+      setSnackbarMessage(actorBlockMessage);
+      setSnackbarSeverity("error");
+      setSnackbarOpen(true);
+      return;
+    }
+
     const payload = {
       from_user_id: isAdminUser ? handoverForm.from_user_id : loggedInUserId,
       to_user_id: handoverForm.to_user_id,
@@ -513,6 +571,7 @@ export default function CallCenterUsers() {
         reason: "",
       });
       fetchActiveHandovers();
+      fetchBlockedParticipants();
     } catch (handoverError) {
       setSnackbarMessage(handoverError.message || "Failed to start handover.");
       setSnackbarSeverity("error");
@@ -541,6 +600,7 @@ export default function CallCenterUsers() {
       setSnackbarSeverity("success");
       setSnackbarOpen(true);
       fetchActiveHandovers();
+      fetchBlockedParticipants();
     } catch (handoverError) {
       setSnackbarMessage(handoverError.message || "Failed to revoke handover.");
       setSnackbarSeverity("error");
@@ -1749,24 +1809,34 @@ export default function CallCenterUsers() {
             Start User Handover
           </Typography>
 
+          {actorBlockMessage ? (
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              {actorBlockMessage}
+            </Alert>
+          ) : null}
+
           {isAdminUser ? (
             <FormControl fullWidth margin="normal" size="small">
               <InputLabel>From User</InputLabel>
               <Select
                 value={handoverForm.from_user_id}
                 label="From User"
+                disabled={Boolean(actorBlockMessage)}
                 onChange={(e) =>
                   setHandoverForm((prev) => ({
                     ...prev,
                     from_user_id: e.target.value,
+                    to_user_id: "",
                   }))
                 }
               >
-                {users.map((user) => (
-                  <MenuItem key={user.id} value={user.id}>
-                    {user.full_name} ({user.role})
-                  </MenuItem>
-                ))}
+                {users
+                  .filter((user) => !blockedUserIds.has(String(user.id)))
+                  .map((user) => (
+                    <MenuItem key={user.id} value={user.id}>
+                      {formatHandoverUserLabel(user, reasonByUserId)}
+                    </MenuItem>
+                  ))}
               </Select>
             </FormControl>
           ) : (
@@ -1785,6 +1855,7 @@ export default function CallCenterUsers() {
             <Select
               value={handoverForm.to_user_id}
               label="To User"
+              disabled={Boolean(actorBlockMessage)}
               onChange={(e) =>
                 setHandoverForm((prev) => ({
                   ...prev,
@@ -1792,13 +1863,11 @@ export default function CallCenterUsers() {
                 }))
               }
             >
-              {users
-                .filter((user) => user.id !== handoverForm.from_user_id)
-                .map((user) => (
-                  <MenuItem key={user.id} value={user.id}>
-                    {user.full_name} ({user.role})
-                  </MenuItem>
-                ))}
+              {selectableHandoverUsers.map((user) => (
+                <MenuItem key={user.id} value={user.id}>
+                  {formatHandoverUserLabel(user, reasonByUserId)}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
 
@@ -1810,6 +1879,7 @@ export default function CallCenterUsers() {
             label="Return Date"
             InputLabelProps={{ shrink: true }}
             value={handoverForm.return_at}
+            disabled={Boolean(actorBlockMessage)}
             onChange={(e) =>
               setHandoverForm((prev) => ({ ...prev, return_at: e.target.value }))
             }
@@ -1823,6 +1893,7 @@ export default function CallCenterUsers() {
             multiline
             minRows={2}
             value={handoverForm.reason}
+            disabled={Boolean(actorBlockMessage)}
             onChange={(e) =>
               setHandoverForm((prev) => ({ ...prev, reason: e.target.value }))
             }
@@ -1832,7 +1903,11 @@ export default function CallCenterUsers() {
             <Button variant="outlined" onClick={() => setShowHandoverModal(false)}>
               Cancel
             </Button>
-            <Button variant="contained" onClick={handleStartHandover}>
+            <Button
+              variant="contained"
+              onClick={handleStartHandover}
+              disabled={Boolean(actorBlockMessage)}
+            >
               Start Handover
             </Button>
           </Box>
