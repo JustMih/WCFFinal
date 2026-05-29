@@ -48,13 +48,31 @@ async function fetchJson(url, options = {}) {
 // Normalize list responses: backend sometimes returns {tickets}, {data}, or raw array
 function normalizeTicketListResponse(payload) {
   if (!payload) return [];
-  if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload.tickets)) return payload.tickets;
+  if (Array.isArray(payload)) return payload.map(normalizeTicketRow);
+  if (Array.isArray(payload.tickets)) return payload.tickets.map(normalizeTicketRow);
   // Some endpoints (e.g. overdue) return assignments instead of tickets
   if (Array.isArray(payload.assignments)) return payload.assignments;
-  if (Array.isArray(payload.data)) return payload.data;
-  if (Array.isArray(payload.rows)) return payload.rows;
+  if (Array.isArray(payload.data)) return payload.data.map(normalizeTicketRow);
+  if (Array.isArray(payload.rows)) return payload.rows.map(normalizeTicketRow);
   return [];
+}
+
+function normalizeTicketRow(ticket) {
+  if (!ticket || typeof ticket !== "object") return ticket;
+  const effectiveRole =
+    ticket.effective_role ||
+    ticket.handover_effective_role ||
+    ticket.assigned_to_role ||
+    null;
+  return {
+    ...ticket,
+    effective_role: effectiveRole,
+    handover_active: Boolean(ticket?.handover?.active || ticket.handover_id),
+    can_act_as_delegate: Boolean(ticket?.can_act_as_delegate),
+    can_act_as_original_owner: Boolean(ticket?.can_act_as_original_owner),
+    can_act_with_effective_role: Boolean(ticket?.can_act_with_effective_role),
+    handover_block_reason: ticket?.handover_block_reason || null,
+  };
 }
 
 function normalizeAssignmentsResponse(payload) {

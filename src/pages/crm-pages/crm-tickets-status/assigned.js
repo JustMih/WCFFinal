@@ -18,6 +18,7 @@ import {
 } from "@mui/material";
 // import ColumnSelector from "../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../config";
+import WcfLoader from "../../../components/shared/WcfLoader";
 import "./ticket.css";
 import ChatIcon from '@mui/icons-material/Chat';
 import Dialog from '@mui/material/Dialog';
@@ -433,7 +434,33 @@ export default function Crm() {
       {activeColumns.includes("subject") && <td>{ticket.subject || "N/A"}</td>}
       {activeColumns.includes("category") && <td>{ticket.category || "N/A"}</td>}
       {activeColumns.includes("assigned_to_role") && (
-        <td>{ticket.assigned_to_role || "N/A"}</td>
+        <td>
+          <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+            <span>{ticket.assigned_to_role || "N/A"}</span>
+            {ticket.handover_active && (
+              <>
+                <span
+                  style={{
+                    background: "#fff4e5",
+                    color: "#9a3412",
+                    border: "1px solid #fed7aa",
+                    borderRadius: "999px",
+                    fontSize: "11px",
+                    padding: "2px 8px",
+                    width: "fit-content",
+                  }}
+                >
+                  Handed Over As {ticket.effective_role || ticket.assigned_to_role}
+                </span>
+                {ticket.handover_block_reason && (
+                  <span style={{ color: "#b91c1c", fontSize: "11px" }}>
+                    {ticket.handover_block_reason}
+                  </span>
+                )}
+              </>
+            )}
+          </div>
+        </td>
       )}
       <td>
         <Tooltip title="Ticket Details">
@@ -451,7 +478,9 @@ export default function Crm() {
   if (loading) {
     return (
       <div className="p-6">
-        <h3 className="title">Loading...</h3>
+        <div className="wcf-loading-container">
+          <WcfLoader size="md" message="Loading tickets..." label="Loading tickets" />
+        </div>
       </div>
     );
   }

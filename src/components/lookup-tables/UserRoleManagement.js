@@ -34,6 +34,7 @@ import {
   KeyboardArrowDown,
 } from "@mui/icons-material";
 import { baseURL } from "../../config";
+import WcfLoader from "../shared/WcfLoader";
 
 const UserRoleManagement = () => {
   const [users, setUsers] = useState([]);
@@ -223,7 +224,11 @@ const UserRoleManagement = () => {
   };
 
   if (loading) {
-    return <Typography>Loading...</Typography>;
+    return (
+      <div className="wcf-loading-container">
+        <WcfLoader size="md" message="Loading users and roles..." label="Loading users and roles" />
+      </div>
+    );
   }
 
   return (

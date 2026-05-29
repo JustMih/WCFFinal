@@ -2,18 +2,46 @@
   display: flex;
   flex-direction: column;
   height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
+  background-color: var(--background-color);
 }
 
 .layout {
   display: flex;
   flex: 1;
-  margin-top: 40px; /* Adjust this value based on the navbar height */
+  width: 100%;
+  min-width: 0;
+  margin-top: 40px;
+  overflow: visible;
+  position: relative;
 }
 
 .main-content {
   display: flex;
-  flex: 1;
+  flex: 1 1 0%;
+  width: 0;
+  flex-direction: column;
+  min-width: 0;
+  position: relative;
   background-color: var(--background-color);
-  padding: 20px;
+  padding: 16px 20px;
+  overflow-x: hidden;
   overflow-y: auto;
+  box-sizing: border-box;
+  font-family: var(--content-font, var(--wcf-font-ui));
+}
+
+.main-content > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.page-heading {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-color);
+  margin: 0 0 12px;
+  padding-left: 10px;
+  border-left: 3px solid var(--wcf-green);
 }

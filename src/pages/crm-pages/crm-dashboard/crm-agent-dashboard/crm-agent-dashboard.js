@@ -23,6 +23,7 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import Autocomplete from "@mui/material/Autocomplete";
 import CircularProgress from "@mui/material/CircularProgress";
+import WcfLoader from "../../../../components/shared/WcfLoader";
 import Avatar from "@mui/material/Avatar";
 import Paper from "@mui/material/Paper";
 import Dialog from "@mui/material/Dialog";
@@ -2489,7 +2490,9 @@ const AgentCRM = () => {
   if (loading) {
     return (
       <div className="p-6">
-        <h3 className="title">Loading...</h3>
+        <div className="wcf-loading-container">
+          <WcfLoader size="md" message="Loading dashboard..." label="Loading dashboard" />
+        </div>
       </div>
     );
   }

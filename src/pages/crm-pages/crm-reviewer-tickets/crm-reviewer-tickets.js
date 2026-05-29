@@ -21,6 +21,7 @@ import {
 } from "@mui/material";
 // import ColumnSelector from "../../../components/colums-select/ColumnSelector";
 import { baseURL } from "../../../config";
+import WcfLoader from "../../../components/shared/WcfLoader";
 import "../crm-tickets-status/ticket.css";
 import TicketActions from "../../../components/reviewer/TicketActions";
 import TicketDetailsModal from '../../../components/TicketDetailsModal';
@@ -435,7 +436,9 @@ export default function CRMReviewerTickets() {
   if (loading) {
     return (
       <div className="p-6">
-        <h3 className="title">Loading...</h3>
+        <div className="wcf-loading-container">
+          <WcfLoader size="md" message="Loading tickets..." label="Loading tickets" />
+        </div>
       </div>
     );
   }

@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
-import { Route, Routes, useNavigate, useLocation } from "react-router-dom";
+import React, { useState, useEffect, useRef, useCallback } from "react";
+import { Route, Routes, useNavigate, useLocation, Navigate } from "react-router-dom";
+import { WcfLoadingOverlay } from "../../components/shared/WcfLoader";
 import Navbar from "../../components/nav-bar/Navbar";
 import CallCenterSidebar from "../../components/side-bar/side-bar-call-center/CallCenterSidebar";
 import CRMSidebar from "../../components/side-bar/side-bar-crm/CRMSidebar";
@@ -36,19 +37,21 @@ import HolidayManager from "../call-center-pages/cal-center-ivr/HolidayManager";
 import EmegencyManager from "../call-center-pages/cal-center-ivr/EmergencyManager";
 import VoiceNotesReport from "../call-center-pages/cal-center-ivr/VoiceNotesReport";
 import CDRReports from "../call-center-pages/cal-center-ivr/CDRReports";
-import IVRInteractions from "../call-center-pages/cal-center-ivr/IVRInteractions";
-import Livestream from "../call-center-pages/cal-center-ivr/Livestream";
 import RecordedAudio from "../call-center-pages/cal-center-ivr/RecordedAudio";
 import Message from "../call-center-pages/call-center-social-message/CallCenterSocialMessage";
 import IvrCardsPage from "../call-center-pages/cal-center-ivr/IvrCardsPage";
-import DTMFStats from "../call-center-pages/cal-center-ivr/DTMFStats";
+import IvrCategoryTabsPage from "../call-center-pages/cal-center-ivr/IvrCategoryTabsPage";
 import VoiceNoteReport from "../call-center-pages/call-center-report/voice-note-report";
+import OffHoursReport from "../call-center-pages/call-center-report/OffHoursReport";
 import ComprehensiveReports from "../call-center-pages/call-center-report/ComprehensiveReports";
+import LegacyReportRedirect from "../call-center-pages/call-center-report/LegacyReportRedirect";
 import InstagramPage from "../instagram/InstagramPage";
 import LookupTablesManagement from "../super-admin/LookupTablesManagement";
 import MappingManagement from "../super-admin/MappingManagement";
 import SystemLogsPage from "../admin/SystemLogsPage";
 import PublicDashboard from "../public-dashboard/PublicDashboard";
+import HandoverPage from "../handover/HandoverPage";
+import HandoverInitiatorBanner from "../../components/handover/HandoverInitiatorBanner";
 
 export default function Dashboard() {
   const [isDarkMode, setDarkMode] = useState(false);
@@ -56,8 +59,31 @@ export default function Dashboard() {
   const [activeSystem, setActiveSystem] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
+  const lastNonPublicLocationRef = useRef(location);
+  const [publicDashboardPending, setPublicDashboardPending] = useState(false);
 
   const role = localStorage.getItem("role");
+
+  const handlePublicDashboardReady = useCallback(() => {
+    setPublicDashboardPending(false);
+  }, []);
+
+  useEffect(() => {
+    if (location.pathname === "/public-dashboard") {
+      if (lastNonPublicLocationRef.current.pathname !== "/public-dashboard") {
+        setPublicDashboardPending(true);
+      }
+    } else {
+      lastNonPublicLocationRef.current = location;
+      setPublicDashboardPending(false);
+    }
+  }, [location]);
+
+  const routesLocation = publicDashboardPending
+    ? lastNonPublicLocationRef.current
+    : location;
+  const isPublicDashboardRoute = location.pathname === "/public-dashboard";
+  const showFrozenRoutes = !isPublicDashboardRoute || publicDashboardPending;
 
   useEffect(() => {
     const storedSystem = localStorage.getItem("activeSystem");
@@ -104,32 +130,43 @@ export default function Dashboard() {
       <Navbar
         toggleTheme={toggleTheme}
         isDarkMode={isDarkMode}
-        toggleSidebar={toggleSidebar}
         isSidebarOpen={isSidebarOpen}
         role={role}
         setActiveSystem={setActiveSystem}
         activeSystem={activeSystem}
       />
+      <HandoverInitiatorBanner />
       <div className="layout">
         {activeSystem === "call-center" && (
-          <CallCenterSidebar isSidebarOpen={isSidebarOpen} role={role} />
+          <CallCenterSidebar
+            isSidebarOpen={isSidebarOpen}
+            onToggleSidebar={toggleSidebar}
+            role={role}
+          />
         )}
         {/* where side bar seen according to role */}
         {activeSystem === "crm" && (
-          <CRMSidebar isSidebarOpen={isSidebarOpen} role={role} />
+          <CRMSidebar
+            isSidebarOpen={isSidebarOpen}
+            onToggleSidebar={toggleSidebar}
+            role={role}
+          />
         )}
         <div className="main-content">
-          <Routes>
+          {showFrozenRoutes && (
+          <Routes location={routesLocation}>
             {activeSystem === "call-center" && (
               <>
                 <Route
                   path="/dashboard"
                   element={<PrivateRoute element={<Dashboard2 />} />}
                 />
+                {!isPublicDashboardRoute && (
                 <Route
                   path="/public-dashboard"
                   element={<PrivateRoute element={<PublicDashboard />} />}
                 />
+                )}
                 {(role === "admin" || role === "super-admin") && (
                   <Route
                     path="/system-logs"
@@ -159,6 +196,10 @@ export default function Dashboard() {
                 <Route
                   path="/users"
                   element={<PrivateRoute element={<CallCenterUsers />} />}
+                />
+                <Route
+                  path="/handover"
+                  element={<PrivateRoute element={<HandoverPage />} />}
                 />
                 <Route
                   path="/agents-logs"
@@ -200,12 +241,24 @@ export default function Dashboard() {
                   }
                 />
                 <Route
-                  path="/voice-notes-report"
+                  path="/reports/:reportSlug"
                   element={<ComprehensiveReports />}
                 />
                 <Route
+                  path="/reports"
+                  element={<Navigate to="/reports/voice-note" replace />}
+                />
+                <Route
+                  path="/voice-notes-report"
+                  element={<LegacyReportRedirect />}
+                />
+                <Route
                   path="/voice-note-report"
-                  element={<ComprehensiveReports />}
+                  element={<LegacyReportRedirect />}
+                />
+                <Route
+                  path="/pause-report"
+                  element={<Navigate to="/reports/pause" replace />}
                 />
                 <Route
                   path="/recorded-sounds"
@@ -217,11 +270,22 @@ export default function Dashboard() {
 
                 <Route path="/voice-notes" element={<VoiceNotesReport />} />
                 <Route path="/cdr-reports" element={<VoiceNoteReport />} />
-                <Route path="/ivr-interactions" element={<IVRInteractions />} />
-                <Route path="/livestream" element={<Livestream />} />
+                <Route
+                  path="/ivr-interactions"
+                  element={<Navigate to="/reports/ivr-interactions" replace />}
+                />
+                <Route
+                  path="/livestream"
+                  element={<Navigate to="/reports/livestream" replace />}
+                />
                 <Route path="/recorded-audio" element={<RecordedAudio />} />
-                <Route path="/dtmf-stats" element={<DTMFStats />} />
+                <Route
+                  path="/dtmf-stats"
+                  element={<Navigate to="/reports/dtmf-usage" replace />}
+                />
+                <Route path="/off-hours-report" element={<OffHoursReport />} />
                 <Route path="/ivr-cards" element={<IvrCardsPage />} />
+                <Route path="/ivr-categories" element={<IvrCategoryTabsPage />} />
                 <Route
                   path="/social-message"
                   element={<PrivateRoute element={<Message />} />}
@@ -309,9 +373,29 @@ export default function Dashboard() {
                   path="/instagram"
                   element={<PrivateRoute element={<InstagramPage />} />}
                 />
+                <Route
+                  path="/handover"
+                  element={<PrivateRoute element={<HandoverPage />} />}
+                />
               </>
             )}
           </Routes>
+          )}
+          {isPublicDashboardRoute && (
+            <PublicDashboard
+              suppressLoadingUI={publicDashboardPending}
+              onInitialLoadComplete={handlePublicDashboardReady}
+            />
+          )}
+          {publicDashboardPending && (
+            <div className="wcf-route-loading-overlay" aria-live="polite">
+              <WcfLoadingOverlay
+                transparent
+                message="Loading dashboard..."
+                label="Loading live dashboard"
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

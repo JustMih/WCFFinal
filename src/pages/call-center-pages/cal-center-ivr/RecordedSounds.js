@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 import "./RecordedSounds.css";
+import WcfLoader from "../../../components/shared/WcfLoader";
 
 const RecordedSounds = () => {
   const [voiceNotes, setVoiceNotes] = useState([]);
@@ -30,7 +31,13 @@ const RecordedSounds = () => {
     fetchVoiceNotes();
   }, []);
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) {
+    return (
+      <div className="wcf-loading-container">
+        <WcfLoader size="md" message="Loading recorded sounds..." label="Loading recorded sounds" />
+      </div>
+    );
+  }
   if (error) return <div>{error}</div>;
 
   return (

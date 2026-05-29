@@ -65,6 +65,17 @@
   color: #2e7d32;
 }
 
+.status-badge.pause {
+  background-color: #fff3e0;
+  color: #e65100;
+}
+
+.status-badge.exceeded {
+  background-color: #ffebee;
+  color: #c62828;
+  font-weight: 600;
+}
+
 .status-badge.offline {
   background-color: #ffebee;
   color: #c62828;

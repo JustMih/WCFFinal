@@ -21,6 +21,7 @@ import {
 } from "@mui/material";
 import { Edit, Delete, Add } from "@mui/icons-material";
 import { baseURL } from "../../config";
+import WcfLoader from "../shared/WcfLoader";
 
 // Helper function to format dates consistently
 const formatDate = (dateString) => {
@@ -181,7 +182,11 @@ const ReportToManagement = () => {
   };
 
   if (loading) {
-    return <Typography>Loading...</Typography>;
+    return (
+      <div className="wcf-loading-container">
+        <WcfLoader size="md" message="Loading report-to entries..." label="Loading report-to entries" />
+      </div>
+    );
   }
 
   return (

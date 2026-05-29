@@ -1,5 +1,55 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
+import ReactApexChart from "react-apexcharts";
+import { FiPhoneCall } from "react-icons/fi";
+import { useNavigate, useParams } from "react-router-dom";
 import { baseURL } from "../../../config";
+import PauseReport from "./PauseReport";
+import OffHoursReport from "./OffHoursReport";
+import Livestream from "../cal-center-ivr/Livestream";
+import "../cal-center-ivr/livestream.css";
+import CallCenterSlaReport from "./CallCenterSlaReport";
+import TicketSlaReport from "./TicketSlaReport";
+import WcfLoader from "../../../components/shared/WcfLoader";
+import ReportDateRangePicker from "../../../components/shared/ReportDateRangePicker";
+import TicketWorkflowExpandPanel from "../../../components/workflow/TicketWorkflowExpandPanel";
+import {
+  enrichTicketWithWorkflow,
+  runWithConcurrency,
+  buildWorkflowSteps,
+  formatWorkflowTrailForExport,
+  computeTotalTicketDuration,
+} from "../../../utils/workflowTrailExport";
+import {
+  REPORT_TYPES,
+  REPORTS,
+  slugToType,
+  getReportBySlug,
+  getReportLabel,
+} from "./reportConfig";
+import {
+  buildHolidaySet,
+  filterOffHoursRecords,
+  buildSummary,
+} from "../../../utils/offHoursHelper";
+import { playVoiceNoteAudio } from "../../../utils/voiceNoteAudio";
+import { markVoiceNotePlayed } from "../../../utils/voiceNotePlayed";
+import {
+  enrichRecordClient,
+  buildEmergencyMap,
+} from "../../../utils/offHoursReportClient";
+import {
+  getOffHoursTimestamp,
+  isOffHoursNotePlayed,
+  getOffHoursRowColor,
+  OffHoursCallbackStatusChip,
+} from "../../../utils/offHoursReportShared";
+import {
+  isPendingCallback,
+  getCallbackPhone,
+  markMissedCallCalledBack,
+  formatOutboundNumber,
+} from "../../../utils/missedCallActions";
+import { useSipPhone } from "../call-center-dashboard/agents-dashboard/useSipPhone";
 import {
   Snackbar,
   Alert,
@@ -9,14 +59,11 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
-  Tabs,
-  Tab,
   Box,
   Chip,
   Card,
   CardContent,
   Typography,
-  CircularProgress,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -25,6 +72,7 @@ import {
   FormControlLabel,
   FormGroup,
   Divider,
+  IconButton,
 } from "@mui/material";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -40,25 +88,159 @@ import {
   PhoneDisabled,
   PhoneMissed,
   AccessTime,
+  ExpandMore,
+  ExpandLess,
 } from "@mui/icons-material";
+import Tooltip from "@mui/material/Tooltip";
+import { getDtmfActionLabel, DTMF_DIGIT_LABELS } from "../../../utils/dtmfReportConstants";
 import "./comprehensiveReports.css";
+import "./OffHoursReport.css";
 
-const REPORT_TYPES = {
-  VOICE_NOTE: 0,
-  CDR: 1,
-  TICKET_CRM: 2,
-  AGENT_PERFORMANCE: 3,
-  CALL_SUMMARY: 4,
-  IVR_INTERACTIONS: 5,
-  TICKET_ASSIGNMENTS: 6,
-  MISSED_CALL: 7,
-  ESCALLATION: 8,
-  NOTIFICATIONS: 9,
-  CHATS: 10,
+const SIP_DOMAIN = "192.168.21.69";
+
+const DTMF_CHART_COLORS = [
+  "#3366CC",
+  "#DC3912",
+  "#FF9900",
+  "#109618",
+  "#990099",
+  "#3B3EAC",
+  "#0099C6",
+  "#DD4477",
+];
+
+/** Format CDR duration/billsec (seconds) for table display */
+const formatSecondsToMinutes = (value) => {
+  const seconds = Number(value);
+  if (!Number.isFinite(seconds) || seconds <= 0) return "0s";
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  if (mins > 0) return `${mins}m ${secs}s`;
+  return `${secs}s`;
 };
 
+const OFF_HOURS_CATEGORY_OPTIONS = [
+  { value: "all", label: "All Categories" },
+  { value: "public_holiday", label: "Public Holiday" },
+  { value: "sunday", label: "Sunday" },
+  { value: "saturday_outside_hours", label: "Saturday (Outside Hours)" },
+  { value: "weekday_after_hours", label: "Weekday After Hours" },
+];
+
+const missedCallSource = (r) =>
+  r.call_source || r.caller_display || r.caller_phone || r.caller || "—";
+
+const missedCallDestination = (r) =>
+  r.call_destination || r.destination || r.cdr_dst || r.cdr_did || "—";
+
+const missedCallEmergency = (r) =>
+  r.emergency_number_label ||
+  r.emergency_number ||
+  r.routed_to_label ||
+  r.routed_to ||
+  "—";
+
+const OFF_HOURS_CATEGORY_COLORS = {
+  public_holiday: "#e91e63",
+  sunday: "#9c27b0",
+  saturday_outside_hours: "#ff9800",
+  weekday_after_hours: "#2196f3",
+};
+
+const OFF_HOURS_SUMMARY_CARDS = [
+  { key: "total", label: "Total Off-Hours", color: "#374151" },
+  { key: "public_holiday", label: "Public Holiday", color: "#e91e63" },
+  { key: "sunday", label: "Sunday", color: "#9c27b0" },
+  { key: "saturday_outside_hours", label: "Saturday", color: "#ff9800" },
+  { key: "weekday_after_hours", label: "After Work Hours", color: "#2196f3" },
+];
+
+const OFF_HOURS_MISSED_SUMMARY_CARDS = [
+  { key: "callbacks_pending", label: "Pending Callback", color: "#ef4444" },
+  { key: "callbacks_done", label: "Called Back", color: "#22c55e" },
+];
+
+const OFF_HOURS_SOURCE_LABELS = {
+  cdr: "CDR",
+  "voice-notes": "Voice Notes",
+  "missed-calls": "Missed Calls",
+};
+
+const authHeaders = () => ({
+  "Content-Type": "application/json",
+  Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+});
+
+async function fetchOffHoursFallback(startDate, endDate, source) {
+  const holidaysRes = await fetch(`${baseURL}/holidays`, {
+    headers: authHeaders(),
+  });
+  const holidays = holidaysRes.ok ? await holidaysRes.json() : [];
+
+  let rawRecords = [];
+  let timestampField = "created_at";
+
+  if (source === "missed-calls") {
+    timestampField = "time";
+    const dataRes = await fetch(
+      `${baseURL}/missed-calls?startDate=${startDate}&endDate=${endDate}`,
+      { headers: authHeaders() }
+    );
+    if (!dataRes.ok) throw new Error("Failed to load missed calls");
+    rawRecords = await dataRes.json();
+  } else {
+    const [emergencyRes, dataRes] = await Promise.all([
+      fetch(`${baseURL}/emergency`, { headers: authHeaders() }),
+      fetch(
+        source === "cdr"
+          ? `${baseURL}/reports/cdr-report/${startDate}/${endDate}/all`
+          : `${baseURL}/reports/voice-note-report/${startDate}/${endDate}`,
+        { headers: authHeaders() }
+      ),
+    ]);
+    const emergencyList = emergencyRes.ok ? await emergencyRes.json() : [];
+    if (dataRes.ok) {
+      rawRecords = await dataRes.json();
+    } else if (dataRes.status !== 404) {
+      throw new Error("Failed to load report data");
+    }
+    timestampField = source === "cdr" ? "cdrstarttime" : "created_at";
+    const holidayDates = buildHolidaySet(holidays);
+    const filtered = filterOffHoursRecords(
+      rawRecords,
+      timestampField,
+      holidayDates
+    );
+    const emergencyByPhone = buildEmergencyMap(emergencyList);
+    const records = filtered.map((r) =>
+      enrichRecordClient(r, emergencyByPhone, source)
+    );
+    return { summary: buildSummary(records), records };
+  }
+
+  const holidayDates = buildHolidaySet(holidays);
+  const filtered = filterOffHoursRecords(
+    rawRecords,
+    timestampField,
+    holidayDates
+  );
+  const records = filtered.map((r) => ({
+    ...r,
+    caller_display: r.caller,
+    callback_status: r.status,
+    callback_agent_name: r.agent_name,
+    callback_time: r.called_back_at,
+    callback_agent_extension: r.called_back_by,
+  }));
+
+  return { summary: buildSummary(records), records };
+}
+
 export default function ComprehensiveReports() {
-  const [activeTab, setActiveTab] = useState(0);
+  const navigate = useNavigate();
+  const { reportSlug } = useParams();
+  const currentReport = getReportBySlug(reportSlug);
+  const [activeTab, setActiveTab] = useState(() => slugToType(reportSlug));
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
@@ -79,9 +261,42 @@ export default function ComprehensiveReports() {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [missedCallStatusFilter, setMissedCallStatusFilter] = useState("all");
 
+  // Off-hours report
+  const [offHoursSource, setOffHoursSource] = useState("voice-notes");
+  const [offHoursCategoryFilter, setOffHoursCategoryFilter] = useState("all");
+  const [offHoursSummary, setOffHoursSummary] = useState(null);
+  const [offHoursPlayedStatus, setOffHoursPlayedStatus] = useState({});
+  const [offHoursCurrentAudio, setOffHoursCurrentAudio] = useState(null);
+  const [offHoursPlayingId, setOffHoursPlayingId] = useState(null);
+  const [offHoursCallingBackId, setOffHoursCallingBackId] = useState(null);
+
+  const extension = localStorage.getItem("extension");
+  const sipPassword = localStorage.getItem("sipPassword");
+  const sipReady = Boolean(extension && sipPassword);
+
+  const { phoneStatus, remoteAudioRef, redial, endCall } = useSipPhone({
+    extension: sipReady ? extension : null,
+    sipPassword: sipReady ? sipPassword : null,
+    SIP_DOMAIN,
+    allowIncomingRinging: false,
+  });
+
+  useEffect(() => {
+    if (phoneStatus === "Idle" || phoneStatus === "Call Failed") {
+      setOffHoursCallingBackId(null);
+    }
+  }, [phoneStatus]);
+
   // Column selection
   const [columnDialogOpen, setColumnDialogOpen] = useState(false);
   const [selectedColumns, setSelectedColumns] = useState({});
+
+  // Ticket CRM workflow expand
+  const [expandedTicketId, setExpandedTicketId] = useState(null);
+  const [assignmentCache, setAssignmentCache] = useState({});
+  const [assignmentLoading, setAssignmentLoading] = useState({});
+  const [assignmentErrors, setAssignmentErrors] = useState({});
+  const [exportingWorkflow, setExportingWorkflow] = useState(false);
 
   // Summary stats
   const [summaryStats, setSummaryStats] = useState({
@@ -134,11 +349,18 @@ export default function ComprehensiveReports() {
           endpoint = `${baseURL}/reports/call-summary/${startDate}/${endDate}`;
           break;
         case REPORT_TYPES.IVR_INTERACTIONS:
-          if (!startDate || !endDate) {
-            throw new Error("Please select start and end dates");
-          }
-          endpoint = `${baseURL}/reports/ivr-interactions/${startDate}/${endDate}`;
+          endpoint =
+            startDate && endDate
+              ? `${baseURL}/reports/ivr-interactions/${startDate}/${endDate}`
+              : `${baseURL}/reports/ivr-interactions`;
           break;
+        case REPORT_TYPES.DTMF_USAGE: {
+          const q = new URLSearchParams();
+          if (startDate) q.set("startDate", startDate);
+          if (endDate) q.set("endDate", endDate);
+          endpoint = `${baseURL}/dtmf-stats${q.toString() ? `?${q.toString()}` : ""}`;
+          break;
+        }
         case REPORT_TYPES.TICKET_ASSIGNMENTS:
           if (!startDate || !endDate) {
             throw new Error("Please select start and end dates");
@@ -260,6 +482,47 @@ export default function ComprehensiveReports() {
             throw new Error(error.message || "Failed to fetch notifications report");
           }
         }
+        case REPORT_TYPES.OFF_HOURS: {
+          if (!startDate || !endDate) {
+            throw new Error("Please select start and end dates");
+          }
+          const endpoint = `${baseURL}/reports/off-hours-report/${startDate}/${endDate}?source=${offHoursSource}`;
+          const response = await fetch(endpoint, {
+            method: "GET",
+            headers,
+          });
+
+          let data;
+          if (response.status === 404) {
+            data = await fetchOffHoursFallback(
+              startDate,
+              endDate,
+              offHoursSource
+            );
+          } else if (!response.ok) {
+            throw new Error("Failed to fetch off-hours report");
+          } else {
+            data = await response.json();
+          }
+
+          const loadedRecords = data.records || [];
+          setReports(loadedRecords);
+          setOffHoursSummary(data.summary || null);
+
+          if (offHoursSource === "voice-notes") {
+            const storedPlayed =
+              JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
+            const validPlayed = {};
+            loadedRecords.forEach((note) => {
+              if (storedPlayed[note.id] || note.is_played) {
+                validPlayed[note.id] = true;
+              }
+            });
+            setOffHoursPlayedStatus(validPlayed);
+          }
+          setLoading(false);
+          return;
+        }
         case REPORT_TYPES.CHATS: {
           const userId = localStorage.getItem("userId");
           if (!userId) {
@@ -339,7 +602,11 @@ export default function ComprehensiveReports() {
       }
 
       const data = await response.json();
-      setReports(Array.isArray(data) ? data : []);
+      let list = Array.isArray(data) ? data : [];
+      if (activeTab === REPORT_TYPES.DTMF_USAGE) {
+        list = list.filter((row) => DTMF_DIGIT_LABELS[row.digit_pressed]);
+      }
+      setReports(list);
 
       // Calculate summary stats for call reports
       if (
@@ -419,6 +686,413 @@ export default function ComprehensiveReports() {
     setSnackbarOpen(false);
   };
 
+  const handleOffHoursCallBack = async (record) => {
+    const phone = getCallbackPhone(record);
+    if (!phone) {
+      setSnackbarMessage("No phone number for this missed call.");
+      setSnackbarSeverity("warning");
+      setSnackbarOpen(true);
+      return;
+    }
+
+    if (!sipReady) {
+      setSnackbarMessage(
+        "SIP phone not ready. Open the Agent Dashboard and log in with your extension first."
+      );
+      setSnackbarSeverity("warning");
+      setSnackbarOpen(true);
+      return;
+    }
+
+    setOffHoursCallingBackId(record.id);
+    try {
+      await markMissedCallCalledBack(record.id, extension);
+      setReports((prev) =>
+        prev.map((r) =>
+          r.id === record.id
+            ? {
+                ...r,
+                status: "called_back",
+                callback_status: "called_back",
+                callback_agent_extension: extension,
+                callback_time: new Date().toISOString(),
+              }
+            : r
+        )
+      );
+      redial(formatOutboundNumber(phone) || phone);
+      setSnackbarMessage(`Calling back ${phone}...`);
+      setSnackbarSeverity("info");
+      setSnackbarOpen(true);
+    } catch (err) {
+      setOffHoursCallingBackId(null);
+      setSnackbarMessage(err.message || "Could not start callback.");
+      setSnackbarSeverity("error");
+      setSnackbarOpen(true);
+    }
+  };
+
+  const handleOffHoursPlayVoice = async (record) => {
+    if (offHoursCurrentAudio) {
+      offHoursCurrentAudio.pause();
+      offHoursCurrentAudio.currentTime = 0;
+    }
+
+    try {
+      const { audio } = await playVoiceNoteAudio(record);
+      setOffHoursCurrentAudio(audio);
+      setOffHoursPlayingId(record.id);
+
+      try {
+        await markVoiceNotePlayed(record.id, audio.duration);
+        setReports((prev) =>
+          prev.map((r) =>
+            r.id === record.id
+              ? {
+                  ...r,
+                  is_played: 1,
+                  duration_seconds:
+                    r.duration_seconds || Math.round(audio.duration || 0),
+                }
+              : r
+          )
+        );
+      } catch (markErr) {
+        console.warn("Could not save played status:", markErr);
+      }
+
+      const updatedStatus = { ...offHoursPlayedStatus, [record.id]: true };
+      setOffHoursPlayedStatus(updatedStatus);
+      localStorage.setItem("playedVoiceNotes", JSON.stringify(updatedStatus));
+
+      audio.onended = () => {
+        setOffHoursPlayingId(null);
+        setOffHoursCurrentAudio(null);
+      };
+    } catch (playError) {
+      console.error("Error playing audio:", playError);
+      setSnackbarMessage(
+        "Audio is on the server — not available from local API. Try static URL or use live config."
+      );
+      setSnackbarSeverity("warning");
+      setSnackbarOpen(true);
+    }
+  };
+
+  const handleOffHoursPauseVoice = () => {
+    if (offHoursCurrentAudio) {
+      offHoursCurrentAudio.pause();
+      setOffHoursPlayingId(null);
+    }
+  };
+
+  const exportOffHoursPDF = () => {
+    const doc = new jsPDF();
+    doc.text("Off-Hours Calls Report", 14, 14);
+    doc.setFontSize(10);
+    doc.text(`Date Range: ${startDate} to ${endDate}`, 14, 22);
+    doc.text(
+      `Source: ${OFF_HOURS_SOURCE_LABELS[offHoursSource] || offHoursSource}`,
+      14,
+      28
+    );
+    if (offHoursCategoryFilter !== "all") {
+      doc.text(
+        `Category: ${
+          OFF_HOURS_CATEGORY_OPTIONS.find(
+            (c) => c.value === offHoursCategoryFilter
+          )?.label
+        }`,
+        14,
+        34
+      );
+    }
+
+    const startY = offHoursCategoryFilter !== "all" ? 40 : 34;
+
+    if (offHoursSource === "cdr") {
+      autoTable(doc, {
+        startY,
+        head: [
+          [
+            "Sn",
+            "Source",
+            "Routed To",
+            "Date/Time",
+            "Category",
+            "Disposition",
+            "Duration (s)",
+          ],
+        ],
+        body: filteredReports.map((r, idx) => [
+          idx + 1,
+          r.caller_display || r.clid || "-",
+          r.routed_to_label || r.routed_to || "-",
+          getOffHoursTimestamp(r)
+            ? new Date(getOffHoursTimestamp(r)).toLocaleString()
+            : "-",
+          r.off_hours_label || "-",
+          r.disposition || "-",
+          r.duration || "-",
+        ]),
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [245, 158, 66] },
+      });
+    } else if (offHoursSource === "missed-calls") {
+      autoTable(doc, {
+        startY,
+        head: [
+          [
+            "Sn",
+            "Source",
+            "Destination",
+            "Emergency Number",
+            "Date/Time",
+            "Category",
+            "Callback Status",
+            "Called Back By",
+            "Callback Time",
+          ],
+        ],
+        body: filteredReports.map((r, idx) => [
+          idx + 1,
+          missedCallSource(r),
+          missedCallDestination(r),
+          missedCallEmergency(r),
+          getOffHoursTimestamp(r)
+            ? new Date(getOffHoursTimestamp(r)).toLocaleString()
+            : "-",
+          r.off_hours_label || "-",
+          r.callback_status || r.status || "-",
+          r.callback_agent_name || r.callback_agent_extension || "-",
+          r.callback_time
+            ? new Date(r.callback_time).toLocaleString()
+            : "-",
+        ]),
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [245, 158, 66] },
+      });
+    } else {
+      autoTable(doc, {
+        startY,
+        head: [
+          [
+            "Sn",
+            "Phone",
+            "Routed To",
+            "Date/Time",
+            "Category",
+            "Played",
+            "Duration (s)",
+          ],
+        ],
+        body: filteredReports.map((r, idx) => [
+          idx + 1,
+          r.caller_display || r.clid || "-",
+          r.routed_to_label || r.routed_to || "-",
+          getOffHoursTimestamp(r)
+            ? new Date(getOffHoursTimestamp(r)).toLocaleString()
+            : "-",
+          r.off_hours_label || "-",
+          isOffHoursNotePlayed(r, offHoursPlayedStatus) ? "Yes" : "No",
+          r.duration_seconds || "-",
+        ]),
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [245, 158, 66] },
+      });
+    }
+
+    doc.save(`off_hours_report_${startDate}_to_${endDate}.pdf`);
+    setSnackbarMessage("PDF exported successfully!");
+    setSnackbarSeverity("success");
+    setSnackbarOpen(true);
+  };
+
+  const exportOffHoursCSV = () => {
+    let rows = [];
+    if (offHoursSource === "cdr") {
+      rows = filteredReports.map((r, idx) => ({
+        Sn: idx + 1,
+        Source: r.caller_display || r.clid || "-",
+        "Routed To": r.routed_to_label || r.routed_to || "-",
+        "Date/Time": getOffHoursTimestamp(r)
+          ? new Date(getOffHoursTimestamp(r)).toLocaleString()
+          : "-",
+        Category: r.off_hours_label || "-",
+        Disposition: r.disposition || "-",
+        "Duration (s)": r.duration || "-",
+      }));
+    } else if (offHoursSource === "missed-calls") {
+      rows = filteredReports.map((r, idx) => ({
+        Sn: idx + 1,
+        Source: missedCallSource(r),
+        Destination: missedCallDestination(r),
+        "Emergency Number": missedCallEmergency(r),
+        "Date/Time": getOffHoursTimestamp(r)
+          ? new Date(getOffHoursTimestamp(r)).toLocaleString()
+          : "-",
+        Category: r.off_hours_label || "-",
+        "Callback Status": r.callback_status || r.status || "-",
+        "Called Back By":
+          r.callback_agent_name || r.callback_agent_extension || "-",
+        "Callback Time": r.callback_time
+          ? new Date(r.callback_time).toLocaleString()
+          : "-",
+      }));
+    } else {
+      rows = filteredReports.map((r, idx) => ({
+        Sn: idx + 1,
+        Phone: r.caller_display || r.clid || "-",
+        "Routed To": r.routed_to_label || r.routed_to || "-",
+        "Date/Time": getOffHoursTimestamp(r)
+          ? new Date(getOffHoursTimestamp(r)).toLocaleString()
+          : "-",
+        Category: r.off_hours_label || "-",
+        Played: isOffHoursNotePlayed(r, offHoursPlayedStatus) ? "Yes" : "No",
+        "Duration (s)": r.duration_seconds || "-",
+      }));
+    }
+
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Off-Hours");
+    XLSX.writeFile(wb, `off_hours_report_${startDate}_to_${endDate}.csv`);
+    setSnackbarMessage("CSV exported successfully!");
+    setSnackbarSeverity("success");
+    setSnackbarOpen(true);
+  };
+
+  const getAuthToken = () =>
+    localStorage.getItem("authToken") ||
+    localStorage.getItem("token") ||
+    sessionStorage.getItem("authToken") ||
+    sessionStorage.getItem("token");
+
+  const fetchTicketAssignments = async (ticketId) => {
+    if (assignmentCache[ticketId]) return assignmentCache[ticketId];
+
+    const token = getAuthToken();
+    if (!token) {
+      setAssignmentErrors((prev) => ({
+        ...prev,
+        [ticketId]: "Authentication required to load workflow history.",
+      }));
+      return null;
+    }
+
+    setAssignmentLoading((prev) => ({ ...prev, [ticketId]: true }));
+    setAssignmentErrors((prev) => ({ ...prev, [ticketId]: null }));
+
+    try {
+      const res = await fetch(`${baseURL}/ticket/${ticketId}/assignments`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        throw new Error("Failed to load assignment history");
+      }
+      const data = await res.json();
+      const list = Array.isArray(data) ? data : data.assignments || [];
+      setAssignmentCache((prev) => ({ ...prev, [ticketId]: list }));
+      return list;
+    } catch (err) {
+      setAssignmentErrors((prev) => ({
+        ...prev,
+        [ticketId]: err.message || "Failed to load workflow history",
+      }));
+      return null;
+    } finally {
+      setAssignmentLoading((prev) => ({ ...prev, [ticketId]: false }));
+    }
+  };
+
+  const toggleTicketExpand = async (report) => {
+    const ticketId = report.id;
+    if (!ticketId) return;
+
+    if (expandedTicketId === ticketId) {
+      setExpandedTicketId(null);
+      return;
+    }
+
+    setExpandedTicketId(ticketId);
+    if (!assignmentCache[ticketId]) {
+      await fetchTicketAssignments(ticketId);
+    }
+  };
+
+  const fetchAssignmentsForExport = async (ticketId, cache) => {
+    if (cache[ticketId] !== undefined) {
+      return { assignments: cache[ticketId], unavailable: false };
+    }
+
+    const token = getAuthToken();
+    if (!token) {
+      return { assignments: [], unavailable: true };
+    }
+
+    try {
+      const res = await fetch(`${baseURL}/ticket/${ticketId}/assignments`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        return { assignments: [], unavailable: true };
+      }
+      const data = await res.json();
+      const list = Array.isArray(data) ? data : data.assignments || [];
+      cache[ticketId] = list;
+      return { assignments: list, unavailable: false };
+    } catch {
+      return { assignments: [], unavailable: true };
+    }
+  };
+
+  const enrichReportsWithWorkflow = async (reports) => {
+    const cache = { ...assignmentCache };
+
+    const enriched = await runWithConcurrency(reports, 5, async (report) => {
+      if (!report.id) {
+        return enrichTicketWithWorkflow(report, [], false);
+      }
+
+      const { assignments, unavailable } = await fetchAssignmentsForExport(
+        report.id,
+        cache
+      );
+      return enrichTicketWithWorkflow(report, assignments, unavailable);
+    });
+
+    setAssignmentCache((prev) => ({ ...prev, ...cache }));
+    return enriched;
+  };
+
+  const confirmExportIfLarge = () => {
+    if (filteredReports.length <= 150) return true;
+    return window.confirm(
+      `Export will load workflow history for ${filteredReports.length} tickets. This may take a while. Continue?`
+    );
+  };
+
+  const getWorkflowTrailForReport = (report) => {
+    if (report._workflowTrail) return report._workflowTrail;
+    if (report.id && assignmentCache[report.id]) {
+      return formatWorkflowTrailForExport(
+        buildWorkflowSteps(report, assignmentCache[report.id])
+      );
+    }
+    return "-";
+  };
+
+  const getWorkflowTotalDurationForReport = (report) => {
+    if (report._workflowTotalDuration) return report._workflowTotalDuration;
+    if (report.id && assignmentCache[report.id]) {
+      return computeTotalTicketDuration(
+        report,
+        buildWorkflowSteps(report, assignmentCache[report.id])
+      );
+    }
+    return "-";
+  };
+
   // Column definitions for each report type
   const getColumnDefinitions = () => {
     switch (activeTab) {
@@ -428,9 +1102,12 @@ export default function ComprehensiveReports() {
           { key: "phone", label: "Phone", default: true },
           { key: "date", label: "Date", default: true },
           { key: "played", label: "Played", default: true },
-          { key: "agent", label: "Assigned Agent", default: true },
-          { key: "duration", label: "Duration (s)", default: true },
-          { key: "transcription", label: "Transcription", default: false },
+          {
+            key: "assignedExtension",
+            label: "Assigned Extension",
+            default: true,
+          },
+          { key: "agentName", label: "Agent Name", default: true },
         ];
       case REPORT_TYPES.CDR:
         return [
@@ -439,8 +1116,8 @@ export default function ComprehensiveReports() {
           { key: "source", label: "Source", default: true },
           { key: "destination", label: "Destination", default: true },
           { key: "startTime", label: "Start Time", default: true },
-          { key: "duration", label: "Duration (s)", default: true },
-          { key: "billed", label: "Billed (s)", default: true },
+          { key: "duration", label: "Duration (min)", default: true },
+          { key: "billed", label: "Billed (min)", default: true },
           { key: "disposition", label: "Disposition", default: true },
           { key: "recording", label: "Recording File", default: false },
         ];
@@ -517,16 +1194,16 @@ export default function ComprehensiveReports() {
           { key: "evidenceUrl", label: "Evidence URL", default: false },
           { key: "agingDays", label: "Aging Days", default: false },
           { key: "isEscalated", label: "Is Escalated", default: false },
-          { key: "workflowPath", label: "Workflow Path", default: false },
+          { key: "workflowPath", label: "Workflow Path", default: true },
           {
             key: "currentWorkflowStep",
             label: "Current Workflow Step",
-            default: false,
+            default: true,
           },
           {
             key: "workflowCompleted",
             label: "Workflow Completed",
-            default: false,
+            default: true,
           },
           {
             key: "currentWorkflowRole",
@@ -590,6 +1267,8 @@ export default function ComprehensiveReports() {
             label: "Workflow Completed At",
             default: false,
           },
+          { key: "workflowTrail", label: "Workflow Trail", default: true },
+          { key: "workflowTotalDuration", label: "Total Duration", default: true },
         ];
       case REPORT_TYPES.AGENT_PERFORMANCE:
         return [
@@ -616,9 +1295,20 @@ export default function ComprehensiveReports() {
       case REPORT_TYPES.IVR_INTERACTIONS:
         return [
           { key: "serial", label: "Serial No", default: true },
-          { key: "callerId", label: "Caller ID", default: true },
-          { key: "digitPressed", label: "Digit Pressed", default: true },
+          { key: "dtmfDigit", label: "DTMF Digit", default: true },
+          { key: "actionName", label: "Action Name", default: true },
+          { key: "parameter", label: "Parameter", default: true },
+          { key: "ivrVoice", label: "IVR Voice", default: true },
+          { key: "language", label: "Language", default: true },
           { key: "menuContext", label: "Menu Context", default: true },
+          { key: "createdAt", label: "Created At", default: true },
+        ];
+      case REPORT_TYPES.DTMF_USAGE:
+        return [
+          { key: "serial", label: "Serial No", default: true },
+          { key: "digitPressed", label: "Digit", default: true },
+          { key: "dtmfAction", label: "DTMF Action", default: true },
+          { key: "callerId", label: "Caller ID", default: true },
           { key: "language", label: "Language", default: true },
           { key: "timestamp", label: "Timestamp", default: true },
         ];
@@ -726,16 +1416,26 @@ export default function ComprehensiveReports() {
       .map((col) => col.key);
 
     setSelectedColumns((prev) => {
+      const validKeys = new Set(columns.map((col) => col.key));
       const current = prev[activeTab];
       if (current && current.length > 0) {
-        // Keep existing selection if it exists
+        const pruned = current.filter((key) => validKeys.has(key));
+        if (pruned.length !== current.length) {
+          return {
+            ...prev,
+            [activeTab]: pruned.length > 0 ? pruned : defaultSelected,
+          };
+        }
         return prev;
       }
-      // Initialize with defaults if no selection exists
       return { ...prev, [activeTab]: defaultSelected };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
+
+  useEffect(() => {
+    setExpandedTicketId(null);
+  }, [currentPage, activeTab]);
 
   const handleColumnToggle = (columnKey) => {
     setSelectedColumns((prev) => {
@@ -846,6 +1546,42 @@ export default function ComprehensiveReports() {
           (report.message || "").toLowerCase().includes(searchLower) ||
           (report.status || "").toLowerCase().includes(searchLower)
         );
+      case REPORT_TYPES.IVR_INTERACTIONS:
+        return (
+          String(report.dtmf_digit || "").includes(searchLower) ||
+          (report.action?.name || "").toLowerCase().includes(searchLower) ||
+          (report.parameter || "").toLowerCase().includes(searchLower) ||
+          (report.voice?.file_name || "").toLowerCase().includes(searchLower) ||
+          (report.menu_context || "").toLowerCase().includes(searchLower) ||
+          (report.language || "").toLowerCase().includes(searchLower)
+        );
+      case REPORT_TYPES.DTMF_USAGE:
+        if (!DTMF_DIGIT_LABELS[report.digit_pressed]) return false;
+        return (
+          String(report.digit_pressed || "").includes(searchLower) ||
+          getDtmfActionLabel(report.digit_pressed)
+            .toLowerCase()
+            .includes(searchLower) ||
+          (report.caller_id || "").toLowerCase().includes(searchLower) ||
+          (report.language || "").toLowerCase().includes(searchLower)
+        );
+      case REPORT_TYPES.OFF_HOURS: {
+        const phone = (
+          report.caller_display ||
+          report.caller_phone ||
+          report.clid ||
+          report.caller ||
+          report.src ||
+          ""
+        ).toLowerCase();
+        const routed = (report.routed_to_label || report.routed_to || "").toLowerCase();
+        const matchesSearch =
+          phone.includes(searchLower) || routed.includes(searchLower);
+        const matchesCategory =
+          offHoursCategoryFilter === "all" ||
+          report.off_hours_category === offHoursCategoryFilter;
+        return matchesSearch && matchesCategory;
+      }
       default:
         return true;
     }
@@ -857,6 +1593,26 @@ export default function ComprehensiveReports() {
     indexOfFirstReport,
     indexOfLastReport
   );
+
+  const getAssignedAgentDisplay = (report) => {
+    if (report.assigned_extension) {
+      return `Ext ${report.assigned_extension}${
+        report.assigned_agent_name ? ` (${report.assigned_agent_name})` : ""
+      }`;
+    }
+
+    if (report.assigned_agent_name) {
+      return report.assigned_agent_name;
+    }
+
+    return "-";
+  };
+
+  const getAssignedExtensionDisplay = (report) =>
+    report.assigned_extension ? `Ext ${report.assigned_extension}` : "-";
+
+  const getAssignedAgentNameDisplay = (report) =>
+    report.assigned_agent_name || "-";
 
   // Helper function to get column value from report
   const getColumnValue = (columnKey, report, index) => {
@@ -873,12 +1629,10 @@ export default function ComprehensiveReports() {
               : "-";
           case "played":
             return report.is_played ? "Yes" : "No";
-          case "agent":
-            return report.assigned_agent_id || "-";
-          case "duration":
-            return report.duration_seconds || "-";
-          case "transcription":
-            return report.transcription || "-";
+          case "assignedExtension":
+            return getAssignedExtensionDisplay(report);
+          case "agentName":
+            return getAssignedAgentNameDisplay(report);
           default:
             return "-";
         }
@@ -897,9 +1651,9 @@ export default function ComprehensiveReports() {
               ? new Date(report.cdrstarttime).toLocaleString()
               : "-";
           case "duration":
-            return report.duration || "-";
+            return formatSecondsToMinutes(report.duration);
           case "billed":
-            return report.billsec || "-";
+            return formatSecondsToMinutes(report.billsec);
           case "disposition":
             return report.disposition || "-";
           case "recording":
@@ -1029,7 +1783,11 @@ export default function ComprehensiveReports() {
           case "workflowCompleted":
             return report.workflow_completed ? "Yes" : "No";
           case "currentWorkflowRole":
-            return report.current_workflow_role || "-";
+            return (
+              report.current_workflow_role ||
+              report.workflow_current_role ||
+              "-"
+            );
           case "workflowNotes":
             return report.workflow_notes || "-";
           case "reviewNotes":
@@ -1096,6 +1854,10 @@ export default function ComprehensiveReports() {
             return report.workflow_completed_at
               ? new Date(report.workflow_completed_at).toLocaleString()
               : "-";
+          case "workflowTrail":
+            return getWorkflowTrailForReport(report);
+          case "workflowTotalDuration":
+            return getWorkflowTotalDurationForReport(report);
           default:
             return report[columnKey] || "-";
         }
@@ -1147,17 +1909,40 @@ export default function ComprehensiveReports() {
         switch (columnKey) {
           case "serial":
             return index + 1;
-          case "callerId":
-            return report.caller_id || "-";
-          case "digitPressed":
-            return report.digit_pressed || "-";
+          case "dtmfDigit":
+            return report.dtmf_digit ?? "-";
+          case "actionName":
+            return report.action?.name || "-";
+          case "parameter":
+            return report.parameter || "-";
+          case "ivrVoice":
+            return report.voice?.file_name || "-";
+          case "language":
+            return report.language || "-";
           case "menuContext":
             return report.menu_context || "-";
+          case "createdAt":
+            return report.createdAt
+              ? new Date(report.createdAt).toLocaleString()
+              : "-";
+          default:
+            return "-";
+        }
+      case REPORT_TYPES.DTMF_USAGE:
+        switch (columnKey) {
+          case "serial":
+            return index + 1;
+          case "digitPressed":
+            return report.digit_pressed ?? "-";
+          case "dtmfAction":
+            return getDtmfActionLabel(report.digit_pressed);
+          case "callerId":
+            return report.caller_id || "-";
           case "language":
             return report.language || "-";
           case "timestamp":
             return report.timestamp
-              ? new Date(report.timestamp).toLocaleString()
+              ? new Date(String(report.timestamp).replace(" ", "T")).toLocaleString()
               : "-";
           default:
             return "-";
@@ -1335,7 +2120,18 @@ export default function ComprehensiveReports() {
   };
 
   // CSV Export Function
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
+    if (activeTab === REPORT_TYPES.OFF_HOURS) {
+      if (filteredReports.length === 0) {
+        setSnackbarMessage("No data to export");
+        setSnackbarSeverity("warning");
+        setSnackbarOpen(true);
+        return;
+      }
+      exportOffHoursCSV();
+      return;
+    }
+
     if (filteredReports.length === 0) {
       setSnackbarMessage("No data to export");
       setSnackbarSeverity("warning");
@@ -1356,7 +2152,23 @@ export default function ComprehensiveReports() {
       return;
     }
 
-    const csvData = filteredReports.map((report, idx) => {
+    let dataSource = filteredReports;
+    if (activeTab === REPORT_TYPES.TICKET_CRM) {
+      if (!confirmExportIfLarge()) return;
+      setExportingWorkflow(true);
+      try {
+        dataSource = await enrichReportsWithWorkflow(filteredReports);
+      } catch {
+        setSnackbarMessage("Failed to load workflow data for export");
+        setSnackbarSeverity("error");
+        setSnackbarOpen(true);
+        return;
+      } finally {
+        setExportingWorkflow(false);
+      }
+    }
+
+    const csvData = dataSource.map((report, idx) => {
       const row = {};
       selectedColumnsDef.forEach((col) => {
         row[col.label] = getColumnValue(col.key, report, idx);
@@ -1379,7 +2191,18 @@ export default function ComprehensiveReports() {
   };
 
   // PDF Export Function
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
+    if (activeTab === REPORT_TYPES.OFF_HOURS) {
+      if (filteredReports.length === 0) {
+        setSnackbarMessage("No data to export");
+        setSnackbarSeverity("warning");
+        setSnackbarOpen(true);
+        return;
+      }
+      exportOffHoursPDF();
+      return;
+    }
+
     if (filteredReports.length === 0) {
       setSnackbarMessage("No data to export");
       setSnackbarSeverity("warning");
@@ -1400,9 +2223,32 @@ export default function ComprehensiveReports() {
       return;
     }
 
+    let dataSource = filteredReports;
+    if (activeTab === REPORT_TYPES.TICKET_CRM) {
+      if (!confirmExportIfLarge()) return;
+      setExportingWorkflow(true);
+      try {
+        dataSource = await enrichReportsWithWorkflow(filteredReports);
+      } catch {
+        setSnackbarMessage("Failed to load workflow data for export");
+        setSnackbarSeverity("error");
+        setSnackbarOpen(true);
+        return;
+      } finally {
+        setExportingWorkflow(false);
+      }
+    }
+
+    const hasWorkflowExportCols = selectedColumnsDef.some(
+      (col) =>
+        col.key === "workflowTrail" || col.key === "workflowTotalDuration"
+    );
+
     // Determine if we need landscape and smaller fonts based on column count
     const columnCount = selectedColumnsDef.length;
-    const useLandscape = columnCount > 8;
+    const useLandscape =
+      columnCount > 8 ||
+      (activeTab === REPORT_TYPES.TICKET_CRM && hasWorkflowExportCols);
 
     // Use landscape orientation for wide tables
     const doc = new jsPDF(useLandscape ? "landscape" : "portrait", "mm", "a4");
@@ -1459,15 +2305,20 @@ export default function ComprehensiveReports() {
             "Date of Review Resolution": "Review Res",
             "Workflow Started At": "Wf Start",
             "Workflow Completed At": "Wf End",
+            "Workflow Trail": "Trail",
+            "Total Duration": "Duration",
           };
           return shortLabels[col.label] || col.label.substring(0, 12);
         }
         return col.label;
       }),
     ];
-    const tableData = filteredReports.map((report, idx) =>
+    const tableData = dataSource.map((report, idx) =>
       selectedColumnsDef.map((col) => {
         const value = getColumnValue(col.key, report, idx);
+        if (col.key === "workflowTrail") {
+          return typeof value === "string" ? value : String(value);
+        }
         // Truncate long text for PDF based on column count
         const maxLength = columnCount > 10 ? 25 : columnCount > 6 ? 35 : 45;
         if (typeof value === "string" && value.length > maxLength) {
@@ -1493,9 +2344,10 @@ export default function ComprehensiveReports() {
       let width = "auto";
 
       // For many columns, use smart width distribution
-      if (columnCount > 8) {
-        // Calculate smart widths based on column type and content
-        if (col.key === "serial" || col.key === "id") {
+      if (columnCount > 8 || col.key === "workflowTrail") {
+        if (col.key === "workflowTrail") {
+          width = availableWidth * 0.45;
+        } else if (col.key === "serial" || col.key === "id") {
           width = availableWidth * 0.025; // 2.5% for serial/ID
         } else if (
           col.key === "description" ||
@@ -1531,12 +2383,15 @@ export default function ComprehensiveReports() {
 
       columnStyles[index] = {
         cellWidth: width,
-        fontSize: fontSize,
+        fontSize: col.key === "workflowTrail" ? Math.max(5, fontSize - 1) : fontSize,
         cellPadding: cellPadding,
         halign: col.key === "serial" || col.key === "id" ? "center" : "left",
-        valign: "top", // Top align for better readability with wrapped text
+        valign: "top",
         overflow: "linebreak",
         lineWidth: 0.1,
+        ...(col.key === "workflowTrail"
+          ? { minCellHeight: 24, cellWidth: width || availableWidth * 0.45 }
+          : {}),
       };
     });
 
@@ -1624,28 +2479,25 @@ export default function ComprehensiveReports() {
     setSnackbarOpen(true);
   };
 
-  const getReportTitle = () => {
-    const titles = {
-      [REPORT_TYPES.VOICE_NOTE]: "Voice Note Report",
-      [REPORT_TYPES.CDR]: "CDR Report",
-      [REPORT_TYPES.TICKET_CRM]: "Ticket CRM Report",
-      [REPORT_TYPES.AGENT_PERFORMANCE]: "Agent Performance Report",
-      [REPORT_TYPES.CALL_SUMMARY]: "Call Summary Report",
-      [REPORT_TYPES.IVR_INTERACTIONS]: "IVR Interactions Report",
-      [REPORT_TYPES.TICKET_ASSIGNMENTS]: "Ticket Assignments Report",
-      [REPORT_TYPES.MISSED_CALL]: "Missed Call Report",
-      [REPORT_TYPES.ESCALLATION]: "Escallation Report",
-      [REPORT_TYPES.NOTIFICATIONS]: "Notification Report",
-      [REPORT_TYPES.CHATS]: "Chats Report",
-    };
-    return titles[activeTab] || "Report";
-  };
+  const getReportTitle = () => getReportLabel(activeTab);
 
-  const handleTabChange = (event, newValue) => {
-    setActiveTab(newValue);
+  useEffect(() => {
+    const valid = REPORTS.some((r) => r.slug === reportSlug);
+    if (!valid) {
+      navigate("/reports/voice-note", { replace: true });
+      return;
+    }
+    const nextType = slugToType(reportSlug);
+    setActiveTab(nextType);
     setReports([]);
     setCurrentPage(1);
     setSearch("");
+    setOffHoursSummary(null);
+    setOffHoursPlayingId(null);
+    if (offHoursCurrentAudio) {
+      offHoursCurrentAudio.pause();
+      setOffHoursCurrentAudio(null);
+    }
     setSummaryStats({
       total: 0,
       answered: 0,
@@ -1654,9 +2506,50 @@ export default function ComprehensiveReports() {
       totalDuration: 0,
       avgDuration: 0,
     });
+  }, [reportSlug, navigate]);
+
+  const handleReportSelect = (event) => {
+    const slug = event.target.value;
+    if (slug !== reportSlug) {
+      navigate(`/reports/${slug}`);
+    }
+  };
+
+  const renderOffHoursSummaryCards = () => {
+    if (activeTab !== REPORT_TYPES.OFF_HOURS || !offHoursSummary) {
+      return null;
+    }
+
+    const cards = [
+      ...OFF_HOURS_SUMMARY_CARDS,
+      ...(offHoursSource === "missed-calls"
+        ? OFF_HOURS_MISSED_SUMMARY_CARDS
+        : []),
+    ];
+
+    return (
+      <div className="off-hours-summary">
+        {cards.map((card) => (
+          <div
+            key={card.key}
+            className="off-hours-summary-card"
+            style={{ borderTopColor: card.color }}
+          >
+            <div className="off-hours-summary-value">
+              {offHoursSummary[card.key] ?? 0}
+            </div>
+            <div className="off-hours-summary-label">{card.label}</div>
+          </div>
+        ))}
+      </div>
+    );
   };
 
   const renderSummaryCards = () => {
+    if (activeTab === REPORT_TYPES.OFF_HOURS) {
+      return renderOffHoursSummaryCards();
+    }
+
     if (
       activeTab !== REPORT_TYPES.CDR &&
       activeTab !== REPORT_TYPES.CALL_SUMMARY
@@ -1750,9 +2643,8 @@ export default function ComprehensiveReports() {
   const renderTable = () => {
     if (loading) {
       return (
-        <div className="loading-container">
-          <CircularProgress />
-          <Typography style={{ marginTop: 16 }}>Loading reports...</Typography>
+        <div className="wcf-loading-container">
+          <WcfLoader size="lg" message="Loading reports..." label="Loading reports" />
         </div>
       );
     }
@@ -1784,7 +2676,9 @@ export default function ComprehensiveReports() {
       case REPORT_TYPES.CALL_SUMMARY:
         return renderCallSummaryTable();
       case REPORT_TYPES.IVR_INTERACTIONS:
-        return renderIVRTable();
+        return renderIvrInteractionsTable();
+      case REPORT_TYPES.DTMF_USAGE:
+        return renderDtmfUsageTable();
       case REPORT_TYPES.TICKET_ASSIGNMENTS:
         return renderTicketAssignmentsTable();
       case REPORT_TYPES.MISSED_CALL:
@@ -1795,9 +2689,281 @@ export default function ComprehensiveReports() {
         return renderNotificationsTable();
       case REPORT_TYPES.CHATS:
         return renderChatsTable();
+      case REPORT_TYPES.OFF_HOURS:
+        return renderOffHoursTable();
       default:
         return null;
     }
+  };
+
+  const renderOffHoursTable = () => {
+    if (offHoursSource === "missed-calls") {
+      return (
+        <>
+          {phoneStatus !== "Idle" && (
+            <div className="off-hours-phone-status">
+              <span>Phone: {phoneStatus}</span>
+              <Button size="small" variant="outlined" onClick={() => endCall()}>
+                Hang up
+              </Button>
+            </div>
+          )}
+          <audio ref={remoteAudioRef} autoPlay style={{ display: "none" }} />
+          <table className="off-hours-table report-table">
+            <thead>
+              <tr>
+                <th>Sn</th>
+                <th>Source</th>
+                <th>Destination</th>
+                <th>Emergency Number</th>
+                <th>Date/Time</th>
+                <th>Category</th>
+                <th>Callback Status</th>
+                <th>Called Back By</th>
+                <th>Callback Time</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {currentReports.map((record, index) => {
+                const phone = getCallbackPhone(record);
+                const pending = isPendingCallback(record);
+                const isCalling = offHoursCallingBackId === record.id;
+
+                return (
+                  <tr
+                    key={record.id || index}
+                    style={{
+                      backgroundColor: pending ? "#fff3cd" : "#d4edda",
+                    }}
+                  >
+                    <td>{indexOfFirstReport + index + 1}</td>
+                    <td>{missedCallSource(record)}</td>
+                    <td>{missedCallDestination(record)}</td>
+                    <td title={record.emergency_number_label || ""}>
+                      {missedCallEmergency(record)}
+                    </td>
+                    <td>
+                      {getOffHoursTimestamp(record)
+                        ? new Date(
+                            getOffHoursTimestamp(record)
+                          ).toLocaleString()
+                        : "-"}
+                    </td>
+                    <td>
+                      <Chip
+                        label={record.off_hours_label}
+                        size="small"
+                        sx={{
+                          backgroundColor:
+                            OFF_HOURS_CATEGORY_COLORS[
+                              record.off_hours_category
+                            ] || "#666",
+                          color: "#fff",
+                          fontWeight: "bold",
+                        }}
+                      />
+                    </td>
+                    <td>
+                      <OffHoursCallbackStatusChip record={record} />
+                    </td>
+                    <td>
+                      {record.callback_agent_name ||
+                        record.callback_agent_extension ||
+                        "—"}
+                    </td>
+                    <td>
+                      {record.callback_time
+                        ? new Date(record.callback_time).toLocaleString()
+                        : "—"}
+                    </td>
+                    <td className="off-hours-actions-cell">
+                      {pending && phone ? (
+                        <Tooltip
+                          title={
+                            sipReady
+                              ? "Call back via your agent phone (same as Agent Dashboard)"
+                              : "Log in on Agent Dashboard with SIP extension first"
+                          }
+                        >
+                          <span>
+                            <Button
+                              variant="contained"
+                              size="small"
+                              color={isCalling ? "success" : "primary"}
+                              disabled={!sipReady || isCalling}
+                              startIcon={<FiPhoneCall />}
+                              onClick={() => handleOffHoursCallBack(record)}
+                            >
+                              {isCalling ? "Calling..." : "Call Back"}
+                            </Button>
+                          </span>
+                        </Tooltip>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </>
+      );
+    }
+
+    if (offHoursSource === "cdr") {
+      return (
+        <table className="off-hours-table report-table">
+          <thead>
+            <tr>
+              <th>Sn</th>
+              <th>Source</th>
+              <th>Routed To</th>
+              <th>Date/Time</th>
+              <th>Category</th>
+              <th>Disposition</th>
+              <th>Duration (s)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {currentReports.map((record, index) => (
+              <tr key={record.id || index}>
+                <td>{indexOfFirstReport + index + 1}</td>
+                <td>{record.caller_display || record.clid || "-"}</td>
+                <td>
+                  {record.routed_to_label || record.routed_to || "—"}
+                  {record.is_emergency_route && (
+                    <span className="off-hours-emergency-tag"> Emergency</span>
+                  )}
+                </td>
+                <td>
+                  {getOffHoursTimestamp(record)
+                    ? new Date(getOffHoursTimestamp(record)).toLocaleString()
+                    : "-"}
+                </td>
+                <td>
+                  <Chip
+                    label={record.off_hours_label}
+                    size="small"
+                    sx={{
+                      backgroundColor:
+                        OFF_HOURS_CATEGORY_COLORS[record.off_hours_category] ||
+                        "#666",
+                      color: "#fff",
+                      fontWeight: "bold",
+                    }}
+                  />
+                </td>
+                <td>{record.disposition || "-"}</td>
+                <td>{record.duration || "-"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      );
+    }
+
+    return (
+      <>
+        <audio ref={remoteAudioRef} autoPlay style={{ display: "none" }} />
+        <table className="off-hours-table report-table">
+          <thead>
+            <tr>
+              <th>Sn</th>
+              <th>ID</th>
+              <th>Caller ID</th>
+              <th>Routed To</th>
+              <th>Created At</th>
+              <th>Category</th>
+              <th>Status</th>
+              <th>Actions</th>
+              <th>Duration (s)</th>
+              <th>Transcription</th>
+            </tr>
+          </thead>
+          <tbody>
+            {currentReports.map((record, index) => {
+              const isPlayed = isOffHoursNotePlayed(
+                record,
+                offHoursPlayedStatus
+              );
+              const isPlaying = offHoursPlayingId === record.id;
+
+              return (
+                <tr
+                  key={record.id || index}
+                  style={{
+                    backgroundColor: getOffHoursRowColor(
+                      record,
+                      offHoursPlayedStatus
+                    ),
+                  }}
+                >
+                  <td>{indexOfFirstReport + index + 1}</td>
+                  <td>{record.id}</td>
+                  <td>{record.caller_display || record.clid || "-"}</td>
+                  <td>
+                    {record.routed_to_label || record.routed_to || "—"}
+                    {record.is_emergency_route && (
+                      <span className="off-hours-emergency-tag"> Emergency</span>
+                    )}
+                  </td>
+                  <td>
+                    {getOffHoursTimestamp(record)
+                      ? new Date(getOffHoursTimestamp(record)).toLocaleString()
+                      : "-"}
+                  </td>
+                  <td>
+                    <Chip
+                      label={record.off_hours_label}
+                      size="small"
+                      sx={{
+                        backgroundColor:
+                          OFF_HOURS_CATEGORY_COLORS[
+                            record.off_hours_category
+                          ] || "#666",
+                        color: "#fff",
+                        fontWeight: "bold",
+                      }}
+                    />
+                  </td>
+                  <td>{isPlayed ? "Played" : "Not Played"}</td>
+                  <td>
+                    {record.id ? (
+                      <>
+                        <button
+                          type="button"
+                          className="off-hours-btn off-hours-btn-play"
+                          onClick={() => handleOffHoursPlayVoice(record)}
+                        >
+                          Play
+                        </button>
+                        {isPlaying && (
+                          <button
+                            type="button"
+                            className="off-hours-btn off-hours-btn-pause"
+                            onClick={handleOffHoursPauseVoice}
+                          >
+                            Pause
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      "No file"
+                    )}
+                  </td>
+                  <td>{record.duration_seconds || "-"}</td>
+                  <td className="off-hours-transcription">
+                    {record.transcription || "-"}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </>
+    );
   };
 
   const renderMissedCallTable = () => (
@@ -2109,55 +3275,51 @@ export default function ComprehensiveReports() {
     );
   };
 
-  const renderVoiceNoteTable = () => (
-    <table className="report-table">
-      <thead>
-        <tr>
-          <th>Sn</th>
-          <th>Phone</th>
-          <th>Date</th>
-          <th>Played</th>
-          <th>Assigned Agent</th>
-          <th>Duration (s)</th>
-          <th>Transcription</th>
-        </tr>
-      </thead>
-      <tbody>
-        {currentReports.map((report, index) => (
-          <tr key={report.id || index}>
-            <td>{indexOfFirstReport + index + 1}</td>
-            <td>{report.clid}</td>
-            <td>
-              {report.created_at
-                ? new Date(report.created_at).toLocaleString()
-                : "-"}
-            </td>
-            <td>
-              <Chip
-                label={report.is_played ? "Yes" : "No"}
-                size="small"
-                color={report.is_played ? "success" : "warning"}
-              />
-            </td>
-            <td>
-          {report.assigned_extension
-            ? `Ext ${report.assigned_extension}${
-                report.assigned_agent_name
-                  ? ` (${report.assigned_agent_name})`
-                  : ""
-              }`
-            : "-"}
-        </td>
+  const renderVoiceNoteTable = () => {
+    const columns = getColumnDefinitions();
+    const selected = selectedColumns[activeTab] || [];
+    const selectedColumnsDef = columns.filter((col) =>
+      selected.includes(col.key)
+    );
 
-            <td>{report.duration_seconds || "-"}</td>
-            <td className="transcription-cell">
-              {report.transcription || "-"}
-            </td>
+    return (
+      <table className="report-table">
+        <thead>
+          <tr>
+            {selectedColumnsDef.map((col) => (
+              <th key={col.key}>{col.label}</th>
+            ))}
           </tr>
-        ))}
-      </tbody>
-    </table>
-  );
+        </thead>
+        <tbody>
+          {currentReports.map((report, index) => (
+            <tr key={report.id || index}>
+              {selectedColumnsDef.map((col) => {
+                if (col.key === "serial") {
+                  return (
+                    <td key={col.key}>{indexOfFirstReport + index + 1}</td>
+                  );
+                }
+                const value = getColumnValue(col.key, report, index);
+                if (col.key === "played") {
+                  return (
+                    <td key={col.key}>
+                      <Chip
+                        label={value}
+                        size="small"
+                        color={value === "Yes" ? "success" : "warning"}
+                      />
+                    </td>
+                  );
+                }
+                return <td key={col.key}>{value}</td>;
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  };
 
   const renderCDRTable = () => (
     <table className="report-table">
@@ -2168,8 +3330,8 @@ export default function ComprehensiveReports() {
           <th>Source</th>
           <th>Destination</th>
           <th>Start Time</th>
-          <th>Duration (s)</th>
-          <th>Billed (s)</th>
+          <th>Duration (min)</th>
+          <th>Billed (min)</th>
           <th>Disposition</th>
           <th>Recording</th>
         </tr>
@@ -2186,8 +3348,8 @@ export default function ComprehensiveReports() {
                 ? new Date(report.cdrstarttime).toLocaleString()
                 : "-"}
             </td>
-            <td>{report.duration || "-"}</td>
-            <td>{report.billsec || "-"}</td>
+            <td>{formatSecondsToMinutes(report.duration)}</td>
+            <td>{formatSecondsToMinutes(report.billsec)}</td>
             <td>
               <Chip
                 label={report.disposition || "-"}
@@ -2216,122 +3378,182 @@ export default function ComprehensiveReports() {
     const selectedColumnsDef = columns.filter((col) =>
       selected.includes(col.key)
     );
+    const colSpan = selectedColumnsDef.length + 1;
 
     return (
-      <table className="report-table">
+      <table className="report-table report-table--ticket-crm">
         <thead>
           <tr>
+            <th className="report-table-expand-col" aria-label="Expand workflow" />
             {selectedColumnsDef.map((col) => (
               <th key={col.key}>{col.label}</th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {currentReports.map((report, index) => (
-            <tr key={report.id || index}>
-              {selectedColumnsDef.map((col) => {
-                const value = getColumnValue(col.key, report, index);
-                // Special rendering for certain columns
-                if (col.key === "status") {
-                  return (
-                    <td key={col.key}>
-                      <Chip
-                        label={value}
+          {currentReports.map((report, index) => {
+            const ticketId = report.id;
+            const isExpanded = expandedTicketId === ticketId;
+
+            return (
+              <React.Fragment key={ticketId || index}>
+                <tr
+                  className={
+                    isExpanded ? "report-table-row-expanded" : undefined
+                  }
+                >
+                  <td className="report-table-expand-col">
+                    {ticketId ? (
+                      <IconButton
                         size="small"
-                        color={
-                          value === "Closed"
-                            ? "success"
-                            : value === "Open"
-                            ? "error"
-                            : "warning"
+                        aria-label={
+                          isExpanded
+                            ? "Collapse workflow timeline"
+                            : "Expand workflow timeline"
                         }
+                        aria-expanded={isExpanded}
+                        onClick={() => toggleTicketExpand(report)}
+                      >
+                        {isExpanded ? (
+                          <ExpandLess fontSize="small" />
+                        ) : (
+                          <ExpandMore fontSize="small" />
+                        )}
+                      </IconButton>
+                    ) : null}
+                  </td>
+                  {selectedColumnsDef.map((col) => {
+                    const value = getColumnValue(col.key, report, index);
+                    if (col.key === "status") {
+                      return (
+                        <td key={col.key}>
+                          <Chip
+                            label={value}
+                            size="small"
+                            color={
+                              value === "Closed"
+                                ? "success"
+                                : value === "Open"
+                                ? "error"
+                                : "warning"
+                            }
+                          />
+                        </td>
+                      );
+                    }
+                    if (col.key === "category") {
+                      return (
+                        <td key={col.key}>
+                          <Chip
+                            label={value}
+                            size="small"
+                            color={
+                              value === "Complaint"
+                                ? "error"
+                                : value === "Inquiry"
+                                ? "info"
+                                : "default"
+                            }
+                          />
+                        </td>
+                      );
+                    }
+                    if (col.key === "complaintType") {
+                      return (
+                        <td key={col.key}>
+                          <Chip
+                            label={value}
+                            size="small"
+                            color={
+                              value === "Major"
+                                ? "error"
+                                : value === "Minor"
+                                ? "warning"
+                                : "default"
+                            }
+                          />
+                        </td>
+                      );
+                    }
+                    if (col.key === "isEscalated") {
+                      return (
+                        <td key={col.key}>
+                          <Chip
+                            label={value}
+                            size="small"
+                            color={value === "Yes" ? "error" : "default"}
+                          />
+                        </td>
+                      );
+                    }
+                    if (col.key === "workflowCompleted") {
+                      return (
+                        <td key={col.key}>
+                          <Chip
+                            label={value}
+                            size="small"
+                            color={value === "Yes" ? "success" : "default"}
+                          />
+                        </td>
+                      );
+                    }
+                    if (col.key === "workflowPath" && value && value !== "-") {
+                      return (
+                        <td key={col.key}>
+                          <Chip
+                            label={value.replace(/_/g, " ")}
+                            size="small"
+                            variant="outlined"
+                          />
+                        </td>
+                      );
+                    }
+                    if (
+                      col.key === "workflowTrail" ||
+                      col.key === "description" ||
+                      col.key === "resolutionDetails" ||
+                      col.key === "workflowNotes" ||
+                      col.key === "reviewNotes" ||
+                      col.key === "approvalNotes"
+                    ) {
+                      return (
+                        <td
+                          key={col.key}
+                          className={
+                            col.key === "workflowTrail"
+                              ? "report-table-workflow-trail-cell"
+                              : "report-table-wrap-cell"
+                          }
+                        >
+                          {value}
+                        </td>
+                      );
+                    }
+                    if (col.key === "subject") {
+                      return (
+                        <td key={col.key} className="subject-cell">
+                          {value}
+                        </td>
+                      );
+                    }
+                    return <td key={col.key}>{value}</td>;
+                  })}
+                </tr>
+                {isExpanded && ticketId && (
+                  <tr className="report-row-expand">
+                    <td colSpan={colSpan}>
+                      <TicketWorkflowExpandPanel
+                        ticket={report}
+                        assignments={assignmentCache[ticketId] || []}
+                        loading={!!assignmentLoading[ticketId]}
+                        error={assignmentErrors[ticketId]}
                       />
                     </td>
-                  );
-                }
-                if (col.key === "category") {
-                  return (
-                    <td key={col.key}>
-                      <Chip
-                        label={value}
-                        size="small"
-                        color={
-                          value === "Complaint"
-                            ? "error"
-                            : value === "Inquiry"
-                            ? "info"
-                            : "default"
-                        }
-                      />
-                    </td>
-                  );
-                }
-                if (col.key === "complaintType") {
-                  return (
-                    <td key={col.key}>
-                      <Chip
-                        label={value}
-                        size="small"
-                        color={
-                          value === "Major"
-                            ? "error"
-                            : value === "Minor"
-                            ? "warning"
-                            : "default"
-                        }
-                      />
-                    </td>
-                  );
-                }
-                if (col.key === "isEscalated") {
-                  return (
-                    <td key={col.key}>
-                      <Chip
-                        label={value}
-                        size="small"
-                        color={value === "Yes" ? "error" : "default"}
-                      />
-                    </td>
-                  );
-                }
-                if (col.key === "workflowCompleted") {
-                  return (
-                    <td key={col.key}>
-                      <Chip
-                        label={value}
-                        size="small"
-                        color={value === "Yes" ? "success" : "default"}
-                      />
-                    </td>
-                  );
-                }
-                if (col.key === "subject") {
-                  return (
-                    <td key={col.key} className="subject-cell">
-                      {value}
-                    </td>
-                  );
-                }
-                if (
-                  col.key === "description" ||
-                  col.key === "resolutionDetails" ||
-                  col.key === "workflowNotes" ||
-                  col.key === "reviewNotes" ||
-                  col.key === "approvalNotes"
-                ) {
-                  return (
-                    <td
-                      key={col.key}
-                      style={{ maxWidth: "300px", wordWrap: "break-word" }}
-                    >
-                      {value}
-                    </td>
-                  );
-                }
-                return <td key={col.key}>{value}</td>;
-              })}
-            </tr>
-          ))}
+                  </tr>
+                )}
+              </React.Fragment>
+            );
+          })}
         </tbody>
       </table>
     );
@@ -2401,42 +3623,172 @@ export default function ComprehensiveReports() {
     </table>
   );
 
-  const renderIVRTable = () => (
-    <table className="report-table">
-      <thead>
-        <tr>
-          <th>Sn</th>
-          <th>Caller ID</th>
-          <th>Digit Pressed</th>
-          <th>Menu Context</th>
-          <th>Language</th>
-          <th>Timestamp</th>
-        </tr>
-      </thead>
-      <tbody>
-        {currentReports.map((report, index) => (
-          <tr key={report.id || index}>
-            <td>{indexOfFirstReport + index + 1}</td>
-            <td>{report.caller_id || "-"}</td>
-            <td>{report.digit_pressed || "-"}</td>
-            <td>{report.menu_context || "-"}</td>
-            <td>
-              <Chip
-                label={report.language || "-"}
-                size="small"
-                color={report.language === "english" ? "primary" : "secondary"}
-              />
-            </td>
-            <td>
-              {report.timestamp
-                ? new Date(report.timestamp).toLocaleString()
-                : "-"}
-            </td>
+  const renderIvrInteractionsTable = () => {
+    const columns = getColumnDefinitions();
+    const selected = selectedColumns[activeTab] || [];
+    const selectedColumnsDef = columns.filter((col) =>
+      selected.includes(col.key)
+    );
+
+    return (
+      <table className="report-table">
+        <thead>
+          <tr>
+            {selectedColumnsDef.map((col) => (
+              <th key={col.key}>{col.label}</th>
+            ))}
           </tr>
-        ))}
-      </tbody>
-    </table>
-  );
+        </thead>
+        <tbody>
+          {currentReports.map((report, index) => (
+            <tr key={report.id || index}>
+              {selectedColumnsDef.map((col) => (
+                <td key={col.key}>
+                  {col.key === "language" ? (
+                    <Chip
+                      label={getColumnValue(col.key, report, index)}
+                      size="small"
+                      color={
+                        report.language === "english" ? "primary" : "secondary"
+                      }
+                    />
+                  ) : (
+                    getColumnValue(col.key, report, index)
+                  )}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  };
+
+  const dtmfChartData = useMemo(() => {
+    if (activeTab !== REPORT_TYPES.DTMF_USAGE) {
+      return { digits: [], digitNames: [], digitCounts: [], maxValue: 1, total: 0 };
+    }
+    const countMap = {};
+    filteredReports.forEach((row) => {
+      const digit = row.digit_pressed;
+      if (!DTMF_DIGIT_LABELS[digit]) return;
+      countMap[digit] = (countMap[digit] || 0) + 1;
+    });
+    const digits = Object.keys(countMap).sort();
+    const digitNames = digits.map((d) => DTMF_DIGIT_LABELS[d]);
+    const digitCounts = digits.map((d) => countMap[d]);
+    const maxValue = Math.max(...digitCounts, 1);
+    const total = digitCounts.reduce((sum, n) => sum + n, 0);
+    return { digits, digitNames, digitCounts, maxValue, total };
+  }, [activeTab, filteredReports]);
+
+  const renderDtmfUsageCharts = () => {
+    const { digits, digitNames, digitCounts, maxValue, total } = dtmfChartData;
+    if (digits.length === 0) return null;
+
+    const radialOptions = {
+      chart: { type: "radialBar", height: 420 },
+      plotOptions: {
+        radialBar: {
+          hollow: { size: "55%" },
+          dataLabels: {
+            total: {
+              show: true,
+              label: "Total",
+              formatter: () => total,
+            },
+          },
+        },
+      },
+      labels: digitNames,
+      colors: digits.map((_, i) => DTMF_CHART_COLORS[i % DTMF_CHART_COLORS.length]),
+    };
+
+    const barOptions = {
+      chart: { type: "bar", height: 420 },
+      plotOptions: {
+        bar: { horizontal: true, distributed: true, borderRadius: 6 },
+      },
+      xaxis: { categories: digitNames, max: maxValue + 2 },
+      colors: digits.map((_, i) => DTMF_CHART_COLORS[i % DTMF_CHART_COLORS.length]),
+      legend: { show: true, position: "bottom" },
+    };
+
+    return (
+      <Card className="dtmf-charts-card">
+        <CardContent>
+          <Typography variant="h6" className="dtmf-charts-heading" align="center">
+            IVR DTMF Usage Report
+          </Typography>
+          <div className="dtmf-charts-grid">
+            <div className="dtmf-chart-panel">
+              <Typography variant="subtitle1" align="center" gutterBottom>
+                Radial Chart
+              </Typography>
+              <ReactApexChart
+                options={radialOptions}
+                series={digitCounts}
+                type="radialBar"
+                height={420}
+              />
+            </div>
+            <div className="dtmf-chart-panel">
+              <Typography variant="subtitle1" align="center" gutterBottom>
+                Bar Chart
+              </Typography>
+              <ReactApexChart
+                options={barOptions}
+                series={[{ data: digitCounts }]}
+                type="bar"
+                height={420}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderDtmfUsageTable = () => {
+    const columns = getColumnDefinitions();
+    const selected = selectedColumns[activeTab] || [];
+    const selectedColumnsDef = columns.filter((col) =>
+      selected.includes(col.key)
+    );
+
+    return (
+      <table className="report-table">
+        <thead>
+          <tr>
+            {selectedColumnsDef.map((col) => (
+              <th key={col.key}>{col.label}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {currentReports.map((report, index) => (
+            <tr key={`${report.caller_id}-${report.timestamp}-${index}`}>
+              {selectedColumnsDef.map((col) => (
+                <td key={col.key}>
+                  {col.key === "language" ? (
+                    <Chip
+                      label={getColumnValue(col.key, report, index)}
+                      size="small"
+                      color={
+                        report.language === "english" ? "primary" : "secondary"
+                      }
+                    />
+                  ) : (
+                    getColumnValue(col.key, report, index)
+                  )}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  };
 
   const renderTicketAssignmentsTable = () => {
     const columns = getColumnDefinitions();
@@ -2539,37 +3891,55 @@ export default function ComprehensiveReports() {
 
   return (
     <div className="comprehensive-reports-container">
-      <div className="reports-header">
-        <Typography variant="h4" className="reports-title">
-          Call Center Reports
-        </Typography>
-        <Typography variant="body2" color="textSecondary">
-          Comprehensive reporting and analytics for your call center
-        </Typography>
+      <div className="report-page-toolbar">
+        <div className="reports-header">
+          <Typography variant="h5" className="reports-title">
+            {currentReport.label}
+          </Typography>
+          <Typography variant="body2" className="reports-subtitle">
+            Call center analytics and operational reporting
+          </Typography>
+        </div>
+        <FormControl size="small" className="report-type-select">
+          <InputLabel id="report-type-label">Report</InputLabel>
+          <Select
+            labelId="report-type-label"
+            label="Report"
+            value={currentReport.slug}
+            onChange={handleReportSelect}
+          >
+            {REPORTS.map((r) => (
+              <MenuItem key={r.slug} value={r.slug}>
+                {r.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       </div>
 
-      {/* Tabs */}
-      <Box sx={{ borderBottom: 1, borderColor: "divider", mb: 3 }}>
-        <Tabs
-          value={activeTab}
-          onChange={handleTabChange}
-          variant="scrollable"
-          scrollButtons="auto"
+      {activeTab === REPORT_TYPES.PAUSE ? (
+        <PauseReport embedded />
+      ) : activeTab === REPORT_TYPES.LIVESTREAM ? (
+        <Livestream />
+      ) : activeTab === REPORT_TYPES.OFF_HOURS ? (
+        <OffHoursReport />
+      ) : activeTab === REPORT_TYPES.SLA_CALL_CENTER ? (
+        <CallCenterSlaReport embedded />
+      ) : activeTab === REPORT_TYPES.SLA_TICKET ? (
+        <TicketSlaReport embedded />
+      ) : (
+        <>
+      {activeTab === REPORT_TYPES.OFF_HOURS && (
+        <Typography
+          variant="body2"
+          color="textSecondary"
+          sx={{ mb: 2, maxWidth: 900 }}
         >
-          <Tab label="Voice Note Report" />
-          <Tab label="CDR Report" />
-          <Tab label="Ticket CRM Report" />
-          <Tab label="Agent Performance" />
-          <Tab label="Call Summary" />
-          <Tab label="IVR Interactions" />
-          <Tab label="Ticket Assignments" />
-          <Tab label="Missed Call Report" />
-          <Tab label="Escallation" />
-          <Tab label="Notifications" />
-          <Tab label="Chats" />
-        </Tabs>
-      </Box>
-
+          Weekend, public holiday, and after-work activity (Mon–Fri before
+          08:00 or after 20:00, Sat before 09:00 or after 13:00, all day Sunday
+          and holidays). Use Missed Calls source to callback pending callers.
+        </Typography>
+      )}
       {/* Summary Cards for Call Reports */}
       {renderSummaryCards()}
 
@@ -2577,32 +3947,20 @@ export default function ComprehensiveReports() {
       <Card className="filters-card">
         <CardContent>
           <div className="filters-container">
-            <div className="date-filters">
-              <TextField
-                type="date"
-                label="Start Date"
-                InputLabelProps={{ shrink: true }}
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                size="small"
-                style={{ marginRight: 8 }}
-              />
-              <TextField
-                type="date"
-                label="End Date"
-                InputLabelProps={{ shrink: true }}
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                size="small"
-                style={{ marginRight: 8 }}
-              />
-            </div>
+            <div className="report-filters-row">
+            <ReportDateRangePicker
+              className="report-filter-dates"
+              startDate={startDate}
+              endDate={endDate}
+              onStartDateChange={setStartDate}
+              onEndDateChange={setEndDate}
+              disabled={loading}
+            />
 
-            <div className="additional-filters">
               {activeTab === REPORT_TYPES.VOICE_NOTE && (
                 <FormControl
                   size="small"
-                  style={{ minWidth: 150, marginRight: 8 }}
+                  className="filter-field"
                 >
                   <InputLabel>Played Status</InputLabel>
                   <Select
@@ -2620,7 +3978,7 @@ export default function ComprehensiveReports() {
               {activeTab === REPORT_TYPES.CDR && (
                 <FormControl
                   size="small"
-                  style={{ minWidth: 150, marginRight: 8 }}
+                  className="filter-field"
                 >
                   <InputLabel>Disposition</InputLabel>
                   <Select
@@ -2641,7 +3999,7 @@ export default function ComprehensiveReports() {
                 <>
                   <FormControl
                     size="small"
-                    style={{ minWidth: 150, marginRight: 8 }}
+                    className="filter-field"
                   >
                     <InputLabel>Status</InputLabel>
                     <Select
@@ -2662,7 +4020,7 @@ export default function ComprehensiveReports() {
                   </FormControl>
                   <FormControl
                     size="small"
-                    style={{ minWidth: 150, marginRight: 8 }}
+                    className="filter-field"
                   >
                     <InputLabel>Category</InputLabel>
                     <Select
@@ -2680,7 +4038,7 @@ export default function ComprehensiveReports() {
                   </FormControl>
                   <FormControl
                     size="small"
-                    style={{ minWidth: 150, marginRight: 8 }}
+                    className="filter-field"
                   >
                     <InputLabel>Complaint Type</InputLabel>
                     <Select
@@ -2699,7 +4057,7 @@ export default function ComprehensiveReports() {
               {activeTab === REPORT_TYPES.AGENT_PERFORMANCE && (
                 <FormControl
                   size="small"
-                  style={{ minWidth: 150, marginRight: 8 }}
+                  className="filter-field"
                 >
                   <InputLabel>Agent</InputLabel>
                   <Select
@@ -2716,7 +4074,7 @@ export default function ComprehensiveReports() {
               {activeTab === REPORT_TYPES.MISSED_CALL && (
                 <FormControl
                   size="small"
-                  style={{ minWidth: 150, marginRight: 8 }}
+                  className="filter-field"
                 >
                   <InputLabel>Status</InputLabel>
                   <Select
@@ -2730,6 +4088,51 @@ export default function ComprehensiveReports() {
                   </Select>
                 </FormControl>
               )}
+
+              {activeTab === REPORT_TYPES.OFF_HOURS && (
+                <>
+                  <FormControl
+                    size="small"
+                    style={{ minWidth: 140, marginRight: 8 }}
+                  >
+                    <InputLabel>Source</InputLabel>
+                    <Select
+                      value={offHoursSource}
+                      label="Source"
+                      onChange={(e) => {
+                        setOffHoursSource(e.target.value);
+                        setReports([]);
+                        setOffHoursSummary(null);
+                        setCurrentPage(1);
+                      }}
+                    >
+                      <MenuItem value="voice-notes">Voice Notes</MenuItem>
+                      <MenuItem value="cdr">CDR</MenuItem>
+                      <MenuItem value="missed-calls">Missed Calls</MenuItem>
+                    </Select>
+                  </FormControl>
+                  <FormControl
+                    size="small"
+                    style={{ minWidth: 180, marginRight: 8 }}
+                  >
+                    <InputLabel>Category</InputLabel>
+                    <Select
+                      value={offHoursCategoryFilter}
+                      label="Category"
+                      onChange={(e) => {
+                        setOffHoursCategoryFilter(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                    >
+                      {OFF_HOURS_CATEGORY_OPTIONS.map((opt) => (
+                        <MenuItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </>
+              )}
             </div>
 
             <div className="action-buttons">
@@ -2741,6 +4144,7 @@ export default function ComprehensiveReports() {
                 disabled={
                   loading ||
                   (activeTab !== REPORT_TYPES.IVR_INTERACTIONS &&
+                    activeTab !== REPORT_TYPES.DTMF_USAGE &&
                     activeTab !== REPORT_TYPES.MISSED_CALL &&
                     activeTab !== REPORT_TYPES.ESCALLATION &&
                     activeTab !== REPORT_TYPES.NOTIFICATIONS &&
@@ -2750,7 +4154,8 @@ export default function ComprehensiveReports() {
               >
                 Load Report
               </Button>
-              {filteredReports.length > 0 && (
+              {filteredReports.length > 0 &&
+                activeTab !== REPORT_TYPES.OFF_HOURS && (
                 <Button
                   variant="outlined"
                   color="info"
@@ -2765,7 +4170,7 @@ export default function ComprehensiveReports() {
                 color="secondary"
                 startIcon={<PictureAsPdf />}
                 onClick={handleExportPDF}
-                disabled={filteredReports.length === 0}
+                disabled={filteredReports.length === 0 || exportingWorkflow}
               >
                 Export PDF
               </Button>
@@ -2774,7 +4179,7 @@ export default function ComprehensiveReports() {
                 color="success"
                 startIcon={<TableChart />}
                 onClick={handleExportCSV}
-                disabled={filteredReports.length === 0}
+                disabled={filteredReports.length === 0 || exportingWorkflow}
               >
                 Export CSV
               </Button>
@@ -2801,6 +4206,12 @@ export default function ComprehensiveReports() {
                   ? "Search by ticket number, subject, message, or comment..."
                   : activeTab === REPORT_TYPES.CHATS
                   ? "Search by sender, receiver, or message..."
+                  : activeTab === REPORT_TYPES.OFF_HOURS
+                  ? "Search by phone or routed destination..."
+                  : activeTab === REPORT_TYPES.IVR_INTERACTIONS
+                  ? "Search DTMF, action, parameter, voice..."
+                  : activeTab === REPORT_TYPES.DTMF_USAGE
+                  ? "Search digit, action, caller, language..."
                   : "Search..."
               }
               value={search}
@@ -2817,9 +4228,20 @@ export default function ComprehensiveReports() {
         </CardContent>
       </Card>
 
+      {activeTab === REPORT_TYPES.DTMF_USAGE && renderDtmfUsageCharts()}
+
       {/* Report Table */}
       <Card className="table-card">
         <CardContent>
+          {exportingWorkflow && (
+            <div className="export-workflow-overlay">
+              <WcfLoader
+                size="md"
+                message="Preparing workflow data for export…"
+                label="Preparing export"
+              />
+            </div>
+          )}
           <div className="table-header">
             <Typography variant="h6">{getReportTitle()}</Typography>
             <Typography variant="body2" color="textSecondary">
@@ -2865,10 +4287,18 @@ export default function ComprehensiveReports() {
           </Button>
         </div>
       )}
+        </>
+      )}
 
       {/* Column Selection Dialog */}
       <Dialog
-        open={columnDialogOpen}
+        open={
+          columnDialogOpen &&
+          activeTab !== REPORT_TYPES.PAUSE &&
+          activeTab !== REPORT_TYPES.LIVESTREAM &&
+          activeTab !== REPORT_TYPES.SLA_CALL_CENTER &&
+          activeTab !== REPORT_TYPES.SLA_TICKET
+        }
         onClose={() => setColumnDialogOpen(false)}
         maxWidth="sm"
         fullWidth
@@ -2884,14 +4314,14 @@ export default function ComprehensiveReports() {
               <Button
                 size="small"
                 onClick={handleSelectAllColumns}
-                style={{ marginRight: 8 }}
+                className="filter-field"
               >
                 Select All
               </Button>
               <Button
                 size="small"
                 onClick={handleDeselectAllColumns}
-                style={{ marginRight: 8 }}
+                className="filter-field"
               >
                 Deselect All
               </Button>

@@ -45,6 +45,9 @@ export default function PhonePopup({
   onCompleteConsultTransfer,
   onCancelConsult,
   onSwapToTicket,
+  incomingLabel = "Incoming Call",
+  incomingHint,
+  showDialPad = true,
 }) {
   const [activeView, setActiveView] = useState("phone"); // "phone" | "logs"
   const [logs, setLogs] = useState([]);
@@ -152,8 +155,10 @@ export default function PhonePopup({
                 <span>
                   {phoneStatus === "In Call"
                     ? "Active Call"
+                    : phoneStatus === "Connecting listen…"
+                      ? "Connecting listen…"
                     : phoneStatus === "Ringing"
-                      ? "Incoming Call"
+                      ? incomingLabel
                       : phoneStatus === "Dialing"
                         ? "Dialing..."
                         : phoneStatus === "Consulting"
@@ -259,7 +264,7 @@ export default function PhonePopup({
                       <div className="caller-number">
                         {lastIncomingNumber || "Unknown"}
                       </div>
-                      <div className="caller-label">Incoming Call</div>
+                      <div className="caller-label">{incomingLabel}</div>
                     </div>
                   </div>
                   <div className="call-actions">
@@ -278,13 +283,21 @@ export default function PhonePopup({
                       <span>Decline</span>
                     </button>
                   </div>
-                  {/* Note: Ticket modal opens automatically when answering call */}
-                  <div className="call-instruction">
-                    <small style={{ color: "#6c757d", fontStyle: "italic" }}>
-                      💡 Ticket form will open automatically when you answer the
-                      call
-                    </small>
-                  </div>
+                  {incomingHint != null && incomingHint !== "" && (
+                    <div className="call-instruction">
+                      <small style={{ color: "#6c757d", fontStyle: "italic" }}>
+                        {incomingHint}
+                      </small>
+                    </div>
+                  )}
+                  {incomingHint == null && onSwapToTicket && (
+                    <div className="call-instruction">
+                      <small style={{ color: "#6c757d", fontStyle: "italic" }}>
+                        💡 Ticket form will open automatically when you answer
+                        the call
+                      </small>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -325,7 +338,11 @@ export default function PhonePopup({
               )}
 
               {/* Dial Pad Section */}
-              {phoneStatus !== "In Call" && phoneStatus !== "Ringing" && phoneStatus !== "Dialing" && (
+              {showDialPad &&
+                phoneStatus !== "In Call" &&
+                phoneStatus !== "Ringing" &&
+                phoneStatus !== "Dialing" &&
+                phoneStatus !== "Connecting listen…" && (
                 <div className="dial-pad-section">
                   <div className="phone-number-display">
                     <input

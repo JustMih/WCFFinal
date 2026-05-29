@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { FaUsers, FaClock, FaExclamationTriangle } from "react-icons/fa";
 import "./CallQueueCard.css";
 import { amiURL, baseURL } from "../../config";
+import { LOST_MIN_DURATION_SECONDS } from "../../utils/callClassification";
 
 // Helper function for wait time color coding
 const getWaitTimeClass = (waitTime) => {
@@ -17,7 +18,7 @@ const getQueueCallStatus = (call) => {
   const [min, sec] = call.waitTime.split(":").map(Number);
   const totalSeconds = min * 60 + sec;
   if (totalSeconds < 60) return "Active";
-  if (totalSeconds < 120) return "Dropped";
+  if (totalSeconds < LOST_MIN_DURATION_SECONDS) return "Dropped";
   return "Lost";
 };
 
@@ -133,7 +134,7 @@ const CallQueueCard = () => {
             {calling.length > 0 ? (
               calling.map((call) => (
                 <tr
-                  key={call.id}
+                  key={call.linkedid || call.id}
                   className={
                     call.priority === "High" ? "priority-row-high" : ""
                   }

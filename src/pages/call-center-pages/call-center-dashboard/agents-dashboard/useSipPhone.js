@@ -11,6 +11,7 @@ export function useSipPhone({
   onCallEnded,
   showAlert,
   allowIncomingRinging = true,
+  autoAnswerSpyCalls = false,
 }) {
   // ---------- Core state ----------
   const [phoneStatus, setPhoneStatus] = useState("Idle");
@@ -22,6 +23,8 @@ export function useSipPhone({
 
   const allowRingingRef = useRef(allowIncomingRinging);
   allowRingingRef.current = allowIncomingRinging;
+  const autoAnswerSpyRef = useRef(autoAnswerSpyCalls);
+  autoAnswerSpyRef.current = autoAnswerSpyCalls;
 
   // --------- Call control ---------
   const [isMuted, setIsMuted] = useState(false);
@@ -160,16 +163,77 @@ export function useSipPhone({
     };
   };
 
+  /** Only AMI ChanSpy to supervisor ext — not normal customer INVITEs from Asterisk */
+  const isSupervisorSpyInvite = (invitation) => {
+    const display =
+      invitation?.remoteIdentity?.displayName ||
+      invitation?.request?.from?.displayName ||
+      "";
+    const fromHeader = String(invitation?.request?.from || "");
+    return (
+      /^supervisor$/i.test(String(display).trim()) ||
+      /"Supervisor"\s*</i.test(fromHeader) ||
+      /supervisor\s*</i.test(fromHeader) ||
+      /chanspy/i.test(fromHeader)
+    );
+  };
+
+  const acceptIncomingInvite = async (invitation, number) => {
+    clearTimeout(autoRejectTimerRef.current);
+    stopRingtone();
+    wasAnsweredRef.current = true;
+
+    try {
+      await invitation.accept();
+      attachMediaStream(invitation);
+      setSession(invitation);
+      setIncomingCall(null);
+      setPhoneStatus("In Call");
+      startCallTimer();
+
+      invitation.stateChange.addListener((state) => {
+        if (state === SessionState.Terminated) {
+          setPhoneStatus("Idle");
+          setSession(null);
+          stopCallTimer();
+          if (remoteAudioRef.current) {
+            remoteAudioRef.current.srcObject = null;
+          }
+          onCallEnded?.();
+        }
+      });
+    } catch (error) {
+      console.error("Accept failed:", error);
+      setPhoneStatus("Idle");
+      setIncomingCall(null);
+    }
+  };
+
   // ---------- Incoming call ----------
   const handleIncomingInvite = (invitation) => {
+    wasAnsweredRef.current = false;
+
+    const number = invitation?.remoteIdentity?.uri?.user || "";
+    const spyIncoming = isSupervisorSpyInvite(invitation);
+
+    // Supervisor listen popup only — never auto-answer on agent dashboard
+    if (spyIncoming && autoAnswerSpyRef.current) {
+      setLastIncomingNumber(number);
+      setPhoneStatus("Connecting listen…");
+      acceptIncomingInvite(invitation, number);
+      return;
+    }
+
+    if (spyIncoming && !autoAnswerSpyRef.current) {
+      invitation.reject().catch(console.error);
+      return;
+    }
+
     if (!allowRingingRef.current) {
       invitation.reject().catch(console.error);
       return;
     }
 
-    wasAnsweredRef.current = false;
-
-    const number = invitation?.remoteIdentity?.uri?.user || "";
     setLastIncomingNumber(number);
     setIncomingCall(invitation);
     setPhoneStatus("Ringing");
@@ -251,55 +315,20 @@ export function useSipPhone({
   const acceptCall = async () => {
     if (!incomingCall) return;
 
-    clearTimeout(autoRejectTimerRef.current);
-    stopRingtone();
-
-    console.log("Accepting call...");
-
     const number = lastIncomingNumber;
-    wasAnsweredRef.current = true;
-
-    // Open ticket modal immediately — don't wait for WebRTC/SIP negotiation
     onCallAccepted?.(number);
 
-    try {
-      await incomingCall.accept();
+    localStorage.setItem(
+      "activeCallState",
+      JSON.stringify({
+        phoneStatus: "In Call",
+        phoneNumber: number || "",
+        callStartTime: new Date().toISOString(),
+        hasActiveCall: true,
+      })
+    );
 
-      attachMediaStream(incomingCall);
-      setSession(incomingCall);
-      setIncomingCall(null);
-      setPhoneStatus("In Call");
-      startCallTimer();
-
-      localStorage.setItem(
-        "activeCallState",
-        JSON.stringify({
-          phoneStatus: "In Call",
-          phoneNumber: number || "",
-          callStartTime: new Date().toISOString(),
-          hasActiveCall: true,
-        })
-      );
-
-      incomingCall.stateChange.addListener((state) => {
-        console.log("Call state:", state);
-        if (state === SessionState.Terminated) {
-          setPhoneStatus("Idle");
-          setSession(null);
-          stopCallTimer();
-          localStorage.removeItem("activeCallState");
-          if (remoteAudioRef.current) {
-            remoteAudioRef.current.srcObject = null;
-          }
-          onCallEnded?.();
-        }
-      });
-    } catch (error) {
-      console.error("Accept failed:", error);
-      setPhoneStatus("Idle");
-      setIncomingCall(null);
-      localStorage.removeItem("activeCallState");
-    }
+    await acceptIncomingInvite(incomingCall, number);
   };
 
   const rejectCall = () => {

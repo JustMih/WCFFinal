@@ -4,12 +4,14 @@ import { RxDashboard } from "react-icons/rx";
 import { MdOutlineSupportAgent, MdEmail, MdNotifications, MdMessage, MdChat, MdWork, MdPublic } from "react-icons/md";
 import { baseURL } from "../../../config";
 import "./crmSidebar.css";
+import SidebarHeader from "../shared/SidebarHeader";
+import logo from "../../../asserts/images/logo.png";
 
 // MUI Components - Individual imports for better tree shaking
 import Badge from "@mui/material/Badge";
 import Tooltip from "@mui/material/Tooltip";
 
-export default function CRMSidebar({ isSidebarOpen }) {
+export default function CRMSidebar({ isSidebarOpen, onToggleSidebar, role }) {
   const navigate = useNavigate();
   const [ticketStats, setTicketStats] = useState({
     total: 0,
@@ -47,16 +49,14 @@ export default function CRMSidebar({ isSidebarOpen }) {
   const [taggedCount, setTaggedCount] = useState(0);
   const [chatUnreadCount, setChatUnreadCount] = useState(0);
 
-  const role = localStorage.getItem("role");
-
-  const getDashboardTitle = (role) => {
-    if (role === "focal-person") return "Focal Person Dashboard";
-    if (role === "claim-focal-person") return "Claim Focal Person Dashboard";
-    if (role === "compliance-focal-person") return "Compliance Focal Person Dashboard";
-    if (role === "head-of-unit") return "Head of Unit Dashboard";
-    if (role === "reviewer") return "Reviewer Dashboard";
-    if (role === "director-general") return "Dashboard";
-    if (role === "agent" || role === "attendee") return "Agent Dashboard";
+  const getDashboardTitle = (userRole) => {
+    if (userRole === "focal-person") return "Focal Person Dashboard";
+    if (userRole === "claim-focal-person") return "Claim Focal Person Dashboard";
+    if (userRole === "compliance-focal-person") return "Compliance Focal Person Dashboard";
+    if (userRole === "head-of-unit") return "Head of Unit Dashboard";
+    if (userRole === "reviewer") return "Reviewer Dashboard";
+    if (userRole === "director-general") return "Dashboard";
+    if (userRole === "agent" || userRole === "attendee") return "Agent Dashboard";
     return "Dashboard";
   };
 
@@ -297,8 +297,15 @@ export default function CRMSidebar({ isSidebarOpen }) {
   }, []);
 
   return (
-    <aside className={`crm-sidebar ${isSidebarOpen ? "open" : "closed"}`}>
-      {/* Logo moved to Navbar */}
+    <aside className={`wcf-sidebar crm-sidebar ${isSidebarOpen ? "open" : "closed"}`}>
+      <SidebarHeader
+        logo={logo}
+        title="Back Office"
+        subtitle="WCF"
+        isOpen={isSidebarOpen}
+        onToggle={onToggleSidebar}
+      />
+      <nav className="wcf-sidebar-nav">
       <ul>
         {(
           role === "agent" ||
@@ -317,25 +324,26 @@ export default function CRMSidebar({ isSidebarOpen }) {
               <li>
                 <NavLink
                   to="/dashboard"
+                  end
                   className={({ isActive }) =>
-                    isActive ? "menu-item active-link" : "menu-item"
+                    isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                   }
                 >
-                  <div className="menu-item">
+                  <span className="sidebar-nav-row">
                     <RxDashboard className="menu-icon" />
                     {isSidebarOpen && (
                       <span className="menu-text">{getDashboardTitle(role)}</span>
                     )}
-                  </div>
+                  </span>
                 </NavLink>
 
                 <NavLink
                   to="/notifications?type=notified"
                   className={({ isActive }) =>
-                    isActive ? "menu-item active-link" : "menu-item"
+                    isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                   }
                 >
-                  <div className="menu-item">
+                  <span className="sidebar-nav-row">
                     <MdEmail className="menu-icon" />
                     {isSidebarOpen && (
                       <span className="menu-text" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -402,30 +410,30 @@ export default function CRMSidebar({ isSidebarOpen }) {
                         </span>
                       </span>
                     )}
-                  </div>
+                  </span>
                 </NavLink>
                 {/* 
               <NavLink
                 to="/instagram"
                 className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
+                  isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                 }
               >
-                <div className="menu-item">
+                <span className="sidebar-nav-row">
                   <FaInstagram className="menu-icon" color="#E4405F" />
                   {isSidebarOpen && (
                     <span className="menu-text">Instagram Management</span>
                   )}
-                </div>
+                </span>
               </NavLink> */}
 
                 <NavLink
                   to="/crm-chat"
                   className={({ isActive }) =>
-                    isActive ? "menu-item active-link" : "menu-item"
+                    isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                   }
                 >
-                  <div className="menu-item">
+                  <span className="sidebar-nav-row">
                     <MdChat className="menu-icon" />
                     {isSidebarOpen && (
                       <span className="menu-text" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -443,36 +451,35 @@ export default function CRMSidebar({ isSidebarOpen }) {
                         </Tooltip>
                       </span>
                     )}
-                  </div>
+                  </span>
                 </NavLink>
 
                 {/* <NavLink
                 to="/workflow"
                 className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
+                  isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                 }
               >
-                <div className="menu-item">
+                <span className="sidebar-nav-row">
                   <MdWork className="menu-icon" />
                   {isSidebarOpen && (
                     <span className="menu-text">Workflow Dashboard</span>
                   )}
-                </div>
+                </span>
               </NavLink> */}
 
                 <div
-                  className={`menu-item ${window.location.pathname.startsWith("/ticket")
+                  className={`sidebar-nav-link sidebar-nav-toggle ${window.location.pathname.startsWith("/ticket")
                       ? "active-link"
                       : ""
                     }`}
-                  style={{ padding: "11px 11px", textDecoration: "none" }}
                 >
-                  <MdOutlineSupportAgent className="menu-icon" />
-                  {isSidebarOpen && (
-                    <span className="menu-text">
-                      Ticket Management
-                    </span>
-                  )}
+                  <span className="sidebar-nav-row">
+                    <MdOutlineSupportAgent className="menu-icon" />
+                    {isSidebarOpen && (
+                      <span className="menu-text">Ticket Management</span>
+                    )}
+                  </span>
                 </div>
 
                 {isSidebarOpen && (
@@ -566,40 +573,41 @@ export default function CRMSidebar({ isSidebarOpen }) {
               <li>
                 <NavLink
                   to="/dashboard"
+                  end
                   className={({ isActive }) =>
-                    isActive ? "menu-item active-link" : "menu-item"
+                    isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                   }
                 >
-                  <div className="menu-item">
+                  <span className="sidebar-nav-row">
                     <RxDashboard className="menu-icon" />
                     {isSidebarOpen && (
                       <span className="menu-text">{getDashboardTitle(role)}</span>
                     )}
-                  </div>
+                  </span>
                 </NavLink>
                 <NavLink
                   to="/public-dashboard"
                   className={({ isActive }) =>
-                    isActive ? "menu-item active-link" : "menu-item"
+                    isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                   }
                 >
-                  <div className="menu-item">
+                  <span className="sidebar-nav-row">
                     <MdPublic className="menu-icon" />
                     {isSidebarOpen && (
                       <span className="menu-text">
                         Public Dashboard
                       </span>
                     )}
-                  </div>
+                  </span>
                 </NavLink>
 
                 <NavLink
                   to="/notifications?type=notified"
                   className={({ isActive }) =>
-                    isActive ? "menu-item active-link" : "menu-item"
+                    isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                   }
                 >
-                  <div className="menu-item">
+                  <span className="sidebar-nav-row">
                     <MdEmail className="menu-icon" />
                     {isSidebarOpen && (
                       <span className="menu-text" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -666,30 +674,30 @@ export default function CRMSidebar({ isSidebarOpen }) {
                         </span>
                       </span>
                     )}
-                  </div>
+                  </span>
                 </NavLink>
                 {/* 
               <NavLink
                 to="/instagram"
                 className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
+                  isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                 }
               >
-                <div className="menu-item">
+                <span className="sidebar-nav-row">
                   <FaInstagram className="menu-icon" color="#E4405F" />
                   {isSidebarOpen && (
                     <span className="menu-text">Instagram Management</span>
                   )}
-                </div>
+                </span>
               </NavLink> */}
 
                 <NavLink
                   to="/crm-chat"
                   className={({ isActive }) =>
-                    isActive ? "menu-item active-link" : "menu-item"
+                    isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                   }
                 >
-                  <div className="menu-item">
+                  <span className="sidebar-nav-row">
                     <MdChat className="menu-icon" />
                     {isSidebarOpen && (
                       <span className="menu-text" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -707,36 +715,35 @@ export default function CRMSidebar({ isSidebarOpen }) {
                         </Tooltip>
                       </span>
                     )}
-                  </div>
+                  </span>
                 </NavLink>
 
                 {/* <NavLink
                 to="/workflow"
                 className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
+                  isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                 }
               >
-                <div className="menu-item">
+                <span className="sidebar-nav-row">
                   <MdWork className="menu-icon" />
                   {isSidebarOpen && (
                     <span className="menu-text">Workflow Dashboard</span>
                   )}
-                </div>
+                </span>
               </NavLink> */}
 
                 <div
-                  className={`menu-item ${window.location.pathname.startsWith("/ticket")
+                  className={`sidebar-nav-link sidebar-nav-toggle ${window.location.pathname.startsWith("/ticket")
                       ? "active-link"
                       : ""
                     }`}
-                  style={{ padding: "11px 11px", textDecoration: "none" }}
                 >
-                  <MdOutlineSupportAgent className="menu-icon" />
-                  {isSidebarOpen && (
-                    <span className="menu-text">
-                      Ticket Management
-                    </span>
-                  )}
+                  <span className="sidebar-nav-row">
+                    <MdOutlineSupportAgent className="menu-icon" />
+                    {isSidebarOpen && (
+                      <span className="menu-text">Ticket Management</span>
+                    )}
+                  </span>
                 </div>
 
                 {isSidebarOpen && (
@@ -819,24 +826,25 @@ export default function CRMSidebar({ isSidebarOpen }) {
             <li>
               <NavLink
                 to="/dashboard"
-                className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
+                end
+                  className={({ isActive }) =>
+                  isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                 }
               >
-                <div className="menu-item">
+                <span className="sidebar-nav-row">
                   <RxDashboard className="menu-icon" />
                   {isSidebarOpen && (
                     <span className="menu-text">{getDashboardTitle(role)}</span>
                   )}
-                </div>
+                </span>
               </NavLink>
               <NavLink
                 to="/notifications?type=notified"
                 className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
+                  isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                 }
               >
-                <div className="menu-item">
+                <span className="sidebar-nav-row">
                   <MdEmail className="menu-icon" />
                   {isSidebarOpen && (
                     <span className="menu-text" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -903,10 +911,10 @@ export default function CRMSidebar({ isSidebarOpen }) {
                       </span>
                     </span>
                   )}
-                </div>
+                </span>
               </NavLink>
               <div
-                className={`menu-item ${window.location.pathname.startsWith("/reviewer")
+                className={`sidebar-nav-link ${window.location.pathname.startsWith("/reviewer")
                     ? "active-link"
                     : ""
                   }`}
@@ -1120,6 +1128,7 @@ export default function CRMSidebar({ isSidebarOpen }) {
           </>
         )}
       </ul>
+      </nav>
     </aside>
   );
 }

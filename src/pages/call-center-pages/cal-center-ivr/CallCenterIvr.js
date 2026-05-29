@@ -3,6 +3,7 @@ import { baseURL } from "../../../config";
 import { FaPlay, FaEdit, FaTrash, FaFileExcel } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import WcfLoader from "../../../components/shared/WcfLoader";
 import "./callCenterIvr.css";
 
 export default function CallCenterIvr() {
@@ -222,7 +223,9 @@ const handlePlayVoice = (id) => {
 
       {/* ================= TABLE ================= */}
       {loading ? (
-        <p>Loading...</p>
+        <div className="wcf-loading-container">
+          <WcfLoader size="md" message="Loading IVR voices..." label="Loading IVR voices" />
+        </div>
       ) : (
         <table className="user-table">
           <thead>

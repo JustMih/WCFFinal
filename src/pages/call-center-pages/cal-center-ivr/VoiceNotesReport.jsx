@@ -1,9 +1,11 @@
- import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { baseURL } from "../../../config";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
+import ReportDateRangePicker from "../../../components/shared/ReportDateRangePicker";
+import WcfLoader from "../../../components/shared/WcfLoader";
 import "./VoiceNotesReport.css";
 
 export default function RecordedSounds() {
@@ -40,13 +42,11 @@ export default function RecordedSounds() {
         const notes = res.data.voiceNotes || [];
         setVoiceNotes(notes);
 
-        const storedPlayed =
-          JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
-        const valid = {};
+        const fromDb = {};
         notes.forEach((n) => {
-          if (storedPlayed[n.id]) valid[n.id] = true;
+          if (n.is_played) fromDb[n.id] = true;
         });
-        setPlayedStatus(valid);
+        setPlayedStatus(fromDb);
       } catch (e) {
         setError("Failed to load voice notes");
       } finally {
@@ -60,7 +60,35 @@ export default function RecordedSounds() {
   /* ===============================
      PLAY / PAUSE
   =============================== */
-  const handlePlayVoice = (id) => {
+  const isPlayed = (note) => Boolean(playedStatus[note.id] || note.is_played);
+
+  const markAsPlayedInDb = async (id, durationSeconds = null) => {
+    const token = localStorage.getItem("authToken");
+    const body =
+      durationSeconds != null && durationSeconds > 0
+        ? { duration_seconds: Math.round(durationSeconds) }
+        : {};
+    await axios.put(`${baseURL}/voice-notes/${id}/mark-played`, body, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      withCredentials: true,
+    });
+
+    setPlayedStatus((prev) => ({ ...prev, [id]: true }));
+    setVoiceNotes((prev) =>
+      prev.map((n) =>
+        n.id === id
+          ? {
+              ...n,
+              is_played: 1,
+              duration_seconds:
+                n.duration_seconds || Math.round(durationSeconds || 0),
+            }
+          : n
+      )
+    );
+  };
+
+  const handlePlayVoice = async (id) => {
     const url = `${baseURL}/voice-notes/${id}/audio`;
 
     if (currentAudio) {
@@ -69,19 +97,23 @@ export default function RecordedSounds() {
     }
 
     const audio = new Audio(url);
-    audio.play();
 
-    setCurrentAudio(audio);
-    setCurrentlyPlayingId(id);
-
-    const updated = { ...playedStatus, [id]: true };
-    setPlayedStatus(updated);
-    localStorage.setItem("playedVoiceNotes", JSON.stringify(updated));
-
-    audio.onended = () => {
-      setCurrentlyPlayingId(null);
-      setCurrentAudio(null);
-    };
+    try {
+      await audio.play();
+      setCurrentAudio(audio);
+      setCurrentlyPlayingId(id);
+      if (audio.duration && !Number.isNaN(audio.duration)) {
+        await markAsPlayedInDb(id, audio.duration);
+      } else {
+        audio.onloadedmetadata = () => markAsPlayedInDb(id, audio.duration);
+      }
+      audio.onended = () => {
+        setCurrentlyPlayingId(null);
+        setCurrentAudio(null);
+      };
+    } catch (playErr) {
+      console.error("Audio play failed:", playErr);
+    }
   };
 
   const handlePauseVoice = () => {
@@ -110,8 +142,8 @@ export default function RecordedSounds() {
             statusFilter === ""
               ? true
               : statusFilter === "played"
-              ? playedStatus[n.id]
-              : !playedStatus[n.id];
+              ? isPlayed(n)
+              : !isPlayed(n);
 
           const matchFromDate = fromDate
             ? createdAt >= new Date(fromDate)
@@ -158,7 +190,7 @@ export default function RecordedSounds() {
       Caller: n.clid,
       Extension: n.assigned_extension,
       Agent: n.assigned_agent_name || "",
-      Status: playedStatus[n.id] ? "Played" : "Not Played",
+      Status: isPlayed(n) ? "Played" : "Not Played",
       Date: new Date(n.created_at).toLocaleString(),
     }));
 
@@ -180,7 +212,7 @@ export default function RecordedSounds() {
         n.clid,
         n.assigned_extension,
         n.assigned_agent_name || "-",
-        playedStatus[n.id] ? "Played" : "Not Played",
+        isPlayed(n) ? "Played" : "Not Played",
         new Date(n.created_at).toLocaleString(),
       ]),
     });
@@ -188,7 +220,13 @@ export default function RecordedSounds() {
     doc.save("voice_notes.pdf");
   };
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) {
+    return (
+      <div className="wcf-loading-container">
+        <WcfLoader size="md" message="Loading voice notes..." label="Loading voice notes" />
+      </div>
+    );
+  }
   if (error) return <div className="error">{error}</div>;
 
   return (
@@ -196,32 +234,22 @@ export default function RecordedSounds() {
       <h2 className="voice-title">Recorded Voice Notes</h2>
 
       {/* ================= FILTERS ================= */}
-      <div className="voice-controls">
+      <div className="voice-controls report-filters-row">
         <input
           className="voice-search"
           placeholder="Search Caller / ID"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-          <div className="date-filters">
-            <div className="date-field">
-              <label>From</label>
-              <input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setFromDate(e.target.value)}
-              />
-            </div>
-
-            <div className="date-field">
-              <label>To</label>
-              <input
-                type="date"
-                value={toDate}
-                onChange={(e) => setToDate(e.target.value)}
-              />
-            </div>
-          </div>
+          <ReportDateRangePicker
+            className="date-filters"
+            startDate={fromDate}
+            endDate={toDate}
+            onStartDateChange={setFromDate}
+            onEndDateChange={setToDate}
+            startLabel="From"
+            endLabel="To"
+          />
 
         <select
           value={extensionFilter}
@@ -290,10 +318,10 @@ export default function RecordedSounds() {
                   <td>
                     <span
                       className={`voice-status ${
-                        playedStatus[note.id] ? "played" : "unplayed"
+                        isPlayed(note) ? "played" : "unplayed"
                       }`}
                     >
-                      {playedStatus[note.id] ? "Played" : "Not Played"}
+                      {isPlayed(note) ? "Played" : "Not Played"}
                     </span>
                   </td>
                   <td>

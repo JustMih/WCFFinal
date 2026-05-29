@@ -11,6 +11,18 @@
   color: #333;
 }
 
+/* Preload off-screen while previous route stays visible under overlay */
+.public-dashboard--preload {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  left: -9999px;
+  top: 0;
+}
+
 .dashboard-loading {
   display: flex;
   justify-content: center;

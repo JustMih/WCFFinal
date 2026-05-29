@@ -1,33 +1,39 @@
+@import "../components/side-bar/shared/wcfSidebarTokens.css";
+
 /* Light Mode */
 .light-mode {
   --dashboard-text: #000000;
-  --font-family: 'Andale Mono', monospace;
-  --background-color: #f5f6f9; /* Light background */
-  --text-color: #1a1a1a; /* Dark text */
-  --sidebar-color: #ffffff; /* White sidebar */
-  --hover-color: #e0dfdc; /* Light hover effect */
-  --active-color: #6366f1; /* Blue for active links */
-  --card-background-color: #ffffff; /* White cards */
-  --button-background-color: #6366f1; /* Blue buttons */
-  --button-text-color: #ffffff; /* White button text */
-  --chart-line-color: #3b82f6; /* Light blue for line charts */
-  --badge-color: #e11d48; /* Red for badges */
-  --textgray-color: #6b7280; /* Gray for text */
+  --font-family: "Andale Mono", monospace;
+  --content-font: var(--wcf-font-ui);
+  --background-color: #eaeef1;
+  --text-color: #1a1a1a;
+  --sidebar-color: var(--wcf-sidebar-bg, #0d1b2e);
+  --hover-color: rgba(59, 113, 183, 0.08);
+  --active-color: var(--wcf-blue);
+  --card-background-color: #ffffff;
+  --button-background-color: var(--wcf-blue);
+  --button-text-color: #ffffff;
+  --chart-line-color: var(--wcf-blue);
+  --badge-color: #e11d48;
+  --textgray-color: #6b7280;
+  --navbar-background: var(--wcf-sidebar-bg, #0d1b2e);
 }
 
 /* Dark Mode */
 .dark-mode {
   --dashboard-text: #000000;
-  --font-family: 'Andale Mono', monospace;
-  --background-color: #2f3045; /* Dark background */
-  --text-color: #e8e6e3; /* Light text */
-  --sidebar-color: #25263a; /* Dark sidebar */
-  --hover-color: #44413f; /* Dark hover effect */
-  --active-color: #6366f1; /* Blue for active links */
-  --card-background-color: #3a3b57; /* Darker cards */
-  --button-background-color: #6366f1; /* Blue buttons */
-  --button-text-color: #ffffff; /* White text for buttons */
-  --chart-line-color: #818cf8; /* Soft blue for line charts */
-  --badge-color: #e11d48; /* Red for badges */
-  --textgray-color: #9ca3af; /* Light gray for text */
+  --font-family: "Andale Mono", monospace;
+  --content-font: var(--wcf-font-ui);
+  --background-color: #1e2433;
+  --text-color: #e8e6e3;
+  --sidebar-color: var(--wcf-sidebar-bg, #0d1b2e);
+  --hover-color: rgba(255, 255, 255, 0.06);
+  --active-color: var(--wcf-blue);
+  --card-background-color: #2a3142;
+  --button-background-color: var(--wcf-blue);
+  --button-text-color: #ffffff;
+  --chart-line-color: var(--wcf-blue-light);
+  --badge-color: #e11d48;
+  --textgray-color: #9ca3af;
+  --navbar-background: var(--wcf-sidebar-bg, #0d1b2e);
 }

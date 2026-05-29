@@ -1,0 +1,333 @@
+/* Scoped report layout — stat cards mirror supervisor dashboard */
+.sla-report-page,
+.sla-report-embedded,
+.sla-report-root {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.sla-report-root {
+  --sla-accent: #1565c0;
+  --sla-surface: #ffffff;
+  --sla-border: #e8edf3;
+  --sla-text: #1a2b42;
+  --sla-muted: #64748b;
+}
+
+/* Filters toolbar */
+.sla-report-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+  padding: 18px 20px;
+  margin-bottom: 20px;
+  background: var(--sla-surface);
+  border: 1px solid var(--sla-border);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.sla-report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-left: auto;
+}
+
+/* Metric cards grid */
+.sla-report-root .sla-report-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 1100px) {
+  .sla-report-root .sla-report-metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .sla-report-root .sla-report-metrics {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Stat cards (ported from supervisor-dashboard) */
+.sla-report-root .supervisor-stat-card {
+  background: var(--sla-surface);
+  border-radius: 12px;
+  padding: 16px 18px;
+  min-height: 88px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow:
+    0 1px 3px rgba(15, 23, 42, 0.08),
+    0 4px 14px rgba(15, 23, 42, 0.06);
+  border: 1px solid var(--sla-border);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.sla-report-root .supervisor-stat-card::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  border-radius: 12px 0 0 12px;
+}
+
+.sla-report-root .supervisor-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.1);
+}
+
+.sla-report-root .supervisor-stat-card.sla-service-level::before {
+  background: linear-gradient(180deg, #42a5f5, #1565c0);
+}
+
+.sla-report-root .supervisor-stat-card.sla-avg-response::before {
+  background: linear-gradient(180deg, #26a69a, #00695c);
+}
+
+.sla-report-root .supervisor-stat-card.sla-avg-handle::before {
+  background: linear-gradient(180deg, #ab47bc, #6a1b9a);
+}
+
+.sla-report-root .supervisor-stat-card.sla-abandonment::before {
+  background: linear-gradient(180deg, #ffa726, #ef6c00);
+}
+
+.sla-report-root .supervisor-stat-card__icon-wrap {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+}
+
+.sla-report-root .supervisor-stat-card.sla-service-level .supervisor-stat-card__icon-wrap {
+  background: rgba(66, 165, 245, 0.12);
+  color: #1565c0;
+}
+
+.sla-report-root .supervisor-stat-card.sla-avg-response .supervisor-stat-card__icon-wrap {
+  background: rgba(38, 166, 154, 0.12);
+  color: #00695c;
+}
+
+.sla-report-root .supervisor-stat-card.sla-avg-handle .supervisor-stat-card__icon-wrap {
+  background: rgba(171, 71, 188, 0.12);
+  color: #6a1b9a;
+}
+
+.sla-report-root .supervisor-stat-card.sla-abandonment .supervisor-stat-card__icon-wrap {
+  background: rgba(255, 167, 38, 0.12);
+  color: #ef6c00;
+}
+
+.sla-report-root .supervisor-stat-card__body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sla-report-root .supervisor-stat-card__period {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #5c6b7a;
+  background: #f0f4f8;
+  padding: 3px 8px;
+  border-radius: 4px;
+  width: fit-content;
+  line-height: 1.2;
+}
+
+.sla-report-root .supervisor-stat-card__count {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--sla-text);
+  line-height: 1.1;
+  margin: 0;
+}
+
+.sla-report-root .supervisor-stat-card__summary {
+  margin-top: 2px;
+}
+
+.sla-report-root .supervisor-stat-card__label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--sla-text);
+  line-height: 1.3;
+}
+
+.sla-report-root .supervisor-stat-card__sublabel {
+  font-size: 0.72rem;
+  color: var(--sla-muted);
+  line-height: 1.35;
+  margin-top: 2px;
+}
+
+/* Ticket SLA summary chips */
+.sla-report-summary-chips {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 900px) {
+  .sla-report-summary-chips {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .sla-report-summary-chips {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.sla-summary-chip {
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--sla-surface);
+  border: 1px solid var(--sla-border);
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sla-summary-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+}
+
+.sla-summary-chip strong {
+  display: block;
+  font-size: 1.6rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--sla-text);
+}
+
+.sla-summary-chip span {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--sla-muted);
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sla-summary-chip--overdue strong {
+  color: #c62828;
+}
+
+.sla-summary-chip--approaching strong {
+  color: #e65100;
+}
+
+.sla-summary-chip--ontime strong {
+  color: #2e7d32;
+}
+
+/* Table section */
+.sla-report-section {
+  margin-top: 8px;
+}
+
+.sla-report-section-title {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--sla-text);
+  margin: 0 0 12px 0;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e8edf3;
+}
+
+.sla-report-table-wrap {
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid var(--sla-border);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.sla-report-table-wrap .MuiTable-root {
+  background: var(--sla-surface);
+}
+
+.sla-report-table-wrap .MuiTableHead-root .MuiTableCell-head {
+  background: #f1f5f9;
+  color: #334155;
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  border-bottom: 2px solid #e2e8f0;
+  padding: 12px 16px;
+}
+
+.sla-report-table-wrap .MuiTableBody-root .MuiTableCell-body {
+  padding: 12px 16px;
+  font-size: 0.875rem;
+  color: #475569;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.sla-report-table-wrap .MuiTableBody-root .MuiTableRow-root:hover {
+  background-color: #f8fafc;
+}
+
+.sla-report-table-wrap .MuiTableBody-root .MuiTableRow-root:last-child .MuiTableCell-body {
+  border-bottom: none;
+}
+
+.sla-report-table tbody tr.sla-row-overdue {
+  background-color: rgba(244, 67, 54, 0.06);
+}
+
+.sla-report-table tbody tr.sla-row-overdue:hover {
+  background-color: rgba(244, 67, 54, 0.1);
+}
+
+.sla-report-table tbody tr.sla-row-approaching {
+  background-color: rgba(255, 152, 0, 0.06);
+}
+
+.sla-report-table tbody tr.sla-row-approaching:hover {
+  background-color: rgba(255, 152, 0, 0.1);
+}
+
+.sla-report-empty-hint {
+  margin-top: 32px;
+  padding: 32px;
+  text-align: center;
+  color: var(--sla-muted);
+  background: #f8fafc;
+  border-radius: 12px;
+  border: 1px dashed #cbd5e1;
+  font-size: 0.9rem;
+}

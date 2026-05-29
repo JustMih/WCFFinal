@@ -1,0 +1,76 @@
+.pause-report-page,
+.pause-report-embedded {
+  padding: 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  overflow-x: hidden;
+}
+
+.pause-report-filters {
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  background: var(--card-background-color, #ffffff);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+}
+
+.pause-report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.pause-report-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  background: var(--card-background-color, #ffffff);
+  box-sizing: border-box;
+}
+
+.pause-report-table thead {
+  background: color-mix(in srgb, var(--wcf-blue) 12%, var(--card-background-color));
+}
+
+.pause-report-table thead th {
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.35px;
+  color: var(--text-color, #1e293b);
+  border-bottom: 2px solid color-mix(in srgb, var(--wcf-blue) 25%, transparent);
+}
+
+.pause-report-table tbody tr:nth-child(even) {
+  background-color: rgba(0, 0, 0, 0.02);
+}
+
+.pause-report-table tbody tr:hover {
+  background-color: color-mix(in srgb, var(--wcf-blue) 6%, transparent);
+}
+
+.pause-report-row-exceeded {
+  background-color: #fef2f2 !important;
+}
+
+.pause-report-exceeded-cell {
+  color: #b91c1c;
+}
+
+@media (max-width: 768px) {
+  .pause-report-actions {
+    margin-left: 0;
+    width: 100%;
+  }
+
+  .pause-report-actions button {
+    flex: 1;
+    min-width: 120px;
+  }
+}
