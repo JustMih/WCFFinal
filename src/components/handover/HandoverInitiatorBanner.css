@@ -140,9 +140,35 @@
 
 .handover-initiator-banner__actions {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: center;
+  gap: 8px;
   flex-shrink: 0;
   align-self: center;
+}
+
+.handover-initiator-banner__hide {
+  min-width: 108px !important;
+  min-height: 40px !important;
+  font-size: 0.9rem !important;
+  font-weight: 600 !important;
+  text-transform: none !important;
+  border-radius: 12px !important;
+  border-color: rgba(100, 116, 139, 0.5) !important;
+  color: #475569 !important;
+  background: rgba(255, 255, 255, 0.85) !important;
+}
+
+.handover-initiator-banner__hide:hover:not(:disabled) {
+  background: #f1f5f9 !important;
+  border-color: #64748b !important;
+}
+
+.dashboard.dark-mode .handover-initiator-banner__hide {
+  color: #cbd5e1 !important;
+  background: rgba(30, 41, 59, 0.6) !important;
+  border-color: rgba(148, 163, 184, 0.4) !important;
 }
 
 .handover-initiator-banner__revoke {
@@ -231,11 +257,14 @@
   }
 
   .handover-initiator-banner__actions {
+    flex-direction: row;
     width: 100%;
     justify-content: stretch;
   }
 
+  .handover-initiator-banner__hide,
   .handover-initiator-banner__revoke {
-    width: 100% !important;
+    flex: 1;
+    width: auto !important;
   }
 }

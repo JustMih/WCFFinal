@@ -6,6 +6,12 @@ import { baseURL } from "../../config";
 import { confirmRevokeHandover } from "../../utils/handoverAlerts";
 import "./HandoverInitiatorBanner.css";
 
+const DISMISS_PREFIX = "handoverBannerDismissed:";
+
+function isDismissed(handoverId) {
+  return sessionStorage.getItem(`${DISMISS_PREFIX}${handoverId}`) === "1";
+}
+
 function formatReturnDate(value) {
   if (!value) return "N/A";
   try {
@@ -18,6 +24,7 @@ function formatReturnDate(value) {
 export default function HandoverInitiatorBanner() {
   const userId = localStorage.getItem("userId") || "";
   const [activeHandover, setActiveHandover] = useState(null);
+  const [hidden, setHidden] = useState(false);
   const [revoking, setRevoking] = useState(false);
   const [error, setError] = useState("");
 
@@ -41,7 +48,9 @@ export default function HandoverInitiatorBanner() {
         (h) =>
           h.status === "active" && String(h.from_user_id) === String(userId)
       );
-      setActiveHandover(mine[0] || null);
+      const latest = mine[0] || null;
+      setActiveHandover(latest);
+      setHidden(latest ? isDismissed(latest.id) : false);
       setError("");
     } catch {
       setActiveHandover(null);
@@ -53,6 +62,12 @@ export default function HandoverInitiatorBanner() {
     const interval = setInterval(fetchInitiatorHandover, 60000);
     return () => clearInterval(interval);
   }, [fetchInitiatorHandover]);
+
+  const handleHide = () => {
+    if (!activeHandover?.id) return;
+    sessionStorage.setItem(`${DISMISS_PREFIX}${activeHandover.id}`, "1");
+    setHidden(true);
+  };
 
   const handleRevoke = async () => {
     if (!activeHandover?.id || revoking) return;
@@ -88,7 +103,7 @@ export default function HandoverInitiatorBanner() {
     }
   };
 
-  if (!activeHandover) {
+  if (!activeHandover || hidden) {
     return null;
   }
 
@@ -139,6 +154,14 @@ export default function HandoverInitiatorBanner() {
         </div>
         <div className="handover-initiator-banner__actions">
           <Button
+            variant="outlined"
+            className="handover-initiator-banner__hide"
+            onClick={handleHide}
+            disabled={revoking}
+          >
+            Hide
+          </Button>
+          <Button
             variant="contained"
             color="error"
             className="handover-initiator-banner__revoke"
@@ -157,7 +180,6 @@ export default function HandoverInitiatorBanner() {
   );
 }
 
-/** @deprecated Dismiss keys no longer used; kept for logout cleanup compatibility */
 export function clearHandoverBannerDismissKeys() {
   Object.keys(sessionStorage).forEach((key) => {
     if (key.startsWith("handoverBannerDismissed:")) {
