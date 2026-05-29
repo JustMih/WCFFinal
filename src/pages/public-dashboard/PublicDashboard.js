@@ -27,7 +27,6 @@ import {
   MdCallEnd,
   MdTrendingUp,
   MdAccessTime,
-  MdQueue,
   MdVisibility,
   MdPhoneDisabled,
 } from "react-icons/md";
@@ -90,7 +89,7 @@ export default function PublicDashboard({
   useEffect(() => {
     const fetchCallSummary = async () => {
       try {
-        const res = await fetch(`${baseURL}/call-summary/call-summary`);
+        const res = await fetch(`${baseURL}/call-summary/call-summary?excludeDestS=1`);
         if (res.ok) {
           const data = await res.json();
           setCallSummaryData(data);
@@ -190,7 +189,7 @@ export default function PublicDashboard({
       try {
         const [dashboardResponse, callSummaryResponse] = await Promise.all([
           fetch(`${baseURL}/public/dashboard`),
-          fetch(`${baseURL}/call-summary/call-summary`),
+          fetch(`${baseURL}/call-summary/call-summary?excludeDestS=1`),
         ]);
         if (dashboardResponse.ok) {
           const data = await dashboardResponse.json();
@@ -268,12 +267,11 @@ return () => {
     (call) => call.queue_entry_time && !call.call_answered && !call.call_end
   ).length;
 
-  // Call summary from API: { currentDay, currentMonth, currentYear } with totalCalls, answered, ivr, dropped, lost
+  // Call summary from API: { currentDay, currentMonth, currentYear } with totalCalls, answered, dropped, lost
   const day =
     callSummaryData?.currentDay || {
       totalCalls: 0,
       answered: 0,
-      ivr: 0,
       dropped: 0,
       lost: 0,
     };
@@ -281,7 +279,6 @@ return () => {
     callSummaryData?.currentMonth || {
       totalCalls: 0,
       answered: 0,
-      ivr: 0,
       dropped: 0,
       lost: 0,
     };
@@ -289,40 +286,20 @@ return () => {
     callSummaryData?.currentYear || {
       totalCalls: 0,
       answered: 0,
-      ivr: 0,
       dropped: 0,
       lost: 0,
     };
 
   const answeredCallsCount = day.answered ?? 0;
-  const ivrCallsCount = day.ivr ?? 0;
-  const droppedCallsCount =
-    day.dropped ??
-    dashboardData?.callStatistics?.dropped ??
-    dashboardData?.callStatusSummary?.dropped ??
-    0;
-  /** Each queue abandon >= 5 min today (same number can count multiple times) */
-  const lostCallsCount =
-    lostCallsCountLive != null
-      ? lostCallsCountLive
-      : day.lost ??
-        dashboardData?.callStatistics?.lost ??
-        dashboardData?.callStatusSummary?.lost ??
-        0;
+  const droppedCallsCount = day.dropped ?? 0;
+  const lostCallsCount = day.lost ?? 0;
 
-  /** Total = sum of breakdown (answered + ivr + lost + dropped) */
-  const dailyTotalCalls =
-    day.totalCalls ??
-    answeredCallsCount + ivrCallsCount + lostCallsCount + droppedCallsCount;
-
-  const dailyTotal = dailyTotalCalls;
+  const dailyTotal = day.totalCalls ?? 0;
   const dailyAnswered = day.answered ?? 0;
-  const dailyIvr = day.ivr ?? 0;
   const dailyDropped = day.dropped ?? 0;
   const dailyLost = day.lost ?? 0;
 
   const monthlyAnswered = month.answered ?? 0;
-  const monthlyIvr = month.ivr ?? 0;
   const monthlyDropped = month.dropped ?? 0;
   const monthlyLost = month.lost ?? 0;
   const monthlyTotal =
@@ -330,7 +307,6 @@ return () => {
     monthlyAnswered + monthlyIvr + monthlyLost + monthlyDropped;
 
   const yearlyAnswered = year.answered ?? 0;
-  const yearlyIvr = year.ivr ?? 0;
   const yearlyDropped = year.dropped ?? 0;
   const yearlyLost = year.lost ?? 0;
   const yearlyTotal =
@@ -358,17 +334,14 @@ return () => {
   };
 
   const dailyAnsweredPercent = calculatePercentage(dailyAnswered, dailyTotal);
-  const dailyIvrPercent = calculatePercentage(dailyIvr, dailyTotal);
   const dailyDroppedPercent = calculatePercentage(dailyDropped, dailyTotal);
   const dailyLostPercent = calculatePercentage(dailyLost, dailyTotal);
 
   const monthlyAnsweredPercent = calculatePercentage(monthlyAnswered, monthlyTotal);
-  const monthlyIvrPercent = calculatePercentage(monthlyIvr, monthlyTotal);
   const monthlyDroppedPercent = calculatePercentage(monthlyDropped, monthlyTotal);
   const monthlyLostPercent = calculatePercentage(monthlyLost, monthlyTotal);
 
   const yearlyAnsweredPercent = calculatePercentage(yearlyAnswered, yearlyTotal);
-  const yearlyIvrPercent = calculatePercentage(yearlyIvr, yearlyTotal);
   const yearlyDroppedPercent = calculatePercentage(yearlyDropped, yearlyTotal);
   const yearlyLostPercent = calculatePercentage(yearlyLost, yearlyTotal);
 
@@ -377,7 +350,6 @@ return () => {
   const areaChartSeries = [
     { name: "Total Calls", data: [dailyTotal, monthlyTotal, yearlyTotal] },
     { name: "Answered", data: [dailyAnswered, monthlyAnswered, yearlyAnswered] },
-    { name: "IVR", data: [dailyIvr, monthlyIvr, yearlyIvr] },
     { name: "Dropped", data: [dailyDropped, monthlyDropped, yearlyDropped] },
     { name: "Lost", data: [dailyLost, monthlyLost, yearlyLost] },
   ];
@@ -411,7 +383,7 @@ return () => {
         stops: [0, 90, 100],
       },
     },
-    colors: ["#667eea", "#4caf50", "#9c27b0", "#ff9800", "#f44336"],
+    colors: ["#667eea", "#4caf50", "#ff9800", "#f44336"],
     xaxis: {
       categories: areaChartCategories,
       labels: {
@@ -445,15 +417,15 @@ return () => {
     },
   };
 
-  // Pie Chart Data for Call Statistics Distribution (current day: answered, ivr, dropped, lost)
-  const pieChartSeries = [dailyAnswered, dailyIvr, dailyDropped, dailyLost];
+  // Pie Chart Data for Call Statistics Distribution (current day: answered, dropped, lost)
+  const pieChartSeries = [dailyAnswered, dailyDropped, dailyLost];
   const pieChartOptions = {
     chart: {
       type: "pie",
       height: 350,
     },
-    labels: ["Answered", "IVR", "Dropped", "Lost"],
-    colors: ["#4caf50", "#9c27b0", "#ff9800", "#f44336"],
+    labels: ["Answered", "Dropped", "Lost"],
+    colors: ["#4caf50", "#ff9800", "#f44336"],
     legend: {
       position: "bottom",
       fontSize: "14px",
@@ -699,7 +671,7 @@ return () => {
             </Card>
           </Grid>
 
-          {/* Card 2: Total Calls, Answered Today, IVR Today, Lost Today, Dropped Today */}
+          {/* Card 2: Total Calls, Answered Today, Lost Today, Dropped Today */}
           <Grid item xs={12} md={6} sx={{ flex: "1 1 50%", maxWidth: "50%", pl: { xs: 0, md: 0.75 } }}>
             <Card sx={{ height: "100%", boxShadow: 3, width: "100%" }}>
               <CardContent sx={{ width: "100%", p: 2 }}>
@@ -708,7 +680,7 @@ return () => {
                   Call Statistics
                 </Typography>
                 <Grid container spacing={0} sx={{ width: "100%" }}>
-                  <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "20%" }}>
+                  <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "25%" }}>
                     <Box textAlign="center" sx={{ width: "100%", px: 0.5 }}>
                       <Typography variant="h4" sx={{ fontWeight: 700, color: "#667eea", mb: 0.5 }}>
                         {dailyTotalCalls}
@@ -721,7 +693,7 @@ return () => {
                       </Typography>
                     </Box>
                   </Grid>
-                  <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "20%" }}>
+                  <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "25%" }}>
                     <Box textAlign="center" sx={{ width: "100%", px: 0.5 }}>
                           <Typography variant="h4" sx={{ fontWeight: 700, color: "#4caf50", mb: 0.5 }}>
                         {answeredCallsCount}
@@ -731,17 +703,7 @@ return () => {
                       </Typography>
                     </Box>
                   </Grid>
-                  <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "20%" }}>
-                    <Box textAlign="center" sx={{ width: "100%", px: 0.5 }}>
-                      <Typography variant="h4" sx={{ fontWeight: 700, color: "#9c27b0", mb: 0.5 }}>
-                        {ivrCallsCount}
-                      </Typography>
-                      <Typography variant="body2" color="textSecondary" sx={{ fontSize: "0.875rem" }}>
-                        IVR Answered
-                      </Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "20%" }}>
+                  <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "25%" }}>
                     <Box textAlign="center" sx={{ width: "100%", px: 0.5 }}>
                           <Typography variant="h4" sx={{ fontWeight: 700, color: "#f44336", mb: 0.5 }}>
                             {lostCallsCount}
@@ -760,7 +722,7 @@ return () => {
                           </Button>
                         </Box>
                       </Grid>
-                      <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "20%" }}>
+                      <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "25%" }}>
                         <Box textAlign="center" sx={{ width: "100%", px: 0.5 }}>
                           <Typography variant="h4" sx={{ fontWeight: 700, color: "#ff9800", mb: 0.5 }}>
                             {droppedCallsCount}
@@ -868,16 +830,6 @@ return () => {
                       <TableRow>
                         <TableCell>
                           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <MdQueue size={18} style={{ color: "#9c27b0" }} />
-                            IVR
-                          </Box>
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 600 }}>{dailyIvr}</TableCell>
-                        <TableCell align="right" sx={{ color: "#9c27b0", fontWeight: 600 }}>{dailyIvrPercent}%</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                             <MdCallEnd size={18} style={{ color: getCallTypeColor("DROPPED") }} />
                             Dropped
                           </Box>
@@ -938,16 +890,6 @@ return () => {
                       <TableRow>
                         <TableCell>
                           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <MdQueue size={18} style={{ color: "#9c27b0" }} />
-                            IVR
-                          </Box>
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 600 }}>{monthlyIvr}</TableCell>
-                        <TableCell align="right" sx={{ color: "#9c27b0", fontWeight: 600 }}>{monthlyIvrPercent}%</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                             <MdCallEnd size={18} style={{ color: getCallTypeColor("DROPPED") }} />
                             Dropped
                           </Box>
@@ -1004,16 +946,6 @@ return () => {
                         </TableCell>
                         <TableCell align="right" sx={{ fontWeight: 600 }}>{yearlyAnswered}</TableCell>
                         <TableCell align="right" sx={{ color: getCallTypeColor("ANSWERED"), fontWeight: 600 }}>{yearlyAnsweredPercent}%</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <MdQueue size={18} style={{ color: "#9c27b0" }} />
-                            IVR
-                          </Box>
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 600 }}>{yearlyIvr}</TableCell>
-                        <TableCell align="right" sx={{ color: "#9c27b0", fontWeight: 600 }}>{yearlyIvrPercent}%</TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell>

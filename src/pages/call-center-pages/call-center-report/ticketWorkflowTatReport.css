@@ -1,0 +1,52 @@
+.tat-report-table-wrap {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+.tat-report-table {
+  min-width: 2200px;
+}
+
+.tat-report-table .tat-fixed-header:nth-child(1),
+.tat-report-table .MuiTableBody-root .MuiTableRow-root .MuiTableCell-root:nth-child(1) {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: #fff;
+  min-width: 120px;
+}
+
+.tat-report-table .tat-date-header,
+.tat-report-table .tat-days-header {
+  white-space: nowrap;
+  font-size: 0.7rem;
+}
+
+.tat-report-table .tat-date-header {
+  background: #f8fafc;
+}
+
+.tat-report-table .tat-days-header {
+  background: #f1f5f9;
+}
+
+.tat-report-table .MuiTableCell-root {
+  white-space: nowrap;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tat-report-pagination {
+  border-top: 1px solid #e2e8f0;
+}
+
+.tat-report-pagination .MuiTablePagination-toolbar {
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.tat-report-pagination .MuiTablePagination-selectLabel,
+.tat-report-pagination .MuiTablePagination-displayedRows {
+  font-size: 0.8125rem;
+}
