@@ -10,7 +10,7 @@ export const IVR_CATEGORIES = [
     iconSize: 32,
     cards: [
       { to: "/ivr-voices", label: "IVR's Voices", icon: MdOutlineAudiotrack },
-      { to: "/recorded-audio", label: "Recorded Calls", icon: MdOutlineAudiotrack },
+      { to: "/recorded-audio", label: "Agent Call Recordings", icon: MdOutlineAudiotrack },
       { to: "/voice-notes", label: "Voice Notes", icon: MdOutlineAudiotrack },
     ],
   },
