@@ -35,6 +35,30 @@ export default function LiveCallsCard({
   const sipPassword = localStorage.getItem("sipPassword");
   const sipReady = Boolean(extension && sipPassword);
 
+  const fetchLiveCalls = useCallback(async () => {
+    try {
+      const response = await fetch(`${baseURL}/livestream/live-calls`);
+      const data = await response.json();
+
+      const calls = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.data)
+          ? data.data
+          : [];
+
+      setLiveCalls(calls);
+      setActiveCalls(calls.filter((c) => c.status === "active"));
+    } catch (error) {
+      console.error("❌ Error fetching live calls:", error);
+    }
+  }, []);
+
+  const clearSpyState = useCallback(() => {
+    setSpyingOn(null);
+    setSpyMode(null);
+    setActionMessage("");
+  }, []);
+
   const {
     phoneStatus,
     incomingCall,
@@ -67,6 +91,10 @@ export default function LiveCallsCard({
     SIP_DOMAIN: SIP_DOMAIN_CONFIG,
     allowIncomingRinging: true,
     autoAnswerSpyCalls: true,
+    onCallEnded: () => {
+      clearSpyState();
+      fetchLiveCalls();
+    },
   });
 
   const sipReadyForListen =
@@ -98,10 +126,9 @@ export default function LiveCallsCard({
 
   const handleEndListen = useCallback(() => {
     endCall();
-    setSpyingOn(null);
-    setSpyMode(null);
-    setActionMessage("");
-  }, [endCall]);
+    clearSpyState();
+    fetchLiveCalls();
+  }, [endCall, clearSpyState, fetchLiveCalls]);
 
   const spyAction = async (linkedid, mode, agentName, agentExt) => {
     try {
@@ -149,28 +176,18 @@ export default function LiveCallsCard({
   };
 
   useEffect(() => {
-    const fetchLiveCalls = async () => {
-      try {
-        const response = await fetch(`${baseURL}/livestream/live-calls`);
-        const data = await response.json();
-
-        const calls = Array.isArray(data)
-          ? data
-          : Array.isArray(data?.data)
-            ? data.data
-            : [];
-
-        setLiveCalls(calls);
-        setActiveCalls(calls.filter((c) => c.status === "active"));
-      } catch (error) {
-        console.error("❌ Error fetching live calls:", error);
-      }
-    };
-
     fetchLiveCalls();
-    const interval = setInterval(fetchLiveCalls, 5000);
+    const pollMs = spyingOn ? 2000 : 5000;
+    const interval = setInterval(fetchLiveCalls, pollMs);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchLiveCalls, spyingOn]);
+
+  useEffect(() => {
+    if (phoneStatus === "Idle" && spyingOn) {
+      clearSpyState();
+      fetchLiveCalls();
+    }
+  }, [phoneStatus, spyingOn, clearSpyState, fetchLiveCalls]);
 
   useEffect(() => {
     const term =
