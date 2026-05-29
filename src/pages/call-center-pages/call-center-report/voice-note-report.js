@@ -19,6 +19,7 @@ import autoTable from "jspdf-autotable";
 import WcfLoader from "../../../components/shared/WcfLoader";
 import { markVoiceNotePlayed } from "../../../utils/voiceNotePlayed";
 import { getVoiceNoteAudioUrls } from "../../../utils/voiceNoteAudio";
+import { formatSecondsToMinutes } from "../../../utils/callDurationFormat";
 
 export default function VoiceNoteReport() {
   const [activeTab, setActiveTab] = useState(0);
@@ -163,9 +164,10 @@ export default function VoiceNoteReport() {
               "Caller ID",
               "Source",
               "Destination",
+              "Agent",
               "Start Time",
-              "Duration",
-              "Billsec",
+              "Duration (min)",
+              "Billed (min)",
               "Disposition",
             ],
       ],
@@ -183,11 +185,12 @@ export default function VoiceNoteReport() {
               safe(r.clid),
               safe(r.src),
               safe(r.dst),
+              r.agent_name || "-",
               r.cdrstarttime
                 ? new Date(r.cdrstarttime).toLocaleString()
                 : "-",
-              safe(r.duration),
-              safe(r.billsec),
+              formatSecondsToMinutes(r.duration, false),
+              formatSecondsToMinutes(r.billsec, false),
               safe(r.disposition),
             ]
       ),
