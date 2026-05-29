@@ -11,8 +11,22 @@ const RecordedAudio = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [currentRec, setCurrentRec] = useState(null);
+  const [audioError, setAudioError] = useState("");
   const [playedStatus, setPlayedStatus] = useState({});
   const audioRef = useRef(null);
+
+  const getRecordingAudioUrls = (rec) => {
+    if (!rec?.filename) return { primary: "", fallback: "" };
+    const origin = window.location.origin.replace(/\/$/, "");
+    const encoded = encodeURIComponent(rec.filename);
+    const primary = rec.play_url
+      ? `${origin}${rec.play_url}`
+      : `${origin}/recordings/${encoded}`;
+    const fallback = rec.stream_url
+      ? `${origin}${rec.stream_url}`
+      : `${baseURL}/recorded-audio/${encoded}`;
+    return { primary, fallback };
+  };
 
   /* 🔍 FILTERS */
   const [search, setSearch] = useState("");
@@ -76,6 +90,7 @@ const RecordedAudio = () => {
   };
 
   const handlePlay = (rec) => {
+    setAudioError("");
     setCurrentRec(rec);
 
     const updated = { ...playedStatus, [rec.filename]: true };
@@ -315,21 +330,47 @@ const RecordedAudio = () => {
             {formatAssignedExtension(currentRec)} · {formatAgentName(currentRec)}
             {currentRec.caller ? ` · Caller ${currentRec.caller}` : ""}
           </div>
-          <audio ref={audioRef} controls style={{ width: "100%" }}>
-            <source src={`${baseURL}${currentRec.url}`} type="audio/wav" />
+          {currentRec.file_found === false && (
+            <p className="recording-audio-warning">
+              Recording file not found on server yet. Try Download or contact IT
+              if the call was recorded.
+            </p>
+          )}
+          {audioError && (
+            <p className="recording-audio-error">{audioError}</p>
+          )}
+          <audio
+            ref={audioRef}
+            controls
+            className="recording-audio-element"
+            onError={() =>
+              setAudioError(
+                "Could not load audio. Ensure the file exists under recorded/ on the server."
+              )
+            }
+          >
+            {(() => {
+              const { primary, fallback } = getRecordingAudioUrls(currentRec);
+              return (
+                <>
+                  <source src={primary} type="audio/wav" />
+                  <source src={fallback} type="audio/wav" />
+                </>
+              );
+            })()}
           </audio>
         </div>
       )}
 
-      {/* TABLE */}
+      <div className="recording-table-wrapper">
       <table className="recording-table">
         <thead>
           <tr>
             <th>#</th>
-            <th>Filename</th>
+            <th className="col-filename">File</th>
             <th>Caller</th>
-            <th>Assigned Extension</th>
-            <th>Agent Name</th>
+            <th>Extension</th>
+            <th>Agent</th>
             <th>Duration</th>
             <th>Call Time</th>
             <th>Status</th>
@@ -341,7 +382,9 @@ const RecordedAudio = () => {
           {currentRows.map((rec, i) => (
             <tr key={rec.id} style={{ backgroundColor: getRowColor(rec) }}>
               <td>{indexOfFirst + i + 1}</td>
-              <td>{rec.filename}</td>
+              <td className="col-filename" title={rec.filename}>
+                {rec.filename}
+              </td>
               <td>{rec.caller}</td>
               <td className="recording-ext-cell">{formatAssignedExtension(rec)}</td>
               <td>{formatAgentName(rec)}</td>
@@ -360,7 +403,7 @@ const RecordedAudio = () => {
               </td>
               <td>
                 <a
-                  href={`${baseURL}${rec.url}?download=true`}
+                  href={`${getRecordingAudioUrls(rec).fallback}?download=true`}
                   className="btn btn-download"
                 >
                   ⬇ Download
@@ -370,6 +413,7 @@ const RecordedAudio = () => {
           ))}
         </tbody>
       </table>
+      </div>
 
       {/* PAGINATION */}
       <div className="recording-pagination">
