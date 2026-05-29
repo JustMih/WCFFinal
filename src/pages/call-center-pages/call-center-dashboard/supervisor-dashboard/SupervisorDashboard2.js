@@ -228,8 +228,9 @@ const getQueueCallStatus = (call) => {
   // Simulate status based on wait time for demo
   const [min, sec] = call.waitTime.split(':').map(Number);
   const totalSeconds = min * 60 + sec;
+  const LOST_MIN = 5 * 60;
   if (totalSeconds < 60) return 'Active';
-  if (totalSeconds < 120) return 'Dropped';
+  if (totalSeconds < LOST_MIN) return 'Dropped';
   return 'Lost';
 };
 

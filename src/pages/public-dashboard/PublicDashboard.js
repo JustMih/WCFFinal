@@ -33,7 +33,6 @@ import {
   MdPhoneDisabled,
 } from "react-icons/md";
 import { baseURL } from "../../config";
-import { dedupeLostCallsClient } from "../../utils/missedCallDedupe";
 import io from "socket.io-client";
 import ActiveCalls from "../../components/active-calls/ActiveCalls";
 import ReactApexChart from "react-apexcharts";
@@ -55,6 +54,7 @@ export default function PublicDashboard({
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [lostCalls, setLostCalls] = useState([]);
+  const [lostCallsCountLive, setLostCallsCountLive] = useState(null);
   const [showLostCallsModal, setShowLostCallsModal] = useState(false);
   const [lostCallsLoading, setLostCallsLoading] = useState(false);
 
@@ -106,6 +106,10 @@ export default function PublicDashboard({
               dropped: 0,
               lost: 0,
             },
+            callStatistics: data.callStatistics || {
+              lost: 0,
+              dropped: 0,
+            },
           });
         }
       } catch (error) {
@@ -117,6 +121,7 @@ export default function PublicDashboard({
 
     fetchDashboardData();
     fetchCallSummary();
+    fetchLostCallsToday();
 
     const socketUrl = baseURL.replace(/\/api$/, "") || "https://192.168.21.69";
     const socket = io(socketUrl, {
@@ -146,7 +151,11 @@ export default function PublicDashboard({
         queueStatus: Array.isArray(data.queueStatus)
           ? data.queueStatus
           : prev.queueStatus,
-        callStatusSummary: data.callStatusSummary || prev.callStatusSummary,
+        callStatusSummary: {
+          ...prev.callStatusSummary,
+          ...(data.callStatusSummary || {}),
+        },
+        callStatistics: data.callStatistics || prev.callStatistics,
       }));
     });
 
@@ -189,12 +198,17 @@ export default function PublicDashboard({
               dropped: 0,
               lost: 0,
             },
+            callStatistics: data.callStatistics || {
+              lost: 0,
+              dropped: 0,
+            },
           });
         }
         if (callSummaryResponse.ok) {
           const summaryData = await callSummaryResponse.json();
           setCallSummaryData(summaryData);
         }
+        fetchLostCallsToday();
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
       }
@@ -277,8 +291,19 @@ return () => {
   const dailyTotalCalls = day.totalCalls ?? 0;
   const answeredCallsCount = day.answered ?? 0;
   const ivrCallsCount = day.ivr ?? 0;
-  const droppedCallsCount = day.dropped ?? 0;
-  const lostCallsCount = day.lost ?? 0;
+  const droppedCallsCount =
+    day.dropped ??
+    dashboardData?.callStatistics?.dropped ??
+    dashboardData?.callStatusSummary?.dropped ??
+    0;
+  /** MissedCalls table — distinct callers today (same as View Details) */
+  const lostCallsCount =
+    lostCallsCountLive != null
+      ? lostCallsCountLive
+      : day.lost ??
+        dashboardData?.callStatistics?.lost ??
+        dashboardData?.callStatusSummary?.lost ??
+        0;
 
   const dailyTotal = day.totalCalls ?? 0;
   const dailyAnswered = day.answered ?? 0;
@@ -452,28 +477,28 @@ return () => {
     ],
   };
 
-  const fetchLostCalls = async () => {
-    setLostCallsLoading(true);
-    
+  const fetchLostCallsToday = async (forModal = false) => {
+    if (forModal) setLostCallsLoading(true);
     try {
       const response = await fetch(`${baseURL}/calls/lost-calls-today`);
       if (response.ok) {
         const data = await response.json();
         const list = Array.isArray(data) ? data : [];
-        setLostCalls(dedupeLostCallsClient(list, "call_time"));
-      } else {
+        setLostCalls(list);
+        setLostCallsCountLive(list.length);
+      } else if (forModal) {
         console.error("Failed to fetch lost calls:", response.status);
       }
     } catch (error) {
-      console.error("Error fetching lost calls:", error);
+      if (forModal) console.error("Error fetching lost calls:", error);
     } finally {
-      setLostCallsLoading(false);
+      if (forModal) setLostCallsLoading(false);
     }
   };
 
   const handleShowLostCalls = () => {
     setShowLostCallsModal(true);
-    if (lostCalls.length === 0) fetchLostCalls();
+    fetchLostCallsToday(true);
   };
 
   if (loading) {
