@@ -19,10 +19,13 @@ const RecordedAudio = () => {
     if (!rec?.filename) return { primary: "", fallback: "" };
     const origin = window.location.origin.replace(/\/$/, "");
     const encoded = encodeURIComponent(rec.filename);
+    const uidQ = rec.uniqueid
+      ? `?uniqueid=${encodeURIComponent(rec.uniqueid)}`
+      : "";
     // API first — works when nginx only proxies /api (democc.wcf.go.tz)
     const primary = rec.stream_url
-      ? `${origin}${rec.stream_url}`
-      : `${baseURL}/recorded-audio/${encoded}`;
+      ? `${origin}${rec.stream_url}${uidQ}`
+      : `${baseURL}/recorded-audio/${encoded}${uidQ}`;
     const fallback = rec.play_url
       ? `${origin}${rec.play_url}`
       : `${origin}/recordings/${encoded}`;
@@ -330,6 +333,9 @@ const RecordedAudio = () => {
           <div className="recording-agent-meta">
             {formatAssignedExtension(currentRec)} · {formatAgentName(currentRec)}
             {currentRec.caller ? ` · Caller ${currentRec.caller}` : ""}
+            {currentRec.dst && currentRec.dcontext === "internal"
+              ? ` · Dialed ${currentRec.dst}`
+              : ""}
           </div>
           {currentRec.file_found === false && (
             <p className="recording-audio-warning">
@@ -404,7 +410,9 @@ const RecordedAudio = () => {
               </td>
               <td>
                 <a
-                  href={`${getRecordingAudioUrls(rec).primary}?download=true`}
+                  href={`${getRecordingAudioUrls(rec).primary}${
+                    getRecordingAudioUrls(rec).primary.includes("?") ? "&" : "?"
+                  }download=true`}
                   className="btn btn-download"
                 >
                   ⬇ Download
