@@ -19,12 +19,13 @@ const RecordedAudio = () => {
     if (!rec?.filename) return { primary: "", fallback: "" };
     const origin = window.location.origin.replace(/\/$/, "");
     const encoded = encodeURIComponent(rec.filename);
-    const primary = rec.play_url
-      ? `${origin}${rec.play_url}`
-      : `${origin}/recordings/${encoded}`;
-    const fallback = rec.stream_url
+    // API first — works when nginx only proxies /api (democc.wcf.go.tz)
+    const primary = rec.stream_url
       ? `${origin}${rec.stream_url}`
       : `${baseURL}/recorded-audio/${encoded}`;
+    const fallback = rec.play_url
+      ? `${origin}${rec.play_url}`
+      : `${origin}/recordings/${encoded}`;
     return { primary, fallback };
   };
 
@@ -403,7 +404,7 @@ const RecordedAudio = () => {
               </td>
               <td>
                 <a
-                  href={`${getRecordingAudioUrls(rec).fallback}?download=true`}
+                  href={`${getRecordingAudioUrls(rec).primary}?download=true`}
                   className="btn btn-download"
                 >
                   ⬇ Download
