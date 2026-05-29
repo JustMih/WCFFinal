@@ -14,6 +14,8 @@ export const REPORT_TYPES = {
   OFF_HOURS: 12,
   SLA_CALL_CENTER: 13,
   SLA_TICKET: 14,
+  DTMF_USAGE: 15,
+  LIVESTREAM: 16,
 };
 
 export const REPORTS = [
@@ -22,7 +24,9 @@ export const REPORTS = [
   { slug: "ticket-crm", label: "Ticket CRM Report", type: REPORT_TYPES.TICKET_CRM },
   { slug: "agent-performance", label: "Agent Performance", type: REPORT_TYPES.AGENT_PERFORMANCE },
   { slug: "call-summary", label: "Call Summary", type: REPORT_TYPES.CALL_SUMMARY },
-  { slug: "ivr-interactions", label: "IVR Interactions", type: REPORT_TYPES.IVR_INTERACTIONS },
+  { slug: "ivr-interactions", label: "IVR Interactions (Mappings)", type: REPORT_TYPES.IVR_INTERACTIONS },
+  { slug: "dtmf-usage", label: "DTMF Usage Report", type: REPORT_TYPES.DTMF_USAGE },
+  { slug: "livestream", label: "Live Streaming", type: REPORT_TYPES.LIVESTREAM },
   { slug: "ticket-assignments", label: "Ticket Assignments", type: REPORT_TYPES.TICKET_ASSIGNMENTS },
   { slug: "missed-call", label: "Missed Call Report", type: REPORT_TYPES.MISSED_CALL },
   { slug: "escalation", label: "Escallation", type: REPORT_TYPES.ESCALLATION },
@@ -37,6 +41,8 @@ export const REPORTS = [
 const LEGACY_TAB_MAP = {
   pause: REPORT_TYPES.PAUSE,
   "pause-report": REPORT_TYPES.PAUSE,
+  "dtmf-stats": REPORT_TYPES.DTMF_USAGE,
+  livestream: REPORT_TYPES.LIVESTREAM,
 };
 
 export const slugToType = (slug) => {
@@ -62,7 +68,7 @@ export const resolveTypeFromLegacyTab = (tabParam) => {
   const lower = tabParam.toLowerCase();
   if (LEGACY_TAB_MAP[lower] !== undefined) return LEGACY_TAB_MAP[lower];
   const num = Number(tabParam);
-  if (!Number.isNaN(num) && num >= 0 && num <= REPORT_TYPES.SLA_TICKET) return num;
+  if (!Number.isNaN(num) && num >= 0 && num <= REPORT_TYPES.LIVESTREAM) return num;
   const bySlug = REPORTS.find((r) => r.slug === lower);
   return bySlug ? bySlug.type : null;
 };

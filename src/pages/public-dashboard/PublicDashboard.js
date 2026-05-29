@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { WcfLoadingOverlay } from "../../components/shared/WcfLoader";
 import {
   Button,
@@ -23,7 +23,6 @@ import {
 import { Close as CloseIcon, ArrowBack as ArrowBackIcon } from "@mui/icons-material";
 import {
   MdPhone,
-  MdPhoneInTalk,
   MdPeople,
   MdCallEnd,
   MdTrendingUp,
@@ -57,6 +56,25 @@ export default function PublicDashboard({
   const [lostCallsCountLive, setLostCallsCountLive] = useState(null);
   const [showLostCallsModal, setShowLostCallsModal] = useState(false);
   const [lostCallsLoading, setLostCallsLoading] = useState(false);
+
+  const fetchLostCallsToday = useCallback(async (forModal = false) => {
+    if (forModal) setLostCallsLoading(true);
+    try {
+      const response = await fetch(`${baseURL}/calls/lost-calls-today`);
+      if (response.ok) {
+        const data = await response.json();
+        const list = Array.isArray(data) ? data : [];
+        setLostCalls(list);
+        setLostCallsCountLive(list.length);
+      } else if (forModal) {
+        console.error("Failed to fetch lost calls:", response.status);
+      }
+    } catch (error) {
+      if (forModal) console.error("Error fetching lost calls:", error);
+    } finally {
+      if (forModal) setLostCallsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (!loading && suppressLoadingUI && onInitialLoadComplete) {
@@ -227,25 +245,13 @@ return () => {
   clearInterval(fallbackInterval);
 };
 
-  }, []);
+  }, [fetchLostCallsToday]);
 
   const formatTime = (seconds) => {
     if (!seconds || seconds <= 0) return "00:00";
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
-
-  const formatDuration = (startTime) => {
-    if (!startTime) return "00:00";
-    const diff = Math.floor((new Date() - new Date(startTime)) / 1000);
-    return formatTime(diff);
-  };
-
-  const extractAgentFromChannel = (channel) => {
-    if (!channel) return "Unassigned";
-    const match = channel.match(/\/(\d+)/);
-    return match ? match[1] : channel;
   };
 
   const extractPhoneFromClid = (clid) => {
@@ -483,25 +489,6 @@ return () => {
         },
       },
     ],
-  };
-
-  const fetchLostCallsToday = async (forModal = false) => {
-    if (forModal) setLostCallsLoading(true);
-    try {
-      const response = await fetch(`${baseURL}/calls/lost-calls-today`);
-      if (response.ok) {
-        const data = await response.json();
-        const list = Array.isArray(data) ? data : [];
-        setLostCalls(list);
-        setLostCallsCountLive(list.length);
-      } else if (forModal) {
-        console.error("Failed to fetch lost calls:", response.status);
-      }
-    } catch (error) {
-      if (forModal) console.error("Error fetching lost calls:", error);
-    } finally {
-      if (forModal) setLostCallsLoading(false);
-    }
   };
 
   const handleShowLostCalls = () => {
