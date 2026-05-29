@@ -288,7 +288,6 @@ return () => {
       lost: 0,
     };
 
-  const dailyTotalCalls = day.totalCalls ?? 0;
   const answeredCallsCount = day.answered ?? 0;
   const ivrCallsCount = day.ivr ?? 0;
   const droppedCallsCount =
@@ -296,7 +295,7 @@ return () => {
     dashboardData?.callStatistics?.dropped ??
     dashboardData?.callStatusSummary?.dropped ??
     0;
-  /** MissedCalls table — distinct callers today (same as View Details) */
+  /** Each queue abandon >= 5 min today (same number can count multiple times) */
   const lostCallsCount =
     lostCallsCountLive != null
       ? lostCallsCountLive
@@ -305,23 +304,32 @@ return () => {
         dashboardData?.callStatusSummary?.lost ??
         0;
 
-  const dailyTotal = day.totalCalls ?? 0;
+  /** Total = sum of breakdown (answered + ivr + lost + dropped) */
+  const dailyTotalCalls =
+    day.totalCalls ??
+    answeredCallsCount + ivrCallsCount + lostCallsCount + droppedCallsCount;
+
+  const dailyTotal = dailyTotalCalls;
   const dailyAnswered = day.answered ?? 0;
   const dailyIvr = day.ivr ?? 0;
   const dailyDropped = day.dropped ?? 0;
   const dailyLost = day.lost ?? 0;
 
-  const monthlyTotal = month.totalCalls ?? 0;
   const monthlyAnswered = month.answered ?? 0;
   const monthlyIvr = month.ivr ?? 0;
   const monthlyDropped = month.dropped ?? 0;
   const monthlyLost = month.lost ?? 0;
+  const monthlyTotal =
+    month.totalCalls ??
+    monthlyAnswered + monthlyIvr + monthlyLost + monthlyDropped;
 
-  const yearlyTotal = year.totalCalls ?? 0;
   const yearlyAnswered = year.answered ?? 0;
   const yearlyIvr = year.ivr ?? 0;
   const yearlyDropped = year.dropped ?? 0;
   const yearlyLost = year.lost ?? 0;
+  const yearlyTotal =
+    year.totalCalls ??
+    yearlyAnswered + yearlyIvr + yearlyLost + yearlyDropped;
 
   // Helper function to calculate percentage
   const calculatePercentage = (count, total) => {
