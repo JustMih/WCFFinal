@@ -807,7 +807,6 @@ export default function ComprehensiveReports() {
 
       const updatedStatus = { ...offHoursPlayedStatus, [record.id]: true };
       setOffHoursPlayedStatus(updatedStatus);
-      localStorage.setItem("playedVoiceNotes", JSON.stringify(updatedStatus));
 
       audio.onended = () => {
         setOffHoursPlayingId(null);

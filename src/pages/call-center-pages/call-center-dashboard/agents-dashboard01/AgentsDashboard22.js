@@ -52,6 +52,11 @@ import {
 } from "sip.js";
 import { Alert, Snackbar } from "@mui/material";
 import { baseURL } from "../../../../config";
+import {
+  fetchVoiceNotes,
+  VOICE_NOTE_PLAYED_EVENT,
+  PLAYED_VOICE_NOTES_KEY,
+} from "../../../../utils/voiceNotePlayed";
 import "./agentsDashboard.css";
 import SingleAgentDashboardCard from "../../../../components/agent-dashboard/SingleAgentDashboardCard";
 import QueueStatusTable from "../../../../components/agent-dashboard/QueueStatusTable";
@@ -1190,40 +1195,28 @@ export default function AgentsDashboard() {
     const fetchVoiceNotes = async () => {
       try {
         const agentId = localStorage.getItem("userId");
-        const response = await fetch(
-          `${baseURL}/voice-notes?agentId=${agentId}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-            },
-          }
-        );
-        if (!response.ok) throw new Error("Failed to fetch voice notes");
-        const data = await response.json();
-        const notes = data.voiceNotes || [];
-        const storedPlayed =
-          JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
-        const unplayedCount = notes.filter(
-          (note) => !storedPlayed[note.id]
-        ).length;
+        const notes = await fetchVoiceNotes({
+          agentId,
+          unplayedOnly: true,
+        });
         setVoiceNotes(notes);
-        setUnplayedVoiceNotes(unplayedCount);
+        setUnplayedVoiceNotes(notes.length);
       } catch (error) {
         setVoiceNotes([]);
         setUnplayedVoiceNotes(0);
       }
     };
     fetchVoiceNotes();
-    // Listen for localStorage changes to update badge in real time
     const handleStorage = (e) => {
-      if (e.key === "playedVoiceNotes") {
-        fetchVoiceNotes();
-      }
+      if (e.key === PLAYED_VOICE_NOTES_KEY) fetchVoiceNotes();
     };
+    const handleVoiceNotePlayed = () => fetchVoiceNotes();
     window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
+    window.addEventListener(VOICE_NOTE_PLAYED_EVENT, handleVoiceNotePlayed);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(VOICE_NOTE_PLAYED_EVENT, handleVoiceNotePlayed);
+    };
   }, []);
 
   const [showVoiceNotesModal, setShowVoiceNotesModal] = useState(false);
@@ -1838,7 +1831,7 @@ export default function AgentsDashboard() {
         maxWidth="md"
       >
         <DialogContent>
-          <VoiceNotesReport />
+          <VoiceNotesReport variant="inbox" />
         </DialogContent>
       </Dialog>
     </div>

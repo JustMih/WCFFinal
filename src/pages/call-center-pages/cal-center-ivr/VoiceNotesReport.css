@@ -1,5 +1,28 @@
 .voice-container { padding: 24px; background: #fff; }
 .voice-title { font-size: 24px; color: #0d6efd; margin-bottom: 16px; }
+.voice-inbox-hint {
+  margin: -8px 0 16px;
+  color: #6c757d;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+.voice-report-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: #0d6efd;
+  text-decoration: underline;
+  cursor: pointer;
+  font-size: inherit;
+}
+.voice-empty {
+  text-align: center;
+  padding: 24px;
+  color: #6c757d;
+}
+.btn-report-nav {
+  background: #0d6efd;
+}
 .voice-controls { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 16px; }
 .voice-search { padding: 10px; width: 300px; border: 1px solid #ccc; border-radius: 4px; }
 .voice-buttons { display: flex; gap: 8px; flex-wrap: wrap; }

@@ -14,6 +14,11 @@ import { FaWhatsapp, FaInstagram, FaXTwitter } from "react-icons/fa6";
 import CircularProgress from "@mui/material/CircularProgress";
 import "./TotalContactSummary.css";
 import { baseURL } from "../../config";
+import {
+  fetchVoiceNotes,
+  VOICE_NOTE_PLAYED_EVENT,
+  PLAYED_VOICE_NOTES_KEY,
+} from "../../utils/voiceNotePlayed";
 
 // Register Chart.js components
 ChartJS.register(Title, Tooltip, Legend, ArcElement);
@@ -70,26 +75,12 @@ export default function TotalContactSummary() {
     const fetchVoiceNotes = async () => {
       try {
         const agentId = localStorage.getItem("userId");
-        const response = await fetch(
-          `${baseURL}/voice-notes?agentId=${agentId}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-            },
-          }
-        );
-        if (!response.ok) throw new Error("Failed to fetch voice notes");
-        const data = await response.json();
-        const notes = data.voiceNotes || [];
-        const storedPlayed =
-          JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
-        const unplayedCount = notes.filter(
-          (note) => !storedPlayed[note.id]
-        ).length;
-        setVoicemailCount(notes.length);
-        setUnplayedVoicemailCount(unplayedCount);
+        const [allNotes, unplayedNotes] = await Promise.all([
+          fetchVoiceNotes({ agentId }),
+          fetchVoiceNotes({ agentId, unplayedOnly: true }),
+        ]);
+        setVoicemailCount(allNotes.length);
+        setUnplayedVoicemailCount(unplayedNotes.length);
       } catch (error) {
         setVoicemailCount(0);
         setUnplayedVoicemailCount(0);
@@ -97,10 +88,15 @@ export default function TotalContactSummary() {
     };
     fetchVoiceNotes();
     const handleStorage = (e) => {
-      if (e.key === "playedVoiceNotes") fetchVoiceNotes();
+      if (e.key === PLAYED_VOICE_NOTES_KEY) fetchVoiceNotes();
     };
+    const handleVoiceNotePlayed = () => fetchVoiceNotes();
     window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
+    window.addEventListener(VOICE_NOTE_PLAYED_EVENT, handleVoiceNotePlayed);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(VOICE_NOTE_PLAYED_EVENT, handleVoiceNotePlayed);
+    };
   }, []);
 
   const safe = (obj, key, fallback = 0) => (obj && obj[key] != null ? obj[key] : fallback);
