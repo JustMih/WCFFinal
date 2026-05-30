@@ -11,6 +11,7 @@ import { playVoiceNoteAudio } from "../../../utils/voiceNoteAudio";
 import {
   buildVoiceNotesQuery,
   isVoiceNotePlayed,
+  isVoiceNoteUnplayed,
   markVoiceNotePlayed,
   VOICE_NOTE_PLAYED_EVENT,
 } from "../../../utils/voiceNotePlayed";
@@ -61,7 +62,7 @@ export default function VoiceNotesReport({ variant = "report", agentId: agentIdP
 
       let notes = res.data.voiceNotes || [];
       if (isInbox) {
-        notes = notes.filter((n) => !isVoiceNotePlayed(n));
+        notes = notes.filter(isVoiceNoteUnplayed);
       }
       setVoiceNotes(notes);
 
@@ -189,7 +190,7 @@ export default function VoiceNotesReport({ variant = "report", agentId: agentIdP
         : true;
 
       const matchStatus = isInbox
-        ? !isPlayed(n)
+        ? isVoiceNoteUnplayed(n)
         : statusFilter === ""
         ? true
         : statusFilter === "played"

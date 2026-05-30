@@ -18,7 +18,11 @@ import {
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import WcfLoader from "../../../components/shared/WcfLoader";
-import { markVoiceNotePlayed } from "../../../utils/voiceNotePlayed";
+import {
+  markVoiceNotePlayed,
+  isVoiceNotePlayed,
+  getPlayedVoiceNotesMap,
+} from "../../../utils/voiceNotePlayed";
 import { getVoiceNoteAudioUrls } from "../../../utils/voiceNoteAudio";
 import { formatSecondsToMinutes } from "../../../utils/callDurationFormat";
 
@@ -40,7 +44,7 @@ export default function VoiceNoteReport() {
   const markedPlayedRef = useRef(new Set());
 
   const safe = (v) => (v === null || v === undefined || v === "" ? "-" : v);
-  const isPlayedNote = (r) => Number(r.is_played) === 1;
+  const isPlayedNote = (r) => isVoiceNotePlayed(r);
 
   const updateReportRow = (id, patch) => {
     setReports((prev) =>
@@ -95,7 +99,20 @@ export default function VoiceNoteReport() {
       });
 
       if (!res.ok) throw new Error("Failed to load reports");
-      setReports(await res.json());
+      let list = await res.json();
+      if (activeTab === 0) {
+        const playedMap = getPlayedVoiceNotesMap();
+        list.forEach((note) => {
+          if (playedMap[note.id] && Number(note.is_played) !== 1) {
+            markVoiceNotePlayed(note.id).catch(() => {});
+          }
+        });
+        list = list.map((note) => ({
+          ...note,
+          is_played: isVoiceNotePlayed(note) ? 1 : 0,
+        }));
+      }
+      setReports(list);
     } catch (err) {
       setSnackbarMessage("Error loading reports");
       setSnackbarSeverity("error");

@@ -39,7 +39,7 @@ import AdvancedTicketCreateModal from "../../../../components/ticket/AdvancedTic
 import VoiceNotesReport from "../../cal-center-ivr/VoiceNotesReport";
 import {
   fetchVoiceNotes,
-  isVoiceNotePlayed,
+  isVoiceNoteUnplayed,
   VOICE_NOTE_PLAYED_EVENT,
   PLAYED_VOICE_NOTES_KEY,
 } from "../../../../utils/voiceNotePlayed";
@@ -406,9 +406,8 @@ useEffect(() => {
   // ---------- Voice notes (badge: unplayed only; inbox modal removes on play) ----------
   const refreshVoiceNoteBadge = useCallback(async () => {
     try {
-      const agentId = localStorage.getItem("userId");
-      const notes = await fetchVoiceNotes({ agentId, unplayedOnly: true });
-      const unplayed = notes.filter((n) => !isVoiceNotePlayed(n));
+      const notes = await fetchVoiceNotes({ unplayedOnly: true });
+      const unplayed = notes.filter(isVoiceNoteUnplayed);
       setVoiceNotes(unplayed);
       setUnplayedVoiceNotes(unplayed.length);
     } catch (error) {

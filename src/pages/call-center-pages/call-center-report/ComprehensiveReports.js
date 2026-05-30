@@ -35,7 +35,11 @@ import {
   buildSummary,
 } from "../../../utils/offHoursHelper";
 import { playVoiceNoteAudio } from "../../../utils/voiceNoteAudio";
-import { markVoiceNotePlayed } from "../../../utils/voiceNotePlayed";
+import {
+  markVoiceNotePlayed,
+  isVoiceNotePlayed,
+  getPlayedVoiceNotesMap,
+} from "../../../utils/voiceNotePlayed";
 import {
   enrichRecordClient,
   buildEmergencyMap,
@@ -673,6 +677,18 @@ export default function ComprehensiveReports() {
       let list = Array.isArray(data) ? data : [];
       if (activeTab === REPORT_TYPES.DTMF_USAGE) {
         list = list.filter((row) => DTMF_DIGIT_LABELS[row.digit_pressed]);
+      }
+      if (activeTab === REPORT_TYPES.VOICE_NOTE) {
+        const playedMap = getPlayedVoiceNotesMap();
+        list.forEach((note) => {
+          if (playedMap[note.id] && Number(note.is_played) !== 1) {
+            markVoiceNotePlayed(note.id).catch(() => {});
+          }
+        });
+        list = list.map((note) => ({
+          ...note,
+          is_played: isVoiceNotePlayed(note) ? 1 : 0,
+        }));
       }
       setReports(list);
 
@@ -1585,10 +1601,11 @@ export default function ComprehensiveReports() {
 
     switch (activeTab) {
       case REPORT_TYPES.VOICE_NOTE:
+        const played = isVoiceNotePlayed(report);
         const matchesPlayedFilter =
           playedFilter === "all" ||
-          (playedFilter === "played" && report.is_played) ||
-          (playedFilter === "not_played" && !report.is_played);
+          (playedFilter === "played" && played) ||
+          (playedFilter === "not_played" && !played);
         return (
           (report.clid || "").toLowerCase().includes(searchLower) &&
           matchesPlayedFilter
@@ -1774,7 +1791,7 @@ export default function ComprehensiveReports() {
               ? new Date(report.created_at).toLocaleString()
               : "-";
           case "played":
-            return report.is_played ? "Yes" : "No";
+            return isVoiceNotePlayed(report) ? "Yes" : "No";
           case "assignedExtension":
             return getAssignedExtensionDisplay(report);
           case "agentName":

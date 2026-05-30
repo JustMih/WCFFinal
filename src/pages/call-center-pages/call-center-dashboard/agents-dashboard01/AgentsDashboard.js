@@ -372,10 +372,12 @@ useEffect(() => {
 
   const refreshVoiceNoteBadge = useCallback(async () => {
     try {
-      const agentId = localStorage.getItem("userId");
-      const notes = await fetchVoiceNotes({ agentId, unplayedOnly: true });
-      setVoiceNotes(notes);
-      setUnplayedVoiceNotes(notes.length);
+      const notes = await fetchVoiceNotes({ unplayedOnly: true });
+      const unplayed = notes.filter(
+        (n) => !(Number(n.is_played) === 1 || n.is_played === true)
+      );
+      setVoiceNotes(unplayed);
+      setUnplayedVoiceNotes(unplayed.length);
     } catch (error) {
       setVoiceNotes([]);
       setUnplayedVoiceNotes(0);

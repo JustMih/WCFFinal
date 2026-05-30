@@ -11,6 +11,12 @@ export function getPlayedVoiceNotesMap() {
   }
 }
 
+/** True when saved as played in DB (inbox / badge use this). */
+export function isVoiceNoteUnplayed(note) {
+  if (!note) return false;
+  return !(Number(note.is_played) === 1 || note.is_played === true);
+}
+
 export function isVoiceNotePlayed(note, playedMap = getPlayedVoiceNotesMap()) {
   if (!note) return false;
   if (Number(note.is_played) === 1 || note.is_played === true) return true;
@@ -37,18 +43,24 @@ export function notifyVoiceNotePlayed(id) {
 }
 
 /** Build query string for GET /voice-notes */
-export function buildVoiceNotesQuery({ agentId, unplayedOnly } = {}) {
+export function buildVoiceNotesQuery({ agentId, extension, unplayedOnly } = {}) {
   const params = new URLSearchParams();
   if (agentId) params.set("agentId", String(agentId));
+  if (extension) params.set("extension", String(extension));
   if (unplayedOnly) params.set("unplayedOnly", "true");
   const qs = params.toString();
   return qs ? `?${qs}` : "";
 }
 
-export async function fetchVoiceNotes({ agentId, unplayedOnly = false } = {}) {
+export async function fetchVoiceNotes({
+  agentId = localStorage.getItem("userId"),
+  extension = localStorage.getItem("extension"),
+  unplayedOnly = false,
+} = {}) {
   const token = localStorage.getItem("authToken");
   const url = `${baseURL}/voice-notes${buildVoiceNotesQuery({
     agentId,
+    extension,
     unplayedOnly,
   })}`;
   const res = await fetch(url, {
