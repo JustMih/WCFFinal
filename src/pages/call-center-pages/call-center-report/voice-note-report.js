@@ -1,10 +1,12 @@
-import React, { useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { baseURL } from "../../../config";
 import ReportDateRangePicker from "../../../components/shared/ReportDateRangePicker";
+import ReportTablePagination from "../../../components/shared/ReportTablePagination";
+import useReportTablePagination from "../../../hooks/useReportTablePagination";
+import { isValidReportDateRange } from "../../../utils/reportDateUtils";
 import {
   Snackbar,
   Alert,
-  TextField,
   Button,
   Select,
   MenuItem,
@@ -12,7 +14,6 @@ import {
   InputLabel,
   Tabs,
   Tab,
-  Box,
 } from "@mui/material";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -26,8 +27,6 @@ export default function VoiceNoteReport() {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const reportsPerPage = 10;
 
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
@@ -81,7 +80,7 @@ export default function VoiceNoteReport() {
     }
   };
 
-  const fetchReports = async () => {
+  const fetchReports = useCallback(async () => {
     setLoading(true);
     try {
       const endpoint =
@@ -101,10 +100,19 @@ export default function VoiceNoteReport() {
       setSnackbarMessage("Error loading reports");
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
+      setReports([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab, startDate, endDate, disposition]);
+
+  useEffect(() => {
+    if (!isValidReportDateRange(startDate, endDate)) {
+      setReports([]);
+      return;
+    }
+    fetchReports();
+  }, [startDate, endDate, activeTab, disposition, fetchReports]);
 
   const filteredReports = reports.filter((r) => {
     const matchSearch = (r.clid || "").toLowerCase().includes(search.toLowerCase());
@@ -116,11 +124,12 @@ export default function VoiceNoteReport() {
     return matchSearch;
   });
 
-  const totalPages = Math.ceil(filteredReports.length / reportsPerPage);
-  const currentReports = filteredReports.slice(
-    (currentPage - 1) * reportsPerPage,
-    currentPage * reportsPerPage
-  );
+  const { paginatedItems: currentReports, paginationProps, resetPage, page, rowsPerPage } =
+    useReportTablePagination(filteredReports);
+
+  useEffect(() => {
+    resetPage();
+  }, [filteredReports.length, search, playedFilter, activeTab, resetPage]);
 
   const loadAudio = async (record) => {
     const id = record.id;
@@ -239,16 +248,18 @@ export default function VoiceNoteReport() {
           </FormControl>
         )}
 
-        <Button variant="contained" onClick={fetchReports} disabled={loading || !startDate || !endDate}>
-          Load
-        </Button>
-
         <Button variant="outlined" onClick={handleExportPDF} disabled={!filteredReports.length}>
           Export PDF
         </Button>
 
         <input className="search-input" placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
+
+      {!isValidReportDateRange(startDate, endDate) && !loading && (
+        <p style={{ margin: "16px 0", color: "#666" }}>
+          Select start and end dates to view this report.
+        </p>
+      )}
 
       <table className="user-table">
         <thead>
@@ -293,7 +304,7 @@ export default function VoiceNoteReport() {
   ) : (
     currentReports.map((r, i) => (
       <tr key={r.id}>
-        <td>{(currentPage - 1) * reportsPerPage + i + 1}</td>
+        <td>{page * rowsPerPage + i + 1}</td>
         <td>{safe(r.clid)}</td>
         <td>{r.created_at ? new Date(r.created_at).toLocaleString() : "-"}</td>
         <td>
@@ -343,11 +354,7 @@ export default function VoiceNoteReport() {
 
       </table>
 
-      <div className="pagination">
-        <button disabled={currentPage === 1} onClick={() => setCurrentPage(currentPage - 1)}>Prev</button>
-        <span>Page {currentPage} / {totalPages}</span>
-        <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(currentPage + 1)}>Next</button>
-      </div>
+      <ReportTablePagination {...paginationProps} />
 
       <Snackbar open={snackbarOpen} autoHideDuration={3000} onClose={() => setSnackbarOpen(false)}>
         <Alert severity={snackbarSeverity}>{snackbarMessage}</Alert>

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useCallback, useEffect, useState, useMemo } from "react";
 import ReactApexChart from "react-apexcharts";
 import { FiPhoneCall } from "react-icons/fi";
 import { useNavigate, useParams } from "react-router-dom";
@@ -12,6 +12,9 @@ import TicketSlaReport from "./TicketSlaReport";
 import TicketWorkflowTatReport from "./TicketWorkflowTatReport";
 import WcfLoader from "../../../components/shared/WcfLoader";
 import ReportDateRangePicker from "../../../components/shared/ReportDateRangePicker";
+import ReportTablePagination from "../../../components/shared/ReportTablePagination";
+import useReportTablePagination from "../../../hooks/useReportTablePagination";
+import { isValidReportDateRange } from "../../../utils/reportDateUtils";
 import TicketWorkflowExpandPanel from "../../../components/workflow/TicketWorkflowExpandPanel";
 import {
   enrichTicketWithWorkflow,
@@ -81,7 +84,6 @@ import * as XLSX from "xlsx";
 import {
   PictureAsPdf,
   TableChart,
-  Refresh,
   Search,
   ViewColumn,
   Phone,
@@ -228,6 +230,22 @@ async function fetchOffHoursFallback(startDate, endDate, source) {
   return { summary: buildSummary(records), records };
 }
 
+const OPTIONAL_DATE_TABS = new Set([
+  REPORT_TYPES.IVR_INTERACTIONS,
+  REPORT_TYPES.DTMF_USAGE,
+  REPORT_TYPES.MISSED_CALL,
+  REPORT_TYPES.CHATS,
+]);
+
+const SKIP_AUTO_FETCH_TABS = new Set([
+  REPORT_TYPES.PAUSE,
+  REPORT_TYPES.LIVESTREAM,
+  REPORT_TYPES.OFF_HOURS,
+  REPORT_TYPES.SLA_CALL_CENTER,
+  REPORT_TYPES.SLA_TICKET,
+  REPORT_TYPES.TICKET_WORKFLOW_TAT,
+]);
+
 export default function ComprehensiveReports() {
   const navigate = useNavigate();
   const { reportSlug } = useParams();
@@ -240,8 +258,6 @@ export default function ComprehensiveReports() {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [reportsPerPage] = useState(10);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
@@ -304,7 +320,7 @@ export default function ComprehensiveReports() {
     avgDuration: 0,
   });
 
-  const fetchReports = async () => {
+  const fetchReports = useCallback(async () => {
     setLoading(true);
     try {
       let endpoint = "";
@@ -619,7 +635,39 @@ export default function ComprehensiveReports() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [
+    activeTab,
+    startDate,
+    endDate,
+    disposition,
+    ticketStatus,
+    agentFilter,
+    missedCallStatusFilter,
+    offHoursSource,
+  ]);
+
+  useEffect(() => {
+    if (SKIP_AUTO_FETCH_TABS.has(activeTab)) return;
+    if (OPTIONAL_DATE_TABS.has(activeTab)) {
+      fetchReports();
+      return;
+    }
+    if (!isValidReportDateRange(startDate, endDate)) {
+      setReports([]);
+      return;
+    }
+    fetchReports();
+  }, [
+    activeTab,
+    startDate,
+    endDate,
+    disposition,
+    ticketStatus,
+    agentFilter,
+    missedCallStatusFilter,
+    offHoursSource,
+    fetchReports,
+  ]);
 
   const calculateCallStats = (data) => {
     if (!Array.isArray(data) || data.length === 0) {
@@ -1436,10 +1484,6 @@ export default function ComprehensiveReports() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
-  useEffect(() => {
-    setExpandedTicketId(null);
-  }, [currentPage, activeTab]);
-
   const handleColumnToggle = (columnKey) => {
     setSelectedColumns((prev) => {
       const current = prev[activeTab] || [];
@@ -1592,12 +1636,31 @@ export default function ComprehensiveReports() {
     }
   });
 
-  const indexOfLastReport = currentPage * reportsPerPage;
-  const indexOfFirstReport = indexOfLastReport - reportsPerPage;
-  const currentReports = filteredReports.slice(
-    indexOfFirstReport,
-    indexOfLastReport
-  );
+  const { paginatedItems: currentReports, paginationProps, resetPage, page, rowsPerPage } =
+    useReportTablePagination(filteredReports);
+
+  useEffect(() => {
+    resetPage();
+  }, [
+    filteredReports.length,
+    activeTab,
+    startDate,
+    endDate,
+    search,
+    disposition,
+    ticketStatus,
+    agentFilter,
+    missedCallStatusFilter,
+    offHoursCategoryFilter,
+    playedFilter,
+    priorityFilter,
+    categoryFilter,
+    resetPage,
+  ]);
+
+  useEffect(() => {
+    setExpandedTicketId(null);
+  }, [page, activeTab]);
 
   const getAssignedAgentDisplay = (report) => {
     if (report.assigned_extension) {
@@ -1625,7 +1688,7 @@ export default function ComprehensiveReports() {
       case REPORT_TYPES.VOICE_NOTE:
         switch (columnKey) {
           case "serial":
-            return index + 1;
+            return page * rowsPerPage + index + 1;
           case "phone":
             return report.clid || "-";
           case "date":
@@ -1644,7 +1707,7 @@ export default function ComprehensiveReports() {
       case REPORT_TYPES.CDR:
         switch (columnKey) {
           case "serial":
-            return index + 1;
+            return page * rowsPerPage + index + 1;
           case "callerId":
             return report.clid || "-";
           case "source":
@@ -1679,7 +1742,7 @@ export default function ComprehensiveReports() {
       case REPORT_TYPES.TICKET_CRM:
         switch (columnKey) {
           case "serial":
-            return index + 1;
+            return page * rowsPerPage + index + 1;
           case "ticketNumber":
             return report.ticket_number || report.ticket_id || "-";
           case "id":
@@ -1879,7 +1942,7 @@ export default function ComprehensiveReports() {
       case REPORT_TYPES.AGENT_PERFORMANCE:
         switch (columnKey) {
           case "serial":
-            return index + 1;
+            return page * rowsPerPage + index + 1;
           case "agent":
             return report.agent_name || "-";
           case "totalCalls":
@@ -1900,7 +1963,7 @@ export default function ComprehensiveReports() {
       case REPORT_TYPES.CALL_SUMMARY:
         switch (columnKey) {
           case "serial":
-            return index + 1;
+            return page * rowsPerPage + index + 1;
           case "date":
             return report.date
               ? new Date(report.date).toLocaleDateString()
@@ -1923,7 +1986,7 @@ export default function ComprehensiveReports() {
       case REPORT_TYPES.IVR_INTERACTIONS:
         switch (columnKey) {
           case "serial":
-            return index + 1;
+            return page * rowsPerPage + index + 1;
           case "dtmfDigit":
             return report.dtmf_digit ?? "-";
           case "actionName":
@@ -1946,7 +2009,7 @@ export default function ComprehensiveReports() {
       case REPORT_TYPES.DTMF_USAGE:
         switch (columnKey) {
           case "serial":
-            return index + 1;
+            return page * rowsPerPage + index + 1;
           case "digitPressed":
             return report.digit_pressed ?? "-";
           case "dtmfAction":
@@ -1965,7 +2028,7 @@ export default function ComprehensiveReports() {
       case REPORT_TYPES.TICKET_ASSIGNMENTS:
         switch (columnKey) {
           case "serial":
-            return index + 1;
+            return page * rowsPerPage + index + 1;
           case "ticketNumber":
             return report.ticket_number || "-";
           case "ticketSubject":
@@ -2022,7 +2085,7 @@ export default function ComprehensiveReports() {
       case REPORT_TYPES.MISSED_CALL:
         switch (columnKey) {
           case "serial":
-            return index + 1;
+            return page * rowsPerPage + index + 1;
           case "caller":
             return report.caller || "-";
           case "time":
@@ -2043,7 +2106,7 @@ export default function ComprehensiveReports() {
       case REPORT_TYPES.ESCALLATION:
         switch (columnKey) {
           case "serial":
-            return index + 1;
+            return page * rowsPerPage + index + 1;
           case "ticketNumber":
             return report.ticket_id || report.ticket_number || "-";
           case "subject":
@@ -2070,7 +2133,7 @@ export default function ComprehensiveReports() {
       case REPORT_TYPES.NOTIFICATIONS:
         switch (columnKey) {
           case "serial":
-            return index + 1;
+            return page * rowsPerPage + index + 1;
           case "ticketNumber":
             return report.ticket?.ticket_id || report.ticket_id || "-";
           case "ticketSubject":
@@ -2103,7 +2166,7 @@ export default function ComprehensiveReports() {
       case REPORT_TYPES.CHATS:
         switch (columnKey) {
           case "serial":
-            return index + 1;
+            return page * rowsPerPage + index + 1;
           case "sender":
             return report.senderId || "-";
           case "receiver":
@@ -2503,7 +2566,6 @@ export default function ComprehensiveReports() {
       return;
     }
     setReports([]);
-    setCurrentPage(1);
     setSearch("");
     setOffHoursSummary(null);
     setOffHoursPlayingId(null);
@@ -2661,8 +2723,8 @@ export default function ComprehensiveReports() {
             No records found.
           </Typography>
           <Typography variant="body2" color="textSecondary">
-            {!startDate || !endDate
-              ? "Please select date range and click 'Load Report'"
+            {!OPTIONAL_DATE_TABS.has(activeTab) && (!startDate || !endDate)
+              ? "Select start and end dates to view this report."
               : "Try adjusting your filters or date range"}
           </Typography>
         </div>
@@ -2742,7 +2804,7 @@ export default function ComprehensiveReports() {
                       backgroundColor: pending ? "#fff3cd" : "#d4edda",
                     }}
                   >
-                    <td>{indexOfFirstReport + index + 1}</td>
+                    <td>{page * rowsPerPage + index + 1}</td>
                     <td>{missedCallSource(record)}</td>
                     <td>{missedCallDestination(record)}</td>
                     <td title={record.emergency_number_label || ""}>
@@ -2834,7 +2896,7 @@ export default function ComprehensiveReports() {
           <tbody>
             {currentReports.map((record, index) => (
               <tr key={record.id || index}>
-                <td>{indexOfFirstReport + index + 1}</td>
+                <td>{page * rowsPerPage + index + 1}</td>
                 <td>{record.caller_display || record.clid || "-"}</td>
                 <td>
                   {record.routed_to_label || record.routed_to || "—"}
@@ -2905,7 +2967,7 @@ export default function ComprehensiveReports() {
                     ),
                   }}
                 >
-                  <td>{indexOfFirstReport + index + 1}</td>
+                  <td>{page * rowsPerPage + index + 1}</td>
                   <td>{record.id}</td>
                   <td>{record.caller_display || record.clid || "-"}</td>
                   <td>
@@ -2985,7 +3047,7 @@ export default function ComprehensiveReports() {
       <tbody>
         {currentReports.map((report, index) => (
           <tr key={report.id || index}>
-            <td>{indexOfFirstReport + index + 1}</td>
+            <td>{page * rowsPerPage + index + 1}</td>
             <td>{report.caller || "-"}</td>
             <td>
               {report.time
@@ -3302,7 +3364,7 @@ export default function ComprehensiveReports() {
               {selectedColumnsDef.map((col) => {
                 if (col.key === "serial") {
                   return (
-                    <td key={col.key}>{indexOfFirstReport + index + 1}</td>
+                    <td key={col.key}>{page * rowsPerPage + index + 1}</td>
                   );
                 }
                 const value = getColumnValue(col.key, report, index);
@@ -3347,7 +3409,7 @@ export default function ComprehensiveReports() {
       <tbody>
         {currentReports.map((report, index) => (
           <tr key={report.id || index}>
-            <td>{indexOfFirstReport + index + 1}</td>
+            <td>{page * rowsPerPage + index + 1}</td>
             <td>{report.clid || "-"}</td>
             <td>{report.src || "-"}</td>
             <td>{report.dst || "-"}</td>
@@ -3595,7 +3657,7 @@ export default function ComprehensiveReports() {
       <tbody>
         {currentReports.map((report, index) => (
           <tr key={report.id || index}>
-            <td>{indexOfFirstReport + index + 1}</td>
+            <td>{page * rowsPerPage + index + 1}</td>
             <td>{report.agent_name || "-"}</td>
             <td>{report.total_calls || 0}</td>
             <td>{report.answered_calls || 0}</td>
@@ -3626,7 +3688,7 @@ export default function ComprehensiveReports() {
       <tbody>
         {currentReports.map((report, index) => (
           <tr key={report.id || index}>
-            <td>{indexOfFirstReport + index + 1}</td>
+            <td>{page * rowsPerPage + index + 1}</td>
             <td>
               {report.date ? new Date(report.date).toLocaleDateString() : "-"}
             </td>
@@ -4256,7 +4318,6 @@ export default function ComprehensiveReports() {
                         setOffHoursSource(e.target.value);
                         setReports([]);
                         setOffHoursSummary(null);
-                        setCurrentPage(1);
                       }}
                     >
                       <MenuItem value="voice-notes">Voice Notes</MenuItem>
@@ -4274,7 +4335,6 @@ export default function ComprehensiveReports() {
                       label="Category"
                       onChange={(e) => {
                         setOffHoursCategoryFilter(e.target.value);
-                        setCurrentPage(1);
                       }}
                     >
                       {OFF_HOURS_CATEGORY_OPTIONS.map((opt) => (
@@ -4289,24 +4349,6 @@ export default function ComprehensiveReports() {
             </div>
 
             <div className="action-buttons">
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<Refresh />}
-                onClick={fetchReports}
-                disabled={
-                  loading ||
-                  (activeTab !== REPORT_TYPES.IVR_INTERACTIONS &&
-                    activeTab !== REPORT_TYPES.DTMF_USAGE &&
-                    activeTab !== REPORT_TYPES.MISSED_CALL &&
-                    activeTab !== REPORT_TYPES.ESCALLATION &&
-                    activeTab !== REPORT_TYPES.NOTIFICATIONS &&
-                    activeTab !== REPORT_TYPES.CHATS &&
-                    (!startDate || !endDate))
-                }
-              >
-                Load Report
-              </Button>
               {filteredReports.length > 0 &&
                 activeTab !== REPORT_TYPES.OFF_HOURS && (
                 <Button
@@ -4406,37 +4448,7 @@ export default function ComprehensiveReports() {
 
       {/* Pagination */}
       {filteredReports.length > 0 && (
-        <div className="pagination-container">
-          <Button
-            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-            disabled={currentPage === 1}
-            variant="outlined"
-            size="small"
-          >
-            ← Previous
-          </Button>
-          <Typography variant="body2" className="pagination-info">
-            Page {currentPage} of{" "}
-            {Math.ceil(filteredReports.length / reportsPerPage)}
-          </Typography>
-          <Button
-            onClick={() =>
-              setCurrentPage(
-                Math.min(
-                  Math.ceil(filteredReports.length / reportsPerPage),
-                  currentPage + 1
-                )
-              )
-            }
-            disabled={
-              currentPage === Math.ceil(filteredReports.length / reportsPerPage)
-            }
-            variant="outlined"
-            size="small"
-          >
-            Next →
-          </Button>
-        </div>
+        <ReportTablePagination {...paginationProps} className="pagination-container" />
       )}
         </>
       )}

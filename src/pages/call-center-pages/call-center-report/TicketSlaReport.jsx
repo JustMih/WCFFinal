@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -18,14 +18,16 @@ import {
   TableRow,
   Typography,
 } from "@mui/material";
-import { PictureAsPdf, Refresh, TableChart } from "@mui/icons-material";
+import { PictureAsPdf, TableChart } from "@mui/icons-material";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { baseURL } from "../../../config";
 import WcfLoader from "../../../components/shared/WcfLoader";
 import ReportDateRangePicker from "../../../components/shared/ReportDateRangePicker";
-import { todayApiDate } from "../../../utils/reportDateUtils";
+import ReportTablePagination from "../../../components/shared/ReportTablePagination";
+import useReportTablePagination from "../../../hooks/useReportTablePagination";
+import { isValidReportDateRange } from "../../../utils/reportDateUtils";
 import "./slaReport.css";
 
 const STATUS_FILTER_OPTIONS = [
@@ -74,8 +76,8 @@ const statusChipColor = (status) => {
 };
 
 export default function TicketSlaReport({ embedded = false }) {
-  const [startDate, setStartDate] = useState(todayApiDate());
-  const [endDate, setEndDate] = useState(todayApiDate());
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [summary, setSummary] = useState(null);
   const [tickets, setTickets] = useState([]);
@@ -123,6 +125,22 @@ export default function TicketSlaReport({ embedded = false }) {
       setLoading(false);
     }
   }, [startDate, endDate, statusFilter]);
+
+  useEffect(() => {
+    if (!isValidReportDateRange(startDate, endDate)) {
+      setSummary(null);
+      setTickets([]);
+      return;
+    }
+    fetchReport();
+  }, [startDate, endDate, statusFilter, fetchReport]);
+
+  const { paginatedItems: paginatedTickets, paginationProps, resetPage } =
+    useReportTablePagination(tickets);
+
+  useEffect(() => {
+    resetPage();
+  }, [tickets.length, startDate, endDate, statusFilter, resetPage]);
 
   const exportRows = useMemo(
     () =>
@@ -228,14 +246,6 @@ export default function TicketSlaReport({ embedded = false }) {
         </FormControl>
         <div className="sla-report-actions">
           <Button
-            variant="contained"
-            startIcon={<Refresh />}
-            onClick={fetchReport}
-            disabled={loading || !startDate || !endDate}
-          >
-            Load Report
-          </Button>
-          <Button
             variant="outlined"
             startIcon={<PictureAsPdf />}
             onClick={handleExportPDF}
@@ -321,7 +331,7 @@ export default function TicketSlaReport({ embedded = false }) {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  tickets.map((ticket) => (
+                  paginatedTickets.map((ticket) => (
                     <TableRow
                       key={ticket.id}
                       className={rowClassForSeverity(
@@ -348,13 +358,14 @@ export default function TicketSlaReport({ embedded = false }) {
                 )}
               </TableBody>
             </Table>
+            <ReportTablePagination {...paginationProps} className="tat-report-pagination" />
           </TableContainer>
           </div>
         </>
       ) : (
         !error && (
           <p className="sla-report-empty-hint">
-            Select a date range and click Load Report to view ticket SLA compliance.
+            Select start and end dates to view ticket SLA compliance.
           </p>
         )
       )}

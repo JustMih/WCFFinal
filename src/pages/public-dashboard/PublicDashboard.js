@@ -267,24 +267,21 @@ return () => {
     (call) => call.queue_entry_time && !call.call_answered && !call.call_end
   ).length;
 
-  // Call summary from API: { currentDay, currentMonth, currentYear } with totalCalls, answered, dropped, lost
+  // Call summary from API: answered, dropped, lost; total = sum of those three
   const day =
     callSummaryData?.currentDay || {
-      totalCalls: 0,
       answered: 0,
       dropped: 0,
       lost: 0,
     };
   const month =
     callSummaryData?.currentMonth || {
-      totalCalls: 0,
       answered: 0,
       dropped: 0,
       lost: 0,
     };
   const year =
     callSummaryData?.currentYear || {
-      totalCalls: 0,
       answered: 0,
       dropped: 0,
       lost: 0,
@@ -294,24 +291,20 @@ return () => {
   const droppedCallsCount = day.dropped ?? 0;
   const lostCallsCount = day.lost ?? 0;
 
-  const dailyTotal = day.totalCalls ?? 0;
   const dailyAnswered = day.answered ?? 0;
   const dailyDropped = day.dropped ?? 0;
   const dailyLost = day.lost ?? 0;
+  const dailyTotal = dailyAnswered + dailyDropped + dailyLost;
 
   const monthlyAnswered = month.answered ?? 0;
   const monthlyDropped = month.dropped ?? 0;
   const monthlyLost = month.lost ?? 0;
-  const monthlyTotal =
-    month.totalCalls ??
-    monthlyAnswered + monthlyLost + monthlyDropped;
+  const monthlyTotal = monthlyAnswered + monthlyDropped + monthlyLost;
 
   const yearlyAnswered = year.answered ?? 0;
   const yearlyDropped = year.dropped ?? 0;
   const yearlyLost = year.lost ?? 0;
-  const yearlyTotal =
-    year.totalCalls ??
-    yearlyAnswered + yearlyLost + yearlyDropped;
+  const yearlyTotal = yearlyAnswered + yearlyDropped + yearlyLost;
 
   // Helper function to calculate percentage
   const calculatePercentage = (count, total) => {

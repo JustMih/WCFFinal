@@ -14,18 +14,19 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TablePagination,
   TableRow,
   Typography,
 } from "@mui/material";
-import { PictureAsPdf, Refresh, TableChart } from "@mui/icons-material";
+import { PictureAsPdf, TableChart } from "@mui/icons-material";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { baseURL } from "../../../config";
 import WcfLoader from "../../../components/shared/WcfLoader";
 import ReportDateRangePicker from "../../../components/shared/ReportDateRangePicker";
-import { todayApiDate, formatDateForApi } from "../../../utils/reportDateUtils";
+import ReportTablePagination from "../../../components/shared/ReportTablePagination";
+import useReportTablePagination from "../../../hooks/useReportTablePagination";
+import { isValidReportDateRange } from "../../../utils/reportDateUtils";
 import {
   TAT_TEMPLATE_COLUMNS,
   UI_ONLY_COLUMNS,
@@ -57,16 +58,9 @@ const TABLE_COLUMNS = [
   })),
 ];
 
-const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
-
-const monthStartApiDate = () => {
-  const d = new Date();
-  return formatDateForApi(new Date(d.getFullYear(), d.getMonth(), 1));
-};
-
 export default function TicketWorkflowTatReport({ embedded = false }) {
-  const [startDate, setStartDate] = useState(monthStartApiDate());
-  const [endDate, setEndDate] = useState(todayApiDate());
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [summary, setSummary] = useState(null);
   const [rows, setRows] = useState([]);
@@ -75,8 +69,6 @@ export default function TicketWorkflowTatReport({ embedded = false }) {
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
 
   const showSnackbar = (message, severity = "success") => {
     setSnackbarMessage(message);
@@ -111,14 +103,13 @@ export default function TicketWorkflowTatReport({ embedded = false }) {
   }, [startDate, endDate, statusFilter]);
 
   useEffect(() => {
-    if (startDate && endDate) {
-      fetchReport();
+    if (!isValidReportDateRange(startDate, endDate)) {
+      setSummary(null);
+      setRows([]);
+      return;
     }
-  }, [fetchReport, startDate, endDate]);
-
-  useEffect(() => {
-    setPage(0);
-  }, [rows.length, statusFilter, startDate, endDate]);
+    fetchReport();
+  }, [startDate, endDate, statusFilter, fetchReport]);
 
   const displayRows = useMemo(
     () =>
@@ -138,19 +129,12 @@ export default function TicketWorkflowTatReport({ embedded = false }) {
     [rows]
   );
 
-  const paginatedRows = useMemo(() => {
-    const start = page * rowsPerPage;
-    return displayRows.slice(start, start + rowsPerPage);
-  }, [displayRows, page, rowsPerPage]);
+  const { paginatedItems: paginatedRows, paginationProps, resetPage } =
+    useReportTablePagination(displayRows);
 
-  const handleChangePage = (_, newPage) => {
-    setPage(newPage);
-  };
-
-  const handleChangeRowsPerPage = (event) => {
-    setRowsPerPage(parseInt(event.target.value, 10));
-    setPage(0);
-  };
+  useEffect(() => {
+    resetPage();
+  }, [displayRows.length, statusFilter, startDate, endDate, resetPage]);
 
   const handleExportExcel = () => {
     if (rows.length === 0) {
@@ -236,13 +220,18 @@ export default function TicketWorkflowTatReport({ embedded = false }) {
           endLabel="End date"
           disabled={loading}
         />
-        <FormControl size="small" sx={{ minWidth: 160 }}>
-          <InputLabel>Ticket Status</InputLabel>
+        <FormControl size="small" className="tat-status-filter">
+          <InputLabel id="tat-status-filter-label" shrink>
+            Ticket Status
+          </InputLabel>
           <Select
+            labelId="tat-status-filter-label"
+            id="tat-status-filter"
             label="Ticket Status"
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
             disabled={loading}
+            notched
           >
             {STATUS_FILTER_OPTIONS.map((opt) => (
               <MenuItem key={opt.value} value={opt.value}>
@@ -252,14 +241,6 @@ export default function TicketWorkflowTatReport({ embedded = false }) {
           </Select>
         </FormControl>
         <div className="sla-report-actions">
-          <Button
-            variant="contained"
-            startIcon={<Refresh />}
-            onClick={fetchReport}
-            disabled={loading || !startDate || !endDate}
-          >
-            Load Report
-          </Button>
           <Button
             variant="outlined"
             startIcon={<PictureAsPdf />}
@@ -358,27 +339,17 @@ export default function TicketWorkflowTatReport({ embedded = false }) {
                   )}
                 </TableBody>
               </Table>
-              {displayRows.length > 0 && (
-                <TablePagination
-                  component="div"
-                  className="tat-report-pagination"
-                  count={displayRows.length}
-                  page={page}
-                  onPageChange={handleChangePage}
-                  rowsPerPage={rowsPerPage}
-                  onRowsPerPageChange={handleChangeRowsPerPage}
-                  rowsPerPageOptions={PAGE_SIZE_OPTIONS}
-                  labelRowsPerPage="Rows per page:"
-                />
-              )}
+              <ReportTablePagination
+                {...paginationProps}
+                className="tat-report-pagination"
+              />
             </TableContainer>
           </div>
         </>
       ) : (
         !error && (
           <p className="sla-report-empty-hint">
-            Select a date range and click Load Report to view ticket workflow
-            TAT.
+            Select start and end dates to view ticket workflow TAT.
           </p>
         )
       )}
