@@ -22,7 +22,10 @@ import {
   buildSummary,
 } from "../../../utils/offHoursHelper";
 import { playVoiceNoteAudio } from "../../../utils/voiceNoteAudio";
-import { markVoiceNotePlayed } from "../../../utils/voiceNotePlayed";
+import {
+  markVoiceNotePlayed,
+  notifyVoiceNotePlayed,
+} from "../../../utils/voiceNotePlayed";
 import {
   enrichRecordClient,
   buildEmergencyMap,
@@ -425,6 +428,7 @@ export default function OffHoursReport() {
       const updatedStatus = { ...playedStatus, [record.id]: true };
       setPlayedStatus(updatedStatus);
       localStorage.setItem("playedVoiceNotes", JSON.stringify(updatedStatus));
+      notifyVoiceNotePlayed(record.id);
 
       audio.onended = () => {
         setCurrentlyPlayingId(null);

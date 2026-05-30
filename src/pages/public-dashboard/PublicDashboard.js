@@ -36,6 +36,8 @@ import ActiveCalls from "../../components/active-calls/ActiveCalls";
 import ReactApexChart from "react-apexcharts";
 import "./PublicDashboard.css";
 
+const LOST_MIN_QUEUE_WAIT_SEC = 5 * 60;
+
 export default function PublicDashboard({
   suppressLoadingUI = false,
   onInitialLoadComplete,
@@ -52,7 +54,6 @@ export default function PublicDashboard({
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [lostCalls, setLostCalls] = useState([]);
-  const [lostCallsCountLive, setLostCallsCountLive] = useState(null);
   const [showLostCallsModal, setShowLostCallsModal] = useState(false);
   const [lostCallsLoading, setLostCallsLoading] = useState(false);
 
@@ -62,9 +63,10 @@ export default function PublicDashboard({
       const response = await fetch(`${baseURL}/calls/lost-calls-today`);
       if (response.ok) {
         const data = await response.json();
-        const list = Array.isArray(data) ? data : [];
+        const list = (Array.isArray(data) ? data : []).filter(
+          (call) => Number(call.wait_seconds) >= LOST_MIN_QUEUE_WAIT_SEC
+        );
         setLostCalls(list);
-        setLostCallsCountLive(list.length);
       } else if (forModal) {
         console.error("Failed to fetch lost calls:", response.status);
       }
@@ -251,6 +253,14 @@ return () => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const formatQueueWait = (waitSeconds) => {
+    const sec = Number(waitSeconds);
+    if (!Number.isFinite(sec) || sec < LOST_MIN_QUEUE_WAIT_SEC) return "—";
+    const mins = Math.floor(sec / 60);
+    const rem = sec % 60;
+    return `${mins}m ${rem}s`;
   };
 
   const extractPhoneFromClid = (clid) => {
@@ -983,7 +993,7 @@ return () => {
       >
         <DialogTitle>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span>Lost Calls Today - Callback Details</span>
+            <span>Lost Calls Today (5+ min in queue)</span>
             <IconButton onClick={() => setShowLostCallsModal(false)}><CloseIcon /></IconButton>
           </div>
         </DialogTitle>
@@ -992,20 +1002,15 @@ return () => {
             <div style={{ textAlign: "center", padding: "40px" }}>Loading lost calls...</div>
           ) : lostCalls.length > 0 ? (
             <div className="lost-calls-list enhanced">
-              <div className="lost-call-item header">
+              <div className="lost-call-item header lost-call-item--public">
                 <div>Phone Number</div>
                 <div>Missed At</div>
+                <div>Queue Wait</div>
                 <div>Status</div>
-                <div>Callback Agent</div>
-                <div>Callback Time</div>
-                <div>Talk Duration</div>
               </div>
 
               {lostCalls.map((call, i) => (
-                <div
-                  key={i}
-                  className={`lost-call-item ${call.status === "called_back" ? "called-back" : ""}`}
-                >
+                <div key={call.id || call.linkedid || i} className="lost-call-item lost-call-item--public">
                   <div className="lost-call-phone">
                     {extractPhoneFromClid(call.caller)}
                   </div>
@@ -1018,26 +1023,11 @@ return () => {
                         })
                       : "-"}
                   </div>
+                  <div className="lost-call-wait">
+                    {formatQueueWait(call.wait_seconds)}
+                  </div>
                   <div className="lost-call-status">
-                    <span className={`status-badge ${call.status === "called_back" ? "called-back" : "no-answer"}`}>
-                    {call.status === "called_back" ? "CALLED BACK" : "NO ANSWER"}
-
-                    </span>
-                  </div>
-                  <div className="lost-call-callback">
-                    {call.callback_agent_name || (call.callback_agent_extension ? `Agent ${call.callback_agent_extension}` : "-")}
-                  </div>
-                  <div className="lost-call-callback-time">
-                    {call.callback_time
-                      ? new Date(call.callback_time).toLocaleString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          second: "2-digit",
-                        })
-                      : "-"}
-                  </div>
-                  <div className="lost-call-duration">
-                    {call.callback_duration > 0 ? formatTime(call.callback_duration) : "-"}
+                    <span className="status-badge no-answer">LOST</span>
                   </div>
                 </div>
               ))}

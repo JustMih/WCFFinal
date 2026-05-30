@@ -132,32 +132,25 @@ export default function CallHistoryCard({
     }
   };
 
-  // Voicemail count from voice-notes API (same as AgentsDashboard: userId only, no client-side filter)
-  const fetchVoiceNotes = async () => {
+  const loadVoiceNotes = async () => {
     try {
       setLoading((prev) => ({ ...prev, voicemail: true }));
       const agentId = localStorage.getItem("userId");
-      const response = await fetch(
-        `${baseURL}/voice-notes?agentId=${agentId}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-          },
-        }
-      );
+      const response = await fetch(`${baseURL}/voice-notes?agentId=${agentId}`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        },
+      });
       if (!response.ok) throw new Error("Failed to fetch voice notes");
       const data = await response.json();
       const notes = data.voiceNotes || [];
       const storedPlayed =
         JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
-      const unplayedCount = notes.filter(
-        (note) => !storedPlayed[note.id]
-      ).length;
+      const unplayed = notes.filter((note) => !storedPlayed[note.id]);
       setVoiceNotes(notes);
       setTotals((prev) => ({ ...prev, voicemail: notes.length }));
-      setUnplayedVoicemailCount(unplayedCount);
+      setUnplayedVoicemailCount(unplayed.length);
     } catch (error) {
       setVoiceNotes([]);
       setTotals((prev) => ({ ...prev, voicemail: 0 }));
@@ -171,11 +164,25 @@ export default function CallHistoryCard({
   const parentNotes = Array.isArray(voicemailData?.voiceNotes) ? voicemailData.voiceNotes : [];
   const displayVoiceNotes = useParentVoicemail ? parentNotes : voiceNotes;
   const displayVoicemailTotal = useParentVoicemail ? parentNotes.length : totals.voicemail;
+  const getPlayedMap = () => {
+    try {
+      return JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
+    } catch {
+      return {};
+    }
+  };
+
+  const isNotePlayed = (note) => {
+    if (!note) return false;
+    if (Number(note.is_played) === 1 || note.is_played === true) return true;
+    return Boolean(getPlayedMap()[note.id]);
+  };
+
+  const countUnplayed = (notes) =>
+    notes.filter((note) => !isNotePlayed(note)).length;
+
   const displayUnplayedCount = useParentVoicemail
-    ? (voicemailData?.unplayedCount ?? displayVoiceNotes.filter((note) => {
-        const stored = JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
-        return !stored[note.id];
-      }).length)
+    ? (voicemailData?.unplayedCount ?? countUnplayed(displayVoiceNotes))
     : unplayedVoicemailCount;
 
   useEffect(() => {
@@ -183,10 +190,12 @@ export default function CallHistoryCard({
     fetchLostCalls(1, 5);
     fetchDroppedCalls(1, 5);
     if (!useParentVoicemail) {
-      fetchVoiceNotes();
+      loadVoiceNotes();
     }
     const handleStorage = (e) => {
-      if (e.key === "playedVoiceNotes" && !useParentVoicemail) fetchVoiceNotes();
+      if (e.key === "playedVoiceNotes" && !useParentVoicemail) {
+        loadVoiceNotes();
+      }
     };
     window.addEventListener("storage", handleStorage);
     return () => window.removeEventListener("storage", handleStorage);
@@ -201,7 +210,7 @@ export default function CallHistoryCard({
     } else if (newValue === 2 && droppedCalls.length === 0) {
       fetchDroppedCalls(1, 5);
     } else if (newValue === 3 && !useParentVoicemail) {
-      fetchVoiceNotes();
+      loadVoiceNotes();
     }
   };
 
@@ -509,9 +518,7 @@ export default function CallHistoryCard({
                   </TableHead>
                   <TableBody>
                     {displayVoiceNotes.map((note) => {
-                      const storedPlayed =
-                        JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
-                      const isPlayed = !!storedPlayed[note.id];
+                      const played = isNotePlayed(note);
                       return (
                         <TableRow key={note.id} hover>
                           <TableCell>
@@ -523,9 +530,9 @@ export default function CallHistoryCard({
                           </TableCell>
                           <TableCell>
                             <Chip
-                              label={isPlayed ? "Played" : "Unplayed"}
+                              label={played ? "Played" : "Unplayed"}
                               size="small"
-                              color={isPlayed ? "success" : "default"}
+                              color={played ? "success" : "default"}
                             />
                           </TableCell>
                         </TableRow>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
 import {
   MdOutlineLocalPhone,
@@ -52,6 +52,11 @@ import {
 } from "sip.js";
 import { Alert, Snackbar } from "@mui/material";
 import { baseURL } from "../../../../config";
+import {
+  fetchVoiceNotes,
+  VOICE_NOTE_PLAYED_EVENT,
+  PLAYED_VOICE_NOTES_KEY,
+} from "../../../../utils/voiceNotePlayed";
 import "./agentsDashboard.css";
 import SingleAgentDashboardCard from "../../../../components/agent-dashboard/SingleAgentDashboardCard";
 import QueueStatusTable from "../../../../components/agent-dashboard/QueueStatusTable";
@@ -1185,46 +1190,35 @@ export default function AgentsDashboard() {
   const [voiceNotes, setVoiceNotes] = useState([]);
   const [unplayedVoiceNotes, setUnplayedVoiceNotes] = useState(0);
 
-  // Fetch unplayed voicenotes for the agent
-  useEffect(() => {
-    const fetchVoiceNotes = async () => {
-      try {
-        const agentId = localStorage.getItem("userId");
-        const response = await fetch(
-          `${baseURL}/voice-notes?agentId=${agentId}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-            },
-          }
-        );
-        if (!response.ok) throw new Error("Failed to fetch voice notes");
-        const data = await response.json();
-        const notes = data.voiceNotes || [];
-        const storedPlayed =
-          JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
-        const unplayedCount = notes.filter(
-          (note) => !storedPlayed[note.id]
-        ).length;
-        setVoiceNotes(notes);
-        setUnplayedVoiceNotes(unplayedCount);
-      } catch (error) {
-        setVoiceNotes([]);
-        setUnplayedVoiceNotes(0);
-      }
-    };
-    fetchVoiceNotes();
-    // Listen for localStorage changes to update badge in real time
-    const handleStorage = (e) => {
-      if (e.key === "playedVoiceNotes") {
-        fetchVoiceNotes();
-      }
-    };
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
+  const refreshVoiceNoteBadge = useCallback(async () => {
+    try {
+      const notes = await fetchVoiceNotes({ unplayedOnly: true });
+      const unplayed = notes.filter(
+        (n) => !(Number(n.is_played) === 1 || n.is_played === true)
+      );
+      setVoiceNotes(unplayed);
+      setUnplayedVoiceNotes(unplayed.length);
+    } catch (error) {
+      setVoiceNotes([]);
+      setUnplayedVoiceNotes(0);
+    }
   }, []);
+
+  useEffect(() => {
+    refreshVoiceNoteBadge();
+    const interval = setInterval(refreshVoiceNoteBadge, 60000);
+    const handleStorage = (e) => {
+      if (e.key === PLAYED_VOICE_NOTES_KEY) refreshVoiceNoteBadge();
+    };
+    const handlePlayed = () => refreshVoiceNoteBadge();
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener(VOICE_NOTE_PLAYED_EVENT, handlePlayed);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(VOICE_NOTE_PLAYED_EVENT, handlePlayed);
+    };
+  }, [refreshVoiceNoteBadge]);
 
   const [showVoiceNotesModal, setShowVoiceNotesModal] = useState(false);
 
@@ -1833,12 +1827,15 @@ export default function AgentsDashboard() {
 
       <Dialog
         open={showVoiceNotesModal}
-        onClose={() => setShowVoiceNotesModal(false)}
+        onClose={() => {
+          setShowVoiceNotesModal(false);
+          refreshVoiceNoteBadge();
+        }}
         fullWidth
         maxWidth="md"
       >
         <DialogContent>
-          <VoiceNotesReport />
+          <VoiceNotesReport variant="inbox" />
         </DialogContent>
       </Dialog>
     </div>

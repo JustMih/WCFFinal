@@ -29,7 +29,6 @@ const sumDirectionTotal = (dir) => {
 export default function TotalContactSummary() {
   const [contactData, setContactData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [voicemailCount, setVoicemailCount] = useState(0);
 
   useEffect(() => {
     const agentId = localStorage.getItem("extension");
@@ -58,6 +57,7 @@ export default function TotalContactSummary() {
       });
   }, []);
 
+<<<<<<< HEAD
   useEffect(() => {
     const fetchVoiceNotes = async () => {
       try {
@@ -98,6 +98,8 @@ export default function TotalContactSummary() {
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
+=======
+>>>>>>> def186fb58df8a71fb7b331492dac6d1cdd89e4b
   const safe = (obj, key, fallback = 0) =>
     toInt(obj && obj[key] != null ? obj[key] : fallback);
 
@@ -115,7 +117,7 @@ export default function TotalContactSummary() {
     return {
       inbound: inboundTotal,
       outbound: outboundTotal,
-      voicemail: voicemailCount,
+      voicemail: safe(contactData?.voicemail, "total", 0),
       social: socialTotal,
     };
   };

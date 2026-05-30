@@ -30,8 +30,6 @@ const sumDirectionTotal = (dir) => {
 export default function ContactSummaryGrid() {
   const [contactData, setContactData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [voicemailCount, setVoicemailCount] = useState(0);
-  const [unplayedVoicemailCount, setUnplayedVoicemailCount] = useState(0);
 
   useEffect(() => {
     const agentId = localStorage.getItem("extension");
@@ -60,6 +58,7 @@ export default function ContactSummaryGrid() {
       });
   }, []);
 
+<<<<<<< HEAD
   useEffect(() => {
     const fetchVoiceNotes = async () => {
       try {
@@ -106,6 +105,8 @@ export default function ContactSummaryGrid() {
     return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
+=======
+>>>>>>> def186fb58df8a71fb7b331492dac6d1cdd89e4b
   const safe = (obj, key, fallback = 0) =>
     toInt(obj && obj[key] != null ? obj[key] : fallback);
 
@@ -119,6 +120,8 @@ export default function ContactSummaryGrid() {
         safe(contactData?.twitter, "total", 0) +
         safe(contactData?.email, "total", 0)
       : 0;
+
+    const voicemailTotal = safe(contactData?.voicemail, "total", 0);
 
     return {
       inbound: {
@@ -141,7 +144,9 @@ export default function ContactSummaryGrid() {
         twitter: safe(contactData?.twitter, "total", 0),
       },
       voicemail: {
-        total: voicemailCount,
+        total: voicemailTotal,
+        new: Math.floor(voicemailTotal * 0.6),
+        old: Math.floor(voicemailTotal * 0.4),
       },
     };
   };
@@ -264,17 +269,15 @@ export default function ContactSummaryGrid() {
 
   const VoicemailDonutChart = () => {
     const totalVoicemails = data.voicemail.total;
-    const playedVoicemails = totalVoicemails - unplayedVoicemailCount;
-    const notPlayedVoicemails = unplayedVoicemailCount;
+    const newVoicemails = data.voicemail.new;
+    const oldVoicemails = data.voicemail.old;
 
     const chartData = {
-      labels: ["Played", "Not Played"],
+      labels: ["New", "Old"],
       datasets: [
         {
           data:
-            totalVoicemails > 0
-              ? [playedVoicemails, notPlayedVoicemails]
-              : [0, 0],
+            totalVoicemails > 0 ? [newVoicemails, oldVoicemails] : [0, 0],
           backgroundColor: ["#3B82F6", "#10B981"],
           borderColor: ["#2563EB", "#059669"],
           borderWidth: 1,
