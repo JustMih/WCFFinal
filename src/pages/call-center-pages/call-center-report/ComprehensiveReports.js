@@ -9,6 +9,7 @@ import Livestream from "../cal-center-ivr/Livestream";
 import "../cal-center-ivr/livestream.css";
 import CallCenterSlaReport from "./CallCenterSlaReport";
 import TicketSlaReport from "./TicketSlaReport";
+import TicketWorkflowTatReport from "./TicketWorkflowTatReport";
 import WcfLoader from "../../../components/shared/WcfLoader";
 import ReportDateRangePicker from "../../../components/shared/ReportDateRangePicker";
 import TicketWorkflowExpandPanel from "../../../components/workflow/TicketWorkflowExpandPanel";
@@ -42,6 +43,7 @@ import {
   getOffHoursRowColor,
   OffHoursCallbackStatusChip,
 } from "../../../utils/offHoursReportShared";
+import { formatSecondsToMinutes } from "../../../utils/callDurationFormat";
 import {
   isPendingCallback,
   getCallbackPhone,
@@ -97,27 +99,6 @@ import "./OffHoursReport.css";
 
 const SIP_DOMAIN = "192.168.21.69";
 
-const DTMF_CHART_COLORS = [
-  "#3366CC",
-  "#DC3912",
-  "#FF9900",
-  "#109618",
-  "#990099",
-  "#3B3EAC",
-  "#0099C6",
-  "#DD4477",
-];
-
-/** Format CDR duration/billsec (seconds) for table display */
-const formatSecondsToMinutes = (value) => {
-  const seconds = Number(value);
-  if (!Number.isFinite(seconds) || seconds <= 0) return "0s";
-  const mins = Math.floor(seconds / 60);
-  const secs = Math.floor(seconds % 60);
-  if (mins > 0) return `${mins}m ${secs}s`;
-  return `${secs}s`;
-};
-
 const OFF_HOURS_CATEGORY_OPTIONS = [
   { value: "all", label: "All Categories" },
   { value: "public_holiday", label: "Public Holiday" },
@@ -145,6 +126,18 @@ const OFF_HOURS_CATEGORY_COLORS = {
   saturday_outside_hours: "#ff9800",
   weekday_after_hours: "#2196f3",
 };
+
+const DTMF_CHART_COLORS = [
+  "#6366f1",
+  "#8b5cf6",
+  "#ec4899",
+  "#f97316",
+  "#eab308",
+  "#22c55e",
+  "#14b8a6",
+  "#3b82f6",
+  "#a855f7",
+];
 
 const OFF_HOURS_SUMMARY_CARDS = [
   { key: "total", label: "Total Off-Hours", color: "#374151" },
@@ -824,7 +817,7 @@ export default function ComprehensiveReports() {
             "Date/Time",
             "Category",
             "Disposition",
-            "Duration (s)",
+            "Duration (min)",
           ],
         ],
         body: filteredReports.map((r, idx) => [
@@ -836,7 +829,7 @@ export default function ComprehensiveReports() {
             : "-",
           r.off_hours_label || "-",
           r.disposition || "-",
-          r.duration || "-",
+          formatSecondsToMinutes(r.duration, false),
         ]),
         styles: { fontSize: 8 },
         headStyles: { fillColor: [245, 158, 66] },
@@ -923,7 +916,7 @@ export default function ComprehensiveReports() {
           : "-",
         Category: r.off_hours_label || "-",
         Disposition: r.disposition || "-",
-        "Duration (s)": r.duration || "-",
+        "Duration (min)": formatSecondsToMinutes(r.duration, false),
       }));
     } else if (offHoursSource === "missed-calls") {
       rows = filteredReports.map((r, idx) => ({
@@ -1118,7 +1111,14 @@ export default function ComprehensiveReports() {
           { key: "callerId", label: "Caller ID", default: true },
           { key: "source", label: "Source", default: true },
           { key: "destination", label: "Destination", default: true },
+          { key: "direction", label: "Direction", default: true },
+          { key: "agent", label: "Agent", default: true },
           { key: "startTime", label: "Start Time", default: true },
+          {
+            key: "agentWait",
+            label: "Agent Response Wait (min)",
+            default: true,
+          },
           { key: "duration", label: "Duration (min)", default: true },
           { key: "billed", label: "Billed (min)", default: true },
           { key: "disposition", label: "Disposition", default: true },
@@ -1280,8 +1280,8 @@ export default function ComprehensiveReports() {
           { key: "totalCalls", label: "Total Calls", default: true },
           { key: "answeredCalls", label: "Answered Calls", default: true },
           { key: "missedCalls", label: "Missed Calls", default: true },
-          { key: "avgDuration", label: "Avg Duration (s)", default: true },
-          { key: "totalTalkTime", label: "Total Talk Time (s)", default: true },
+          { key: "avgDuration", label: "Avg Duration (min)", default: true },
+          { key: "totalTalkTime", label: "Total Talk Time (min)", default: true },
           { key: "fcrRate", label: "FCR Rate", default: true },
         ];
       case REPORT_TYPES.CALL_SUMMARY:
@@ -1292,8 +1292,8 @@ export default function ComprehensiveReports() {
           { key: "answered", label: "Answered", default: true },
           { key: "noAnswer", label: "No Answer", default: true },
           { key: "busy", label: "Busy", default: true },
-          { key: "totalDuration", label: "Total Duration (s)", default: true },
-          { key: "avgDuration", label: "Avg Duration (s)", default: true },
+          { key: "totalDuration", label: "Total Duration (min)", default: true },
+          { key: "avgDuration", label: "Avg Duration (min)", default: true },
         ];
       case REPORT_TYPES.IVR_INTERACTIONS:
         return [
@@ -1486,7 +1486,9 @@ export default function ComprehensiveReports() {
         return (
           (report.clid || "").toLowerCase().includes(searchLower) ||
           (report.dst || "").toLowerCase().includes(searchLower) ||
-          (report.src || "").toLowerCase().includes(searchLower)
+          (report.src || "").toLowerCase().includes(searchLower) ||
+          (report.agent_name || "").toLowerCase().includes(searchLower) ||
+          (report.direction || "").toLowerCase().includes(searchLower)
         );
       case REPORT_TYPES.TICKET_CRM:
         const matchesStatus =
@@ -1649,14 +1651,24 @@ export default function ComprehensiveReports() {
             return report.src || "-";
           case "destination":
             return report.dst || "-";
+          case "direction":
+            return report.direction
+              ? String(report.direction).toUpperCase()
+              : "-";
+          case "agent":
+            return report.agent_name || "-";
           case "startTime":
             return report.cdrstarttime
               ? new Date(report.cdrstarttime).toLocaleString()
               : "-";
+          case "agentWait":
+            return report.agent_wait_sec != null
+              ? formatSecondsToMinutes(report.agent_wait_sec, false)
+              : "-";
           case "duration":
-            return formatSecondsToMinutes(report.duration);
+            return formatSecondsToMinutes(report.duration, false);
           case "billed":
-            return formatSecondsToMinutes(report.billsec);
+            return formatSecondsToMinutes(report.billsec, false);
           case "disposition":
             return report.disposition || "-";
           case "recording":
@@ -1877,9 +1889,9 @@ export default function ComprehensiveReports() {
           case "missedCalls":
             return report.missed_calls || 0;
           case "avgDuration":
-            return report.avg_duration || 0;
+            return formatSecondsToMinutes(report.avg_duration, false);
           case "totalTalkTime":
-            return report.total_talk_time || 0;
+            return formatSecondsToMinutes(report.total_talk_time, false);
           case "fcrRate":
             return report.fcr_rate || "0%";
           default:
@@ -1902,9 +1914,9 @@ export default function ComprehensiveReports() {
           case "busy":
             return report.busy || 0;
           case "totalDuration":
-            return report.total_duration || 0;
+            return formatSecondsToMinutes(report.total_duration, false);
           case "avgDuration":
-            return report.avg_duration || 0;
+            return formatSecondsToMinutes(report.avg_duration, false);
           default:
             return "-";
         }
@@ -2563,15 +2575,7 @@ export default function ComprehensiveReports() {
     const noAnswerPercentage = totalCalls > 0 ? Math.round((summaryStats.noAnswer / totalCalls) * 100) : 0;
     const busyPercentage = totalCalls > 0 ? Math.round((summaryStats.busy / totalCalls) * 100) : 0;
 
-    const formatDuration = (seconds) => {
-      if (!seconds || seconds === 0) return "0s";
-      const mins = Math.floor(seconds / 60);
-      const secs = seconds % 60;
-      if (mins > 0) {
-        return `${mins}m ${secs}s`;
-      }
-      return `${secs}s`;
-    };
+    const formatDuration = (seconds) => formatSecondsToMinutes(seconds);
 
     return (
       <div className="summary-cards-container">
@@ -2824,7 +2828,7 @@ export default function ComprehensiveReports() {
               <th>Date/Time</th>
               <th>Category</th>
               <th>Disposition</th>
-              <th>Duration (s)</th>
+              <th>Duration (min)</th>
             </tr>
           </thead>
           <tbody>
@@ -2857,7 +2861,7 @@ export default function ComprehensiveReports() {
                   />
                 </td>
                 <td>{record.disposition || "-"}</td>
-                <td>{record.duration || "-"}</td>
+                <td>{formatSecondsToMinutes(record.duration, false)}</td>
               </tr>
             ))}
           </tbody>
@@ -3330,7 +3334,10 @@ export default function ComprehensiveReports() {
           <th>Caller ID</th>
           <th>Source</th>
           <th>Destination</th>
+          <th>Direction</th>
+          <th>Agent</th>
           <th>Start Time</th>
+          <th>Wait Time (min)</th>
           <th>Duration (min)</th>
           <th>Billed (min)</th>
           <th>Disposition</th>
@@ -3345,12 +3352,23 @@ export default function ComprehensiveReports() {
             <td>{report.src || "-"}</td>
             <td>{report.dst || "-"}</td>
             <td>
+              {report.direction
+                ? String(report.direction).toUpperCase()
+                : "-"}
+            </td>
+            <td>{report.agent_name || "-"}</td>
+            <td>
               {report.cdrstarttime
                 ? new Date(report.cdrstarttime).toLocaleString()
                 : "-"}
             </td>
-            <td>{formatSecondsToMinutes(report.duration)}</td>
-            <td>{formatSecondsToMinutes(report.billsec)}</td>
+            <td>
+              {report.agent_wait_sec != null
+                ? formatSecondsToMinutes(report.agent_wait_sec, false)
+                : "-"}
+            </td>
+            <td>{formatSecondsToMinutes(report.duration, false)}</td>
+            <td>{formatSecondsToMinutes(report.billsec, false)}</td>
             <td>
               <Chip
                 label={report.disposition || "-"}
@@ -3569,8 +3587,8 @@ export default function ComprehensiveReports() {
           <th>Total Calls</th>
           <th>Answered Calls</th>
           <th>Missed Calls</th>
-          <th>Avg Duration (s)</th>
-          <th>Total Talk Time (s)</th>
+          <th>Avg Duration (min)</th>
+          <th>Total Talk Time (min)</th>
           <th>FCR Rate</th>
         </tr>
       </thead>
@@ -3582,8 +3600,8 @@ export default function ComprehensiveReports() {
             <td>{report.total_calls || 0}</td>
             <td>{report.answered_calls || 0}</td>
             <td>{report.missed_calls || 0}</td>
-            <td>{report.avg_duration || 0}</td>
-            <td>{report.total_talk_time || 0}</td>
+            <td>{formatSecondsToMinutes(report.avg_duration, false)}</td>
+            <td>{formatSecondsToMinutes(report.total_talk_time, false)}</td>
             <td>{report.fcr_rate || "0%"}</td>
           </tr>
         ))}
@@ -3601,8 +3619,8 @@ export default function ComprehensiveReports() {
           <th>Answered</th>
           <th>No Answer</th>
           <th>Busy</th>
-          <th>Total Duration (s)</th>
-          <th>Avg Duration (s)</th>
+          <th>Total Duration (min)</th>
+          <th>Avg Duration (min)</th>
         </tr>
       </thead>
       <tbody>
@@ -3616,8 +3634,8 @@ export default function ComprehensiveReports() {
             <td>{report.answered || 0}</td>
             <td>{report.no_answer || 0}</td>
             <td>{report.busy || 0}</td>
-            <td>{report.total_duration || 0}</td>
-            <td>{report.avg_duration || 0}</td>
+            <td>{formatSecondsToMinutes(report.total_duration, false)}</td>
+            <td>{formatSecondsToMinutes(report.avg_duration, false)}</td>
           </tr>
         ))}
       </tbody>
@@ -3934,6 +3952,8 @@ export default function ComprehensiveReports() {
         <CallCenterSlaReport embedded />
       ) : activeTab === REPORT_TYPES.SLA_TICKET ? (
         <TicketSlaReport embedded />
+      ) : activeTab === REPORT_TYPES.TICKET_WORKFLOW_TAT ? (
+        <TicketWorkflowTatReport embedded />
       ) : (
         <>
       {activeTab === REPORT_TYPES.OFF_HOURS && (
@@ -4307,7 +4327,8 @@ export default function ComprehensiveReports() {
           activeTab !== REPORT_TYPES.PAUSE &&
           activeTab !== REPORT_TYPES.LIVESTREAM &&
           activeTab !== REPORT_TYPES.SLA_CALL_CENTER &&
-          activeTab !== REPORT_TYPES.SLA_TICKET
+          activeTab !== REPORT_TYPES.SLA_TICKET &&
+          activeTab !== REPORT_TYPES.TICKET_WORKFLOW_TAT
         }
         onClose={() => setColumnDialogOpen(false)}
         maxWidth="sm"

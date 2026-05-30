@@ -38,6 +38,7 @@ import {
 import { useSipPhone } from "../call-center-dashboard/agents-dashboard/useSipPhone";
 import "./OffHoursReport.css";
 import WcfLoader from "../../../components/shared/WcfLoader";
+import { formatSecondsToMinutes } from "../../../utils/callDurationFormat";
 
 const SIP_DOMAIN = "192.168.21.69";
 
@@ -469,7 +470,7 @@ export default function OffHoursReport() {
             "Date/Time",
             "Category",
             "Disposition",
-            "Duration (s)",
+            "Duration (min)",
           ],
         ],
         body: filteredRecords.map((r, idx) => [
@@ -479,7 +480,7 @@ export default function OffHoursReport() {
           getTimestamp(r) ? new Date(getTimestamp(r)).toLocaleString() : "-",
           r.off_hours_label || "-",
           r.disposition || "-",
-          r.duration || "-",
+          formatSecondsToMinutes(r.duration, false),
         ]),
         styles: { fontSize: 8 },
         headStyles: { fillColor: [245, 158, 66] },
@@ -782,7 +783,7 @@ export default function OffHoursReport() {
                 <th>Date/Time</th>
                 <th>Category</th>
                 <th>Disposition</th>
-                <th>Duration (s)</th>
+                <th>Duration (min)</th>
               </tr>
             </thead>
             <tbody>
@@ -820,7 +821,7 @@ export default function OffHoursReport() {
                       />
                     </td>
                     <td>{record.disposition || "-"}</td>
-                    <td>{record.duration || "-"}</td>
+                    <td>{formatSecondsToMinutes(record.duration, false)}</td>
                   </tr>
                 ))
               )}
