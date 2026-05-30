@@ -230,6 +230,25 @@ async function fetchOffHoursFallback(startDate, endDate, source) {
   return { summary: buildSummary(records), records };
 }
 
+const normalizeChatUserId = (id) =>
+  id == null ? "" : String(id).trim().toLowerCase();
+
+const buildChatUserNameMap = (users) => {
+  const map = {};
+  (users || []).forEach((user) => {
+    const key = normalizeChatUserId(user.id);
+    if (!key) return;
+    map[key] = user.full_name || user.username || String(user.id);
+  });
+  return map;
+};
+
+const resolveChatUserName = (userId, nameMap) => {
+  const key = normalizeChatUserId(userId);
+  if (!key) return "-";
+  return nameMap[key] || String(userId);
+};
+
 const OPTIONAL_DATE_TABS = new Set([
   REPORT_TYPES.IVR_INTERACTIONS,
   REPORT_TYPES.DTMF_USAGE,
@@ -540,13 +559,26 @@ export default function ComprehensiveReports() {
           if (!userId) {
             throw new Error("User not authenticated. Please log in.");
           }
-          // Fetch all conversations first
+
+          let chatUserNameMap = {};
+          try {
+            const usersRes = await fetch(`${baseURL}/users/`, { headers });
+            if (usersRes.ok) {
+              const usersData = await usersRes.json();
+              const usersList = Array.isArray(usersData)
+                ? usersData
+                : usersData.users || usersData.data || [];
+              chatUserNameMap = buildChatUserNameMap(usersList);
+            }
+          } catch (err) {
+            console.error("Failed to load users for chat name resolution:", err);
+          }
+
           const conversationsRes = await fetch(`${baseURL}/users/conversations/${userId}`, { headers });
           if (!conversationsRes.ok) {
             throw new Error("Failed to fetch conversations");
           }
           const conversationsData = await conversationsRes.json();
-          // Handle response structure - could be { conversations: [...] } or just [...]
           let conversations = [];
           if (conversationsData.conversations && Array.isArray(conversationsData.conversations)) {
             conversations = conversationsData.conversations;
@@ -554,22 +586,22 @@ export default function ComprehensiveReports() {
             conversations = conversationsData;
           }
           
-          // Fetch messages for each conversation
           const allMessages = [];
           for (const conv of conversations) {
-            const otherUserId = conv.userId === userId ? conv.otherUserId : conv.userId;
-            if (!otherUserId) continue; // Skip if no other user ID
+            const otherUserId = conv.userId || conv.otherUserId;
+            if (!otherUserId) continue;
             
             try {
               const messagesRes = await fetch(`${baseURL}/users/messages/${userId}/${otherUserId}`, { headers });
               if (messagesRes.ok) {
                 const messagesData = await messagesRes.json();
                 const messages = Array.isArray(messagesData) ? messagesData : [];
-                // Add all messages (read and unread) to the list
                 allMessages.push(...messages.map(msg => ({
                   ...msg,
-                  otherUserId: otherUserId,
-                  otherUserName: conv.name || conv.full_name || otherUserId,
+                  otherUserId,
+                  otherUserName: resolveChatUserName(otherUserId, chatUserNameMap),
+                  senderName: resolveChatUserName(msg.senderId, chatUserNameMap),
+                  receiverName: resolveChatUserName(msg.receiverId, chatUserNameMap),
                 })));
               }
             } catch (err) {
@@ -1588,6 +1620,8 @@ export default function ComprehensiveReports() {
         );
       case REPORT_TYPES.CHATS:
         return (
+          (report.senderName || "").toLowerCase().includes(searchLower) ||
+          (report.receiverName || "").toLowerCase().includes(searchLower) ||
           (report.senderId || "").toLowerCase().includes(searchLower) ||
           (report.receiverId || "").toLowerCase().includes(searchLower) ||
           (report.otherUserId || "").toLowerCase().includes(searchLower) ||
@@ -2168,9 +2202,14 @@ export default function ComprehensiveReports() {
           case "serial":
             return page * rowsPerPage + index + 1;
           case "sender":
-            return report.senderId || "-";
+            return report.senderName || report.senderId || "-";
           case "receiver":
-            return report.receiverId || report.otherUserId || "-";
+            return (
+              report.receiverName ||
+              report.receiverId ||
+              report.otherUserId ||
+              "-"
+            );
           case "message":
             return report.message || "-";
           case "status":

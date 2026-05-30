@@ -8,7 +8,7 @@ import ReportDateRangePicker from "../../../components/shared/ReportDateRangePic
 import WcfLoader from "../../../components/shared/WcfLoader";
 import "./VoiceNotesReport.css";
 
-export default function RecordedSounds() {
+export default function RecordedSounds({ agentId = null }) {
   const [voiceNotes, setVoiceNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -35,7 +35,11 @@ export default function RecordedSounds() {
     const fetchVoiceNotes = async () => {
       try {
         setLoading(true);
+        const token = localStorage.getItem("authToken");
+        const params = agentId ? { agentId } : {};
         const res = await axios.get(`${baseURL}/voice-notes`, {
+          params,
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
           withCredentials: true,
         });
 
@@ -55,7 +59,7 @@ export default function RecordedSounds() {
     };
 
     fetchVoiceNotes();
-  }, []);
+  }, [agentId]);
 
   /* ===============================
      PLAY / PAUSE
