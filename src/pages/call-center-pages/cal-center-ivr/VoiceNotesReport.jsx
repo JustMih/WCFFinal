@@ -96,8 +96,12 @@ export default function VoiceNotesReport({ variant = "report", agentId: agentIdP
     return () => window.removeEventListener(VOICE_NOTE_PLAYED_EVENT, onPlayed);
   }, [isInbox]);
 
-  const isPlayed = (note) =>
-    Boolean(playedStatus[note.id] || isVoiceNotePlayed(note));
+  // const isPlayed = (note) =>
+  //   Boolean(playedStatus[note.id] || isVoiceNotePlayed(note));
+  const isPlayed = useCallback(
+  (note) => Boolean(playedStatus[note.id] || isVoiceNotePlayed(note)),
+  [playedStatus]
+);
 
   const markAsPlayed = async (note, durationSeconds = null) => {
     await markVoiceNotePlayed(note.id, durationSeconds);
@@ -212,8 +216,9 @@ export default function VoiceNotesReport({ variant = "report", agentId: agentIdP
     statusFilter,
     fromDate,
     toDate,
-    playedStatus,
+    // playedStatus,
     isInbox,
+    isPlayed
   ]);
 
   const totalPages = Math.max(1, Math.ceil(filteredNotes.length / notesPerPage));

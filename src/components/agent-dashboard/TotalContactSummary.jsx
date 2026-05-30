@@ -10,18 +10,28 @@ import {
 import { FiPhoneIncoming } from "react-icons/fi";
 import { HiPhoneOutgoing } from "react-icons/hi";
 import { TbPhoneX, TbMail } from "react-icons/tb";
-import { FaWhatsapp, FaInstagram, FaXTwitter } from "react-icons/fa6";
 import CircularProgress from "@mui/material/CircularProgress";
 import "./TotalContactSummary.css";
 import { baseURL } from "../../config";
 
-// Register Chart.js components
 ChartJS.register(Title, Tooltip, Legend, ArcElement);
+
+const toInt = (value) => {
+  const n = parseInt(value, 10);
+  return Number.isNaN(n) ? 0 : n;
+};
+
+const sumDirectionTotal = (dir) =>
+  toInt(dir?.answered) + toInt(dir?.dropped) + toInt(dir?.lost);
 
 export default function TotalContactSummary() {
   const [contactData, setContactData] = useState(null);
   const [loading, setLoading] = useState(true);
+<<<<<<< HEAD
   const [directionSummary, setDirectionSummary] = useState(null);
+=======
+  const [voicemailCount, setVoicemailCount] = useState(0);
+>>>>>>> 8c200a6535cb78694c741f066e6794ebb945fc83
 
   useEffect(() => {
     const agentId = localStorage.getItem("extension");
@@ -32,7 +42,7 @@ export default function TotalContactSummary() {
     }
 
     setLoading(true);
-    fetch(`${baseURL}/calls/agent-calls-today/${agentId}`)
+    fetch(`${baseURL}/calls/agent-calls-today/${agentId}?excludeDestS=1`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch contact data");
         return res.json();
@@ -47,6 +57,7 @@ export default function TotalContactSummary() {
       });
   }, []);
 
+<<<<<<< HEAD
   // Inbound / Outbound answered, IVR, dropped, lost for the current day (from call_summary)
   useEffect(() => {
     const fetchDirectionSummary = async () => {
@@ -74,34 +85,83 @@ export default function TotalContactSummary() {
         social: 15,
       };
     }
+=======
+  useEffect(() => {
+    const loadVoiceNotes = async () => {
+      try {
+        const agentId = localStorage.getItem("userId");
+        const response = await fetch(
+          `${baseURL}/voice-notes?agentId=${agentId}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+            },
+          }
+        );
+        if (!response.ok) throw new Error("Failed to fetch voice notes");
+        const data = await response.json();
+        const notes = data.voiceNotes || [];
+        setVoicemailCount(notes.length);
+      } catch (error) {
+        setVoicemailCount(0);
+      }
+    };
+    loadVoiceNotes();
+    const handleStorage = (e) => {
+      if (e.key === PLAYED_VOICE_NOTES_KEY) loadVoiceNotes();
+    };
+    const handleVoiceNotePlayed = () => loadVoiceNotes();
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener(VOICE_NOTE_PLAYED_EVENT, handleVoiceNotePlayed);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(VOICE_NOTE_PLAYED_EVENT, handleVoiceNotePlayed);
+    };
+  }, []);
 
-    const socialTotal =
-      safe(contactData?.whatsapp, "total", 0) +
-      safe(contactData?.instagram, "total", 0) +
-      safe(contactData?.twitter, "total", 0) +
-      safe(contactData?.email, "total", 0);
+  const safe = (obj, key, fallback = 0) =>
+    toInt(obj && obj[key] != null ? obj[key] : fallback);
+
+  const getContactTotals = () => {
+    const inboundTotal = sumDirectionTotal(contactData?.inbound);
+    const outboundTotal = sumDirectionTotal(contactData?.outbound);
+>>>>>>> 8c200a6535cb78694c741f066e6794ebb945fc83
+
+    const socialTotal = contactData
+      ? safe(contactData?.whatsapp, "total", 0) +
+        safe(contactData?.instagram, "total", 0) +
+        safe(contactData?.twitter, "total", 0) +
+        safe(contactData?.email, "total", 0)
+      : 0;
 
     return {
+<<<<<<< HEAD
       inbound: safe(contactData?.inbound, "total", 0),
       outbound: safe(contactData?.outbound, "total", 0),
       voicemail: safe(contactData?.voicemail, "total", 0),
+=======
+      inbound: inboundTotal,
+      outbound: outboundTotal,
+      voicemail: voicemailCount,
+>>>>>>> 8c200a6535cb78694c741f066e6794ebb945fc83
       social: socialTotal,
     };
   };
 
   const contactTotals = getContactTotals();
-  const totalContacts = Object.values(contactTotals).reduce((sum, val) => sum + val, 0);
+  const totalContacts = Object.values(contactTotals).reduce(
+    (sum, val) => sum + toInt(val),
+    0
+  );
 
-  const inboundDirection = directionSummary?.inbound || {};
-  const outboundDirection = directionSummary?.outbound || {};
-
-  // Prepare chart data
   const chartData = {
     labels: [
       "Inbound Calls",
-      "Outbound Calls", 
+      "Outbound Calls",
       "Voicemail",
-      "Social Messages"
+      "Social Messages",
     ],
     datasets: [
       {
@@ -109,20 +169,10 @@ export default function TotalContactSummary() {
           contactTotals.inbound,
           contactTotals.outbound,
           contactTotals.voicemail,
-          contactTotals.social
+          contactTotals.social,
         ],
-        backgroundColor: [
-          "#60A5FA", // Pale blue for inbound
-          "#34D399", // Pale green for outbound
-          "#FCD34D", // Pale yellow for voicemail
-          "#8B5CF6"  // Purple for social
-        ],
-        borderColor: [
-          "#3B82F6",
-          "#10B981",
-          "#FBBF24", // Pale yellow border for voicemail
-          "#7C3AED"
-        ],
+        backgroundColor: ["#60A5FA", "#34D399", "#FCD34D", "#8B5CF6"],
+        borderColor: ["#3B82F6", "#10B981", "#FBBF24", "#7C3AED"],
         borderWidth: 2,
       },
     ],
@@ -132,69 +182,54 @@ export default function TotalContactSummary() {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: {
-        display: false,
-        position: "bottom",
-        labels: {
-          padding: 12,
-          usePointStyle: true,
-          pointStyle: "circle",
-          font: {
-            size: 10,
-            weight: "bold"
-          },
-          boxWidth: 8,
-          boxHeight: 8
-        }
-      },
+      legend: { display: false },
       tooltip: {
         callbacks: {
-          label: function(context) {
+          label: function (context) {
             const label = context.label || "";
             const value = context.parsed;
-            const percentage = totalContacts > 0 ? ((value / totalContacts) * 100).toFixed(1) : 0;
+            const percentage =
+              totalContacts > 0
+                ? ((value / totalContacts) * 100).toFixed(1)
+                : 0;
             return `${label}: ${value} (${percentage}%)`;
-          }
+          },
         },
-        titleFont: {
-          size: 12
-        },
-        bodyFont: {
-          size: 11
-        }
-      }
-    }
+        titleFont: { size: 12 },
+        bodyFont: { size: 11 },
+      },
+    },
   };
 
   const contactItems = [
     {
       icon: FiPhoneIncoming,
       title: "Inbound Calls",
-      count: inboundDirection.totalCalls ?? contactTotals.inbound,
+      count: contactTotals.inbound,
       color: "#60A5FA",
-      description: "Incoming customer calls"
+      description: "Incoming customer calls",
     },
     {
       icon: HiPhoneOutgoing,
-      title: "Outbound Calls", 
+      title: "Outbound Calls",
       count: contactTotals.outbound,
       color: "#34D399",
-      description: "Outgoing agent calls"
+      description: "Outgoing agent calls",
     },
     {
       icon: TbPhoneX,
       title: "Voicemail",
       count: contactTotals.voicemail,
       color: "#FCD34D",
-      description: "Voicemail messages"
+      description: "Voicemail messages",
     },
     {
       icon: TbMail,
       title: "Social Messages",
       count: contactTotals.social,
       color: "#8B5CF6",
-      description: "WhatsApp, Email, Social media"
-    }
+      description: "WhatsApp, Email, Social media",
+    },
   ];
 
   return (
@@ -223,7 +258,10 @@ export default function TotalContactSummary() {
             <div className="contact-items">
               {contactItems.map((item, index) => (
                 <div key={index} className="contact-item">
-                  <div className="contact-item-icon" style={{ color: item.color }}>
+                  <div
+                    className="contact-item-icon"
+                    style={{ color: item.color }}
+                  >
                     <item.icon size={20} />
                   </div>
                   <div className="contact-item-details">
@@ -231,11 +269,6 @@ export default function TotalContactSummary() {
                     <div className="contact-item-count">{item.count}</div>
                     <div className="contact-item-description">
                       {item.description}
-                      {item.breakdown && (
-                        <div className="contact-item-breakdown">
-                          Answered: {item.breakdown.answered} | IVR: {item.breakdown.ivr} | Dropped: {item.breakdown.dropped} | Lost: {item.breakdown.lost}
-                        </div>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -246,4 +279,4 @@ export default function TotalContactSummary() {
       )}
     </div>
   );
-} 
+}
