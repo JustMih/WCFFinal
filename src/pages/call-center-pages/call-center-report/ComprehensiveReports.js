@@ -695,12 +695,11 @@ export default function ComprehensiveReports() {
       if (activeTab === REPORT_TYPES.DTMF_USAGE) {
         list = list.filter((row) => DTMF_DIGIT_LABELS[row.digit_pressed]);
       }
-<<<<<<< HEAD
       if (activeTab === REPORT_TYPES.CDR) {
         list = list.filter(
           (row) => !isExcludedCdrDestination(row.dst ?? row.called)
         );
-=======
+      }
       if (activeTab === REPORT_TYPES.VOICE_NOTE) {
         const playedMap = getPlayedVoiceNotesMap();
         list.forEach((note) => {
@@ -712,7 +711,6 @@ export default function ComprehensiveReports() {
           ...note,
           is_played: isVoiceNotePlayed(note) ? 1 : 0,
         }));
->>>>>>> def186fb58df8a71fb7b331492dac6d1cdd89e4b
       }
       setReports(list);
 
