@@ -452,14 +452,17 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
         // Check if ticket is closed
         const isTicketClosed = selectedTicket.status === "Closed" || selectedTicket.status === "Resolved";
         
-        // Priority order: Closed > Current > Forwarded > Escalated > Previous to Escalated > Assigned > Completed > Pending
+        // Priority order: Closed > Current > Previous-to-Escalated > Forwarded > Escalated > Assigned > Completed > Pending
         if (selectedTicket.status === "Closed" || selectedTicket.status === "Resolved" || a.isConsolidated) {
           color = "green"; // Green for all steps when ticket is closed or consolidated closed steps
         } else if (idx === currentAssigneeIdx && selectedTicket.status !== "Closed") {
           // Current step should be grey (in progress, not done yet)
           color = "gray";
+        } else if (isPreviousEscalated) {
+          // Red when the next step (more recent) is Escalated — e.g. head-of-unit Forwarded then SLA escalated to DG
+          color = "red";
         } else if (a.action === "Forwarded") {
-          color = "green"; // Green for forwarded actions (completed)
+          color = "green"; // Green for forwarded actions that were completed normally
         } else if (isCurrentEscalated) {
           // Check if this escalated step was followed by an assignment
           const previousStep = reversedSteps[idx - 1];
@@ -470,8 +473,6 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
           } else {
             color = "gray"; // Gray for escalated (pending/not handled)
           }
-        } else if (isPreviousEscalated) {
-          color = "red"; // Red for next step when previous is escalated
         } else if (wasAssignedAndForwarded) {
           color = "green"; // Green for assigned step that was forwarded to another user
         } else if (a.action === "Assigned" && (a.assigned_to_role === "Reviewer" || a.assigned_to_role === "reviewer")) {
@@ -691,7 +692,9 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
                     
                     // Get color based on duration
                     let durationColor;
-                    if (a.action === "Closed" || a.isConsolidated) {
+                    if (color === "red") {
+                      durationColor = '#dc3545'; // Red when step was escalated away from this assignee
+                    } else if (a.action === "Closed" || a.isConsolidated) {
                       durationColor = '#28a745'; // Green for closed tickets
                     } else if (durationMinutes < 5) {
                       durationColor = '#28a745'; // Green for very recent
@@ -3921,7 +3924,7 @@ export default function TicketDetailsModal({
                             <ClaimRedirectButton
                               notificationReportId={idForRedirect}
                               claimNumber={selectedTicket.claim_number}
-                              employerId={selectedTicket.employer_registration_number || ""}
+                              employerId=""
                               buttonText={displayClaimNumber}
                               searchType="claim"
                               isEmployerSearch={false}

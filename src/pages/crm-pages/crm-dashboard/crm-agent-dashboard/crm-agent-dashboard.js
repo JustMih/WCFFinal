@@ -2787,7 +2787,7 @@ const AgentCRM = () => {
                               key="claim-link"
                               notificationReportId={idForRedirect}
                               claimNumber={selectedTicket.claim_number}
-                              employerId={selectedTicket.employer_registration_number || ""}
+                              employerId=""
                               buttonText={displayClaimNumber}
                               searchType="claim"
                               isEmployerSearch={false}
