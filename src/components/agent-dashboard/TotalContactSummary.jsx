@@ -27,11 +27,6 @@ const sumDirectionTotal = (dir) =>
 export default function TotalContactSummary() {
   const [contactData, setContactData] = useState(null);
   const [loading, setLoading] = useState(true);
-<<<<<<< HEAD
-  const [directionSummary, setDirectionSummary] = useState(null);
-=======
-  const [voicemailCount, setVoicemailCount] = useState(0);
->>>>>>> 8c200a6535cb78694c741f066e6794ebb945fc83
 
   useEffect(() => {
     const agentId = localStorage.getItem("extension");
@@ -57,77 +52,12 @@ export default function TotalContactSummary() {
       });
   }, []);
 
-<<<<<<< HEAD
-  // Inbound / Outbound answered, IVR, dropped, lost for the current day (from call_summary)
-  useEffect(() => {
-    const fetchDirectionSummary = async () => {
-      try {
-        const res = await fetch(`${baseURL}/call-summary/call-summary-by-direction`);
-        if (!res.ok) return;
-        const data = await res.json();
-        setDirectionSummary(data);
-      } catch (err) {
-        setDirectionSummary(null);
-      }
-    };
-
-    fetchDirectionSummary();
-  }, []);
-
-  const safe = (obj, key, fallback = 0) => (obj && obj[key] != null ? obj[key] : fallback);
-
-  const getContactTotals = () => {
-    if (!contactData) {
-      return {
-        inbound: 25,
-        outbound: 18,
-        voicemail: 8,
-        social: 15,
-      };
-    }
-=======
-  useEffect(() => {
-    const loadVoiceNotes = async () => {
-      try {
-        const agentId = localStorage.getItem("userId");
-        const response = await fetch(
-          `${baseURL}/voice-notes?agentId=${agentId}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-            },
-          }
-        );
-        if (!response.ok) throw new Error("Failed to fetch voice notes");
-        const data = await response.json();
-        const notes = data.voiceNotes || [];
-        setVoicemailCount(notes.length);
-      } catch (error) {
-        setVoicemailCount(0);
-      }
-    };
-    loadVoiceNotes();
-    const handleStorage = (e) => {
-      if (e.key === PLAYED_VOICE_NOTES_KEY) loadVoiceNotes();
-    };
-    const handleVoiceNotePlayed = () => loadVoiceNotes();
-    window.addEventListener("storage", handleStorage);
-    window.addEventListener(VOICE_NOTE_PLAYED_EVENT, handleVoiceNotePlayed);
-    return () => {
-      window.removeEventListener("storage", handleStorage);
-      window.removeEventListener(VOICE_NOTE_PLAYED_EVENT, handleVoiceNotePlayed);
-    };
-  }, []);
-
   const safe = (obj, key, fallback = 0) =>
     toInt(obj && obj[key] != null ? obj[key] : fallback);
 
   const getContactTotals = () => {
     const inboundTotal = sumDirectionTotal(contactData?.inbound);
     const outboundTotal = sumDirectionTotal(contactData?.outbound);
->>>>>>> 8c200a6535cb78694c741f066e6794ebb945fc83
 
     const socialTotal = contactData
       ? safe(contactData?.whatsapp, "total", 0) +
@@ -137,15 +67,9 @@ export default function TotalContactSummary() {
       : 0;
 
     return {
-<<<<<<< HEAD
-      inbound: safe(contactData?.inbound, "total", 0),
-      outbound: safe(contactData?.outbound, "total", 0),
-      voicemail: safe(contactData?.voicemail, "total", 0),
-=======
       inbound: inboundTotal,
       outbound: outboundTotal,
-      voicemail: voicemailCount,
->>>>>>> 8c200a6535cb78694c741f066e6794ebb945fc83
+      voicemail: safe(contactData?.voicemail, "total", 0),
       social: socialTotal,
     };
   };

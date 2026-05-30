@@ -28,12 +28,6 @@ const sumDirectionTotal = (dir) =>
 export default function ContactSummaryGrid() {
   const [contactData, setContactData] = useState(null);
   const [loading, setLoading] = useState(true);
-<<<<<<< HEAD
-  const [directionSummary, setDirectionSummary] = useState(null);
-=======
-  const [voicemailCount, setVoicemailCount] = useState(0);
-  const [unplayedVoicemailCount, setUnplayedVoicemailCount] = useState(0);
->>>>>>> 8c200a6535cb78694c741f066e6794ebb945fc83
 
   useEffect(() => {
     const agentId = localStorage.getItem("extension");
@@ -59,70 +53,12 @@ export default function ContactSummaryGrid() {
       });
   }, []);
 
-<<<<<<< HEAD
-  // Inbound / Outbound answered, IVR, dropped, lost for the current day (from call_summary)
-  useEffect(() => {
-    const fetchDirectionSummary = async () => {
-      try {
-        const res = await fetch(`${baseURL}/call-summary/call-summary-by-direction`);
-        if (!res.ok) return;
-        const data = await res.json();
-        setDirectionSummary(data);
-      } catch (err) {
-        setDirectionSummary(null);
-      }
-    };
-
-    fetchDirectionSummary();
-  }, []);
-
-  const safe = (obj, key, fallback = 0) => (obj && obj[key] != null ? obj[key] : fallback);
-
-  const getData = () => {
-    if (!contactData) {
-      return {
-        inbound: { total: 25, answered: 20, dropped: 3, lost: 2 },
-        outbound: { total: 18, answered: 15, dropped: 2, lost: 1 },
-        social: { total: 15, whatsapp: 8, email: 4, instagram: 2, twitter: 1 },
-        voicemail: { total: 8, new: 5, old: 3 }
-      };
-    }
-=======
-  useEffect(() => {
-    const loadVoiceNotes = async () => {
-      try {
-        const agentId = localStorage.getItem("userId");
-        const [allNotes, unplayedNotes] = await Promise.all([
-          fetchVoiceNotes({ agentId }),
-          fetchVoiceNotes({ agentId, unplayedOnly: true }),
-        ]);
-        setVoicemailCount(allNotes.length);
-        setUnplayedVoicemailCount(unplayedNotes.length);
-      } catch (error) {
-        setVoicemailCount(0);
-        setUnplayedVoicemailCount(0);
-      }
-    };
-    loadVoiceNotes();
-    const handleStorage = (e) => {
-      if (e.key === PLAYED_VOICE_NOTES_KEY) loadVoiceNotes();
-    };
-    const handleVoiceNotePlayed = () => loadVoiceNotes();
-    window.addEventListener("storage", handleStorage);
-    window.addEventListener(VOICE_NOTE_PLAYED_EVENT, handleVoiceNotePlayed);
-    return () => {
-      window.removeEventListener("storage", handleStorage);
-      window.removeEventListener(VOICE_NOTE_PLAYED_EVENT, handleVoiceNotePlayed);
-    };
-  }, []);
-
   const safe = (obj, key, fallback = 0) =>
     toInt(obj && obj[key] != null ? obj[key] : fallback);
 
   const getData = () => {
     const inbound = contactData?.inbound || {};
     const outbound = contactData?.outbound || {};
->>>>>>> 8c200a6535cb78694c741f066e6794ebb945fc83
 
     const socialTotal = contactData
       ? safe(contactData?.whatsapp, "total", 0) +
@@ -130,6 +66,8 @@ export default function ContactSummaryGrid() {
         safe(contactData?.twitter, "total", 0) +
         safe(contactData?.email, "total", 0)
       : 0;
+
+    const voicemailTotal = safe(contactData?.voicemail, "total", 0);
 
     return {
       inbound: {
@@ -152,15 +90,10 @@ export default function ContactSummaryGrid() {
         twitter: safe(contactData?.twitter, "total", 0),
       },
       voicemail: {
-<<<<<<< HEAD
-        total: safe(contactData?.voicemail, "total", 0),
-        new: Math.floor(safe(contactData?.voicemail, "total", 0) * 0.6),
-        old: Math.floor(safe(contactData?.voicemail, "total", 0) * 0.4)
-      }
-=======
-        total: voicemailCount,
+        total: voicemailTotal,
+        new: Math.floor(voicemailTotal * 0.6),
+        old: Math.floor(voicemailTotal * 0.4),
       },
->>>>>>> 8c200a6535cb78694c741f066e6794ebb945fc83
     };
   };
 
@@ -286,28 +219,16 @@ export default function ContactSummaryGrid() {
     const oldVoicemails = data.voicemail.old;
 
     const chartData = {
-<<<<<<< HEAD
-      labels: ['New', 'Old'],
-      datasets: [{
-        data: totalVoicemails > 0 ? [newVoicemails, oldVoicemails] : [0, 0],
-        backgroundColor: ['#3B82F6', '#10B981'],
-        borderColor: ['#2563EB', '#059669'],
-        borderWidth: 1,
-      }]
-=======
-      labels: ["Played", "Not Played"],
+      labels: ["New", "Old"],
       datasets: [
         {
           data:
-            totalVoicemails > 0
-              ? [playedVoicemails, notPlayedVoicemails]
-              : [0, 0],
+            totalVoicemails > 0 ? [newVoicemails, oldVoicemails] : [0, 0],
           backgroundColor: ["#3B82F6", "#10B981"],
           borderColor: ["#2563EB", "#059669"],
           borderWidth: 1,
         },
       ],
->>>>>>> 8c200a6535cb78694c741f066e6794ebb945fc83
     };
 
     const options = {
