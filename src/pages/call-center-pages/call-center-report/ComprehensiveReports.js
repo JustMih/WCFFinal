@@ -1583,8 +1583,12 @@ export default function ComprehensiveReports() {
           (report.clid || "").toLowerCase().includes(searchLower) &&
           matchesPlayedFilter
         );
-      case REPORT_TYPES.CDR:
+      case REPORT_TYPES.CDR: {
+        const matchesDisposition =
+          disposition === "all" ||
+          String(report.disposition || "").toLowerCase() === disposition;
         return (
+          matchesDisposition &&
           !isExcludedCdrDestination(report.dst ?? report.called) &&
           ((report.clid || "").toLowerCase().includes(searchLower) ||
             (report.dst || "").toLowerCase().includes(searchLower) ||
@@ -1592,6 +1596,7 @@ export default function ComprehensiveReports() {
             (report.agent_name || "").toLowerCase().includes(searchLower) ||
             (report.direction || "").toLowerCase().includes(searchLower))
         );
+      }
       case REPORT_TYPES.TICKET_CRM:
         const matchesStatus =
           ticketStatus === "all" || report.status === ticketStatus;

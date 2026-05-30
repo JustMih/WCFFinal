@@ -241,20 +241,10 @@ export default function SingleAgentDashboardCard() {
         return res.json();
       })
       .then((data) => {
-        const notes = Array.isArray(data?.voiceNotes)
-          ? data.voiceNotes
-          : [];
+        const notes = Array.isArray(data?.voiceNotes) ? data.voiceNotes : [];
 
-        // ✅ ONLY notes assigned to this agent
-        const myNotes = notes.filter(
-          (n) =>
-            String(n.assigned_extension) === String(agentExtension)
-        );
-
-        const total = myNotes.length;
-        const played = myNotes.filter(
-          (n) => Number(n.is_played) === 1
-        ).length;
+        const total = notes.length;
+        const played = notes.filter((n) => Number(n.is_played) === 1).length;
 
         setVoiceMailStats({
           total,
