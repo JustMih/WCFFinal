@@ -3939,21 +3939,147 @@ export default function ComprehensiveReports() {
         </FormControl>
       </div>
 
-      {normalizedReportSlug === "pause" ||
-      activeTab === REPORT_TYPES.PAUSE ? (
+      {normalizedReportSlug === "pause" ? (
         <PauseReport embedded />
-      ) : normalizedReportSlug === "livestream" ||
-        activeTab === REPORT_TYPES.LIVESTREAM ? (
+      ) : normalizedReportSlug === "livestream" ? (
         <Livestream />
-      ) : normalizedReportSlug === "off-hours" ||
-        activeTab === REPORT_TYPES.OFF_HOURS ? (
+      ) : normalizedReportSlug === "off-hours" ? (
         <OffHoursReport />
-      ) : activeTab === REPORT_TYPES.SLA_CALL_CENTER ? (
+      ) : normalizedReportSlug === "call-center-sla" ? (
         <CallCenterSlaReport embedded />
-      ) : activeTab === REPORT_TYPES.SLA_TICKET ? (
+      ) : normalizedReportSlug === "ticket-sla" ? (
         <TicketSlaReport embedded />
-      ) : activeTab === REPORT_TYPES.TICKET_WORKFLOW_TAT ? (
+      ) : normalizedReportSlug === "ticket-workflow-tat" ? (
         <TicketWorkflowTatReport embedded />
+      ) : normalizedReportSlug === "dtmf-usage" ||
+        normalizedReportSlug === "dtmf-stats" ? (
+        <>
+      {renderDtmfUsageCharts()}
+      <Card className="filters-card">
+        <CardContent>
+          <div className="filters-container">
+            <div className="report-filters-row">
+              <ReportDateRangePicker
+                className="report-filter-dates"
+                startDate={startDate}
+                endDate={endDate}
+                onStartDateChange={setStartDate}
+                onEndDateChange={setEndDate}
+                disabled={loading}
+              />
+            </div>
+            <div className="action-buttons">
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<Refresh />}
+                onClick={fetchReports}
+                disabled={loading}
+              >
+                Load Report
+              </Button>
+              {filteredReports.length > 0 && (
+                <Button
+                  variant="outlined"
+                  color="info"
+                  startIcon={<ViewColumn />}
+                  onClick={() => setColumnDialogOpen(true)}
+                >
+                  Select Columns
+                </Button>
+              )}
+              <Button
+                variant="outlined"
+                color="secondary"
+                startIcon={<PictureAsPdf />}
+                onClick={handleExportPDF}
+                disabled={filteredReports.length === 0 || exportingWorkflow}
+              >
+                Export PDF
+              </Button>
+              <Button
+                variant="outlined"
+                color="success"
+                startIcon={<TableChart />}
+                onClick={handleExportCSV}
+                disabled={filteredReports.length === 0 || exportingWorkflow}
+              >
+                Export CSV
+              </Button>
+            </div>
+          </div>
+          <div className="search-container">
+            <TextField
+              fullWidth
+              placeholder="Search digit, action, caller, language..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              size="small"
+              InputProps={{
+                startAdornment: (
+                  <Search style={{ marginRight: 8, color: "#999" }} />
+                ),
+              }}
+              style={{ marginTop: 16 }}
+            />
+          </div>
+        </CardContent>
+      </Card>
+      <Card className="table-card">
+        <CardContent>
+          {exportingWorkflow && (
+            <div className="export-workflow-overlay">
+              <WcfLoader
+                size="md"
+                message="Preparing workflow data for export…"
+                label="Preparing export"
+              />
+            </div>
+          )}
+          <div className="table-header">
+            <Typography variant="h6">{getReportTitle()}</Typography>
+            <Typography variant="body2" color="textSecondary">
+              Showing {currentReports.length} of {filteredReports.length}{" "}
+              records
+            </Typography>
+          </div>
+          <div className="table-container">{renderDtmfUsageTable()}</div>
+        </CardContent>
+      </Card>
+      {filteredReports.length > 0 && (
+        <div className="pagination-container">
+          <Button
+            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+            disabled={currentPage === 1}
+            variant="outlined"
+            size="small"
+          >
+            ← Previous
+          </Button>
+          <Typography variant="body2" className="pagination-info">
+            Page {currentPage} of{" "}
+            {Math.ceil(filteredReports.length / reportsPerPage)}
+          </Typography>
+          <Button
+            onClick={() =>
+              setCurrentPage(
+                Math.min(
+                  Math.ceil(filteredReports.length / reportsPerPage),
+                  currentPage + 1
+                )
+              )
+            }
+            disabled={
+              currentPage === Math.ceil(filteredReports.length / reportsPerPage)
+            }
+            variant="outlined"
+            size="small"
+          >
+            Next →
+          </Button>
+        </div>
+      )}
+        </>
       ) : (
         <>
       {activeTab === REPORT_TYPES.OFF_HOURS && (
@@ -4254,11 +4380,6 @@ export default function ComprehensiveReports() {
           </div>
         </CardContent>
       </Card>
-
-      {(normalizedReportSlug === "dtmf-usage" ||
-        normalizedReportSlug === "dtmf-stats" ||
-        activeTab === REPORT_TYPES.DTMF_USAGE) &&
-        renderDtmfUsageCharts()}
 
       {/* Report Table */}
       <Card className="table-card">
