@@ -22,6 +22,13 @@ import {
 import { FiPhoneCall, FiPhoneIncoming, FiPhoneOff } from "react-icons/fi";
 import { MdCallMissed, MdOutlineVoicemail } from "react-icons/md";
 import { baseURL } from "../../config";
+import {
+  fetchVoiceNotes,
+  countUnplayedVoiceNotes,
+  isVoiceNotePlayed,
+  VOICE_NOTE_PLAYED_EVENT,
+  PLAYED_VOICE_NOTES_KEY,
+} from "../../utils/voiceNotePlayed";
 import "./CallHistoryCard.css";
 
 function TabPanel({ children, value, index, ...other }) {
@@ -137,27 +144,10 @@ export default function CallHistoryCard({
     try {
       setLoading((prev) => ({ ...prev, voicemail: true }));
       const agentId = localStorage.getItem("userId");
-      const response = await fetch(
-        `${baseURL}/voice-notes?agentId=${agentId}`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-          },
-        }
-      );
-      if (!response.ok) throw new Error("Failed to fetch voice notes");
-      const data = await response.json();
-      const notes = data.voiceNotes || [];
-      const storedPlayed =
-        JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
-      const unplayedCount = notes.filter(
-        (note) => !storedPlayed[note.id]
-      ).length;
+      const notes = await fetchVoiceNotes({ agentId, unplayedOnly: true });
       setVoiceNotes(notes);
       setTotals((prev) => ({ ...prev, voicemail: notes.length }));
-      setUnplayedVoicemailCount(unplayedCount);
+      setUnplayedVoicemailCount(notes.length);
     } catch (error) {
       setVoiceNotes([]);
       setTotals((prev) => ({ ...prev, voicemail: 0 }));
@@ -172,10 +162,8 @@ export default function CallHistoryCard({
   const displayVoiceNotes = useParentVoicemail ? parentNotes : voiceNotes;
   const displayVoicemailTotal = useParentVoicemail ? parentNotes.length : totals.voicemail;
   const displayUnplayedCount = useParentVoicemail
-    ? (voicemailData?.unplayedCount ?? displayVoiceNotes.filter((note) => {
-        const stored = JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
-        return !stored[note.id];
-      }).length)
+    ? (voicemailData?.unplayedCount ??
+      countUnplayedVoiceNotes(displayVoiceNotes))
     : unplayedVoicemailCount;
 
   useEffect(() => {
@@ -186,10 +174,19 @@ export default function CallHistoryCard({
       fetchVoiceNotes();
     }
     const handleStorage = (e) => {
-      if (e.key === "playedVoiceNotes" && !useParentVoicemail) fetchVoiceNotes();
+      if (e.key === PLAYED_VOICE_NOTES_KEY && !useParentVoicemail) {
+        fetchVoiceNotes();
+      }
+    };
+    const handleVoiceNotePlayed = () => {
+      if (!useParentVoicemail) fetchVoiceNotes();
     };
     window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
+    window.addEventListener(VOICE_NOTE_PLAYED_EVENT, handleVoiceNotePlayed);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(VOICE_NOTE_PLAYED_EVENT, handleVoiceNotePlayed);
+    };
   }, [useParentVoicemail]);
 
   const handleTabChange = (event, newValue) => {
@@ -509,9 +506,7 @@ export default function CallHistoryCard({
                   </TableHead>
                   <TableBody>
                     {displayVoiceNotes.map((note) => {
-                      const storedPlayed =
-                        JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
-                      const isPlayed = !!storedPlayed[note.id];
+                      const played = isVoiceNotePlayed(note);
                       return (
                         <TableRow key={note.id} hover>
                           <TableCell>
@@ -523,9 +518,9 @@ export default function CallHistoryCard({
                           </TableCell>
                           <TableCell>
                             <Chip
-                              label={isPlayed ? "Played" : "Unplayed"}
+                              label={played ? "Played" : "Unplayed"}
                               size="small"
-                              color={isPlayed ? "success" : "default"}
+                              color={played ? "success" : "default"}
                             />
                           </TableCell>
                         </TableRow>

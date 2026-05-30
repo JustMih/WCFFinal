@@ -1,0 +1,7 @@
+.report-table-pagination {
+  border-top: 1px solid #e0e0e0;
+}
+
+.report-table-pagination .MuiTablePagination-toolbar {
+  min-height: 48px;
+}

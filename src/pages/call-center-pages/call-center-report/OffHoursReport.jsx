@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { FiPhoneCall } from "react-icons/fi";
 import { baseURL } from "../../../config";
 import {
@@ -22,7 +22,10 @@ import {
   buildSummary,
 } from "../../../utils/offHoursHelper";
 import { playVoiceNoteAudio } from "../../../utils/voiceNoteAudio";
-import { markVoiceNotePlayed } from "../../../utils/voiceNotePlayed";
+import {
+  markVoiceNotePlayed,
+  notifyVoiceNotePlayed,
+} from "../../../utils/voiceNotePlayed";
 import {
   enrichRecordClient,
   buildEmergencyMap,
@@ -38,6 +41,10 @@ import {
 import { useSipPhone } from "../call-center-dashboard/agents-dashboard/useSipPhone";
 import "./OffHoursReport.css";
 import WcfLoader from "../../../components/shared/WcfLoader";
+import ReportTablePagination from "../../../components/shared/ReportTablePagination";
+import useReportTablePagination from "../../../hooks/useReportTablePagination";
+import { isValidReportDateRange } from "../../../utils/reportDateUtils";
+import { formatSecondsToMinutes } from "../../../utils/callDurationFormat";
 
 const SIP_DOMAIN = "192.168.21.69";
 
@@ -211,8 +218,6 @@ export default function OffHoursReport() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [search, setSearch] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [reportsPerPage] = useState(10);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
@@ -242,7 +247,7 @@ export default function OffHoursReport() {
     }
   }, [phoneStatus]);
 
-  const fetchReport = async () => {
+  const fetchReport = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -284,7 +289,16 @@ export default function OffHoursReport() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [startDate, endDate, source]);
+
+  useEffect(() => {
+    if (!isValidReportDateRange(startDate, endDate)) {
+      setRecords([]);
+      setSummary(null);
+      return;
+    }
+    fetchReport();
+  }, [startDate, endDate, source, fetchReport]);
 
   const filteredRecords = records.filter((record) => {
     const phone = (
@@ -308,13 +322,12 @@ export default function OffHoursReport() {
     return matchesSearch && matchesCategory;
   });
 
-  const indexOfLast = currentPage * reportsPerPage;
-  const indexOfFirst = indexOfLast - reportsPerPage;
-  const currentRecords = filteredRecords.slice(indexOfFirst, indexOfLast);
-  const totalPages = Math.max(
-    1,
-    Math.ceil(filteredRecords.length / reportsPerPage)
-  );
+  const { paginatedItems: currentRecords, paginationProps, resetPage, page, rowsPerPage } =
+    useReportTablePagination(filteredRecords);
+
+  useEffect(() => {
+    resetPage();
+  }, [filteredRecords.length, search, categoryFilter, startDate, endDate, source, resetPage]);
 
   const getTimestamp = (record) =>
     record.time || record.created_at || record.cdrstarttime;
@@ -415,6 +428,7 @@ export default function OffHoursReport() {
       const updatedStatus = { ...playedStatus, [record.id]: true };
       setPlayedStatus(updatedStatus);
       localStorage.setItem("playedVoiceNotes", JSON.stringify(updatedStatus));
+      notifyVoiceNotePlayed(record.id);
 
       audio.onended = () => {
         setCurrentlyPlayingId(null);
@@ -469,7 +483,7 @@ export default function OffHoursReport() {
             "Date/Time",
             "Category",
             "Disposition",
-            "Duration (s)",
+            "Duration (min)",
           ],
         ],
         body: filteredRecords.map((r, idx) => [
@@ -479,7 +493,7 @@ export default function OffHoursReport() {
           getTimestamp(r) ? new Date(getTimestamp(r)).toLocaleString() : "-",
           r.off_hours_label || "-",
           r.disposition || "-",
-          r.duration || "-",
+          formatSecondsToMinutes(r.duration, false),
         ]),
         styles: { fontSize: 8 },
         headStyles: { fillColor: [245, 158, 66] },
@@ -605,7 +619,6 @@ export default function OffHoursReport() {
             label="Category"
             onChange={(e) => {
               setCategoryFilter(e.target.value);
-              setCurrentPage(1);
             }}
           >
             {CATEGORY_OPTIONS.map((opt) => (
@@ -615,23 +628,6 @@ export default function OffHoursReport() {
             ))}
           </Select>
         </FormControl>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={() => {
-            if (!startDate || !endDate) {
-              setSnackbarMessage("Please select both start and end dates.");
-              setSnackbarSeverity("warning");
-              setSnackbarOpen(true);
-              return;
-            }
-            setCurrentPage(1);
-            fetchReport();
-          }}
-          disabled={!startDate || !endDate}
-        >
-          Load Report
-        </Button>
         <Button
           variant="outlined"
           color="secondary"
@@ -646,7 +642,6 @@ export default function OffHoursReport() {
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
-            setCurrentPage(1);
           }}
           className="off-hours-search"
         />
@@ -705,7 +700,7 @@ export default function OffHoursReport() {
                         backgroundColor: pending ? "#fff3cd" : "#d4edda",
                       }}
                     >
-                      <td>{indexOfFirst + index + 1}</td>
+                      <td>{page * rowsPerPage + index + 1}</td>
                       <td>{missedCallSource(record)}</td>
                       <td>{missedCallDestination(record)}</td>
                       <td title={record.emergency_number_label || ""}>
@@ -782,7 +777,7 @@ export default function OffHoursReport() {
                 <th>Date/Time</th>
                 <th>Category</th>
                 <th>Disposition</th>
-                <th>Duration (s)</th>
+                <th>Duration (min)</th>
               </tr>
             </thead>
             <tbody>
@@ -793,7 +788,7 @@ export default function OffHoursReport() {
               ) : (
                 currentRecords.map((record, index) => (
                   <tr key={record.id || index}>
-                    <td>{indexOfFirst + index + 1}</td>
+                    <td>{page * rowsPerPage + index + 1}</td>
                     <td>{record.caller_display || record.clid || "-"}</td>
                     <td>
                       {record.routed_to_label || record.routed_to || "—"}
@@ -820,7 +815,7 @@ export default function OffHoursReport() {
                       />
                     </td>
                     <td>{record.disposition || "-"}</td>
-                    <td>{record.duration || "-"}</td>
+                    <td>{formatSecondsToMinutes(record.duration, false)}</td>
                   </tr>
                 ))
               )}
@@ -857,7 +852,7 @@ export default function OffHoursReport() {
                       key={record.id || index}
                       style={{ backgroundColor: getRowColor(record) }}
                     >
-                      <td>{indexOfFirst + index + 1}</td>
+                      <td>{page * rowsPerPage + index + 1}</td>
                       <td>{record.id}</td>
                       <td>{record.caller_display || record.clid || "-"}</td>
                       <td>
@@ -922,29 +917,7 @@ export default function OffHoursReport() {
         )}
       </div>
 
-      <Box className="off-hours-pagination">
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-          disabled={currentPage === 1}
-        >
-          Previous
-        </Button>
-        <span>
-          Page {currentPage} of {totalPages}
-        </span>
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={() =>
-            setCurrentPage(Math.min(totalPages, currentPage + 1))
-          }
-          disabled={currentPage === totalPages}
-        >
-          Next
-        </Button>
-      </Box>
+      <ReportTablePagination {...paginationProps} className="off-hours-pagination" />
 
       <Snackbar
         open={snackbarOpen}

@@ -10,7 +10,6 @@ import {
 } from "react-icons/rx";
 import {
   MdOutlineSupportAgent,
-  MdOutlineAudiotrack,
   MdPublic,
   MdOutlineChat,
   MdOutlineNotifications,
@@ -315,23 +314,6 @@ export default function CallCenterSidebar({
                 }
               }
               />
-            )
-          } <
-          /span> < /
-          NavLink > <
-          NavLink to = "/voice-notes"
-          className = {
-            ({
-              isActive
-            }) =>
-            isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
-          } >
-          <
-          span className = "sidebar-nav-row" >
-          <
-          MdOutlineAudiotrack className = "menu-icon" / > {
-            isSidebarOpen && ( <
-              span className = "menu-text" > Voice Notes Reports < /span>
             )
           } <
           /span> < /

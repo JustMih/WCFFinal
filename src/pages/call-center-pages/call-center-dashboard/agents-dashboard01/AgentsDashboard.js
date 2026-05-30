@@ -44,6 +44,11 @@ import AgentPerformanceScore from "../../../../components/agent-dashboard/AgentP
 import AdvancedTicketCreateModal from "../../../../components/ticket/AdvancedTicketCreateModal";
 import VoiceNotesReport from "../../cal-center-ivr/VoiceNotesReport";
 import CallHistoryCard from "../../../../components/agent-dashboard/CallHistoryCard";
+import {
+  fetchVoiceNotes,
+  VOICE_NOTE_PLAYED_EVENT,
+  PLAYED_VOICE_NOTES_KEY,
+} from "../../../../utils/voiceNotePlayed";
 
 export default function AgentsDashboard() {
   // --------- Core phone state ---------
@@ -370,26 +375,12 @@ useEffect(() => {
     const fetchVoiceNotes = async () => {
       try {
         const agentId = localStorage.getItem("userId");
-        const response = await fetch(
-          `${baseURL}/voice-notes?agentId=${agentId}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-            },
-          }
-        );
-        if (!response.ok) throw new Error("Failed to fetch voice notes");
-        const data = await response.json();
-        const notes = data.voiceNotes || [];
-        const storedPlayed =
-          JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
-        const unplayedCount = notes.filter(
-          (note) => !storedPlayed[note.id]
-        ).length;
+        const notes = await fetchVoiceNotes({
+          agentId,
+          unplayedOnly: true,
+        });
         setVoiceNotes(notes);
-        setUnplayedVoiceNotes(unplayedCount);
+        setUnplayedVoiceNotes(notes.length);
       } catch (error) {
         setVoiceNotes([]);
         setUnplayedVoiceNotes(0);
@@ -397,10 +388,15 @@ useEffect(() => {
     };
     fetchVoiceNotes();
     const handleStorage = (e) => {
-      if (e.key === "playedVoiceNotes") fetchVoiceNotes();
+      if (e.key === PLAYED_VOICE_NOTES_KEY) fetchVoiceNotes();
     };
+    const handleVoiceNotePlayed = () => fetchVoiceNotes();
     window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
+    window.addEventListener(VOICE_NOTE_PLAYED_EVENT, handleVoiceNotePlayed);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(VOICE_NOTE_PLAYED_EVENT, handleVoiceNotePlayed);
+    };
   }, []);
 const markMissedCallAsCalledBack = async (missedCallId) => {
   if (!missedCallId) return;
@@ -1777,7 +1773,7 @@ useEffect(() => {
         maxWidth="md"
       >
         <DialogContent>
-          <VoiceNotesReport />
+          <VoiceNotesReport variant="inbox" />
         </DialogContent>
       </Dialog>
     </div>
