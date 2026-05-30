@@ -4031,15 +4031,6 @@ export default function ComprehensiveReports() {
               />
             </div>
             <div className="action-buttons">
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<Refresh />}
-                onClick={fetchReports}
-                disabled={loading}
-              >
-                Load Report
-              </Button>
               {filteredReports.length > 0 && (
                 <Button
                   variant="outlined"
@@ -4109,37 +4100,10 @@ export default function ComprehensiveReports() {
         </CardContent>
       </Card>
       {filteredReports.length > 0 && (
-        <div className="pagination-container">
-          <Button
-            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-            disabled={currentPage === 1}
-            variant="outlined"
-            size="small"
-          >
-            ← Previous
-          </Button>
-          <Typography variant="body2" className="pagination-info">
-            Page {currentPage} of{" "}
-            {Math.ceil(filteredReports.length / reportsPerPage)}
-          </Typography>
-          <Button
-            onClick={() =>
-              setCurrentPage(
-                Math.min(
-                  Math.ceil(filteredReports.length / reportsPerPage),
-                  currentPage + 1
-                )
-              )
-            }
-            disabled={
-              currentPage === Math.ceil(filteredReports.length / reportsPerPage)
-            }
-            variant="outlined"
-            size="small"
-          >
-            Next →
-          </Button>
-        </div>
+        <ReportTablePagination
+          {...paginationProps}
+          className="pagination-container"
+        />
       )}
         </>
       ) : (
