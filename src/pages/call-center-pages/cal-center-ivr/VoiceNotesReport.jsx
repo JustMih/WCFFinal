@@ -59,7 +59,10 @@ export default function VoiceNotesReport({ variant = "report", agentId: agentIdP
         },
       });
 
-      const notes = res.data.voiceNotes || [];
+      let notes = res.data.voiceNotes || [];
+      if (isInbox) {
+        notes = notes.filter((n) => !isVoiceNotePlayed(n));
+      }
       setVoiceNotes(notes);
 
       const fromDb = {};
@@ -99,9 +102,9 @@ export default function VoiceNotesReport({ variant = "report", agentId: agentIdP
   // const isPlayed = (note) =>
   //   Boolean(playedStatus[note.id] || isVoiceNotePlayed(note));
   const isPlayed = useCallback(
-  (note) => Boolean(playedStatus[note.id] || isVoiceNotePlayed(note)),
-  [playedStatus]
-);
+    (note) => Boolean(playedStatus[note.id] || isVoiceNotePlayed(note)),
+    [playedStatus]
+  );
 
   const markAsPlayed = async (note, durationSeconds = null) => {
     await markVoiceNotePlayed(note.id, durationSeconds);
