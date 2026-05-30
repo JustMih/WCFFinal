@@ -72,7 +72,7 @@ export default function TotalContactSummary() {
 
   // Voicemail count from voice-notes API (same pattern as AgentsDashboard VoiceNotesReport)
   useEffect(() => {
-    const fetchVoiceNotes = async () => {
+    const loadVoiceNotes = async () => {
       try {
         const agentId = localStorage.getItem("userId");
         const [allNotes, unplayedNotes] = await Promise.all([
@@ -86,11 +86,11 @@ export default function TotalContactSummary() {
         setUnplayedVoicemailCount(0);
       }
     };
-    fetchVoiceNotes();
+    loadVoiceNotes();
     const handleStorage = (e) => {
-      if (e.key === PLAYED_VOICE_NOTES_KEY) fetchVoiceNotes();
+      if (e.key === PLAYED_VOICE_NOTES_KEY) loadVoiceNotes();
     };
-    const handleVoiceNotePlayed = () => fetchVoiceNotes();
+    const handleVoiceNotePlayed = () => loadVoiceNotes();
     window.addEventListener("storage", handleStorage);
     window.addEventListener(VOICE_NOTE_PLAYED_EVENT, handleVoiceNotePlayed);
     return () => {

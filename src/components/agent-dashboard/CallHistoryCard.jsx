@@ -140,7 +140,7 @@ export default function CallHistoryCard({
   };
 
   // Voicemail count from voice-notes API (same as AgentsDashboard: userId only, no client-side filter)
-  const fetchVoiceNotes = async () => {
+  const loadVoiceNotes = async () => {
     try {
       setLoading((prev) => ({ ...prev, voicemail: true }));
       const agentId = localStorage.getItem("userId");
@@ -171,15 +171,15 @@ export default function CallHistoryCard({
     fetchLostCalls(1, 5);
     fetchDroppedCalls(1, 5);
     if (!useParentVoicemail) {
-      fetchVoiceNotes();
+      loadVoiceNotes();
     }
     const handleStorage = (e) => {
       if (e.key === PLAYED_VOICE_NOTES_KEY && !useParentVoicemail) {
-        fetchVoiceNotes();
+        loadVoiceNotes();
       }
     };
     const handleVoiceNotePlayed = () => {
-      if (!useParentVoicemail) fetchVoiceNotes();
+      if (!useParentVoicemail) loadVoiceNotes();
     };
     window.addEventListener("storage", handleStorage);
     window.addEventListener(VOICE_NOTE_PLAYED_EVENT, handleVoiceNotePlayed);
@@ -198,7 +198,7 @@ export default function CallHistoryCard({
     } else if (newValue === 2 && droppedCalls.length === 0) {
       fetchDroppedCalls(1, 5);
     } else if (newValue === 3 && !useParentVoicemail) {
-      fetchVoiceNotes();
+      loadVoiceNotes();
     }
   };
 
