@@ -35,7 +35,11 @@ import {
   buildSummary,
 } from "../../../utils/offHoursHelper";
 import { playVoiceNoteAudio } from "../../../utils/voiceNoteAudio";
-import { markVoiceNotePlayed } from "../../../utils/voiceNotePlayed";
+import {
+  markVoiceNotePlayed,
+  isVoiceNotePlayed,
+  getPlayedVoiceNotesMap,
+} from "../../../utils/voiceNotePlayed";
 import {
   enrichRecordClient,
   buildEmergencyMap,
@@ -695,6 +699,18 @@ export default function ComprehensiveReports() {
         list = list.filter(
           (row) => !isExcludedCdrDestination(row.dst ?? row.called)
         );
+      }
+      if (activeTab === REPORT_TYPES.VOICE_NOTE) {
+        const playedMap = getPlayedVoiceNotesMap();
+        list.forEach((note) => {
+          if (playedMap[note.id] && Number(note.is_played) !== 1) {
+            markVoiceNotePlayed(note.id).catch(() => {});
+          }
+        });
+        list = list.map((note) => ({
+          ...note,
+          is_played: isVoiceNotePlayed(note) ? 1 : 0,
+        }));
       }
       setReports(list);
 
@@ -1610,16 +1626,21 @@ export default function ComprehensiveReports() {
 
     switch (activeTab) {
       case REPORT_TYPES.VOICE_NOTE:
+        const played = isVoiceNotePlayed(report);
         const matchesPlayedFilter =
           playedFilter === "all" ||
-          (playedFilter === "played" && report.is_played) ||
-          (playedFilter === "not_played" && !report.is_played);
+          (playedFilter === "played" && played) ||
+          (playedFilter === "not_played" && !played);
         return (
           (report.clid || "").toLowerCase().includes(searchLower) &&
           matchesPlayedFilter
         );
-      case REPORT_TYPES.CDR:
+      case REPORT_TYPES.CDR: {
+        const matchesDisposition =
+          disposition === "all" ||
+          String(report.disposition || "").toLowerCase() === disposition;
         return (
+          matchesDisposition &&
           !isExcludedCdrDestination(report.dst ?? report.called) &&
           ((report.clid || "").toLowerCase().includes(searchLower) ||
             (report.dst || "").toLowerCase().includes(searchLower) ||
@@ -1627,6 +1648,7 @@ export default function ComprehensiveReports() {
             (report.agent_name || "").toLowerCase().includes(searchLower) ||
             (report.direction || "").toLowerCase().includes(searchLower))
         );
+      }
       case REPORT_TYPES.TICKET_CRM:
         const matchesStatus =
           ticketStatus === "all" || report.status === ticketStatus;
@@ -1800,7 +1822,7 @@ export default function ComprehensiveReports() {
               ? new Date(report.created_at).toLocaleString()
               : "-";
           case "played":
-            return report.is_played ? "Yes" : "No";
+            return isVoiceNotePlayed(report) ? "Yes" : "No";
           case "assignedExtension":
             return getAssignedExtensionDisplay(report);
           case "agentName":

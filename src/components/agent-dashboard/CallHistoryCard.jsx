@@ -22,13 +22,6 @@ import {
 import { FiPhoneCall, FiPhoneIncoming, FiPhoneOff } from "react-icons/fi";
 import { MdCallMissed, MdOutlineVoicemail } from "react-icons/md";
 import { baseURL } from "../../config";
-import {
-  fetchVoiceNotes,
-  countUnplayedVoiceNotes,
-  isVoiceNotePlayed,
-  VOICE_NOTE_PLAYED_EVENT,
-  PLAYED_VOICE_NOTES_KEY,
-} from "../../utils/voiceNotePlayed";
 import "./CallHistoryCard.css";
 
 function TabPanel({ children, value, index, ...other }) {
@@ -139,15 +132,25 @@ export default function CallHistoryCard({
     }
   };
 
-  // Voicemail count from voice-notes API (same as AgentsDashboard: userId only, no client-side filter)
   const loadVoiceNotes = async () => {
     try {
       setLoading((prev) => ({ ...prev, voicemail: true }));
       const agentId = localStorage.getItem("userId");
-      const notes = await fetchVoiceNotes({ agentId, unplayedOnly: true });
+      const response = await fetch(`${baseURL}/voice-notes?agentId=${agentId}`, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        },
+      });
+      if (!response.ok) throw new Error("Failed to fetch voice notes");
+      const data = await response.json();
+      const notes = data.voiceNotes || [];
+      const storedPlayed =
+        JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
+      const unplayed = notes.filter((note) => !storedPlayed[note.id]);
       setVoiceNotes(notes);
       setTotals((prev) => ({ ...prev, voicemail: notes.length }));
-      setUnplayedVoicemailCount(notes.length);
+      setUnplayedVoicemailCount(unplayed.length);
     } catch (error) {
       setVoiceNotes([]);
       setTotals((prev) => ({ ...prev, voicemail: 0 }));
@@ -161,9 +164,25 @@ export default function CallHistoryCard({
   const parentNotes = Array.isArray(voicemailData?.voiceNotes) ? voicemailData.voiceNotes : [];
   const displayVoiceNotes = useParentVoicemail ? parentNotes : voiceNotes;
   const displayVoicemailTotal = useParentVoicemail ? parentNotes.length : totals.voicemail;
+  const getPlayedMap = () => {
+    try {
+      return JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
+    } catch {
+      return {};
+    }
+  };
+
+  const isNotePlayed = (note) => {
+    if (!note) return false;
+    if (Number(note.is_played) === 1 || note.is_played === true) return true;
+    return Boolean(getPlayedMap()[note.id]);
+  };
+
+  const countUnplayed = (notes) =>
+    notes.filter((note) => !isNotePlayed(note)).length;
+
   const displayUnplayedCount = useParentVoicemail
-    ? (voicemailData?.unplayedCount ??
-      countUnplayedVoiceNotes(displayVoiceNotes))
+    ? (voicemailData?.unplayedCount ?? countUnplayed(displayVoiceNotes))
     : unplayedVoicemailCount;
 
   useEffect(() => {
@@ -174,19 +193,12 @@ export default function CallHistoryCard({
       loadVoiceNotes();
     }
     const handleStorage = (e) => {
-      if (e.key === PLAYED_VOICE_NOTES_KEY && !useParentVoicemail) {
+      if (e.key === "playedVoiceNotes" && !useParentVoicemail) {
         loadVoiceNotes();
       }
     };
-    const handleVoiceNotePlayed = () => {
-      if (!useParentVoicemail) loadVoiceNotes();
-    };
     window.addEventListener("storage", handleStorage);
-    window.addEventListener(VOICE_NOTE_PLAYED_EVENT, handleVoiceNotePlayed);
-    return () => {
-      window.removeEventListener("storage", handleStorage);
-      window.removeEventListener(VOICE_NOTE_PLAYED_EVENT, handleVoiceNotePlayed);
-    };
+    return () => window.removeEventListener("storage", handleStorage);
   }, [useParentVoicemail]);
 
   const handleTabChange = (event, newValue) => {
@@ -506,7 +518,7 @@ export default function CallHistoryCard({
                   </TableHead>
                   <TableBody>
                     {displayVoiceNotes.map((note) => {
-                      const played = isVoiceNotePlayed(note);
+                      const played = isNotePlayed(note);
                       return (
                         <TableRow key={note.id} hover>
                           <TableCell>

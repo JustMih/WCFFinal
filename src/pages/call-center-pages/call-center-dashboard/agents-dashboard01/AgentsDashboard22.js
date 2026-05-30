@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
 import {
   MdOutlineLocalPhone,
@@ -1190,34 +1190,35 @@ export default function AgentsDashboard() {
   const [voiceNotes, setVoiceNotes] = useState([]);
   const [unplayedVoiceNotes, setUnplayedVoiceNotes] = useState(0);
 
-  // Fetch unplayed voicenotes for the agent
-  useEffect(() => {
-    const fetchVoiceNotes = async () => {
-      try {
-        const agentId = localStorage.getItem("userId");
-        const notes = await fetchVoiceNotes({
-          agentId,
-          unplayedOnly: true,
-        });
-        setVoiceNotes(notes);
-        setUnplayedVoiceNotes(notes.length);
-      } catch (error) {
-        setVoiceNotes([]);
-        setUnplayedVoiceNotes(0);
-      }
-    };
-    fetchVoiceNotes();
-    const handleStorage = (e) => {
-      if (e.key === PLAYED_VOICE_NOTES_KEY) fetchVoiceNotes();
-    };
-    const handleVoiceNotePlayed = () => fetchVoiceNotes();
-    window.addEventListener("storage", handleStorage);
-    window.addEventListener(VOICE_NOTE_PLAYED_EVENT, handleVoiceNotePlayed);
-    return () => {
-      window.removeEventListener("storage", handleStorage);
-      window.removeEventListener(VOICE_NOTE_PLAYED_EVENT, handleVoiceNotePlayed);
-    };
+  const refreshVoiceNoteBadge = useCallback(async () => {
+    try {
+      const notes = await fetchVoiceNotes({ unplayedOnly: true });
+      const unplayed = notes.filter(
+        (n) => !(Number(n.is_played) === 1 || n.is_played === true)
+      );
+      setVoiceNotes(unplayed);
+      setUnplayedVoiceNotes(unplayed.length);
+    } catch (error) {
+      setVoiceNotes([]);
+      setUnplayedVoiceNotes(0);
+    }
   }, []);
+
+  useEffect(() => {
+    refreshVoiceNoteBadge();
+    const interval = setInterval(refreshVoiceNoteBadge, 60000);
+    const handleStorage = (e) => {
+      if (e.key === PLAYED_VOICE_NOTES_KEY) refreshVoiceNoteBadge();
+    };
+    const handlePlayed = () => refreshVoiceNoteBadge();
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener(VOICE_NOTE_PLAYED_EVENT, handlePlayed);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(VOICE_NOTE_PLAYED_EVENT, handlePlayed);
+    };
+  }, [refreshVoiceNoteBadge]);
 
   const [showVoiceNotesModal, setShowVoiceNotesModal] = useState(false);
 
@@ -1826,7 +1827,10 @@ export default function AgentsDashboard() {
 
       <Dialog
         open={showVoiceNotesModal}
-        onClose={() => setShowVoiceNotesModal(false)}
+        onClose={() => {
+          setShowVoiceNotesModal(false);
+          refreshVoiceNoteBadge();
+        }}
         fullWidth
         maxWidth="md"
       >

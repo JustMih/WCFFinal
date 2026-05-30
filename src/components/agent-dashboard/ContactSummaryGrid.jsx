@@ -14,11 +14,6 @@ import { TbPhoneX, TbMail } from "react-icons/tb";
 import CircularProgress from "@mui/material/CircularProgress";
 import "./ContactSummaryGrid.css";
 import { baseURL } from "../../config";
-import {
-  fetchVoiceNotes,
-  VOICE_NOTE_PLAYED_EVENT,
-  PLAYED_VOICE_NOTES_KEY,
-} from "../../utils/voiceNotePlayed";
 
 ChartJS.register(Title, Tooltip, Legend, ArcElement, RadialLinearScale);
 
@@ -27,8 +22,10 @@ const toInt = (value) => {
   return Number.isNaN(n) ? 0 : n;
 };
 
-const sumDirectionTotal = (dir) =>
-  toInt(dir?.answered) + toInt(dir?.dropped) + toInt(dir?.lost);
+const sumDirectionTotal = (dir) => {
+  if (dir?.total != null) return toInt(dir.total);
+  return toInt(dir?.answered) + toInt(dir?.dropped) + toInt(dir?.lost);
+};
 
 export default function ContactSummaryGrid() {
   const [contactData, setContactData] = useState(null);
@@ -38,6 +35,7 @@ export default function ContactSummaryGrid() {
 
   useEffect(() => {
     const agentId = localStorage.getItem("extension");
+    const userId = localStorage.getItem("userId");
     if (!agentId) {
       setContactData(null);
       setLoading(false);
@@ -45,7 +43,9 @@ export default function ContactSummaryGrid() {
     }
 
     setLoading(true);
-    fetch(`${baseURL}/calls/agent-calls-today/${agentId}?excludeDestS=1`)
+    const query = new URLSearchParams({ excludeDestS: "1" });
+    if (userId) query.set("userId", userId);
+    fetch(`${baseURL}/calls/agent-calls-today/${agentId}?${query}`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch contact data");
         return res.json();
@@ -61,31 +61,49 @@ export default function ContactSummaryGrid() {
   }, []);
 
   useEffect(() => {
-    const loadVoiceNotes = async () => {
+    const fetchVoiceNotes = async () => {
       try {
         const agentId = localStorage.getItem("userId");
-        const [allNotes, unplayedNotes] = await Promise.all([
-          fetchVoiceNotes({ agentId }),
-          fetchVoiceNotes({ agentId, unplayedOnly: true }),
-        ]);
-        setVoicemailCount(allNotes.length);
-        setUnplayedVoicemailCount(unplayedNotes.length);
+        const response = await fetch(
+          `${baseURL}/voice-notes?agentId=${agentId}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+            },
+          }
+        );
+        if (!response.ok) throw new Error("Failed to fetch voice notes");
+        const data = await response.json();
+        const extension = localStorage.getItem("extension");
+        const notes = (data.voiceNotes || []).filter((note) => {
+          if (!agentId) return false;
+          if (String(note.assigned_agent_id) === String(agentId)) return true;
+          return (
+            (note.assigned_agent_id == null || note.assigned_agent_id === "") &&
+            extension &&
+            String(note.assigned_extension) === String(extension)
+          );
+        });
+        const storedPlayed =
+          JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
+        const unplayedCount = notes.filter(
+          (note) => !storedPlayed[note.id]
+        ).length;
+        setVoicemailCount(notes.length);
+        setUnplayedVoicemailCount(unplayedCount);
       } catch (error) {
         setVoicemailCount(0);
         setUnplayedVoicemailCount(0);
       }
     };
-    loadVoiceNotes();
+    fetchVoiceNotes();
     const handleStorage = (e) => {
-      if (e.key === PLAYED_VOICE_NOTES_KEY) loadVoiceNotes();
+      if (e.key === "playedVoiceNotes") fetchVoiceNotes();
     };
-    const handleVoiceNotePlayed = () => loadVoiceNotes();
     window.addEventListener("storage", handleStorage);
-    window.addEventListener(VOICE_NOTE_PLAYED_EVENT, handleVoiceNotePlayed);
-    return () => {
-      window.removeEventListener("storage", handleStorage);
-      window.removeEventListener(VOICE_NOTE_PLAYED_EVENT, handleVoiceNotePlayed);
-    };
+    return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
   const safe = (obj, key, fallback = 0) =>
@@ -101,6 +119,8 @@ export default function ContactSummaryGrid() {
         safe(contactData?.twitter, "total", 0) +
         safe(contactData?.email, "total", 0)
       : 0;
+
+    const voicemailTotal = voicemailCount;
 
     return {
       inbound: {
@@ -123,7 +143,7 @@ export default function ContactSummaryGrid() {
         twitter: safe(contactData?.twitter, "total", 0),
       },
       voicemail: {
-        total: voicemailCount,
+        total: voicemailTotal,
       },
     };
   };

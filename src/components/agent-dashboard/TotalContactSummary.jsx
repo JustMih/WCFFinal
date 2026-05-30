@@ -13,11 +13,6 @@ import { TbPhoneX, TbMail } from "react-icons/tb";
 import CircularProgress from "@mui/material/CircularProgress";
 import "./TotalContactSummary.css";
 import { baseURL } from "../../config";
-import {
-  fetchVoiceNotes,
-  VOICE_NOTE_PLAYED_EVENT,
-  PLAYED_VOICE_NOTES_KEY,
-} from "../../utils/voiceNotePlayed";
 
 ChartJS.register(Title, Tooltip, Legend, ArcElement);
 
@@ -26,8 +21,10 @@ const toInt = (value) => {
   return Number.isNaN(n) ? 0 : n;
 };
 
-const sumDirectionTotal = (dir) =>
-  toInt(dir?.answered) + toInt(dir?.dropped) + toInt(dir?.lost);
+const sumDirectionTotal = (dir) => {
+  if (dir?.total != null) return toInt(dir.total);
+  return toInt(dir?.answered) + toInt(dir?.dropped) + toInt(dir?.lost);
+};
 
 export default function TotalContactSummary() {
   const [contactData, setContactData] = useState(null);
@@ -36,6 +33,7 @@ export default function TotalContactSummary() {
 
   useEffect(() => {
     const agentId = localStorage.getItem("extension");
+    const userId = localStorage.getItem("userId");
     if (!agentId) {
       setContactData(null);
       setLoading(false);
@@ -43,7 +41,9 @@ export default function TotalContactSummary() {
     }
 
     setLoading(true);
-    fetch(`${baseURL}/calls/agent-calls-today/${agentId}?excludeDestS=1`)
+    const query = new URLSearchParams({ excludeDestS: "1" });
+    if (userId) query.set("userId", userId);
+    fetch(`${baseURL}/calls/agent-calls-today/${agentId}?${query}`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch contact data");
         return res.json();
@@ -59,7 +59,7 @@ export default function TotalContactSummary() {
   }, []);
 
   useEffect(() => {
-    const loadVoiceNotes = async () => {
+    const fetchVoiceNotes = async () => {
       try {
         const agentId = localStorage.getItem("userId");
         const response = await fetch(
@@ -74,23 +74,28 @@ export default function TotalContactSummary() {
         );
         if (!response.ok) throw new Error("Failed to fetch voice notes");
         const data = await response.json();
-        const notes = data.voiceNotes || [];
+        const userId = localStorage.getItem("userId");
+        const extension = localStorage.getItem("extension");
+        const notes = (data.voiceNotes || []).filter((note) => {
+          if (!userId) return false;
+          if (String(note.assigned_agent_id) === String(userId)) return true;
+          return (
+            (note.assigned_agent_id == null || note.assigned_agent_id === "") &&
+            extension &&
+            String(note.assigned_extension) === String(extension)
+          );
+        });
         setVoicemailCount(notes.length);
       } catch (error) {
         setVoicemailCount(0);
       }
     };
-    loadVoiceNotes();
+    fetchVoiceNotes();
     const handleStorage = (e) => {
-      if (e.key === PLAYED_VOICE_NOTES_KEY) loadVoiceNotes();
+      if (e.key === "playedVoiceNotes") fetchVoiceNotes();
     };
-    const handleVoiceNotePlayed = () => loadVoiceNotes();
     window.addEventListener("storage", handleStorage);
-    window.addEventListener(VOICE_NOTE_PLAYED_EVENT, handleVoiceNotePlayed);
-    return () => {
-      window.removeEventListener("storage", handleStorage);
-      window.removeEventListener(VOICE_NOTE_PLAYED_EVENT, handleVoiceNotePlayed);
-    };
+    return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
   const safe = (obj, key, fallback = 0) =>
