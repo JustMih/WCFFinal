@@ -23,7 +23,9 @@ export const REPORTS = [
   { slug: "ticket-crm", label: "Ticket CRM Report", type: REPORT_TYPES.TICKET_CRM },
   { slug: "agent-performance", label: "Agent Performance", type: REPORT_TYPES.AGENT_PERFORMANCE },
   { slug: "call-summary", label: "Call Summary", type: REPORT_TYPES.CALL_SUMMARY },
-  { slug: "ivr-interactions", label: "IVR Interactions", type: REPORT_TYPES.IVR_INTERACTIONS },
+  { slug: "ivr-interactions", label: "IVR Interactions (Mappings)", type: REPORT_TYPES.IVR_INTERACTIONS },
+  { slug: "dtmf-usage", label: "DTMF Usage Report", type: REPORT_TYPES.DTMF_USAGE },
+  { slug: "livestream", label: "Live Streaming", type: REPORT_TYPES.LIVESTREAM },
   { slug: "ticket-assignments", label: "Ticket Assignments", type: REPORT_TYPES.TICKET_ASSIGNMENTS },
   { slug: "missed-call", label: "Missed Call Report", type: REPORT_TYPES.MISSED_CALL },
   { slug: "escalation", label: "Escallation", type: REPORT_TYPES.ESCALLATION },
@@ -43,6 +45,8 @@ export const REPORTS = [
 const LEGACY_TAB_MAP = {
   pause: REPORT_TYPES.PAUSE,
   "pause-report": REPORT_TYPES.PAUSE,
+  "dtmf-stats": REPORT_TYPES.DTMF_USAGE,
+  livestream: REPORT_TYPES.LIVESTREAM,
 };
 
 export const slugToType = (slug) => {

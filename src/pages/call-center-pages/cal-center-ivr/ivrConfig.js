@@ -1,6 +1,5 @@
 import { MdOutlineAudiotrack } from "react-icons/md";
 import { TbActivityHeartbeat } from "react-icons/tb";
-import { FaRegFileAlt } from "react-icons/fa";
 
 export const IVR_CATEGORIES = [
   {
@@ -11,7 +10,7 @@ export const IVR_CATEGORIES = [
     iconSize: 32,
     cards: [
       { to: "/ivr-voices", label: "IVR's Voices", icon: MdOutlineAudiotrack },
-      { to: "/recorded-audio", label: "Recorded Calls", icon: MdOutlineAudiotrack },
+      { to: "/recorded-audio", label: "Agent Call Recordings", icon: MdOutlineAudiotrack },
       { to: "/voice-notes", label: "Voice Notes", icon: MdOutlineAudiotrack },
     ],
   },
@@ -28,17 +27,4 @@ export const IVR_CATEGORIES = [
       { to: "/ivr-holidays", label: "IVR Holidays", icon: MdOutlineAudiotrack },
     ],
   },
-  {
-    key: "reports",
-    label: "Reports",
-    color: "#f59e42",
-    icon: FaRegFileAlt,
-    iconSize: 32,
-    cards: [
-      { to: "/ivr-interactions", label: "IVR Interactions Reports", icon: MdOutlineAudiotrack },
-      { to: "/livestream", label: "Live Streaming", icon: MdOutlineAudiotrack },
-      { to: "/dtmf-stats", label: "DTMF Usage Report", icon: MdOutlineAudiotrack },
-    ],
-  },
 ];
-

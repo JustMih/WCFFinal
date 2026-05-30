@@ -3,6 +3,21 @@
   max-width: 100%;
 }
 
+.tat-report-root .tat-status-filter.MuiFormControl-root {
+  min-width: 200px !important;
+  width: 200px;
+  flex-shrink: 0;
+}
+
+.tat-report-root .tat-status-filter .MuiInputLabel-root {
+  white-space: nowrap;
+}
+
+.tat-report-root .tat-status-filter .MuiSelect-select {
+  display: flex;
+  align-items: center;
+}
+
 .tat-report-table {
   min-width: 2200px;
 }

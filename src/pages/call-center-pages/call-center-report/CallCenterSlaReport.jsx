@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import {
   Alert,
   Box,
@@ -13,7 +13,7 @@ import {
   TableRow,
   Typography,
 } from "@mui/material";
-import { PictureAsPdf, Refresh, TableChart } from "@mui/icons-material";
+import { PictureAsPdf, TableChart } from "@mui/icons-material";
 import {
   FaChartLine,
   FaClock,
@@ -26,7 +26,9 @@ import * as XLSX from "xlsx";
 import { baseURL } from "../../../config";
 import WcfLoader from "../../../components/shared/WcfLoader";
 import ReportDateRangePicker from "../../../components/shared/ReportDateRangePicker";
-import { todayApiDate } from "../../../utils/reportDateUtils";
+import ReportTablePagination from "../../../components/shared/ReportTablePagination";
+import useReportTablePagination from "../../../hooks/useReportTablePagination";
+import { isValidReportDateRange } from "../../../utils/reportDateUtils";
 import "./slaReport.css";
 
 function SlaMetricCard({ period, variant, icon: Icon, value, title, sublabel }) {
@@ -54,10 +56,15 @@ const DAILY_EXPORT_COLUMNS = [
   { key: "totalCalls", label: "Total Calls" },
   { key: "answeredCalls", label: "Answered" },
   { key: "serviceLevel", label: "Service Level %" },
-  { key: "averageResponseTime", label: "Avg Response (s)" },
-  { key: "averageHandleTime", label: "Avg Handle (s)" },
+  { key: "averageResponseTime", label: "Avg Response (min)" },
+  { key: "averageHandleTime", label: "Avg Handle (min)" },
   { key: "abandonmentRate", label: "Abandonment %" },
 ];
+
+const formatMinutesFromSeconds = (seconds) => {
+  const sec = Number(seconds) || 0;
+  return (sec / 60).toFixed(2);
+};
 
 const formatDateLabel = (value) => {
   if (!value) return "—";
@@ -67,8 +74,8 @@ const formatDateLabel = (value) => {
 };
 
 export default function CallCenterSlaReport({ embedded = false }) {
-  const [startDate, setStartDate] = useState(todayApiDate());
-  const [endDate, setEndDate] = useState(todayApiDate());
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [summary, setSummary] = useState(null);
   const [daily, setDaily] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -111,14 +118,30 @@ export default function CallCenterSlaReport({ embedded = false }) {
     }
   }, [startDate, endDate]);
 
+  useEffect(() => {
+    if (!isValidReportDateRange(startDate, endDate)) {
+      setSummary(null);
+      setDaily([]);
+      return;
+    }
+    fetchReport();
+  }, [startDate, endDate, fetchReport]);
+
+  const { paginatedItems: paginatedDaily, paginationProps, resetPage } =
+    useReportTablePagination(daily);
+
+  useEffect(() => {
+    resetPage();
+  }, [daily.length, startDate, endDate, resetPage]);
+
   const getExportRows = () =>
     daily.map((row) => ({
       date: formatDateLabel(row.date),
       totalCalls: row.totalCalls ?? 0,
       answeredCalls: row.answeredCalls ?? 0,
       serviceLevel: `${row.serviceLevel ?? 0}%`,
-      averageResponseTime: row.averageResponseTime ?? 0,
-      averageHandleTime: row.averageHandleTime ?? 0,
+      averageResponseTime: formatMinutesFromSeconds(row.averageResponseTime),
+      averageHandleTime: formatMinutesFromSeconds(row.averageHandleTime),
       abandonmentRate: `${row.abandonmentRate ?? 0}%`,
     }));
 
@@ -156,7 +179,7 @@ export default function CallCenterSlaReport({ embedded = false }) {
     doc.text(`Period: ${startDate || "—"} to ${endDate || "—"}`, 14, 24);
     if (summary) {
       doc.text(
-        `Summary — Service Level: ${summary.serviceLevel}% | Avg Response: ${summary.averageResponseTime}s | Avg Handle: ${summary.averageHandleTime}s | Abandonment: ${summary.abandonmentRate}%`,
+        `Summary — Service Level: ${summary.serviceLevel}% | Avg Response: ${formatMinutesFromSeconds(summary.averageResponseTime)} min | Avg Handle: ${formatMinutesFromSeconds(summary.averageHandleTime)} min | Abandonment: ${summary.abandonmentRate}%`,
         14,
         30
       );
@@ -196,14 +219,6 @@ export default function CallCenterSlaReport({ embedded = false }) {
           disabled={loading}
         />
         <div className="sla-report-actions">
-          <Button
-            variant="contained"
-            startIcon={<Refresh />}
-            onClick={fetchReport}
-            disabled={loading || !startDate || !endDate}
-          >
-            Load Report
-          </Button>
           <Button
             variant="outlined"
             startIcon={<PictureAsPdf />}
@@ -252,7 +267,7 @@ export default function CallCenterSlaReport({ embedded = false }) {
               period="SLA"
               variant="sla-avg-response"
               icon={FaClock}
-              value={`${summary.averageResponseTime}s`}
+              value={`${formatMinutesFromSeconds(summary.averageResponseTime)} min`}
               title="Avg Response Time"
               sublabel="Ring time to answer"
             />
@@ -260,7 +275,7 @@ export default function CallCenterSlaReport({ embedded = false }) {
               period="SLA"
               variant="sla-avg-handle"
               icon={FaChartBar}
-              value={`${summary.averageHandleTime}s`}
+              value={`${formatMinutesFromSeconds(summary.averageHandleTime)} min`}
               title="Avg Handle Time"
               sublabel="Talk time (billsec)"
             />
@@ -284,8 +299,8 @@ export default function CallCenterSlaReport({ embedded = false }) {
                   <TableCell align="right">Total Calls</TableCell>
                   <TableCell align="right">Answered</TableCell>
                   <TableCell align="right">Service Level</TableCell>
-                  <TableCell align="right">Avg Response</TableCell>
-                  <TableCell align="right">Avg Handle</TableCell>
+                  <TableCell align="right">Avg Response (min)</TableCell>
+                  <TableCell align="right">Avg Handle (min)</TableCell>
                   <TableCell align="right">Abandonment</TableCell>
                 </TableRow>
               </TableHead>
@@ -297,17 +312,17 @@ export default function CallCenterSlaReport({ embedded = false }) {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  daily.map((row) => (
+                  paginatedDaily.map((row) => (
                     <TableRow key={row.date || Math.random()}>
                       <TableCell>{formatDateLabel(row.date)}</TableCell>
                       <TableCell align="right">{row.totalCalls ?? 0}</TableCell>
                       <TableCell align="right">{row.answeredCalls ?? 0}</TableCell>
                       <TableCell align="right">{row.serviceLevel ?? 0}%</TableCell>
                       <TableCell align="right">
-                        {row.averageResponseTime ?? 0}s
+                        {formatMinutesFromSeconds(row.averageResponseTime)}
                       </TableCell>
                       <TableCell align="right">
-                        {row.averageHandleTime ?? 0}s
+                        {formatMinutesFromSeconds(row.averageHandleTime)}
                       </TableCell>
                       <TableCell align="right">{row.abandonmentRate ?? 0}%</TableCell>
                     </TableRow>
@@ -315,13 +330,14 @@ export default function CallCenterSlaReport({ embedded = false }) {
                 )}
               </TableBody>
             </Table>
+            <ReportTablePagination {...paginationProps} className="tat-report-pagination" />
           </TableContainer>
           </div>
         </>
       ) : (
         !error && (
           <p className="sla-report-empty-hint">
-            Select a date range and click Load Report to view SLA metrics.
+            Select start and end dates to view SLA metrics.
           </p>
         )
       )}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { WcfLoadingOverlay } from "../../components/shared/WcfLoader";
 import {
   Button,
@@ -23,7 +23,6 @@ import {
 import { Close as CloseIcon, ArrowBack as ArrowBackIcon } from "@mui/icons-material";
 import {
   MdPhone,
-  MdPhoneInTalk,
   MdPeople,
   MdCallEnd,
   MdTrendingUp,
@@ -32,7 +31,6 @@ import {
   MdPhoneDisabled,
 } from "react-icons/md";
 import { baseURL } from "../../config";
-import { dedupeLostCallsClient } from "../../utils/missedCallDedupe";
 import io from "socket.io-client";
 import ActiveCalls from "../../components/active-calls/ActiveCalls";
 import ReactApexChart from "react-apexcharts";
@@ -54,8 +52,28 @@ export default function PublicDashboard({
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [lostCalls, setLostCalls] = useState([]);
+  const [lostCallsCountLive, setLostCallsCountLive] = useState(null);
   const [showLostCallsModal, setShowLostCallsModal] = useState(false);
   const [lostCallsLoading, setLostCallsLoading] = useState(false);
+
+  const fetchLostCallsToday = useCallback(async (forModal = false) => {
+    if (forModal) setLostCallsLoading(true);
+    try {
+      const response = await fetch(`${baseURL}/calls/lost-calls-today`);
+      if (response.ok) {
+        const data = await response.json();
+        const list = Array.isArray(data) ? data : [];
+        setLostCalls(list);
+        setLostCallsCountLive(list.length);
+      } else if (forModal) {
+        console.error("Failed to fetch lost calls:", response.status);
+      }
+    } catch (error) {
+      if (forModal) console.error("Error fetching lost calls:", error);
+    } finally {
+      if (forModal) setLostCallsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (!loading && suppressLoadingUI && onInitialLoadComplete) {
@@ -105,6 +123,10 @@ export default function PublicDashboard({
               dropped: 0,
               lost: 0,
             },
+            callStatistics: data.callStatistics || {
+              lost: 0,
+              dropped: 0,
+            },
           });
         }
       } catch (error) {
@@ -116,6 +138,7 @@ export default function PublicDashboard({
 
     fetchDashboardData();
     fetchCallSummary();
+    fetchLostCallsToday();
 
     const socketUrl = baseURL.replace(/\/api$/, "") || "https://192.168.21.69";
     const socket = io(socketUrl, {
@@ -145,7 +168,11 @@ export default function PublicDashboard({
         queueStatus: Array.isArray(data.queueStatus)
           ? data.queueStatus
           : prev.queueStatus,
-        callStatusSummary: data.callStatusSummary || prev.callStatusSummary,
+        callStatusSummary: {
+          ...prev.callStatusSummary,
+          ...(data.callStatusSummary || {}),
+        },
+        callStatistics: data.callStatistics || prev.callStatistics,
       }));
     });
 
@@ -188,12 +215,17 @@ export default function PublicDashboard({
               dropped: 0,
               lost: 0,
             },
+            callStatistics: data.callStatistics || {
+              lost: 0,
+              dropped: 0,
+            },
           });
         }
         if (callSummaryResponse.ok) {
           const summaryData = await callSummaryResponse.json();
           setCallSummaryData(summaryData);
         }
+        fetchLostCallsToday();
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
       }
@@ -212,25 +244,13 @@ return () => {
   clearInterval(fallbackInterval);
 };
 
-  }, []);
+  }, [fetchLostCallsToday]);
 
   const formatTime = (seconds) => {
     if (!seconds || seconds <= 0) return "00:00";
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
-
-  const formatDuration = (startTime) => {
-    if (!startTime) return "00:00";
-    const diff = Math.floor((new Date() - new Date(startTime)) / 1000);
-    return formatTime(diff);
-  };
-
-  const extractAgentFromChannel = (channel) => {
-    if (!channel) return "Unassigned";
-    const match = channel.match(/\/(\d+)/);
-    return match ? match[1] : channel;
   };
 
   const extractPhoneFromClid = (clid) => {
@@ -247,48 +267,44 @@ return () => {
     (call) => call.queue_entry_time && !call.call_answered && !call.call_end
   ).length;
 
-  // Call summary from API: { currentDay, currentMonth, currentYear } with totalCalls, answered, dropped, lost
+  // Call summary from API: answered, dropped, lost; total = sum of those three
   const day =
     callSummaryData?.currentDay || {
-      totalCalls: 0,
       answered: 0,
       dropped: 0,
       lost: 0,
     };
   const month =
     callSummaryData?.currentMonth || {
-      totalCalls: 0,
       answered: 0,
       dropped: 0,
       lost: 0,
     };
   const year =
     callSummaryData?.currentYear || {
-      totalCalls: 0,
       answered: 0,
       dropped: 0,
       lost: 0,
     };
 
-  const dailyTotalCalls = day.totalCalls ?? 0;
   const answeredCallsCount = day.answered ?? 0;
   const droppedCallsCount = day.dropped ?? 0;
   const lostCallsCount = day.lost ?? 0;
 
-  const dailyTotal = day.totalCalls ?? 0;
   const dailyAnswered = day.answered ?? 0;
   const dailyDropped = day.dropped ?? 0;
   const dailyLost = day.lost ?? 0;
+  const dailyTotal = dailyAnswered + dailyDropped + dailyLost;
 
-  const monthlyTotal = month.totalCalls ?? 0;
   const monthlyAnswered = month.answered ?? 0;
   const monthlyDropped = month.dropped ?? 0;
   const monthlyLost = month.lost ?? 0;
+  const monthlyTotal = monthlyAnswered + monthlyDropped + monthlyLost;
 
-  const yearlyTotal = year.totalCalls ?? 0;
   const yearlyAnswered = year.answered ?? 0;
   const yearlyDropped = year.dropped ?? 0;
   const yearlyLost = year.lost ?? 0;
+  const yearlyTotal = yearlyAnswered + yearlyDropped + yearlyLost;
 
   // Helper function to calculate percentage
   const calculatePercentage = (count, total) => {
@@ -440,28 +456,9 @@ return () => {
     ],
   };
 
-  const fetchLostCalls = async () => {
-    setLostCallsLoading(true);
-    
-    try {
-      const response = await fetch(`${baseURL}/calls/lost-calls-today`);
-      if (response.ok) {
-        const data = await response.json();
-        const list = Array.isArray(data) ? data : [];
-        setLostCalls(dedupeLostCallsClient(list, "call_time"));
-      } else {
-        console.error("Failed to fetch lost calls:", response.status);
-      }
-    } catch (error) {
-      console.error("Error fetching lost calls:", error);
-    } finally {
-      setLostCallsLoading(false);
-    }
-  };
-
   const handleShowLostCalls = () => {
     setShowLostCallsModal(true);
-    if (lostCalls.length === 0) fetchLostCalls();
+    fetchLostCallsToday(true);
   };
 
   if (loading) {
@@ -679,7 +676,7 @@ return () => {
                   <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "25%" }}>
                     <Box textAlign="center" sx={{ width: "100%", px: 0.5 }}>
                       <Typography variant="h4" sx={{ fontWeight: 700, color: "#667eea", mb: 0.5 }}>
-                        {dailyTotalCalls}
+                        {dailyTotal}
                       </Typography>
                       <Typography variant="body2" color="textSecondary" sx={{ fontSize: "0.875rem" }}>
                         Total Calls

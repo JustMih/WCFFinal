@@ -1,14 +1,20 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useMemo } from "react";
+import ReactApexChart from "react-apexcharts";
 import { FiPhoneCall } from "react-icons/fi";
 import { useNavigate, useParams } from "react-router-dom";
 import { baseURL } from "../../../config";
 import PauseReport from "./PauseReport";
 import OffHoursReport from "./OffHoursReport";
+import Livestream from "../cal-center-ivr/Livestream";
+import "../cal-center-ivr/livestream.css";
 import CallCenterSlaReport from "./CallCenterSlaReport";
 import TicketSlaReport from "./TicketSlaReport";
 import TicketWorkflowTatReport from "./TicketWorkflowTatReport";
 import WcfLoader from "../../../components/shared/WcfLoader";
 import ReportDateRangePicker from "../../../components/shared/ReportDateRangePicker";
+import ReportTablePagination from "../../../components/shared/ReportTablePagination";
+import useReportTablePagination from "../../../hooks/useReportTablePagination";
+import { isValidReportDateRange } from "../../../utils/reportDateUtils";
 import TicketWorkflowExpandPanel from "../../../components/workflow/TicketWorkflowExpandPanel";
 import {
   enrichTicketWithWorkflow,
@@ -79,7 +85,6 @@ import * as XLSX from "xlsx";
 import {
   PictureAsPdf,
   TableChart,
-  Refresh,
   Search,
   ViewColumn,
   Phone,
@@ -91,6 +96,7 @@ import {
   ExpandLess,
 } from "@mui/icons-material";
 import Tooltip from "@mui/material/Tooltip";
+import { getDtmfActionLabel, DTMF_DIGIT_LABELS } from "../../../utils/dtmfReportConstants";
 import "./comprehensiveReports.css";
 import "./OffHoursReport.css";
 
@@ -104,12 +110,37 @@ const OFF_HOURS_CATEGORY_OPTIONS = [
   { value: "weekday_after_hours", label: "Weekday After Hours" },
 ];
 
+const missedCallSource = (r) =>
+  r.call_source || r.caller_display || r.caller_phone || r.caller || "—";
+
+const missedCallDestination = (r) =>
+  r.call_destination || r.destination || r.cdr_dst || r.cdr_did || "—";
+
+const missedCallEmergency = (r) =>
+  r.emergency_number_label ||
+  r.emergency_number ||
+  r.routed_to_label ||
+  r.routed_to ||
+  "—";
+
 const OFF_HOURS_CATEGORY_COLORS = {
   public_holiday: "#e91e63",
   sunday: "#9c27b0",
   saturday_outside_hours: "#ff9800",
   weekday_after_hours: "#2196f3",
 };
+
+const DTMF_CHART_COLORS = [
+  "#6366f1",
+  "#8b5cf6",
+  "#ec4899",
+  "#f97316",
+  "#eab308",
+  "#22c55e",
+  "#14b8a6",
+  "#3b82f6",
+  "#a855f7",
+];
 
 const OFF_HOURS_SUMMARY_CARDS = [
   { key: "total", label: "Total Off-Hours", color: "#374151" },
@@ -200,6 +231,22 @@ async function fetchOffHoursFallback(startDate, endDate, source) {
   return { summary: buildSummary(records), records };
 }
 
+const OPTIONAL_DATE_TABS = new Set([
+  REPORT_TYPES.IVR_INTERACTIONS,
+  REPORT_TYPES.DTMF_USAGE,
+  REPORT_TYPES.MISSED_CALL,
+  REPORT_TYPES.CHATS,
+]);
+
+const SKIP_AUTO_FETCH_TABS = new Set([
+  REPORT_TYPES.PAUSE,
+  REPORT_TYPES.LIVESTREAM,
+  REPORT_TYPES.OFF_HOURS,
+  REPORT_TYPES.SLA_CALL_CENTER,
+  REPORT_TYPES.SLA_TICKET,
+  REPORT_TYPES.TICKET_WORKFLOW_TAT,
+]);
+
 export default function ComprehensiveReports() {
   const navigate = useNavigate();
   const { reportSlug } = useParams();
@@ -208,8 +255,6 @@ export default function ComprehensiveReports() {
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [reportsPerPage] = useState(10);
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
@@ -272,7 +317,7 @@ export default function ComprehensiveReports() {
     avgDuration: 0,
   });
 
-  const fetchReports = async () => {
+  const fetchReports = useCallback(async () => {
     setLoading(true);
     try {
       let endpoint = "";
@@ -313,11 +358,18 @@ export default function ComprehensiveReports() {
           endpoint = `${baseURL}/reports/call-summary/${startDate}/${endDate}`;
           break;
         case REPORT_TYPES.IVR_INTERACTIONS:
-          if (!startDate || !endDate) {
-            throw new Error("Please select start and end dates");
-          }
-          endpoint = `${baseURL}/reports/ivr-interactions/${startDate}/${endDate}`;
+          endpoint =
+            startDate && endDate
+              ? `${baseURL}/reports/ivr-interactions/${startDate}/${endDate}`
+              : `${baseURL}/reports/ivr-interactions`;
           break;
+        case REPORT_TYPES.DTMF_USAGE: {
+          const q = new URLSearchParams();
+          if (startDate) q.set("startDate", startDate);
+          if (endDate) q.set("endDate", endDate);
+          endpoint = `${baseURL}/dtmf-stats${q.toString() ? `?${q.toString()}` : ""}`;
+          break;
+        }
         case REPORT_TYPES.TICKET_ASSIGNMENTS:
           if (!startDate || !endDate) {
             throw new Error("Please select start and end dates");
@@ -559,7 +611,11 @@ export default function ComprehensiveReports() {
       }
 
       const data = await response.json();
-      setReports(Array.isArray(data) ? data : []);
+      let list = Array.isArray(data) ? data : [];
+      if (activeTab === REPORT_TYPES.DTMF_USAGE) {
+        list = list.filter((row) => DTMF_DIGIT_LABELS[row.digit_pressed]);
+      }
+      setReports(list);
 
       // Calculate summary stats for call reports
       if (
@@ -576,7 +632,39 @@ export default function ComprehensiveReports() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [
+    activeTab,
+    startDate,
+    endDate,
+    disposition,
+    ticketStatus,
+    agentFilter,
+    missedCallStatusFilter,
+    offHoursSource,
+  ]);
+
+  useEffect(() => {
+    if (SKIP_AUTO_FETCH_TABS.has(activeTab)) return;
+    if (OPTIONAL_DATE_TABS.has(activeTab)) {
+      fetchReports();
+      return;
+    }
+    if (!isValidReportDateRange(startDate, endDate)) {
+      setReports([]);
+      return;
+    }
+    fetchReports();
+  }, [
+    activeTab,
+    startDate,
+    endDate,
+    disposition,
+    ticketStatus,
+    agentFilter,
+    missedCallStatusFilter,
+    offHoursSource,
+    fetchReports,
+  ]);
 
   const calculateCallStats = (data) => {
     if (!Array.isArray(data) || data.length === 0) {
@@ -769,7 +857,7 @@ export default function ComprehensiveReports() {
         head: [
           [
             "Sn",
-            "Caller ID",
+            "Source",
             "Routed To",
             "Date/Time",
             "Category",
@@ -797,7 +885,9 @@ export default function ComprehensiveReports() {
         head: [
           [
             "Sn",
-            "Caller ID",
+            "Source",
+            "Destination",
+            "Emergency Number",
             "Date/Time",
             "Category",
             "Callback Status",
@@ -807,7 +897,9 @@ export default function ComprehensiveReports() {
         ],
         body: filteredReports.map((r, idx) => [
           idx + 1,
-          r.caller_display || r.caller || "-",
+          missedCallSource(r),
+          missedCallDestination(r),
+          missedCallEmergency(r),
           getOffHoursTimestamp(r)
             ? new Date(getOffHoursTimestamp(r)).toLocaleString()
             : "-",
@@ -862,7 +954,7 @@ export default function ComprehensiveReports() {
     if (offHoursSource === "cdr") {
       rows = filteredReports.map((r, idx) => ({
         Sn: idx + 1,
-        "Caller ID": r.caller_display || r.clid || "-",
+        Source: r.caller_display || r.clid || "-",
         "Routed To": r.routed_to_label || r.routed_to || "-",
         "Date/Time": getOffHoursTimestamp(r)
           ? new Date(getOffHoursTimestamp(r)).toLocaleString()
@@ -874,7 +966,9 @@ export default function ComprehensiveReports() {
     } else if (offHoursSource === "missed-calls") {
       rows = filteredReports.map((r, idx) => ({
         Sn: idx + 1,
-        "Caller ID": r.caller_display || r.caller || "-",
+        Source: missedCallSource(r),
+        Destination: missedCallDestination(r),
+        "Emergency Number": missedCallEmergency(r),
         "Date/Time": getOffHoursTimestamp(r)
           ? new Date(getOffHoursTimestamp(r)).toLocaleString()
           : "-",
@@ -1249,9 +1343,20 @@ export default function ComprehensiveReports() {
       case REPORT_TYPES.IVR_INTERACTIONS:
         return [
           { key: "serial", label: "Serial No", default: true },
-          { key: "callerId", label: "Caller ID", default: true },
-          { key: "digitPressed", label: "Digit Pressed", default: true },
+          { key: "dtmfDigit", label: "DTMF Digit", default: true },
+          { key: "actionName", label: "Action Name", default: true },
+          { key: "parameter", label: "Parameter", default: true },
+          { key: "ivrVoice", label: "IVR Voice", default: true },
+          { key: "language", label: "Language", default: true },
           { key: "menuContext", label: "Menu Context", default: true },
+          { key: "createdAt", label: "Created At", default: true },
+        ];
+      case REPORT_TYPES.DTMF_USAGE:
+        return [
+          { key: "serial", label: "Serial No", default: true },
+          { key: "digitPressed", label: "Digit", default: true },
+          { key: "dtmfAction", label: "DTMF Action", default: true },
+          { key: "callerId", label: "Caller ID", default: true },
           { key: "language", label: "Language", default: true },
           { key: "timestamp", label: "Timestamp", default: true },
         ];
@@ -1376,10 +1481,6 @@ export default function ComprehensiveReports() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
-  useEffect(() => {
-    setExpandedTicketId(null);
-  }, [currentPage, activeTab]);
-
   const handleColumnToggle = (columnKey) => {
     setSelectedColumns((prev) => {
       const current = prev[activeTab] || [];
@@ -1491,6 +1592,25 @@ export default function ComprehensiveReports() {
           (report.message || "").toLowerCase().includes(searchLower) ||
           (report.status || "").toLowerCase().includes(searchLower)
         );
+      case REPORT_TYPES.IVR_INTERACTIONS:
+        return (
+          String(report.dtmf_digit || "").includes(searchLower) ||
+          (report.action?.name || "").toLowerCase().includes(searchLower) ||
+          (report.parameter || "").toLowerCase().includes(searchLower) ||
+          (report.voice?.file_name || "").toLowerCase().includes(searchLower) ||
+          (report.menu_context || "").toLowerCase().includes(searchLower) ||
+          (report.language || "").toLowerCase().includes(searchLower)
+        );
+      case REPORT_TYPES.DTMF_USAGE:
+        if (!DTMF_DIGIT_LABELS[report.digit_pressed]) return false;
+        return (
+          String(report.digit_pressed || "").includes(searchLower) ||
+          getDtmfActionLabel(report.digit_pressed)
+            .toLowerCase()
+            .includes(searchLower) ||
+          (report.caller_id || "").toLowerCase().includes(searchLower) ||
+          (report.language || "").toLowerCase().includes(searchLower)
+        );
       case REPORT_TYPES.OFF_HOURS: {
         const phone = (
           report.caller_display ||
@@ -1513,12 +1633,31 @@ export default function ComprehensiveReports() {
     }
   });
 
-  const indexOfLastReport = currentPage * reportsPerPage;
-  const indexOfFirstReport = indexOfLastReport - reportsPerPage;
-  const currentReports = filteredReports.slice(
-    indexOfFirstReport,
-    indexOfLastReport
-  );
+  const { paginatedItems: currentReports, paginationProps, resetPage, page, rowsPerPage } =
+    useReportTablePagination(filteredReports);
+
+  useEffect(() => {
+    resetPage();
+  }, [
+    filteredReports.length,
+    activeTab,
+    startDate,
+    endDate,
+    search,
+    disposition,
+    ticketStatus,
+    agentFilter,
+    missedCallStatusFilter,
+    offHoursCategoryFilter,
+    playedFilter,
+    priorityFilter,
+    categoryFilter,
+    resetPage,
+  ]);
+
+  useEffect(() => {
+    setExpandedTicketId(null);
+  }, [page, activeTab]);
 
   const getAssignedAgentDisplay = (report) => {
     if (report.assigned_extension) {
@@ -1546,7 +1685,7 @@ export default function ComprehensiveReports() {
       case REPORT_TYPES.VOICE_NOTE:
         switch (columnKey) {
           case "serial":
-            return index + 1;
+            return page * rowsPerPage + index + 1;
           case "phone":
             return report.clid || "-";
           case "date":
@@ -1565,7 +1704,7 @@ export default function ComprehensiveReports() {
       case REPORT_TYPES.CDR:
         switch (columnKey) {
           case "serial":
-            return index + 1;
+            return page * rowsPerPage + index + 1;
           case "callerId":
             return report.clid || "-";
           case "source":
@@ -1600,7 +1739,7 @@ export default function ComprehensiveReports() {
       case REPORT_TYPES.TICKET_CRM:
         switch (columnKey) {
           case "serial":
-            return index + 1;
+            return page * rowsPerPage + index + 1;
           case "ticketNumber":
             return report.ticket_number || report.ticket_id || "-";
           case "id":
@@ -1800,7 +1939,7 @@ export default function ComprehensiveReports() {
       case REPORT_TYPES.AGENT_PERFORMANCE:
         switch (columnKey) {
           case "serial":
-            return index + 1;
+            return page * rowsPerPage + index + 1;
           case "agent":
             return report.agent_name || "-";
           case "totalCalls":
@@ -1821,7 +1960,7 @@ export default function ComprehensiveReports() {
       case REPORT_TYPES.CALL_SUMMARY:
         switch (columnKey) {
           case "serial":
-            return index + 1;
+            return page * rowsPerPage + index + 1;
           case "date":
             return report.date
               ? new Date(report.date).toLocaleDateString()
@@ -1844,18 +1983,41 @@ export default function ComprehensiveReports() {
       case REPORT_TYPES.IVR_INTERACTIONS:
         switch (columnKey) {
           case "serial":
-            return index + 1;
-          case "callerId":
-            return report.caller_id || "-";
-          case "digitPressed":
-            return report.digit_pressed || "-";
+            return page * rowsPerPage + index + 1;
+          case "dtmfDigit":
+            return report.dtmf_digit ?? "-";
+          case "actionName":
+            return report.action?.name || "-";
+          case "parameter":
+            return report.parameter || "-";
+          case "ivrVoice":
+            return report.voice?.file_name || "-";
+          case "language":
+            return report.language || "-";
           case "menuContext":
             return report.menu_context || "-";
+          case "createdAt":
+            return report.createdAt
+              ? new Date(report.createdAt).toLocaleString()
+              : "-";
+          default:
+            return "-";
+        }
+      case REPORT_TYPES.DTMF_USAGE:
+        switch (columnKey) {
+          case "serial":
+            return page * rowsPerPage + index + 1;
+          case "digitPressed":
+            return report.digit_pressed ?? "-";
+          case "dtmfAction":
+            return getDtmfActionLabel(report.digit_pressed);
+          case "callerId":
+            return report.caller_id || "-";
           case "language":
             return report.language || "-";
           case "timestamp":
             return report.timestamp
-              ? new Date(report.timestamp).toLocaleString()
+              ? new Date(String(report.timestamp).replace(" ", "T")).toLocaleString()
               : "-";
           default:
             return "-";
@@ -1863,7 +2025,7 @@ export default function ComprehensiveReports() {
       case REPORT_TYPES.TICKET_ASSIGNMENTS:
         switch (columnKey) {
           case "serial":
-            return index + 1;
+            return page * rowsPerPage + index + 1;
           case "ticketNumber":
             return report.ticket_number || "-";
           case "ticketSubject":
@@ -1920,7 +2082,7 @@ export default function ComprehensiveReports() {
       case REPORT_TYPES.MISSED_CALL:
         switch (columnKey) {
           case "serial":
-            return index + 1;
+            return page * rowsPerPage + index + 1;
           case "caller":
             return report.caller || "-";
           case "time":
@@ -1941,7 +2103,7 @@ export default function ComprehensiveReports() {
       case REPORT_TYPES.ESCALLATION:
         switch (columnKey) {
           case "serial":
-            return index + 1;
+            return page * rowsPerPage + index + 1;
           case "ticketNumber":
             return report.ticket_id || report.ticket_number || "-";
           case "subject":
@@ -1968,7 +2130,7 @@ export default function ComprehensiveReports() {
       case REPORT_TYPES.NOTIFICATIONS:
         switch (columnKey) {
           case "serial":
-            return index + 1;
+            return page * rowsPerPage + index + 1;
           case "ticketNumber":
             return report.ticket?.ticket_id || report.ticket_id || "-";
           case "ticketSubject":
@@ -2001,7 +2163,7 @@ export default function ComprehensiveReports() {
       case REPORT_TYPES.CHATS:
         switch (columnKey) {
           case "serial":
-            return index + 1;
+            return page * rowsPerPage + index + 1;
           case "sender":
             return report.senderId || "-";
           case "receiver":
@@ -2403,7 +2565,6 @@ export default function ComprehensiveReports() {
     const nextType = slugToType(reportSlug);
     setActiveTab(nextType);
     setReports([]);
-    setCurrentPage(1);
     setSearch("");
     setOffHoursSummary(null);
     setOffHoursPlayingId(null);
@@ -2561,8 +2722,8 @@ export default function ComprehensiveReports() {
             No records found.
           </Typography>
           <Typography variant="body2" color="textSecondary">
-            {!startDate || !endDate
-              ? "Please select date range and click 'Load Report'"
+            {!OPTIONAL_DATE_TABS.has(activeTab) && (!startDate || !endDate)
+              ? "Select start and end dates to view this report."
               : "Try adjusting your filters or date range"}
           </Typography>
         </div>
@@ -2581,7 +2742,9 @@ export default function ComprehensiveReports() {
       case REPORT_TYPES.CALL_SUMMARY:
         return renderCallSummaryTable();
       case REPORT_TYPES.IVR_INTERACTIONS:
-        return renderIVRTable();
+        return renderIvrInteractionsTable();
+      case REPORT_TYPES.DTMF_USAGE:
+        return renderDtmfUsageTable();
       case REPORT_TYPES.TICKET_ASSIGNMENTS:
         return renderTicketAssignmentsTable();
       case REPORT_TYPES.MISSED_CALL:
@@ -2616,7 +2779,9 @@ export default function ComprehensiveReports() {
             <thead>
               <tr>
                 <th>Sn</th>
-                <th>Caller ID</th>
+                <th>Source</th>
+                <th>Destination</th>
+                <th>Emergency Number</th>
                 <th>Date/Time</th>
                 <th>Category</th>
                 <th>Callback Status</th>
@@ -2638,8 +2803,12 @@ export default function ComprehensiveReports() {
                       backgroundColor: pending ? "#fff3cd" : "#d4edda",
                     }}
                   >
-                    <td>{indexOfFirstReport + index + 1}</td>
-                    <td>{phone || "-"}</td>
+                    <td>{page * rowsPerPage + index + 1}</td>
+                    <td>{missedCallSource(record)}</td>
+                    <td>{missedCallDestination(record)}</td>
+                    <td title={record.emergency_number_label || ""}>
+                      {missedCallEmergency(record)}
+                    </td>
                     <td>
                       {getOffHoursTimestamp(record)
                         ? new Date(
@@ -2715,9 +2884,8 @@ export default function ComprehensiveReports() {
           <thead>
             <tr>
               <th>Sn</th>
-              <th>Caller ID</th>
+              <th>Source</th>
               <th>Routed To</th>
-              <th>Destination</th>
               <th>Date/Time</th>
               <th>Category</th>
               <th>Disposition</th>
@@ -2727,18 +2895,13 @@ export default function ComprehensiveReports() {
           <tbody>
             {currentReports.map((record, index) => (
               <tr key={record.id || index}>
-                <td>{indexOfFirstReport + index + 1}</td>
+                <td>{page * rowsPerPage + index + 1}</td>
                 <td>{record.caller_display || record.clid || "-"}</td>
                 <td>
                   {record.routed_to_label || record.routed_to || "—"}
                   {record.is_emergency_route && (
                     <span className="off-hours-emergency-tag"> Emergency</span>
                   )}
-                </td>
-                <td>
-                  {record.destination_display ||
-                    record.routed_to_label ||
-                    "—"}
                 </td>
                 <td>
                   {getOffHoursTimestamp(record)
@@ -2803,7 +2966,7 @@ export default function ComprehensiveReports() {
                     ),
                   }}
                 >
-                  <td>{indexOfFirstReport + index + 1}</td>
+                  <td>{page * rowsPerPage + index + 1}</td>
                   <td>{record.id}</td>
                   <td>{record.caller_display || record.clid || "-"}</td>
                   <td>
@@ -2883,7 +3046,7 @@ export default function ComprehensiveReports() {
       <tbody>
         {currentReports.map((report, index) => (
           <tr key={report.id || index}>
-            <td>{indexOfFirstReport + index + 1}</td>
+            <td>{page * rowsPerPage + index + 1}</td>
             <td>{report.caller || "-"}</td>
             <td>
               {report.time
@@ -3200,7 +3363,7 @@ export default function ComprehensiveReports() {
               {selectedColumnsDef.map((col) => {
                 if (col.key === "serial") {
                   return (
-                    <td key={col.key}>{indexOfFirstReport + index + 1}</td>
+                    <td key={col.key}>{page * rowsPerPage + index + 1}</td>
                   );
                 }
                 const value = getColumnValue(col.key, report, index);
@@ -3245,7 +3408,7 @@ export default function ComprehensiveReports() {
       <tbody>
         {currentReports.map((report, index) => (
           <tr key={report.id || index}>
-            <td>{indexOfFirstReport + index + 1}</td>
+            <td>{page * rowsPerPage + index + 1}</td>
             <td>{report.clid || "-"}</td>
             <td>{report.src || "-"}</td>
             <td>{report.dst || "-"}</td>
@@ -3493,7 +3656,7 @@ export default function ComprehensiveReports() {
       <tbody>
         {currentReports.map((report, index) => (
           <tr key={report.id || index}>
-            <td>{indexOfFirstReport + index + 1}</td>
+            <td>{page * rowsPerPage + index + 1}</td>
             <td>{report.agent_name || "-"}</td>
             <td>{report.total_calls || 0}</td>
             <td>{report.answered_calls || 0}</td>
@@ -3524,7 +3687,7 @@ export default function ComprehensiveReports() {
       <tbody>
         {currentReports.map((report, index) => (
           <tr key={report.id || index}>
-            <td>{indexOfFirstReport + index + 1}</td>
+            <td>{page * rowsPerPage + index + 1}</td>
             <td>
               {report.date ? new Date(report.date).toLocaleDateString() : "-"}
             </td>
@@ -3540,42 +3703,172 @@ export default function ComprehensiveReports() {
     </table>
   );
 
-  const renderIVRTable = () => (
-    <table className="report-table">
-      <thead>
-        <tr>
-          <th>Sn</th>
-          <th>Caller ID</th>
-          <th>Digit Pressed</th>
-          <th>Menu Context</th>
-          <th>Language</th>
-          <th>Timestamp</th>
-        </tr>
-      </thead>
-      <tbody>
-        {currentReports.map((report, index) => (
-          <tr key={report.id || index}>
-            <td>{indexOfFirstReport + index + 1}</td>
-            <td>{report.caller_id || "-"}</td>
-            <td>{report.digit_pressed || "-"}</td>
-            <td>{report.menu_context || "-"}</td>
-            <td>
-              <Chip
-                label={report.language || "-"}
-                size="small"
-                color={report.language === "english" ? "primary" : "secondary"}
-              />
-            </td>
-            <td>
-              {report.timestamp
-                ? new Date(report.timestamp).toLocaleString()
-                : "-"}
-            </td>
+  const renderIvrInteractionsTable = () => {
+    const columns = getColumnDefinitions();
+    const selected = selectedColumns[activeTab] || [];
+    const selectedColumnsDef = columns.filter((col) =>
+      selected.includes(col.key)
+    );
+
+    return (
+      <table className="report-table">
+        <thead>
+          <tr>
+            {selectedColumnsDef.map((col) => (
+              <th key={col.key}>{col.label}</th>
+            ))}
           </tr>
-        ))}
-      </tbody>
-    </table>
-  );
+        </thead>
+        <tbody>
+          {currentReports.map((report, index) => (
+            <tr key={report.id || index}>
+              {selectedColumnsDef.map((col) => (
+                <td key={col.key}>
+                  {col.key === "language" ? (
+                    <Chip
+                      label={getColumnValue(col.key, report, index)}
+                      size="small"
+                      color={
+                        report.language === "english" ? "primary" : "secondary"
+                      }
+                    />
+                  ) : (
+                    getColumnValue(col.key, report, index)
+                  )}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  };
+
+  const dtmfChartData = useMemo(() => {
+    if (activeTab !== REPORT_TYPES.DTMF_USAGE) {
+      return { digits: [], digitNames: [], digitCounts: [], maxValue: 1, total: 0 };
+    }
+    const countMap = {};
+    filteredReports.forEach((row) => {
+      const digit = row.digit_pressed;
+      if (!DTMF_DIGIT_LABELS[digit]) return;
+      countMap[digit] = (countMap[digit] || 0) + 1;
+    });
+    const digits = Object.keys(countMap).sort();
+    const digitNames = digits.map((d) => DTMF_DIGIT_LABELS[d]);
+    const digitCounts = digits.map((d) => countMap[d]);
+    const maxValue = Math.max(...digitCounts, 1);
+    const total = digitCounts.reduce((sum, n) => sum + n, 0);
+    return { digits, digitNames, digitCounts, maxValue, total };
+  }, [activeTab, filteredReports]);
+
+  const renderDtmfUsageCharts = () => {
+    const { digits, digitNames, digitCounts, maxValue, total } = dtmfChartData;
+    if (digits.length === 0) return null;
+
+    const radialOptions = {
+      chart: { type: "radialBar", height: 420 },
+      plotOptions: {
+        radialBar: {
+          hollow: { size: "55%" },
+          dataLabels: {
+            total: {
+              show: true,
+              label: "Total",
+              formatter: () => total,
+            },
+          },
+        },
+      },
+      labels: digitNames,
+      colors: digits.map((_, i) => DTMF_CHART_COLORS[i % DTMF_CHART_COLORS.length]),
+    };
+
+    const barOptions = {
+      chart: { type: "bar", height: 420 },
+      plotOptions: {
+        bar: { horizontal: true, distributed: true, borderRadius: 6 },
+      },
+      xaxis: { categories: digitNames, max: maxValue + 2 },
+      colors: digits.map((_, i) => DTMF_CHART_COLORS[i % DTMF_CHART_COLORS.length]),
+      legend: { show: true, position: "bottom" },
+    };
+
+    return (
+      <Card className="dtmf-charts-card">
+        <CardContent>
+          <Typography variant="h6" className="dtmf-charts-heading" align="center">
+            IVR DTMF Usage Report
+          </Typography>
+          <div className="dtmf-charts-grid">
+            <div className="dtmf-chart-panel">
+              <Typography variant="subtitle1" align="center" gutterBottom>
+                Radial Chart
+              </Typography>
+              <ReactApexChart
+                options={radialOptions}
+                series={digitCounts}
+                type="radialBar"
+                height={420}
+              />
+            </div>
+            <div className="dtmf-chart-panel">
+              <Typography variant="subtitle1" align="center" gutterBottom>
+                Bar Chart
+              </Typography>
+              <ReactApexChart
+                options={barOptions}
+                series={[{ data: digitCounts }]}
+                type="bar"
+                height={420}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const renderDtmfUsageTable = () => {
+    const columns = getColumnDefinitions();
+    const selected = selectedColumns[activeTab] || [];
+    const selectedColumnsDef = columns.filter((col) =>
+      selected.includes(col.key)
+    );
+
+    return (
+      <table className="report-table">
+        <thead>
+          <tr>
+            {selectedColumnsDef.map((col) => (
+              <th key={col.key}>{col.label}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {currentReports.map((report, index) => (
+            <tr key={`${report.caller_id}-${report.timestamp}-${index}`}>
+              {selectedColumnsDef.map((col) => (
+                <td key={col.key}>
+                  {col.key === "language" ? (
+                    <Chip
+                      label={getColumnValue(col.key, report, index)}
+                      size="small"
+                      color={
+                        report.language === "english" ? "primary" : "secondary"
+                      }
+                    />
+                  ) : (
+                    getColumnValue(col.key, report, index)
+                  )}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  };
 
   const renderTicketAssignmentsTable = () => {
     const columns = getColumnDefinitions();
@@ -3706,6 +3999,8 @@ export default function ComprehensiveReports() {
 
       {activeTab === REPORT_TYPES.PAUSE ? (
         <PauseReport embedded />
+      ) : activeTab === REPORT_TYPES.LIVESTREAM ? (
+        <Livestream />
       ) : activeTab === REPORT_TYPES.OFF_HOURS ? (
         <OffHoursReport />
       ) : activeTab === REPORT_TYPES.SLA_CALL_CENTER ? (
@@ -3890,7 +4185,6 @@ export default function ComprehensiveReports() {
                         setOffHoursSource(e.target.value);
                         setReports([]);
                         setOffHoursSummary(null);
-                        setCurrentPage(1);
                       }}
                     >
                       <MenuItem value="voice-notes">Voice Notes</MenuItem>
@@ -3908,7 +4202,6 @@ export default function ComprehensiveReports() {
                       label="Category"
                       onChange={(e) => {
                         setOffHoursCategoryFilter(e.target.value);
-                        setCurrentPage(1);
                       }}
                     >
                       {OFF_HOURS_CATEGORY_OPTIONS.map((opt) => (
@@ -3923,23 +4216,6 @@ export default function ComprehensiveReports() {
             </div>
 
             <div className="action-buttons">
-              <Button
-                variant="contained"
-                color="primary"
-                startIcon={<Refresh />}
-                onClick={fetchReports}
-                disabled={
-                  loading ||
-                  (activeTab !== REPORT_TYPES.IVR_INTERACTIONS &&
-                    activeTab !== REPORT_TYPES.MISSED_CALL &&
-                    activeTab !== REPORT_TYPES.ESCALLATION &&
-                    activeTab !== REPORT_TYPES.NOTIFICATIONS &&
-                    activeTab !== REPORT_TYPES.CHATS &&
-                    (!startDate || !endDate))
-                }
-              >
-                Load Report
-              </Button>
               {filteredReports.length > 0 &&
                 activeTab !== REPORT_TYPES.OFF_HOURS && (
                 <Button
@@ -3994,6 +4270,10 @@ export default function ComprehensiveReports() {
                   ? "Search by sender, receiver, or message..."
                   : activeTab === REPORT_TYPES.OFF_HOURS
                   ? "Search by phone or routed destination..."
+                  : activeTab === REPORT_TYPES.IVR_INTERACTIONS
+                  ? "Search DTMF, action, parameter, voice..."
+                  : activeTab === REPORT_TYPES.DTMF_USAGE
+                  ? "Search digit, action, caller, language..."
                   : "Search..."
               }
               value={search}
@@ -4009,6 +4289,8 @@ export default function ComprehensiveReports() {
           </div>
         </CardContent>
       </Card>
+
+      {activeTab === REPORT_TYPES.DTMF_USAGE && renderDtmfUsageCharts()}
 
       {/* Report Table */}
       <Card className="table-card">
@@ -4035,37 +4317,7 @@ export default function ComprehensiveReports() {
 
       {/* Pagination */}
       {filteredReports.length > 0 && (
-        <div className="pagination-container">
-          <Button
-            onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-            disabled={currentPage === 1}
-            variant="outlined"
-            size="small"
-          >
-            ← Previous
-          </Button>
-          <Typography variant="body2" className="pagination-info">
-            Page {currentPage} of{" "}
-            {Math.ceil(filteredReports.length / reportsPerPage)}
-          </Typography>
-          <Button
-            onClick={() =>
-              setCurrentPage(
-                Math.min(
-                  Math.ceil(filteredReports.length / reportsPerPage),
-                  currentPage + 1
-                )
-              )
-            }
-            disabled={
-              currentPage === Math.ceil(filteredReports.length / reportsPerPage)
-            }
-            variant="outlined"
-            size="small"
-          >
-            Next →
-          </Button>
-        </div>
+        <ReportTablePagination {...paginationProps} className="pagination-container" />
       )}
         </>
       )}
@@ -4075,6 +4327,7 @@ export default function ComprehensiveReports() {
         open={
           columnDialogOpen &&
           activeTab !== REPORT_TYPES.PAUSE &&
+          activeTab !== REPORT_TYPES.LIVESTREAM &&
           activeTab !== REPORT_TYPES.SLA_CALL_CENTER &&
           activeTab !== REPORT_TYPES.SLA_TICKET &&
           activeTab !== REPORT_TYPES.TICKET_WORKFLOW_TAT

@@ -19,7 +19,7 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { PictureAsPdf, Refresh, TableChart } from "@mui/icons-material";
+import { PictureAsPdf, TableChart } from "@mui/icons-material";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -32,7 +32,9 @@ import {
 import "./pauseReport.css";
 import WcfLoader from "../../../components/shared/WcfLoader";
 import ReportDateRangePicker from "../../../components/shared/ReportDateRangePicker";
-import { todayApiDate } from "../../../utils/reportDateUtils";
+import ReportTablePagination from "../../../components/shared/ReportTablePagination";
+import useReportTablePagination from "../../../hooks/useReportTablePagination";
+import { isValidReportDateRange } from "../../../utils/reportDateUtils";
 
 const formatDateTime = (value) => {
   if (!value) return "—";
@@ -70,8 +72,8 @@ export default function PauseReport({ embedded = false }) {
     role || ""
   );
 
-  const [startDate, setStartDate] = useState(todayApiDate());
-  const [endDate, setEndDate] = useState(todayApiDate());
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [agentFilter, setAgentFilter] = useState("all");
   const [agents, setAgents] = useState([]);
   const [sessions, setSessions] = useState([]);
@@ -137,6 +139,21 @@ export default function PauseReport({ embedded = false }) {
   useEffect(() => {
     fetchAgents();
   }, [fetchAgents]);
+
+  useEffect(() => {
+    if (!isValidReportDateRange(startDate, endDate)) {
+      setSessions([]);
+      return;
+    }
+    fetchReport();
+  }, [startDate, endDate, agentFilter, fetchReport]);
+
+  const { paginatedItems: paginatedSessions, paginationProps, resetPage } =
+    useReportTablePagination(sessions);
+
+  useEffect(() => {
+    resetPage();
+  }, [sessions.length, startDate, endDate, agentFilter, resetPage]);
 
   const getExportRows = () => sessions.map(mapSessionToRow);
 
@@ -222,14 +239,6 @@ export default function PauseReport({ embedded = false }) {
         )}
         <div className="pause-report-actions">
           <Button
-            variant="contained"
-            startIcon={<Refresh />}
-            onClick={fetchReport}
-            disabled={loading || !startDate || !endDate}
-          >
-            Load Report
-          </Button>
-          <Button
             variant="outlined"
             startIcon={<PictureAsPdf />}
             onClick={handleExportPDF}
@@ -258,6 +267,10 @@ export default function PauseReport({ embedded = false }) {
         <div className="wcf-loading-container">
           <WcfLoader size="md" message="Loading pause report..." label="Loading pause report" />
         </div>
+      ) : !isValidReportDateRange(startDate, endDate) ? (
+        <p className="sla-report-empty-hint">
+          Select start and end dates to view pause sessions.
+        </p>
       ) : (
         <TableContainer component={Paper} className="pause-report-table-wrap">
           <Table size="small" className="pause-report-table">
@@ -281,7 +294,7 @@ export default function PauseReport({ embedded = false }) {
                   </TableCell>
                 </TableRow>
               ) : (
-                sessions.map((row) => (
+                paginatedSessions.map((row) => (
                   <TableRow
                     key={row.id}
                     className={
@@ -325,6 +338,7 @@ export default function PauseReport({ embedded = false }) {
               )}
             </TableBody>
           </Table>
+          <ReportTablePagination {...paginationProps} />
         </TableContainer>
       )}
 

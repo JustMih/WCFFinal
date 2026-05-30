@@ -37,13 +37,11 @@ import HolidayManager from "../call-center-pages/cal-center-ivr/HolidayManager";
 import EmegencyManager from "../call-center-pages/cal-center-ivr/EmergencyManager";
 import VoiceNotesReport from "../call-center-pages/cal-center-ivr/VoiceNotesReport";
 import CDRReports from "../call-center-pages/cal-center-ivr/CDRReports";
-import IVRInteractions from "../call-center-pages/cal-center-ivr/IVRInteractions";
-import Livestream from "../call-center-pages/cal-center-ivr/Livestream";
 import RecordedAudio from "../call-center-pages/cal-center-ivr/RecordedAudio";
 import Message from "../call-center-pages/call-center-social-message/CallCenterSocialMessage";
 import IvrCardsPage from "../call-center-pages/cal-center-ivr/IvrCardsPage";
 import IvrCategoryTabsPage from "../call-center-pages/cal-center-ivr/IvrCategoryTabsPage";
-import DTMFStats from "../call-center-pages/cal-center-ivr/DTMFStats";
+import VoiceNoteReport from "../call-center-pages/call-center-report/voice-note-report";
 import OffHoursReport from "../call-center-pages/call-center-report/OffHoursReport";
 import ComprehensiveReports from "../call-center-pages/call-center-report/ComprehensiveReports";
 import LegacyReportRedirect from "../call-center-pages/call-center-report/LegacyReportRedirect";
@@ -271,14 +269,20 @@ export default function Dashboard() {
                 <Route path="/ivr-emegency" element={<EmegencyManager />} />
 
                 <Route path="/voice-notes" element={<VoiceNotesReport />} />
+                <Route path="/cdr-reports" element={<VoiceNoteReport />} />
                 <Route
-                  path="/cdr-reports"
-                  element={<Navigate to="/reports/voice-note" replace />}
+                  path="/ivr-interactions"
+                  element={<Navigate to="/reports/ivr-interactions" replace />}
                 />
-                <Route path="/ivr-interactions" element={<IVRInteractions />} />
-                <Route path="/livestream" element={<Livestream />} />
+                <Route
+                  path="/livestream"
+                  element={<Navigate to="/reports/livestream" replace />}
+                />
                 <Route path="/recorded-audio" element={<RecordedAudio />} />
-                <Route path="/dtmf-stats" element={<DTMFStats />} />
+                <Route
+                  path="/dtmf-stats"
+                  element={<Navigate to="/reports/dtmf-usage" replace />}
+                />
                 <Route path="/off-hours-report" element={<OffHoursReport />} />
                 <Route path="/ivr-cards" element={<IvrCardsPage />} />
                 <Route path="/ivr-categories" element={<IvrCategoryTabsPage />} />
