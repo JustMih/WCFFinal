@@ -46,7 +46,10 @@ const LEGACY_TAB_MAP = {
 };
 
 export const slugToType = (slug) => {
-  const found = REPORTS.find((r) => r.slug === slug);
+  if (!slug) return REPORT_TYPES.VOICE_NOTE;
+  const lower = String(slug).toLowerCase();
+  if (LEGACY_TAB_MAP[lower] !== undefined) return LEGACY_TAB_MAP[lower];
+  const found = REPORTS.find((r) => r.slug === lower);
   return found ? found.type : REPORT_TYPES.VOICE_NOTE;
 };
 
@@ -55,8 +58,15 @@ export const typeToSlug = (type) => {
   return found ? found.slug : "voice-note";
 };
 
-export const getReportBySlug = (slug) =>
-  REPORTS.find((r) => r.slug === slug) || REPORTS[0];
+export const getReportBySlug = (slug) => {
+  if (!slug) return REPORTS[0];
+  const lower = String(slug).toLowerCase();
+  const legacyType = LEGACY_TAB_MAP[lower];
+  if (legacyType !== undefined) {
+    return REPORTS.find((r) => r.type === legacyType) || REPORTS[0];
+  }
+  return REPORTS.find((r) => r.slug === lower) || REPORTS[0];
+};
 
 export const getReportLabel = (type) => {
   const found = REPORTS.find((r) => r.type === type);

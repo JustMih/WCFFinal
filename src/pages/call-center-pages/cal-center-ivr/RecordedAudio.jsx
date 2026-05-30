@@ -259,8 +259,8 @@ const RecordedAudio = () => {
     <div className="recording-container">
       <h2 className="recording-title">Agent Call Recordings</h2>
       <p className="recording-subtitle">
-        Only calls answered by an agent (excludes IVR prompts, hold music, and
-        unconnected recordings).
+        Answered calls with a recording file from CDR. Agent extension and name
+        are shown when detected from the call leg.
       </p>
 
       {/* 🔍 FILTERS */}
@@ -337,12 +337,6 @@ const RecordedAudio = () => {
               ? ` · Dialed ${currentRec.dst}`
               : ""}
           </div>
-          {currentRec.file_found === false && (
-            <p className="recording-audio-warning">
-              Recording file not found on server yet. Try Download or contact IT
-              if the call was recorded.
-            </p>
-          )}
           {audioError && (
             <p className="recording-audio-error">{audioError}</p>
           )}

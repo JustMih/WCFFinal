@@ -22,7 +22,6 @@ import {
 import {
   REPORT_TYPES,
   REPORTS,
-  slugToType,
   getReportBySlug,
   getReportLabel,
 } from "./reportConfig";
@@ -239,8 +238,12 @@ async function fetchOffHoursFallback(startDate, endDate, source) {
 export default function ComprehensiveReports() {
   const navigate = useNavigate();
   const { reportSlug } = useParams();
-  const currentReport = getReportBySlug(reportSlug);
-  const [activeTab, setActiveTab] = useState(() => slugToType(reportSlug));
+  const normalizedReportSlug = reportSlug
+    ? String(reportSlug).toLowerCase()
+    : "";
+  const currentReport = getReportBySlug(normalizedReportSlug);
+  /** Always derived from URL — avoids stale tab state showing the wrong embedded view */
+  const activeTab = currentReport.type;
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
@@ -2487,8 +2490,6 @@ export default function ComprehensiveReports() {
       navigate("/reports/voice-note", { replace: true });
       return;
     }
-    const nextType = slugToType(reportSlug);
-    setActiveTab(nextType);
     setReports([]);
     setCurrentPage(1);
     setSearch("");
@@ -3907,6 +3908,9 @@ export default function ComprehensiveReports() {
             label="Report"
             value={currentReport.slug}
             onChange={handleReportSelect}
+            renderValue={(selected) =>
+              REPORTS.find((r) => r.slug === selected)?.label || selected
+            }
           >
             {REPORTS.map((r) => (
               <MenuItem key={r.slug} value={r.slug}>
@@ -3917,11 +3921,14 @@ export default function ComprehensiveReports() {
         </FormControl>
       </div>
 
-      {activeTab === REPORT_TYPES.PAUSE ? (
+      {normalizedReportSlug === "pause" ||
+      activeTab === REPORT_TYPES.PAUSE ? (
         <PauseReport embedded />
-      ) : activeTab === REPORT_TYPES.LIVESTREAM ? (
+      ) : normalizedReportSlug === "livestream" ||
+        activeTab === REPORT_TYPES.LIVESTREAM ? (
         <Livestream />
-      ) : activeTab === REPORT_TYPES.OFF_HOURS ? (
+      ) : normalizedReportSlug === "off-hours" ||
+        activeTab === REPORT_TYPES.OFF_HOURS ? (
         <OffHoursReport />
       ) : activeTab === REPORT_TYPES.SLA_CALL_CENTER ? (
         <CallCenterSlaReport embedded />
@@ -4228,7 +4235,10 @@ export default function ComprehensiveReports() {
         </CardContent>
       </Card>
 
-      {activeTab === REPORT_TYPES.DTMF_USAGE && renderDtmfUsageCharts()}
+      {(normalizedReportSlug === "dtmf-usage" ||
+        normalizedReportSlug === "dtmf-stats" ||
+        activeTab === REPORT_TYPES.DTMF_USAGE) &&
+        renderDtmfUsageCharts()}
 
       {/* Report Table */}
       <Card className="table-card">
