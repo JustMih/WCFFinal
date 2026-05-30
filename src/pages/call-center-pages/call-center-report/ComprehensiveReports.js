@@ -394,6 +394,30 @@ export default function ComprehensiveReports() {
           setLoading(false);
           return;
         }
+        case REPORT_TYPES.DROPPED_CALL: {
+          if (!startDate || !endDate) {
+            throw new Error("Please select start and end dates");
+          }
+          const q = new URLSearchParams();
+          if (disposition !== "all") q.set("disposition", disposition);
+          const droppedUrl = `${baseURL}/reports/dropped-calls-report/${startDate}/${endDate}${
+            q.toString() ? `?${q.toString()}` : ""
+          }`;
+          const droppedRes = await fetch(droppedUrl, { headers });
+          if (!droppedRes.ok) {
+            const errBody = await droppedRes.json().catch(() => ({}));
+            throw new Error(
+              errBody.message || errBody.error || "Failed to fetch dropped calls report"
+            );
+          }
+          const droppedData = await droppedRes.json();
+          const list = Array.isArray(droppedData)
+            ? droppedData
+            : droppedData.records || [];
+          setReports(list);
+          setLoading(false);
+          return;
+        }
         case REPORT_TYPES.ESCALLATION: {
           // Fetch escalation report from reports endpoint (similar to other reports)
           try {
@@ -1414,6 +1438,18 @@ export default function ComprehensiveReports() {
           { key: "agentId", label: "Assigned Agent", default: true },
           { key: "status", label: "Status", default: true },
         ];
+      case REPORT_TYPES.DROPPED_CALL:
+        return [
+          { key: "serial", label: "Serial No", default: true },
+          { key: "status", label: "Status", default: true },
+          { key: "caller", label: "Caller", default: true },
+          { key: "destination", label: "Destination", default: true },
+          { key: "agentExtension", label: "Agent Extension", default: true },
+          { key: "agentName", label: "Agent Name", default: true },
+          { key: "callTime", label: "Call Time", default: true },
+          { key: "durationMinutes", label: "Duration (min)", default: true },
+          { key: "disposition", label: "Disposition", default: true },
+        ];
       case REPORT_TYPES.ESCALLATION:
         return [
           { key: "serial", label: "Serial No", default: true },
@@ -1564,6 +1600,15 @@ export default function ComprehensiveReports() {
           (report.caller || "").toLowerCase().includes(searchLower) ||
           (report.agentId || "").toLowerCase().includes(searchLower) ||
           (report.agent_name || "").toLowerCase().includes(searchLower)
+        );
+      case REPORT_TYPES.DROPPED_CALL:
+        return (
+          (report.caller || "").toLowerCase().includes(searchLower) ||
+          (report.destination || "").toLowerCase().includes(searchLower) ||
+          (report.agent_extension || "").toLowerCase().includes(searchLower) ||
+          (report.agent_name || "").toLowerCase().includes(searchLower) ||
+          (report.status || "").toLowerCase().includes(searchLower) ||
+          (report.disposition || "").toLowerCase().includes(searchLower)
         );
       case REPORT_TYPES.ESCALLATION:
         return (
@@ -2099,6 +2144,33 @@ export default function ComprehensiveReports() {
             return "-";
           case "status":
             return report.status || "-";
+          default:
+            return report[columnKey] || "-";
+        }
+      case REPORT_TYPES.DROPPED_CALL:
+        switch (columnKey) {
+          case "serial":
+            return page * rowsPerPage + index + 1;
+          case "status":
+            return report.status || "DROPPED";
+          case "caller":
+            return report.caller || "-";
+          case "destination":
+            return report.destination || "-";
+          case "agentExtension":
+            return report.agent_extension ? `Ext ${report.agent_extension}` : "-";
+          case "agentName":
+            return report.agent_name || "-";
+          case "callTime":
+            return report.call_time
+              ? new Date(report.call_time).toLocaleString()
+              : "-";
+          case "durationMinutes":
+            return report.duration_minutes != null
+              ? String(report.duration_minutes)
+              : formatSecondsToMinutes(report.wait_seconds, false);
+          case "disposition":
+            return report.disposition || "-";
           default:
             return report[columnKey] || "-";
         }
@@ -2749,6 +2821,8 @@ export default function ComprehensiveReports() {
         return renderTicketAssignmentsTable();
       case REPORT_TYPES.MISSED_CALL:
         return renderMissedCallTable();
+      case REPORT_TYPES.DROPPED_CALL:
+        return renderDroppedCallTable();
       case REPORT_TYPES.ESCALLATION:
         return renderEscallationTable();
       case REPORT_TYPES.NOTIFICATIONS:
@@ -3076,6 +3150,57 @@ export default function ComprehensiveReports() {
       </tbody>
     </table>
   );
+
+  const renderDroppedCallTable = () => {
+    const columns = getColumnDefinitions();
+    const selected = selectedColumns[activeTab] || [];
+    const selectedColumnsDef = columns.filter((col) =>
+      selected.includes(col.key)
+    );
+
+    return (
+      <table className="report-table">
+        <thead>
+          <tr>
+            {selectedColumnsDef.map((col) => (
+              <th key={col.key}>{col.label}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {currentReports.map((report, index) => (
+            <tr key={report.id || report.session_id || index}>
+              {selectedColumnsDef.map((col) => (
+                <td key={col.key}>
+                  {col.key === "status" ? (
+                    <Chip
+                      label={getColumnValue(col.key, report, index)}
+                      size="small"
+                      color="warning"
+                    />
+                  ) : col.key === "disposition" ? (
+                    <Chip
+                      label={report.disposition || "-"}
+                      size="small"
+                      color={
+                        report.disposition === "NO ANSWER"
+                          ? "warning"
+                          : report.disposition === "BUSY"
+                          ? "error"
+                          : "default"
+                      }
+                    />
+                  ) : (
+                    getColumnValue(col.key, report, index)
+                  )}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    );
+  };
 
   const renderEscallationTable = () => {
     const columns = getColumnDefinitions();
@@ -4153,7 +4278,8 @@ export default function ComprehensiveReports() {
                 </FormControl>
               )}
 
-              {activeTab === REPORT_TYPES.CDR && (
+              {(activeTab === REPORT_TYPES.CDR ||
+                activeTab === REPORT_TYPES.DROPPED_CALL) && (
                 <FormControl
                   size="small"
                   className="filter-field"
@@ -4358,6 +4484,8 @@ export default function ComprehensiveReports() {
                   ? "Search by agent name..."
                   : activeTab === REPORT_TYPES.MISSED_CALL
                   ? "Search by caller or agent ID..."
+                  : activeTab === REPORT_TYPES.DROPPED_CALL
+                  ? "Search by caller, destination, agent, or status..."
                   : activeTab === REPORT_TYPES.ESCALLATION
                   ? "Search by ticket number, subject, status, or category..."
                   : activeTab === REPORT_TYPES.NOTIFICATIONS
