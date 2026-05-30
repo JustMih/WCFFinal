@@ -39,6 +39,7 @@ import AdvancedTicketCreateModal from "../../../../components/ticket/AdvancedTic
 import VoiceNotesReport from "../../cal-center-ivr/VoiceNotesReport";
 import {
   fetchVoiceNotes,
+  isVoiceNotePlayed,
   VOICE_NOTE_PLAYED_EVENT,
   PLAYED_VOICE_NOTES_KEY,
 } from "../../../../utils/voiceNotePlayed";
@@ -402,34 +403,35 @@ useEffect(() => {
     })();
   }, []);
 
-  // ---------- Voice notes ----------
-  useEffect(() => {
-    const loadVoiceNotes = async () => {
-      try {
-        const agentId = localStorage.getItem("userId");
-        const notes = await fetchVoiceNotes({
-          agentId,
-          unplayedOnly: true,
-        });
-        setVoiceNotes(notes);
-        setUnplayedVoiceNotes(notes.length);
-      } catch (error) {
-        setVoiceNotes([]);
-        setUnplayedVoiceNotes(0);
-      }
-    };
-    loadVoiceNotes();
-    const handleStorage = (e) => {
-      if (e.key === PLAYED_VOICE_NOTES_KEY) loadVoiceNotes();
-    };
-    const handleVoiceNotePlayed = () => loadVoiceNotes();
-    window.addEventListener("storage", handleStorage);
-    window.addEventListener(VOICE_NOTE_PLAYED_EVENT, handleVoiceNotePlayed);
-    return () => {
-      window.removeEventListener("storage", handleStorage);
-      window.removeEventListener(VOICE_NOTE_PLAYED_EVENT, handleVoiceNotePlayed);
-    };
+  // ---------- Voice notes (badge: unplayed only; inbox modal removes on play) ----------
+  const refreshVoiceNoteBadge = useCallback(async () => {
+    try {
+      const agentId = localStorage.getItem("userId");
+      const notes = await fetchVoiceNotes({ agentId, unplayedOnly: true });
+      const unplayed = notes.filter((n) => !isVoiceNotePlayed(n));
+      setVoiceNotes(unplayed);
+      setUnplayedVoiceNotes(unplayed.length);
+    } catch (error) {
+      setVoiceNotes([]);
+      setUnplayedVoiceNotes(0);
+    }
   }, []);
+
+  useEffect(() => {
+    refreshVoiceNoteBadge();
+    const interval = setInterval(refreshVoiceNoteBadge, 60000);
+    const handleStorage = (e) => {
+      if (e.key === PLAYED_VOICE_NOTES_KEY) refreshVoiceNoteBadge();
+    };
+    const handlePlayed = () => refreshVoiceNoteBadge();
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener(VOICE_NOTE_PLAYED_EVENT, handlePlayed);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(VOICE_NOTE_PLAYED_EVENT, handlePlayed);
+    };
+  }, [refreshVoiceNoteBadge]);
 const markMissedCallAsCalledBack = async (missedCallId) => {
   if (!missedCallId) return;
 
@@ -867,7 +869,10 @@ useEffect(() => {
           <Tooltip title="Voice Notes" arrow>
             <div
               style={{ position: "relative", cursor: "pointer" }}
-              onClick={() => setShowVoiceNotesModal(true)}
+              onClick={() => {
+                refreshVoiceNoteBadge();
+                setShowVoiceNotesModal(true);
+              }}
             >
               <MdOutlineVoicemail size={22} />
               {unplayedVoiceNotes > 0 && (
@@ -1219,7 +1224,10 @@ useEffect(() => {
       {/* Voice notes modal */}
       <Dialog
         open={showVoiceNotesModal}
-        onClose={() => setShowVoiceNotesModal(false)}
+        onClose={() => {
+          setShowVoiceNotesModal(false);
+          refreshVoiceNoteBadge();
+        }}
         fullWidth
         maxWidth="md"
       >

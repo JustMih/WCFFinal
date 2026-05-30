@@ -14,11 +14,6 @@ import { FaWhatsapp, FaInstagram, FaXTwitter } from "react-icons/fa6";
 import CircularProgress from "@mui/material/CircularProgress";
 import "./TotalContactSummary.css";
 import { baseURL } from "../../config";
-import {
-  fetchVoiceNotes,
-  VOICE_NOTE_PLAYED_EVENT,
-  PLAYED_VOICE_NOTES_KEY,
-} from "../../utils/voiceNotePlayed";
 
 // Register Chart.js components
 ChartJS.register(Title, Tooltip, Legend, ArcElement);
@@ -26,8 +21,6 @@ ChartJS.register(Title, Tooltip, Legend, ArcElement);
 export default function TotalContactSummary() {
   const [contactData, setContactData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [voicemailCount, setVoicemailCount] = useState(0);
-  const [unplayedVoicemailCount, setUnplayedVoicemailCount] = useState(0);
   const [directionSummary, setDirectionSummary] = useState(null);
 
   useEffect(() => {
@@ -70,44 +63,14 @@ export default function TotalContactSummary() {
     fetchDirectionSummary();
   }, []);
 
-  // Voicemail count from voice-notes API (same pattern as AgentsDashboard VoiceNotesReport)
-  useEffect(() => {
-    const loadVoiceNotes = async () => {
-      try {
-        const agentId = localStorage.getItem("userId");
-        const [allNotes, unplayedNotes] = await Promise.all([
-          fetchVoiceNotes({ agentId }),
-          fetchVoiceNotes({ agentId, unplayedOnly: true }),
-        ]);
-        setVoicemailCount(allNotes.length);
-        setUnplayedVoicemailCount(unplayedNotes.length);
-      } catch (error) {
-        setVoicemailCount(0);
-        setUnplayedVoicemailCount(0);
-      }
-    };
-    loadVoiceNotes();
-    const handleStorage = (e) => {
-      if (e.key === PLAYED_VOICE_NOTES_KEY) loadVoiceNotes();
-    };
-    const handleVoiceNotePlayed = () => loadVoiceNotes();
-    window.addEventListener("storage", handleStorage);
-    window.addEventListener(VOICE_NOTE_PLAYED_EVENT, handleVoiceNotePlayed);
-    return () => {
-      window.removeEventListener("storage", handleStorage);
-      window.removeEventListener(VOICE_NOTE_PLAYED_EVENT, handleVoiceNotePlayed);
-    };
-  }, []);
-
   const safe = (obj, key, fallback = 0) => (obj && obj[key] != null ? obj[key] : fallback);
 
-  // Calculate total contacts for each type (voicemail from voice-notes API, same as VoiceNotesReport)
   const getContactTotals = () => {
     if (!contactData) {
       return {
         inbound: 25,
         outbound: 18,
-        voicemail: voicemailCount,
+        voicemail: 8,
         social: 15,
       };
     }
@@ -121,7 +84,7 @@ export default function TotalContactSummary() {
     return {
       inbound: safe(contactData?.inbound, "total", 0),
       outbound: safe(contactData?.outbound, "total", 0),
-      voicemail: voicemailCount,
+      voicemail: safe(contactData?.voicemail, "total", 0),
       social: socialTotal,
     };
   };

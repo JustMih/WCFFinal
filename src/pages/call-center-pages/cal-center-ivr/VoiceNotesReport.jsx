@@ -7,18 +7,19 @@ import jsPDF from "jspdf";
 import "jspdf-autotable";
 import ReportDateRangePicker from "../../../components/shared/ReportDateRangePicker";
 import WcfLoader from "../../../components/shared/WcfLoader";
+import { playVoiceNoteAudio } from "../../../utils/voiceNoteAudio";
 import {
+  buildVoiceNotesQuery,
   isVoiceNotePlayed,
   markVoiceNotePlayed,
-  buildVoiceNotesQuery,
   VOICE_NOTE_PLAYED_EVENT,
 } from "../../../utils/voiceNotePlayed";
 import "./VoiceNotesReport.css";
 
 /**
  * @param {"inbox"|"report"} variant
- *   inbox — agent notifications: unplayed only, removes row when played
- *   report — full list (IVR page / historical); played notes stay visible
+ *   inbox — agent notifications: unplayed only; row removed when played (full history in report page)
+ *   report — all voice notes; played notes stay visible
  */
 export default function VoiceNotesReport({ variant = "report", agentId: agentIdProp }) {
   const navigate = useNavigate();
@@ -63,7 +64,7 @@ export default function VoiceNotesReport({ variant = "report", agentId: agentIdP
 
       const fromDb = {};
       notes.forEach((n) => {
-        if (n.is_played) fromDb[n.id] = true;
+        if (isVoiceNotePlayed(n)) fromDb[n.id] = true;
       });
       setPlayedStatus(fromDb);
       setCurrentPage(1);
@@ -98,16 +99,16 @@ export default function VoiceNotesReport({ variant = "report", agentId: agentIdP
   const isPlayed = (note) =>
     Boolean(playedStatus[note.id] || isVoiceNotePlayed(note));
 
-  const markAsPlayedInDb = async (id, durationSeconds = null) => {
-    await markVoiceNotePlayed(id, durationSeconds);
+  const markAsPlayed = async (note, durationSeconds = null) => {
+    await markVoiceNotePlayed(note.id, durationSeconds);
 
     if (isInbox) {
-      setVoiceNotes((prev) => prev.filter((n) => n.id !== id));
+      setVoiceNotes((prev) => prev.filter((n) => n.id !== note.id));
     } else {
-      setPlayedStatus((prev) => ({ ...prev, [id]: true }));
+      setPlayedStatus((prev) => ({ ...prev, [note.id]: true }));
       setVoiceNotes((prev) =>
         prev.map((n) =>
-          n.id === id
+          n.id === note.id
             ? {
                 ...n,
                 is_played: 1,
@@ -120,31 +121,37 @@ export default function VoiceNotesReport({ variant = "report", agentId: agentIdP
     }
   };
 
-  const handlePlayVoice = async (id) => {
-    const url = `${baseURL}/voice-notes/${id}/audio`;
-
+  const handlePlayVoice = async (note) => {
     if (currentAudio) {
       currentAudio.pause();
       currentAudio.currentTime = 0;
     }
 
-    const audio = new Audio(url);
-
     try {
-      await audio.play();
+      const { audio } = await playVoiceNoteAudio(note);
       setCurrentAudio(audio);
-      setCurrentlyPlayingId(id);
+      setCurrentlyPlayingId(note.id);
+
+      const savePlayed = (dur) => {
+        markAsPlayed(note, dur).catch((err) => {
+          console.error("mark-played failed:", err);
+          setError("Played audio but could not save status. Try again.");
+        });
+      };
+
       if (audio.duration && !Number.isNaN(audio.duration)) {
-        await markAsPlayedInDb(id, audio.duration);
+        savePlayed(audio.duration);
       } else {
-        audio.onloadedmetadata = () => markAsPlayedInDb(id, audio.duration);
+        audio.onloadedmetadata = () => savePlayed(audio.duration);
       }
+
       audio.onended = () => {
         setCurrentlyPlayingId(null);
         setCurrentAudio(null);
       };
     } catch (playErr) {
       console.error("Audio play failed:", playErr);
+      setError("Could not play audio. Please try again.");
     }
   };
 
@@ -153,6 +160,13 @@ export default function VoiceNotesReport({ variant = "report", agentId: agentIdP
       currentAudio.pause();
       setCurrentlyPlayingId(null);
     }
+  };
+
+  const getRowColor = (note) => {
+    if (isPlayed(note)) return "#d4edda";
+    const createdAt = new Date(note.created_at);
+    const hoursAgo = (Date.now() - createdAt.getTime()) / (1000 * 60 * 60);
+    return hoursAgo >= 24 ? "#f8d7da" : "#fff3cd";
   };
 
   const filteredNotes = useMemo(() => {
@@ -268,9 +282,9 @@ export default function VoiceNotesReport({ variant = "report", agentId: agentIdP
           <button
             type="button"
             className="voice-report-link"
-            onClick={() => navigate("/reports/voice-note")}
+            onClick={() => navigate("/voice-notes")}
           >
-            Voice Note Report
+            Voice Notes Report
           </button>
           .
         </p>
@@ -335,9 +349,9 @@ export default function VoiceNotesReport({ variant = "report", agentId: agentIdP
             <button
               type="button"
               className="btn btn-report-nav"
-              onClick={() => navigate("/reports/voice-note")}
+              onClick={() => navigate("/voice-notes")}
             >
-              Open Voice Note Report
+              Open Voice Notes Report
             </button>
           )}
         </div>
@@ -347,7 +361,7 @@ export default function VoiceNotesReport({ variant = "report", agentId: agentIdP
         {filteredNotes.length === 0 ? (
           <p className="voice-empty">
             {isInbox
-              ? "No new voice notes. Played messages are in Voice Note Report."
+              ? "No new voice notes. Played messages are in Voice Notes Report."
               : "No records found."}
           </p>
         ) : (
@@ -375,7 +389,10 @@ export default function VoiceNotesReport({ variant = "report", agentId: agentIdP
                   : "—";
 
                 return (
-                  <tr key={note.id}>
+                  <tr
+                    key={note.id}
+                    style={{ backgroundColor: getRowColor(note) }}
+                  >
                     <td>{note.id}</td>
                     <td>{note.clid}</td>
                     <td>{new Date(note.created_at).toLocaleString()}</td>
@@ -393,7 +410,7 @@ export default function VoiceNotesReport({ variant = "report", agentId: agentIdP
                       <button
                         type="button"
                         className="btn btn-play"
-                        onClick={() => handlePlayVoice(note.id)}
+                        onClick={() => handlePlayVoice(note)}
                       >
                         Play
                       </button>

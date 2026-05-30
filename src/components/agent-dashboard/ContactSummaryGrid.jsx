@@ -15,11 +15,6 @@ import { FaWhatsapp, FaInstagram, FaXTwitter } from "react-icons/fa6";
 import CircularProgress from "@mui/material/CircularProgress";
 import "./ContactSummaryGrid.css";
 import { baseURL } from "../../config";
-import {
-  fetchVoiceNotes,
-  VOICE_NOTE_PLAYED_EVENT,
-  PLAYED_VOICE_NOTES_KEY,
-} from "../../utils/voiceNotePlayed";
 
 // Register Chart.js components
 ChartJS.register(Title, Tooltip, Legend, ArcElement, RadialLinearScale);
@@ -27,8 +22,6 @@ ChartJS.register(Title, Tooltip, Legend, ArcElement, RadialLinearScale);
 export default function ContactSummaryGrid() {
   const [contactData, setContactData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [voicemailCount, setVoicemailCount] = useState(0);
-  const [unplayedVoicemailCount, setUnplayedVoicemailCount] = useState(0);
   const [directionSummary, setDirectionSummary] = useState(null);
 
   useEffect(() => {
@@ -71,45 +64,15 @@ export default function ContactSummaryGrid() {
     fetchDirectionSummary();
   }, []);
 
-  // Voicemail from voice-notes API (same pattern as AgentsDashboard VoiceNotes)
-  useEffect(() => {
-    const loadVoiceNotes = async () => {
-      try {
-        const agentId = localStorage.getItem("userId");
-        const [allNotes, unplayedNotes] = await Promise.all([
-          fetchVoiceNotes({ agentId }),
-          fetchVoiceNotes({ agentId, unplayedOnly: true }),
-        ]);
-        setVoicemailCount(allNotes.length);
-        setUnplayedVoicemailCount(unplayedNotes.length);
-      } catch (error) {
-        setVoicemailCount(0);
-        setUnplayedVoicemailCount(0);
-      }
-    };
-    loadVoiceNotes();
-    const handleStorage = (e) => {
-      if (e.key === PLAYED_VOICE_NOTES_KEY) loadVoiceNotes();
-    };
-    const handleVoiceNotePlayed = () => loadVoiceNotes();
-    window.addEventListener("storage", handleStorage);
-    window.addEventListener(VOICE_NOTE_PLAYED_EVENT, handleVoiceNotePlayed);
-    return () => {
-      window.removeEventListener("storage", handleStorage);
-      window.removeEventListener(VOICE_NOTE_PLAYED_EVENT, handleVoiceNotePlayed);
-    };
-  }, []);
-
   const safe = (obj, key, fallback = 0) => (obj && obj[key] != null ? obj[key] : fallback);
 
-  // Get data with dummy fallback (voicemail total from voice-notes API, same as AgentsDashboard)
   const getData = () => {
     if (!contactData) {
       return {
         inbound: { total: 25, answered: 20, dropped: 3, lost: 2 },
         outbound: { total: 18, answered: 15, dropped: 2, lost: 1 },
         social: { total: 15, whatsapp: 8, email: 4, instagram: 2, twitter: 1 },
-        voicemail: { total: voicemailCount, new: Math.floor(voicemailCount * 0.6), old: Math.floor(voicemailCount * 0.4) }
+        voicemail: { total: 8, new: 5, old: 3 }
       };
     }
 
@@ -140,9 +103,9 @@ export default function ContactSummaryGrid() {
         twitter: safe(contactData?.twitter, "total", 0)
       },
       voicemail: {
-        total: voicemailCount,
-        new: Math.floor(voicemailCount * 0.6),
-        old: Math.floor(voicemailCount * 0.4)
+        total: safe(contactData?.voicemail, "total", 0),
+        new: Math.floor(safe(contactData?.voicemail, "total", 0) * 0.6),
+        old: Math.floor(safe(contactData?.voicemail, "total", 0) * 0.4)
       }
     };
   };
@@ -285,16 +248,15 @@ export default function ContactSummaryGrid() {
     );
   };
 
-  // Voicemail Donut Chart (played/unplayed from voice-notes API, same as AgentsDashboard)
   const VoicemailDonutChart = () => {
     const totalVoicemails = data.voicemail.total;
-    const playedVoicemails = totalVoicemails - unplayedVoicemailCount;
-    const notPlayedVoicemails = unplayedVoicemailCount;
+    const newVoicemails = data.voicemail.new;
+    const oldVoicemails = data.voicemail.old;
 
     const chartData = {
-      labels: ['Played', 'Not Played'],
+      labels: ['New', 'Old'],
       datasets: [{
-        data: totalVoicemails > 0 ? [playedVoicemails, notPlayedVoicemails] : [0, 0],
+        data: totalVoicemails > 0 ? [newVoicemails, oldVoicemails] : [0, 0],
         backgroundColor: ['#3B82F6', '#10B981'],
         borderColor: ['#2563EB', '#059669'],
         borderWidth: 1,
