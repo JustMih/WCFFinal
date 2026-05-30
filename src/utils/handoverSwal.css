@@ -1,0 +1,4 @@
+/* Above handover banner (z-index 1200) and most dashboard chrome */
+.swal2-container.handover-swal-container {
+  z-index: 1500 !important;
+}

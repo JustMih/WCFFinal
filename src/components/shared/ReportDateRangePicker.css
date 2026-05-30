@@ -1,0 +1,47 @@
+/* Shared filter bar: dates + dropdowns + buttons on one row */
+.report-filters-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+  width: 100%;
+}
+
+.report-filters-row .action-buttons,
+.report-filters-row .pause-report-actions,
+.report-filters-row .voice-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: flex-end;
+  margin-left: auto;
+}
+
+.report-date-range-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.report-date-range-picker--inline {
+  flex-wrap: nowrap;
+  flex-shrink: 0;
+}
+
+.report-filters-row .report-date-range-picker .MuiTextField-root {
+  width: 150px;
+  min-width: 140px;
+}
+
+@media (max-width: 600px) {
+  .report-date-range-picker:not(.report-date-range-picker--inline) {
+    flex-direction: column;
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .report-date-range-picker:not(.report-date-range-picker--inline) .MuiFormControl-root {
+    width: 100%;
+  }
+}

@@ -253,6 +253,8 @@ export class PermissionManager {
         // Only allow deleting own tickets
         if (ticket.creator_id === this.getCurrentUserId()) return true;
         break;
+      default:
+        return false;
     }
 
     return false;

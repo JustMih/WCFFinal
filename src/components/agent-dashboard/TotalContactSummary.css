@@ -314,7 +314,6 @@
     transform: translateY(0);
   }
 }
-
 /* Hover effects for contact items */
 .contact-item:nth-child(1) .contact-item-icon { background: rgba(59, 130, 246, 0.1); }
 .contact-item:nth-child(2) .contact-item-icon { background: rgba(16, 185, 129, 0.1); }

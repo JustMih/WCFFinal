@@ -7,6 +7,7 @@ import 'jspdf-autotable';
 import './CDRReports.css';
 import htmlDocx from 'html-docx-js/dist/html-docx';
 import { baseURL } from '../../../config'; // ✅ Import baseURL
+import { formatSecondsToMinutes } from '../../../utils/callDurationFormat';
 
 const CDRReports = () => {
   const [cdrReports, setCDRReports] = useState([]);
@@ -41,10 +42,10 @@ const CDRReports = () => {
     doc.text('CDR Reports', 14, 10);
     doc.autoTable({
       head: [[
-        'ID', 'Caller ID', 'Source', 'Destination', 'Duration', 'BillSec', 'Disposition', 'Recording', 'Start Time'
+        'ID', 'Caller ID', 'Source', 'Destination', 'Agent', 'Duration (min)', 'Billed (min)', 'Disposition', 'Recording', 'Start Time'
       ]],
       body: filteredReports.map(r => [
-        r.id, r.clid, r.src, r.dst, r.duration, r.billsec,
+        r.id, r.clid, r.src, r.dst, r.agent_name || '-', formatSecondsToMinutes(r.duration, false), formatSecondsToMinutes(r.billsec, false),
         r.disposition, r.recordingfile, new Date(r.cdrstarttime).toLocaleString()
       ]),
     });
@@ -86,8 +87,9 @@ const CDRReports = () => {
               <th>Caller ID</th>
               <th>Source</th>
               <th>Destination</th>
-              <th>Duration</th>
-              <th>BillSec</th>
+              <th>Agent</th>
+              <th>Duration (min)</th>
+              <th>Billed (min)</th>
               <th>Disposition</th>
               {/* <th>Recording</th> */}
               <th>Start Time</th>
@@ -101,8 +103,9 @@ const CDRReports = () => {
                   <td>{cdr.clid}</td>
                   <td>{cdr.src}</td>
                   <td>{cdr.dst}</td>
-                  <td>{cdr.duration}</td>
-                  <td>{cdr.billsec}</td>
+                  <td>{cdr.agent_name || "-"}</td>
+                  <td>{formatSecondsToMinutes(cdr.duration, false)}</td>
+                  <td>{formatSecondsToMinutes(cdr.billsec, false)}</td>
                   <td>{cdr.disposition}</td>
                   {/* <td>{cdr.recordingfile}</td> */}
                  <td>

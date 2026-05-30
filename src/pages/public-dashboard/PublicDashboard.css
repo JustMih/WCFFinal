@@ -11,6 +11,18 @@
   color: #333;
 }
 
+/* Preload off-screen while previous route stays visible under overlay */
+.public-dashboard--preload {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  left: -9999px;
+  top: 0;
+}
+
 .dashboard-loading {
   display: flex;
   justify-content: center;
@@ -603,6 +615,11 @@
   color: #333;
   display: grid;
   grid-template-columns: 1.2fr 1.2fr 1fr 1.3fr 1.3fr 1fr;
+}
+
+.lost-call-item--public,
+.lost-call-item.header.lost-call-item--public {
+  grid-template-columns: 1.3fr 1.4fr 1fr 0.8fr;
 }
 
 .lost-call-item {

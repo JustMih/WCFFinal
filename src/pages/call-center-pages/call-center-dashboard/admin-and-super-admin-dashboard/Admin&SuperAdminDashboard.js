@@ -193,7 +193,12 @@ export default function AdminAndSuperAdminDashboard() {
           userCounts.admins,
           userCounts.otherUsers,
         ],
-        backgroundColor: ["#36A2EB", "#FF6384", "#FFCD56", "#4BC0C0"],
+        backgroundColor: [
+          "#3b71b7",
+          "#8cc63f",
+          "#5a8fd4",
+          "#939598",
+        ],
         borderWidth: 1,
       },
     ],
@@ -253,77 +258,26 @@ export default function AdminAndSuperAdminDashboard() {
           </div>
         </div>
       </div>
-      {/* Side-by-side: Radial chart and Recent User Activities table in cards */}
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "center",
-          gap: "22px",
-          margin: "20px 0",
-        }}
-      >
-        {/* User Summary Card */}
-        <div
-          style={{
-            maxWidth: 400,
-            flex: 1,
-            background: "#f9f9f9",
-            border: "1px solid #e0e0e0",
-            borderRadius: 8,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-            padding: 0,
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          <div
-            style={{
-              background: "#f1f3f6",
-              borderTopLeftRadius: 8,
-              borderTopRightRadius: 8,
-              padding: "10px 10px",
-              borderBottom: "1px solid #e0e0e0",
-              fontWeight: 600,
-              fontSize: 16,
-              color: "#333",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
+      <div className="admin-panels-row">
+        <div className="admin-panel admin-panel--chart">
+          <div className="admin-panel-header">
             <span>User Summary</span>
-            <span
-              style={{
-                fontWeight: 700,
-                fontSize: 15,
-                color: "#1976d2",
-                background: "#e3f0fa",
-                borderRadius: 8,
-                padding: "2px 12px",
-                marginLeft: 12,
-              }}
-            >
-              Total: {totalUsers}
-            </span>
+            <span className="admin-panel-badge">Total: {totalUsers}</span>
           </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              padding: 24,
-            }}
-          >
+          <div className="admin-panel-body admin-panel-body--chart">
+            <div className="admin-chart-wrap">
             <Doughnut
               data={userPieData}
               options={{
                 responsive: true,
-                maintainAspectRatio: true,
+                maintainAspectRatio: false,
                 plugins: {
                   legend: {
                     position: "right",
                     labels: {
-                      padding: 15,
+                      padding: 8,
+                      boxWidth: 10,
+                      font: { size: 11 },
                       usePointStyle: true,
                     },
                   },
@@ -345,130 +299,37 @@ export default function AdminAndSuperAdminDashboard() {
                 },
               }}
             />
+            </div>
           </div>
         </div>
-        {/* Recent User Activities Card */}
-        <div
-          style={{
-            flex: 1,
-            maxWidth: 540,
-            background: "#f9f9f9",
-            border: "1px solid #e0e0e0",
-            borderRadius: 8,
-            boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-            padding: 0,
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          <div
-            style={{
-              background: "#f1f3f6",
-              borderTopLeftRadius: 8,
-              borderTopRightRadius: 8,
-              padding: "10px 20px",
-              borderBottom: "1px solid #e0e0e0",
-              fontWeight: 600,
-              fontSize: 16,
-              color: "#333",
-            }}
-          >
-            Recent User Activities
-          </div>
-          <div style={{ padding: 24 }}>
-            <table
-              style={{
-                width: "100%",
-                borderCollapse: "separate",
-                borderSpacing: 0,
-                background: "#fcfcfd",
-                borderRadius: 12,
-                boxShadow: "0 2px 12px rgba(0,0,0,0.04)",
-                overflow: "hidden",
-              }}
-            >
+        <div className="admin-panel admin-panel--activities">
+          <div className="admin-panel-header">Recent User Activities</div>
+          <div className="admin-panel-body admin-panel-body--table">
+            <table className="admin-activities-table">
               <thead>
-                <tr style={{ background: "#e9eef5" }}>
-                  <th
-                    style={{
-                      padding: "14px 12px",
-                      border: "none",
-                      textAlign: "left",
-                      color: "#222",
-                      fontWeight: 700,
-                      fontSize: 15,
-                      letterSpacing: 0.2,
-                    }}
-                  >
-                    User
-                  </th>
-                  <th
-                    style={{
-                      padding: "14px 12px",
-                      border: "none",
-                      textAlign: "left",
-                      color: "#222",
-                      fontWeight: 700,
-                      fontSize: 15,
-                      letterSpacing: 0.2,
-                    }}
-                  >
-                    Status
-                  </th>
-                  <th
-                    style={{
-                      padding: "14px 12px",
-                      border: "none",
-                      textAlign: "left",
-                      color: "#222",
-                      fontWeight: 700,
-                      fontSize: 15,
-                      letterSpacing: 0.2,
-                    }}
-                  >
-                    Role
-                  </th>
+                <tr>
+                  <th>User</th>
+                  <th>Status</th>
+                  <th>Role</th>
                 </tr>
               </thead>
               <tbody>
                 {Array.isArray(onlineUsers) &&
                   onlineUsers.map((activity, idx) => (
-                    <tr
-                      key={idx}
-                      style={{
-                        background: idx % 2 === 0 ? "#f9fafb" : "#fff",
-                        transition: "background 0.2s",
-                        cursor: "pointer",
-                      }}
-                      onMouseOver={(e) =>
-                        (e.currentTarget.style.background = "#f0f4f8")
-                      }
-                      onMouseOut={(e) =>
-                        (e.currentTarget.style.background =
-                          idx % 2 === 0 ? "#f9fafb" : "#fff")
-                      }
-                    >
-                      <td
-                        style={{
-                          padding: "12px 12px",
-                          border: "none",
-                          borderRadius: idx === 0 ? "12px 0 0 0" : undefined,
-                        }}
-                      >
-                        {activity.full_name}
+                    <tr key={idx}>
+                      <td>{activity.full_name}</td>
+                      <td>
+                        <span
+                          className={
+                            activity.status?.toLowerCase() === "online"
+                              ? "admin-status-online"
+                              : undefined
+                          }
+                        >
+                          {activity.status}
+                        </span>
                       </td>
-                      <td style={{ padding: "12px 12px", border: "none" }}>
-                        {activity.status}
-                      </td>
-                      <td
-                        style={{
-                          padding: "12px 12px",
-                          border: "none",
-                          borderRadius: idx === 0 ? "0 12px 0 0" : undefined,
-                        }}
-                      >
-                        {activity.role}
-                      </td>
+                      <td>{activity.role}</td>
                     </tr>
                   ))}
               </tbody>

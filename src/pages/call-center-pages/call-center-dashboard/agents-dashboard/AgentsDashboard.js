@@ -21,6 +21,7 @@ import {
   Menu,
   MenuItem,
   ListItemIcon,
+  ListItemText,
   Alert,
   Snackbar,
 } from "@mui/material";
@@ -36,6 +37,12 @@ import OnlineSupervisorsTable from "../../../../components/agent-dashboard/Onlin
 import AgentPerformanceScore from "../../../../components/agent-dashboard/AgentPerformanceScore";
 import AdvancedTicketCreateModal from "../../../../components/ticket/AdvancedTicketCreateModal";
 import VoiceNotesReport from "../../cal-center-ivr/VoiceNotesReport";
+import {
+  fetchVoiceNotes,
+  isVoiceNoteUnplayed,
+  VOICE_NOTE_PLAYED_EVENT,
+  PLAYED_VOICE_NOTES_KEY,
+} from "../../../../utils/voiceNotePlayed";
 import TotalContactSummary from "../../../../components/agent-dashboard/TotalContactSummary";
 import ContactSummaryGrid from "../../../../components/agent-dashboard/ContactSummaryGrid";
 
@@ -43,7 +50,27 @@ import ContactSummaryGrid from "../../../../components/agent-dashboard/ContactSu
 import { useSipPhone } from "./useSipPhone";
 import PhonePopup from "./PhonePopup";
 import { SIP_DOMAIN_CONFIG } from "../../../../config";
+import {
+  getTimeIntervalsSeconds,
+  getRemainingSecondsFromStart,
+  formatRemainingTime,
+  formatExceededTime,
+  formatPauseDuration,
+  PAUSE_MENU_ITEMS,
+} from "../../../../utils/pauseActivities";
+import { useSupervisorInterventionSocket } from "../../../../hooks/useSupervisorInterventionSocket";
 
+const PAUSE_MENU_ICONS = {
+  ready: <GiTrafficLightsReadyToGo fontSize="large" />,
+  breakfast: <MdOutlineFreeBreakfast fontSize="large" />,
+  lunch: <MdOutlineLunchDining fontSize="large" />,
+  "attending meeting": <GiExplosiveMeeting fontSize="large" />,
+  "short call": <MdWifiCalling2 fontSize="large" />,
+  emergency: <TbEmergencyBed fontSize="large" />,
+  "follow-up of customer inquiries": (
+    <MdOutlineFollowTheSigns fontSize="large" />
+  ),
+};
 
 export default function AgentsDashboard() {
   // --------- Phone popup state ---------
@@ -61,6 +88,8 @@ export default function AgentsDashboard() {
   const openStatus = Boolean(anchorEl);
   const [agentStatus, setAgentStatus] = useState("ready");
   const [timeRemaining, setTimeRemaining] = useState(0);
+  const [pauseExceeded, setPauseExceeded] = useState(false);
+  const [exceededSeconds, setExceededSeconds] = useState(0);
   const [userDefinedTimes, setUserDefinedTimes] = useState({
     attendingMeeting: 0,
     emergency: 0,
@@ -68,6 +97,7 @@ export default function AgentsDashboard() {
 
   // --------- Timers (separate refs!) ---------
   const statusTimerRef = useRef(null);
+  const exceededMarkedRef = useRef(false);
 
   // --------- Missed calls ---------
   const [missedCalls, setMissedCalls] = useState([]);
@@ -103,6 +133,10 @@ export default function AgentsDashboard() {
     setSnackbarSeverity(severity);
     setSnackbarOpen(true);
   }, []);
+
+  const { intervention, clearIntervention } = useSupervisorInterventionSocket({
+    onNotify: showAlert,
+  });
 
   const fetchUserByPhoneNumber = useCallback(async (phone) => {
     try {
@@ -195,66 +229,89 @@ export default function AgentsDashboard() {
     onCallEnded: useCallback(() => {
       setShowUserForm(false);
       setUserData(null);
-    }, []),
+      clearIntervention();
+    }, [clearIntervention]),
     showAlert,
     allowIncomingRinging: agentStatus === "ready",
   });
 
-  const formatRemainingTime = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    const pad = (n) => String(n).padStart(2, "0");
-    return `${pad(mins)}:${pad(secs)}`;
-  };
-  const mapActivityToTimerKey = (activity) => {
-    switch ((activity || "").toLowerCase()) {
-      case "breakfast":
-        return "breakfast";
-      case "lunch":
-        return "lunch";
-      case "short call":
-        return "shortCall";
-      case "follow-up of customer inquiries":
-        return "followUp";
-      case "attending meeting":
-        return "attendingMeeting";
-      case "emergency":
-        return "emergency";
-      default:
-        return null; // covers "ready" and unknowns
+  const timeIntervals = getTimeIntervalsSeconds(userDefinedTimes);
+
+  const pauseMenuItems = PAUSE_MENU_ITEMS.map((item) => ({
+    ...item,
+    icon: PAUSE_MENU_ICONS[item.activity],
+  }));
+
+  const markExceededOnServer = async () => {
+    if (exceededMarkedRef.current) return;
+    exceededMarkedRef.current = true;
+    const userId = localStorage.getItem("userId");
+    const token = localStorage.getItem("authToken");
+    if (!userId || !token) return;
+    try {
+      await fetch(`${baseURL}/users/pause-session/${userId}/mark-exceeded`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    } catch (err) {
+      console.error("Failed to mark pause exceeded:", err);
     }
   };
-  const timeIntervals = {
-    breakfast: 15 * 60,
-    lunch: 45 * 60,
-    shortCall: 10 * 60,
-    followUp: 15 * 60,
-    attendingMeeting: (userDefinedTimes.attendingMeeting || 30) * 60,
-    emergency: (userDefinedTimes.emergency || 20) * 60,
+
+  const startExceededTimer = (activity, initialExceeded = 0, showNotice = true) => {
+    if (statusTimerRef.current) clearInterval(statusTimerRef.current);
+    setPauseExceeded(true);
+    setTimeRemaining(0);
+    setExceededSeconds(initialExceeded);
+    statusTimerRef.current = setInterval(() => {
+      setExceededSeconds((s) => s + 1);
+    }, 1000);
+    markExceededOnServer();
+    if (showNotice) {
+      showAlert(`Pause limit exceeded for ${activity}.`, "warning");
+    }
   };
 
+  const startStatusTimer = (activity, initialSeconds, allowedOverride) => {
+    let limit = initialSeconds;
+    if (typeof limit !== "number") {
+      const intervals = getTimeIntervalsSeconds(userDefinedTimes);
+      const item = PAUSE_MENU_ITEMS.find((p) => p.activity === activity);
+      limit = item?.timerKey ? intervals[item.timerKey] : 0;
+    }
+    if (!limit) return;
 
-  const startStatusTimer = (activity) => {
-    const key = mapActivityToTimerKey(activity);
-    if (!key) return;
-    const limit = timeIntervals[key] || 0;
-    stopStatusTimer();
+    if (limit <= 0) {
+      startExceededTimer(activity, 0);
+      return;
+    }
+
+    if (statusTimerRef.current) clearInterval(statusTimerRef.current);
+    setPauseExceeded(false);
+    setExceededSeconds(0);
+    exceededMarkedRef.current = false;
     setTimeRemaining(limit);
     statusTimerRef.current = setInterval(() => {
       setTimeRemaining((t) => {
         if (t <= 1) {
-          alert(`You have exceeded your ${activity} time limit.`);
-          stopStatusTimer();
+          startExceededTimer(activity, 0);
           return 0;
         }
         return t - 1;
       });
     }, 1000);
   };
+
   const stopStatusTimer = () => {
     if (statusTimerRef.current) clearInterval(statusTimerRef.current);
     statusTimerRef.current = null;
     setTimeRemaining(0);
+    setPauseExceeded(false);
+    setExceededSeconds(0);
+    exceededMarkedRef.current = false;
   };
 
   useEffect(() => {
@@ -262,6 +319,61 @@ export default function AgentsDashboard() {
       stopStatusTimer();
     };
   }, []);
+
+  useEffect(() => {
+    const userId = localStorage.getItem("userId");
+    const token = localStorage.getItem("authToken");
+    if (!userId || !token) return;
+
+    const restorePauseState = async () => {
+      try {
+        const response = await fetch(
+          `${baseURL}/users/agent-status/${userId}`,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+        if (!response.ok) return;
+        const data = await response.json();
+
+        if (data.status === "pause" && data.pause_activity) {
+          setAgentStatus(data.pause_activity);
+          const allowed = data.pause_allowed_seconds;
+          if (data.is_exceeded) {
+            exceededMarkedRef.current = true;
+            startExceededTimer(
+              data.pause_activity,
+              data.exceeded_seconds || 0,
+              false
+            );
+          } else {
+            const remaining = getRemainingSecondsFromStart(
+              data.pause_activity,
+              data.pause_started_at,
+              userDefinedTimes,
+              allowed
+            );
+            startStatusTimer(
+              data.pause_activity,
+              remaining,
+              allowed
+            );
+          }
+        } else if (data.status === "online") {
+          setAgentStatus("ready");
+          stopStatusTimer();
+        }
+      } catch (err) {
+        console.error("Failed to restore agent pause state:", err);
+      }
+    };
+
+    restorePauseState();
+  }, []);
+
 useEffect(() => {
   // initial load
   fetchMissedCallsFromBackend();
@@ -291,43 +403,34 @@ useEffect(() => {
     })();
   }, []);
 
-  // ---------- Voice notes ----------
-  useEffect(() => {
-    const fetchVoiceNotes = async () => {
-      try {
-        const agentId = localStorage.getItem("userId");
-        const response = await fetch(
-          `${baseURL}/voice-notes?agentId=${agentId}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-            },
-          }
-        );
-        if (!response.ok) throw new Error("Failed to fetch voice notes");
-        const data = await response.json();
-        const notes = data.voiceNotes || [];
-        const storedPlayed =
-          JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
-        const unplayedCount = notes.filter(
-          (note) => !storedPlayed[note.id]
-        ).length;
-        setVoiceNotes(notes);
-        setUnplayedVoiceNotes(unplayedCount);
-      } catch (error) {
-        setVoiceNotes([]);
-        setUnplayedVoiceNotes(0);
-      }
-    };
-    fetchVoiceNotes();
-    const handleStorage = (e) => {
-      if (e.key === "playedVoiceNotes") fetchVoiceNotes();
-    };
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
+  // ---------- Voice notes (badge: unplayed only; inbox modal removes on play) ----------
+  const refreshVoiceNoteBadge = useCallback(async () => {
+    try {
+      const notes = await fetchVoiceNotes({ unplayedOnly: true });
+      const unplayed = notes.filter(isVoiceNoteUnplayed);
+      setVoiceNotes(unplayed);
+      setUnplayedVoiceNotes(unplayed.length);
+    } catch (error) {
+      setVoiceNotes([]);
+      setUnplayedVoiceNotes(0);
+    }
   }, []);
+
+  useEffect(() => {
+    refreshVoiceNoteBadge();
+    const interval = setInterval(refreshVoiceNoteBadge, 60000);
+    const handleStorage = (e) => {
+      if (e.key === PLAYED_VOICE_NOTES_KEY) refreshVoiceNoteBadge();
+    };
+    const handlePlayed = () => refreshVoiceNoteBadge();
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener(VOICE_NOTE_PLAYED_EVENT, handlePlayed);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(VOICE_NOTE_PLAYED_EVENT, handlePlayed);
+    };
+  }, [refreshVoiceNoteBadge]);
 const markMissedCallAsCalledBack = async (missedCallId) => {
   if (!missedCallId) return;
 
@@ -604,23 +707,39 @@ const markMissedCallAsCalledBack = async (missedCallId) => {
       }
     }
 
-    setAgentStatus(activity);
-
-    if (!isReady) startStatusTimer(activity);
-    else stopStatusTimer();
-
     const statusToUpdate = isReady ? "online" : "pause";
+    const pauseStartedAt = new Date().toISOString();
+    const body = isReady
+      ? { status: statusToUpdate }
+      : {
+          status: statusToUpdate,
+          pause_activity: activity,
+          pause_started_at: pauseStartedAt,
+        };
+
     try {
-      await fetch(`${baseURL}/users/status/${localStorage.getItem("userId")}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-        },
-        body: JSON.stringify({ status: statusToUpdate }),
-      });
+      const response = await fetch(
+        `${baseURL}/users/status/${localStorage.getItem("userId")}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+          },
+          body: JSON.stringify(body),
+        }
+      );
+      if (!response.ok) {
+        showAlert("Failed to update status. Try again.", "error");
+        return;
+      }
+
+      setAgentStatus(isReady ? "ready" : activity);
+      if (!isReady) startStatusTimer(activity);
+      else stopStatusTimer();
     } catch (err) {
       console.error("Failed to update status:", err);
+      showAlert("Failed to update status. Try again.", "error");
     }
   };
 
@@ -632,6 +751,19 @@ useEffect(() => {
 
   return (
     <div className="agents-dashboard-root">
+      {intervention && (
+        <Alert
+          severity={intervention.severity || "info"}
+          onClose={clearIntervention}
+          sx={{
+            mb: 2,
+            fontWeight: 500,
+            "& .MuiAlert-message": { width: "100%" },
+          }}
+        >
+          <strong>{intervention.title}</strong> — {intervention.message}
+        </Alert>
+      )}
 
       {/* Call Status Banner - Shows when on a call even if ticket modal is closed */}
       {hasActiveCall && !showTicketModal && (
@@ -736,7 +868,10 @@ useEffect(() => {
           <Tooltip title="Voice Notes" arrow>
             <div
               style={{ position: "relative", cursor: "pointer" }}
-              onClick={() => setShowVoiceNotesModal(true)}
+              onClick={() => {
+                refreshVoiceNoteBadge();
+                setShowVoiceNotesModal(true);
+              }}
             >
               <MdOutlineVoicemail size={22} />
               {unplayedVoiceNotes > 0 && (
@@ -795,8 +930,16 @@ useEffect(() => {
                 >
                   {agentStatus.toUpperCase()}
                 </h4>
-                <span style={{ color: "black", marginLeft: "10px" }}>
-                  Time Remaining: {formatRemainingTime(timeRemaining)}
+                <span
+                  style={{
+                    color: pauseExceeded ? "#c62828" : "black",
+                    marginLeft: "10px",
+                    fontWeight: pauseExceeded ? 600 : 400,
+                  }}
+                >
+                  {pauseExceeded
+                    ? `Exceeded: ${formatExceededTime(exceededSeconds)}`
+                    : `Time Remaining: ${formatRemainingTime(timeRemaining)}`}
                 </span>
               </div>
             </>
@@ -882,52 +1025,25 @@ useEffect(() => {
         transformOrigin={{ horizontal: "right", vertical: "top" }}
         anchorOrigin={{ horizontal: "right", vertical: "bottom" }}
       >
-        <MenuItem onClick={() => handleAgentEmergency("ready")}>
-          <ListItemIcon>
-            <GiTrafficLightsReadyToGo fontSize="large" />
-          </ListItemIcon>
-          Ready
-        </MenuItem>
-        <MenuItem onClick={() => handleAgentEmergency("breakfast")}>
-          <ListItemIcon>
-            <MdOutlineFreeBreakfast fontSize="large" />
-          </ListItemIcon>
-          Breakfast
-        </MenuItem>
-        <MenuItem onClick={() => handleAgentEmergency("lunch")}>
-          <ListItemIcon>
-            <MdOutlineLunchDining fontSize="large" />
-          </ListItemIcon>
-          Lunch
-        </MenuItem>
-        <MenuItem onClick={() => handleAgentEmergency("attending meeting")}>
-          <ListItemIcon>
-            <GiExplosiveMeeting fontSize="large" />
-          </ListItemIcon>
-          Attending Meeting
-        </MenuItem>
-        <MenuItem onClick={() => handleAgentEmergency("short call")}>
-          <ListItemIcon>
-            <MdWifiCalling2 fontSize="large" />
-          </ListItemIcon>
-          Short Call
-        </MenuItem>
-        <MenuItem onClick={() => handleAgentEmergency("emergency")}>
-          <ListItemIcon>
-            <TbEmergencyBed fontSize="large" />
-          </ListItemIcon>
-          Emergency
-        </MenuItem>
-        <MenuItem
-          onClick={() =>
-            handleAgentEmergency("follow-up of customer inquiries")
-          }
-        >
-          <ListItemIcon>
-            <MdOutlineFollowTheSigns fontSize="large" />
-          </ListItemIcon>
-          Follow-up of customer inquiries
-        </MenuItem>
+        {pauseMenuItems.map(({ activity, label, icon, timerKey }) => {
+          const seconds = timerKey ? timeIntervals[timerKey] : null;
+          const timeRange = seconds ? formatPauseDuration(seconds) : null;
+          return (
+            <MenuItem
+              key={activity}
+              onClick={() => handleAgentEmergency(activity)}
+            >
+              <ListItemIcon>{icon}</ListItemIcon>
+              <ListItemText
+                primary={label}
+                secondary={timeRange ? `Allowed: ${timeRange}` : null}
+                secondaryTypographyProps={{
+                  sx: { fontSize: "0.75rem", color: "text.secondary" },
+                }}
+              />
+            </MenuItem>
+          );
+        })}
       </Menu>
 
       {/* Phone popup */}
@@ -1107,12 +1223,15 @@ useEffect(() => {
       {/* Voice notes modal */}
       <Dialog
         open={showVoiceNotesModal}
-        onClose={() => setShowVoiceNotesModal(false)}
+        onClose={() => {
+          setShowVoiceNotesModal(false);
+          refreshVoiceNoteBadge();
+        }}
         fullWidth
         maxWidth="md"
       >
         <DialogContent>
-          <VoiceNotesReport />
+          <VoiceNotesReport variant="inbox" />
         </DialogContent>
       </Dialog>
     </div>

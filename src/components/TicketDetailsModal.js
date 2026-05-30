@@ -1163,12 +1163,25 @@ export default function TicketDetailsModal({
   const [isFlowModalOpen, setIsFlowModalOpen] = useState(false);
   const userRole = localStorage.getItem("role");
   const userId = localStorage.getItem("userId");
+  const effectiveTicketRole = (selectedTicket?.effective_role || userRole || "").toLowerCase();
+  const [activeHandoverId, setActiveHandoverId] = useState(null);
+  const [revokeHandoverLoading, setRevokeHandoverLoading] = useState(false);
+  const isOriginalOwnerBlocked = Boolean(
+    selectedTicket?.handover_active &&
+      selectedTicket?.handover?.from_user_id &&
+      String(selectedTicket?.handover?.from_user_id) === String(userId) &&
+      !selectedTicket?.can_act_with_effective_role
+  );
+  const canCurrentUserActOnHandoverTicket = Boolean(selectedTicket?.can_act_with_effective_role);
+  const isCurrentUserAssigned = String(selectedTicket?.assigned_to_id || "") === String(userId || "");
+  const canActOnCurrentTicket =
+    !isOriginalOwnerBlocked && (isCurrentUserAssigned || canCurrentUserActOnHandoverTicket);
   /** Same family as backend: cannot close Complaints directly — use Reverse with Recommendation to manager */
   const FOCAL_PERSON_ROLES = ["focal-person", "claim-focal-person", "compliance-focal-person"];
-  const isFocalPersonRole = FOCAL_PERSON_ROLES.includes(userRole);
+  const isFocalPersonRole = FOCAL_PERSON_ROLES.includes(effectiveTicketRole);
   
   // Initialize PermissionManager for permission checking
-  const permissionManager = new PermissionManager(userRole, userUnitSection);
+  const permissionManager = new PermissionManager(effectiveTicketRole || userRole, userUnitSection);
   
   // State for all sections (directorates and units) from mapping
   const [allSectionsList, setAllSectionsList] = useState([]);
@@ -1326,6 +1339,58 @@ export default function TicketDetailsModal({
     if (afterClose) afterClose();
   };
 
+  useEffect(() => {
+    const fetchMyActiveHandover = async () => {
+      if (!isOriginalOwnerBlocked || !selectedTicket?.handover_active) {
+        setActiveHandoverId(null);
+        return;
+      }
+      try {
+        const token = localStorage.getItem("authToken");
+        const response = await fetch(`${baseURL}/users/handover/active`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        const active = (data?.handovers || []).find(
+          (h) =>
+            h?.status === "active" &&
+            String(h?.from_user_id) === String(userId) &&
+            String(h?.to_user_id) === String(selectedTicket?.assigned_to_id)
+        );
+        setActiveHandoverId(active?.id || null);
+      } catch (error) {
+        setActiveHandoverId(null);
+      }
+    };
+
+    fetchMyActiveHandover();
+  }, [isOriginalOwnerBlocked, selectedTicket?.id, selectedTicket?.assigned_to_id, userId]);
+
+  const handleRevokeMyHandover = async () => {
+    if (!activeHandoverId) return;
+    try {
+      setRevokeHandoverLoading(true);
+      const token = localStorage.getItem("authToken");
+      const response = await fetch(`${baseURL}/users/handover/${activeHandoverId}/revoke`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.message || "Failed to revoke handover");
+      }
+      showSnackbar("Handover revoked. You can now continue ticket actions.", "success");
+      if (typeof refreshTickets === "function") refreshTickets();
+      if (typeof refreshDashboardCounts === "function") refreshDashboardCounts();
+      onClose();
+    } catch (error) {
+      showSnackbar(error.message || "Failed to revoke handover.", "error");
+    } finally {
+      setRevokeHandoverLoading(false);
+    }
+  };
+
   // Function to check if current user was previously assigned to this ticket
   const wasPreviouslyAssigned = () => {
     if (!assignmentHistory || !Array.isArray(assignmentHistory) || assignmentHistory.length === 0) {
@@ -1336,13 +1401,13 @@ export default function TicketDetailsModal({
     // but is not currently assigned to the ticket
     return assignmentHistory.some(assignment => 
       (assignment.assigned_to_id === userId || assignment.assigned_by_id === userId) && 
-      selectedTicket?.assigned_to_id !== userId
+      !canActOnCurrentTicket
     );
   };
 
   // Function to check if user has reassign permission (focal roles, manager, or head-of-unit role)
   const hasReassignPermission = () => {
-    const r = localStorage.getItem("role");
+    const r = effectiveTicketRole || localStorage.getItem("role");
     return (
       r === "focal-person" ||
       r === "claim-focal-person" ||
@@ -1374,7 +1439,7 @@ export default function TicketDetailsModal({
   // This works for ALL ticket categories (Inquiry, Complaint, Suggestion, etc.)
   const shouldShowReassign = () => {
     const currentUserId = localStorage.getItem("userId");
-    const currentUserRole = localStorage.getItem("role");
+    const currentUserRole = effectiveTicketRole || localStorage.getItem("role");
     
     // Only for manager, head-of-unit, and director
     if (currentUserRole !== "manager" && currentUserRole !== "head-of-unit" && currentUserRole !== "director") {
@@ -4792,13 +4857,33 @@ export default function TicketDetailsModal({
                   );
                 })()}
 
+                {isOriginalOwnerBlocked && (
+                  <Alert
+                    severity="warning"
+                    sx={{ mb: 2, width: "100%", display: "flex", alignItems: "center" }}
+                    action={
+                      <Button
+                        color="inherit"
+                        size="small"
+                        onClick={handleRevokeMyHandover}
+                        disabled={revokeHandoverLoading || !activeHandoverId}
+                      >
+                        {revokeHandoverLoading ? "Revoking..." : "Revoke"}
+                      </Button>
+                    }
+                  >
+                    {selectedTicket?.handover_block_reason ||
+                      "You have handed over this ticket. Revoke handover to continue actions."}
+                  </Alert>
+                )}
+
                 {/* Reverse, Assign, and Reassign buttons for focal persons and other roles */}
-                {((["focal-person", "claim-focal-person", "compliance-focal-person", "head-of-unit", "manager", "director"].includes(localStorage.getItem("role")) || 
-                  !["agent", "reviewer", "attendee", "director-general"].includes(localStorage.getItem("role"))) && 
-                 selectedTicket?.assigned_to_id === localStorage.getItem("userId") && selectedTicket.status !== "Closed") && (
+                {((["focal-person", "claim-focal-person", "compliance-focal-person", "head-of-unit", "manager", "director"].includes(effectiveTicketRole) || 
+                  !["agent", "reviewer", "attendee", "director-general"].includes(effectiveTicketRole)) && 
+                 canActOnCurrentTicket && selectedTicket.status !== "Closed") && (
                   <>
                     {/* Special case: Director with Compliment or Suggestion - show only Assign, Reverse, Cancel */}
-                    {(userRole === "director" && 
+                    {(effectiveTicketRole === "director" && 
                       (selectedTicket?.category === "Compliment" || selectedTicket?.category === "Suggestion" || selectedTicket?.category === "Complement")) ? (
                       <>
                         <Tooltip title={shouldShowReassign() ? "Reassign this ticket to a different attendee" : "Assign this ticket to an attendee"}>
@@ -4826,7 +4911,7 @@ export default function TicketDetailsModal({
                     ) : (
                       <>
                         {/* Special case: Manager with Compliment or Suggestion - show only Attend, Reverse, Cancel */}
-                        {(userRole === "manager" && 
+                        {(effectiveTicketRole === "manager" && 
                           (selectedTicket?.category === "Compliment" || selectedTicket?.category === "Suggestion" || selectedTicket?.category === "Complement")) ? (
                           <>
                             {showAttendButton && (
@@ -4874,7 +4959,7 @@ export default function TicketDetailsModal({
                             </Tooltip>
                             {/* Hide Assign button for manager, head-of-unit, and director when category is Compliment, Suggestion, or Complement */}
                             {/* Hide Assign button for focal roles when category is Complaint */}
-                            {!((userRole === "manager" || userRole === "head-of-unit" || userRole === "director") && 
+                            {!((effectiveTicketRole === "manager" || effectiveTicketRole === "head-of-unit" || effectiveTicketRole === "director") && 
                                 (selectedTicket?.category === "Compliment" || selectedTicket?.category === "Suggestion" || selectedTicket?.category === "Complement")) &&
                              !(isFocalPersonRole && selectedTicket?.category === "Complaint") && (
                               <Tooltip title={shouldShowReassign() ? "Reassign this ticket to a different attendee" : "Assign this ticket to an attendee"}>
@@ -4896,13 +4981,13 @@ export default function TicketDetailsModal({
                 )}
 
                 {/* Forward to DG button for Director or Head-of-unit with Major Complaint - always visible even if not assigned, but hide for Inquiry */}
-                {((userRole === "director" && 
+                {((effectiveTicketRole === "director" && 
                    selectedTicket?.category === "Complaint" && 
                    selectedTicket?.category !== "Inquiry" &&
                    selectedTicket?.complaint_type === "Major" &&
                    selectedTicket?.responsible_unit_name?.toLowerCase().includes("directorate") &&
                    selectedTicket?.status !== "Closed") ||
-                  (userRole === "head-of-unit" && 
+                  (effectiveTicketRole === "head-of-unit" && 
                    selectedTicket?.category === "Complaint" && 
                    selectedTicket?.category !== "Inquiry" &&
                    selectedTicket?.complaint_type === "Major" &&
@@ -4923,7 +5008,7 @@ export default function TicketDetailsModal({
                 {/* Reassign button for previously assigned focal-person or manager who is not currently assigned */}
                 {hasReassignPermission() && 
                  wasPreviouslyAssigned() && 
-                 selectedTicket?.assigned_to_id !== localStorage.getItem("userId") && 
+                 !canActOnCurrentTicket && 
                  selectedTicket.status !== "Closed" && (
                   <Tooltip title="Reassign this ticket to a different attendee">
                   <Button
@@ -4938,8 +5023,8 @@ export default function TicketDetailsModal({
                 )}
 
                 {/* Agent Reverse button for rated tickets */}
-                {(userRole === "agent" || userRole === "attendee") && 
-                 selectedTicket?.assigned_to_id === localStorage.getItem("userId") &&
+                {(effectiveTicketRole === "agent" || effectiveTicketRole === "attendee") && 
+                 canActOnCurrentTicket &&
                  selectedTicket?.complaint_type && 
                  ["Major", "Minor"].includes(selectedTicket.complaint_type) && (
                   <Tooltip title="Reverse this ticket with a recommendation">
@@ -4957,9 +5042,9 @@ export default function TicketDetailsModal({
 
                 {/* Attendee Reverse button for Inquiry tickets in Compliance Section or Claims Administration Section */}
                 {/* Also show if previous user (assigned_by_id) was the creator (created_by) */}
-                {userRole === "attendee" && 
+                {effectiveTicketRole === "attendee" && 
                  selectedTicket?.category === "Inquiry" &&
-                 selectedTicket?.assigned_to_id === localStorage.getItem("userId") &&
+                 canActOnCurrentTicket &&
                  selectedTicket?.status !== "Closed" &&
                  (() => {
                    // Check if sub-section is Compliance Section or Claims Administration Section
@@ -4995,8 +5080,8 @@ export default function TicketDetailsModal({
                 )}
 
                 {/* Manager Send to Director button - visible for all complaints (Major and Minor), but hide for Compliment/Suggestion/Complement and Inquiry */}
-                {userRole === "manager" && 
-                 selectedTicket?.assigned_to_id === localStorage.getItem("userId") &&
+                {effectiveTicketRole === "manager" && 
+                 canActOnCurrentTicket &&
                  selectedTicket?.status !== "Closed" &&
                  selectedTicket?.category !== "Inquiry" &&
                  !(selectedTicket?.category === "Compliment" || selectedTicket?.category === "Suggestion" || selectedTicket?.category === "Complement") && (

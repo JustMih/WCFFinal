@@ -1,0 +1,216 @@
+@import "../side-bar/shared/wcfSidebarTokens.css";
+
+.wcf-loader {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  position: relative;
+}
+
+.wcf-loader__spinner-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.wcf-loader--sm .wcf-loader__spinner-wrap {
+  width: 36px;
+  height: 36px;
+}
+
+.wcf-loader--md .wcf-loader__spinner-wrap {
+  width: 48px;
+  height: 48px;
+}
+
+.wcf-loader--lg .wcf-loader__spinner-wrap {
+  width: 64px;
+  height: 64px;
+}
+
+/* Dual-ring spinner (scoped from provided loader CSS) */
+.wcf-loader__ring.loader {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  border-radius: 50%;
+  display: inline-block;
+  border: 3px solid;
+  border-color: var(--wcf-blue-light) var(--wcf-blue-light) transparent transparent;
+  box-sizing: border-box;
+  animation: wcf-loader-rotation 1s linear infinite;
+}
+
+.wcf-loader--sm .wcf-loader__ring.loader {
+  width: 36px;
+  height: 36px;
+  border-width: 2px;
+}
+
+.wcf-loader--md .wcf-loader__ring.loader {
+  width: 48px;
+  height: 48px;
+}
+
+.wcf-loader--lg .wcf-loader__ring.loader {
+  width: 64px;
+  height: 64px;
+  border-width: 4px;
+}
+
+.wcf-loader__ring.loader::after,
+.wcf-loader__ring.loader::before {
+  content: "";
+  box-sizing: border-box;
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  margin: auto;
+  border: 3px solid;
+  border-color: transparent transparent var(--wcf-green) var(--wcf-green);
+  border-radius: 50%;
+  animation: wcf-loader-rotation-back 0.5s linear infinite;
+  transform-origin: center center;
+}
+
+.wcf-loader--sm .wcf-loader__ring.loader::after,
+.wcf-loader--sm .wcf-loader__ring.loader::before {
+  width: 28px;
+  height: 28px;
+  border-width: 2px;
+}
+
+.wcf-loader--md .wcf-loader__ring.loader::after,
+.wcf-loader--md .wcf-loader__ring.loader::before {
+  width: 40px;
+  height: 40px;
+}
+
+.wcf-loader--lg .wcf-loader__ring.loader::after,
+.wcf-loader--lg .wcf-loader__ring.loader::before {
+  width: 52px;
+  height: 52px;
+  border-width: 4px;
+}
+
+.wcf-loader__ring.loader::before {
+  border-color: var(--wcf-blue-light) var(--wcf-blue-light) transparent transparent;
+  animation: wcf-loader-rotation 1.5s linear infinite;
+}
+
+.wcf-loader--sm .wcf-loader__ring.loader::before {
+  width: 22px;
+  height: 22px;
+}
+
+.wcf-loader--md .wcf-loader__ring.loader::before {
+  width: 32px;
+  height: 32px;
+}
+
+.wcf-loader--lg .wcf-loader__ring.loader::before {
+  width: 42px;
+  height: 42px;
+}
+
+.wcf-loader__logo {
+  position: relative;
+  z-index: 1;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+.wcf-loader--sm .wcf-loader__logo {
+  width: 16px;
+  height: 16px;
+}
+
+.wcf-loader--md .wcf-loader__logo {
+  width: 22px;
+  height: 22px;
+}
+
+.wcf-loader--lg .wcf-loader__logo {
+  width: 28px;
+  height: 28px;
+}
+
+.wcf-loader__message {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--textgray-color, #6b7280);
+  font-family: var(--content-font, var(--wcf-font-ui));
+  text-align: center;
+}
+
+@keyframes wcf-loader-rotation {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes wcf-loader-rotation-back {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(-360deg);
+  }
+}
+
+.wcf-loading-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 20px;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.wcf-loading-overlay {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  width: 100%;
+  padding: 48px 20px;
+  box-sizing: border-box;
+}
+
+.wcf-loading-overlay--full-page {
+  min-height: calc(100vh - 80px);
+  flex: 1;
+}
+
+.wcf-loading-overlay--transparent {
+  background: transparent;
+}
+
+.wcf-loading-overlay--transparent.wcf-loading-overlay--full-page {
+  min-height: calc(100vh - 56px);
+}
+
+/* Fixed over main content while route transitions (keeps previous page visible) */
+.wcf-route-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  pointer-events: auto;
+}

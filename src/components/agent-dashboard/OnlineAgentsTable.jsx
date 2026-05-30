@@ -8,10 +8,19 @@ import {
   TableRow,
 } from "@mui/material";
 import { baseURL } from "../../config";
+import {
+  formatActivityLabel,
+  activityToBadgeClass,
+  getRemainingSecondsFromStart,
+  getExceededSecondsFromStart,
+  formatRemainingTime,
+  formatExceededTime,
+} from "../../utils/pauseActivities";
 import "./OnlineAgentsTable.css";
 
 const OnlineAgentsTable = () => {
   const [onlineAgents, setOnlineAgents] = useState([]);
+  const [, setTick] = useState(0);
 
   const getOnlineAgents = async () => {
     try {
@@ -28,7 +37,6 @@ const OnlineAgentsTable = () => {
       }
 
       const data = await response.json();
-      console.log("Total agents data:", data);
       setOnlineAgents(data.agents || []);
     } catch (error) {
       console.error("Error fetching online agents:", error);
@@ -36,14 +44,69 @@ const OnlineAgentsTable = () => {
     }
   };
 
+  const hasPausedAgents = onlineAgents.some((a) => a.status === "pause");
+
   useEffect(() => {
     getOnlineAgents();
-    
-    // Refresh online agents every 30 seconds
-    const interval = setInterval(getOnlineAgents, 30000);
-    
+    const intervalMs = hasPausedAgents ? 10000 : 30000;
+    const interval = setInterval(getOnlineAgents, intervalMs);
     return () => clearInterval(interval);
-  }, []);
+  }, [hasPausedAgents]);
+
+  useEffect(() => {
+    if (!hasPausedAgents) return undefined;
+    const tickInterval = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(tickInterval);
+  }, [hasPausedAgents]);
+
+  const renderStatus = (user) => {
+    if (user.status === "online") {
+      return <span className="status-badge online">Online</span>;
+    }
+    if (user.status === "pause" && user.pause_activity) {
+      const allowed = user.pause_allowed_seconds;
+      const isExceeded =
+        user.is_exceeded ??
+        getExceededSecondsFromStart(
+          user.pause_activity,
+          user.pause_started_at,
+          {},
+          allowed
+        ) > 0;
+      const exceeded =
+        user.exceeded_seconds ??
+        getExceededSecondsFromStart(
+          user.pause_activity,
+          user.pause_started_at,
+          {},
+          allowed
+        );
+      const remaining =
+        user.remaining_seconds ??
+        getRemainingSecondsFromStart(
+          user.pause_activity,
+          user.pause_started_at,
+          {},
+          allowed
+        );
+      const label = formatActivityLabel(user.pause_activity);
+      const badgeClass = isExceeded
+        ? "exceeded"
+        : activityToBadgeClass(user.pause_activity);
+
+      return (
+        <span className={`status-badge ${badgeClass}`}>
+          {label}
+          {isExceeded
+            ? ` — Exceeded ${formatExceededTime(exceeded)}`
+            : ` (${formatRemainingTime(remaining)} left)`}
+        </span>
+      );
+    }
+    return (
+      <span className="status-badge pause">{user.status || "Pause"}</span>
+    );
+  };
 
   return (
     <div className="online-agents-container">
@@ -63,11 +126,7 @@ const OnlineAgentsTable = () => {
                 <TableRow key={user.id}>
                   <TableCell>{user.full_name}</TableCell>
                   <TableCell>{user.extension}</TableCell>
-                  <TableCell>
-                    <span className={`status-badge ${user.status.toLowerCase()}`}>
-                      {user.status}
-                    </span>
-                  </TableCell>
+                  <TableCell>{renderStatus(user)}</TableCell>
                 </TableRow>
               ))
             ) : (
@@ -84,4 +143,4 @@ const OnlineAgentsTable = () => {
   );
 };
 
-export default OnlineAgentsTable; 
+export default OnlineAgentsTable;

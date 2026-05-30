@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Alert, Autocomplete, Button, Snackbar, TextField } from "@mui/material";
 import { baseURL } from "../../../config";
+import WcfLoader from "../../../components/shared/WcfLoader";
 import "./ticket.css";
 
 const CLOSED_STATUSES = new Set(["closed", "resolved"]);
@@ -250,7 +251,13 @@ export default function OwnershipExchange() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={5}>Loading...</td></tr>
+              <tr>
+                <td colSpan={5}>
+                  <div className="wcf-loading-container">
+                    <WcfLoader size="md" message="Loading tickets..." label="Loading tickets" />
+                  </div>
+                </td>
+              </tr>
             ) : filteredTickets.length === 0 ? (
               <tr><td colSpan={5}>No eligible non-closed tickets found.</td></tr>
             ) : (
