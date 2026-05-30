@@ -1224,7 +1224,7 @@ useEffect(() => {
         maxWidth="md"
       >
         <DialogContent>
-          <VoiceNotesReport variant="inbox" />
+          <VoiceNotesReport agentId={localStorage.getItem("userId")} />
         </DialogContent>
       </Dialog>
     </div>
