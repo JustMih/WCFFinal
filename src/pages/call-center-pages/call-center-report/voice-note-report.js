@@ -257,10 +257,9 @@ export default function VoiceNoteReport() {
             <InputLabel>Disposition</InputLabel>
             <Select value={disposition} label="Disposition" onChange={(e) => setDisposition(e.target.value)}>
               <MenuItem value="all">All</MenuItem>
-              <MenuItem value="ANSWERED">Answered</MenuItem>
-              <MenuItem value="NO ANSWER">No Answer</MenuItem>
-              <MenuItem value="BUSY">Busy</MenuItem>
-              <MenuItem value="FAILED">Failed</MenuItem>
+              <MenuItem value="answered">Answered</MenuItem>
+              <MenuItem value="lost">Lost</MenuItem>
+              <MenuItem value="dropped">Dropped</MenuItem>
             </Select>
           </FormControl>
         )}

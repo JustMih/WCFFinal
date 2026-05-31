@@ -105,6 +105,18 @@ import "./OffHoursReport.css";
 
 const SIP_DOMAIN = "192.168.21.69";
 
+const EXCLUDED_CDR_DESTINATIONS = new Set(["S", "I", "T"]);
+const isExcludedCdrDestination = (value) =>
+  value != null &&
+  EXCLUDED_CDR_DESTINATIONS.has(String(value).trim().toUpperCase());
+
+const formatCallStatus = (value) => {
+  if (value == null || value === "" || value === "-") return "-";
+  const str = String(value).trim();
+  if (!str) return "-";
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+};
+
 const OFF_HOURS_CATEGORY_OPTIONS = [
   { value: "all", label: "All Categories" },
   { value: "public_holiday", label: "Public Holiday" },
@@ -199,6 +211,11 @@ async function fetchOffHoursFallback(startDate, endDate, source) {
     const emergencyList = emergencyRes.ok ? await emergencyRes.json() : [];
     if (dataRes.ok) {
       rawRecords = await dataRes.json();
+      if (source === "cdr" && Array.isArray(rawRecords)) {
+        rawRecords = rawRecords.filter(
+          (row) => !isExcludedCdrDestination(row.dst ?? row.called)
+        );
+      }
     } else if (dataRes.status !== 404) {
       throw new Error("Failed to load report data");
     }
@@ -702,6 +719,11 @@ export default function ComprehensiveReports() {
       if (activeTab === REPORT_TYPES.DTMF_USAGE) {
         list = list.filter((row) => DTMF_DIGIT_LABELS[row.digit_pressed]);
       }
+      if (activeTab === REPORT_TYPES.CDR) {
+        list = list.filter(
+          (row) => !isExcludedCdrDestination(row.dst ?? row.called)
+        );
+      }
       if (activeTab === REPORT_TYPES.VOICE_NOTE) {
         const playedMap = getPlayedVoiceNotesMap();
         list.forEach((note) => {
@@ -721,7 +743,9 @@ export default function ComprehensiveReports() {
         activeTab === REPORT_TYPES.CDR ||
         activeTab === REPORT_TYPES.CALL_SUMMARY
       ) {
-        calculateCallStats(data);
+        calculateCallStats(
+          activeTab === REPORT_TYPES.CDR ? list : data
+        );
       }
     } catch (error) {
       setSnackbarMessage(error.message || "Error loading reports.");
@@ -804,11 +828,12 @@ export default function ComprehensiveReports() {
         stats.total > 0 ? Math.round(stats.totalDuration / stats.total) : 0;
     } else {
       // For CDR: count individual records by disposition
+      const dispositionOf = (r) => String(r.disposition || "").toLowerCase();
       stats = {
         total: data.length,
-        answered: data.filter((r) => r.disposition === "ANSWERED").length,
-        noAnswer: data.filter((r) => r.disposition === "NO ANSWER").length,
-        busy: data.filter((r) => r.disposition === "BUSY").length,
+        answered: data.filter((r) => dispositionOf(r) === "answered").length,
+        noAnswer: data.filter((r) => dispositionOf(r) === "lost").length,
+        busy: data.filter((r) => dispositionOf(r) === "dropped").length,
         totalDuration: data.reduce(
           (sum, r) => sum + (parseInt(r.duration) || 0),
           0
@@ -1635,14 +1660,20 @@ export default function ComprehensiveReports() {
           (report.clid || "").toLowerCase().includes(searchLower) &&
           matchesPlayedFilter
         );
-      case REPORT_TYPES.CDR:
+      case REPORT_TYPES.CDR: {
+        const matchesDisposition =
+          disposition === "all" ||
+          String(report.disposition || "").toLowerCase() === disposition;
         return (
-          (report.clid || "").toLowerCase().includes(searchLower) ||
-          (report.dst || "").toLowerCase().includes(searchLower) ||
-          (report.src || "").toLowerCase().includes(searchLower) ||
-          (report.agent_name || "").toLowerCase().includes(searchLower) ||
-          (report.direction || "").toLowerCase().includes(searchLower)
+          matchesDisposition &&
+          !isExcludedCdrDestination(report.dst ?? report.called) &&
+          ((report.clid || "").toLowerCase().includes(searchLower) ||
+            (report.dst || "").toLowerCase().includes(searchLower) ||
+            (report.src || "").toLowerCase().includes(searchLower) ||
+            (report.agent_name || "").toLowerCase().includes(searchLower) ||
+            (report.direction || "").toLowerCase().includes(searchLower))
         );
+      }
       case REPORT_TYPES.TICKET_CRM:
         const matchesStatus =
           ticketStatus === "all" || report.status === ticketStatus;
@@ -1854,7 +1885,7 @@ export default function ComprehensiveReports() {
           case "billed":
             return formatSecondsToMinutes(report.billsec, false);
           case "disposition":
-            return report.disposition || "-";
+            return formatCallStatus(report.disposition);
           case "recording":
             return report.recordingfile || "-";
           default:
@@ -2796,6 +2827,11 @@ export default function ComprehensiveReports() {
 
     const formatDuration = (seconds) => formatSecondsToMinutes(seconds);
 
+    const noAnswerLabel =
+      activeTab === REPORT_TYPES.CDR ? "Lost" : "No Answer";
+    const busyLabel =
+      activeTab === REPORT_TYPES.CDR ? "Dropped" : "Busy";
+
     return (
       <div className="summary-cards-container">
         <Card className="summary-card summary-card-total">
@@ -2829,7 +2865,7 @@ export default function ComprehensiveReports() {
               <PhoneMissed />
             </div>
             <div className="summary-card-info">
-              <Typography className="summary-card-label">No Answer</Typography>
+              <Typography className="summary-card-label">{noAnswerLabel}</Typography>
               <Typography className="summary-card-value">{summaryStats.noAnswer.toLocaleString()}</Typography>
               <Typography className="summary-card-percentage">{noAnswerPercentage}%</Typography>
             </div>
@@ -2842,7 +2878,7 @@ export default function ComprehensiveReports() {
               <PhoneDisabled />
             </div>
             <div className="summary-card-info">
-              <Typography className="summary-card-label">Busy</Typography>
+              <Typography className="summary-card-label">{busyLabel}</Typography>
               <Typography className="summary-card-value">{summaryStats.busy.toLocaleString()}</Typography>
               <Typography className="summary-card-percentage">{busyPercentage}%</Typography>
             </div>
@@ -3646,14 +3682,14 @@ export default function ComprehensiveReports() {
             <td>{formatSecondsToMinutes(report.billsec, false)}</td>
             <td>
               <Chip
-                label={report.disposition || "-"}
+                label={formatCallStatus(report.disposition)}
                 size="small"
                 color={
-                  report.disposition === "ANSWERED"
+                  String(report.disposition || "").toLowerCase() === "answered"
                     ? "success"
-                    : report.disposition === "NO ANSWER"
+                    : String(report.disposition || "").toLowerCase() === "lost"
                     ? "warning"
-                    : report.disposition === "BUSY"
+                    : String(report.disposition || "").toLowerCase() === "dropped"
                     ? "error"
                     : "default"
                 }
@@ -4381,10 +4417,9 @@ export default function ComprehensiveReports() {
                     onChange={(e) => setDisposition(e.target.value)}
                   >
                     <MenuItem value="all">All</MenuItem>
-                    <MenuItem value="ANSWERED">Answered</MenuItem>
-                    <MenuItem value="NO ANSWER">No Answer</MenuItem>
-                    <MenuItem value="BUSY">Busy</MenuItem>
-                    <MenuItem value="FAILED">Failed</MenuItem>
+                    <MenuItem value="answered">Answered</MenuItem>
+                    <MenuItem value="lost">Lost</MenuItem>
+                    <MenuItem value="dropped">Dropped</MenuItem>
                   </Select>
                 </FormControl>
               )}

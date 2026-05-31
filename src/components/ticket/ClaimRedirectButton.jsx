@@ -91,8 +91,12 @@ const ClaimRedirectButton = ({
 
       const requestData = {
         notification_report_id: idToSend,
-        employer_id: employerId,
       };
+      // Claim/employee searches must not send employer_id on the first redirect —
+      // MAC treats employer_id as "open employer profile" and ignores the claim.
+      if (isEmployerSearch && employerId !== undefined && employerId !== null && employerId !== "") {
+        requestData.employer_id = employerId;
+      }
 
       const requestHeaders = {
         'Content-Type': 'application/json',

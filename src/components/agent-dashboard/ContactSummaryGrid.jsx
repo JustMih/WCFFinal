@@ -22,15 +22,20 @@ const toInt = (value) => {
   return Number.isNaN(n) ? 0 : n;
 };
 
-const sumDirectionTotal = (dir) =>
-  toInt(dir?.answered) + toInt(dir?.dropped) + toInt(dir?.lost);
+const sumDirectionTotal = (dir) => {
+  if (dir?.total != null) return toInt(dir.total);
+  return toInt(dir?.answered) + toInt(dir?.dropped) + toInt(dir?.lost);
+};
 
 export default function ContactSummaryGrid() {
   const [contactData, setContactData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [voicemailCount, setVoicemailCount] = useState(0);
+  const [unplayedVoicemailCount, setUnplayedVoicemailCount] = useState(0);
 
   useEffect(() => {
     const agentId = localStorage.getItem("extension");
+    const userId = localStorage.getItem("userId");
     if (!agentId) {
       setContactData(null);
       setLoading(false);
@@ -38,7 +43,9 @@ export default function ContactSummaryGrid() {
     }
 
     setLoading(true);
-    fetch(`${baseURL}/calls/agent-calls-today/${agentId}?excludeDestS=1`)
+    const query = new URLSearchParams({ excludeDestS: "1" });
+    if (userId) query.set("userId", userId);
+    fetch(`${baseURL}/calls/agent-calls-today/${agentId}?${query}`)
       .then((res) => {
         if (!res.ok) throw new Error("Failed to fetch contact data");
         return res.json();
@@ -51,6 +58,52 @@ export default function ContactSummaryGrid() {
         setContactData(null);
         setLoading(false);
       });
+  }, []);
+
+  useEffect(() => {
+    const fetchVoiceNotes = async () => {
+      try {
+        const agentId = localStorage.getItem("userId");
+        const response = await fetch(
+          `${baseURL}/voice-notes?agentId=${agentId}`,
+          {
+            method: "GET",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+            },
+          }
+        );
+        if (!response.ok) throw new Error("Failed to fetch voice notes");
+        const data = await response.json();
+        const extension = localStorage.getItem("extension");
+        const notes = (data.voiceNotes || []).filter((note) => {
+          if (!agentId) return false;
+          if (String(note.assigned_agent_id) === String(agentId)) return true;
+          return (
+            (note.assigned_agent_id == null || note.assigned_agent_id === "") &&
+            extension &&
+            String(note.assigned_extension) === String(extension)
+          );
+        });
+        const storedPlayed =
+          JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
+        const unplayedCount = notes.filter(
+          (note) => !storedPlayed[note.id]
+        ).length;
+        setVoicemailCount(notes.length);
+        setUnplayedVoicemailCount(unplayedCount);
+      } catch (error) {
+        setVoicemailCount(0);
+        setUnplayedVoicemailCount(0);
+      }
+    };
+    fetchVoiceNotes();
+    const handleStorage = (e) => {
+      if (e.key === "playedVoiceNotes") fetchVoiceNotes();
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
   }, []);
 
   const safe = (obj, key, fallback = 0) =>
@@ -67,7 +120,7 @@ export default function ContactSummaryGrid() {
         safe(contactData?.email, "total", 0)
       : 0;
 
-    const voicemailTotal = safe(contactData?.voicemail, "total", 0);
+    const voicemailTotal = voicemailCount;
 
     return {
       inbound: {
@@ -91,8 +144,6 @@ export default function ContactSummaryGrid() {
       },
       voicemail: {
         total: voicemailTotal,
-        new: Math.floor(voicemailTotal * 0.6),
-        old: Math.floor(voicemailTotal * 0.4),
       },
     };
   };
@@ -215,15 +266,17 @@ export default function ContactSummaryGrid() {
 
   const VoicemailDonutChart = () => {
     const totalVoicemails = data.voicemail.total;
-    const newVoicemails = data.voicemail.new;
-    const oldVoicemails = data.voicemail.old;
+    const playedVoicemails = totalVoicemails - unplayedVoicemailCount;
+    const notPlayedVoicemails = unplayedVoicemailCount;
 
     const chartData = {
-      labels: ["New", "Old"],
+      labels: ["Played", "Not Played"],
       datasets: [
         {
           data:
-            totalVoicemails > 0 ? [newVoicemails, oldVoicemails] : [0, 0],
+            totalVoicemails > 0
+              ? [playedVoicemails, notPlayedVoicemails]
+              : [0, 0],
           backgroundColor: ["#3B82F6", "#10B981"],
           borderColor: ["#2563EB", "#059669"],
           borderWidth: 1,
