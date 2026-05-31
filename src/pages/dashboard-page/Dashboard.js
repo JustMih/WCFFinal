@@ -52,6 +52,7 @@ import SystemLogsPage from "../admin/SystemLogsPage";
 import PublicDashboard from "../public-dashboard/PublicDashboard";
 import HandoverPage from "../handover/HandoverPage";
 import HandoverInitiatorBanner from "../../components/handover/HandoverInitiatorBanner";
+import { useInitiatorHandoverLock } from "../../hooks/useInitiatorHandoverLock";
 
 export default function Dashboard() {
   const [isDarkMode, setDarkMode] = useState(false);
@@ -61,6 +62,7 @@ export default function Dashboard() {
   const location = useLocation();
   const lastNonPublicLocationRef = useRef(location);
   const [publicDashboardPending, setPublicDashboardPending] = useState(false);
+  const { locked, checking, refreshAfterRevoke } = useInitiatorHandoverLock();
 
   const role = localStorage.getItem("role");
 
@@ -125,6 +127,22 @@ export default function Dashboard() {
 
   const currentTheme = isDarkMode ? "dark-mode" : "light-mode";
 
+  if (checking) {
+    return (
+      <div className={`dashboard ${currentTheme}`}>
+        <WcfLoadingOverlay open />
+      </div>
+    );
+  }
+
+  if (locked) {
+    return (
+      <div className={`dashboard handover-lock-screen ${currentTheme}`}>
+        <HandoverInitiatorBanner lockMode onRevoked={refreshAfterRevoke} />
+      </div>
+    );
+  }
+
   return (
     <div className={`dashboard ${currentTheme}`}>
       <Navbar
@@ -135,7 +153,6 @@ export default function Dashboard() {
         setActiveSystem={setActiveSystem}
         activeSystem={activeSystem}
       />
-      <HandoverInitiatorBanner />
       <div className="layout">
         {activeSystem === "call-center" && (
           <CallCenterSidebar

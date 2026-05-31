@@ -595,7 +595,7 @@ export default function CRMSidebar({ isSidebarOpen, onToggleSidebar, role }) {
                     <MdPublic className="menu-icon" />
                     {isSidebarOpen && (
                       <span className="menu-text">
-                        Public Dashboard
+                        Live Dashboard
                       </span>
                     )}
                   </span>

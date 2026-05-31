@@ -45,6 +45,10 @@ import ReportTablePagination from "../../../components/shared/ReportTablePaginat
 import useReportTablePagination from "../../../hooks/useReportTablePagination";
 import { isValidReportDateRange } from "../../../utils/reportDateUtils";
 import { formatSecondsToMinutes } from "../../../utils/callDurationFormat";
+import {
+  exportRowsToCsv,
+  exportRowsToExcel,
+} from "../../../utils/reportExportHelpers";
 
 const SIP_DOMAIN = "192.168.21.69";
 
@@ -553,6 +557,63 @@ export default function OffHoursReport() {
     doc.save(`off_hours_report_${startDate}_to_${endDate}.pdf`);
   };
 
+  const buildExportRows = () => {
+    if (source === "cdr") {
+      return filteredRecords.map((r, idx) => ({
+        Sn: idx + 1,
+        Source: r.caller_display || r.clid || "-",
+        "Routed To": r.routed_to_label || r.routed_to || "-",
+        "Date/Time": getTimestamp(r)
+          ? new Date(getTimestamp(r)).toLocaleString()
+          : "-",
+        Category: r.off_hours_label || "-",
+        Disposition: r.disposition || "-",
+        "Duration (min)": formatSecondsToMinutes(r.duration, false),
+      }));
+    }
+    if (source === "missed-calls") {
+      return filteredRecords.map((r, idx) => ({
+        Sn: idx + 1,
+        Source: missedCallSource(r),
+        Destination: missedCallDestination(r),
+        "Emergency Number": missedCallEmergency(r),
+        "Date/Time": getTimestamp(r)
+          ? new Date(getTimestamp(r)).toLocaleString()
+          : "-",
+        Category: r.off_hours_label || "-",
+        "Callback Status": r.callback_status || r.status || "-",
+        "Called Back By":
+          r.callback_agent_name || r.callback_agent_extension || "-",
+        "Callback Time": r.callback_time
+          ? new Date(r.callback_time).toLocaleString()
+          : "-",
+      }));
+    }
+    return filteredRecords.map((r, idx) => ({
+      Sn: idx + 1,
+      Phone: r.caller_display || r.clid || "-",
+      "Routed To": r.routed_to_label || r.routed_to || "-",
+      "Date/Time": getTimestamp(r)
+        ? new Date(getTimestamp(r)).toLocaleString()
+        : "-",
+      Category: r.off_hours_label || "-",
+      Played: isNotePlayed(r) ? "Yes" : "No",
+      "Duration (s)": r.duration_seconds || "-",
+    }));
+  };
+
+  const exportFilenameBase = `off_hours_report_${startDate}_to_${endDate}`;
+
+  const handleExportCSV = () => {
+    if (filteredRecords.length === 0) return;
+    exportRowsToCsv(buildExportRows(), `${exportFilenameBase}.csv`);
+  };
+
+  const handleExportExcel = () => {
+    if (filteredRecords.length === 0) return;
+    exportRowsToExcel(buildExportRows(), `${exportFilenameBase}.xlsx`, "Off-Hours");
+  };
+
   return (
     <div className="off-hours-container">
       <h2 className="off-hours-title">Off-Hours Calls Report</h2>
@@ -635,6 +696,22 @@ export default function OffHoursReport() {
           disabled={filteredRecords.length === 0}
         >
           Export PDF
+        </Button>
+        <Button
+          variant="outlined"
+          color="success"
+          onClick={handleExportCSV}
+          disabled={filteredRecords.length === 0}
+        >
+          Export CSV
+        </Button>
+        <Button
+          variant="outlined"
+          color="primary"
+          onClick={handleExportExcel}
+          disabled={filteredRecords.length === 0}
+        >
+          Export Excel
         </Button>
         <input
           type="text"

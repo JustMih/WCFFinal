@@ -14,7 +14,7 @@ import WcfLoader from "../../../components/shared/WcfLoader";
 import ReportDateRangePicker from "../../../components/shared/ReportDateRangePicker";
 import ReportTablePagination from "../../../components/shared/ReportTablePagination";
 import useReportTablePagination from "../../../hooks/useReportTablePagination";
-import { isValidReportDateRange } from "../../../utils/reportDateUtils";
+import { isValidReportDateRange, todayApiDate } from "../../../utils/reportDateUtils";
 import TicketWorkflowExpandPanel from "../../../components/workflow/TicketWorkflowExpandPanel";
 import {
   enrichTicketWithWorkflow,
@@ -51,6 +51,11 @@ import {
   OffHoursCallbackStatusChip,
 } from "../../../utils/offHoursReportShared";
 import { formatSecondsToMinutes } from "../../../utils/callDurationFormat";
+import { computeCdrTalkTimeSec } from "../../../utils/cdrReportHelpers";
+import {
+  exportRowsToCsv,
+  exportRowsToExcel,
+} from "../../../utils/reportExportHelpers";
 import {
   isPendingCallback,
   getCallbackPhone,
@@ -309,6 +314,7 @@ export default function ComprehensiveReports() {
   const [disposition, setDisposition] = useState("all");
   const [ticketStatus, setTicketStatus] = useState("all");
   const [agentFilter, setAgentFilter] = useState("all");
+  const [agentOptions, setAgentOptions] = useState([]);
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [missedCallStatusFilter, setMissedCallStatusFilter] = useState("all");
@@ -338,6 +344,54 @@ export default function ComprehensiveReports() {
       setOffHoursCallingBackId(null);
     }
   }, [phoneStatus]);
+
+  useEffect(() => {
+    if (OPTIONAL_DATE_TABS.has(activeTab) || SKIP_AUTO_FETCH_TABS.has(activeTab)) {
+      return;
+    }
+    const today = todayApiDate();
+    setStartDate(today);
+    setEndDate(today);
+  }, [activeTab]);
+
+  const handleStartDateChange = useCallback((value) => {
+    setStartDate(value);
+    if (value) {
+      setEndDate((prev) => {
+        if (!prev || value > prev) return value;
+        return prev;
+      });
+    }
+  }, []);
+
+  const handleEndDateChange = useCallback((value) => {
+    setEndDate(value);
+    if (value) {
+      setStartDate((prev) => {
+        if (!prev || value < prev) return value;
+        return prev;
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    const loadAgents = async () => {
+      try {
+        const token = localStorage.getItem("authToken");
+        if (!token) return;
+        const res = await fetch(`${baseURL}/users/agents`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : data.agents || [];
+        setAgentOptions(list);
+      } catch {
+        /* optional dropdown */
+      }
+    };
+    loadAgents();
+  }, []);
 
   // Column selection
   const [columnDialogOpen, setColumnDialogOpen] = useState(false);
@@ -687,6 +741,14 @@ export default function ComprehensiveReports() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        if (
+          response.status === 404 &&
+          activeTab === REPORT_TYPES.AGENT_PERFORMANCE
+        ) {
+          setReports([]);
+          setLoading(false);
+          return;
+        }
         throw new Error(errorData.message || `Failed to fetch report`);
       }
 
@@ -1093,10 +1155,7 @@ export default function ComprehensiveReports() {
       }));
     }
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Off-Hours");
-    XLSX.writeFile(wb, `off_hours_report_${startDate}_to_${endDate}.csv`);
+    exportRowsToCsv(rows, `off_hours_report_${startDate}_to_${endDate}.csv`);
     setSnackbarMessage("CSV exported successfully!");
     setSnackbarSeverity("success");
     setSnackbarOpen(true);
@@ -1260,13 +1319,12 @@ export default function ComprehensiveReports() {
           { key: "startTime", label: "Start Time", default: true },
           {
             key: "agentWait",
-            label: "Agent Response Wait (min)",
+            label: "Agent Response Wait from IVR (min)",
             default: true,
           },
-          { key: "duration", label: "Duration (min)", default: true },
-          { key: "billed", label: "Billed (min)", default: true },
+          { key: "billed", label: "Talk Time (min)", default: true },
           { key: "disposition", label: "Disposition", default: true },
-          { key: "recording", label: "Recording File", default: false },
+          { key: "duration", label: "Total Call Duration (min)", default: true },
         ];
       case REPORT_TYPES.TICKET_CRM:
         return [
@@ -1670,11 +1728,12 @@ export default function ComprehensiveReports() {
         );
       case REPORT_TYPES.AGENT_PERFORMANCE:
         const matchesAgent =
-          agentFilter === "all" || report.agent_id === agentFilter;
-        return (
-          (report.agent_name || "").toLowerCase().includes(searchLower) &&
-          matchesAgent
-        );
+          agentFilter === "all" ||
+          String(report.agent_id) === String(agentFilter);
+        const matchesAgentSearch =
+          !searchLower ||
+          (report.agent_name || "").toLowerCase().includes(searchLower);
+        return matchesAgentSearch && matchesAgent;
       case REPORT_TYPES.MISSED_CALL:
         return (
           (report.caller || "").toLowerCase().includes(searchLower) ||
@@ -1857,7 +1916,7 @@ export default function ComprehensiveReports() {
           case "duration":
             return formatSecondsToMinutes(report.duration, false);
           case "billed":
-            return formatSecondsToMinutes(report.billsec, false);
+            return formatSecondsToMinutes(computeCdrTalkTimeSec(report), false);
           case "disposition":
             return formatCallStatus(report.disposition);
           case "recording":
@@ -2355,6 +2414,59 @@ export default function ComprehensiveReports() {
     }
   };
 
+  // Shared export row builder for tabular reports
+  const prepareTabularExportRows = async () => {
+    if (filteredReports.length === 0) {
+      setSnackbarMessage("No data to export");
+      setSnackbarSeverity("warning");
+      setSnackbarOpen(true);
+      return null;
+    }
+
+    const columns = getColumnDefinitions();
+    const selected = selectedColumns[activeTab] || [];
+    const selectedColumnsDef = columns.filter((col) =>
+      selected.includes(col.key)
+    );
+
+    if (selectedColumnsDef.length === 0) {
+      setSnackbarMessage("Please select at least one column to export");
+      setSnackbarSeverity("warning");
+      setSnackbarOpen(true);
+      return null;
+    }
+
+    let dataSource = filteredReports;
+    if (activeTab === REPORT_TYPES.TICKET_CRM) {
+      if (!confirmExportIfLarge()) return null;
+      setExportingWorkflow(true);
+      try {
+        dataSource = await enrichReportsWithWorkflow(filteredReports);
+      } catch {
+        setSnackbarMessage("Failed to load workflow data for export");
+        setSnackbarSeverity("error");
+        setSnackbarOpen(true);
+        return null;
+      } finally {
+        setExportingWorkflow(false);
+      }
+    }
+
+    const rows = dataSource.map((report, idx) => {
+      const row = {};
+      selectedColumnsDef.forEach((col) => {
+        row[col.label] = getColumnValue(col.key, report, idx);
+      });
+      return row;
+    });
+
+    const filenameBase = `${getReportTitle().toLowerCase().replace(/\s+/g, "_")}_${
+      startDate || "all"
+    }_${endDate || "all"}`;
+
+    return { rows, filenameBase };
+  };
+
   // CSV Export Function
   const handleExportCSV = async () => {
     if (activeTab === REPORT_TYPES.OFF_HOURS) {
@@ -2368,60 +2480,31 @@ export default function ComprehensiveReports() {
       return;
     }
 
-    if (filteredReports.length === 0) {
-      setSnackbarMessage("No data to export");
-      setSnackbarSeverity("warning");
-      setSnackbarOpen(true);
-      return;
-    }
+    const prepared = await prepareTabularExportRows();
+    if (!prepared) return;
 
-    const columns = getColumnDefinitions();
-    const selected = selectedColumns[activeTab] || [];
-    const selectedColumnsDef = columns.filter((col) =>
-      selected.includes(col.key)
-    );
-
-    if (selectedColumnsDef.length === 0) {
-      setSnackbarMessage("Please select at least one column to export");
-      setSnackbarSeverity("warning");
-      setSnackbarOpen(true);
-      return;
-    }
-
-    let dataSource = filteredReports;
-    if (activeTab === REPORT_TYPES.TICKET_CRM) {
-      if (!confirmExportIfLarge()) return;
-      setExportingWorkflow(true);
-      try {
-        dataSource = await enrichReportsWithWorkflow(filteredReports);
-      } catch {
-        setSnackbarMessage("Failed to load workflow data for export");
-        setSnackbarSeverity("error");
-        setSnackbarOpen(true);
-        return;
-      } finally {
-        setExportingWorkflow(false);
-      }
-    }
-
-    const csvData = dataSource.map((report, idx) => {
-      const row = {};
-      selectedColumnsDef.forEach((col) => {
-        row[col.label] = getColumnValue(col.key, report, idx);
-      });
-      return row;
-    });
-
-    const filename = `${getReportTitle().toLowerCase().replace(/\s+/g, "_")}_${
-      startDate || "all"
-    }_${endDate || "all"}.csv`;
-
-    const ws = XLSX.utils.json_to_sheet(csvData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Report");
-    XLSX.writeFile(wb, filename);
+    exportRowsToCsv(prepared.rows, `${prepared.filenameBase}.csv`);
 
     setSnackbarMessage("CSV exported successfully!");
+    setSnackbarSeverity("success");
+    setSnackbarOpen(true);
+  };
+
+  // Excel Export Function
+  const handleExportExcel = async () => {
+    if (activeTab === REPORT_TYPES.OFF_HOURS) {
+      setSnackbarMessage("Use Off-Hours report export buttons");
+      setSnackbarSeverity("info");
+      setSnackbarOpen(true);
+      return;
+    }
+
+    const prepared = await prepareTabularExportRows();
+    if (!prepared) return;
+
+    exportRowsToExcel(prepared.rows, `${prepared.filenameBase}.xlsx`, "Report");
+
+    setSnackbarMessage("Excel exported successfully!");
     setSnackbarSeverity("success");
     setSnackbarOpen(true);
   };
@@ -3615,9 +3698,9 @@ export default function ComprehensiveReports() {
           <th>Direction</th>
           <th>Agent</th>
           <th>Start Time</th>
-          <th>Wait Time (min)</th>
-          <th>Duration (min)</th>
-          <th>Billed (min)</th>
+          <th>Agent Response Wait from IVR (min)</th>
+          <th>Talk Time (min)</th>
+          <th>Total Call Duration (min)</th>
           <th>Disposition</th>
           <th>Recording</th>
         </tr>
@@ -3645,8 +3728,10 @@ export default function ComprehensiveReports() {
                 ? formatSecondsToMinutes(report.agent_wait_sec, false)
                 : "-"}
             </td>
+            <td>
+              {formatSecondsToMinutes(computeCdrTalkTimeSec(report), false)}
+            </td>
             <td>{formatSecondsToMinutes(report.duration, false)}</td>
-            <td>{formatSecondsToMinutes(report.billsec, false)}</td>
             <td>
               <Chip
                 label={formatCallStatus(report.disposition)}
@@ -4241,8 +4326,8 @@ export default function ComprehensiveReports() {
                 className="report-filter-dates"
                 startDate={startDate}
                 endDate={endDate}
-                onStartDateChange={setStartDate}
-                onEndDateChange={setEndDate}
+                onStartDateChange={handleStartDateChange}
+                onEndDateChange={handleEndDateChange}
                 disabled={loading}
               />
             </div>
@@ -4274,6 +4359,15 @@ export default function ComprehensiveReports() {
                 disabled={filteredReports.length === 0 || exportingWorkflow}
               >
                 Export CSV
+              </Button>
+              <Button
+                variant="outlined"
+                color="primary"
+                startIcon={<TableChart />}
+                onClick={handleExportExcel}
+                disabled={filteredReports.length === 0 || exportingWorkflow}
+              >
+                Export Excel
               </Button>
             </div>
           </div>
@@ -4347,8 +4441,8 @@ export default function ComprehensiveReports() {
               className="report-filter-dates"
               startDate={startDate}
               endDate={endDate}
-              onStartDateChange={setStartDate}
-              onEndDateChange={setEndDate}
+              onStartDateChange={handleStartDateChange}
+              onEndDateChange={handleEndDateChange}
               disabled={loading}
             />
 
@@ -4461,7 +4555,11 @@ export default function ComprehensiveReports() {
                     onChange={(e) => setAgentFilter(e.target.value)}
                   >
                     <MenuItem value="all">All Agents</MenuItem>
-                    {/* Add agent options dynamically */}
+                    {agentOptions.map((agent) => (
+                      <MenuItem key={agent.id} value={String(agent.id)}>
+                        {agent.full_name || agent.username || `Agent ${agent.id}`}
+                      </MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
               )}
@@ -4557,6 +4655,15 @@ export default function ComprehensiveReports() {
                 disabled={filteredReports.length === 0 || exportingWorkflow}
               >
                 Export CSV
+              </Button>
+              <Button
+                variant="outlined"
+                color="primary"
+                startIcon={<TableChart />}
+                onClick={handleExportExcel}
+                disabled={filteredReports.length === 0 || exportingWorkflow}
+              >
+                Export Excel
               </Button>
             </div>
           </div>

@@ -21,13 +21,16 @@ import {
 import { PictureAsPdf, TableChart } from "@mui/icons-material";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
 import { baseURL } from "../../../config";
 import WcfLoader from "../../../components/shared/WcfLoader";
 import ReportDateRangePicker from "../../../components/shared/ReportDateRangePicker";
 import ReportTablePagination from "../../../components/shared/ReportTablePagination";
 import useReportTablePagination from "../../../hooks/useReportTablePagination";
 import { isValidReportDateRange } from "../../../utils/reportDateUtils";
+import {
+  exportRowsToCsv,
+  exportRowsToExcel,
+} from "../../../utils/reportExportHelpers";
 import "./slaReport.css";
 
 const STATUS_FILTER_OPTIONS = [
@@ -39,6 +42,7 @@ const STATUS_FILTER_OPTIONS = [
 ];
 
 const EXPORT_COLUMNS = [
+  { key: "serial", label: "Serial No" },
   { key: "ticket_id", label: "Ticket ID" },
   { key: "subject", label: "Subject" },
   { key: "status", label: "Status" },
@@ -144,7 +148,8 @@ export default function TicketSlaReport({ embedded = false }) {
 
   const exportRows = useMemo(
     () =>
-      tickets.map((t) => ({
+      tickets.map((t, index) => ({
+        serial: index + 1,
         ticket_id: t.ticket_id || t.id || "—",
         subject: t.subject || "—",
         status: t.status || "—",
@@ -157,26 +162,33 @@ export default function TicketSlaReport({ embedded = false }) {
     [tickets]
   );
 
-  const handleExportCSV = () => {
-    if (exportRows.length === 0) {
-      showSnackbar("No data to export", "warning");
-      return;
-    }
-    const rows = exportRows.map((row) => {
+  const buildLabelRows = () =>
+    exportRows.map((row) => {
       const out = {};
       EXPORT_COLUMNS.forEach((col) => {
         out[col.label] = row[col.key];
       });
       return out;
     });
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Ticket SLA");
-    XLSX.writeFile(
-      wb,
-      `ticket_sla_${startDate || "all"}_${endDate || "all"}.xlsx`
-    );
+
+  const exportFilenameBase = `ticket_sla_${startDate || "all"}_${endDate || "all"}`;
+
+  const handleExportCSV = () => {
+    if (exportRows.length === 0) {
+      showSnackbar("No data to export", "warning");
+      return;
+    }
+    exportRowsToCsv(buildLabelRows(), `${exportFilenameBase}.csv`);
     showSnackbar("CSV exported successfully!");
+  };
+
+  const handleExportExcel = () => {
+    if (exportRows.length === 0) {
+      showSnackbar("No data to export", "warning");
+      return;
+    }
+    exportRowsToExcel(buildLabelRows(), `${exportFilenameBase}.xlsx`, "Ticket SLA");
+    showSnackbar("Excel exported successfully!");
   };
 
   const handleExportPDF = () => {
@@ -205,7 +217,7 @@ export default function TicketSlaReport({ embedded = false }) {
       headStyles: { fillColor: [99, 102, 241] },
     });
 
-    doc.save(`ticket_sla_${startDate || "all"}_${endDate || "all"}.pdf`);
+    doc.save(`${exportFilenameBase}.pdf`);
     showSnackbar("PDF exported successfully!");
   };
 
@@ -261,6 +273,14 @@ export default function TicketSlaReport({ embedded = false }) {
           >
             Export CSV
           </Button>
+          <Button
+            variant="outlined"
+            startIcon={<TableChart />}
+            onClick={handleExportExcel}
+            disabled={loading || tickets.length === 0}
+          >
+            Export Excel
+          </Button>
         </div>
       </Paper>
 
@@ -313,6 +333,7 @@ export default function TicketSlaReport({ embedded = false }) {
             <Table size="small" className="sla-report-table">
               <TableHead>
                 <TableRow>
+                  <TableCell>Serial No</TableCell>
                   <TableCell>Ticket ID</TableCell>
                   <TableCell>Subject</TableCell>
                   <TableCell>Status</TableCell>
@@ -326,12 +347,12 @@ export default function TicketSlaReport({ embedded = false }) {
               <TableBody>
                 {tickets.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center">
+                    <TableCell colSpan={9} align="center">
                       No tickets match this filter
                     </TableCell>
                   </TableRow>
                 ) : (
-                  paginatedTickets.map((ticket) => (
+                  paginatedTickets.map((ticket, index) => (
                     <TableRow
                       key={ticket.id}
                       className={rowClassForSeverity(
@@ -339,6 +360,11 @@ export default function TicketSlaReport({ embedded = false }) {
                         ticket.sla_status
                       )}
                     >
+                      <TableCell>
+                        {paginationProps.page * paginationProps.rowsPerPage +
+                          index +
+                          1}
+                      </TableCell>
                       <TableCell>{ticket.ticket_id || ticket.id}</TableCell>
                       <TableCell>{ticket.subject || "—"}</TableCell>
                       <TableCell>{ticket.status || "—"}</TableCell>
