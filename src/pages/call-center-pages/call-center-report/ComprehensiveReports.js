@@ -458,6 +458,30 @@ export default function ComprehensiveReports() {
           setLoading(false);
           return;
         }
+        case REPORT_TYPES.LOST_CALL: {
+          if (!startDate || !endDate) {
+            throw new Error("Please select start and end dates");
+          }
+          const qLost = new URLSearchParams();
+          if (disposition !== "all") qLost.set("disposition", disposition);
+          const lostUrl = `${baseURL}/reports/lost-calls-report/${startDate}/${endDate}${
+            qLost.toString() ? `?${qLost.toString()}` : ""
+          }`;
+          const lostRes = await fetch(lostUrl, { headers });
+          if (!lostRes.ok) {
+            const errBody = await lostRes.json().catch(() => ({}));
+            throw new Error(
+              errBody.message || errBody.error || "Failed to fetch lost calls report"
+            );
+          }
+          const lostData = await lostRes.json();
+          const lostList = Array.isArray(lostData)
+            ? lostData
+            : lostData.records || [];
+          setReports(lostList);
+          setLoading(false);
+          return;
+        }
         case REPORT_TYPES.ESCALLATION: {
           // Fetch escalation report from reports endpoint (similar to other reports)
           try {
@@ -1512,6 +1536,7 @@ export default function ComprehensiveReports() {
           { key: "status", label: "Status", default: true },
         ];
       case REPORT_TYPES.DROPPED_CALL:
+      case REPORT_TYPES.LOST_CALL:
         return [
           { key: "serial", label: "Serial No", default: true },
           { key: "status", label: "Status", default: true },
@@ -1520,7 +1545,7 @@ export default function ComprehensiveReports() {
           { key: "agentExtension", label: "Agent Extension", default: true },
           { key: "agentName", label: "Agent Name", default: true },
           { key: "callTime", label: "Call Time", default: true },
-          { key: "durationMinutes", label: "Duration (min)", default: true },
+          { key: "durationMinutes", label: "Queue Wait (min)", default: true },
           { key: "disposition", label: "Disposition", default: true },
         ];
       case REPORT_TYPES.ESCALLATION:
@@ -1682,6 +1707,7 @@ export default function ComprehensiveReports() {
           (report.agent_name || "").toLowerCase().includes(searchLower)
         );
       case REPORT_TYPES.DROPPED_CALL:
+      case REPORT_TYPES.LOST_CALL:
         return (
           (report.caller || "").toLowerCase().includes(searchLower) ||
           (report.destination || "").toLowerCase().includes(searchLower) ||
@@ -2230,11 +2256,15 @@ export default function ComprehensiveReports() {
             return report[columnKey] || "-";
         }
       case REPORT_TYPES.DROPPED_CALL:
+      case REPORT_TYPES.LOST_CALL:
         switch (columnKey) {
           case "serial":
             return page * rowsPerPage + index + 1;
           case "status":
-            return report.status || "DROPPED";
+            return (
+              report.status ||
+              (activeTab === REPORT_TYPES.LOST_CALL ? "LOST" : "DROPPED")
+            );
           case "caller":
             return report.caller || "-";
           case "destination":
@@ -2914,6 +2944,7 @@ export default function ComprehensiveReports() {
       case REPORT_TYPES.MISSED_CALL:
         return renderMissedCallTable();
       case REPORT_TYPES.DROPPED_CALL:
+      case REPORT_TYPES.LOST_CALL:
         return renderDroppedCallTable();
       case REPORT_TYPES.ESCALLATION:
         return renderEscallationTable();
@@ -3268,7 +3299,9 @@ export default function ComprehensiveReports() {
                     <Chip
                       label={getColumnValue(col.key, report, index)}
                       size="small"
-                      color="warning"
+                      color={
+                        activeTab === REPORT_TYPES.LOST_CALL ? "error" : "warning"
+                      }
                     />
                   ) : col.key === "disposition" ? (
                     <Chip
@@ -4371,7 +4404,8 @@ export default function ComprehensiveReports() {
               )}
 
               {(activeTab === REPORT_TYPES.CDR ||
-                activeTab === REPORT_TYPES.DROPPED_CALL) && (
+                activeTab === REPORT_TYPES.DROPPED_CALL ||
+                activeTab === REPORT_TYPES.LOST_CALL) && (
                 <FormControl
                   size="small"
                   className="filter-field"
@@ -4575,7 +4609,8 @@ export default function ComprehensiveReports() {
                   ? "Search by agent name..."
                   : activeTab === REPORT_TYPES.MISSED_CALL
                   ? "Search by caller or agent ID..."
-                  : activeTab === REPORT_TYPES.DROPPED_CALL
+                  : activeTab === REPORT_TYPES.DROPPED_CALL ||
+                    activeTab === REPORT_TYPES.LOST_CALL
                   ? "Search by caller, destination, agent, or status..."
                   : activeTab === REPORT_TYPES.ESCALLATION
                   ? "Search by ticket number, subject, status, or category..."

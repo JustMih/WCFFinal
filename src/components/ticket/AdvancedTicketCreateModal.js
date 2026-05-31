@@ -1583,6 +1583,50 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
     }, 150);
   };
 
+  const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024; // 10MB
+
+  const submitCreateTicketRequest = async (ticketData, file = null) => {
+    const token = localStorage.getItem("authToken");
+    if (file) {
+      const payload = new FormData();
+      Object.entries(ticketData).forEach(([key, value]) => {
+        if (value === undefined || value === null) return;
+        if (typeof value === "boolean") {
+          payload.append(key, value ? "true" : "false");
+          return;
+        }
+        if (typeof value === "object") {
+          payload.append(key, JSON.stringify(value));
+          return;
+        }
+        payload.append(key, String(value));
+      });
+      payload.append("attachment", file);
+      // Ensure critical fields are present for multipart parsing
+      if (ticketData.subject) payload.set("subject", String(ticketData.subject));
+      if (ticketData.functionId) {
+        payload.set("functionId", String(ticketData.functionId));
+        payload.set("responsible_unit_id", String(ticketData.functionId));
+      }
+      return fetch(`${baseURL}/ticket/create-ticket`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: payload,
+      });
+    }
+
+    return fetch(`${baseURL}/ticket/create-ticket`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(ticketData),
+    });
+  };
+
   const handleSubmit = async (e, action = "create") => {
     e.preventDefault();
     setIsLoading(true); // Set loading to true when submitting
@@ -1636,6 +1680,16 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
 
     setFormErrors({});
     try {
+      if (attachment && attachment.size > MAX_ATTACHMENT_SIZE) {
+        setModal({
+          isOpen: true,
+          type: "error",
+          message: `File size exceeds the maximum limit of 10MB. Your file is ${(attachment.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`,
+        });
+        setIsLoading(false);
+        return;
+      }
+
       // Find the selected subject (FunctionData), parent function, and parent section
       let selectedSubject, parentFunction, parentSection;
       for (const func of functionData) {
@@ -1744,9 +1798,13 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
       // This is the claim number that should be saved to the ticket
       const activeClaimNumber = selectedClaim?.claim_number || null;
 
+      const resolvedSubjectName =
+        selectedSubject?.name || parentFunction?.name || "";
+
       const ticketData = {
         ...formData,
-        subject: selectedSubject ? selectedSubject.name : "",
+        subject: resolvedSubjectName,
+        functionId: formData.functionId,
         sub_section: parentFunction ? parentFunction.name : "",
         section: parentSection ? parentSection.name : "",
         responsible_unit_id: formData.functionId,
@@ -1841,15 +1899,7 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
         ticketData.representative_address = formData.requesterAddress;
         ticketData.representative_relationship = formData.relationshipToEmployee;
       }
-      const token = localStorage.getItem("authToken");
-      const response = await fetch(`${baseURL}/ticket/create-ticket`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(ticketData),
-      });
+      const response = await submitCreateTicketRequest(ticketData, attachment);
 
       const data = await response.json();
       if (response.ok) {
@@ -1891,6 +1941,7 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
         
         // Reset all form-related state
         setFormErrors({});
+        setAttachment(null);
         setSelectedClaimIndex(0);
         setSearchSuggestions([]);
         setInputValue("");
@@ -3443,19 +3494,19 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                   </div>
 
                   {/* File Upload */}
-                  {/* <div className="modal-form-group">
-                    <label style={{ fontSize: "0.875rem" }}>Attachment (Optional):</label>
+                  <div className="modal-form-group" style={{ marginTop: "1.25rem" }}>
+                    <label style={{ fontSize: "0.875rem", display: "block", marginBottom: "6px" }}>
+                      Attachment (Optional):
+                    </label>
                     <input
                       type="file"
-                      accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png"
+                      accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.xls,.xlsx"
                       onChange={(e) => {
                         const file = e.target.files[0];
                         if (file) {
-                          // Check file size (50MB limit)
-                          const maxSize = 50 * 1024 * 1024; // 50MB in bytes
-                          if (file.size > maxSize) {
-                            alert(`File size too large! Maximum allowed size is 50MB. Your file is ${(file.size / (1024 * 1024)).toFixed(2)}MB.`);
-                            e.target.value = ''; // Clear the input
+                          if (file.size > MAX_ATTACHMENT_SIZE) {
+                            alert(`File size exceeds the maximum limit of 10MB. Your file is ${(file.size / (1024 * 1024)).toFixed(2)}MB. Please select a smaller file.`);
+                            e.target.value = "";
                             setAttachment(null);
                             return;
                           }
@@ -3477,7 +3528,10 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                         File selected: {attachment.name} ({(attachment.size / (1024 * 1024)).toFixed(2)}MB)
                       </Typography>
                     )}
-                  </div> */}
+                    <Typography variant="caption" sx={{ color: "gray", mt: 0.5, display: "block", fontSize: "0.75rem" }}>
+                      Maximum file size: 10MB
+                    </Typography>
+                  </div>
 
                   {/* Submit */}
                   <div
