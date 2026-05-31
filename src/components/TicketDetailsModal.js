@@ -452,14 +452,17 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
         // Check if ticket is closed
         const isTicketClosed = selectedTicket.status === "Closed" || selectedTicket.status === "Resolved";
         
-        // Priority order: Closed > Current > Forwarded > Escalated > Previous to Escalated > Assigned > Completed > Pending
+        // Priority order: Closed > Current > Previous-to-Escalated > Forwarded > Escalated > Assigned > Completed > Pending
         if (selectedTicket.status === "Closed" || selectedTicket.status === "Resolved" || a.isConsolidated) {
           color = "green"; // Green for all steps when ticket is closed or consolidated closed steps
         } else if (idx === currentAssigneeIdx && selectedTicket.status !== "Closed") {
           // Current step should be grey (in progress, not done yet)
           color = "gray";
+        } else if (isPreviousEscalated) {
+          // Red when the next step (more recent) is Escalated — e.g. head-of-unit Forwarded then SLA escalated to DG
+          color = "red";
         } else if (a.action === "Forwarded") {
-          color = "green"; // Green for forwarded actions (completed)
+          color = "green"; // Green for forwarded actions that were completed normally
         } else if (isCurrentEscalated) {
           // Check if this escalated step was followed by an assignment
           const previousStep = reversedSteps[idx - 1];
@@ -470,8 +473,6 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
           } else {
             color = "gray"; // Gray for escalated (pending/not handled)
           }
-        } else if (isPreviousEscalated) {
-          color = "red"; // Red for next step when previous is escalated
         } else if (wasAssignedAndForwarded) {
           color = "green"; // Green for assigned step that was forwarded to another user
         } else if (a.action === "Assigned" && (a.assigned_to_role === "Reviewer" || a.assigned_to_role === "reviewer")) {
@@ -592,10 +593,7 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
             <Box sx={{ flex: 1 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 0.5 }}>
                 <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-                  {/* Show assigned_by_name (mtu aliyetuma) kama attachment ipo, si assigned_to_name (mtu aliyepokea) */}
-                  {a.attachment_path && a.assigned_by_name 
-                    ? `${a.assigned_by_name} (${a.assigned_by_role || "N/A"})`
-                    : a.assigned_to_name || a.assignedTo?.full_name || a.user?.full_name || a.assigned_to_id || "Unknown"} ({a.attachment_path && a.assigned_by_role ? a.assigned_by_role : (a.assigned_to_role || a.assignedTo?.role || a.user?.role || "N/A")})
+                  {a.assigned_to_name || a.assignedTo?.full_name || a.user?.full_name || a.assigned_to_id || "Unknown"} ({a.assigned_to_role || a.assignedTo?.role || a.user?.role || "N/A"})
                 </Typography>
                 {/* Show aging for all assignments except creator, calculating active time for each */}
                 {a.created_at && (
@@ -691,7 +689,9 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
                     
                     // Get color based on duration
                     let durationColor;
-                    if (a.action === "Closed" || a.isConsolidated) {
+                    if (color === "red") {
+                      durationColor = '#dc3545'; // Red when step was escalated away from this assignee
+                    } else if (a.action === "Closed" || a.isConsolidated) {
                       durationColor = '#28a745'; // Green for closed tickets
                     } else if (durationMinutes < 5) {
                       durationColor = '#28a745'; // Green for very recent
@@ -846,16 +846,11 @@ const AssignmentStepper = ({ assignmentHistory, selectedTicket, assignedUser, us
                 // Kwa hiyo, attachment inaonekana kwenye entry hii kwa sababu entry hii ina attachment_path
                 // (attachment ina-save kwa assigned_by_id ya entry hii, si assigned_to_id)
                 if (a.attachment_path) {
-                  // Get the name of the user who sent the attachment
-                  // Strategy: Use previous step's assigned_to_name (same as other steps do for "Message from Previous")
-                  // IMPORTANT: reversedSteps is reversed, so previous step in chronological order is next step (idx + 1) in reversed array
-                  // For all steps, use next step's assigned_to_name (which is previous step in chronological order)
-                  const nextStep = reversedSteps[idx + 1];
-                  
-                  // Use next step's assigned_to_name (previous step in chronological order)
-                  // If no next step, use "Previous" as fallback
-                  const senderName = nextStep?.assigned_to_name || 'Previous';
-                  
+                  const senderName =
+                    a.assigned_by_name ||
+                    reversedSteps[idx + 1]?.assigned_to_name ||
+                    "Previous";
+
                   return (
                     <Typography
                       variant="body2"
@@ -1127,6 +1122,187 @@ function getFullCreatorName(selectedTicket, assignmentHistory = [], usersList = 
 const getFileNameFromPath = (filePath) => {
   if (!filePath) return '';
   return filePath.split('/').pop() || filePath.split('\\').pop() || filePath;
+};
+
+const getAttachmentUploader = (assignment, index, assignmentHistory = []) => {
+  if (assignment.assigned_by_name) {
+    return {
+      name: assignment.assigned_by_name,
+      role: assignment.assigned_by_role || "",
+    };
+  }
+  if (assignment.assignedBy?.full_name) {
+    return {
+      name: assignment.assignedBy.full_name,
+      role: assignment.assignedBy.role || "",
+    };
+  }
+  if (assignment.action === "Closed") {
+    return {
+      name: assignment.assigned_to_name || "Unknown",
+      role: assignment.assigned_to_role || "",
+    };
+  }
+  if (index > 0 && assignmentHistory[index - 1]) {
+    const prev = assignmentHistory[index - 1];
+    return {
+      name: prev.assigned_to_name || "Unknown",
+      role: prev.assigned_to_role || "",
+    };
+  }
+  return {
+    name: assignment.assigned_to_name || "Unknown",
+    role: assignment.assigned_to_role || "",
+  };
+};
+
+const collectTicketAttachments = (assignmentHistory = [], selectedTicket = null) => {
+  const items = [];
+  const seen = new Set();
+
+  const addItem = (path, uploaderName, uploaderRole, action, date, isExternal = false) => {
+    const normalized = String(path || "").trim();
+    if (!normalized || seen.has(normalized)) return;
+    seen.add(normalized);
+    items.push({
+      path: normalized,
+      fileName: isExternal ? normalized : getFileNameFromPath(normalized),
+      uploaderName: uploaderName || "Unknown",
+      uploaderRole: uploaderRole || "",
+      action: action || "",
+      date,
+      isExternal,
+    });
+  };
+
+  if (Array.isArray(assignmentHistory)) {
+    assignmentHistory.forEach((assignment, index) => {
+      const uploader = getAttachmentUploader(assignment, index, assignmentHistory);
+      if (assignment.attachment_path) {
+        addItem(
+          assignment.attachment_path,
+          uploader.name,
+          uploader.role,
+          assignment.action,
+          assignment.created_at
+        );
+      }
+      if (assignment.evidence_url) {
+        addItem(
+          assignment.evidence_url,
+          uploader.name,
+          uploader.role,
+          assignment.action,
+          assignment.created_at,
+          true
+        );
+      }
+    });
+  }
+
+  if (selectedTicket?.attachment_path && !seen.has(String(selectedTicket.attachment_path).trim())) {
+    const last =
+      Array.isArray(assignmentHistory) && assignmentHistory.length > 0
+        ? assignmentHistory[assignmentHistory.length - 1]
+        : null;
+    addItem(
+      selectedTicket.attachment_path,
+      last?.assigned_to_name || "Unknown",
+      last?.assigned_to_role || "",
+      "Resolution",
+      last?.created_at || selectedTicket.updated_at
+    );
+  }
+
+  return items;
+};
+
+const TicketAttachmentsSection = ({ assignmentHistory = [], selectedTicket = null }) => {
+  const attachments = collectTicketAttachments(assignmentHistory, selectedTicket);
+  if (attachments.length === 0) return null;
+
+  return (
+    <Box
+      sx={{
+        mt: 3,
+        mb: 2,
+        p: 2,
+        bgcolor: "#f8f9fa",
+        borderRadius: 2,
+        border: "1px solid #e0e0e0",
+      }}
+    >
+      <Typography
+        variant="subtitle1"
+        sx={{
+          fontWeight: "bold",
+          mb: 1.5,
+          display: "flex",
+          alignItems: "center",
+          gap: 1,
+          color: "#1976d2",
+        }}
+      >
+        <AttachFile fontSize="small" />
+        Attachments ({attachments.length})
+      </Typography>
+      <Divider sx={{ mb: 1.5 }} />
+      {attachments.map((item, index) => (
+        <Box
+          key={`${item.path}-${index}`}
+          sx={{
+            display: "flex",
+            alignItems: { xs: "flex-start", sm: "center" },
+            justifyContent: "space-between",
+            flexDirection: { xs: "column", sm: "row" },
+            gap: 1,
+            py: 1.25,
+            borderBottom:
+              index < attachments.length - 1 ? "1px solid #ececec" : "none",
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1, minWidth: 0 }}>
+            <InsertDriveFileIcon sx={{ color: "#1976d2", fontSize: 20, flexShrink: 0 }} />
+            {item.isExternal ? (
+              <Typography
+                variant="body2"
+                component="a"
+                href={item.path}
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{
+                  color: "#1976d2",
+                  textDecoration: "underline",
+                  wordBreak: "break-all",
+                }}
+              >
+                {item.fileName}
+              </Typography>
+            ) : (
+              <Typography
+                variant="body2"
+                sx={{
+                  color: "#1976d2",
+                  textDecoration: "underline",
+                  cursor: "pointer",
+                  wordBreak: "break-all",
+                }}
+                onClick={() => handleDownloadAttachment(item.path)}
+              >
+                {item.fileName}
+              </Typography>
+            )}
+          </Box>
+          <Typography variant="body2" sx={{ color: "#666", flexShrink: 0 }}>
+            Attached by: <strong>{item.uploaderName}</strong>
+            {item.uploaderRole ? ` (${item.uploaderRole})` : ""}
+            {item.action ? ` · ${item.action}` : ""}
+            {item.date ? ` · ${new Date(item.date).toLocaleString()}` : ""}
+          </Typography>
+        </Box>
+      ))}
+    </Box>
+  );
 };
 
 const handleDownloadAttachment = (attachmentPath) => {
@@ -3986,7 +4162,7 @@ export default function TicketDetailsModal({
                             <ClaimRedirectButton
                               notificationReportId={idForRedirect}
                               claimNumber={selectedTicket.claim_number}
-                              employerId={selectedTicket.employer_registration_number || ""}
+                              employerId=""
                               buttonText={displayClaimNumber}
                               searchType="claim"
                               isEmployerSearch={false}
@@ -4123,6 +4299,10 @@ export default function TicketDetailsModal({
 
               </div>
 
+              <TicketAttachmentsSection
+                assignmentHistory={assignmentHistory}
+                selectedTicket={selectedTicket}
+              />
 
               {/* Action Buttons */}
               <Box sx={{ mt: 2, textAlign: "right" }}>
