@@ -18,6 +18,7 @@ export const REPORT_TYPES = {
   LIVESTREAM: 16,
   TICKET_WORKFLOW_TAT: 17,
   DROPPED_CALL: 18,
+  LOST_CALL: 19,
 };
 
 export const REPORTS = [
@@ -32,6 +33,7 @@ export const REPORTS = [
   { slug: "ticket-assignments", label: "Ticket Assignments", type: REPORT_TYPES.TICKET_ASSIGNMENTS },
   { slug: "missed-call", label: "Missed Call Report", type: REPORT_TYPES.MISSED_CALL },
   { slug: "dropped-calls", label: "Dropped Calls Report", type: REPORT_TYPES.DROPPED_CALL },
+  { slug: "lost-calls", label: "Lost Calls Report", type: REPORT_TYPES.LOST_CALL },
   { slug: "escalation", label: "Escallation", type: REPORT_TYPES.ESCALLATION },
   { slug: "notifications", label: "Notifications", type: REPORT_TYPES.NOTIFICATIONS },
   { slug: "chats", label: "Chats", type: REPORT_TYPES.CHATS },
@@ -86,7 +88,7 @@ export const resolveTypeFromLegacyTab = (tabParam) => {
   const lower = tabParam.toLowerCase();
   if (LEGACY_TAB_MAP[lower] !== undefined) return LEGACY_TAB_MAP[lower];
   const num = Number(tabParam);
-  if (!Number.isNaN(num) && num >= 0 && num <= REPORT_TYPES.DROPPED_CALL) return num;
+  if (!Number.isNaN(num) && num >= 0 && num <= REPORT_TYPES.LOST_CALL) return num;
   const bySlug = REPORTS.find((r) => r.slug === lower);
   return bySlug ? bySlug.type : null;
 };
