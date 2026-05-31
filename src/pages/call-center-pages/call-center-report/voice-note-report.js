@@ -25,6 +25,11 @@ import {
 } from "../../../utils/voiceNotePlayed";
 import { getVoiceNoteAudioUrls } from "../../../utils/voiceNoteAudio";
 import { formatSecondsToMinutes } from "../../../utils/callDurationFormat";
+import { computeCdrTalkTimeSec } from "../../../utils/cdrReportHelpers";
+import {
+  exportRowsToCsv,
+  exportRowsToExcel,
+} from "../../../utils/reportExportHelpers";
 
 export default function VoiceNoteReport() {
   const [activeTab, setActiveTab] = useState(0);
@@ -192,8 +197,9 @@ export default function VoiceNoteReport() {
               "Destination",
               "Agent",
               "Start Time",
-              "Duration (min)",
-              "Billed (min)",
+              "Agent Wait (min)",
+              "Talk Time (min)",
+              "Total Duration (min)",
               "Disposition",
             ],
       ],
@@ -215,14 +221,56 @@ export default function VoiceNoteReport() {
               r.cdrstarttime
                 ? new Date(r.cdrstarttime).toLocaleString()
                 : "-",
+              r.agent_wait_sec != null
+                ? formatSecondsToMinutes(r.agent_wait_sec, false)
+                : "-",
+              formatSecondsToMinutes(computeCdrTalkTimeSec(r), false),
               formatSecondsToMinutes(r.duration, false),
-              formatSecondsToMinutes(r.billsec, false),
               safe(r.disposition),
             ]
       ),
     });
 
     doc.save("call_center_report.pdf");
+  };
+
+  const buildExportRows = () => {
+    if (activeTab === 0) {
+      return filteredReports.map((r, i) => ({
+        "Serial No": i + 1,
+        Phone: safe(r.clid),
+        Date: r.created_at ? new Date(r.created_at).toLocaleString() : "-",
+        Played: isPlayedNote(r) ? "Yes" : "No",
+        Agent: r.assigned_agent_id ? `Agent #${r.assigned_agent_id}` : "-",
+      }));
+    }
+    return filteredReports.map((r, i) => ({
+      "Serial No": i + 1,
+      "Caller ID": safe(r.clid),
+      Source: safe(r.src),
+      Destination: safe(r.dst),
+      Agent: r.agent_name || "-",
+      "Start Time": r.cdrstarttime
+        ? new Date(r.cdrstarttime).toLocaleString()
+        : "-",
+      "Agent Wait (min)":
+        r.agent_wait_sec != null
+          ? formatSecondsToMinutes(r.agent_wait_sec, false)
+          : "-",
+      "Talk Time (min)": formatSecondsToMinutes(computeCdrTalkTimeSec(r), false),
+      "Total Duration (min)": formatSecondsToMinutes(r.duration, false),
+      Disposition: safe(r.disposition),
+    }));
+  };
+
+  const handleExportCSV = () => {
+    if (!filteredReports.length) return;
+    exportRowsToCsv(buildExportRows(), "call_center_report.csv");
+  };
+
+  const handleExportExcel = () => {
+    if (!filteredReports.length) return;
+    exportRowsToExcel(buildExportRows(), "call_center_report.xlsx", "Report");
   };
 
   return (
@@ -266,6 +314,12 @@ export default function VoiceNoteReport() {
 
         <Button variant="outlined" onClick={handleExportPDF} disabled={!filteredReports.length}>
           Export PDF
+        </Button>
+        <Button variant="outlined" onClick={handleExportCSV} disabled={!filteredReports.length}>
+          Export CSV
+        </Button>
+        <Button variant="outlined" onClick={handleExportExcel} disabled={!filteredReports.length}>
+          Export Excel
         </Button>
 
         <input className="search-input" placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} />

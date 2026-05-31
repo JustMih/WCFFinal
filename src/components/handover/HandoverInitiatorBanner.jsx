@@ -4,6 +4,7 @@ import Button from "@mui/material/Button";
 import CircularProgress from "@mui/material/CircularProgress";
 import { baseURL } from "../../config";
 import { confirmRevokeHandover } from "../../utils/handoverAlerts";
+import { clearDomainCredentials } from "../../utils/credentials";
 import "./HandoverInitiatorBanner.css";
 
 const DISMISS_PREFIX = "handoverBannerDismissed:";
@@ -21,7 +22,10 @@ function formatReturnDate(value) {
   }
 }
 
-export default function HandoverInitiatorBanner() {
+export default function HandoverInitiatorBanner({
+  lockMode = false,
+  onRevoked,
+}) {
   const userId = localStorage.getItem("userId") || "";
   const [activeHandover, setActiveHandover] = useState(null);
   const [hidden, setHidden] = useState(false);
@@ -50,12 +54,12 @@ export default function HandoverInitiatorBanner() {
       );
       const latest = mine[0] || null;
       setActiveHandover(latest);
-      setHidden(latest ? isDismissed(latest.id) : false);
+      setHidden(lockMode ? false : latest ? isDismissed(latest.id) : false);
       setError("");
     } catch {
       setActiveHandover(null);
     }
-  }, [userId]);
+  }, [userId, lockMode]);
 
   useEffect(() => {
     fetchInitiatorHandover();
@@ -64,9 +68,35 @@ export default function HandoverInitiatorBanner() {
   }, [fetchInitiatorHandover]);
 
   const handleHide = () => {
-    if (!activeHandover?.id) return;
+    if (lockMode || !activeHandover?.id) return;
     sessionStorage.setItem(`${DISMISS_PREFIX}${activeHandover.id}`, "1");
     setHidden(true);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await fetch(`${baseURL}/auth/logout`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        },
+      });
+    } catch {
+      /* proceed with local cleanup */
+    }
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("username");
+    localStorage.removeItem("role");
+    localStorage.removeItem("unit_section");
+    localStorage.removeItem("tokenExpiration");
+    localStorage.removeItem("userId");
+    localStorage.removeItem("extension");
+    localStorage.removeItem("sipPassword");
+    localStorage.removeItem("agentStatus");
+    localStorage.removeItem("activeSystem");
+    clearDomainCredentials();
+    clearHandoverBannerDismissKeys();
+    window.location.href = "/login";
   };
 
   const handleRevoke = async () => {
@@ -74,7 +104,7 @@ export default function HandoverInitiatorBanner() {
 
     const delegateName =
       activeHandover.toUser?.full_name || activeHandover.to_user_id || "";
-    const confirmed = await confirmRevokeHandover({ delegateName });
+    const confirmed = await confirmRevokeHandover({ delegateName, lockMode });
     if (!confirmed) return;
 
     setRevoking(true);
@@ -90,12 +120,17 @@ export default function HandoverInitiatorBanner() {
           },
         }
       );
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         throw new Error(data?.message || "Failed to revoke handover");
       }
       setActiveHandover(null);
+      clearHandoverBannerDismissKeys();
       await fetchInitiatorHandover();
+      onRevoked?.();
+      if (lockMode) {
+        window.location.href = "/dashboard";
+      }
     } catch (err) {
       setError(err.message || "Failed to revoke handover");
     } finally {
@@ -103,7 +138,7 @@ export default function HandoverInitiatorBanner() {
     }
   };
 
-  if (!activeHandover || hidden) {
+  if (!activeHandover || (!lockMode && hidden)) {
     return null;
   }
 
@@ -113,7 +148,11 @@ export default function HandoverInitiatorBanner() {
     activeHandover.from_user_role || activeHandover.fromUser?.role || "";
 
   return (
-    <div className="handover-initiator-banner" role="status" aria-live="polite">
+    <div
+      className={`handover-initiator-banner${lockMode ? " handover-initiator-banner--lock" : ""}`}
+      role="status"
+      aria-live="polite"
+    >
       <div className="handover-initiator-banner__card">
         <div className="handover-initiator-banner__icon" aria-hidden="true">
           <SwapHorizIcon fontSize="large" />
@@ -124,15 +163,32 @@ export default function HandoverInitiatorBanner() {
             You are in handover mode
           </p>
           <p className="handover-initiator-banner__text">
-            Your tickets have been delegated to{" "}
-            <strong>{delegateName}</strong>
-            {delegateActsAs ? (
+            {lockMode ? (
               <>
-                , who is acting in your capacity as{" "}
-                <strong>{delegateActsAs}</strong>
+                Your account is locked while handover is active. All system
+                access is disabled until you revoke. Your tickets have been
+                delegated to <strong>{delegateName}</strong>
+                {delegateActsAs ? (
+                  <>
+                    , who is acting in your capacity as{" "}
+                    <strong>{delegateActsAs}</strong>
+                  </>
+                ) : null}
+                .
               </>
-            ) : null}
-            . Ticket actions remain locked on your account until you revoke.
+            ) : (
+              <>
+                Your tickets have been delegated to{" "}
+                <strong>{delegateName}</strong>
+                {delegateActsAs ? (
+                  <>
+                    , who is acting in your capacity as{" "}
+                    <strong>{delegateActsAs}</strong>
+                  </>
+                ) : null}
+                . Ticket actions remain locked on your account until you revoke.
+              </>
+            )}
           </p>
           <div className="handover-initiator-banner__meta-row">
             <span className="handover-initiator-banner__meta-label">
@@ -153,15 +209,27 @@ export default function HandoverInitiatorBanner() {
           ) : null}
         </div>
         <div className="handover-initiator-banner__actions">
+          {lockMode ? (
+            <Button
+              variant="outlined"
+              className="handover-initiator-banner__hide"
+              onClick={handleLogout}
+              disabled={revoking}
+            >
+              Log out
+            </Button>
+          ) : (
+            <Button
+              variant="outlined"
+              className="handover-initiator-banner__hide"
+              onClick={handleHide}
+              disabled={revoking}
+            >
+              Hide
+            </Button>
+          )}
           <Button
-            variant="outlined"
-            className="handover-initiator-banner__hide"
-            onClick={handleHide}
-            disabled={revoking}
-          >
-            Hide
-          </Button>
-          <Button
+            type="button"
             variant="contained"
             color="error"
             className="handover-initiator-banner__revoke"
