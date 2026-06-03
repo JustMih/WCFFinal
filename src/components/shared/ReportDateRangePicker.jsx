@@ -3,6 +3,7 @@ import { Box } from "@mui/material";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDateFns } from "@mui/x-date-pickers/AdapterDateFns";
+import { endOfDay, startOfDay } from "date-fns";
 import { formatDateForApi, parseApiDate } from "../../utils/reportDateUtils";
 import "./ReportDateRangePicker.css";
 
@@ -37,13 +38,22 @@ export default function ReportDateRangePicker({
 }) {
   const startValue = parseApiDate(startDate);
   const endValue = parseApiDate(endDate);
-  const max = disableFuture ? maxDate : undefined;
+  const todayEnd = endOfDay(new Date());
+  const max = disableFuture ? (maxDate ? endOfDay(maxDate) : todayEnd) : maxDate;
 
   const handleStart = (date) => {
+    if (!date || Number.isNaN(date.getTime())) {
+      onStartDateChange?.("");
+      return;
+    }
     onStartDateChange?.(formatDateForApi(date));
   };
 
   const handleEnd = (date) => {
+    if (!date || Number.isNaN(date.getTime())) {
+      onEndDateChange?.("");
+      return;
+    }
     onEndDateChange?.(formatDateForApi(date));
   };
 
@@ -59,7 +69,7 @@ export default function ReportDateRangePicker({
           value={startValue}
           onChange={handleStart}
           disabled={disabled}
-          maxDate={endValue || max}
+          maxDate={endValue ? endOfDay(endValue) : max}
           disableFuture={disableFuture}
           slotProps={{ textField: fieldSlotProps }}
         />
@@ -68,7 +78,7 @@ export default function ReportDateRangePicker({
           value={endValue}
           onChange={handleEnd}
           disabled={disabled}
-          minDate={startValue || undefined}
+          minDate={startValue ? startOfDay(startValue) : undefined}
           maxDate={max}
           disableFuture={disableFuture}
           slotProps={{ textField: fieldSlotProps }}

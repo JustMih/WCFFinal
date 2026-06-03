@@ -22,13 +22,16 @@ import {
 } from "react-icons/fa";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
 import { baseURL } from "../../../config";
 import WcfLoader from "../../../components/shared/WcfLoader";
 import ReportDateRangePicker from "../../../components/shared/ReportDateRangePicker";
 import ReportTablePagination from "../../../components/shared/ReportTablePagination";
 import useReportTablePagination from "../../../hooks/useReportTablePagination";
 import { isValidReportDateRange } from "../../../utils/reportDateUtils";
+import {
+  exportRowsToCsv,
+  exportRowsToExcel,
+} from "../../../utils/reportExportHelpers";
 import "./slaReport.css";
 
 function SlaMetricCard({ period, variant, icon: Icon, value, title, sublabel }) {
@@ -52,6 +55,7 @@ function SlaMetricCard({ period, variant, icon: Icon, value, title, sublabel }) 
 }
 
 const DAILY_EXPORT_COLUMNS = [
+  { key: "serial", label: "Serial No" },
   { key: "date", label: "Date" },
   { key: "totalCalls", label: "Total Calls" },
   { key: "answeredCalls", label: "Answered" },
@@ -135,7 +139,8 @@ export default function CallCenterSlaReport({ embedded = false }) {
   }, [daily.length, startDate, endDate, resetPage]);
 
   const getExportRows = () =>
-    daily.map((row) => ({
+    daily.map((row, index) => ({
+      serial: index + 1,
       date: formatDateLabel(row.date),
       totalCalls: row.totalCalls ?? 0,
       answeredCalls: row.answeredCalls ?? 0,
@@ -145,26 +150,37 @@ export default function CallCenterSlaReport({ embedded = false }) {
       abandonmentRate: `${row.abandonmentRate ?? 0}%`,
     }));
 
-  const handleExportCSV = () => {
-    if (daily.length === 0) {
-      showSnackbar("No data to export", "warning");
-      return;
-    }
-    const rows = getExportRows().map((row) => {
+  const buildLabelRows = (rows) =>
+    rows.map((row) => {
       const out = {};
       DAILY_EXPORT_COLUMNS.forEach((col) => {
         out[col.label] = row[col.key];
       });
       return out;
     });
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Call Center SLA");
-    XLSX.writeFile(
-      wb,
-      `call_center_sla_${startDate || "all"}_${endDate || "all"}.xlsx`
-    );
+
+  const exportFilenameBase = `call_center_sla_${startDate || "all"}_${endDate || "all"}`;
+
+  const handleExportCSV = () => {
+    if (daily.length === 0) {
+      showSnackbar("No data to export", "warning");
+      return;
+    }
+    exportRowsToCsv(buildLabelRows(getExportRows()), `${exportFilenameBase}.csv`);
     showSnackbar("CSV exported successfully!");
+  };
+
+  const handleExportExcel = () => {
+    if (daily.length === 0) {
+      showSnackbar("No data to export", "warning");
+      return;
+    }
+    exportRowsToExcel(
+      buildLabelRows(getExportRows()),
+      `${exportFilenameBase}.xlsx`,
+      "Call Center SLA"
+    );
+    showSnackbar("Excel exported successfully!");
   };
 
   const handleExportPDF = () => {
@@ -194,7 +210,7 @@ export default function CallCenterSlaReport({ embedded = false }) {
       headStyles: { fillColor: [99, 102, 241] },
     });
 
-    doc.save(`call_center_sla_${startDate || "all"}_${endDate || "all"}.pdf`);
+    doc.save(`${exportFilenameBase}.pdf`);
     showSnackbar("PDF exported successfully!");
   };
 
@@ -234,6 +250,14 @@ export default function CallCenterSlaReport({ embedded = false }) {
             disabled={loading || daily.length === 0}
           >
             Export CSV
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<TableChart />}
+            onClick={handleExportExcel}
+            disabled={loading || daily.length === 0}
+          >
+            Export Excel
           </Button>
         </div>
       </Paper>
@@ -295,6 +319,7 @@ export default function CallCenterSlaReport({ embedded = false }) {
             <Table size="small" className="sla-report-table">
               <TableHead>
                 <TableRow>
+                  <TableCell>Serial No</TableCell>
                   <TableCell>Date</TableCell>
                   <TableCell align="right">Total Calls</TableCell>
                   <TableCell align="right">Answered</TableCell>
@@ -307,13 +332,18 @@ export default function CallCenterSlaReport({ embedded = false }) {
               <TableBody>
                 {daily.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} align="center">
+                    <TableCell colSpan={8} align="center">
                       No CDR data in this period
                     </TableCell>
                   </TableRow>
                 ) : (
-                  paginatedDaily.map((row) => (
+                  paginatedDaily.map((row, index) => (
                     <TableRow key={row.date || Math.random()}>
+                      <TableCell>
+                        {paginationProps.page * paginationProps.rowsPerPage +
+                          index +
+                          1}
+                      </TableCell>
                       <TableCell>{formatDateLabel(row.date)}</TableCell>
                       <TableCell align="right">{row.totalCalls ?? 0}</TableCell>
                       <TableCell align="right">{row.answeredCalls ?? 0}</TableCell>

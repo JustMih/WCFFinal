@@ -27,3 +27,7 @@ export const isValidReportDateRange = (startDate, endDate, { requireBoth = true 
   if (startDate && endDate && startDate > endDate) return false;
   return true;
 };
+
+/** True when start and end are the same calendar day (YYYY-MM-DD). */
+export const isSameDayReportRange = (startDate, endDate) =>
+  Boolean(startDate && endDate && startDate === endDate);

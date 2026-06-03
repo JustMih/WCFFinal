@@ -28,6 +28,10 @@ import ReportTablePagination from "../../../components/shared/ReportTablePaginat
 import useReportTablePagination from "../../../hooks/useReportTablePagination";
 import { isValidReportDateRange } from "../../../utils/reportDateUtils";
 import {
+  exportRowsToCsv,
+  exportRowsToExcel,
+} from "../../../utils/reportExportHelpers";
+import {
   TAT_TEMPLATE_COLUMNS,
   UI_ONLY_COLUMNS,
   EXCEL_EXPORT_COLUMNS,
@@ -50,6 +54,7 @@ const STATUS_FILTER_OPTIONS = [
 ];
 
 const TABLE_COLUMNS = [
+  { key: "serial", label: "Serial No" },
   ...UI_ONLY_COLUMNS,
   ...TAT_TEMPLATE_COLUMNS.map((col) => ({
     key: col.key,
@@ -113,8 +118,11 @@ export default function TicketWorkflowTatReport({ embedded = false }) {
 
   const displayRows = useMemo(
     () =>
-      rows.map((row) => {
-        const out = { ...row };
+      rows.map((row, index) => {
+        const out = {
+          ...row,
+          serial: row.serial ?? index + 1,
+        };
         for (const col of TAT_TEMPLATE_COLUMNS) {
           if (col.type === "date") {
             out[col.key] = formatDisplayDate(row[col.key]);
@@ -135,6 +143,37 @@ export default function TicketWorkflowTatReport({ embedded = false }) {
   useEffect(() => {
     resetPage();
   }, [displayRows.length, statusFilter, startDate, endDate, resetPage]);
+
+  const buildCsvExportRows = () =>
+    rows.map((row, index) => {
+      const out = {
+        "Serial No": row.serial ?? index + 1,
+        "Ticket ID": row.ticket_number ?? "—",
+      };
+      EXCEL_EXPORT_COLUMNS.forEach((col) => {
+        const value = row[col.key];
+        if (col.type === "date") {
+          out[col.header] = value ? formatDisplayDate(value) : "";
+        } else if (col.type === "tat") {
+          out[col.header] =
+            value === null || value === undefined || value === "" ? "" : value;
+        } else {
+          out[col.header] = value ?? "—";
+        }
+      });
+      return out;
+    });
+
+  const exportFilenameBase = `ticket_workflow_tat_${startDate || "all"}_${endDate || "all"}`;
+
+  const handleExportCSV = () => {
+    if (rows.length === 0) {
+      showSnackbar("No data to export", "warning");
+      return;
+    }
+    exportRowsToCsv(buildCsvExportRows(), `${exportFilenameBase}.csv`);
+    showSnackbar("CSV exported successfully!");
+  };
 
   const handleExportExcel = () => {
     if (rows.length === 0) {
@@ -159,10 +198,7 @@ export default function TicketWorkflowTatReport({ embedded = false }) {
     const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Ticket Workflow TAT");
-    XLSX.writeFile(
-      wb,
-      `ticket_workflow_tat_${startDate || "all"}_${endDate || "all"}.xlsx`
-    );
+    XLSX.writeFile(wb, `${exportFilenameBase}.xlsx`);
     showSnackbar("Excel exported successfully!");
   };
 
@@ -178,7 +214,7 @@ export default function TicketWorkflowTatReport({ embedded = false }) {
     doc.text(`Period: ${startDate || "—"} to ${endDate || "—"}`, 14, 24);
     if (summary) {
       doc.text(
-        `Summary — Total: ${summary.total} | Resolved: ${summary.resolved} | Avg TAT (days): ${summary.avgTotalTatDays ?? 0}`,
+        `Summary — Total: ${summary.total} | Resolved: ${summary.resolved} | Avg TAT (working days): ${summary.avgTotalTatDays ?? 0}`,
         14,
         30
       );
@@ -194,9 +230,7 @@ export default function TicketWorkflowTatReport({ embedded = false }) {
       headStyles: { fillColor: [99, 102, 241] },
     });
 
-    doc.save(
-      `ticket_workflow_tat_${startDate || "all"}_${endDate || "all"}.pdf`
-    );
+    doc.save(`${exportFilenameBase}.pdf`);
     showSnackbar("PDF exported successfully!");
   };
 
@@ -252,6 +286,14 @@ export default function TicketWorkflowTatReport({ embedded = false }) {
           <Button
             variant="outlined"
             startIcon={<TableChart />}
+            onClick={handleExportCSV}
+            disabled={loading || rows.length === 0}
+          >
+            Export CSV
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<TableChart />}
             onClick={handleExportExcel}
             disabled={loading || rows.length === 0}
           >
@@ -287,7 +329,7 @@ export default function TicketWorkflowTatReport({ embedded = false }) {
             </div>
             <div className="sla-summary-chip">
               <strong>{summary.avgTotalTatDays ?? 0}</strong>
-              <span>Avg TAT (days)</span>
+              <span>Avg TAT (working days)</span>
             </div>
           </div>
 
@@ -327,11 +369,16 @@ export default function TicketWorkflowTatReport({ embedded = false }) {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    paginatedRows.map((row) => (
+                    paginatedRows.map((row, index) => (
                       <TableRow key={row.id || row.ticket_id || row.serial}>
                         {TABLE_COLUMNS.map((col) => (
                           <TableCell key={col.key}>
-                            {row[col.key] ?? "—"}
+                            {col.key === "serial"
+                              ? paginationProps.page *
+                                  paginationProps.rowsPerPage +
+                                index +
+                                1
+                              : row[col.key] ?? "—"}
                           </TableCell>
                         ))}
                       </TableRow>

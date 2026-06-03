@@ -837,7 +837,7 @@ useEffect(() => {
       <div className="agent-body">
         <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
           <h3>Agent</h3>
-          <Tooltip title="View Missed Calls" arrow>
+          {/* <Tooltip title="View Missed Calls" arrow>
             <div
               style={{ position: "relative", cursor: "pointer" }}
               onClick={() => setMissedOpen(true)}
@@ -864,7 +864,7 @@ useEffect(() => {
                 </span>
               )}
             </div>
-          </Tooltip>
+          </Tooltip> */}
           <Tooltip title="Voice Notes" arrow>
             <div
               style={{ position: "relative", cursor: "pointer" }}
