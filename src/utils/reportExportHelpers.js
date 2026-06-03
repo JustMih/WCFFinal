@@ -2,6 +2,31 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
+export const DEFAULT_EXPORT_CHUNK_SIZE = 500;
+
+/**
+ * @param {Array<T>} items
+ * @param {number} chunkSize
+ * @returns {Array<Array<T>>}
+ */
+export function chunkArray(items, chunkSize = DEFAULT_EXPORT_CHUNK_SIZE) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return [];
+  }
+  const size = Math.max(1, chunkSize);
+  const chunks = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
+
+export function delay(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
 function triggerDownload(blob, filename) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -33,10 +58,12 @@ export function exportRowsToExcel(rows, filename, sheetName = "Report") {
   const ws = XLSX.utils.json_to_sheet(rows);
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, sheetName);
-  XLSX.writeFile(
-    wb,
-    filename.endsWith(".xlsx") ? filename : `${filename}.xlsx`
-  );
+  const outName = filename.endsWith(".xlsx") ? filename : `${filename}.xlsx`;
+  const buffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  const blob = new Blob([buffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  triggerDownload(blob, outName);
 }
 
 /**
