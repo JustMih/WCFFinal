@@ -50,7 +50,10 @@ import {
   getOffHoursRowColor,
   OffHoursCallbackStatusChip,
 } from "../../../utils/offHoursReportShared";
-import { formatSecondsToMinutes } from "../../../utils/callDurationFormat";
+import {
+  formatSecondsToMinutes,
+  formatVoiceNoteDuration,
+} from "../../../utils/callDurationFormat";
 import { computeCdrTalkTimeSec } from "../../../utils/cdrReportHelpers";
 import {
   exportRowsToCsv,
@@ -1326,6 +1329,11 @@ export default function ComprehensiveReports() {
           { key: "date", label: "Date", default: true },
           { key: "played", label: "Played", default: true },
           {
+            key: "voiceDuration",
+            label: "Duration of Voice (sec)",
+            default: true,
+          },
+          {
             key: "assignedExtension",
             label: "Assigned Extension",
             default: true,
@@ -1908,6 +1916,8 @@ export default function ComprehensiveReports() {
               : "-";
           case "played":
             return isVoiceNotePlayed(report) ? "Yes" : "No";
+          case "voiceDuration":
+            return formatVoiceNoteDuration(report.duration_seconds);
           case "assignedExtension":
             return getAssignedExtensionDisplay(report);
           case "agentName":
@@ -1945,8 +1955,6 @@ export default function ComprehensiveReports() {
             return formatSecondsToMinutes(computeCdrTalkTimeSec(report), false);
           case "disposition":
             return formatCallStatus(report.disposition);
-          case "recording":
-            return report.recordingfile || "-";
           default:
             return "-";
         }
@@ -3735,7 +3743,6 @@ export default function ComprehensiveReports() {
           <th>Talk Time (min)</th>
           <th>Total Call Duration (min)</th>
           <th>Disposition</th>
-          <th>Recording</th>
         </tr>
       </thead>
       <tbody>
@@ -3780,7 +3787,6 @@ export default function ComprehensiveReports() {
                 }
               />
             </td>
-            <td>{report.recordingfile || "-"}</td>
           </tr>
         ))}
       </tbody>

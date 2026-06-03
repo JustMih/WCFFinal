@@ -24,7 +24,10 @@ import {
   getPlayedVoiceNotesMap,
 } from "../../../utils/voiceNotePlayed";
 import { getVoiceNoteAudioUrls } from "../../../utils/voiceNoteAudio";
-import { formatSecondsToMinutes } from "../../../utils/callDurationFormat";
+import {
+  formatSecondsToMinutes,
+  formatVoiceNoteDuration,
+} from "../../../utils/callDurationFormat";
 import { computeCdrTalkTimeSec } from "../../../utils/cdrReportHelpers";
 import {
   exportRowsToCsv,
@@ -189,7 +192,7 @@ export default function VoiceNoteReport() {
       startY: 22,
       head: [
         activeTab === 0
-          ? ["#", "Phone", "Date", "Played", "Agent"]
+          ? ["#", "Phone", "Date", "Played", "Duration of Voice (sec)", "Agent"]
           : [
               "#",
               "Caller ID",
@@ -210,7 +213,12 @@ export default function VoiceNoteReport() {
               safe(r.clid),
               r.created_at ? new Date(r.created_at).toLocaleString() : "-",
               isPlayedNote(r) ? "Yes" : "No",
-              r.assigned_agent_id ? `Agent #${r.assigned_agent_id}` : "-",
+              formatVoiceNoteDuration(r.duration_seconds),
+              r.assigned_extension
+                ? `Ext ${r.assigned_extension}${r.assigned_agent_name ? ` (${r.assigned_agent_name})` : ""}`
+                : r.assigned_agent_id
+                  ? `Agent #${r.assigned_agent_id}`
+                  : "-",
             ]
           : [
               i + 1,
@@ -241,7 +249,12 @@ export default function VoiceNoteReport() {
         Phone: safe(r.clid),
         Date: r.created_at ? new Date(r.created_at).toLocaleString() : "-",
         Played: isPlayedNote(r) ? "Yes" : "No",
-        Agent: r.assigned_agent_id ? `Agent #${r.assigned_agent_id}` : "-",
+        "Duration of Voice (sec)": formatVoiceNoteDuration(r.duration_seconds),
+        Agent: r.assigned_extension
+          ? `Ext ${r.assigned_extension}${r.assigned_agent_name ? ` (${r.assigned_agent_name})` : ""}`
+          : r.assigned_agent_id
+            ? `Agent #${r.assigned_agent_id}`
+            : "-",
       }));
     }
     return filteredReports.map((r, i) => ({
@@ -340,6 +353,7 @@ export default function VoiceNoteReport() {
               <th>Date</th>
               <th>Audio</th>
               <th>Played</th>
+              <th>Duration of Voice (sec)</th>
               <th>Agent</th>
             </tr>
           ) : (
@@ -359,7 +373,7 @@ export default function VoiceNoteReport() {
        <tbody>
   {loading ? (
     <tr>
-      <td colSpan={activeTab === 0 ? 6 : 8}>
+      <td colSpan={activeTab === 0 ? 7 : 8}>
         <div className="wcf-loading-container">
           <WcfLoader
             size="md"
@@ -370,7 +384,7 @@ export default function VoiceNoteReport() {
       </td>
     </tr>
   ) : currentReports.length === 0 ? (
-    <tr><td colSpan={activeTab === 0 ? 6 : 8}>No records found</td></tr>
+    <tr><td colSpan={activeTab === 0 ? 7 : 8}>No records found</td></tr>
   ) : (
     currentReports.map((r, i) => (
       <tr key={r.id}>
@@ -411,6 +425,7 @@ export default function VoiceNoteReport() {
             {isPlayedNote(r) ? "Yes" : "No"}
           </span>
         </td>
+        <td>{formatVoiceNoteDuration(r.duration_seconds)}</td>
 
        <td>
   {r.assigned_extension
