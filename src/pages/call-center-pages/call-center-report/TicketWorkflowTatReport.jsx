@@ -53,11 +53,23 @@ const STATUS_FILTER_OPTIONS = [
   { value: "Pending Approval", label: "Pending Approval" },
 ];
 
+const REQUIRED_TEMPLATE_KEYS = ["category", "rated", "channel", "created_date"];
+
+function isFullTatTemplate(columns) {
+  if (!Array.isArray(columns) || columns.length === 0) return false;
+  const keys = new Set(columns.map((col) => col.key));
+  return REQUIRED_TEMPLATE_KEYS.every((key) => keys.has(key));
+}
+
+function resolveTemplateColumns(apiColumns) {
+  if (isFullTatTemplate(apiColumns)) {
+    return apiColumns;
+  }
+  return TAT_TEMPLATE_COLUMNS;
+}
+
 function buildTableColumns(templateColumns) {
-  const cols =
-    Array.isArray(templateColumns) && templateColumns.length > 0
-      ? templateColumns
-      : TAT_TEMPLATE_COLUMNS;
+  const cols = resolveTemplateColumns(templateColumns);
   return [
     { key: "serial", label: "Serial No" },
     ...UI_ONLY_COLUMNS,
@@ -156,8 +168,7 @@ export default function TicketWorkflowTatReport({ embedded = false }) {
   }, [startDate, endDate, statusFilter]);
 
   const effectiveTemplateColumns = useMemo(
-    () =>
-      apiTemplateColumns?.length > 0 ? apiTemplateColumns : TAT_TEMPLATE_COLUMNS,
+    () => resolveTemplateColumns(apiTemplateColumns),
     [apiTemplateColumns]
   );
 
