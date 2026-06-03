@@ -55,12 +55,17 @@ export default function PublicDashboard({
   const [dashboardData, setDashboardData] = useState({
     agentStatus: { ...DEFAULT_AGENT_STATUS },
     liveCalls: [],
-    callStats: { dailyCounts: [], totalRows: 0 },
+    callStats: {
+      totalCounts: [],
+      monthlyCounts: [],
+      dailyCounts: [],
+      totalRows: 0,
+    },
     queueStatus: [],
     callStatusSummary: { active: 0, inQueue: 0, answered: 0, dropped: 0, lost: 0 },
+    callStatistics: { lost: 0, dropped: 0 },
   });
   const [callSummaryData, setCallSummaryData] = useState(null);
-  const [todayCallStats, setTodayCallStats] = useState({ lost: 0, dropped: 0 });
   const [loading, setLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
   const [lostCalls, setLostCalls] = useState([]);
@@ -69,24 +74,6 @@ export default function PublicDashboard({
   const [droppedCalls, setDroppedCalls] = useState([]);
   const [showDroppedCallsModal, setShowDroppedCallsModal] = useState(false);
   const [droppedCallsLoading, setDroppedCallsLoading] = useState(false);
-
-  const fetchTodayCallStats = useCallback(async () => {
-    try {
-      const response = await fetch(
-        `${baseURL}/public/dashboard-call-stats?_=${Date.now()}`,
-        { cache: "no-store" }
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setTodayCallStats({
-          lost: Number(data.lost ?? 0),
-          dropped: Number(data.dropped ?? 0),
-        });
-      }
-    } catch (error) {
-      console.error("Error fetching today call stats:", error);
-    }
-  }, []);
 
   const fetchLostCallsToday = useCallback(async (forModal = false) => {
     if (forModal) setLostCallsLoading(true);
@@ -108,9 +95,6 @@ export default function PublicDashboard({
           return true;
         });
         setLostCalls(deduped);
-        if (forModal) {
-          setTodayCallStats((prev) => ({ ...prev, lost: deduped.length }));
-        }
       } else if (forModal) {
         console.error("Failed to fetch lost calls:", response.status);
       }
@@ -130,14 +114,7 @@ export default function PublicDashboard({
       );
       if (response.ok) {
         const data = await response.json();
-        const droppedList = Array.isArray(data) ? data : [];
-        setDroppedCalls(droppedList);
-        if (forModal) {
-          setTodayCallStats((prev) => ({
-            ...prev,
-            dropped: droppedList.length,
-          }));
-        }
+        setDroppedCalls(Array.isArray(data) ? data : []);
       } else if (forModal) {
         console.error("Failed to fetch dropped calls:", response.status);
       }
@@ -180,10 +157,6 @@ export default function PublicDashboard({
         );
         if (response.ok) {
           const data = await response.json();
-          setTodayCallStats({
-            lost: Number(data.callStatistics?.lost ?? 0),
-            dropped: Number(data.callStatistics?.dropped ?? 0),
-          });
           setDashboardData({
             agentStatus: data.agentStatus || { ...DEFAULT_AGENT_STATUS },
             liveCalls: Array.isArray(data.liveCalls) ? data.liveCalls : [],
@@ -218,7 +191,6 @@ export default function PublicDashboard({
 
     fetchDashboardData();
     fetchCallSummary();
-    fetchTodayCallStats();
     fetchLostCallsToday();
     fetchDroppedCallsToday();
 
@@ -254,29 +226,11 @@ export default function PublicDashboard({
           ...prev.callStatusSummary,
           ...(data.callStatusSummary || {}),
         },
-        callStatistics: {
-          lost: Number(
-            data.callStatistics?.lost ?? data.callStatusSummary?.lost ?? 0
-          ),
-          dropped: Number(
-            data.callStatistics?.dropped ??
-              data.callStatusSummary?.dropped ??
-              0
-          ),
+        callStatistics: data.callStatistics || {
+          lost: Number(data.callStatusSummary?.lost ?? 0),
+          dropped: Number(data.callStatusSummary?.dropped ?? 0),
         },
       }));
-      if (data.callStatistics || data.callStatusSummary) {
-        setTodayCallStats({
-          lost: Number(
-            data.callStatistics?.lost ?? data.callStatusSummary?.lost ?? 0
-          ),
-          dropped: Number(
-            data.callStatistics?.dropped ??
-              data.callStatusSummary?.dropped ??
-              0
-          ),
-        });
-      }
     });
 
     socket.on("disconnect", () => {
@@ -301,10 +255,6 @@ export default function PublicDashboard({
         ]);
         if (dashboardResponse.ok) {
           const data = await dashboardResponse.json();
-          setTodayCallStats({
-            lost: Number(data.callStatistics?.lost ?? 0),
-            dropped: Number(data.callStatistics?.dropped ?? 0),
-          });
           setDashboardData({
             agentStatus: data.agentStatus || { ...DEFAULT_AGENT_STATUS },
             liveCalls: Array.isArray(data.liveCalls) ? data.liveCalls : [],
@@ -334,7 +284,6 @@ export default function PublicDashboard({
           const summaryData = await callSummaryResponse.json();
           setCallSummaryData(summaryData);
         }
-        fetchTodayCallStats();
         fetchLostCallsToday();
         fetchDroppedCallsToday();
       } catch (error) {
@@ -355,11 +304,7 @@ return () => {
   clearInterval(fallbackInterval);
 };
 
-  }, [
-    fetchLostCallsToday,
-    fetchDroppedCallsToday,
-    fetchTodayCallStats,
-  ]);
+  }, [fetchLostCallsToday, fetchDroppedCallsToday]);
 
   const formatTime = (seconds) => {
     if (!seconds || seconds <= 0) return "00:00";
@@ -426,9 +371,18 @@ return () => {
       lost: 0,
     };
 
-  /** Live totals from dashboard-call-stats (replaces stale Math.max with call-summary). */
-  const lostCallsCount = Number(todayCallStats.lost ?? 0);
-  const droppedCallsCount = Number(todayCallStats.dropped ?? 0);
+  const lostCallsCount = Number(
+    dashboardData.callStatistics?.lost ??
+      dashboardData.callStatusSummary?.lost ??
+      day.lost ??
+      0
+  );
+  const droppedCallsCount = Number(
+    dashboardData.callStatistics?.dropped ??
+      dashboardData.callStatusSummary?.dropped ??
+      day.dropped ??
+      0
+  );
   const answeredCallsCount = day.answered ?? 0;
 
   const dailyAnswered = day.answered ?? 0;
@@ -598,13 +552,11 @@ return () => {
 
   const handleShowLostCalls = () => {
     setShowLostCallsModal(true);
-    fetchTodayCallStats();
     fetchLostCallsToday(true);
   };
 
   const handleShowDroppedCalls = () => {
     setShowDroppedCallsModal(true);
-    fetchTodayCallStats();
     fetchDroppedCallsToday(true);
   };
 
