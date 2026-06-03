@@ -64,10 +64,17 @@ export default function PublicDashboard({
       const response = await fetch(`${baseURL}/calls/lost-calls-today`);
       if (response.ok) {
         const data = await response.json();
-        const list = (Array.isArray(data) ? data : []).filter(
-          (call) => Number(call.wait_seconds) >= LOST_MIN_DURATION_SECONDS
-        );
-        setLostCalls(list);
+        const list = Array.isArray(data) ? data : [];
+        const seen = new Set();
+        const deduped = list.filter((call) => {
+          const phone = String(call.caller || call.phone || "").trim();
+          const t = call.missed_at || call.call_time || "";
+          const key = `${phone}:${t}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return Number(call.wait_seconds) >= LOST_MIN_DURATION_SECONDS;
+        });
+        setLostCalls(deduped);
       } else if (forModal) {
         console.error("Failed to fetch lost calls:", response.status);
       }
