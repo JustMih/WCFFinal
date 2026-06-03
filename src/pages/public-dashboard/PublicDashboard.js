@@ -277,7 +277,9 @@ return () => {
     return match ? match[1] : clid;
   };
 
-  const activeCalls = dashboardData.liveCalls.filter((call) => call.status === "active");
+  const activeCalls = dashboardData.liveCalls.filter(
+    (call) => !call.call_end && call.status === "active"
+  );
   const totalAgents = dashboardData.agentStatus.onlineCount + dashboardData.agentStatus.offlineCount;
 
   // Calculate inQueue dynamically from live calls (calls in queue but not answered)
