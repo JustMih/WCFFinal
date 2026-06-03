@@ -51,6 +51,7 @@ import {
   OffHoursCallbackStatusChip,
 } from "../../../utils/offHoursReportShared";
 import { formatSecondsToMinutes } from "../../../utils/callDurationFormat";
+import { formatDbDateTimeLocal } from "../../../utils/dateTimeFormat";
 import { computeCdrTalkTimeSec } from "../../../utils/cdrReportHelpers";
 import {
   exportRowsToCsv,
@@ -2333,9 +2334,9 @@ export default function ComprehensiveReports() {
           case "agentName":
             return report.agent_name || "-";
           case "callTime":
-            return report.call_time
-              ? new Date(report.call_time).toLocaleString()
-              : "-";
+            return formatDbDateTimeLocal(report.call_time, {
+              fallback: "-",
+            });
           case "durationMinutes":
             return report.duration_minutes != null
               ? String(report.duration_minutes)

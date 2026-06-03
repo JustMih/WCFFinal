@@ -37,6 +37,7 @@ import ReactApexChart from "react-apexcharts";
 import "./PublicDashboard.css";
 
 import { LOST_MIN_DURATION_SECONDS } from "../../utils/callClassification";
+import { formatDbTimeLocal } from "../../utils/dateTimeFormat";
 
 export default function PublicDashboard({
   suppressLoadingUI = false,
@@ -1017,13 +1018,7 @@ return () => {
                     {extractPhoneFromClid(call.caller)}
                   </div>
                   <div className="lost-call-time">
-                    {call.call_time
-                      ? new Date(call.call_time).toLocaleString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          second: "2-digit",
-                        })
-                      : "-"}
+                    {formatDbTimeLocal(call.call_time || call.lost_time)}
                   </div>
                   <div className="lost-call-wait">
                     {formatQueueWait(call.wait_seconds)}
