@@ -652,6 +652,11 @@
   text-transform: uppercase;
 }
 
+.status-badge.dropped {
+  background: #ff9800;
+  color: #fff;
+}
+
 .status-badge.no-answer {
   background: #ff9800;
   color: white;
