@@ -45,7 +45,14 @@ export default function PublicDashboard({
   className = "",
 }) {
   const [dashboardData, setDashboardData] = useState({
-    agentStatus: { onlineCount: 0, offlineCount: 0 },
+    agentStatus: {
+      onlineCount: 0,
+      pauseCount: 0,
+      offlineCount: 0,
+      totalAgents: 0,
+      onlinePercent: 0,
+      pausePercent: 0,
+    },
     liveCalls: [],
     callStats: { dailyCounts: [], totalRows: 0 },
     queueStatus: [],
@@ -139,7 +146,14 @@ export default function PublicDashboard({
         if (response.ok) {
           const data = await response.json();
           setDashboardData({
-            agentStatus: data.agentStatus || { onlineCount: 0, offlineCount: 0 },
+            agentStatus: data.agentStatus || {
+              onlineCount: 0,
+              pauseCount: 0,
+              offlineCount: 0,
+              totalAgents: 0,
+              onlinePercent: 0,
+              pausePercent: 0,
+            },
             liveCalls: Array.isArray(data.liveCalls) ? data.liveCalls : [],
             callStats: data.callStats || {
               totalCounts: [],
@@ -231,7 +245,11 @@ export default function PublicDashboard({
           setDashboardData({
             agentStatus: data.agentStatus || {
               onlineCount: 0,
+              pauseCount: 0,
               offlineCount: 0,
+              totalAgents: 0,
+              onlinePercent: 0,
+              pausePercent: 0,
             },
             liveCalls: Array.isArray(data.liveCalls) ? data.liveCalls : [],
             callStats: data.callStats || {
@@ -312,7 +330,23 @@ return () => {
     liveOnWallboard.filter((call) => call.status === "calling").length,
     Number(dashboardData.callStatusSummary?.inQueue ?? 0)
   );
-  const totalAgents = dashboardData.agentStatus.onlineCount + dashboardData.agentStatus.offlineCount;
+  const totalAgents =
+    Number(dashboardData.agentStatus.totalAgents) ||
+    dashboardData.agentStatus.onlineCount +
+      (dashboardData.agentStatus.pauseCount ?? 0) +
+      dashboardData.agentStatus.offlineCount;
+  const onlinePercent =
+    dashboardData.agentStatus.onlinePercent ??
+    (totalAgents > 0
+      ? Math.round((dashboardData.agentStatus.onlineCount / totalAgents) * 100)
+      : 0);
+  const pausePercent =
+    dashboardData.agentStatus.pausePercent ??
+    (totalAgents > 0
+      ? Math.round(
+          ((dashboardData.agentStatus.pauseCount ?? 0) / totalAgents) * 100
+        )
+      : 0);
 
   // Call summary from API: answered, dropped, lost; total = sum of those three
   const day =
@@ -334,27 +368,22 @@ return () => {
       lost: 0,
     };
 
-  const pickStatCount = (summaryVal, dashboardDataRef) =>
-    Math.max(
-      Number(summaryVal ?? 0),
-      Number(dashboardDataRef.callStatistics?.lost ?? 0),
-      Number(dashboardDataRef.callStatusSummary?.lost ?? 0)
-    );
-
-  const pickDroppedCount = (summaryVal, dashboardDataRef) =>
-    Math.max(
-      Number(summaryVal ?? 0),
-      Number(dashboardDataRef.callStatistics?.dropped ?? 0),
-      Number(dashboardDataRef.callStatusSummary?.dropped ?? 0)
-    );
-
-  const lostCallsCount = pickStatCount(day.lost, dashboardData);
-  const droppedCallsCount = pickDroppedCount(day.dropped, dashboardData);
+  /** Prefer /public/dashboard counts (missedCallHelper); call-summary can lag after merges. */
+  const lostCallsCount = Math.max(
+    Number(dashboardData.callStatistics?.lost ?? 0),
+    Number(dashboardData.callStatusSummary?.lost ?? 0),
+    Number(day.lost ?? 0)
+  );
+  const droppedCallsCount = Math.max(
+    Number(dashboardData.callStatistics?.dropped ?? 0),
+    Number(dashboardData.callStatusSummary?.dropped ?? 0),
+    Number(day.dropped ?? 0)
+  );
   const answeredCallsCount = day.answered ?? 0;
 
   const dailyAnswered = day.answered ?? 0;
-  const dailyDropped = pickDroppedCount(day.dropped, dashboardData);
-  const dailyLost = pickStatCount(day.lost, dashboardData);
+  const dailyDropped = droppedCallsCount;
+  const dailyLost = lostCallsCount;
   const dailyTotal = dailyAnswered + dailyDropped + dailyLost;
 
   const monthlyAnswered = month.answered ?? 0;
@@ -695,7 +724,9 @@ return () => {
                         Online Agents
                       </Typography>
                       <Typography variant="caption" color="textSecondary" sx={{ fontSize: "0.75rem" }}>
-              {totalAgents > 0 ? `${Math.round((dashboardData.agentStatus.onlineCount / totalAgents) * 100)}% Available` : "No Agents"}
+                        {totalAgents > 0
+                          ? `${onlinePercent}% Online · ${pausePercent}% Pause`
+                          : "No Agents"}
                       </Typography>
                     </Box>
                   </Grid>
