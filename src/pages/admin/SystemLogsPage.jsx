@@ -1,6 +1,36 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { fetchAuditLogs, fetchHttpLogs } from "../../api/logsApi";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Alert, Snackbar } from "@mui/material";
+import { fetchAuditLogs, fetchAuditLogsExport, fetchHttpLogs } from "../../api/logsApi";
+import {
+  buildLabelKeyedExportRows,
+  chunkArray,
+  delay,
+  exportRowsToCsv,
+  exportRowsToExcel,
+  exportRowsToPdf,
+} from "../../utils/reportExportHelpers";
 import "./SystemLogsPage.css";
+
+const AUDIT_EXPORT_ROWS_PER_FILE = 500;
+const AUDIT_EXPORT_MAX_PAGES = 20;
+const EXPORT_DOWNLOAD_GAP_MS = 400;
+const LOG_PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 200, 500, 1000];
+
+const AUDIT_EXPORT_COLUMNS = [
+  { key: "time", label: "Time" },
+  { key: "action", label: "Action" },
+  { key: "category", label: "Category" },
+  { key: "entityType", label: "Entity Type" },
+  { key: "entityId", label: "Entity ID" },
+  { key: "status", label: "Status" },
+  { key: "actor", label: "Actor" },
+  { key: "email", label: "Email" },
+  { key: "role", label: "Role" },
+  { key: "method", label: "Method" },
+  { key: "path", label: "Path" },
+  { key: "requestId", label: "Request ID" },
+  { key: "message", label: "Message" },
+];
 
 const LOG_TYPES = {
   AUDIT: "audit",
@@ -50,10 +80,16 @@ export default function SystemLogsPage() {
   const [pageSize, setPageSize] = useState(10);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState("");
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
+  const [snackbarSeverity, setSnackbarSeverity] = useState("success");
   const [selectedAuditLog, setSelectedAuditLog] = useState(null);
   const [httpFilters, setHttpFilters] = useState(createHttpFilters);
   const [auditFilters, setAuditFilters] = useState(createAuditFilters);
+  const exportAbortRef = useRef(null);
+  const exportHintShownRef = useRef(false);
 
   const currentFilters = useMemo(
     () => (activeTab === LOG_TYPES.HTTP ? httpFilters : auditFilters),
@@ -133,6 +169,276 @@ export default function SystemLogsPage() {
     setPage(1);
     setPageSize(Number(e.target.value) || 10);
   };
+
+  const showSnackbar = (message, severity = "success") => {
+    setSnackbarMessage(message);
+    setSnackbarSeverity(severity);
+    setSnackbarOpen(true);
+  };
+
+  const buildAuditExportParams = () => {
+    const params = {};
+    Object.entries(auditFilters).forEach(([key, value]) => {
+      if (value) params[key] = value;
+    });
+    return params;
+  };
+
+  const mapAuditLogToExportRow = (log) => ({
+    time: log.createdAt ? new Date(log.createdAt).toLocaleString() : "-",
+    action: log.action || "-",
+    category: log.category || "-",
+    entityType: log.entityType || "-",
+    entityId: log.entityId || "-",
+    status: log.status || "-",
+    actor: log.actorName || log.userId || "-",
+    email: log.actorEmail || "-",
+    role: log.role || "-",
+    method: log.method || "-",
+    path: log.path || "-",
+    requestId: log.requestId || "-",
+    message: log.message || "-",
+  });
+
+  const getAuditExportFilenameBase = () => {
+    const { startDate, endDate } = auditFilters;
+    return `audit_logs_${startDate || "all"}_${endDate || "all"}`;
+  };
+
+  const fetchAuditExportPage = async (exportPage, signal) => {
+    const result = await fetchAuditLogsExport(
+      {
+        ...buildAuditExportParams(),
+        exportPage,
+        exportPageSize: AUDIT_EXPORT_ROWS_PER_FILE,
+      },
+      signal
+    );
+    return {
+      rows: (result.data || []).map(mapAuditLogToExportRow),
+      hasMore: Boolean(result.hasMore),
+    };
+  };
+
+  const fetchAllAuditExportPages = async () => {
+    exportAbortRef.current?.abort();
+    const controller = new AbortController();
+    exportAbortRef.current = controller;
+
+    const pages = [];
+    let exportPage = 1;
+
+    while (exportPage <= AUDIT_EXPORT_MAX_PAGES) {
+      const { rows, hasMore } = await fetchAuditExportPage(
+        exportPage,
+        controller.signal
+      );
+      if (rows.length === 0) {
+        break;
+      }
+      pages.push(rows);
+      if (!hasMore) {
+        break;
+      }
+      exportPage += 1;
+    }
+
+    return pages;
+  };
+
+  const maybeShowExportDateHint = () => {
+    const { startDate, endDate } = auditFilters;
+    if (!startDate && !endDate && logs.length > 0 && !exportHintShownRef.current) {
+      exportHintShownRef.current = true;
+      showSnackbar(
+        "Tip: set a start and end date for faster full export.",
+        "info"
+      );
+    }
+  };
+
+  const shouldFallbackToPageExport = (err) => {
+    if (activeTab !== LOG_TYPES.AUDIT || logs.length === 0) {
+      return false;
+    }
+    return (
+      err.isExportTimeout ||
+      err.name === "CanceledError" ||
+      err.code === "ERR_CANCELED" ||
+      !err.response ||
+      err.response?.status === 404 ||
+      err.response?.status === 502 ||
+      err.response?.status === 503
+    );
+  };
+
+  const buildExportPartSuffix = (partIndex, totalParts) => {
+    if (totalParts <= 1) {
+      return "";
+    }
+    return `_part${String(partIndex).padStart(2, "0")}_of_${String(totalParts).padStart(2, "0")}`;
+  };
+
+  const exportAuditRowsToFile = (
+    format,
+    rows,
+    { partIndex = 1, totalParts = 1, partial = false } = {}
+  ) => {
+    const filenameBase = getAuditExportFilenameBase();
+    const partSuffix = buildExportPartSuffix(partIndex, totalParts);
+    const labelRows = buildLabelKeyedExportRows(AUDIT_EXPORT_COLUMNS, rows);
+    const { startDate, endDate } = auditFilters;
+    const dateSubtitle = `Period: ${startDate || "all"} to ${endDate || "all"}${
+      totalParts > 1 ? ` — Part ${partIndex} of ${totalParts}` : ""
+    }${partial ? " (current page only)" : ""}`;
+
+    if (format === "csv") {
+      exportRowsToCsv(labelRows, `${filenameBase}${partSuffix}.csv`);
+    } else if (format === "excel") {
+      exportRowsToExcel(
+        labelRows,
+        `${filenameBase}${partSuffix}.xlsx`,
+        totalParts > 1 ? `Audit Logs ${partIndex}` : "Audit Logs"
+      );
+    } else if (format === "pdf") {
+      exportRowsToPdf({
+        title: "Audit Logs",
+        subtitle: dateSubtitle,
+        columns: AUDIT_EXPORT_COLUMNS,
+        rows,
+        filename: `${filenameBase}${partSuffix}.pdf`,
+        landscape: true,
+      });
+    }
+  };
+
+  const exportAuditRowChunks = async (format, rowChunks, { partial = false } = {}) => {
+    const totalParts = rowChunks.length;
+    if (totalParts === 0) {
+      showSnackbar("No audit logs to export for the current filters", "warning");
+      return { fileCount: 0, rowCount: 0 };
+    }
+
+    let rowCount = 0;
+    for (let i = 0; i < rowChunks.length; i += 1) {
+      const chunk = rowChunks[i];
+      rowCount += chunk.length;
+      exportAuditRowsToFile(format, chunk, {
+        partIndex: i + 1,
+        totalParts,
+        partial,
+      });
+      if (i < rowChunks.length - 1) {
+        await delay(EXPORT_DOWNLOAD_GAP_MS);
+      }
+    }
+
+    return { fileCount: totalParts, rowCount };
+  };
+
+  const handleExportAuditLogs = async (format) => {
+    if (format === "pdf" && logs.length > 0) {
+      setExporting(true);
+      try {
+        const rowChunks = chunkArray(
+          logs.map(mapAuditLogToExportRow),
+          AUDIT_EXPORT_ROWS_PER_FILE
+        );
+        const { fileCount, rowCount } = await exportAuditRowChunks(format, rowChunks, {
+          partial: true,
+        });
+        if (fileCount > 0) {
+          const filesNote =
+            fileCount > 1 ? ` in ${fileCount} file(s)` : "";
+          showSnackbar(
+            `Exported ${rowCount} audit log(s) to PDF${filesNote} (current page only)`
+          );
+        }
+      } finally {
+        setExporting(false);
+      }
+      return;
+    }
+
+    try {
+      setExporting(true);
+      maybeShowExportDateHint();
+      const pages = await fetchAllAuditExportPages();
+      const { fileCount, rowCount } = await exportAuditRowChunks(format, pages);
+
+      if (fileCount === 0) {
+        showSnackbar("No audit logs to export for the current filters", "warning");
+        return;
+      }
+
+      const filesNote = fileCount > 1 ? ` in ${fileCount} file(s)` : "";
+      const formatLabel =
+        format === "csv" ? "CSV" : format === "excel" ? "Excel" : "PDF";
+      showSnackbar(
+        `Exported ${rowCount} audit log(s) to ${formatLabel}${filesNote} (max ${AUDIT_EXPORT_ROWS_PER_FILE} rows per file)`
+      );
+    } catch (err) {
+      if (err.name === "CanceledError" || err.code === "ERR_CANCELED") {
+        return;
+      }
+
+      console.error("Failed to export audit logs", err);
+
+      if (shouldFallbackToPageExport(err)) {
+        const rowChunks = chunkArray(
+          logs.map(mapAuditLogToExportRow),
+          AUDIT_EXPORT_ROWS_PER_FILE
+        );
+        const { fileCount, rowCount } = await exportAuditRowChunks(format, rowChunks, {
+          partial: true,
+        });
+        if (fileCount > 0) {
+          const filesNote = fileCount > 1 ? ` in ${fileCount} file(s)` : "";
+          const timeoutNote = err.isExportTimeout ? ` ${err.message}` : "";
+          showSnackbar(
+            `Exported ${rowCount} audit log(s)${filesNote} (current page only).${timeoutNote}`,
+            err.isExportTimeout ? "warning" : "success"
+          );
+        }
+        return;
+      }
+
+      const status = err.response?.status;
+      const apiMessage =
+        err.message ||
+        err.response?.data?.message ||
+        (status === 403
+          ? "You do not have permission to export audit logs"
+          : null);
+      showSnackbar(apiMessage || "Failed to export audit logs", "error");
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  useEffect(
+    () => () => {
+      exportAbortRef.current?.abort();
+    },
+    []
+  );
+
+  const renderAuditExportActions = () => (
+    <div className="system-logs-export-toolbar">
+      <span className="system-logs-export-label">Export audit logs</span>
+      <button
+        type="button"
+        className="system-logs-export-btn"
+        onClick={() => handleExportAuditLogs("pdf")}
+        disabled={exporting}
+      >
+        Export PDF
+      </button>
+      {exporting && (
+        <span className="system-logs-export-status">Preparing export…</span>
+      )}
+    </div>
+  );
 
   const canPrev = page > 1;
   const canNext = page < totalPages;
@@ -517,6 +823,10 @@ export default function SystemLogsPage() {
             </button>
           </div>
         </div>
+
+        {activeTab === LOG_TYPES.AUDIT && (
+          <div className="system-logs-export-panel">{renderAuditExportActions()}</div>
+        )}
       </div>
 
       <div className="system-logs-panel system-logs-table-panel">
@@ -555,7 +865,7 @@ export default function SystemLogsPage() {
               onChange={handlePageSizeChange}
               disabled={loading}
             >
-              {[10, 20, 50, 100].map((size) => (
+              {LOG_PAGE_SIZE_OPTIONS.map((size) => (
                 <option key={size} value={size}>
                   {size}
                 </option>
@@ -632,11 +942,6 @@ export default function SystemLogsPage() {
               <pre>{selectedAuditLog.message || "-"}</pre>
             </div>
 
-            <div className="audit-log-json-block">
-              <strong>Metadata</strong>
-              <pre>{JSON.stringify(selectedAuditLog.metadata || {}, null, 2)}</pre>
-            </div>
-
             <div className="audit-log-json-row">
               <div className="audit-log-json-block">
                 <strong>Before State</strong>
@@ -650,6 +955,21 @@ export default function SystemLogsPage() {
           </div>
         </div>
       )}
+
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={4000}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "right" }}
+      >
+        <Alert
+          onClose={() => setSnackbarOpen(false)}
+          severity={snackbarSeverity}
+          sx={{ width: "100%" }}
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </div>
   );
 }

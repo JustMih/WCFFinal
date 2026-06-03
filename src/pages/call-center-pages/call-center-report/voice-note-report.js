@@ -1,10 +1,12 @@
-import React, { useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { baseURL } from "../../../config";
 import ReportDateRangePicker from "../../../components/shared/ReportDateRangePicker";
+import ReportTablePagination from "../../../components/shared/ReportTablePagination";
+import useReportTablePagination from "../../../hooks/useReportTablePagination";
+import { isValidReportDateRange } from "../../../utils/reportDateUtils";
 import {
   Snackbar,
   Alert,
-  TextField,
   Button,
   Select,
   MenuItem,
@@ -12,21 +14,31 @@ import {
   InputLabel,
   Tabs,
   Tab,
-  Box,
 } from "@mui/material";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import WcfLoader from "../../../components/shared/WcfLoader";
-import { markVoiceNotePlayed } from "../../../utils/voiceNotePlayed";
+import {
+  markVoiceNotePlayed,
+  isVoiceNotePlayed,
+  getPlayedVoiceNotesMap,
+} from "../../../utils/voiceNotePlayed";
 import { getVoiceNoteAudioUrls } from "../../../utils/voiceNoteAudio";
+import {
+  formatSecondsToMinutes,
+  formatVoiceNoteDuration,
+} from "../../../utils/callDurationFormat";
+import { computeCdrTalkTimeSec } from "../../../utils/cdrReportHelpers";
+import {
+  exportRowsToCsv,
+  exportRowsToExcel,
+} from "../../../utils/reportExportHelpers";
 
 export default function VoiceNoteReport() {
   const [activeTab, setActiveTab] = useState(0);
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const reportsPerPage = 10;
 
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
@@ -40,7 +52,7 @@ export default function VoiceNoteReport() {
   const markedPlayedRef = useRef(new Set());
 
   const safe = (v) => (v === null || v === undefined || v === "" ? "-" : v);
-  const isPlayedNote = (r) => Number(r.is_played) === 1;
+  const isPlayedNote = (r) => isVoiceNotePlayed(r);
 
   const updateReportRow = (id, patch) => {
     setReports((prev) =>
@@ -80,7 +92,7 @@ export default function VoiceNoteReport() {
     }
   };
 
-  const fetchReports = async () => {
+  const fetchReports = useCallback(async () => {
     setLoading(true);
     try {
       const endpoint =
@@ -95,15 +107,37 @@ export default function VoiceNoteReport() {
       });
 
       if (!res.ok) throw new Error("Failed to load reports");
-      setReports(await res.json());
+      let list = await res.json();
+      if (activeTab === 0) {
+        const playedMap = getPlayedVoiceNotesMap();
+        list.forEach((note) => {
+          if (playedMap[note.id] && Number(note.is_played) !== 1) {
+            markVoiceNotePlayed(note.id).catch(() => {});
+          }
+        });
+        list = list.map((note) => ({
+          ...note,
+          is_played: isVoiceNotePlayed(note) ? 1 : 0,
+        }));
+      }
+      setReports(list);
     } catch (err) {
       setSnackbarMessage("Error loading reports");
       setSnackbarSeverity("error");
       setSnackbarOpen(true);
+      setReports([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab, startDate, endDate, disposition]);
+
+  useEffect(() => {
+    if (!isValidReportDateRange(startDate, endDate)) {
+      setReports([]);
+      return;
+    }
+    fetchReports();
+  }, [startDate, endDate, activeTab, disposition, fetchReports]);
 
   const filteredReports = reports.filter((r) => {
     const matchSearch = (r.clid || "").toLowerCase().includes(search.toLowerCase());
@@ -115,11 +149,12 @@ export default function VoiceNoteReport() {
     return matchSearch;
   });
 
-  const totalPages = Math.ceil(filteredReports.length / reportsPerPage);
-  const currentReports = filteredReports.slice(
-    (currentPage - 1) * reportsPerPage,
-    currentPage * reportsPerPage
-  );
+  const { paginatedItems: currentReports, paginationProps, resetPage, page, rowsPerPage } =
+    useReportTablePagination(filteredReports);
+
+  useEffect(() => {
+    resetPage();
+  }, [filteredReports.length, search, playedFilter, activeTab, resetPage]);
 
   const loadAudio = async (record) => {
     const id = record.id;
@@ -157,15 +192,17 @@ export default function VoiceNoteReport() {
       startY: 22,
       head: [
         activeTab === 0
-          ? ["#", "Phone", "Date", "Played", "Agent"]
+          ? ["#", "Phone", "Date", "Played", "Duration of Voice (sec)", "Agent"]
           : [
               "#",
               "Caller ID",
               "Source",
               "Destination",
+              "Agent",
               "Start Time",
-              "Duration",
-              "Billsec",
+              "Agent Wait (min)",
+              "Talk Time (min)",
+              "Total Duration (min)",
               "Disposition",
             ],
       ],
@@ -176,24 +213,77 @@ export default function VoiceNoteReport() {
               safe(r.clid),
               r.created_at ? new Date(r.created_at).toLocaleString() : "-",
               isPlayedNote(r) ? "Yes" : "No",
-              r.assigned_agent_id ? `Agent #${r.assigned_agent_id}` : "-",
+              formatVoiceNoteDuration(r.duration_seconds),
+              r.assigned_extension
+                ? `Ext ${r.assigned_extension}${r.assigned_agent_name ? ` (${r.assigned_agent_name})` : ""}`
+                : r.assigned_agent_id
+                  ? `Agent #${r.assigned_agent_id}`
+                  : "-",
             ]
           : [
               i + 1,
               safe(r.clid),
               safe(r.src),
               safe(r.dst),
+              r.agent_name || "-",
               r.cdrstarttime
                 ? new Date(r.cdrstarttime).toLocaleString()
                 : "-",
-              safe(r.duration),
-              safe(r.billsec),
+              r.agent_wait_sec != null
+                ? formatSecondsToMinutes(r.agent_wait_sec, false)
+                : "-",
+              formatSecondsToMinutes(computeCdrTalkTimeSec(r), false),
+              formatSecondsToMinutes(r.duration, false),
               safe(r.disposition),
             ]
       ),
     });
 
     doc.save("call_center_report.pdf");
+  };
+
+  const buildExportRows = () => {
+    if (activeTab === 0) {
+      return filteredReports.map((r, i) => ({
+        "Serial No": i + 1,
+        Phone: safe(r.clid),
+        Date: r.created_at ? new Date(r.created_at).toLocaleString() : "-",
+        Played: isPlayedNote(r) ? "Yes" : "No",
+        "Duration of Voice (sec)": formatVoiceNoteDuration(r.duration_seconds),
+        Agent: r.assigned_extension
+          ? `Ext ${r.assigned_extension}${r.assigned_agent_name ? ` (${r.assigned_agent_name})` : ""}`
+          : r.assigned_agent_id
+            ? `Agent #${r.assigned_agent_id}`
+            : "-",
+      }));
+    }
+    return filteredReports.map((r, i) => ({
+      "Serial No": i + 1,
+      "Caller ID": safe(r.clid),
+      Source: safe(r.src),
+      Destination: safe(r.dst),
+      Agent: r.agent_name || "-",
+      "Start Time": r.cdrstarttime
+        ? new Date(r.cdrstarttime).toLocaleString()
+        : "-",
+      "Agent Wait (min)":
+        r.agent_wait_sec != null
+          ? formatSecondsToMinutes(r.agent_wait_sec, false)
+          : "-",
+      "Talk Time (min)": formatSecondsToMinutes(computeCdrTalkTimeSec(r), false),
+      "Total Duration (min)": formatSecondsToMinutes(r.duration, false),
+      Disposition: safe(r.disposition),
+    }));
+  };
+
+  const handleExportCSV = () => {
+    if (!filteredReports.length) return;
+    exportRowsToCsv(buildExportRows(), "call_center_report.csv");
+  };
+
+  const handleExportExcel = () => {
+    if (!filteredReports.length) return;
+    exportRowsToExcel(buildExportRows(), "call_center_report.xlsx", "Report");
   };
 
   return (
@@ -228,24 +318,31 @@ export default function VoiceNoteReport() {
             <InputLabel>Disposition</InputLabel>
             <Select value={disposition} label="Disposition" onChange={(e) => setDisposition(e.target.value)}>
               <MenuItem value="all">All</MenuItem>
-              <MenuItem value="ANSWERED">Answered</MenuItem>
-              <MenuItem value="NO ANSWER">No Answer</MenuItem>
-              <MenuItem value="BUSY">Busy</MenuItem>
-              <MenuItem value="FAILED">Failed</MenuItem>
+              <MenuItem value="answered">Answered</MenuItem>
+              <MenuItem value="lost">Lost</MenuItem>
+              <MenuItem value="dropped">Dropped</MenuItem>
             </Select>
           </FormControl>
         )}
 
-        <Button variant="contained" onClick={fetchReports} disabled={loading || !startDate || !endDate}>
-          Load
-        </Button>
-
         <Button variant="outlined" onClick={handleExportPDF} disabled={!filteredReports.length}>
           Export PDF
+        </Button>
+        <Button variant="outlined" onClick={handleExportCSV} disabled={!filteredReports.length}>
+          Export CSV
+        </Button>
+        <Button variant="outlined" onClick={handleExportExcel} disabled={!filteredReports.length}>
+          Export Excel
         </Button>
 
         <input className="search-input" placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
+
+      {!isValidReportDateRange(startDate, endDate) && !loading && (
+        <p style={{ margin: "16px 0", color: "#666" }}>
+          Select start and end dates to view this report.
+        </p>
+      )}
 
       <table className="user-table">
         <thead>
@@ -256,6 +353,7 @@ export default function VoiceNoteReport() {
               <th>Date</th>
               <th>Audio</th>
               <th>Played</th>
+              <th>Duration of Voice (sec)</th>
               <th>Agent</th>
             </tr>
           ) : (
@@ -275,7 +373,7 @@ export default function VoiceNoteReport() {
        <tbody>
   {loading ? (
     <tr>
-      <td colSpan={activeTab === 0 ? 6 : 8}>
+      <td colSpan={activeTab === 0 ? 7 : 8}>
         <div className="wcf-loading-container">
           <WcfLoader
             size="md"
@@ -286,11 +384,11 @@ export default function VoiceNoteReport() {
       </td>
     </tr>
   ) : currentReports.length === 0 ? (
-    <tr><td colSpan={activeTab === 0 ? 6 : 8}>No records found</td></tr>
+    <tr><td colSpan={activeTab === 0 ? 7 : 8}>No records found</td></tr>
   ) : (
     currentReports.map((r, i) => (
       <tr key={r.id}>
-        <td>{(currentPage - 1) * reportsPerPage + i + 1}</td>
+        <td>{page * rowsPerPage + i + 1}</td>
         <td>{safe(r.clid)}</td>
         <td>{r.created_at ? new Date(r.created_at).toLocaleString() : "-"}</td>
         <td>
@@ -327,6 +425,7 @@ export default function VoiceNoteReport() {
             {isPlayedNote(r) ? "Yes" : "No"}
           </span>
         </td>
+        <td>{formatVoiceNoteDuration(r.duration_seconds)}</td>
 
        <td>
   {r.assigned_extension
@@ -340,11 +439,7 @@ export default function VoiceNoteReport() {
 
       </table>
 
-      <div className="pagination">
-        <button disabled={currentPage === 1} onClick={() => setCurrentPage(currentPage - 1)}>Prev</button>
-        <span>Page {currentPage} / {totalPages}</span>
-        <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(currentPage + 1)}>Next</button>
-      </div>
+      <ReportTablePagination {...paginationProps} />
 
       <Snackbar open={snackbarOpen} autoHideDuration={3000} onClose={() => setSnackbarOpen(false)}>
         <Alert severity={snackbarSeverity}>{snackbarMessage}</Alert>

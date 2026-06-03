@@ -36,19 +36,19 @@ export default function ActiveCalls({
       try {
         let calls = [];
         
+        const isOnDashboard = (call) =>
+          !call.call_end &&
+          (call.status === "active" || call.status === "calling");
+
         if (liveCalls) {
-          // Use provided liveCalls prop
-          calls = Array.isArray(liveCalls) 
-            ? liveCalls.filter((call) => call.status === "active")
+          calls = Array.isArray(liveCalls)
+            ? liveCalls.filter(isOnDashboard)
             : [];
         } else {
-          // Fetch from API
           const response = await fetch(`${baseURL}/livestream/live-calls`);
           if (response.ok) {
             const data = await response.json();
-            calls = Array.isArray(data) 
-              ? data.filter((call) => call.status === "active")
-              : [];
+            calls = Array.isArray(data) ? data.filter(isOnDashboard) : [];
           }
         }
         
@@ -76,8 +76,12 @@ export default function ActiveCalls({
   // Update activeCalls when liveCalls prop changes
   useEffect(() => {
     if (liveCalls) {
-      const calls = Array.isArray(liveCalls) 
-        ? liveCalls.filter((call) => call.status === "active")
+      const calls = Array.isArray(liveCalls)
+        ? liveCalls.filter(
+            (call) =>
+              !call.call_end &&
+              (call.status === "active" || call.status === "calling")
+          )
         : [];
       setActiveCalls(calls);
     }
@@ -108,9 +112,18 @@ export default function ActiveCalls({
           activeCalls.map((call, i) => (
             <div key={call.linkedid || call.id || i} className="call-card">
               <div className="call-header">
-                <div className="call-status-badge active">ACTIVE</div>
+                <div
+                  className={`call-status-badge ${
+                    call.status === "calling" ? "queued" : "active"
+                  }`}
+                >
+                  {call.status === "calling" ? "IN QUEUE" : "ACTIVE"}
+                </div>
                 <div className="call-duration">
-                  <MdAccessTime /> {formatDuration(call.call_answered || call.call_start)}
+                  <MdAccessTime />{" "}
+                  {formatDuration(
+                    call.call_answered || call.queue_entry_time || call.call_start
+                  )}
                 </div>
               </div>
               {/* <div className="call-details">

@@ -37,13 +37,10 @@ import HolidayManager from "../call-center-pages/cal-center-ivr/HolidayManager";
 import EmegencyManager from "../call-center-pages/cal-center-ivr/EmergencyManager";
 import VoiceNotesReport from "../call-center-pages/cal-center-ivr/VoiceNotesReport";
 import CDRReports from "../call-center-pages/cal-center-ivr/CDRReports";
-import IVRInteractions from "../call-center-pages/cal-center-ivr/IVRInteractions";
-import Livestream from "../call-center-pages/cal-center-ivr/Livestream";
 import RecordedAudio from "../call-center-pages/cal-center-ivr/RecordedAudio";
 import Message from "../call-center-pages/call-center-social-message/CallCenterSocialMessage";
 import IvrCardsPage from "../call-center-pages/cal-center-ivr/IvrCardsPage";
 import IvrCategoryTabsPage from "../call-center-pages/cal-center-ivr/IvrCategoryTabsPage";
-import DTMFStats from "../call-center-pages/cal-center-ivr/DTMFStats";
 import VoiceNoteReport from "../call-center-pages/call-center-report/voice-note-report";
 import OffHoursReport from "../call-center-pages/call-center-report/OffHoursReport";
 import ComprehensiveReports from "../call-center-pages/call-center-report/ComprehensiveReports";
@@ -53,6 +50,9 @@ import LookupTablesManagement from "../super-admin/LookupTablesManagement";
 import MappingManagement from "../super-admin/MappingManagement";
 import SystemLogsPage from "../admin/SystemLogsPage";
 import PublicDashboard from "../public-dashboard/PublicDashboard";
+import HandoverPage from "../handover/HandoverPage";
+import HandoverInitiatorBanner from "../../components/handover/HandoverInitiatorBanner";
+import { useInitiatorHandoverLock } from "../../hooks/useInitiatorHandoverLock";
 
 export default function Dashboard() {
   const [isDarkMode, setDarkMode] = useState(false);
@@ -62,6 +62,7 @@ export default function Dashboard() {
   const location = useLocation();
   const lastNonPublicLocationRef = useRef(location);
   const [publicDashboardPending, setPublicDashboardPending] = useState(false);
+  const { locked, checking, refreshAfterRevoke } = useInitiatorHandoverLock();
 
   const role = localStorage.getItem("role");
 
@@ -125,6 +126,22 @@ export default function Dashboard() {
   };
 
   const currentTheme = isDarkMode ? "dark-mode" : "light-mode";
+
+  if (checking) {
+    return (
+      <div className={`dashboard ${currentTheme}`}>
+        <WcfLoadingOverlay open />
+      </div>
+    );
+  }
+
+  if (locked) {
+    return (
+      <div className={`dashboard handover-lock-screen ${currentTheme}`}>
+        <HandoverInitiatorBanner lockMode onRevoked={refreshAfterRevoke} />
+      </div>
+    );
+  }
 
   return (
     <div className={`dashboard ${currentTheme}`}>
@@ -198,6 +215,10 @@ export default function Dashboard() {
                   element={<PrivateRoute element={<CallCenterUsers />} />}
                 />
                 <Route
+                  path="/handover"
+                  element={<PrivateRoute element={<HandoverPage />} />}
+                />
+                <Route
                   path="/agents-logs"
                   element={<PrivateRoute element={<CallCenterAgentsLogs />} />}
                 />
@@ -266,10 +287,19 @@ export default function Dashboard() {
 
                 <Route path="/voice-notes" element={<VoiceNotesReport />} />
                 <Route path="/cdr-reports" element={<VoiceNoteReport />} />
-                <Route path="/ivr-interactions" element={<IVRInteractions />} />
-                <Route path="/livestream" element={<Livestream />} />
+                <Route
+                  path="/ivr-interactions"
+                  element={<Navigate to="/reports/ivr-interactions" replace />}
+                />
+                <Route
+                  path="/livestream"
+                  element={<Navigate to="/reports/livestream" replace />}
+                />
                 <Route path="/recorded-audio" element={<RecordedAudio />} />
-                <Route path="/dtmf-stats" element={<DTMFStats />} />
+                <Route
+                  path="/dtmf-stats"
+                  element={<Navigate to="/reports/dtmf-usage" replace />}
+                />
                 <Route path="/off-hours-report" element={<OffHoursReport />} />
                 <Route path="/ivr-cards" element={<IvrCardsPage />} />
                 <Route path="/ivr-categories" element={<IvrCategoryTabsPage />} />
@@ -359,6 +389,10 @@ export default function Dashboard() {
                 <Route
                   path="/instagram"
                   element={<PrivateRoute element={<InstagramPage />} />}
+                />
+                <Route
+                  path="/handover"
+                  element={<PrivateRoute element={<HandoverPage />} />}
                 />
               </>
             )}

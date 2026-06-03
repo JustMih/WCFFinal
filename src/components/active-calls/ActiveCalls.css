@@ -65,6 +65,11 @@
   color: white;
 }
 
+.call-status-badge.queued {
+  background: #ff9800;
+  color: white;
+}
+
 .call-duration {
   display: flex;
   align-items: center;

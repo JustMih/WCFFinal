@@ -13,7 +13,7 @@ import {
   Tooltip as ChartTooltip,
   Legend,
 } from "chart.js";
-import { MdPhone, MdPhoneDisabled, MdCallEnd, MdQueue } from "react-icons/md";
+import { MdPhone, MdPhoneDisabled, MdCallEnd } from "react-icons/md";
 import { Box, Card, CardContent, Typography, Grid, CircularProgress, Tabs, Tab } from "@mui/material";
 import AgentDashboard from "../../../crm-pages/crm-dashboard/crm-agent-dashboard/crm-agent-dashboard";
 import ReviewerDashboard from "../../../crm-pages/crm-dashboard/crm-reviewer-dashboard/crm-reviewer-dashboard";
@@ -64,49 +64,42 @@ export default function DGdashboard() {
     setActiveTab(newValue);
   };
 
-  // Call summary from API: { currentDay, currentMonth, currentYear } with totalCalls, answered (with agent), ivr, dropped, lost
+  const callSummaryUrl = `${baseURL}/call-summary/call-summary?excludeDestS=1`;
+
+  // Call summary from API: answered, dropped, lost; total = sum of those three
   const day =
     callSummaryData?.currentDay || {
-      totalCalls: 0,
       answered: 0,
-      ivr: 0,
       dropped: 0,
       lost: 0,
     };
   const month =
     callSummaryData?.currentMonth || {
-      totalCalls: 0,
       answered: 0,
-      ivr: 0,
       dropped: 0,
       lost: 0,
     };
   const year =
     callSummaryData?.currentYear || {
-      totalCalls: 0,
       answered: 0,
-      ivr: 0,
       dropped: 0,
       lost: 0,
     };
 
-  const dailyTotal = day.totalCalls ?? 0;
   const dailyAnswered = day.answered ?? 0;
-  const dailyIvr = day.ivr ?? 0;
   const dailyDropped = day.dropped ?? 0;
   const dailyLost = day.lost ?? 0;
+  const dailyTotal = dailyAnswered + dailyDropped + dailyLost;
 
-  const monthlyTotal = month.totalCalls ?? 0;
   const monthlyAnswered = month.answered ?? 0;
-  const monthlyIvr = month.ivr ?? 0;
   const monthlyDropped = month.dropped ?? 0;
   const monthlyLost = month.lost ?? 0;
+  const monthlyTotal = monthlyAnswered + monthlyDropped + monthlyLost;
 
-  const yearlyTotal = year.totalCalls ?? 0;
   const yearlyAnswered = year.answered ?? 0;
-  const yearlyIvr = year.ivr ?? 0;
   const yearlyDropped = year.dropped ?? 0;
   const yearlyLost = year.lost ?? 0;
+  const yearlyTotal = yearlyAnswered + yearlyDropped + yearlyLost;
 
   const calculatePercentage = (count, total) => {
     if (!total || total === 0) return 0;
@@ -117,7 +110,7 @@ export default function DGdashboard() {
   useEffect(() => {
     const fetchCallSummary = async () => {
       try {
-        const res = await fetch(`${baseURL}/call-summary/call-summary`);
+        const res = await fetch(callSummaryUrl);
         if (res.ok) {
           const data = await res.json();
           setCallSummaryData(data);
@@ -181,7 +174,7 @@ export default function DGdashboard() {
       try {
         const [dashboardResponse, callSummaryResponse] = await Promise.all([
           fetch(`${baseURL}/public/dashboard`),
-          fetch(`${baseURL}/call-summary/call-summary`),
+          fetch(callSummaryUrl),
         ]);
         if (dashboardResponse.ok) {
           const data = await dashboardResponse.json();
@@ -216,12 +209,11 @@ export default function DGdashboard() {
     };
   }, []);
 
-  // Trend chart uses same shape as PublicDashboard: Daily, Monthly, Yearly with Total, Answered, IVR, Dropped, Lost
+  // Trend chart: Daily, Monthly, Yearly with Total, Answered, Dropped, Lost
   const areaChartCategories = ["Daily", "Monthly", "Yearly"];
   const areaChartSeries = [
     { name: "Total Calls", data: [dailyTotal || 0, monthlyTotal || 0, yearlyTotal || 0] },
     { name: "Answered", data: [dailyAnswered || 0, monthlyAnswered || 0, yearlyAnswered || 0] },
-    { name: "IVR", data: [dailyIvr || 0, monthlyIvr || 0, yearlyIvr || 0] },
     { name: "Dropped", data: [dailyDropped || 0, monthlyDropped || 0, yearlyDropped || 0] },
     { name: "Lost", data: [dailyLost || 0, monthlyLost || 0, yearlyLost || 0] },
   ];
@@ -300,7 +292,6 @@ export default function DGdashboard() {
     colors: [
       "rgb(102, 126, 234)", // Total
       "rgb(76, 175, 80)",   // Answered
-      "rgb(156, 39, 176)",  // IVR
       "rgb(255, 152, 0)",   // Dropped
       "rgb(244, 67, 54)",   // Lost
     ],
@@ -396,8 +387,8 @@ export default function DGdashboard() {
         },
       },
     },
-    labels: ["Answered", "IVR", "Dropped", "Lost"],
-    colors: ["#4caf50", "#9c27b0", "#ff9800", "#f44336"],
+    labels: ["Answered", "Dropped", "Lost"],
+    colors: ["#4caf50", "#ff9800", "#f44336"],
     legend: {
       show: true,
       floating: false,
@@ -420,7 +411,7 @@ export default function DGdashboard() {
     },
   };
 
-  const radialChartSeries = [yearlyAnswered, yearlyIvr, yearlyDropped, yearlyLost];
+  const radialChartSeries = [yearlyAnswered, yearlyDropped, yearlyLost];
 
   if (loading) {
     return (
@@ -533,50 +524,7 @@ export default function DGdashboard() {
             </Card>
           </Grid>
 
-          {/* Card 3: IVR Calls */}
-          <Grid item xs={12} sm={6} md={3} sx={{ flex: 1, minWidth: 0 }}>
-            <Card className="stat-card stat-card-small">
-              <CardContent sx={{ p: "16px !important" }}>
-                <Box display="flex" alignItems="center" gap={1} mb={1}>
-                  <MdQueue size={20} style={{ color: "#9c27b0" }} />
-                  <Typography variant="body2" sx={{ fontWeight: 600, fontSize: "0.875rem" }}>
-                    IVR Calls
-                  </Typography>
-                </Box>
-                <Typography variant="h6" sx={{ fontWeight: 700, color: "#9c27b0", mb: 1.5, fontSize: "1.25rem" }}>
-                  {yearlyIvr.toLocaleString()}
-                </Typography>
-                <Box sx={{ borderTop: "1px solid #e0e0e0", pt: 1 }}>
-                  <Box display="flex" justifyContent="space-between" mb={0.5}>
-                    <Typography variant="caption" color="textSecondary" sx={{ fontSize: "0.7rem" }}>
-                      Monthly:
-                    </Typography>
-                    <Typography variant="caption" sx={{ fontWeight: 600, color: "#9c27b0", fontSize: "0.7rem" }}>
-                      {monthlyIvr.toLocaleString()}
-                    </Typography>
-                  </Box>
-                  <Box display="flex" justifyContent="space-between" mb={0.5}>
-                    <Typography variant="caption" color="textSecondary" sx={{ fontSize: "0.7rem" }}>
-                      Daily:
-                    </Typography>
-                    <Typography variant="caption" sx={{ fontWeight: 600, color: "#9c27b0", fontSize: "0.7rem" }}>
-                      {dailyIvr.toLocaleString()}
-                    </Typography>
-                  </Box>
-                  <Box display="flex" justifyContent="space-between">
-                    <Typography variant="caption" color="textSecondary" sx={{ fontSize: "0.7rem" }}>
-                      Percentage:
-                    </Typography>
-                    <Typography variant="caption" sx={{ fontWeight: 600, color: "#9c27b0", fontSize: "0.7rem" }}>
-                      {calculatePercentage(yearlyIvr, yearlyTotal)}%
-                    </Typography>
-                  </Box>
-                </Box>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Card 4: Dropped Calls */}
+          {/* Card 3: Dropped Calls */}
           <Grid item xs={12} sm={6} md={3} sx={{ flex: 1, minWidth: 0 }}>
             <Card className="stat-card stat-card-small">
               <CardContent sx={{ p: "16px !important" }}>
@@ -619,7 +567,7 @@ export default function DGdashboard() {
             </Card>
           </Grid>
 
-          {/* Card 5: Lost Calls */}
+          {/* Card 4: Lost Calls */}
           <Grid item xs={12} sm={6} md={3} sx={{ flex: 1, minWidth: 0 }}>
             <Card className="stat-card stat-card-small">
               <CardContent sx={{ p: "16px !important" }}>

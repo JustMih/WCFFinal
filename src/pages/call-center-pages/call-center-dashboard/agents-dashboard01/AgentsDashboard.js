@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   MdOutlineLocalPhone,
   MdPauseCircleOutline,
@@ -44,6 +44,11 @@ import AgentPerformanceScore from "../../../../components/agent-dashboard/AgentP
 import AdvancedTicketCreateModal from "../../../../components/ticket/AdvancedTicketCreateModal";
 import VoiceNotesReport from "../../cal-center-ivr/VoiceNotesReport";
 import CallHistoryCard from "../../../../components/agent-dashboard/CallHistoryCard";
+import {
+  fetchVoiceNotes,
+  VOICE_NOTE_PLAYED_EVENT,
+  PLAYED_VOICE_NOTES_KEY,
+} from "../../../../utils/voiceNotePlayed";
 
 export default function AgentsDashboard() {
   // --------- Core phone state ---------
@@ -365,43 +370,35 @@ useEffect(() => {
     })();
   }, []);
 
-  // ---------- Voice notes ----------
-  useEffect(() => {
-    const fetchVoiceNotes = async () => {
-      try {
-        const agentId = localStorage.getItem("userId");
-        const response = await fetch(
-          `${baseURL}/voice-notes?agentId=${agentId}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-            },
-          }
-        );
-        if (!response.ok) throw new Error("Failed to fetch voice notes");
-        const data = await response.json();
-        const notes = data.voiceNotes || [];
-        const storedPlayed =
-          JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
-        const unplayedCount = notes.filter(
-          (note) => !storedPlayed[note.id]
-        ).length;
-        setVoiceNotes(notes);
-        setUnplayedVoiceNotes(unplayedCount);
-      } catch (error) {
-        setVoiceNotes([]);
-        setUnplayedVoiceNotes(0);
-      }
-    };
-    fetchVoiceNotes();
-    const handleStorage = (e) => {
-      if (e.key === "playedVoiceNotes") fetchVoiceNotes();
-    };
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
+  const refreshVoiceNoteBadge = useCallback(async () => {
+    try {
+      const notes = await fetchVoiceNotes({ unplayedOnly: true });
+      const unplayed = notes.filter(
+        (n) => !(Number(n.is_played) === 1 || n.is_played === true)
+      );
+      setVoiceNotes(unplayed);
+      setUnplayedVoiceNotes(unplayed.length);
+    } catch (error) {
+      setVoiceNotes([]);
+      setUnplayedVoiceNotes(0);
+    }
   }, []);
+
+  useEffect(() => {
+    refreshVoiceNoteBadge();
+    const interval = setInterval(refreshVoiceNoteBadge, 60000);
+    const handleStorage = (e) => {
+      if (e.key === PLAYED_VOICE_NOTES_KEY) refreshVoiceNoteBadge();
+    };
+    const handlePlayed = () => refreshVoiceNoteBadge();
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener(VOICE_NOTE_PLAYED_EVENT, handlePlayed);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(VOICE_NOTE_PLAYED_EVENT, handlePlayed);
+    };
+  }, [refreshVoiceNoteBadge]);
 const markMissedCallAsCalledBack = async (missedCallId) => {
   if (!missedCallId) return;
 
@@ -1772,12 +1769,15 @@ useEffect(() => {
       {/* Voice notes modal */}
       <Dialog
         open={showVoiceNotesModal}
-        onClose={() => setShowVoiceNotesModal(false)}
+        onClose={() => {
+          setShowVoiceNotesModal(false);
+          refreshVoiceNoteBadge();
+        }}
         fullWidth
         maxWidth="md"
       >
         <DialogContent>
-          <VoiceNotesReport />
+          <VoiceNotesReport variant="inbox" />
         </DialogContent>
       </Dialog>
     </div>

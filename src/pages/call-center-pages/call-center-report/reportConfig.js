@@ -14,6 +14,10 @@ export const REPORT_TYPES = {
   OFF_HOURS: 12,
   SLA_CALL_CENTER: 13,
   SLA_TICKET: 14,
+  DTMF_USAGE: 15,
+  LIVESTREAM: 16,
+  TICKET_WORKFLOW_TAT: 17,
+  DROPPED_CALL: 18,
 };
 
 export const REPORTS = [
@@ -22,9 +26,12 @@ export const REPORTS = [
   { slug: "ticket-crm", label: "Ticket CRM Report", type: REPORT_TYPES.TICKET_CRM },
   { slug: "agent-performance", label: "Agent Performance", type: REPORT_TYPES.AGENT_PERFORMANCE },
   { slug: "call-summary", label: "Call Summary", type: REPORT_TYPES.CALL_SUMMARY },
-  { slug: "ivr-interactions", label: "IVR Interactions", type: REPORT_TYPES.IVR_INTERACTIONS },
+  { slug: "ivr-interactions", label: "IVR Interactions (Mappings)", type: REPORT_TYPES.IVR_INTERACTIONS },
+  { slug: "dtmf-usage", label: "DTMF Usage Report", type: REPORT_TYPES.DTMF_USAGE },
+  { slug: "livestream", label: "Live Streaming", type: REPORT_TYPES.LIVESTREAM },
   { slug: "ticket-assignments", label: "Ticket Assignments", type: REPORT_TYPES.TICKET_ASSIGNMENTS },
   { slug: "missed-call", label: "Missed Call Report", type: REPORT_TYPES.MISSED_CALL },
+  { slug: "dropped-calls", label: "Dropped Calls Report", type: REPORT_TYPES.DROPPED_CALL },
   { slug: "escalation", label: "Escallation", type: REPORT_TYPES.ESCALLATION },
   { slug: "notifications", label: "Notifications", type: REPORT_TYPES.NOTIFICATIONS },
   { slug: "chats", label: "Chats", type: REPORT_TYPES.CHATS },
@@ -32,15 +39,25 @@ export const REPORTS = [
   { slug: "off-hours", label: "Off-Hours Calls", type: REPORT_TYPES.OFF_HOURS },
   { slug: "call-center-sla", label: "Call Center SLA", type: REPORT_TYPES.SLA_CALL_CENTER },
   { slug: "ticket-sla", label: "Ticket SLA", type: REPORT_TYPES.SLA_TICKET },
+  {
+    slug: "ticket-workflow-tat",
+    label: "Ticket Workflow TAT",
+    type: REPORT_TYPES.TICKET_WORKFLOW_TAT,
+  },
 ];
 
 const LEGACY_TAB_MAP = {
   pause: REPORT_TYPES.PAUSE,
   "pause-report": REPORT_TYPES.PAUSE,
+  "dtmf-stats": REPORT_TYPES.DTMF_USAGE,
+  livestream: REPORT_TYPES.LIVESTREAM,
 };
 
 export const slugToType = (slug) => {
-  const found = REPORTS.find((r) => r.slug === slug);
+  if (!slug) return REPORT_TYPES.VOICE_NOTE;
+  const lower = String(slug).toLowerCase();
+  if (LEGACY_TAB_MAP[lower] !== undefined) return LEGACY_TAB_MAP[lower];
+  const found = REPORTS.find((r) => r.slug === lower);
   return found ? found.type : REPORT_TYPES.VOICE_NOTE;
 };
 
@@ -49,8 +66,15 @@ export const typeToSlug = (type) => {
   return found ? found.slug : "voice-note";
 };
 
-export const getReportBySlug = (slug) =>
-  REPORTS.find((r) => r.slug === slug) || REPORTS[0];
+export const getReportBySlug = (slug) => {
+  if (!slug) return REPORTS[0];
+  const lower = String(slug).toLowerCase();
+  const legacyType = LEGACY_TAB_MAP[lower];
+  if (legacyType !== undefined) {
+    return REPORTS.find((r) => r.type === legacyType) || REPORTS[0];
+  }
+  return REPORTS.find((r) => r.slug === lower) || REPORTS[0];
+};
 
 export const getReportLabel = (type) => {
   const found = REPORTS.find((r) => r.type === type);
@@ -62,7 +86,7 @@ export const resolveTypeFromLegacyTab = (tabParam) => {
   const lower = tabParam.toLowerCase();
   if (LEGACY_TAB_MAP[lower] !== undefined) return LEGACY_TAB_MAP[lower];
   const num = Number(tabParam);
-  if (!Number.isNaN(num) && num >= 0 && num <= REPORT_TYPES.SLA_TICKET) return num;
+  if (!Number.isNaN(num) && num >= 0 && num <= REPORT_TYPES.DROPPED_CALL) return num;
   const bySlug = REPORTS.find((r) => r.slug === lower);
   return bySlug ? bySlug.type : null;
 };

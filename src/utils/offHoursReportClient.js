@@ -26,24 +26,6 @@ export function parseCallerPhone(clid, src) {
   return "";
 }
 
-function isPlausibleTanzaniaPhone(normalized) {
-  if (!normalized) return false;
-  const d = String(normalized).replace(/\D/g, "");
-  return d.length === 10 && d.startsWith("0");
-}
-
-function extractPhonesFromText(text) {
-  if (!text) return [];
-  const matches = String(text).match(/\+?\d{9,15}/g) || [];
-  return [
-    ...new Set(
-      matches
-        .map((m) => normalizePhone(m))
-        .filter((p) => isPlausibleTanzaniaPhone(p))
-    ),
-  ];
-}
-
 const EXCLUDED = new Set([
   normalizePhone("+255222211770"),
   normalizePhone("255222211770"),
@@ -97,7 +79,7 @@ function pickRoute(record, callerPhone, emergencyByPhone) {
     const n = normalizePhone(s);
     if (EXCLUDED.has(n)) return;
     const emergency = emergencyByPhone.get(n);
-    if (!emergency && !isPlausibleTanzaniaPhone(n)) return;
+    if (!emergency) return;
     seen.add(s);
     if (priority) bucket.unshift(s);
     else bucket.push(s);
@@ -119,12 +101,10 @@ function pickRoute(record, callerPhone, emergencyByPhone) {
     isEmergencyDialContext(record) &&
     !isExtensionDst(record.dst)
   ) {
-    const dstNorm = normalizePhone(record.dst);
-    if (isPlausibleTanzaniaPhone(dstNorm)) add(record.dst, other);
+    add(record.dst, other);
   }
-
-  for (const phone of extractPhonesFromText(record.lastdata)) {
-    if (!exclude.has(phone)) add(phone, other);
+  if (isEmergencyDialContext(record) && record.did) {
+    add(record.did, other);
   }
 
   const tryLists = [ega, pjsip, other];
@@ -140,11 +120,6 @@ function pickRoute(record, callerPhone, emergencyByPhone) {
           is_emergency_route: true,
         };
       }
-      return {
-        routed_to: raw,
-        routed_to_label: raw,
-        is_emergency_route: false,
-      };
     }
   }
 
@@ -173,7 +148,6 @@ export function enrichRecordClient(record, emergencyByPhone, source) {
     caller_display,
     routed_to: route.routed_to,
     routed_to_label: route.routed_to_label,
-    destination_display: route.routed_to_label,
     is_emergency_route:
       route.is_emergency_route ||
       String(record.userfield || "").toUpperCase() === "EMERGENCY" ||

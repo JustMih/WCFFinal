@@ -1,0 +1,4 @@
+/* Above handover lock screen (z-index 2000) and dashboard chrome */
+.swal2-container.handover-swal-container {
+  z-index: 10000 !important;
+}

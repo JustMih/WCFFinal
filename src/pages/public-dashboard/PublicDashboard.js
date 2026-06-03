@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { WcfLoadingOverlay } from "../../components/shared/WcfLoader";
 import {
   Button,
@@ -23,21 +23,21 @@ import {
 import { Close as CloseIcon, ArrowBack as ArrowBackIcon } from "@mui/icons-material";
 import {
   MdPhone,
-  MdPhoneInTalk,
   MdPeople,
   MdCallEnd,
   MdTrendingUp,
   MdAccessTime,
-  MdQueue,
   MdVisibility,
   MdPhoneDisabled,
 } from "react-icons/md";
 import { baseURL } from "../../config";
-import { dedupeLostCallsClient } from "../../utils/missedCallDedupe";
 import io from "socket.io-client";
 import ActiveCalls from "../../components/active-calls/ActiveCalls";
 import ReactApexChart from "react-apexcharts";
 import "./PublicDashboard.css";
+
+import { LOST_MIN_DURATION_SECONDS } from "../../utils/callClassification";
+import { formatDbTimeLocal } from "../../utils/dateTimeFormat";
 
 export default function PublicDashboard({
   suppressLoadingUI = false,
@@ -58,6 +58,33 @@ export default function PublicDashboard({
   const [showLostCallsModal, setShowLostCallsModal] = useState(false);
   const [lostCallsLoading, setLostCallsLoading] = useState(false);
 
+  const fetchLostCallsToday = useCallback(async (forModal = false) => {
+    if (forModal) setLostCallsLoading(true);
+    try {
+      const response = await fetch(`${baseURL}/calls/lost-calls-today`);
+      if (response.ok) {
+        const data = await response.json();
+        const list = Array.isArray(data) ? data : [];
+        const seen = new Set();
+        const deduped = list.filter((call) => {
+          const phone = String(call.caller || call.phone || "").trim();
+          const t = call.missed_at || call.call_time || "";
+          const key = `${phone}:${t}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return Number(call.wait_seconds) >= LOST_MIN_DURATION_SECONDS;
+        });
+        setLostCalls(deduped);
+      } else if (forModal) {
+        console.error("Failed to fetch lost calls:", response.status);
+      }
+    } catch (error) {
+      if (forModal) console.error("Error fetching lost calls:", error);
+    } finally {
+      if (forModal) setLostCallsLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!loading && suppressLoadingUI && onInitialLoadComplete) {
       onInitialLoadComplete();
@@ -72,7 +99,7 @@ export default function PublicDashboard({
   useEffect(() => {
     const fetchCallSummary = async () => {
       try {
-        const res = await fetch(`${baseURL}/call-summary/call-summary`);
+        const res = await fetch(`${baseURL}/call-summary/call-summary?excludeDestS=1`);
         if (res.ok) {
           const data = await res.json();
           setCallSummaryData(data);
@@ -106,6 +133,10 @@ export default function PublicDashboard({
               dropped: 0,
               lost: 0,
             },
+            callStatistics: data.callStatistics || {
+              lost: 0,
+              dropped: 0,
+            },
           });
         }
       } catch (error) {
@@ -117,6 +148,7 @@ export default function PublicDashboard({
 
     fetchDashboardData();
     fetchCallSummary();
+    fetchLostCallsToday();
 
     const socketUrl = baseURL.replace(/\/api$/, "") || "https://192.168.21.69";
     const socket = io(socketUrl, {
@@ -146,7 +178,11 @@ export default function PublicDashboard({
         queueStatus: Array.isArray(data.queueStatus)
           ? data.queueStatus
           : prev.queueStatus,
-        callStatusSummary: data.callStatusSummary || prev.callStatusSummary,
+        callStatusSummary: {
+          ...prev.callStatusSummary,
+          ...(data.callStatusSummary || {}),
+        },
+        callStatistics: data.callStatistics || prev.callStatistics,
       }));
     });
 
@@ -163,7 +199,7 @@ export default function PublicDashboard({
       try {
         const [dashboardResponse, callSummaryResponse] = await Promise.all([
           fetch(`${baseURL}/public/dashboard`),
-          fetch(`${baseURL}/call-summary/call-summary`),
+          fetch(`${baseURL}/call-summary/call-summary?excludeDestS=1`),
         ]);
         if (dashboardResponse.ok) {
           const data = await dashboardResponse.json();
@@ -189,12 +225,17 @@ export default function PublicDashboard({
               dropped: 0,
               lost: 0,
             },
+            callStatistics: data.callStatistics || {
+              lost: 0,
+              dropped: 0,
+            },
           });
         }
         if (callSummaryResponse.ok) {
           const summaryData = await callSummaryResponse.json();
           setCallSummaryData(summaryData);
         }
+        fetchLostCallsToday();
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
       }
@@ -213,7 +254,7 @@ return () => {
   clearInterval(fallbackInterval);
 };
 
-  }, []);
+  }, [fetchLostCallsToday]);
 
   const formatTime = (seconds) => {
     if (!seconds || seconds <= 0) return "00:00";
@@ -222,16 +263,12 @@ return () => {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const formatDuration = (startTime) => {
-    if (!startTime) return "00:00";
-    const diff = Math.floor((new Date() - new Date(startTime)) / 1000);
-    return formatTime(diff);
-  };
-
-  const extractAgentFromChannel = (channel) => {
-    if (!channel) return "Unassigned";
-    const match = channel.match(/\/(\d+)/);
-    return match ? match[1] : channel;
+  const formatQueueWait = (waitSeconds) => {
+    const sec = Number(waitSeconds);
+    if (!Number.isFinite(sec) || sec <= 0) return "—";
+    const mins = Math.floor(sec / 60);
+    const rem = sec % 60;
+    return `${mins}m ${rem}s`;
   };
 
   const extractPhoneFromClid = (clid) => {
@@ -240,7 +277,9 @@ return () => {
     return match ? match[1] : clid;
   };
 
-  const activeCalls = dashboardData.liveCalls.filter((call) => call.status === "active");
+  const activeCalls = dashboardData.liveCalls.filter(
+    (call) => !call.call_end && call.status === "active"
+  );
   const totalAgents = dashboardData.agentStatus.onlineCount + dashboardData.agentStatus.offlineCount;
 
   // Calculate inQueue dynamically from live calls (calls in queue but not answered)
@@ -248,55 +287,44 @@ return () => {
     (call) => call.queue_entry_time && !call.call_answered && !call.call_end
   ).length;
 
-  // Call summary from API: { currentDay, currentMonth, currentYear } with totalCalls, answered, ivr, dropped, lost
+  // Call summary from API: answered, dropped, lost; total = sum of those three
   const day =
     callSummaryData?.currentDay || {
-      totalCalls: 0,
       answered: 0,
-      ivr: 0,
       dropped: 0,
       lost: 0,
     };
   const month =
     callSummaryData?.currentMonth || {
-      totalCalls: 0,
       answered: 0,
-      ivr: 0,
       dropped: 0,
       lost: 0,
     };
   const year =
     callSummaryData?.currentYear || {
-      totalCalls: 0,
       answered: 0,
-      ivr: 0,
       dropped: 0,
       lost: 0,
     };
 
-  const dailyTotalCalls = day.totalCalls ?? 0;
   const answeredCallsCount = day.answered ?? 0;
-  const ivrCallsCount = day.ivr ?? 0;
   const droppedCallsCount = day.dropped ?? 0;
   const lostCallsCount = day.lost ?? 0;
 
-  const dailyTotal = day.totalCalls ?? 0;
   const dailyAnswered = day.answered ?? 0;
-  const dailyIvr = day.ivr ?? 0;
   const dailyDropped = day.dropped ?? 0;
   const dailyLost = day.lost ?? 0;
+  const dailyTotal = dailyAnswered + dailyDropped + dailyLost;
 
-  const monthlyTotal = month.totalCalls ?? 0;
   const monthlyAnswered = month.answered ?? 0;
-  const monthlyIvr = month.ivr ?? 0;
   const monthlyDropped = month.dropped ?? 0;
   const monthlyLost = month.lost ?? 0;
+  const monthlyTotal = monthlyAnswered + monthlyDropped + monthlyLost;
 
-  const yearlyTotal = year.totalCalls ?? 0;
   const yearlyAnswered = year.answered ?? 0;
-  const yearlyIvr = year.ivr ?? 0;
   const yearlyDropped = year.dropped ?? 0;
   const yearlyLost = year.lost ?? 0;
+  const yearlyTotal = yearlyAnswered + yearlyDropped + yearlyLost;
 
   // Helper function to calculate percentage
   const calculatePercentage = (count, total) => {
@@ -319,17 +347,14 @@ return () => {
   };
 
   const dailyAnsweredPercent = calculatePercentage(dailyAnswered, dailyTotal);
-  const dailyIvrPercent = calculatePercentage(dailyIvr, dailyTotal);
   const dailyDroppedPercent = calculatePercentage(dailyDropped, dailyTotal);
   const dailyLostPercent = calculatePercentage(dailyLost, dailyTotal);
 
   const monthlyAnsweredPercent = calculatePercentage(monthlyAnswered, monthlyTotal);
-  const monthlyIvrPercent = calculatePercentage(monthlyIvr, monthlyTotal);
   const monthlyDroppedPercent = calculatePercentage(monthlyDropped, monthlyTotal);
   const monthlyLostPercent = calculatePercentage(monthlyLost, monthlyTotal);
 
   const yearlyAnsweredPercent = calculatePercentage(yearlyAnswered, yearlyTotal);
-  const yearlyIvrPercent = calculatePercentage(yearlyIvr, yearlyTotal);
   const yearlyDroppedPercent = calculatePercentage(yearlyDropped, yearlyTotal);
   const yearlyLostPercent = calculatePercentage(yearlyLost, yearlyTotal);
 
@@ -338,7 +363,6 @@ return () => {
   const areaChartSeries = [
     { name: "Total Calls", data: [dailyTotal, monthlyTotal, yearlyTotal] },
     { name: "Answered", data: [dailyAnswered, monthlyAnswered, yearlyAnswered] },
-    { name: "IVR", data: [dailyIvr, monthlyIvr, yearlyIvr] },
     { name: "Dropped", data: [dailyDropped, monthlyDropped, yearlyDropped] },
     { name: "Lost", data: [dailyLost, monthlyLost, yearlyLost] },
   ];
@@ -372,7 +396,7 @@ return () => {
         stops: [0, 90, 100],
       },
     },
-    colors: ["#667eea", "#4caf50", "#9c27b0", "#ff9800", "#f44336"],
+    colors: ["#667eea", "#4caf50", "#ff9800", "#f44336"],
     xaxis: {
       categories: areaChartCategories,
       labels: {
@@ -406,15 +430,15 @@ return () => {
     },
   };
 
-  // Pie Chart Data for Call Statistics Distribution (current day: answered, ivr, dropped, lost)
-  const pieChartSeries = [dailyAnswered, dailyIvr, dailyDropped, dailyLost];
+  // Pie Chart Data for Call Statistics Distribution (current day: answered, dropped, lost)
+  const pieChartSeries = [dailyAnswered, dailyDropped, dailyLost];
   const pieChartOptions = {
     chart: {
       type: "pie",
       height: 350,
     },
-    labels: ["Answered", "IVR", "Dropped", "Lost"],
-    colors: ["#4caf50", "#9c27b0", "#ff9800", "#f44336"],
+    labels: ["Answered", "Dropped", "Lost"],
+    colors: ["#4caf50", "#ff9800", "#f44336"],
     legend: {
       position: "bottom",
       fontSize: "14px",
@@ -452,28 +476,9 @@ return () => {
     ],
   };
 
-  const fetchLostCalls = async () => {
-    setLostCallsLoading(true);
-    
-    try {
-      const response = await fetch(`${baseURL}/calls/lost-calls-today`);
-      if (response.ok) {
-        const data = await response.json();
-        const list = Array.isArray(data) ? data : [];
-        setLostCalls(dedupeLostCallsClient(list, "call_time"));
-      } else {
-        console.error("Failed to fetch lost calls:", response.status);
-      }
-    } catch (error) {
-      console.error("Error fetching lost calls:", error);
-    } finally {
-      setLostCallsLoading(false);
-    }
-  };
-
   const handleShowLostCalls = () => {
     setShowLostCallsModal(true);
-    if (lostCalls.length === 0) fetchLostCalls();
+    fetchLostCallsToday(true);
   };
 
   if (loading) {
@@ -679,7 +684,7 @@ return () => {
             </Card>
           </Grid>
 
-          {/* Card 2: Total Calls, Answered Today, IVR Today, Lost Today, Dropped Today */}
+          {/* Card 2: Total Calls, Answered Today, Lost Today, Dropped Today */}
           <Grid item xs={12} md={6} sx={{ flex: "1 1 50%", maxWidth: "50%", pl: { xs: 0, md: 0.75 } }}>
             <Card sx={{ height: "100%", boxShadow: 3, width: "100%" }}>
               <CardContent sx={{ width: "100%", p: 2 }}>
@@ -688,10 +693,10 @@ return () => {
                   Call Statistics
                 </Typography>
                 <Grid container spacing={0} sx={{ width: "100%" }}>
-                  <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "20%" }}>
+                  <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "25%" }}>
                     <Box textAlign="center" sx={{ width: "100%", px: 0.5 }}>
                       <Typography variant="h4" sx={{ fontWeight: 700, color: "#667eea", mb: 0.5 }}>
-                        {dailyTotalCalls}
+                        {dailyTotal}
                       </Typography>
                       <Typography variant="body2" color="textSecondary" sx={{ fontSize: "0.875rem" }}>
                         Total Calls
@@ -701,7 +706,7 @@ return () => {
                       </Typography>
                     </Box>
                   </Grid>
-                  <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "20%" }}>
+                  <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "25%" }}>
                     <Box textAlign="center" sx={{ width: "100%", px: 0.5 }}>
                           <Typography variant="h4" sx={{ fontWeight: 700, color: "#4caf50", mb: 0.5 }}>
                         {answeredCallsCount}
@@ -711,17 +716,7 @@ return () => {
                       </Typography>
                     </Box>
                   </Grid>
-                  <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "20%" }}>
-                    <Box textAlign="center" sx={{ width: "100%", px: 0.5 }}>
-                      <Typography variant="h4" sx={{ fontWeight: 700, color: "#9c27b0", mb: 0.5 }}>
-                        {ivrCallsCount}
-                      </Typography>
-                      <Typography variant="body2" color="textSecondary" sx={{ fontSize: "0.875rem" }}>
-                        IVR Answered
-                      </Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "20%" }}>
+                  <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "25%" }}>
                     <Box textAlign="center" sx={{ width: "100%", px: 0.5 }}>
                           <Typography variant="h4" sx={{ fontWeight: 700, color: "#f44336", mb: 0.5 }}>
                             {lostCallsCount}
@@ -740,7 +735,7 @@ return () => {
                           </Button>
                         </Box>
                       </Grid>
-                      <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "20%" }}>
+                      <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "25%" }}>
                         <Box textAlign="center" sx={{ width: "100%", px: 0.5 }}>
                           <Typography variant="h4" sx={{ fontWeight: 700, color: "#ff9800", mb: 0.5 }}>
                             {droppedCallsCount}
@@ -848,16 +843,6 @@ return () => {
                       <TableRow>
                         <TableCell>
                           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <MdQueue size={18} style={{ color: "#9c27b0" }} />
-                            IVR
-                          </Box>
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 600 }}>{dailyIvr}</TableCell>
-                        <TableCell align="right" sx={{ color: "#9c27b0", fontWeight: 600 }}>{dailyIvrPercent}%</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                             <MdCallEnd size={18} style={{ color: getCallTypeColor("DROPPED") }} />
                             Dropped
                           </Box>
@@ -914,16 +899,6 @@ return () => {
                         </TableCell>
                         <TableCell align="right" sx={{ fontWeight: 600 }}>{monthlyAnswered}</TableCell>
                         <TableCell align="right" sx={{ color: getCallTypeColor("ANSWERED"), fontWeight: 600 }}>{monthlyAnsweredPercent}%</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <MdQueue size={18} style={{ color: "#9c27b0" }} />
-                            IVR
-                          </Box>
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 600 }}>{monthlyIvr}</TableCell>
-                        <TableCell align="right" sx={{ color: "#9c27b0", fontWeight: 600 }}>{monthlyIvrPercent}%</TableCell>
                       </TableRow>
                       <TableRow>
                         <TableCell>
@@ -988,16 +963,6 @@ return () => {
                       <TableRow>
                         <TableCell>
                           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                            <MdQueue size={18} style={{ color: "#9c27b0" }} />
-                            IVR
-                          </Box>
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 600 }}>{yearlyIvr}</TableCell>
-                        <TableCell align="right" sx={{ color: "#9c27b0", fontWeight: 600 }}>{yearlyIvrPercent}%</TableCell>
-                      </TableRow>
-                      <TableRow>
-                        <TableCell>
-                          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                             <MdCallEnd size={18} style={{ color: getCallTypeColor("DROPPED") }} />
                             Dropped
                           </Box>
@@ -1038,7 +1003,7 @@ return () => {
       >
         <DialogTitle>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span>Lost Calls Today - Callback Details</span>
+            <span>Lost Calls Today (5+ min in queue)</span>
             <IconButton onClick={() => setShowLostCallsModal(false)}><CloseIcon /></IconButton>
           </div>
         </DialogTitle>
@@ -1047,52 +1012,34 @@ return () => {
             <div style={{ textAlign: "center", padding: "40px" }}>Loading lost calls...</div>
           ) : lostCalls.length > 0 ? (
             <div className="lost-calls-list enhanced">
-              <div className="lost-call-item header">
+              <div className="lost-call-item header lost-call-item--public">
                 <div>Phone Number</div>
                 <div>Missed At</div>
+                <div>Queue Wait</div>
+                <div>Agent Extension</div>
+                <div>Agent Name</div>
                 <div>Status</div>
-                <div>Callback Agent</div>
-                <div>Callback Time</div>
-                <div>Talk Duration</div>
               </div>
 
               {lostCalls.map((call, i) => (
-                <div
-                  key={i}
-                  className={`lost-call-item ${call.status === "called_back" ? "called-back" : ""}`}
-                >
+                <div key={call.id || call.linkedid || i} className="lost-call-item lost-call-item--public">
                   <div className="lost-call-phone">
                     {extractPhoneFromClid(call.caller)}
                   </div>
                   <div className="lost-call-time">
-                    {call.call_time
-                      ? new Date(call.call_time).toLocaleString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          second: "2-digit",
-                        })
-                      : "-"}
+                    {formatDbTimeLocal(call.call_time || call.lost_time)}
+                  </div>
+                  <div className="lost-call-wait">
+                    {formatQueueWait(call.wait_seconds)}
+                  </div>
+                  <div className="lost-call-agent-ext">
+                    {call.agent_extension ? `Ext ${call.agent_extension}` : "—"}
+                  </div>
+                  <div className="lost-call-agent-name">
+                    {call.agent_name || "—"}
                   </div>
                   <div className="lost-call-status">
-                    <span className={`status-badge ${call.status === "called_back" ? "called-back" : "no-answer"}`}>
-                    {call.status === "called_back" ? "CALLED BACK" : "NO ANSWER"}
-
-                    </span>
-                  </div>
-                  <div className="lost-call-callback">
-                    {call.callback_agent_name || (call.callback_agent_extension ? `Agent ${call.callback_agent_extension}` : "-")}
-                  </div>
-                  <div className="lost-call-callback-time">
-                    {call.callback_time
-                      ? new Date(call.callback_time).toLocaleString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          second: "2-digit",
-                        })
-                      : "-"}
-                  </div>
-                  <div className="lost-call-duration">
-                    {call.callback_duration > 0 ? formatTime(call.callback_duration) : "-"}
+                    <span className="status-badge no-answer">LOST</span>
                   </div>
                 </div>
               ))}

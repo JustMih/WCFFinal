@@ -11,8 +11,26 @@ const RecordedAudio = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [currentRec, setCurrentRec] = useState(null);
+  const [audioError, setAudioError] = useState("");
   const [playedStatus, setPlayedStatus] = useState({});
   const audioRef = useRef(null);
+
+  const getRecordingAudioUrls = (rec) => {
+    if (!rec?.filename) return { primary: "", fallback: "" };
+    const origin = window.location.origin.replace(/\/$/, "");
+    const encoded = encodeURIComponent(rec.filename);
+    const uidQ = rec.uniqueid
+      ? `?uniqueid=${encodeURIComponent(rec.uniqueid)}`
+      : "";
+    // API first — works when nginx only proxies /api (democc.wcf.go.tz)
+    const primary = rec.stream_url
+      ? `${origin}${rec.stream_url}${uidQ}`
+      : `${baseURL}/recorded-audio/${encoded}${uidQ}`;
+    const fallback = rec.play_url
+      ? `${origin}${rec.play_url}`
+      : `${origin}/recordings/${encoded}`;
+    return { primary, fallback };
+  };
 
   /* 🔍 FILTERS */
   const [search, setSearch] = useState("");
@@ -50,6 +68,20 @@ const RecordedAudio = () => {
   const formatDate = (dt) =>
     dt ? new Date(dt.replace(" ", "T")).toLocaleString() : "N/A";
 
+  const formatDuration = (seconds) => {
+    const s = Number(seconds) || 0;
+    const mins = Math.floor(s / 60);
+    const secs = s % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const formatAssignedExtension = (rec) =>
+    rec.agent_extension != null && rec.agent_extension !== ""
+      ? `Ext ${rec.agent_extension}`
+      : "—";
+
+  const formatAgentName = (rec) => rec.agent_name || "—";
+
   /* 🎨 ROW COLOR LOGIC (UNCHANGED) */
   const getRowColor = (rec) => {
     if (playedStatus[rec.filename]) return "#d4edda";
@@ -62,6 +94,7 @@ const RecordedAudio = () => {
   };
 
   const handlePlay = (rec) => {
+    setAudioError("");
     setCurrentRec(rec);
 
     const updated = { ...playedStatus, [rec.filename]: true };
@@ -87,6 +120,8 @@ const RecordedAudio = () => {
         Object.values({
           filename: rec.filename,
           caller: rec.caller,
+          agent: formatAgentName(rec),
+          extension: formatAssignedExtension(rec),
           callTime: rec.cdrstarttime,
           status: playedStatus[rec.filename] ? "played" : "not played",
         })
@@ -142,11 +177,23 @@ const RecordedAudio = () => {
 
   /* 📄 EXPORT CSV */
   const exportCSV = () => {
-    const headers = ["#", "Filename", "Caller", "Call Time", "Status"];
+    const headers = [
+      "#",
+      "Filename",
+      "Caller",
+      "Assigned Extension",
+      "Agent Name",
+      "Duration",
+      "Call Time",
+      "Status",
+    ];
     const rows = filteredRecordings.map((r, i) => [
       i + 1,
       r.filename,
       r.caller,
+      formatAssignedExtension(r),
+      formatAgentName(r),
+      formatDuration(r.billsec),
       formatDate(r.cdrstarttime),
       playedStatus[r.filename] ? "Played" : "Not Played",
     ]);
@@ -168,21 +215,35 @@ const RecordedAudio = () => {
   /* 📄 EXPORT PDF */
   const exportPDF = () => {
     const doc = new jsPDF();
-    doc.text("Recorded Calls Report", 14, 14);
+    doc.text("Agent Call Recordings", 14, 14);
 
     autoTable(doc, {
       startY: 22,
-      head: [["#", "Filename", "Caller", "Call Time", "Status"]],
+      head: [
+        [
+          "#",
+          "Filename",
+          "Caller",
+          "Assigned Extension",
+          "Agent Name",
+          "Duration",
+          "Call Time",
+          "Status",
+        ],
+      ],
       body: filteredRecordings.map((r, i) => [
         i + 1,
         r.filename,
         r.caller,
+        formatAssignedExtension(r),
+        formatAgentName(r),
+        formatDuration(r.billsec),
         formatDate(r.cdrstarttime),
         playedStatus[r.filename] ? "Played" : "Not Played",
       ]),
     });
 
-    doc.save("recorded_calls.pdf");
+    doc.save("agent_call_recordings.pdf");
   };
 
   if (loading) {
@@ -196,7 +257,11 @@ const RecordedAudio = () => {
 
   return (
     <div className="recording-container">
-      <h2 className="recording-title">Recorded Calls</h2>
+      <h2 className="recording-title">Agent Call Recordings</h2>
+      <p className="recording-subtitle">
+        Answered calls with a recording file from CDR. Agent extension and name
+        are shown when detected from the call leg.
+      </p>
 
       {/* 🔍 FILTERS */}
       <div className="recording-controls">
@@ -265,19 +330,49 @@ const RecordedAudio = () => {
       {currentRec && (
         <div className="audio-player">
           <strong>Now Playing:</strong> {currentRec.filename}
-          <audio ref={audioRef} controls style={{ width: "100%" }}>
-            <source src={`${baseURL}${currentRec.url}`} type="audio/wav" />
+          <div className="recording-agent-meta">
+            {formatAssignedExtension(currentRec)} · {formatAgentName(currentRec)}
+            {currentRec.caller ? ` · Caller ${currentRec.caller}` : ""}
+            {currentRec.dst && currentRec.dcontext === "internal"
+              ? ` · Dialed ${currentRec.dst}`
+              : ""}
+          </div>
+          {audioError && (
+            <p className="recording-audio-error">{audioError}</p>
+          )}
+          <audio
+            ref={audioRef}
+            controls
+            className="recording-audio-element"
+            onError={() =>
+              setAudioError(
+                "Could not load audio. Ensure the file exists under recorded/ on the server."
+              )
+            }
+          >
+            {(() => {
+              const { primary, fallback } = getRecordingAudioUrls(currentRec);
+              return (
+                <>
+                  <source src={primary} type="audio/wav" />
+                  <source src={fallback} type="audio/wav" />
+                </>
+              );
+            })()}
           </audio>
         </div>
       )}
 
-      {/* TABLE */}
+      <div className="recording-table-wrapper">
       <table className="recording-table">
         <thead>
           <tr>
             <th>#</th>
-            <th>Filename</th>
+            <th className="col-filename">File</th>
             <th>Caller</th>
+            <th>Extension</th>
+            <th>Agent</th>
+            <th>Duration</th>
             <th>Call Time</th>
             <th>Status</th>
             <th>Actions</th>
@@ -288,8 +383,13 @@ const RecordedAudio = () => {
           {currentRows.map((rec, i) => (
             <tr key={rec.id} style={{ backgroundColor: getRowColor(rec) }}>
               <td>{indexOfFirst + i + 1}</td>
-              <td>{rec.filename}</td>
+              <td className="col-filename" title={rec.filename}>
+                {rec.filename}
+              </td>
               <td>{rec.caller}</td>
+              <td className="recording-ext-cell">{formatAssignedExtension(rec)}</td>
+              <td>{formatAgentName(rec)}</td>
+              <td>{formatDuration(rec.billsec)}</td>
               <td>{formatDate(rec.cdrstarttime)}</td>
               <td>
                 {playedStatus[rec.filename] ? "Played" : "Not Played"}
@@ -304,7 +404,9 @@ const RecordedAudio = () => {
               </td>
               <td>
                 <a
-                  href={`${baseURL}${rec.url}?download=true`}
+                  href={`${getRecordingAudioUrls(rec).primary}${
+                    getRecordingAudioUrls(rec).primary.includes("?") ? "&" : "?"
+                  }download=true`}
                   className="btn btn-download"
                 >
                   ⬇ Download
@@ -314,6 +416,7 @@ const RecordedAudio = () => {
           ))}
         </tbody>
       </table>
+      </div>
 
       {/* PAGINATION */}
       <div className="recording-pagination">

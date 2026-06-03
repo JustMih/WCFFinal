@@ -37,6 +37,12 @@ import OnlineSupervisorsTable from "../../../../components/agent-dashboard/Onlin
 import AgentPerformanceScore from "../../../../components/agent-dashboard/AgentPerformanceScore";
 import AdvancedTicketCreateModal from "../../../../components/ticket/AdvancedTicketCreateModal";
 import VoiceNotesReport from "../../cal-center-ivr/VoiceNotesReport";
+import {
+  fetchVoiceNotes,
+  isVoiceNoteUnplayed,
+  VOICE_NOTE_PLAYED_EVENT,
+  PLAYED_VOICE_NOTES_KEY,
+} from "../../../../utils/voiceNotePlayed";
 import TotalContactSummary from "../../../../components/agent-dashboard/TotalContactSummary";
 import ContactSummaryGrid from "../../../../components/agent-dashboard/ContactSummaryGrid";
 
@@ -397,43 +403,34 @@ useEffect(() => {
     })();
   }, []);
 
-  // ---------- Voice notes ----------
-  useEffect(() => {
-    const fetchVoiceNotes = async () => {
-      try {
-        const agentId = localStorage.getItem("userId");
-        const response = await fetch(
-          `${baseURL}/voice-notes?agentId=${agentId}`,
-          {
-            method: "GET",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-            },
-          }
-        );
-        if (!response.ok) throw new Error("Failed to fetch voice notes");
-        const data = await response.json();
-        const notes = data.voiceNotes || [];
-        const storedPlayed =
-          JSON.parse(localStorage.getItem("playedVoiceNotes")) || {};
-        const unplayedCount = notes.filter(
-          (note) => !storedPlayed[note.id]
-        ).length;
-        setVoiceNotes(notes);
-        setUnplayedVoiceNotes(unplayedCount);
-      } catch (error) {
-        setVoiceNotes([]);
-        setUnplayedVoiceNotes(0);
-      }
-    };
-    fetchVoiceNotes();
-    const handleStorage = (e) => {
-      if (e.key === "playedVoiceNotes") fetchVoiceNotes();
-    };
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
+  // ---------- Voice notes (badge: unplayed only; inbox modal removes on play) ----------
+  const refreshVoiceNoteBadge = useCallback(async () => {
+    try {
+      const notes = await fetchVoiceNotes({ unplayedOnly: true });
+      const unplayed = notes.filter(isVoiceNoteUnplayed);
+      setVoiceNotes(unplayed);
+      setUnplayedVoiceNotes(unplayed.length);
+    } catch (error) {
+      setVoiceNotes([]);
+      setUnplayedVoiceNotes(0);
+    }
   }, []);
+
+  useEffect(() => {
+    refreshVoiceNoteBadge();
+    const interval = setInterval(refreshVoiceNoteBadge, 60000);
+    const handleStorage = (e) => {
+      if (e.key === PLAYED_VOICE_NOTES_KEY) refreshVoiceNoteBadge();
+    };
+    const handlePlayed = () => refreshVoiceNoteBadge();
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener(VOICE_NOTE_PLAYED_EVENT, handlePlayed);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener(VOICE_NOTE_PLAYED_EVENT, handlePlayed);
+    };
+  }, [refreshVoiceNoteBadge]);
 const markMissedCallAsCalledBack = async (missedCallId) => {
   if (!missedCallId) return;
 
@@ -840,7 +837,7 @@ useEffect(() => {
       <div className="agent-body">
         <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
           <h3>Agent</h3>
-          <Tooltip title="View Missed Calls" arrow>
+          {/* <Tooltip title="View Missed Calls" arrow>
             <div
               style={{ position: "relative", cursor: "pointer" }}
               onClick={() => setMissedOpen(true)}
@@ -867,11 +864,14 @@ useEffect(() => {
                 </span>
               )}
             </div>
-          </Tooltip>
+          </Tooltip> */}
           <Tooltip title="Voice Notes" arrow>
             <div
               style={{ position: "relative", cursor: "pointer" }}
-              onClick={() => setShowVoiceNotesModal(true)}
+              onClick={() => {
+                refreshVoiceNoteBadge();
+                setShowVoiceNotesModal(true);
+              }}
             >
               <MdOutlineVoicemail size={22} />
               {unplayedVoiceNotes > 0 && (
@@ -1223,12 +1223,15 @@ useEffect(() => {
       {/* Voice notes modal */}
       <Dialog
         open={showVoiceNotesModal}
-        onClose={() => setShowVoiceNotesModal(false)}
+        onClose={() => {
+          setShowVoiceNotesModal(false);
+          refreshVoiceNoteBadge();
+        }}
         fullWidth
         maxWidth="md"
       >
         <DialogContent>
-          <VoiceNotesReport />
+          <VoiceNotesReport variant="inbox" />
         </DialogContent>
       </Dialog>
     </div>

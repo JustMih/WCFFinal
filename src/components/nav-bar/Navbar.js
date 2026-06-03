@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { LuSunMoon } from "react-icons/lu";
 import { MdPerson, MdDarkMode } from "react-icons/md";
-import { FaSignOutAlt, FaCog } from "react-icons/fa";
+import { FaSignOutAlt, FaCog, FaPeopleArrows } from "react-icons/fa";
 import IconButton from "@mui/material/IconButton";
 import Tooltip from "@mui/material/Tooltip";
 import { TfiLayoutMediaCenterAlt } from "react-icons/tfi";
@@ -20,6 +20,8 @@ import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { clearDomainCredentials } from "../../utils/credentials";
+import { clearHandoverBannerDismissKeys } from "../handover/HandoverInitiatorBanner";
+import { isHandoverNotification } from "../../utils/notificationTypes";
 export default function Navbar({
   toggleTheme,
   isDarkMode,
@@ -439,6 +441,11 @@ export default function Navbar({
       
       // Close the dropdown
       setNotifDropdownOpen(false);
+
+      if (isHandoverNotification(notif)) {
+        window.location.href = "/ticket/assigned";
+        return;
+      }
       
       // Determine notification type
       const hasComment = notif.comment !== null && notif.comment !== undefined && String(notif.comment).trim() !== '';
@@ -683,6 +690,7 @@ export default function Navbar({
         localStorage.removeItem("tokenExpiration");
         localStorage.removeItem("agentStatus");
         localStorage.removeItem("activeSystem");
+        clearHandoverBannerDismissKeys();
         clearDomainCredentials(); // Clear domain credentials
         window.location.href = "/";
         return;
@@ -705,11 +713,13 @@ export default function Navbar({
       localStorage.removeItem("tokenExpiration");
       localStorage.removeItem("activeSystem");
       localStorage.removeItem("agentStatus");
+      clearHandoverBannerDismissKeys();
       clearDomainCredentials(); // Clear domain credentials
       window.location.href = "/";
     } catch (error) {
       console.error("Error logging out:", error);
       // Even if logout fails, clear local data
+      clearHandoverBannerDismissKeys();
       localStorage.removeItem("authToken");
       localStorage.removeItem("username");
       localStorage.removeItem("role");
@@ -720,6 +730,10 @@ export default function Navbar({
       clearDomainCredentials(); // Clear domain credentials
       window.location.href = "/";
     }
+  };
+
+  const handleOpenHandover = () => {
+    window.location.href = "/handover";
   };
 
   const canAccessCallCenter =
@@ -854,13 +868,19 @@ export default function Navbar({
             <div className="navbar-notification-dropdown">
               {/* Notification Type Counts Header */}
               {(() => {
+                const handoverCount = notificationsData?.notifications?.filter(n => {
+                  const isUnread = n.status === 'unread' || n.status === ' ';
+                  const isForCurrentUser = String(n.recipient_id) === String(userId);
+                  return isForCurrentUser && isUnread && isHandoverNotification(n);
+                }).length || 0;
+
                 const taggedCount = notificationsData?.notifications?.filter(n => {
                   // Tagged Message: unread, for current user, message contains "mentioned you" or "@" in comment
                   // Navbar counts ALL notifications (not distinct tickets)
                   // Works for all users including reviewers
                   const isUnread = n.status === 'unread' || n.status === ' ';
                   const isForCurrentUser = String(n.recipient_id) === String(userId);
-                  if (!isForCurrentUser || !isUnread) return false;
+                  if (!isForCurrentUser || !isUnread || isHandoverNotification(n)) return false;
                   
                   // Check message and comment for tagged indicators
                   const messageText = (n.message || '').toLowerCase();
@@ -880,7 +900,7 @@ export default function Navbar({
                   const isUnread = n.status === 'unread' || n.status === ' ';
                   // Use String conversion for type-safe comparison (consistent with listing logic)
                   const isForCurrentUser = String(n.recipient_id) === String(userId);
-                  if (!isForCurrentUser || !isUnread) return false;
+                  if (!isForCurrentUser || !isUnread || isHandoverNotification(n)) return false;
                   
                   const messageText = (n.message || n.comment || '').toLowerCase();
                   const commentText = (n.comment || '').toLowerCase();
@@ -909,7 +929,7 @@ export default function Navbar({
                   const isUnread = n.status === 'unread' || n.status === ' ';
                   // Use String conversion for type-safe comparison (consistent with listing logic)
                   const isForCurrentUser = String(n.recipient_id) === String(userId);
-                  if (!isForCurrentUser || !isUnread) return false;
+                  if (!isForCurrentUser || !isUnread || isHandoverNotification(n)) return false;
                   
                   // Simple check: if ticket is reversed, count it (case-insensitive, no need to check message text)
                   const ticketStatus = n.ticket?.status || '';
@@ -935,7 +955,7 @@ export default function Navbar({
                     const isForCurrentUser = String(n.recipient_id) === String(userId);
                     
                     // Check if notification is for current user and unread
-                    if (!isForCurrentUser || !isUnread) return false;
+                    if (!isForCurrentUser || !isUnread || isHandoverNotification(n)) return false;
                     
                     // Check message text for assignment indicators (excluding reversed)
                     const messageText = (n.message || '').toLowerCase();
@@ -963,7 +983,7 @@ export default function Navbar({
                   }).length || 0;
                 }
                 
-                console.log('Notification counts:', { taggedCount, notifiedCount, assignedCount: assignedCountLocal, reversedCount: reversedCountLocal, total: notificationsData?.notifications?.length });
+                console.log('Notification counts:', { handoverCount, taggedCount, notifiedCount, assignedCount: assignedCountLocal, reversedCount: reversedCountLocal, total: notificationsData?.notifications?.length });
                 
                 return (
                   <div style={{
@@ -977,6 +997,20 @@ export default function Navbar({
                     flexWrap: 'wrap'
                   }}>
                     <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flex: 1 }}>
+                      {/* Handover delegate notifications */}
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        padding: '4px 8px',
+                        backgroundColor: '#f3e5f5',
+                        borderRadius: '4px',
+                        opacity: handoverCount > 0 ? 1 : 0.6
+                      }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#9c27b0' }}>
+                          Handover: {handoverCount}
+                        </span>
+                      </div>
                       {/* Always show Tagged badge, even if count is 0 */}
                       <div style={{ 
                         display: 'flex', 
@@ -1222,6 +1256,7 @@ export default function Navbar({
                   // Tagged Message: message says "mentioned you" OR comment contains "@"
                   // Check both message and comment for tagged indicators (consistent with count logic)
                   const isTaggedMessage = messageText.includes('mentioned you') || commentText.includes('@');
+                  const isHandover = isHandoverNotification(notif);
                   
                   // Assigned: Use status, recipient_id, and ticket status instead of just text matching
                   // Check if notification is for current user and unread
@@ -1247,12 +1282,15 @@ export default function Navbar({
                   
                   // Notified: unread, for current user, not tagged, not assigned, and not reversed (with or without comment)
                   // This matches the count logic - any notification that doesn't fit other categories becomes "Notified"
-                  const isNotified = isForCurrentUser && isUnread && !isTaggedMessage && !isAssigned && !isReversed;
+                  const isNotified = isForCurrentUser && isUnread && !isHandover && !isTaggedMessage && !isAssigned && !isReversed;
                   
                   let notificationType;
                   let badgeColor;
                   
-                  if (isTaggedMessage) {
+                  if (isHandover) {
+                    notificationType = 'Handover';
+                    badgeColor = '#9c27b0'; // Purple
+                  } else if (isTaggedMessage) {
                     notificationType = 'Tagged Message';
                     badgeColor = '#4caf50'; // Green
                   } else if (isReversed) {
@@ -1470,6 +1508,12 @@ export default function Navbar({
             {username}, {role}
           </span>
           <div className="navbar-dropdown-menu">
+            <button
+              className="navbar-service-button"
+              onClick={handleOpenHandover}
+            >
+              <FaPeopleArrows className="menu-icon" /> Handover
+            </button>
             <button
               className="navbar-service-button active"
               onClick={handleLogout}

@@ -557,3 +557,31 @@
     grid-template-columns: 1fr;
   }
 }
+
+.dtmf-charts-card {
+  margin-bottom: 16px;
+}
+
+.dtmf-charts-heading {
+  margin-bottom: 8px !important;
+  font-weight: 600 !important;
+}
+
+.dtmf-charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 2rem;
+}
+
+.dtmf-chart-panel {
+  background: #fafbfc;
+  padding: 20px;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+@media (max-width: 960px) {
+  .dtmf-charts-grid {
+    grid-template-columns: 1fr;
+  }
+}
