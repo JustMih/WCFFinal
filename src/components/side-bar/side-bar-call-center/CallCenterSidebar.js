@@ -231,7 +231,7 @@ export default function CallCenterSidebar({
                   )}
                 </span>
               </NavLink>
-              <NavLink
+              {/* <NavLink
                 to="/voice-notes"
                 className={({ isActive }) =>
                   isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
@@ -243,7 +243,7 @@ export default function CallCenterSidebar({
                     <span className="menu-text">Voice Notes Reports</span>
                   )}
                 </span>
-              </NavLink>
+              </NavLink> */}
               <ReportsSidebarMenu isSidebarOpen={isSidebarOpen} />
             </>
           )}
