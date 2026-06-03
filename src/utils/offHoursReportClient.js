@@ -26,24 +26,6 @@ export function parseCallerPhone(clid, src) {
   return "";
 }
 
-function isPlausibleTanzaniaPhone(normalized) {
-  if (!normalized) return false;
-  const d = String(normalized).replace(/\D/g, "");
-  return d.length === 10 && d.startsWith("0");
-}
-
-function extractPhonesFromText(text) {
-  if (!text) return [];
-  const matches = String(text).match(/\+?\d{9,15}/g) || [];
-  return [
-    ...new Set(
-      matches
-        .map((m) => normalizePhone(m))
-        .filter((p) => isPlausibleTanzaniaPhone(p))
-    ),
-  ];
-}
-
 const EXCLUDED = new Set([
   normalizePhone("+255222211770"),
   normalizePhone("255222211770"),

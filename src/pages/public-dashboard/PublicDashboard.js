@@ -36,7 +36,7 @@ import ActiveCalls from "../../components/active-calls/ActiveCalls";
 import ReactApexChart from "react-apexcharts";
 import "./PublicDashboard.css";
 
-const LOST_MIN_QUEUE_WAIT_SEC = 5 * 60;
+import { LOST_MIN_DURATION_SECONDS } from "../../utils/callClassification";
 
 export default function PublicDashboard({
   suppressLoadingUI = false,
@@ -64,7 +64,7 @@ export default function PublicDashboard({
       if (response.ok) {
         const data = await response.json();
         const list = (Array.isArray(data) ? data : []).filter(
-          (call) => Number(call.wait_seconds) >= LOST_MIN_QUEUE_WAIT_SEC
+          (call) => Number(call.wait_seconds) >= LOST_MIN_DURATION_SECONDS
         );
         setLostCalls(list);
       } else if (forModal) {
@@ -257,7 +257,7 @@ return () => {
 
   const formatQueueWait = (waitSeconds) => {
     const sec = Number(waitSeconds);
-    if (!Number.isFinite(sec) || sec < LOST_MIN_QUEUE_WAIT_SEC) return "—";
+    if (!Number.isFinite(sec) || sec <= 0) return "—";
     const mins = Math.floor(sec / 60);
     const rem = sec % 60;
     return `${mins}m ${rem}s`;
@@ -1006,6 +1006,8 @@ return () => {
                 <div>Phone Number</div>
                 <div>Missed At</div>
                 <div>Queue Wait</div>
+                <div>Agent Extension</div>
+                <div>Agent Name</div>
                 <div>Status</div>
               </div>
 
@@ -1025,6 +1027,12 @@ return () => {
                   </div>
                   <div className="lost-call-wait">
                     {formatQueueWait(call.wait_seconds)}
+                  </div>
+                  <div className="lost-call-agent-ext">
+                    {call.agent_extension ? `Ext ${call.agent_extension}` : "—"}
+                  </div>
+                  <div className="lost-call-agent-name">
+                    {call.agent_name || "—"}
                   </div>
                   <div className="lost-call-status">
                     <span className="status-badge no-answer">LOST</span>
