@@ -39,13 +39,22 @@ import "./PublicDashboard.css";
 import { LOST_MIN_DURATION_SECONDS } from "../../utils/callClassification";
 import { formatDbTimeLocal } from "../../utils/dateTimeFormat";
 
+const DEFAULT_AGENT_STATUS = {
+  onlineCount: 0,
+  pauseCount: 0,
+  offlineCount: 0,
+  totalActive: 0,
+  onlinePercent: 0,
+  pausePercent: 0,
+};
+
 export default function PublicDashboard({
   suppressLoadingUI = false,
   onInitialLoadComplete,
   className = "",
 }) {
   const [dashboardData, setDashboardData] = useState({
-    agentStatus: { onlineCount: 0, offlineCount: 0 },
+    agentStatus: { ...DEFAULT_AGENT_STATUS },
     liveCalls: [],
     callStats: { dailyCounts: [], totalRows: 0 },
     queueStatus: [],
@@ -115,7 +124,7 @@ export default function PublicDashboard({
         if (response.ok) {
           const data = await response.json();
           setDashboardData({
-            agentStatus: data.agentStatus || { onlineCount: 0, offlineCount: 0 },
+            agentStatus: data.agentStatus || { ...DEFAULT_AGENT_STATUS },
             liveCalls: Array.isArray(data.liveCalls) ? data.liveCalls : [],
             callStats: data.callStats || {
               totalCounts: [],
@@ -204,10 +213,7 @@ export default function PublicDashboard({
         if (dashboardResponse.ok) {
           const data = await dashboardResponse.json();
           setDashboardData({
-            agentStatus: data.agentStatus || {
-              onlineCount: 0,
-              offlineCount: 0,
-            },
+            agentStatus: data.agentStatus || { ...DEFAULT_AGENT_STATUS },
             liveCalls: Array.isArray(data.liveCalls) ? data.liveCalls : [],
             callStats: data.callStats || {
               totalCounts: [],
@@ -280,7 +286,20 @@ return () => {
   const activeCalls = dashboardData.liveCalls.filter(
     (call) => !call.call_end && call.status === "active"
   );
-  const totalAgents = dashboardData.agentStatus.onlineCount + dashboardData.agentStatus.offlineCount;
+  const agentStatus = dashboardData.agentStatus || DEFAULT_AGENT_STATUS;
+  const totalActive =
+    agentStatus.totalActive ??
+    (agentStatus.onlineCount || 0) + (agentStatus.pauseCount || 0);
+  const onlinePercent =
+    agentStatus.onlinePercent ??
+    (totalActive > 0
+      ? Math.round(((agentStatus.onlineCount || 0) / totalActive) * 100)
+      : 0);
+  const pausePercent =
+    agentStatus.pausePercent ??
+    (totalActive > 0
+      ? Math.round(((agentStatus.pauseCount || 0) / totalActive) * 100)
+      : 0);
 
   // Calculate inQueue dynamically from live calls (calls in queue but not answered)
   const inQueueCallsCount = dashboardData.liveCalls.filter(
@@ -643,13 +662,15 @@ return () => {
                   <Grid item xs={4} sx={{ flex: "1 1 33.333%", maxWidth: "33.333%" }}>
                     <Box textAlign="center" sx={{ width: "100%", px: 0.5 }}>
                       <Typography variant="h4" sx={{ fontWeight: 700, color: "#1976d2", mb: 0.5 }}>
-                        {dashboardData.agentStatus.onlineCount}
+                        {agentStatus.onlineCount}
                       </Typography>
                       <Typography variant="body2" color="textSecondary" sx={{ fontSize: "0.875rem" }}>
                         Online Agents
                       </Typography>
-                      <Typography variant="caption" color="textSecondary" sx={{ fontSize: "0.75rem" }}>
-              {totalAgents > 0 ? `${Math.round((dashboardData.agentStatus.onlineCount / totalAgents) * 100)}% Available` : "No Agents"}
+                      <Typography variant="caption" color="textSecondary" sx={{ fontSize: "0.75rem", display: "block" }}>
+                        {totalActive > 0
+                          ? `${onlinePercent}% Online · ${pausePercent}% Pause`
+                          : "No logged-in agents"}
                       </Typography>
                     </Box>
                   </Grid>

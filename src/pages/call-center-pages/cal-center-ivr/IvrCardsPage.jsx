@@ -4,6 +4,9 @@ import React, { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { GiVrHeadset } from "react-icons/gi";
 import { IoMdArrowRoundBack } from "react-icons/io";
+import { MdOutlineAudiotrack } from "react-icons/md";
+import { TbActivityHeartbeat } from "react-icons/tb";
+import { FaRegFileAlt } from "react-icons/fa";
 import "./IvrCardsPage.css";
 
 const categories = [
