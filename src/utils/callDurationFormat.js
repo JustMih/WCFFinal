@@ -25,3 +25,15 @@ export function formatSecondsToMinutes(value, includeUnit = true) {
       : Math.round(minutes * 100) / 100;
   return includeUnit ? `${rounded} min` : String(rounded);
 }
+
+/**
+ * Format voice note duration for display (numeric seconds only; unit belongs in column title).
+ * @param {number|string|null|undefined} value - duration in seconds
+ * @returns {string}
+ */
+export function formatVoiceNoteDuration(value) {
+  const seconds = Math.round(Number(value));
+  if (value === null || value === undefined || value === "") return "—";
+  if (!Number.isFinite(seconds) || seconds < 0) return "—";
+  return String(seconds);
+}

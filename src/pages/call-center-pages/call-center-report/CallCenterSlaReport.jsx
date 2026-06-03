@@ -59,6 +59,7 @@ const DAILY_EXPORT_COLUMNS = [
   { key: "date", label: "Date" },
   { key: "totalCalls", label: "Total Calls" },
   { key: "answeredCalls", label: "Answered" },
+  { key: "unansweredCalls", label: "Unanswered" },
   { key: "serviceLevel", label: "Service Level %" },
   { key: "averageResponseTime", label: "Avg Response (min)" },
   { key: "averageHandleTime", label: "Avg Handle (min)" },
@@ -144,6 +145,7 @@ export default function CallCenterSlaReport({ embedded = false }) {
       date: formatDateLabel(row.date),
       totalCalls: row.totalCalls ?? 0,
       answeredCalls: row.answeredCalls ?? 0,
+      unansweredCalls: row.notAnsweredCalls ?? 0,
       serviceLevel: `${row.serviceLevel ?? 0}%`,
       averageResponseTime: formatMinutesFromSeconds(row.averageResponseTime),
       averageHandleTime: formatMinutesFromSeconds(row.averageHandleTime),
@@ -323,6 +325,7 @@ export default function CallCenterSlaReport({ embedded = false }) {
                   <TableCell>Date</TableCell>
                   <TableCell align="right">Total Calls</TableCell>
                   <TableCell align="right">Answered</TableCell>
+                  <TableCell align="right">Unanswered</TableCell>
                   <TableCell align="right">Service Level</TableCell>
                   <TableCell align="right">Avg Response (min)</TableCell>
                   <TableCell align="right">Avg Handle (min)</TableCell>
@@ -332,7 +335,7 @@ export default function CallCenterSlaReport({ embedded = false }) {
               <TableBody>
                 {daily.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center">
+                    <TableCell colSpan={9} align="center">
                       No CDR data in this period
                     </TableCell>
                   </TableRow>
@@ -347,6 +350,7 @@ export default function CallCenterSlaReport({ embedded = false }) {
                       <TableCell>{formatDateLabel(row.date)}</TableCell>
                       <TableCell align="right">{row.totalCalls ?? 0}</TableCell>
                       <TableCell align="right">{row.answeredCalls ?? 0}</TableCell>
+                      <TableCell align="right">{row.notAnsweredCalls ?? 0}</TableCell>
                       <TableCell align="right">{row.serviceLevel ?? 0}%</TableCell>
                       <TableCell align="right">
                         {formatMinutesFromSeconds(row.averageResponseTime)}

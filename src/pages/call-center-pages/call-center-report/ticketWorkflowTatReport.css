@@ -3,10 +3,20 @@
   max-width: 100%;
 }
 
-.tat-report-root .tat-status-filter.MuiFormControl-root {
+.tat-report-root .tat-status-filter.MuiFormControl-root,
+.tat-report-root .tat-export-columns-filter.MuiFormControl-root {
   min-width: 200px !important;
   width: 200px;
   flex-shrink: 0;
+}
+
+.tat-report-root .tat-export-columns-filter.MuiFormControl-root {
+  min-width: 240px !important;
+  width: 240px;
+}
+
+.tat-report-root .tat-export-columns-filter .MuiInputLabel-root {
+  white-space: nowrap;
 }
 
 .tat-report-root .tat-status-filter .MuiInputLabel-root {
@@ -19,7 +29,7 @@
 }
 
 .tat-report-table {
-  min-width: 2200px;
+  min-width: 3200px;
 }
 
 .tat-report-table .tat-fixed-header:nth-child(1),
