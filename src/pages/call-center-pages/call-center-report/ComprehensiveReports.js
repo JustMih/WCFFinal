@@ -2341,9 +2341,9 @@ export default function ComprehensiveReports() {
           case "agentName":
             return report.agent_name || "-";
           case "callTime":
-            return report.call_time
-              ? new Date(report.call_time).toLocaleString()
-              : "-";
+            return formatDbDateTimeLocal(report.call_time, {
+              fallback: "-",
+            });
           case "durationMinutes":
             return report.duration_minutes != null
               ? String(report.duration_minutes)
