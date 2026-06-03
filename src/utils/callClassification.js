@@ -1,9 +1,9 @@
 /**
  * Lost vs dropped — must match WCFCC utils/queueTimingConstants.js
- * Queue dialplan: Queue(...,300,queue-exit); CDR sum may be ~294–299s.
+ * Queue dialplan: Queue(...,300,queue-exit); CDR sum may be ~288–299s.
  */
 export const QUEUE_EXIT_TIMEOUT_SECONDS = 300;
-export const LOST_CLASSIFY_GRACE_SECONDS = 6;
+export const LOST_CLASSIFY_GRACE_SECONDS = 12;
 export const LOST_MIN_DURATION_SECONDS =
   QUEUE_EXIT_TIMEOUT_SECONDS - LOST_CLASSIFY_GRACE_SECONDS;
 
