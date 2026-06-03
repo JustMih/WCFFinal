@@ -619,7 +619,7 @@
 
 .lost-call-item--public,
 .lost-call-item.header.lost-call-item--public {
-  grid-template-columns: 1.3fr 1.4fr 1fr 0.8fr;
+  grid-template-columns: 1.1fr 1.1fr 0.9fr 0.9fr 1.2fr 0.7fr;
 }
 
 .lost-call-item {
