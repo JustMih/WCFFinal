@@ -22,7 +22,6 @@ import {
 import { PictureAsPdf, TableChart } from "@mui/icons-material";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
 import { baseURL } from "../../../config";
 import {
   formatActivityLabel,
@@ -35,6 +34,10 @@ import ReportDateRangePicker from "../../../components/shared/ReportDateRangePic
 import ReportTablePagination from "../../../components/shared/ReportTablePagination";
 import useReportTablePagination from "../../../hooks/useReportTablePagination";
 import { isValidReportDateRange } from "../../../utils/reportDateUtils";
+import {
+  exportRowsToCsv,
+  exportRowsToExcel,
+} from "../../../utils/reportExportHelpers";
 
 const formatDateTime = (value) => {
   if (!value) return "—";
@@ -42,6 +45,7 @@ const formatDateTime = (value) => {
 };
 
 const EXPORT_COLUMNS = [
+  { key: "serial", label: "Serial No" },
   { key: "agent", label: "Agent" },
   { key: "extension", label: "Extension" },
   { key: "activity", label: "Activity" },
@@ -155,26 +159,43 @@ export default function PauseReport({ embedded = false }) {
     resetPage();
   }, [sessions.length, startDate, endDate, agentFilter, resetPage]);
 
-  const getExportRows = () => sessions.map(mapSessionToRow);
+  const getExportRows = () =>
+    sessions.map((row, index) => ({
+      serial: index + 1,
+      ...mapSessionToRow(row),
+    }));
 
-  const handleExportCSV = () => {
-    if (sessions.length === 0) {
-      showSnackbar("No data to export", "warning");
-      return;
-    }
-    const rows = getExportRows().map((row) => {
+  const buildLabelRows = (rows) =>
+    rows.map((row) => {
       const out = {};
       EXPORT_COLUMNS.forEach((col) => {
         out[col.label] = row[col.key];
       });
       return out;
     });
-    const filename = `pause_report_${startDate || "all"}_${endDate || "all"}.csv`;
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Pause Report");
-    XLSX.writeFile(wb, filename);
+
+  const exportFilenameBase = `pause_report_${startDate || "all"}_${endDate || "all"}`;
+
+  const handleExportCSV = () => {
+    if (sessions.length === 0) {
+      showSnackbar("No data to export", "warning");
+      return;
+    }
+    exportRowsToCsv(buildLabelRows(getExportRows()), `${exportFilenameBase}.csv`);
     showSnackbar("CSV exported successfully!");
+  };
+
+  const handleExportExcel = () => {
+    if (sessions.length === 0) {
+      showSnackbar("No data to export", "warning");
+      return;
+    }
+    exportRowsToExcel(
+      buildLabelRows(getExportRows()),
+      `${exportFilenameBase}.xlsx`,
+      "Pause Report"
+    );
+    showSnackbar("Excel exported successfully!");
   };
 
   const handleExportPDF = () => {
@@ -197,7 +218,7 @@ export default function PauseReport({ embedded = false }) {
       headStyles: { fillColor: [99, 102, 241] },
     });
 
-    const filename = `pause_report_${startDate || "all"}_${endDate || "all"}.pdf`;
+    const filename = `${exportFilenameBase}.pdf`;
     doc.save(filename);
     showSnackbar("PDF exported successfully!");
   };
@@ -254,6 +275,14 @@ export default function PauseReport({ embedded = false }) {
           >
             Export CSV
           </Button>
+          <Button
+            variant="outlined"
+            startIcon={<TableChart />}
+            onClick={handleExportExcel}
+            disabled={loading || sessions.length === 0}
+          >
+            Export Excel
+          </Button>
         </div>
       </Paper>
 
@@ -276,6 +305,7 @@ export default function PauseReport({ embedded = false }) {
           <Table size="small" className="pause-report-table">
             <TableHead>
               <TableRow>
+                <TableCell>Serial No</TableCell>
                 <TableCell>Agent</TableCell>
                 <TableCell>Extension</TableCell>
                 <TableCell>Activity</TableCell>
@@ -289,18 +319,23 @@ export default function PauseReport({ embedded = false }) {
             <TableBody>
               {sessions.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center">
+                  <TableCell colSpan={9} align="center">
                     No pause sessions in this period
                   </TableCell>
                 </TableRow>
               ) : (
-                paginatedSessions.map((row) => (
+                paginatedSessions.map((row, index) => (
                   <TableRow
                     key={row.id}
                     className={
                       row.exceeded_seconds > 0 ? "pause-report-row-exceeded" : ""
                     }
                   >
+                    <TableCell>
+                      {paginationProps.page * paginationProps.rowsPerPage +
+                        index +
+                        1}
+                    </TableCell>
                     <TableCell>{row.full_name}</TableCell>
                     <TableCell>{row.extension ?? "—"}</TableCell>
                     <TableCell>

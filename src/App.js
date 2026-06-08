@@ -36,7 +36,7 @@ function clearSessionAndRedirect() {
   sessionStorage.setItem(
     "logoutMessage",
     isAgent
-      ? "Session ended (daily logout at 2 PM)."
+      ? "Session ended (daily logout at 2:00 AM)."
       : "Session ended (24 hour session limit)."
   );
   window.location.href = "/login";

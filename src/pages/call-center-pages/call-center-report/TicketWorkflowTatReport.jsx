@@ -24,13 +24,17 @@ import * as XLSX from "xlsx";
 import { baseURL } from "../../../config";
 import WcfLoader from "../../../components/shared/WcfLoader";
 import ReportDateRangePicker from "../../../components/shared/ReportDateRangePicker";
+import ReportExportColumnSelect from "../../../components/shared/ReportExportColumnSelect";
 import ReportTablePagination from "../../../components/shared/ReportTablePagination";
 import useReportTablePagination from "../../../hooks/useReportTablePagination";
 import { isValidReportDateRange } from "../../../utils/reportDateUtils";
 import {
+  exportRowsToCsv,
+  exportRowsToExcel,
+} from "../../../utils/reportExportHelpers";
+import {
   TAT_TEMPLATE_COLUMNS,
   UI_ONLY_COLUMNS,
-  EXCEL_EXPORT_COLUMNS,
   dateToExcelSerial,
   formatDisplayDate,
   formatTatDays,
@@ -49,14 +53,67 @@ const STATUS_FILTER_OPTIONS = [
   { value: "Pending Approval", label: "Pending Approval" },
 ];
 
-const TABLE_COLUMNS = [
-  ...UI_ONLY_COLUMNS,
-  ...TAT_TEMPLATE_COLUMNS.map((col) => ({
-    key: col.key,
-    label: col.header,
-    type: col.type,
-  })),
-];
+const REQUIRED_TEMPLATE_KEYS = ["category", "rated", "channel", "created_date"];
+
+function isFullTatTemplate(columns) {
+  if (!Array.isArray(columns) || columns.length === 0) return false;
+  const keys = new Set(columns.map((col) => col.key));
+  return REQUIRED_TEMPLATE_KEYS.every((key) => keys.has(key));
+}
+
+function resolveTemplateColumns(apiColumns) {
+  if (isFullTatTemplate(apiColumns)) {
+    return apiColumns;
+  }
+  return TAT_TEMPLATE_COLUMNS;
+}
+
+function buildTableColumns(templateColumns) {
+  const cols = resolveTemplateColumns(templateColumns);
+  return [
+    { key: "serial", label: "Serial No" },
+    ...UI_ONLY_COLUMNS,
+    ...cols.map((col) => ({
+      key: col.key,
+      label: col.header,
+      type: col.type,
+    })),
+  ];
+}
+
+function displayTextValue(value) {
+  if (value == null) return "—";
+  const text = String(value).trim();
+  return text !== "" ? text : "—";
+}
+
+function getTemplateColDef(key, templateColumns) {
+  return templateColumns.find((c) => c.key === key);
+}
+
+function getRawExportValue(row, col, templateColumns) {
+  if (col.key === "serial") return row.serial;
+  if (col.key === "ticket_number") return row.ticket_number;
+  if (col.key === "rated") return row.rated ?? row.complaint_type;
+
+  const templateCol = getTemplateColDef(col.key, templateColumns);
+  if (!templateCol) return row[col.key];
+
+  const value = row[col.key];
+  if (templateCol.type === "date") {
+    return value ? formatDisplayDate(value) : "";
+  }
+  if (templateCol.type === "tat") {
+    return value === null || value === undefined || value === "" ? "" : value;
+  }
+  if (col.key === "channel") {
+    return displayTextValue(
+      row.channel ?? row.ticket_channel ?? row.complaint_channel
+    );
+  }
+  return displayTextValue(value);
+}
+
 
 export default function TicketWorkflowTatReport({ embedded = false }) {
   const [startDate, setStartDate] = useState("");
@@ -64,11 +121,13 @@ export default function TicketWorkflowTatReport({ embedded = false }) {
   const [statusFilter, setStatusFilter] = useState("all");
   const [summary, setSummary] = useState(null);
   const [rows, setRows] = useState([]);
+  const [apiTemplateColumns, setApiTemplateColumns] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
   const [snackbarSeverity, setSnackbarSeverity] = useState("success");
+  const [selectedExportKeys, setSelectedExportKeys] = useState([]);
 
   const showSnackbar = (message, severity = "success") => {
     setSnackbarMessage(message);
@@ -93,19 +152,45 @@ export default function TicketWorkflowTatReport({ embedded = false }) {
       const data = await res.json();
       setSummary(data.summary || null);
       setRows(Array.isArray(data.rows) ? data.rows : []);
+      setApiTemplateColumns(
+        Array.isArray(data.templateColumns) && data.templateColumns.length > 0
+          ? data.templateColumns
+          : null
+      );
     } catch (e) {
       setError(e.message || "Failed to load report");
       setSummary(null);
       setRows([]);
+      setApiTemplateColumns(null);
     } finally {
       setLoading(false);
     }
   }, [startDate, endDate, statusFilter]);
 
+  const effectiveTemplateColumns = useMemo(
+    () => resolveTemplateColumns(apiTemplateColumns),
+    [apiTemplateColumns]
+  );
+
+  const tableColumns = useMemo(
+    () => buildTableColumns(effectiveTemplateColumns),
+    [effectiveTemplateColumns]
+  );
+
+  const selectedExportColumns = useMemo(
+    () => tableColumns.filter((col) => selectedExportKeys.includes(col.key)),
+    [tableColumns, selectedExportKeys]
+  );
+
+  useEffect(() => {
+    setSelectedExportKeys(tableColumns.map((col) => col.key));
+  }, [tableColumns]);
+
   useEffect(() => {
     if (!isValidReportDateRange(startDate, endDate)) {
       setSummary(null);
       setRows([]);
+      setApiTemplateColumns(null);
       return;
     }
     fetchReport();
@@ -113,20 +198,31 @@ export default function TicketWorkflowTatReport({ embedded = false }) {
 
   const displayRows = useMemo(
     () =>
-      rows.map((row) => {
-        const out = { ...row };
-        for (const col of TAT_TEMPLATE_COLUMNS) {
+      rows.map((row, index) => {
+        const out = {
+          ...row,
+          serial: row.serial ?? index + 1,
+        };
+        for (const col of effectiveTemplateColumns) {
           if (col.type === "date") {
             out[col.key] = formatDisplayDate(row[col.key]);
           } else if (col.type === "tat") {
             out[col.key] = formatTatDays(row[col.key]);
           } else if (col.type === "fin_year") {
-            out[col.key] = row[col.key] ?? "—";
+            out[col.key] = displayTextValue(row[col.key]);
+          } else if (col.key === "rated") {
+            out.rated = displayTextValue(row.rated ?? row.complaint_type);
+          } else if (col.key === "channel") {
+            out.channel = displayTextValue(
+              row.channel ?? row.ticket_channel ?? row.complaint_channel
+            );
+          } else {
+            out[col.key] = displayTextValue(row[col.key]);
           }
         }
         return out;
       }),
-    [rows]
+    [rows, effectiveTemplateColumns]
   );
 
   const { paginatedItems: paginatedRows, paginationProps, resetPage } =
@@ -136,33 +232,73 @@ export default function TicketWorkflowTatReport({ embedded = false }) {
     resetPage();
   }, [displayRows.length, statusFilter, startDate, endDate, resetPage]);
 
+  const exportFilenameBase = `ticket_workflow_tat_${startDate || "all"}_${endDate || "all"}`;
+
+  const ensureExportColumnsSelected = () => {
+    if (selectedExportColumns.length === 0) {
+      showSnackbar("Select at least one column to export", "warning");
+      return false;
+    }
+    return true;
+  };
+
+  const buildCsvExportRows = () =>
+    rows.map((row, index) => {
+      const out = {};
+      selectedExportColumns.forEach((col) => {
+        const value =
+          col.key === "serial"
+            ? row.serial ?? index + 1
+            : getRawExportValue(row, col, effectiveTemplateColumns);
+        out[col.label] = value ?? "";
+      });
+      return out;
+    });
+
+  const handleExportCSV = () => {
+    if (rows.length === 0) {
+      showSnackbar("No data to export", "warning");
+      return;
+    }
+    if (!ensureExportColumnsSelected()) return;
+    exportRowsToCsv(buildCsvExportRows(), `${exportFilenameBase}.csv`);
+    showSnackbar("CSV exported successfully!");
+  };
+
   const handleExportExcel = () => {
     if (rows.length === 0) {
       showSnackbar("No data to export", "warning");
       return;
     }
+    if (!ensureExportColumnsSelected()) return;
 
-    const headers = EXCEL_EXPORT_COLUMNS.map((col) => col.header);
-    const dataRows = rows.map((row) =>
-      EXCEL_EXPORT_COLUMNS.map((col) => {
-        const value = row[col.key];
-        if (col.type === "date") {
-          return value ? dateToExcelSerial(value) : "";
+    const headers = selectedExportColumns.map((col) => col.label);
+    const dataRows = rows.map((row, index) =>
+      selectedExportColumns.map((col) => {
+        if (col.key === "serial") return row.serial ?? index + 1;
+
+        const templateCol = getTemplateColDef(col.key, effectiveTemplateColumns);
+        const rawValue =
+          col.key === "rated"
+            ? row.rated ?? row.complaint_type
+            : row[col.key];
+
+        if (templateCol?.type === "date") {
+          return rawValue ? dateToExcelSerial(rawValue) : "";
         }
-        if (col.type === "tat") {
-          return value === null || value === undefined || value === "" ? "" : value;
+        if (templateCol?.type === "tat") {
+          return rawValue === null || rawValue === undefined || rawValue === ""
+            ? ""
+            : rawValue;
         }
-        return value ?? "";
+        return getRawExportValue(row, col, effectiveTemplateColumns) ?? "";
       })
     );
 
     const ws = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Ticket Workflow TAT");
-    XLSX.writeFile(
-      wb,
-      `ticket_workflow_tat_${startDate || "all"}_${endDate || "all"}.xlsx`
-    );
+    XLSX.writeFile(wb, `${exportFilenameBase}.xlsx`);
     showSnackbar("Excel exported successfully!");
   };
 
@@ -171,6 +307,8 @@ export default function TicketWorkflowTatReport({ embedded = false }) {
       showSnackbar("No data to export", "warning");
       return;
     }
+    if (!ensureExportColumnsSelected()) return;
+
     const doc = new jsPDF({ orientation: "landscape" });
     doc.setFontSize(14);
     doc.text("Ticket Workflow TAT Report", 14, 16);
@@ -178,7 +316,7 @@ export default function TicketWorkflowTatReport({ embedded = false }) {
     doc.text(`Period: ${startDate || "—"} to ${endDate || "—"}`, 14, 24);
     if (summary) {
       doc.text(
-        `Summary — Total: ${summary.total} | Resolved: ${summary.resolved} | Avg TAT (days): ${summary.avgTotalTatDays ?? 0}`,
+        `Summary — Total: ${summary.total} | Resolved: ${summary.resolved} | Avg TAT (working days): ${summary.avgTotalTatDays ?? 0}`,
         14,
         30
       );
@@ -186,17 +324,21 @@ export default function TicketWorkflowTatReport({ embedded = false }) {
 
     autoTable(doc, {
       startY: 36,
-      head: [TABLE_COLUMNS.map((c) => c.label)],
-      body: displayRows.map((row) =>
-        TABLE_COLUMNS.map((c) => String(row[c.key] ?? "—"))
+      head: [selectedExportColumns.map((c) => c.label)],
+      body: displayRows.map((row, index) =>
+        selectedExportColumns.map((c) =>
+          String(
+            c.key === "serial"
+              ? row.serial ?? index + 1
+              : row[c.key] ?? "—"
+          )
+        )
       ),
       styles: { fontSize: 5 },
       headStyles: { fillColor: [99, 102, 241] },
     });
 
-    doc.save(
-      `ticket_workflow_tat_${startDate || "all"}_${endDate || "all"}.pdf`
-    );
+    doc.save(`${exportFilenameBase}.pdf`);
     showSnackbar("PDF exported successfully!");
   };
 
@@ -240,20 +382,48 @@ export default function TicketWorkflowTatReport({ embedded = false }) {
             ))}
           </Select>
         </FormControl>
+        <ReportExportColumnSelect
+          className="tat-export-columns-filter"
+          columns={tableColumns}
+          selectedKeys={selectedExportKeys}
+          onChange={setSelectedExportKeys}
+          disabled={loading || tableColumns.length === 0}
+          minWidth={240}
+        />
         <div className="sla-report-actions">
           <Button
             variant="outlined"
             startIcon={<PictureAsPdf />}
             onClick={handleExportPDF}
-            disabled={loading || rows.length === 0}
+            disabled={
+              loading ||
+              rows.length === 0 ||
+              selectedExportColumns.length === 0
+            }
           >
             Export PDF
           </Button>
           <Button
             variant="outlined"
             startIcon={<TableChart />}
+            onClick={handleExportCSV}
+            disabled={
+              loading ||
+              rows.length === 0 ||
+              selectedExportColumns.length === 0
+            }
+          >
+            Export CSV
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<TableChart />}
             onClick={handleExportExcel}
-            disabled={loading || rows.length === 0}
+            disabled={
+              loading ||
+              rows.length === 0 ||
+              selectedExportColumns.length === 0
+            }
           >
             Export Excel
           </Button>
@@ -287,7 +457,7 @@ export default function TicketWorkflowTatReport({ embedded = false }) {
             </div>
             <div className="sla-summary-chip">
               <strong>{summary.avgTotalTatDays ?? 0}</strong>
-              <span>Avg TAT (days)</span>
+              <span>Avg TAT (working days)</span>
             </div>
           </div>
 
@@ -303,7 +473,7 @@ export default function TicketWorkflowTatReport({ embedded = false }) {
               <Table size="small" className="sla-report-table tat-report-table">
                 <TableHead>
                   <TableRow>
-                    {TABLE_COLUMNS.map((col) => (
+                    {tableColumns.map((col) => (
                       <TableCell
                         key={col.key}
                         className={
@@ -311,7 +481,9 @@ export default function TicketWorkflowTatReport({ embedded = false }) {
                             ? "tat-date-header"
                             : col.type === "tat"
                               ? "tat-days-header"
-                              : "tat-fixed-header"
+                              : col.type === "text"
+                                ? "tat-text-header"
+                                : "tat-fixed-header"
                         }
                       >
                         {col.label}
@@ -322,16 +494,21 @@ export default function TicketWorkflowTatReport({ embedded = false }) {
                 <TableBody>
                   {displayRows.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={TABLE_COLUMNS.length} align="center">
+                      <TableCell colSpan={tableColumns.length} align="center">
                         No tickets with assignment history match this filter
                       </TableCell>
                     </TableRow>
                   ) : (
-                    paginatedRows.map((row) => (
+                    paginatedRows.map((row, index) => (
                       <TableRow key={row.id || row.ticket_id || row.serial}>
-                        {TABLE_COLUMNS.map((col) => (
+                        {tableColumns.map((col) => (
                           <TableCell key={col.key}>
-                            {row[col.key] ?? "—"}
+                            {col.key === "serial"
+                              ? paginationProps.page *
+                                  paginationProps.rowsPerPage +
+                                index +
+                                1
+                              : row[col.key] ?? "—"}
                           </TableCell>
                         ))}
                       </TableRow>

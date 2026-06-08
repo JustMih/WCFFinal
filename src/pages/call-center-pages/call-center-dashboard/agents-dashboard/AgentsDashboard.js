@@ -692,10 +692,10 @@ const markMissedCallAsCalledBack = async (missedCallId) => {
           },
         });
         const data = await response.json();
-        const onlineCount = data.agentCount ?? 0;
-        if (onlineCount <= 1) {
+        if (data.canPause === false) {
           showAlert(
-            "You cannot go on break. At least 2 agents must be online (including you).",
+            data.message ||
+              "Cannot pause: at least 50% of logged-in agents must stay available. Wait for another agent to return online.",
             "warning"
           );
           return;
@@ -730,7 +730,14 @@ const markMissedCallAsCalledBack = async (missedCallId) => {
         }
       );
       if (!response.ok) {
-        showAlert("Failed to update status. Try again.", "error");
+        let message = "Failed to update status. Try again.";
+        try {
+          const errData = await response.json();
+          if (errData?.message) message = errData.message;
+        } catch (_) {
+          /* ignore */
+        }
+        showAlert(message, response.status === 403 ? "warning" : "error");
         return;
       }
 
@@ -837,7 +844,7 @@ useEffect(() => {
       <div className="agent-body">
         <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
           <h3>Agent</h3>
-          <Tooltip title="View Missed Calls" arrow>
+          {/* <Tooltip title="View Missed Calls" arrow>
             <div
               style={{ position: "relative", cursor: "pointer" }}
               onClick={() => setMissedOpen(true)}
@@ -864,7 +871,7 @@ useEffect(() => {
                 </span>
               )}
             </div>
-          </Tooltip>
+          </Tooltip> */}
           <Tooltip title="Voice Notes" arrow>
             <div
               style={{ position: "relative", cursor: "pointer" }}

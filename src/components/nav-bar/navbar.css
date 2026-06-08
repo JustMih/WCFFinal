@@ -78,7 +78,7 @@
 
 .navbar-profile-icon {
   font-size: 1.5rem;
-  color: #305fa7;
+  color: var(--wcf-white);
 }
 
 .navbar-dropdown-menu {
@@ -119,7 +119,7 @@
 .navbar-service-button:hover {
   background-color: var(--wcf-sidebar-hover-bg);
   font-weight: 600;
-  color: #305fa7;
+  color: var(--wcf-sidebar-text);
 }
 
 .menu-icon {

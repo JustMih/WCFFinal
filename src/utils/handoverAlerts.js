@@ -67,7 +67,7 @@ export async function confirmStartHandover({
   return result.isConfirmed;
 }
 
-export async function confirmRevokeHandover({ delegateName } = {}) {
+export async function confirmRevokeHandover({ delegateName, lockMode = false } = {}) {
   const result = await Swal.fire({
     ...swalBase,
     title: "Revoke handover?",
@@ -82,7 +82,11 @@ export async function confirmRevokeHandover({ delegateName } = {}) {
         }.
       </p>
       <p style="margin:12px 0 0;font-size:0.9rem;color:#64748b;">
-        You will regain full access to your tickets immediately.
+        ${
+          lockMode
+            ? "You will regain full access to the system immediately."
+            : "You will regain full access to your tickets immediately."
+        }
       </p>
     `,
     showCancelButton: true,

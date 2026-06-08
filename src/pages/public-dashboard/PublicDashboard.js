@@ -36,7 +36,16 @@ import ActiveCalls from "../../components/active-calls/ActiveCalls";
 import ReactApexChart from "react-apexcharts";
 import "./PublicDashboard.css";
 
-const LOST_MIN_QUEUE_WAIT_SEC = 5 * 60;
+import { formatDbTimeLocal } from "../../utils/dateTimeFormat";
+
+const DEFAULT_AGENT_STATUS = {
+  onlineCount: 0,
+  pauseCount: 0,
+  offlineCount: 0,
+  totalActive: 0,
+  onlinePercent: 0,
+  pausePercent: 0,
+};
 
 export default function PublicDashboard({
   suppressLoadingUI = false,
@@ -44,11 +53,17 @@ export default function PublicDashboard({
   className = "",
 }) {
   const [dashboardData, setDashboardData] = useState({
-    agentStatus: { onlineCount: 0, offlineCount: 0 },
+    agentStatus: { ...DEFAULT_AGENT_STATUS },
     liveCalls: [],
-    callStats: { dailyCounts: [], totalRows: 0 },
+    callStats: {
+      totalCounts: [],
+      monthlyCounts: [],
+      dailyCounts: [],
+      totalRows: 0,
+    },
     queueStatus: [],
     callStatusSummary: { active: 0, inQueue: 0, answered: 0, dropped: 0, lost: 0 },
+    callStatistics: { lost: 0, dropped: 0 },
   });
   const [callSummaryData, setCallSummaryData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -56,17 +71,30 @@ export default function PublicDashboard({
   const [lostCalls, setLostCalls] = useState([]);
   const [showLostCallsModal, setShowLostCallsModal] = useState(false);
   const [lostCallsLoading, setLostCallsLoading] = useState(false);
+  const [droppedCalls, setDroppedCalls] = useState([]);
+  const [showDroppedCallsModal, setShowDroppedCallsModal] = useState(false);
+  const [droppedCallsLoading, setDroppedCallsLoading] = useState(false);
 
   const fetchLostCallsToday = useCallback(async (forModal = false) => {
     if (forModal) setLostCallsLoading(true);
     try {
-      const response = await fetch(`${baseURL}/calls/lost-calls-today`);
+      const response = await fetch(
+        `${baseURL}/calls/lost-calls-today?_=${Date.now()}`,
+        { cache: "no-store" }
+      );
       if (response.ok) {
         const data = await response.json();
-        const list = (Array.isArray(data) ? data : []).filter(
-          (call) => Number(call.wait_seconds) >= LOST_MIN_QUEUE_WAIT_SEC
-        );
-        setLostCalls(list);
+        const list = Array.isArray(data) ? data : [];
+        const seen = new Set();
+        const deduped = list.filter((call) => {
+          const phone = String(call.caller || call.phone || "").trim();
+          const t = call.missed_at || call.call_time || "";
+          const key = `${phone}:${t}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        setLostCalls(deduped);
       } else if (forModal) {
         console.error("Failed to fetch lost calls:", response.status);
       }
@@ -74,6 +102,26 @@ export default function PublicDashboard({
       if (forModal) console.error("Error fetching lost calls:", error);
     } finally {
       if (forModal) setLostCallsLoading(false);
+    }
+  }, []);
+
+  const fetchDroppedCallsToday = useCallback(async (forModal = false) => {
+    if (forModal) setDroppedCallsLoading(true);
+    try {
+      const response = await fetch(
+        `${baseURL}/calls/dropped-calls-today?_=${Date.now()}`,
+        { cache: "no-store" }
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setDroppedCalls(Array.isArray(data) ? data : []);
+      } else if (forModal) {
+        console.error("Failed to fetch dropped calls:", response.status);
+      }
+    } catch (error) {
+      if (forModal) console.error("Error fetching dropped calls:", error);
+    } finally {
+      if (forModal) setDroppedCallsLoading(false);
     }
   }, []);
 
@@ -103,11 +151,14 @@ export default function PublicDashboard({
 
     const fetchDashboardData = async () => {
       try {
-        const response = await fetch(`${baseURL}/public/dashboard`);
+        const response = await fetch(
+          `${baseURL}/public/dashboard?_=${Date.now()}`,
+          { cache: "no-store" }
+        );
         if (response.ok) {
           const data = await response.json();
           setDashboardData({
-            agentStatus: data.agentStatus || { onlineCount: 0, offlineCount: 0 },
+            agentStatus: data.agentStatus || { ...DEFAULT_AGENT_STATUS },
             liveCalls: Array.isArray(data.liveCalls) ? data.liveCalls : [],
             callStats: data.callStats || {
               totalCounts: [],
@@ -141,6 +192,7 @@ export default function PublicDashboard({
     fetchDashboardData();
     fetchCallSummary();
     fetchLostCallsToday();
+    fetchDroppedCallsToday();
 
     const socketUrl = baseURL.replace(/\/api$/, "") || "https://192.168.21.69";
     const socket = io(socketUrl, {
@@ -174,7 +226,10 @@ export default function PublicDashboard({
           ...prev.callStatusSummary,
           ...(data.callStatusSummary || {}),
         },
-        callStatistics: data.callStatistics || prev.callStatistics,
+        callStatistics: data.callStatistics || {
+          lost: Number(data.callStatusSummary?.lost ?? 0),
+          dropped: Number(data.callStatusSummary?.dropped ?? 0),
+        },
       }));
     });
 
@@ -190,16 +245,18 @@ export default function PublicDashboard({
     const liveCallsInterval = setInterval(async () => {
       try {
         const [dashboardResponse, callSummaryResponse] = await Promise.all([
-          fetch(`${baseURL}/public/dashboard`),
-          fetch(`${baseURL}/call-summary/call-summary?excludeDestS=1`),
+          fetch(`${baseURL}/public/dashboard?_=${Date.now()}`, {
+            cache: "no-store",
+          }),
+          fetch(
+            `${baseURL}/call-summary/call-summary?excludeDestS=1&_=${Date.now()}`,
+            { cache: "no-store" }
+          ),
         ]);
         if (dashboardResponse.ok) {
           const data = await dashboardResponse.json();
           setDashboardData({
-            agentStatus: data.agentStatus || {
-              onlineCount: 0,
-              offlineCount: 0,
-            },
+            agentStatus: data.agentStatus || { ...DEFAULT_AGENT_STATUS },
             liveCalls: Array.isArray(data.liveCalls) ? data.liveCalls : [],
             callStats: data.callStats || {
               totalCounts: [],
@@ -228,6 +285,7 @@ export default function PublicDashboard({
           setCallSummaryData(summaryData);
         }
         fetchLostCallsToday();
+        fetchDroppedCallsToday();
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
       }
@@ -246,7 +304,7 @@ return () => {
   clearInterval(fallbackInterval);
 };
 
-  }, [fetchLostCallsToday]);
+  }, [fetchLostCallsToday, fetchDroppedCallsToday]);
 
   const formatTime = (seconds) => {
     if (!seconds || seconds <= 0) return "00:00";
@@ -257,7 +315,7 @@ return () => {
 
   const formatQueueWait = (waitSeconds) => {
     const sec = Number(waitSeconds);
-    if (!Number.isFinite(sec) || sec < LOST_MIN_QUEUE_WAIT_SEC) return "—";
+    if (!Number.isFinite(sec) || sec <= 0) return "—";
     const mins = Math.floor(sec / 60);
     const rem = sec % 60;
     return `${mins}m ${rem}s`;
@@ -269,13 +327,29 @@ return () => {
     return match ? match[1] : clid;
   };
 
-  const activeCalls = dashboardData.liveCalls.filter((call) => call.status === "active");
-  const totalAgents = dashboardData.agentStatus.onlineCount + dashboardData.agentStatus.offlineCount;
-
-  // Calculate inQueue dynamically from live calls (calls in queue but not answered)
-  const inQueueCallsCount = dashboardData.liveCalls.filter(
-    (call) => call.queue_entry_time && !call.call_answered && !call.call_end
-  ).length;
+  const liveOnWallboard = dashboardData.liveCalls.filter((call) => !call.call_end);
+  const activeCallsCount = Math.max(
+    liveOnWallboard.filter((call) => call.status === "active").length,
+    Number(dashboardData.callStatusSummary?.active ?? 0)
+  );
+  const inQueueCallsCount = Math.max(
+    liveOnWallboard.filter((call) => call.status === "calling").length,
+    Number(dashboardData.callStatusSummary?.inQueue ?? 0)
+  );
+  const agentStatus = dashboardData.agentStatus || DEFAULT_AGENT_STATUS;
+  const totalActive =
+    agentStatus.totalActive ??
+    (agentStatus.onlineCount || 0) + (agentStatus.pauseCount || 0);
+  const onlinePercent =
+    agentStatus.onlinePercent ??
+    (totalActive > 0
+      ? Math.round(((agentStatus.onlineCount || 0) / totalActive) * 100)
+      : 0);
+  const pausePercent =
+    agentStatus.pausePercent ??
+    (totalActive > 0
+      ? Math.round(((agentStatus.pauseCount || 0) / totalActive) * 100)
+      : 0);
 
   // Call summary from API: answered, dropped, lost; total = sum of those three
   const day =
@@ -297,13 +371,23 @@ return () => {
       lost: 0,
     };
 
+  const lostCallsCount = Number(
+    dashboardData.callStatistics?.lost ??
+      dashboardData.callStatusSummary?.lost ??
+      day.lost ??
+      0
+  );
+  const droppedCallsCount = Number(
+    dashboardData.callStatistics?.dropped ??
+      dashboardData.callStatusSummary?.dropped ??
+      day.dropped ??
+      0
+  );
   const answeredCallsCount = day.answered ?? 0;
-  const droppedCallsCount = day.dropped ?? 0;
-  const lostCallsCount = day.lost ?? 0;
 
   const dailyAnswered = day.answered ?? 0;
-  const dailyDropped = day.dropped ?? 0;
-  const dailyLost = day.lost ?? 0;
+  const dailyDropped = droppedCallsCount;
+  const dailyLost = lostCallsCount;
   const dailyTotal = dailyAnswered + dailyDropped + dailyLost;
 
   const monthlyAnswered = month.answered ?? 0;
@@ -471,6 +555,11 @@ return () => {
     fetchLostCallsToday(true);
   };
 
+  const handleShowDroppedCalls = () => {
+    setShowDroppedCallsModal(true);
+    fetchDroppedCallsToday(true);
+  };
+
   if (loading) {
     if (suppressLoadingUI) {
       return <div className={`public-dashboard public-dashboard--preload ${className}`.trim()} aria-hidden />;
@@ -633,20 +722,22 @@ return () => {
                   <Grid item xs={4} sx={{ flex: "1 1 33.333%", maxWidth: "33.333%" }}>
                     <Box textAlign="center" sx={{ width: "100%", px: 0.5 }}>
                       <Typography variant="h4" sx={{ fontWeight: 700, color: "#1976d2", mb: 0.5 }}>
-                        {dashboardData.agentStatus.onlineCount}
+                        {agentStatus.onlineCount}
                       </Typography>
                       <Typography variant="body2" color="textSecondary" sx={{ fontSize: "0.875rem" }}>
                         Online Agents
                       </Typography>
-                      <Typography variant="caption" color="textSecondary" sx={{ fontSize: "0.75rem" }}>
-              {totalAgents > 0 ? `${Math.round((dashboardData.agentStatus.onlineCount / totalAgents) * 100)}% Available` : "No Agents"}
+                      <Typography variant="caption" color="textSecondary" sx={{ fontSize: "0.75rem", display: "block" }}>
+                        {totalActive > 0
+                          ? `${onlinePercent}% Online · ${pausePercent}% Pause`
+                          : "No logged-in agents"}
                       </Typography>
                     </Box>
                   </Grid>
                   <Grid item xs={4} sx={{ flex: "1 1 33.333%", maxWidth: "33.333%" }}>
                     <Box textAlign="center" sx={{ width: "100%", px: 0.5 }}>
                       <Typography variant="h4" sx={{ fontWeight: 700, color: "#4caf50", mb: 0.5 }}>
-                        {activeCalls.length}
+                        {activeCallsCount}
                       </Typography>
                       <Typography variant="body2" color="textSecondary" sx={{ fontSize: "0.875rem" }}>
                         Active Calls
@@ -659,7 +750,7 @@ return () => {
                   <Grid item xs={4} sx={{ flex: "1 1 33.333%", maxWidth: "33.333%" }}>
                     <Box textAlign="center" sx={{ width: "100%", px: 0.5 }}>
                       <Typography variant="h4" sx={{ fontWeight: 700, color: "#ff9800", mb: 0.5 }}>
-                        {dashboardData.callStatusSummary?.inQueue || inQueueCallsCount || 0}
+                        {inQueueCallsCount}
                       </Typography>
                       <Typography variant="body2" color="textSecondary" sx={{ fontSize: "0.875rem" }}>
                         In Queue
@@ -733,6 +824,15 @@ return () => {
                           <Typography variant="body2" color="textSecondary" sx={{ fontSize: "0.875rem" }}>
                             Dropped Calls
                           </Typography>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            startIcon={<MdVisibility />}
+                            onClick={handleShowDroppedCalls}
+                            sx={{ mt: 0.5, fontSize: "0.7rem" }}
+                          >
+                            View Details
+                          </Button>
                         </Box>
                   </Grid>
                 </Grid>
@@ -1006,6 +1106,8 @@ return () => {
                 <div>Phone Number</div>
                 <div>Missed At</div>
                 <div>Queue Wait</div>
+                <div>Agent Extension</div>
+                <div>Agent Name</div>
                 <div>Status</div>
               </div>
 
@@ -1015,16 +1117,16 @@ return () => {
                     {extractPhoneFromClid(call.caller)}
                   </div>
                   <div className="lost-call-time">
-                    {call.call_time
-                      ? new Date(call.call_time).toLocaleString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          second: "2-digit",
-                        })
-                      : "-"}
+                    {formatDbTimeLocal(call.call_time || call.lost_time)}
                   </div>
                   <div className="lost-call-wait">
                     {formatQueueWait(call.wait_seconds)}
+                  </div>
+                  <div className="lost-call-agent-ext">
+                    {call.agent_extension ? `Ext ${call.agent_extension}` : "—"}
+                  </div>
+                  <div className="lost-call-agent-name">
+                    {call.agent_name || "—"}
                   </div>
                   <div className="lost-call-status">
                     <span className="status-badge no-answer">LOST</span>
@@ -1040,6 +1142,69 @@ return () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowLostCallsModal(false)} variant="contained">
+            Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={showDroppedCallsModal}
+        onClose={() => setShowDroppedCallsModal(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>Dropped Calls Today (under 5 min in queue)</span>
+            <IconButton onClick={() => setShowDroppedCallsModal(false)}><CloseIcon /></IconButton>
+          </div>
+        </DialogTitle>
+        <DialogContent>
+          {droppedCallsLoading ? (
+            <div style={{ textAlign: "center", padding: "40px" }}>Loading dropped calls...</div>
+          ) : droppedCalls.length > 0 ? (
+            <div className="lost-calls-list enhanced">
+              <div className="lost-call-item header lost-call-item--public">
+                <div>Phone Number</div>
+                <div>Call Time</div>
+                <div>Queue Wait</div>
+                <div>Agent Extension</div>
+                <div>Agent Name</div>
+                <div>Status</div>
+              </div>
+              {droppedCalls.map((call, i) => (
+                <div key={call.id || call.session_id || i} className="lost-call-item lost-call-item--public">
+                  <div className="lost-call-phone">
+                    {extractPhoneFromClid(call.caller)}
+                  </div>
+                  <div className="lost-call-time">
+                    {formatDbTimeLocal(call.call_time)}
+                  </div>
+                  <div className="lost-call-wait">
+                    {call.duration_minutes != null
+                      ? `${call.duration_minutes} min`
+                      : formatQueueWait(call.wait_seconds)}
+                  </div>
+                  <div className="lost-call-agent-ext">
+                    {call.agent_extension ? `Ext ${call.agent_extension}` : "—"}
+                  </div>
+                  <div className="lost-call-agent-name">
+                    {call.agent_name || "—"}
+                  </div>
+                  <div className="lost-call-status">
+                    <span className="status-badge dropped">DROPPED</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div style={{ textAlign: "center", padding: "40px", color: "#666" }}>
+              No dropped calls recorded today
+            </div>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowDroppedCallsModal(false)} variant="contained">
             Close
           </Button>
         </DialogActions>

@@ -14,7 +14,7 @@ import WcfLoader from "../../../components/shared/WcfLoader";
 import ReportDateRangePicker from "../../../components/shared/ReportDateRangePicker";
 import ReportTablePagination from "../../../components/shared/ReportTablePagination";
 import useReportTablePagination from "../../../hooks/useReportTablePagination";
-import { isValidReportDateRange } from "../../../utils/reportDateUtils";
+import { isValidReportDateRange, todayApiDate } from "../../../utils/reportDateUtils";
 import TicketWorkflowExpandPanel from "../../../components/workflow/TicketWorkflowExpandPanel";
 import {
   enrichTicketWithWorkflow,
@@ -50,7 +50,16 @@ import {
   getOffHoursRowColor,
   OffHoursCallbackStatusChip,
 } from "../../../utils/offHoursReportShared";
-import { formatSecondsToMinutes } from "../../../utils/callDurationFormat";
+import {
+  formatSecondsToMinutes,
+  formatVoiceNoteDuration,
+} from "../../../utils/callDurationFormat";
+import { computeCdrTalkTimeSec } from "../../../utils/cdrReportHelpers";
+import { formatDbDateTimeLocal } from "../../../utils/dateTimeFormat";
+import {
+  exportRowsToCsv,
+  exportRowsToExcel,
+} from "../../../utils/reportExportHelpers";
 import {
   isPendingCallback,
   getCallbackPhone,
@@ -309,6 +318,7 @@ export default function ComprehensiveReports() {
   const [disposition, setDisposition] = useState("all");
   const [ticketStatus, setTicketStatus] = useState("all");
   const [agentFilter, setAgentFilter] = useState("all");
+  const [agentOptions, setAgentOptions] = useState([]);
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [missedCallStatusFilter, setMissedCallStatusFilter] = useState("all");
@@ -338,6 +348,54 @@ export default function ComprehensiveReports() {
       setOffHoursCallingBackId(null);
     }
   }, [phoneStatus]);
+
+  useEffect(() => {
+    if (OPTIONAL_DATE_TABS.has(activeTab) || SKIP_AUTO_FETCH_TABS.has(activeTab)) {
+      return;
+    }
+    const today = todayApiDate();
+    setStartDate(today);
+    setEndDate(today);
+  }, [activeTab]);
+
+  const handleStartDateChange = useCallback((value) => {
+    setStartDate(value);
+    if (value) {
+      setEndDate((prev) => {
+        if (!prev || value > prev) return value;
+        return prev;
+      });
+    }
+  }, []);
+
+  const handleEndDateChange = useCallback((value) => {
+    setEndDate(value);
+    if (value) {
+      setStartDate((prev) => {
+        if (!prev || value < prev) return value;
+        return prev;
+      });
+    }
+  }, []);
+
+  useEffect(() => {
+    const loadAgents = async () => {
+      try {
+        const token = localStorage.getItem("authToken");
+        if (!token) return;
+        const res = await fetch(`${baseURL}/users/agents`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : data.agents || [];
+        setAgentOptions(list);
+      } catch {
+        /* optional dropdown */
+      }
+    };
+    loadAgents();
+  }, []);
 
   // Column selection
   const [columnDialogOpen, setColumnDialogOpen] = useState(false);
@@ -455,6 +513,30 @@ export default function ComprehensiveReports() {
             ? droppedData
             : droppedData.records || [];
           setReports(list);
+          setLoading(false);
+          return;
+        }
+        case REPORT_TYPES.LOST_CALL: {
+          if (!startDate || !endDate) {
+            throw new Error("Please select start and end dates");
+          }
+          const qLost = new URLSearchParams();
+          if (disposition !== "all") qLost.set("disposition", disposition);
+          const lostUrl = `${baseURL}/reports/lost-calls-report/${startDate}/${endDate}${
+            qLost.toString() ? `?${qLost.toString()}` : ""
+          }`;
+          const lostRes = await fetch(lostUrl, { headers });
+          if (!lostRes.ok) {
+            const errBody = await lostRes.json().catch(() => ({}));
+            throw new Error(
+              errBody.message || errBody.error || "Failed to fetch lost calls report"
+            );
+          }
+          const lostData = await lostRes.json();
+          const lostList = Array.isArray(lostData)
+            ? lostData
+            : lostData.records || [];
+          setReports(lostList);
           setLoading(false);
           return;
         }
@@ -687,6 +769,14 @@ export default function ComprehensiveReports() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        if (
+          response.status === 404 &&
+          activeTab === REPORT_TYPES.AGENT_PERFORMANCE
+        ) {
+          setReports([]);
+          setLoading(false);
+          return;
+        }
         throw new Error(errorData.message || `Failed to fetch report`);
       }
 
@@ -1093,10 +1183,7 @@ export default function ComprehensiveReports() {
       }));
     }
 
-    const ws = XLSX.utils.json_to_sheet(rows);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Off-Hours");
-    XLSX.writeFile(wb, `off_hours_report_${startDate}_to_${endDate}.csv`);
+    exportRowsToCsv(rows, `off_hours_report_${startDate}_to_${endDate}.csv`);
     setSnackbarMessage("CSV exported successfully!");
     setSnackbarSeverity("success");
     setSnackbarOpen(true);
@@ -1243,6 +1330,11 @@ export default function ComprehensiveReports() {
           { key: "date", label: "Date", default: true },
           { key: "played", label: "Played", default: true },
           {
+            key: "voiceDuration",
+            label: "Duration of Voice (sec)",
+            default: true,
+          },
+          {
             key: "assignedExtension",
             label: "Assigned Extension",
             default: true,
@@ -1260,13 +1352,12 @@ export default function ComprehensiveReports() {
           { key: "startTime", label: "Start Time", default: true },
           {
             key: "agentWait",
-            label: "Agent Response Wait (min)",
+            label: "Agent Response Wait from IVR (min)",
             default: true,
           },
-          { key: "duration", label: "Duration (min)", default: true },
-          { key: "billed", label: "Billed (min)", default: true },
+          { key: "billed", label: "Talk Time (min)", default: true },
           { key: "disposition", label: "Disposition", default: true },
-          { key: "recording", label: "Recording File", default: false },
+          { key: "duration", label: "Total Call Duration (min)", default: true },
         ];
       case REPORT_TYPES.TICKET_CRM:
         return [
@@ -1512,6 +1603,7 @@ export default function ComprehensiveReports() {
           { key: "status", label: "Status", default: true },
         ];
       case REPORT_TYPES.DROPPED_CALL:
+      case REPORT_TYPES.LOST_CALL:
         return [
           { key: "serial", label: "Serial No", default: true },
           { key: "status", label: "Status", default: true },
@@ -1520,7 +1612,7 @@ export default function ComprehensiveReports() {
           { key: "agentExtension", label: "Agent Extension", default: true },
           { key: "agentName", label: "Agent Name", default: true },
           { key: "callTime", label: "Call Time", default: true },
-          { key: "durationMinutes", label: "Duration (min)", default: true },
+          { key: "durationMinutes", label: "Queue Wait (min)", default: true },
           { key: "disposition", label: "Disposition", default: true },
         ];
       case REPORT_TYPES.ESCALLATION:
@@ -1670,11 +1762,12 @@ export default function ComprehensiveReports() {
         );
       case REPORT_TYPES.AGENT_PERFORMANCE:
         const matchesAgent =
-          agentFilter === "all" || report.agent_id === agentFilter;
-        return (
-          (report.agent_name || "").toLowerCase().includes(searchLower) &&
-          matchesAgent
-        );
+          agentFilter === "all" ||
+          String(report.agent_id) === String(agentFilter);
+        const matchesAgentSearch =
+          !searchLower ||
+          (report.agent_name || "").toLowerCase().includes(searchLower);
+        return matchesAgentSearch && matchesAgent;
       case REPORT_TYPES.MISSED_CALL:
         return (
           (report.caller || "").toLowerCase().includes(searchLower) ||
@@ -1682,6 +1775,7 @@ export default function ComprehensiveReports() {
           (report.agent_name || "").toLowerCase().includes(searchLower)
         );
       case REPORT_TYPES.DROPPED_CALL:
+      case REPORT_TYPES.LOST_CALL:
         return (
           (report.caller || "").toLowerCase().includes(searchLower) ||
           (report.destination || "").toLowerCase().includes(searchLower) ||
@@ -1823,6 +1917,8 @@ export default function ComprehensiveReports() {
               : "-";
           case "played":
             return isVoiceNotePlayed(report) ? "Yes" : "No";
+          case "voiceDuration":
+            return formatVoiceNoteDuration(report.duration_seconds);
           case "assignedExtension":
             return getAssignedExtensionDisplay(report);
           case "agentName":
@@ -1857,11 +1953,9 @@ export default function ComprehensiveReports() {
           case "duration":
             return formatSecondsToMinutes(report.duration, false);
           case "billed":
-            return formatSecondsToMinutes(report.billsec, false);
+            return formatSecondsToMinutes(computeCdrTalkTimeSec(report), false);
           case "disposition":
             return formatCallStatus(report.disposition);
-          case "recording":
-            return report.recordingfile || "-";
           default:
             return "-";
         }
@@ -2230,11 +2324,15 @@ export default function ComprehensiveReports() {
             return report[columnKey] || "-";
         }
       case REPORT_TYPES.DROPPED_CALL:
+      case REPORT_TYPES.LOST_CALL:
         switch (columnKey) {
           case "serial":
             return page * rowsPerPage + index + 1;
           case "status":
-            return report.status || "DROPPED";
+            return (
+              report.status ||
+              (activeTab === REPORT_TYPES.LOST_CALL ? "LOST" : "DROPPED")
+            );
           case "caller":
             return report.caller || "-";
           case "destination":
@@ -2244,9 +2342,9 @@ export default function ComprehensiveReports() {
           case "agentName":
             return report.agent_name || "-";
           case "callTime":
-            return report.call_time
-              ? new Date(report.call_time).toLocaleString()
-              : "-";
+            return formatDbDateTimeLocal(report.call_time, {
+              fallback: "-",
+            });
           case "durationMinutes":
             return report.duration_minutes != null
               ? String(report.duration_minutes)
@@ -2355,6 +2453,59 @@ export default function ComprehensiveReports() {
     }
   };
 
+  // Shared export row builder for tabular reports
+  const prepareTabularExportRows = async () => {
+    if (filteredReports.length === 0) {
+      setSnackbarMessage("No data to export");
+      setSnackbarSeverity("warning");
+      setSnackbarOpen(true);
+      return null;
+    }
+
+    const columns = getColumnDefinitions();
+    const selected = selectedColumns[activeTab] || [];
+    const selectedColumnsDef = columns.filter((col) =>
+      selected.includes(col.key)
+    );
+
+    if (selectedColumnsDef.length === 0) {
+      setSnackbarMessage("Please select at least one column to export");
+      setSnackbarSeverity("warning");
+      setSnackbarOpen(true);
+      return null;
+    }
+
+    let dataSource = filteredReports;
+    if (activeTab === REPORT_TYPES.TICKET_CRM) {
+      if (!confirmExportIfLarge()) return null;
+      setExportingWorkflow(true);
+      try {
+        dataSource = await enrichReportsWithWorkflow(filteredReports);
+      } catch {
+        setSnackbarMessage("Failed to load workflow data for export");
+        setSnackbarSeverity("error");
+        setSnackbarOpen(true);
+        return null;
+      } finally {
+        setExportingWorkflow(false);
+      }
+    }
+
+    const rows = dataSource.map((report, idx) => {
+      const row = {};
+      selectedColumnsDef.forEach((col) => {
+        row[col.label] = getColumnValue(col.key, report, idx);
+      });
+      return row;
+    });
+
+    const filenameBase = `${getReportTitle().toLowerCase().replace(/\s+/g, "_")}_${
+      startDate || "all"
+    }_${endDate || "all"}`;
+
+    return { rows, filenameBase };
+  };
+
   // CSV Export Function
   const handleExportCSV = async () => {
     if (activeTab === REPORT_TYPES.OFF_HOURS) {
@@ -2368,60 +2519,31 @@ export default function ComprehensiveReports() {
       return;
     }
 
-    if (filteredReports.length === 0) {
-      setSnackbarMessage("No data to export");
-      setSnackbarSeverity("warning");
-      setSnackbarOpen(true);
-      return;
-    }
+    const prepared = await prepareTabularExportRows();
+    if (!prepared) return;
 
-    const columns = getColumnDefinitions();
-    const selected = selectedColumns[activeTab] || [];
-    const selectedColumnsDef = columns.filter((col) =>
-      selected.includes(col.key)
-    );
-
-    if (selectedColumnsDef.length === 0) {
-      setSnackbarMessage("Please select at least one column to export");
-      setSnackbarSeverity("warning");
-      setSnackbarOpen(true);
-      return;
-    }
-
-    let dataSource = filteredReports;
-    if (activeTab === REPORT_TYPES.TICKET_CRM) {
-      if (!confirmExportIfLarge()) return;
-      setExportingWorkflow(true);
-      try {
-        dataSource = await enrichReportsWithWorkflow(filteredReports);
-      } catch {
-        setSnackbarMessage("Failed to load workflow data for export");
-        setSnackbarSeverity("error");
-        setSnackbarOpen(true);
-        return;
-      } finally {
-        setExportingWorkflow(false);
-      }
-    }
-
-    const csvData = dataSource.map((report, idx) => {
-      const row = {};
-      selectedColumnsDef.forEach((col) => {
-        row[col.label] = getColumnValue(col.key, report, idx);
-      });
-      return row;
-    });
-
-    const filename = `${getReportTitle().toLowerCase().replace(/\s+/g, "_")}_${
-      startDate || "all"
-    }_${endDate || "all"}.csv`;
-
-    const ws = XLSX.utils.json_to_sheet(csvData);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Report");
-    XLSX.writeFile(wb, filename);
+    exportRowsToCsv(prepared.rows, `${prepared.filenameBase}.csv`);
 
     setSnackbarMessage("CSV exported successfully!");
+    setSnackbarSeverity("success");
+    setSnackbarOpen(true);
+  };
+
+  // Excel Export Function
+  const handleExportExcel = async () => {
+    if (activeTab === REPORT_TYPES.OFF_HOURS) {
+      setSnackbarMessage("Use Off-Hours report export buttons");
+      setSnackbarSeverity("info");
+      setSnackbarOpen(true);
+      return;
+    }
+
+    const prepared = await prepareTabularExportRows();
+    if (!prepared) return;
+
+    exportRowsToExcel(prepared.rows, `${prepared.filenameBase}.xlsx`, "Report");
+
+    setSnackbarMessage("Excel exported successfully!");
     setSnackbarSeverity("success");
     setSnackbarOpen(true);
   };
@@ -2914,6 +3036,7 @@ export default function ComprehensiveReports() {
       case REPORT_TYPES.MISSED_CALL:
         return renderMissedCallTable();
       case REPORT_TYPES.DROPPED_CALL:
+      case REPORT_TYPES.LOST_CALL:
         return renderDroppedCallTable();
       case REPORT_TYPES.ESCALLATION:
         return renderEscallationTable();
@@ -3268,7 +3391,9 @@ export default function ComprehensiveReports() {
                     <Chip
                       label={getColumnValue(col.key, report, index)}
                       size="small"
-                      color="warning"
+                      color={
+                        activeTab === REPORT_TYPES.LOST_CALL ? "error" : "warning"
+                      }
                     />
                   ) : col.key === "disposition" ? (
                     <Chip
@@ -3615,11 +3740,10 @@ export default function ComprehensiveReports() {
           <th>Direction</th>
           <th>Agent</th>
           <th>Start Time</th>
-          <th>Wait Time (min)</th>
-          <th>Duration (min)</th>
-          <th>Billed (min)</th>
+          <th>Agent Response Wait from IVR (min)</th>
+          <th>Talk Time (min)</th>
+          <th>Total Call Duration (min)</th>
           <th>Disposition</th>
-          <th>Recording</th>
         </tr>
       </thead>
       <tbody>
@@ -3645,8 +3769,10 @@ export default function ComprehensiveReports() {
                 ? formatSecondsToMinutes(report.agent_wait_sec, false)
                 : "-"}
             </td>
+            <td>
+              {formatSecondsToMinutes(computeCdrTalkTimeSec(report), false)}
+            </td>
             <td>{formatSecondsToMinutes(report.duration, false)}</td>
-            <td>{formatSecondsToMinutes(report.billsec, false)}</td>
             <td>
               <Chip
                 label={formatCallStatus(report.disposition)}
@@ -3662,7 +3788,6 @@ export default function ComprehensiveReports() {
                 }
               />
             </td>
-            <td>{report.recordingfile || "-"}</td>
           </tr>
         ))}
       </tbody>
@@ -4241,8 +4366,8 @@ export default function ComprehensiveReports() {
                 className="report-filter-dates"
                 startDate={startDate}
                 endDate={endDate}
-                onStartDateChange={setStartDate}
-                onEndDateChange={setEndDate}
+                onStartDateChange={handleStartDateChange}
+                onEndDateChange={handleEndDateChange}
                 disabled={loading}
               />
             </div>
@@ -4274,6 +4399,15 @@ export default function ComprehensiveReports() {
                 disabled={filteredReports.length === 0 || exportingWorkflow}
               >
                 Export CSV
+              </Button>
+              <Button
+                variant="outlined"
+                color="primary"
+                startIcon={<TableChart />}
+                onClick={handleExportExcel}
+                disabled={filteredReports.length === 0 || exportingWorkflow}
+              >
+                Export Excel
               </Button>
             </div>
           </div>
@@ -4347,8 +4481,8 @@ export default function ComprehensiveReports() {
               className="report-filter-dates"
               startDate={startDate}
               endDate={endDate}
-              onStartDateChange={setStartDate}
-              onEndDateChange={setEndDate}
+              onStartDateChange={handleStartDateChange}
+              onEndDateChange={handleEndDateChange}
               disabled={loading}
             />
 
@@ -4371,7 +4505,8 @@ export default function ComprehensiveReports() {
               )}
 
               {(activeTab === REPORT_TYPES.CDR ||
-                activeTab === REPORT_TYPES.DROPPED_CALL) && (
+                activeTab === REPORT_TYPES.DROPPED_CALL ||
+                activeTab === REPORT_TYPES.LOST_CALL) && (
                 <FormControl
                   size="small"
                   className="filter-field"
@@ -4461,7 +4596,11 @@ export default function ComprehensiveReports() {
                     onChange={(e) => setAgentFilter(e.target.value)}
                   >
                     <MenuItem value="all">All Agents</MenuItem>
-                    {/* Add agent options dynamically */}
+                    {agentOptions.map((agent) => (
+                      <MenuItem key={agent.id} value={String(agent.id)}>
+                        {agent.full_name || agent.username || `Agent ${agent.id}`}
+                      </MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
               )}
@@ -4558,6 +4697,15 @@ export default function ComprehensiveReports() {
               >
                 Export CSV
               </Button>
+              <Button
+                variant="outlined"
+                color="primary"
+                startIcon={<TableChart />}
+                onClick={handleExportExcel}
+                disabled={filteredReports.length === 0 || exportingWorkflow}
+              >
+                Export Excel
+              </Button>
             </div>
           </div>
 
@@ -4575,7 +4723,8 @@ export default function ComprehensiveReports() {
                   ? "Search by agent name..."
                   : activeTab === REPORT_TYPES.MISSED_CALL
                   ? "Search by caller or agent ID..."
-                  : activeTab === REPORT_TYPES.DROPPED_CALL
+                  : activeTab === REPORT_TYPES.DROPPED_CALL ||
+                    activeTab === REPORT_TYPES.LOST_CALL
                   ? "Search by caller, destination, agent, or status..."
                   : activeTab === REPORT_TYPES.ESCALLATION
                   ? "Search by ticket number, subject, status, or category..."

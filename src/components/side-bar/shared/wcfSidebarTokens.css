@@ -1,7 +1,7 @@
 :root {
-  --wcf-navy: #305fa7;
+  --wcf-navy: #ffffff;
   --wcf-white: #ffffff;
-  --wcf-sidebar-bg: #305fa7;
+  --wcf-sidebar-bg: #ffffff;
    /* --wcf-sidebar-bg: #ffffff; */
   --wcf-sidebar-width-open: 260px;
   --wcf-sidebar-width-closed: 72px;
@@ -9,10 +9,10 @@
   --wcf-blue-light: #5a8fd4;
   --wcf-green: #8cc63f;
   --wcf-gray: #939598;
-  --wcf-sidebar-text: #ffffff;
-  --wcf-sidebar-text-active: #ffffff;
+  --wcf-sidebar-text: #3b71b7;
+  --wcf-sidebar-text-active: #3b71b7;
   --wcf-sidebar-active-bg: rgba(255, 255, 255, 0.16);
-  --wcf-sidebar-hover-bg: rgba(235, 235, 241, 0.1);
+  --wcf-sidebar-hover-bg: rgba(181, 181, 212, 0.1);
   --wcf-sidebar-border: rgba(255, 255, 255, 0.08);
   --wcf-surface-border: rgba(15, 27, 46, 0.08);
   --wcf-shadow-sm: 0 1px 3px rgba(13, 27, 46, 0.08);

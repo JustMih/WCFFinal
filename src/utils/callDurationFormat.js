@@ -1,3 +1,8 @@
+import {
+  LOST_MIN_DURATION_SECONDS,
+  QUEUE_EXIT_TIMEOUT_SECONDS,
+} from "./callClassification";
+
 /**
  * Format a duration stored in seconds for display in minutes.
  * @param {number|string|null|undefined} value - duration in seconds
@@ -9,10 +14,26 @@ export function formatSecondsToMinutes(value, includeUnit = true) {
   if (value === null || value === undefined || value === "") return "-";
   if (!Number.isFinite(seconds) || seconds < 0) return "-";
   if (seconds === 0) return includeUnit ? "0 min" : "0";
+  if (seconds >= LOST_MIN_DURATION_SECONDS) {
+    const five = QUEUE_EXIT_TIMEOUT_SECONDS / 60;
+    return includeUnit ? `${five} min` : String(five);
+  }
   const minutes = seconds / 60;
   const rounded =
     minutes >= 10
       ? Math.round(minutes * 10) / 10
       : Math.round(minutes * 100) / 100;
   return includeUnit ? `${rounded} min` : String(rounded);
+}
+
+/**
+ * Format voice note duration for display (numeric seconds only; unit belongs in column title).
+ * @param {number|string|null|undefined} value - duration in seconds
+ * @returns {string}
+ */
+export function formatVoiceNoteDuration(value) {
+  const seconds = Math.round(Number(value));
+  if (value === null || value === undefined || value === "") return "—";
+  if (!Number.isFinite(seconds) || seconds < 0) return "—";
+  return String(seconds);
 }
