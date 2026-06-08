@@ -293,7 +293,7 @@ export default function CallCenterSidebar({
                 <span className="sidebar-nav-row">
                   <MdPublic className="menu-icon" />
                   {isSidebarOpen && (
-                    <span className="menu-text">Public Dashboard</span>
+                    <span className="menu-text">Live Dashboard</span>
                   )}
                 </span>
               </NavLink>

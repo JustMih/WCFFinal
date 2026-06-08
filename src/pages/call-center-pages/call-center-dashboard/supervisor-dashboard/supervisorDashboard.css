@@ -155,22 +155,6 @@
   align-items: stretch;
 }
 
-.supervisor-dashboard-root .call-center-agent-summary.sla-metrics-grid {
-  grid-template-columns: repeat(4, 1fr);
-}
-
-@media (max-width: 1100px) {
-  .supervisor-dashboard-root .call-center-agent-summary.sla-metrics-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 640px) {
-  .supervisor-dashboard-root .call-center-agent-summary.sla-metrics-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
 @media (max-width: 1100px) {
   .supervisor-dashboard-root .call-center-agent-summary {
     grid-template-columns: repeat(2, 1fr);
@@ -232,22 +216,6 @@
   background: linear-gradient(180deg, #ef5350, #c62828);
 }
 
-.supervisor-dashboard-root .supervisor-stat-card.sla-service-level::before {
-  background: linear-gradient(180deg, #42a5f5, #1565c0);
-}
-
-.supervisor-dashboard-root .supervisor-stat-card.sla-avg-response::before {
-  background: linear-gradient(180deg, #26a69a, #00695c);
-}
-
-.supervisor-dashboard-root .supervisor-stat-card.sla-avg-handle::before {
-  background: linear-gradient(180deg, #ab47bc, #6a1b9a);
-}
-
-.supervisor-dashboard-root .supervisor-stat-card.sla-abandonment::before {
-  background: linear-gradient(180deg, #ffa726, #ef6c00);
-}
-
 .supervisor-dashboard-root .supervisor-stat-card__icon-wrap {
   flex-shrink: 0;
   width: 40px;
@@ -278,34 +246,6 @@
   .supervisor-stat-card__icon-wrap {
   background: rgba(244, 67, 54, 0.12);
   color: #c62828;
-}
-
-.supervisor-dashboard-root
-  .supervisor-stat-card.sla-service-level
-  .supervisor-stat-card__icon-wrap {
-  background: rgba(66, 165, 245, 0.12);
-  color: #1565c0;
-}
-
-.supervisor-dashboard-root
-  .supervisor-stat-card.sla-avg-response
-  .supervisor-stat-card__icon-wrap {
-  background: rgba(38, 166, 154, 0.12);
-  color: #00695c;
-}
-
-.supervisor-dashboard-root
-  .supervisor-stat-card.sla-avg-handle
-  .supervisor-stat-card__icon-wrap {
-  background: rgba(171, 71, 188, 0.12);
-  color: #6a1b9a;
-}
-
-.supervisor-dashboard-root
-  .supervisor-stat-card.sla-abandonment
-  .supervisor-stat-card__icon-wrap {
-  background: rgba(255, 167, 38, 0.12);
-  color: #ef6c00;
 }
 
 .supervisor-dashboard-root .supervisor-stat-card__body {

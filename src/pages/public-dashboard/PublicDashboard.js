@@ -33,6 +33,9 @@ import {
 import { baseURL } from "../../config";
 import io from "socket.io-client";
 import ActiveCalls from "../../components/active-calls/ActiveCalls";
+import SlaMetricsCards, {
+  DEFAULT_SLA_METRICS,
+} from "../../components/sla-metrics/SlaMetricsCards";
 import ReactApexChart from "react-apexcharts";
 import "./PublicDashboard.css";
 
@@ -74,6 +77,7 @@ export default function PublicDashboard({
   const [droppedCalls, setDroppedCalls] = useState([]);
   const [showDroppedCallsModal, setShowDroppedCallsModal] = useState(false);
   const [droppedCallsLoading, setDroppedCallsLoading] = useState(false);
+  const [slaMetrics, setSlaMetrics] = useState({ ...DEFAULT_SLA_METRICS });
 
   const fetchLostCallsToday = useCallback(async (forModal = false) => {
     if (forModal) setLostCallsLoading(true);
@@ -189,8 +193,24 @@ export default function PublicDashboard({
       }
     };
 
+    const fetchSlaMetrics = async () => {
+      try {
+        const response = await fetch(
+          `${baseURL}/calls/sla-metrics?_=${Date.now()}`,
+          { cache: "no-store" }
+        );
+        if (response.ok) {
+          const data = await response.json();
+          setSlaMetrics({ ...DEFAULT_SLA_METRICS, ...data });
+        }
+      } catch (error) {
+        console.error("Error fetching SLA metrics:", error);
+      }
+    };
+
     fetchDashboardData();
     fetchCallSummary();
+    fetchSlaMetrics();
     fetchLostCallsToday();
     fetchDroppedCallsToday();
 
@@ -244,15 +264,19 @@ export default function PublicDashboard({
     // Periodic fetch for live calls, dashboard, and call summary every 2 seconds
     const liveCallsInterval = setInterval(async () => {
       try {
-        const [dashboardResponse, callSummaryResponse] = await Promise.all([
-          fetch(`${baseURL}/public/dashboard?_=${Date.now()}`, {
-            cache: "no-store",
-          }),
-          fetch(
-            `${baseURL}/call-summary/call-summary?excludeDestS=1&_=${Date.now()}`,
-            { cache: "no-store" }
-          ),
-        ]);
+        const [dashboardResponse, callSummaryResponse, slaResponse] =
+          await Promise.all([
+            fetch(`${baseURL}/public/dashboard?_=${Date.now()}`, {
+              cache: "no-store",
+            }),
+            fetch(
+              `${baseURL}/call-summary/call-summary?excludeDestS=1&_=${Date.now()}`,
+              { cache: "no-store" }
+            ),
+            fetch(`${baseURL}/calls/sla-metrics?_=${Date.now()}`, {
+              cache: "no-store",
+            }),
+          ]);
         if (dashboardResponse.ok) {
           const data = await dashboardResponse.json();
           setDashboardData({
@@ -283,6 +307,10 @@ export default function PublicDashboard({
         if (callSummaryResponse.ok) {
           const summaryData = await callSummaryResponse.json();
           setCallSummaryData(summaryData);
+        }
+        if (slaResponse.ok) {
+          const slaData = await slaResponse.json();
+          setSlaMetrics({ ...DEFAULT_SLA_METRICS, ...slaData });
         }
         fetchLostCallsToday();
         fetchDroppedCallsToday();
@@ -892,6 +920,10 @@ return () => {
             </Grid>
           </Grid>
         </Box>
+      </div>
+
+      <div className="dashboard-section" style={{ width: "100%", boxSizing: "border-box" }}>
+        <SlaMetricsCards metrics={slaMetrics} />
       </div>
 
       {/* Call Summary Statistics Section */}
