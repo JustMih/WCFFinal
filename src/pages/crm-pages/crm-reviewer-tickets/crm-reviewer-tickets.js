@@ -28,6 +28,7 @@ import TicketDetailsModal from '../../../components/TicketDetailsModal';
 import Pagination from '../../../components/Pagination';
 import TableControls from "../../../components/TableControls";
 import TicketFilters from '../../../components/ticket/TicketFilters';
+import { getTicketEmployeeDisplayName } from "../../../utils/ticketDisplayName";
 
 export default function CRMReviewerTickets() {
   const { status } = useParams();
@@ -256,13 +257,7 @@ export default function CRMReviewerTickets() {
         </td>
       )}
       {activeColumns.includes("employee") && (
-        <td>
-          {ticket.first_name && ticket.first_name.trim() !== ""
-            ? `${ticket.first_name} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim()
-            : ticket.representative_name && ticket.representative_name.trim() !== ""
-              ? ticket.representative_name
-              : "N/A"}
-        </td>
+        <td>{getTicketEmployeeDisplayName(ticket)}</td>
       )}
       {activeColumns.includes("employer") && (
         <td>
@@ -278,13 +273,7 @@ export default function CRMReviewerTickets() {
         </td>
       )}
       {activeColumns.includes("fullName") && (
-        <td>
-          {ticket.first_name && ticket.first_name.trim() !== ""
-            ? `${ticket.first_name} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim()
-            : ticket.representative_name && ticket.representative_name.trim() !== ""
-              ? ticket.representative_name
-              : "N/A"}
-        </td>
+        <td>{getTicketEmployeeDisplayName(ticket)}</td>
       )}
       {activeColumns.includes("phone_number") && (
         <td>{ticket.phone_number || "N/A"}</td>
