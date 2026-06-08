@@ -126,14 +126,10 @@ export default function ContactSummaryGrid() {
       inbound: {
         total: sumDirectionTotal(inbound),
         answered: safe(inbound, "answered", 0),
-        dropped: safe(inbound, "dropped", 0),
-        lost: safe(inbound, "lost", 0),
       },
       outbound: {
         total: sumDirectionTotal(outbound),
         answered: safe(outbound, "answered", 0),
-        dropped: safe(outbound, "dropped", 0),
-        lost: safe(outbound, "lost", 0),
       },
       social: {
         total: socialTotal,
@@ -157,18 +153,10 @@ export default function ContactSummaryGrid() {
         <h4>Inbound Calls</h4>
         <span className="total-count">{data.inbound.total}</span>
       </div>
-      <div className="summary-content">
-        <div className="status-row">
-          <span>Answered</span>
-          <span className="count">{data.inbound.answered}</span>
-        </div>
-        <div className="status-row">
-          <span>Dropped</span>
-          <span className="count">{data.inbound.dropped}</span>
-        </div>
-        <div className="status-row">
-          <span>Lost</span>
-          <span className="count">{data.inbound.lost}</span>
+      <div className="summary-content call-summary-content">
+        <div className="answered-stat">
+          <span className="answered-value">{data.inbound.answered}</span>
+          <span className="answered-label">Answered</span>
         </div>
       </div>
     </div>
@@ -181,18 +169,10 @@ export default function ContactSummaryGrid() {
         <h4>Outbound Calls</h4>
         <span className="total-count">{data.outbound.total}</span>
       </div>
-      <div className="summary-content">
-        <div className="status-row">
-          <span>Answered</span>
-          <span className="count">{data.outbound.answered}</span>
-        </div>
-        <div className="status-row">
-          <span>Dropped</span>
-          <span className="count">{data.outbound.dropped}</span>
-        </div>
-        <div className="status-row">
-          <span>Lost</span>
-          <span className="count">{data.outbound.lost}</span>
+      <div className="summary-content call-summary-content">
+        <div className="answered-stat">
+          <span className="answered-value">{data.outbound.answered}</span>
+          <span className="answered-label">Answered</span>
         </div>
       </div>
     </div>

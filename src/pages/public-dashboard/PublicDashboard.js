@@ -326,11 +326,11 @@ export default function PublicDashboard({
       }
     }, 10000);
 
-return () => {
-  socket.disconnect();
-  clearInterval(liveCallsInterval);
-  clearInterval(fallbackInterval);
-};
+    return () => {
+      socket.disconnect();
+      clearInterval(liveCallsInterval);
+      clearInterval(fallbackInterval);
+    };
 
   }, [fetchLostCallsToday, fetchDroppedCallsToday]);
 
@@ -401,15 +401,15 @@ return () => {
 
   const lostCallsCount = Number(
     dashboardData.callStatistics?.lost ??
-      dashboardData.callStatusSummary?.lost ??
-      day.lost ??
-      0
+    dashboardData.callStatusSummary?.lost ??
+    day.lost ??
+    0
   );
   const droppedCallsCount = Number(
     dashboardData.callStatistics?.dropped ??
-      dashboardData.callStatusSummary?.dropped ??
-      day.dropped ??
-      0
+    dashboardData.callStatusSummary?.dropped ??
+    day.dropped ??
+    0
   );
   const answeredCallsCount = day.answered ?? 0;
 
@@ -711,7 +711,7 @@ return () => {
           />
         </Card>
         {/* Back Arrow Button */}
-            <IconButton
+        <IconButton
           onClick={() => window.history.back()}
           sx={{
             position: "absolute",
@@ -729,10 +729,10 @@ return () => {
             },
             transition: "all 0.3s ease",
           }}
-              aria-label="go back"
-            >
+          aria-label="go back"
+        >
           <ArrowBackIcon />
-            </IconButton>
+        </IconButton>
       </Box>
 
       {/* Stats Grid - Two Combined Cards */}
@@ -817,7 +817,7 @@ return () => {
                   </Grid>
                   <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "25%" }}>
                     <Box textAlign="center" sx={{ width: "100%", px: 0.5 }}>
-                          <Typography variant="h4" sx={{ fontWeight: 700, color: "#4caf50", mb: 0.5 }}>
+                      <Typography variant="h4" sx={{ fontWeight: 700, color: "#4caf50", mb: 0.5 }}>
                         {answeredCallsCount}
                       </Typography>
                       <Typography variant="body2" color="textSecondary" sx={{ fontSize: "0.875rem" }}>
@@ -827,41 +827,41 @@ return () => {
                   </Grid>
                   <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "25%" }}>
                     <Box textAlign="center" sx={{ width: "100%", px: 0.5 }}>
-                          <Typography variant="h4" sx={{ fontWeight: 700, color: "#f44336", mb: 0.5 }}>
-                            {lostCallsCount}
-                          </Typography>
-                          <Typography variant="body2" color="textSecondary" sx={{ fontSize: "0.875rem" }}>
-                            Lost Calls
-                          </Typography>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            startIcon={<MdVisibility />}
-                            onClick={handleShowLostCalls}
-                            sx={{ mt: 0.5, fontSize: "0.7rem" }}
-                          >
-                            View Details
-                          </Button>
-                        </Box>
-                      </Grid>
-                      <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "25%" }}>
-                        <Box textAlign="center" sx={{ width: "100%", px: 0.5 }}>
-                          <Typography variant="h4" sx={{ fontWeight: 700, color: "#ff9800", mb: 0.5 }}>
-                            {droppedCallsCount}
-                          </Typography>
-                          <Typography variant="body2" color="textSecondary" sx={{ fontSize: "0.875rem" }}>
-                            Dropped Calls
-                          </Typography>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            startIcon={<MdVisibility />}
-                            onClick={handleShowDroppedCalls}
-                            sx={{ mt: 0.5, fontSize: "0.7rem" }}
-                          >
-                            View Details
-                          </Button>
-                        </Box>
+                      <Typography variant="h4" sx={{ fontWeight: 700, color: "#f44336", mb: 0.5 }}>
+                        {lostCallsCount}
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary" sx={{ fontSize: "0.875rem" }}>
+                        Lost Calls
+                      </Typography>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<MdVisibility />}
+                        onClick={handleShowLostCalls}
+                        sx={{ mt: 0.5, fontSize: "0.7rem" }}
+                      >
+                        View Details
+                      </Button>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "25%" }}>
+                    <Box textAlign="center" sx={{ width: "100%", px: 0.5 }}>
+                      <Typography variant="h4" sx={{ fontWeight: 700, color: "#ff9800", mb: 0.5 }}>
+                        {droppedCallsCount}
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary" sx={{ fontSize: "0.875rem" }}>
+                        Dropped Calls
+                      </Typography>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<MdVisibility />}
+                        onClick={handleShowDroppedCalls}
+                        sx={{ mt: 0.5, fontSize: "0.7rem" }}
+                      >
+                        View Details
+                      </Button>
+                    </Box>
                   </Grid>
                 </Grid>
               </CardContent>
@@ -873,7 +873,11 @@ return () => {
       {/* Active Calls */}
       <div className="dashboard-section">
         <ActiveCalls liveCalls={dashboardData.liveCalls} refreshInterval={2000} showTitle={true} />
-        </div>
+      </div>
+
+      <div className="dashboard-section" style={{ width: "100%", boxSizing: "border-box" }}>
+        <SlaMetricsCards metrics={slaMetrics} />
+      </div>
 
 
 
@@ -920,10 +924,6 @@ return () => {
             </Grid>
           </Grid>
         </Box>
-      </div>
-
-      <div className="dashboard-section" style={{ width: "100%", boxSizing: "border-box" }}>
-        <SlaMetricsCards metrics={slaMetrics} />
       </div>
 
       {/* Call Summary Statistics Section */}
@@ -1114,7 +1114,7 @@ return () => {
             </Card>
           </Grid>
         </Grid>
-        </div>
+      </div>
 
       {/* Lost Calls Modal */}
       <Dialog
