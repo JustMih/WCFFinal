@@ -272,7 +272,7 @@ export default function CallCenterSidebar({
                   isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                 }
               >
-                <span className="sidebar-nav-row">
+                {/* <span className="sidebar-nav-row">
                   <RxDashboard className="menu-icon" />
                   {isSidebarOpen && (
                     <span className="menu-text">
@@ -281,7 +281,7 @@ export default function CallCenterSidebar({
                         : "Supervisor Dashboard Two"}
                     </span>
                   )}
-                </span>
+                </span> */}
               </NavLink>
 
               <NavLink

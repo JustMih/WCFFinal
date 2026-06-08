@@ -427,7 +427,7 @@ export default function SupervisorDashboard2() {
 
   return (
     <div className="supervisor-dashboard-root call-center-agent-container">
-        <h3 className="call-center-agent-title">Supervisor Dashboard 2</h3>
+        <h3 className="call-center-agent-title">Supervisor Dashboard</h3>
 
       {/* Queue Monitoring Section */}
       <div className="dashboard-single-agent">
