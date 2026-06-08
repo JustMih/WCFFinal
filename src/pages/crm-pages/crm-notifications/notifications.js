@@ -31,6 +31,7 @@ import Pagination from '../../../components/Pagination';
 import { useQueryClient } from "@tanstack/react-query";
 import TableControls from "../../../components/TableControls";
 import TicketFilters from '../../../components/ticket/TicketFilters';
+import { getTicketEmployeeDisplayName } from "../../../utils/ticketDisplayName";
 import {
   useCrmNotificationFeed,
   useCrmTicketNotificationHistory,
@@ -1167,13 +1168,7 @@ export default function Crm() {
         </td>
       )}
       {activeColumns.includes("employee") && (
-        <td>
-          {ticket.ticket?.first_name && ticket.ticket?.first_name.trim() !== ""
-            ? `${ticket.ticket?.first_name} ${ticket.ticket?.middle_name || ""} ${ticket.ticket?.last_name || ""}`.trim()
-            : ticket.ticket?.representative_name && ticket.ticket?.representative_name.trim() !== ""
-              ? ticket.ticket?.representative_name
-              : "N/A"}
-        </td>
+        <td>{getTicketEmployeeDisplayName(ticket.ticket)}</td>
       )}
       {activeColumns.includes("employer") && (
         <td>

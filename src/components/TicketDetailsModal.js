@@ -42,6 +42,10 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
 import { baseURL } from "../config";
 import { PermissionManager } from "../utils/permissions";
+import {
+  isReviewerActingAsHeadOfUnit,
+  getEffectiveActionRole,
+} from "../utils/reviewerActingAsHead";
 import TicketUpdates from './ticket/TicketUpdates';
 import ActionMessageModal from "./ticket/ActionMessageModal";
 import ClaimRedirectButton from "./ticket/ClaimRedirectButton.jsx";
@@ -1336,7 +1340,28 @@ export default function TicketDetailsModal({
   const [isFlowModalOpen, setIsFlowModalOpen] = useState(false);
   const userRole = localStorage.getItem("role");
   const userId = localStorage.getItem("userId");
-  const effectiveTicketRole = (selectedTicket?.effective_role || userRole || "").toLowerCase();
+  const resolvedUnitSection =
+    userUnitSection ||
+    (typeof localStorage !== "undefined"
+      ? localStorage.getItem("unit_section")
+      : null);
+  const effectiveTicketRole = (
+    selectedTicket?.effective_role ||
+    userRole ||
+    ""
+  ).toLowerCase();
+  const isReviewerActingAsHead = isReviewerActingAsHeadOfUnit({
+    userRole,
+    userId,
+    userUnitSection: resolvedUnitSection,
+    ticket: selectedTicket,
+  });
+  const effectiveActionRole = getEffectiveActionRole({
+    userRole,
+    userId,
+    userUnitSection: resolvedUnitSection,
+    ticket: selectedTicket,
+  }).toLowerCase();
   const [activeHandoverId, setActiveHandoverId] = useState(null);
   const [revokeHandoverLoading, setRevokeHandoverLoading] = useState(false);
   const isOriginalOwnerBlocked = Boolean(
@@ -1351,10 +1376,13 @@ export default function TicketDetailsModal({
     !isOriginalOwnerBlocked && (isCurrentUserAssigned || canCurrentUserActOnHandoverTicket);
   /** Same family as backend: cannot close Complaints directly — use Reverse with Recommendation to manager */
   const FOCAL_PERSON_ROLES = ["focal-person", "claim-focal-person", "compliance-focal-person"];
-  const isFocalPersonRole = FOCAL_PERSON_ROLES.includes(effectiveTicketRole);
+  const isFocalPersonRole = FOCAL_PERSON_ROLES.includes(effectiveActionRole);
   
   // Initialize PermissionManager for permission checking
-  const permissionManager = new PermissionManager(effectiveTicketRole || userRole, userUnitSection);
+  const permissionManager = new PermissionManager(
+    effectiveActionRole || userRole,
+    resolvedUnitSection
+  );
   
   // State for all sections (directorates and units) from mapping
   const [allSectionsList, setAllSectionsList] = useState([]);
@@ -1580,7 +1608,7 @@ export default function TicketDetailsModal({
 
   // Function to check if user has reassign permission (focal roles, manager, or head-of-unit role)
   const hasReassignPermission = () => {
-    const r = effectiveTicketRole || localStorage.getItem("role");
+    const r = effectiveActionRole || localStorage.getItem("role");
     return (
       r === "focal-person" ||
       r === "claim-focal-person" ||
@@ -1612,7 +1640,7 @@ export default function TicketDetailsModal({
   // This works for ALL ticket categories (Inquiry, Complaint, Suggestion, etc.)
   const shouldShowReassign = () => {
     const currentUserId = localStorage.getItem("userId");
-    const currentUserRole = effectiveTicketRole || localStorage.getItem("role");
+    const currentUserRole = effectiveActionRole || localStorage.getItem("role");
     
     // Only for manager, head-of-unit, and director
     if (currentUserRole !== "manager" && currentUserRole !== "head-of-unit" && currentUserRole !== "director") {
@@ -2265,8 +2293,8 @@ export default function TicketDetailsModal({
         (userRole === "attendee" && selectedTicket.category !== "Complaint") ||
         // For agent: show attend button for normal tickets (Inquiry/other non-complaint categories)
         (userRole === "agent" && selectedTicket.category !== "Complaint") ||
-        // For head-of-unit: show attend button for Minor complaints OR Suggestion/Complement/Compliment OR unrated tickets (N/A)
-        (userRole === "head-of-unit" && (
+        // For head-of-unit (incl. PR reviewer acting as head): show attend for Minor / Suggestion / etc.
+        (effectiveActionRole === "head-of-unit" && (
           selectedTicket.complaint_type === "Minor" ||
           selectedTicket.complaint_type === "N/A" ||
           !selectedTicket.complaint_type ||
@@ -2275,21 +2303,22 @@ export default function TicketDetailsModal({
           selectedTicket.category === "Compliment"
         )) ||
       // For non-directors, non-attendees, non-agents, and non-head-of-unit: existing logic
-      (userRole !== "director" && userRole !== "attendee" && userRole !== "agent" && userRole !== "head-of-unit" && (
+      (effectiveActionRole !== "director" && effectiveActionRole !== "attendee" && effectiveActionRole !== "agent" && effectiveActionRole !== "head-of-unit" && (
         // For managers: show attend button for Minor, Unrated (N/A), Suggestion, or Compliment (NOT Major)
-        (userRole === "manager" && (
+        (effectiveActionRole === "manager" && (
           (selectedTicket.category === "Complaint" && (selectedTicket.complaint_type === "Minor" || selectedTicket.complaint_type === "N/A" || !selectedTicket.complaint_type)) ||
           selectedTicket.category === "Suggestion" ||
           selectedTicket.category === "Compliment"
         )) ||
         // For non-managers, only allow if ticket is not rated
-        (userRole !== "manager" && !selectedTicket.complaint_type)
+        (effectiveActionRole !== "manager" && !selectedTicket.complaint_type)
       ))
     );
 
-  // Reviewer-specific conditions
+  // Reviewer-specific conditions (rating/forward only — hide once acting as PR head)
     const showReviewerActions =
     userRole === "reviewer" && 
+    !isReviewerActingAsHead &&
     selectedTicket && 
     selectedTicket.assigned_to_id &&
     String(selectedTicket.assigned_to_id) === String(userId) &&
@@ -2504,8 +2533,8 @@ export default function TicketDetailsModal({
     // For director: find attendee's description that was sent to the manager (who assigned to director)
     // For head-of-unit: find attendee's description that was sent to head-of-unit
     let lastAttendeeAgentDesc = "";
-    if ((userRole === "director" || userRole === "head-of-unit") && assignmentHistory && Array.isArray(assignmentHistory) && assignmentHistory.length > 0) {
-      if (userRole === "director") {
+    if ((effectiveActionRole === "director" || effectiveActionRole === "head-of-unit") && assignmentHistory && Array.isArray(assignmentHistory) && assignmentHistory.length > 0) {
+      if (effectiveActionRole === "director") {
         // Find the manager who assigned to the director
         let managerId = null;
         for (let i = assignmentHistory.length - 1; i >= 0; i--) {
@@ -2528,7 +2557,7 @@ export default function TicketDetailsModal({
             }
           }
         }
-      } else if (userRole === "head-of-unit") {
+      } else if (effectiveActionRole === "head-of-unit") {
         // For head-of-unit: find attendee's description that was sent to head-of-unit
         // Look for assignments where attendee/agent assigned TO the head-of-unit
         for (let i = assignmentHistory.length - 1; i >= 0; i--) {
@@ -2731,7 +2760,10 @@ export default function TicketDetailsModal({
       if (response.ok) {
         const data = await response.json();
         setIsReviewerCloseDialogOpen(false);
-        const actionMessage = userRole === "reviewer" ? 'Ticket closed successfully by Reviewer' : 'Ticket attended successfully';
+        const actionMessage =
+          effectiveActionRole === "reviewer"
+            ? "Ticket closed successfully by Reviewer"
+            : "Ticket attended successfully";
         showSnackbar(actionMessage, 'success', () => {
           refreshTickets();
           onClose();
@@ -5055,12 +5087,12 @@ export default function TicketDetailsModal({
                 )}
 
                 {/* Reverse, Assign, and Reassign buttons for focal persons and other roles */}
-                {((["focal-person", "claim-focal-person", "compliance-focal-person", "head-of-unit", "manager", "director"].includes(effectiveTicketRole) || 
-                  !["agent", "reviewer", "attendee", "director-general"].includes(effectiveTicketRole)) && 
+                {((["focal-person", "claim-focal-person", "compliance-focal-person", "head-of-unit", "manager", "director"].includes(effectiveActionRole) || 
+                  !["agent", "reviewer", "attendee", "director-general"].includes(effectiveActionRole)) && 
                  canActOnCurrentTicket && selectedTicket.status !== "Closed") && (
                   <>
                     {/* Special case: Director with Compliment or Suggestion - show only Assign, Reverse, Cancel */}
-                    {(effectiveTicketRole === "director" && 
+                    {(effectiveActionRole === "director" && 
                       (selectedTicket?.category === "Compliment" || selectedTicket?.category === "Suggestion" || selectedTicket?.category === "Complement")) ? (
                       <>
                         <Tooltip title={shouldShowReassign() ? "Reassign this ticket to a different attendee" : "Assign this ticket to an attendee"}>
@@ -5088,7 +5120,7 @@ export default function TicketDetailsModal({
                     ) : (
                       <>
                         {/* Special case: Manager with Compliment or Suggestion - show only Attend, Reverse, Cancel */}
-                        {(effectiveTicketRole === "manager" && 
+                        {(effectiveActionRole === "manager" && 
                           (selectedTicket?.category === "Compliment" || selectedTicket?.category === "Suggestion" || selectedTicket?.category === "Complement")) ? (
                           <>
                             {showAttendButton && (
@@ -5136,7 +5168,7 @@ export default function TicketDetailsModal({
                             </Tooltip>
                             {/* Hide Assign button for manager, head-of-unit, and director when category is Compliment, Suggestion, or Complement */}
                             {/* Hide Assign button for focal roles when category is Complaint */}
-                            {!((effectiveTicketRole === "manager" || effectiveTicketRole === "head-of-unit" || effectiveTicketRole === "director") && 
+                            {!((effectiveActionRole === "manager" || effectiveActionRole === "head-of-unit" || effectiveActionRole === "director") && 
                                 (selectedTicket?.category === "Compliment" || selectedTicket?.category === "Suggestion" || selectedTicket?.category === "Complement")) &&
                              !(isFocalPersonRole && selectedTicket?.category === "Complaint") && (
                               <Tooltip title={shouldShowReassign() ? "Reassign this ticket to a different attendee" : "Assign this ticket to an attendee"}>
@@ -5158,13 +5190,13 @@ export default function TicketDetailsModal({
                 )}
 
                 {/* Forward to DG button for Director or Head-of-unit with Major Complaint - always visible even if not assigned, but hide for Inquiry */}
-                {((effectiveTicketRole === "director" && 
+                {((effectiveActionRole === "director" && 
                    selectedTicket?.category === "Complaint" && 
                    selectedTicket?.category !== "Inquiry" &&
                    selectedTicket?.complaint_type === "Major" &&
                    selectedTicket?.responsible_unit_name?.toLowerCase().includes("directorate") &&
                    selectedTicket?.status !== "Closed") ||
-                  (effectiveTicketRole === "head-of-unit" && 
+                  (effectiveActionRole === "head-of-unit" && 
                    selectedTicket?.category === "Complaint" && 
                    selectedTicket?.category !== "Inquiry" &&
                    selectedTicket?.complaint_type === "Major" &&
@@ -5200,7 +5232,7 @@ export default function TicketDetailsModal({
                 )}
 
                 {/* Agent Reverse button for rated tickets */}
-                {(effectiveTicketRole === "agent" || effectiveTicketRole === "attendee") && 
+                {(effectiveActionRole === "agent" || effectiveActionRole === "attendee") && 
                  canActOnCurrentTicket &&
                  selectedTicket?.complaint_type && 
                  ["Major", "Minor"].includes(selectedTicket.complaint_type) && (
@@ -5219,7 +5251,7 @@ export default function TicketDetailsModal({
 
                 {/* Attendee Reverse button for Inquiry tickets in Compliance Section or Claims Administration Section */}
                 {/* Also show if previous user (assigned_by_id) was the creator (created_by) */}
-                {effectiveTicketRole === "attendee" && 
+                {effectiveActionRole === "attendee" && 
                  selectedTicket?.category === "Inquiry" &&
                  canActOnCurrentTicket &&
                  selectedTicket?.status !== "Closed" &&
@@ -5257,7 +5289,7 @@ export default function TicketDetailsModal({
                 )}
 
                 {/* Manager Send to Director button - visible for all complaints (Major and Minor), but hide for Compliment/Suggestion/Complement and Inquiry */}
-                {effectiveTicketRole === "manager" && 
+                {effectiveActionRole === "manager" && 
                  canActOnCurrentTicket &&
                  selectedTicket?.status !== "Closed" &&
                  selectedTicket?.category !== "Inquiry" &&

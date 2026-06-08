@@ -29,6 +29,7 @@ import Pagination from '../../../components/Pagination';
 import TableControls from "../../../components/TableControls";
 import TicketFilters from '../../../components/ticket/TicketFilters';
 import { useWcfTicketList } from "../../../api/wcfTicketQueries";
+import { getTicketEmployeeDisplayName } from "../../../utils/ticketDisplayName";
 
 export default function Crm() {
   const [authError, setAuthError] = useState(null);
@@ -263,13 +264,7 @@ export default function Crm() {
           </td>
         )}
         {activeColumns.includes("employee") && (
-          <td>
-            {ticket.first_name && ticket.first_name.trim() !== ""
-              ? `${ticket.first_name} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim()
-              : ticket.representative_name && ticket.representative_name.trim() !== ""
-                ? ticket.representative_name
-                : "N/A"}
-          </td>
+          <td>{getTicketEmployeeDisplayName(ticket)}</td>
         )}
         {activeColumns.includes("employer") && (
           <td>
