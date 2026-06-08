@@ -54,7 +54,7 @@ export async function fetchAuditLogsExport(params, signal) {
   } catch (error) {
     if (error.code === "ECONNABORTED") {
       const timeoutError = new Error(
-        "Export timed out — narrow the date range or export current page."
+        "Export timed out — narrow the date range and try again."
       );
       timeoutError.isExportTimeout = true;
       throw timeoutError;
