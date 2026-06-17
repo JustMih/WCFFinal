@@ -31,7 +31,6 @@ const getCallType = (caller) => {
 const getStatusLabel = (call) => {
   if (call.status === "active") return "Active";
   if (call.status === "ringing") return "Ringing";
-  if (call.phase === "dialing") return "Calling In";
   if (call.status === "calling") return "In Queue";
   return call.status || "Unknown";
 };
@@ -153,9 +152,7 @@ const CallQueueCard = () => {
                     ? "active"
                     : call.status === "ringing"
                       ? "ringing"
-                      : call.phase === "dialing"
-                        ? "dialing"
-                        : "calling";
+                      : "calling";
                 return (
                   <tr key={call.linkedid || call.id}>
                     <td className="queue-id">{call.caller || "Unknown"}</td>
