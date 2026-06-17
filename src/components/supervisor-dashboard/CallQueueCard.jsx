@@ -1,68 +1,79 @@
 import React, { useEffect, useState } from "react";
-import { FaUsers, FaClock, FaExclamationTriangle } from "react-icons/fa";
 import "./CallQueueCard.css";
-import { amiURL, baseURL } from "../../config";
-import { LOST_MIN_DURATION_SECONDS } from "../../utils/callClassification";
+import { baseURL } from "../../config";
 
-// Helper function for wait time color coding
+const formatDuration = (startTime) => {
+  if (!startTime) return "00:00";
+  const diff = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(startTime).getTime()) / 1000)
+  );
+  const mins = Math.floor(diff / 60);
+  const secs = diff % 60;
+  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+};
+
 const getWaitTimeClass = (waitTime) => {
   const [minutes, seconds] = waitTime.split(":").map(Number);
-  const totalMinutes = minutes + seconds / 60;
+  const totalMinutes = minutes + (seconds || 0) / 60;
   if (totalMinutes < 2) return "wait-time-normal";
   if (totalMinutes < 4) return "wait-time-warning";
   return "wait-time-critical";
 };
 
-// Helper function for queue call status
-const getQueueCallStatus = (call) => {
-  const [min, sec] = call.waitTime.split(":").map(Number);
-  const totalSeconds = min * 60 + sec;
-  if (totalSeconds < 60) return "Active";
-  if (totalSeconds < LOST_MIN_DURATION_SECONDS) return "Dropped";
-  return "Lost";
+const getCallType = (caller) => {
+  const value = String(caller || "");
+  if (value.startsWith("1")) return "outbound";
+  if (value.startsWith("+") || value.startsWith("0")) return "inbound";
+  return "unknown";
 };
 
+const getStatusLabel = (call) => {
+  if (call.status === "active") return "Active";
+  if (call.status === "calling") return "In Queue";
+  return call.status || "Unknown";
+};
+
+const isLiveQueueCall = (call) =>
+  !call.call_end && (call.status === "calling" || call.status === "active");
+
 const CallQueueCard = () => {
-  const [queueData, setQueueData] = useState(null);
+  const [liveCalls, setLiveCalls] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [calling, setCalling] = useState([]); // State for "calling" status calls
+  const [, setTick] = useState(0);
 
   const fetchQueueData = async () => {
-    setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${baseURL}/livestream/live-calls`);
+      const response = await fetch(
+        `${baseURL}/livestream/live-calls?_=${Date.now()}`
+      );
       if (!response.ok) throw new Error("Failed to fetch queue data");
       const data = await response.json();
-      setQueueData(data);
-
-      const callingCalls = data.filter((call) => call.status === "calling");
-      console.log("Calling Calls:", callingCalls);
-      setCalling(callingCalls);
-
+      const rows = Array.isArray(data)
+        ? data.filter(isLiveQueueCall)
+        : [];
+      setLiveCalls(rows);
     } catch (err) {
       setError("Failed to load queue data");
-      setQueueData(null);
+      setLiveCalls([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const getCallType = (caller) => {
-    if (caller.startsWith("1")) {
-      return "outbound";
-    } else if (caller.startsWith("+") || caller.startsWith("0")) {
-      return "inbound";
-    }
-    return "unknown";
-  };
-
   useEffect(() => {
     fetchQueueData();
-    const interval = setInterval(fetchQueueData, 5000);
+    const interval = setInterval(fetchQueueData, 3000);
     return () => clearInterval(interval);
   }, []);
+
+  useEffect(() => {
+    if (liveCalls.length === 0) return undefined;
+    const timer = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(timer);
+  }, [liveCalls.length]);
 
   if (loading) {
     return (
@@ -77,47 +88,14 @@ const CallQueueCard = () => {
     return (
       <div className="queue-monitoring-section">
         <h4>Call Queue Monitoring</h4>
-        <div style={{ color: 'red' }}>{error}</div>
+        <div style={{ color: "red" }}>{error}</div>
       </div>
     );
   }
 
-  const waitingCalls = Array.isArray(queueData?.waitingCalls) ? queueData.waitingCalls : [];
-
   return (
     <div className="queue-monitoring-section">
       <h4>Call Queue Monitoring</h4>
-      {/* <div className="queue-stats">
-        <div className="queue-stat-card">
-          <div className="queue-stat-icon">
-            <FaUsers />
-          </div>
-          <div className="queue-stat-info">
-            <span className="queue-stat-value">{queueData.totalInQueue}</span>
-            <span className="queue-stat-label">Calls in Queue</span>
-          </div>
-        </div>
-        <div className="queue-stat-card">
-          <div className="queue-stat-icon">
-            <FaClock />
-          </div>
-          <div className="queue-stat-info">
-            <span className="queue-stat-value">
-              {queueData.averageWaitTime}
-            </span>
-            <span className="queue-stat-label">Avg Wait Time</span>
-          </div>
-        </div>
-        <div className="queue-stat-card">
-          <div className="queue-stat-icon">
-            <FaExclamationTriangle />
-          </div>
-          <div className="queue-stat-info">
-            <span className="queue-stat-value">1</span>
-            <span className="queue-stat-label">Priority Calls</span>
-          </div>
-        </div>
-      </div> */}
       <div className="table-responsive">
         <table className="waiting-calls-table">
           <thead>
@@ -127,51 +105,41 @@ const CallQueueCard = () => {
               <th>Status</th>
               <th>Duration</th>
               <th>Call Type</th>
-              {/* <th>Action</th> */}
             </tr>
           </thead>
           <tbody>
-            {calling.length > 0 ? (
-              calling.map((call) => (
-                <tr
-                  key={call.linkedid || call.id}
-                  className={
-                    call.priority === "High" ? "priority-row-high" : ""
-                  }
-                >
-                  <td className="queue-id">{call.caller}</td>
-                  <td className="customer-number">{call.callee}</td>
-                  <td>
-                    <span
-                      className={`wait-time-badge ${getWaitTimeClass(
-                        call.status
-                      )}`}
-                    >
-                      {call.status}
-                    </span>
-                  </td>
-                  <td>
-                    <span
-                      // className={`priority-badge ${call.priority.toLowerCase()}`}
-                    >
-                      {call.estimated_wait_time}
-                    </span>
-                  </td>
-                  <td className="call-type">{getCallType(call.caller)}</td>
-                  {/* <td>
-                    <span
-                      className={`status-badge ${getQueueCallStatus(
-                        call
-                      ).toLowerCase()}`}
-                    >
-                      {getQueueCallStatus(call)}
-                    </span>
-                  </td> */}
-                </tr>
-              ))
+            {liveCalls.length > 0 ? (
+              liveCalls.map((call) => {
+                const durationStart =
+                  call.call_answered ||
+                  call.queue_entry_time ||
+                  call.call_start;
+                const duration = formatDuration(durationStart);
+                return (
+                  <tr key={call.linkedid || call.id}>
+                    <td className="queue-id">{call.caller || "Unknown"}</td>
+                    <td className="customer-number">
+                      {call.callee || call.agent_name || "—"}
+                    </td>
+                    <td>
+                      <span
+                        className={`status-badge ${call.status === "active" ? "active" : "calling"}`}
+                      >
+                        {getStatusLabel(call)}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`wait-time-badge ${getWaitTimeClass(duration)}`}>
+                        {duration}
+                      </span>
+                    </td>
+                    <td className="call-type">{getCallType(call.caller)}</td>
+                  </tr>
+                );
+              })
             ) : (
               <tr>
-                <td colSpan="6" style={{ textAlign: "center" }}>
+                <td colSpan="5" style={{ textAlign: "center" }}>
                   No waiting calls in the queue.
                 </td>
               </tr>
@@ -183,4 +151,4 @@ const CallQueueCard = () => {
   );
 };
 
-export default CallQueueCard; 
+export default CallQueueCard;

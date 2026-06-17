@@ -114,6 +114,11 @@
 }
 .status-badge.active {
   background: #a8e48a;
+  color: #1a4d0a;
+}
+.status-badge.calling {
+  background: #ffd591;
+  color: #874d00;
 }
 .status-badge.dropped {
   background: #faad14;
