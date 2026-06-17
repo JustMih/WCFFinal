@@ -1,13 +1,13 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
+import io from "socket.io-client";
 import "./CallQueueCard.css";
 import { baseURL } from "../../config";
 
 const formatDuration = (startTime) => {
   if (!startTime) return "00:00";
-  const diff = Math.max(
-    0,
-    Math.floor((Date.now() - new Date(startTime).getTime()) / 1000)
-  );
+  const startMs = new Date(startTime).getTime();
+  if (!Number.isFinite(startMs)) return "00:00";
+  const diff = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
   const mins = Math.floor(diff / 60);
   const secs = diff % 60;
   return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
@@ -30,12 +30,29 @@ const getCallType = (caller) => {
 
 const getStatusLabel = (call) => {
   if (call.status === "active") return "Active";
+  if (call.status === "ringing") return "Ringing";
+  if (call.phase === "dialing") return "Calling In";
   if (call.status === "calling") return "In Queue";
   return call.status || "Unknown";
 };
 
 const isLiveQueueCall = (call) =>
-  !call.call_end && (call.status === "calling" || call.status === "active");
+  !call.call_end &&
+  (call.status === "calling" ||
+    call.status === "ringing" ||
+    call.status === "active");
+
+const sortQueueCalls = (rows) =>
+  [...rows].sort((a, b) => {
+    const order = { calling: 0, ringing: 1, active: 2 };
+    const ao = order[a.status] ?? 9;
+    const bo = order[b.status] ?? 9;
+    if (ao !== bo) return ao - bo;
+    return (
+      new Date(a.queue_entry_time || a.call_start || 0) -
+      new Date(b.queue_entry_time || b.call_start || 0)
+    );
+  });
 
 const CallQueueCard = () => {
   const [liveCalls, setLiveCalls] = useState([]);
@@ -43,7 +60,12 @@ const CallQueueCard = () => {
   const [error, setError] = useState(null);
   const [, setTick] = useState(0);
 
-  const fetchQueueData = async () => {
+  const applyLiveRows = useCallback((data) => {
+    const rows = Array.isArray(data) ? data.filter(isLiveQueueCall) : [];
+    setLiveCalls(sortQueueCalls(rows));
+  }, []);
+
+  const fetchQueueData = useCallback(async () => {
     setError(null);
     try {
       const response = await fetch(
@@ -51,23 +73,36 @@ const CallQueueCard = () => {
       );
       if (!response.ok) throw new Error("Failed to fetch queue data");
       const data = await response.json();
-      const rows = Array.isArray(data)
-        ? data.filter(isLiveQueueCall)
-        : [];
-      setLiveCalls(rows);
+      applyLiveRows(data);
     } catch (err) {
       setError("Failed to load queue data");
       setLiveCalls([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, [applyLiveRows]);
 
   useEffect(() => {
     fetchQueueData();
-    const interval = setInterval(fetchQueueData, 3000);
+    const interval = setInterval(fetchQueueData, 2000);
     return () => clearInterval(interval);
-  }, []);
+  }, [fetchQueueData]);
+
+  useEffect(() => {
+    const socketUrl = baseURL.replace(/\/api$/, "") || window.location.origin;
+    const socket = io(socketUrl, {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+    });
+
+    socket.on("public_dashboard_update", () => {
+      fetchQueueData();
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [fetchQueueData]);
 
   useEffect(() => {
     if (liveCalls.length === 0) return undefined;
@@ -111,10 +146,16 @@ const CallQueueCard = () => {
             {liveCalls.length > 0 ? (
               liveCalls.map((call) => {
                 const durationStart =
-                  call.call_answered ||
-                  call.queue_entry_time ||
-                  call.call_start;
+                  call.queue_entry_time || call.call_start;
                 const duration = formatDuration(durationStart);
+                const statusClass =
+                  call.status === "active"
+                    ? "active"
+                    : call.status === "ringing"
+                      ? "ringing"
+                      : call.phase === "dialing"
+                        ? "dialing"
+                        : "calling";
                 return (
                   <tr key={call.linkedid || call.id}>
                     <td className="queue-id">{call.caller || "Unknown"}</td>
@@ -122,14 +163,14 @@ const CallQueueCard = () => {
                       {call.callee || call.agent_name || "—"}
                     </td>
                     <td>
-                      <span
-                        className={`status-badge ${call.status === "active" ? "active" : "calling"}`}
-                      >
+                      <span className={`status-badge ${statusClass}`}>
                         {getStatusLabel(call)}
                       </span>
                     </td>
                     <td>
-                      <span className={`wait-time-badge ${getWaitTimeClass(duration)}`}>
+                      <span
+                        className={`wait-time-badge ${getWaitTimeClass(duration)}`}
+                      >
                         {duration}
                       </span>
                     </td>
