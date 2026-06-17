@@ -12,17 +12,13 @@ import {
   Legend,
 } from "chart.js";
 import { 
-  FaHeadphones, 
   FaUserShield, 
   FaComments,
-  FaClock,
   FaUsers,
-  FaExclamationTriangle,
   FaPlay,
   FaCheckCircle,
   FaGraduationCap,
   FaChartLine,
-  FaClipboardCheck,
   FaUserGraduate,
   FaSearch,
   FaFilter,
@@ -54,37 +50,6 @@ ChartJS.register(
   Tooltip,
   Legend
 );
-
-function SupervisorMetricCard({
-  period,
-  variant,
-  icon: Icon,
-  value,
-  badge,
-  title,
-  sublabel,
-}) {
-  return (
-    <div className={`supervisor-stat-card ${variant}`}>
-      <div className="supervisor-stat-card__icon-wrap">
-        <Icon />
-      </div>
-      <div className="supervisor-stat-card__body">
-        <span className="supervisor-stat-card__period">{period}</span>
-        <span className="supervisor-stat-card__count">{value}</span>
-        <div className="supervisor-stat-card__summary">
-          <div className="supervisor-stat-card__desc">
-            <div className="supervisor-stat-card__label">{title}</div>
-            <div className="supervisor-stat-card__sublabel">{sublabel}</div>
-          </div>
-          {badge ? (
-            <span className="supervisor-stat-card__percent">{badge}</span>
-          ) : null}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // Dummy data for development
 const dummyLiveCalls = [
@@ -134,13 +99,6 @@ const dummyLiveCalls = [
     callType: "Outbound"
   }
 ];
-
-const dummySlaMetrics = {
-  averageResponseTime: 15,
-  averageHandleTime: 180,
-  serviceLevel: 85,
-  abandonmentRate: 5
-};
 
 // Add dummy queue data
 const dummyQueueData = {
@@ -239,7 +197,6 @@ export default function SupervisorDashboard2() {
   const [weeklyData, setWeeklyData] = useState([]);
   const [dailyData, setDailyData] = useState([]);
   const [liveCalls, setLiveCalls] = useState(dummyLiveCalls);
-  const [slaMetrics, setSlaMetrics] = useState(dummySlaMetrics);
   const [isLoading, setIsLoading] = useState(true);
   const [queueData, setQueueData] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -268,13 +225,6 @@ export default function SupervisorDashboard2() {
         setLiveCalls(liveCallsData);
       }
 
-      // Fetch SLA metrics
-      const slaResponse = await fetch(`${baseURL}/calls/sla-metrics`);
-      if (slaResponse.ok) {
-        const slaData = await slaResponse.json();
-        setSlaMetrics(slaData);
-      }
-
       const queueResponse = await fetch(`${baseURL}/queue-call-stats`);
       if (queueResponse.ok) {
         setQueueData(await queueResponse.json());
@@ -283,7 +233,6 @@ export default function SupervisorDashboard2() {
       console.error("Error fetching data:", error);
       // Keep using dummy data if API calls fail
       setLiveCalls(dummyLiveCalls);
-      setSlaMetrics(dummySlaMetrics);
     } finally {
       setIsLoading(false);
     }
@@ -478,7 +427,7 @@ export default function SupervisorDashboard2() {
 
   return (
     <div className="supervisor-dashboard-root call-center-agent-container">
-        <h3 className="call-center-agent-title">Supervisor Dashboard 2</h3>
+        <h3 className="call-center-agent-title">Supervisor Dashboard</h3>
 
       {/* Queue Monitoring Section */}
       <div className="dashboard-single-agent">
@@ -491,47 +440,6 @@ export default function SupervisorDashboard2() {
       {/* Live Calls Table */}
       <div className="live-calls-table-container">
       <LiveCallsCard />
-      </div>
-         {/* SLA Metrics Cards */}
-         <div className="live-calls-table-container">
-        <div className="call-center-agent-summary sla-metrics-grid">
-          <SupervisorMetricCard
-            period="SLA"
-            variant="sla-service-level"
-            icon={FaClipboardCheck}
-            value={`${slaMetrics.serviceLevel}%`}
-            badge={null}
-            title="Service Level"
-            sublabel="Current"
-          />
-          <SupervisorMetricCard
-            period="SLA"
-            variant="sla-avg-response"
-            icon={FaClock}
-            value={`${slaMetrics.averageResponseTime}s`}
-            badge={null}
-            title="Avg Response Time"
-            sublabel="Seconds"
-          />
-          <SupervisorMetricCard
-            period="SLA"
-            variant="sla-avg-handle"
-            icon={FaHeadphones}
-            value={`${slaMetrics.averageHandleTime}s`}
-            badge={null}
-            title="Avg Handle Time"
-            sublabel="Seconds"
-          />
-          <SupervisorMetricCard
-            period="SLA"
-            variant="sla-abandonment"
-            icon={FaExclamationTriangle}
-            value={`${slaMetrics.abandonmentRate}%`}
-            badge={null}
-            title="Abandonment Rate"
-            sublabel="Percent"
-          />
-        </div>
       </div>
     </div>
   );

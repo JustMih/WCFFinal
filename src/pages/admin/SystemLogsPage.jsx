@@ -3,17 +3,14 @@ import { Alert, Snackbar } from "@mui/material";
 import { fetchAuditLogs, fetchAuditLogsExport, fetchHttpLogs } from "../../api/logsApi";
 import {
   buildLabelKeyedExportRows,
-  chunkArray,
-  delay,
   exportRowsToCsv,
   exportRowsToExcel,
   exportRowsToPdf,
 } from "../../utils/reportExportHelpers";
 import "./SystemLogsPage.css";
 
-const AUDIT_EXPORT_ROWS_PER_FILE = 500;
+const AUDIT_EXPORT_PAGE_SIZE = 500;
 const AUDIT_EXPORT_MAX_PAGES = 20;
-const EXPORT_DOWNLOAD_GAP_MS = 400;
 const LOG_PAGE_SIZE_OPTIONS = [10, 25, 50, 100, 200, 500, 1000];
 
 const AUDIT_EXPORT_COLUMNS = [
@@ -89,7 +86,6 @@ export default function SystemLogsPage() {
   const [httpFilters, setHttpFilters] = useState(createHttpFilters);
   const [auditFilters, setAuditFilters] = useState(createAuditFilters);
   const exportAbortRef = useRef(null);
-  const exportHintShownRef = useRef(false);
 
   const currentFilters = useMemo(
     () => (activeTab === LOG_TYPES.HTTP ? httpFilters : auditFilters),
@@ -202,7 +198,28 @@ export default function SystemLogsPage() {
 
   const getAuditExportFilenameBase = () => {
     const { startDate, endDate } = auditFilters;
-    return `audit_logs_${startDate || "all"}_${endDate || "all"}`;
+    return `audit_logs_${startDate}_${endDate}`;
+  };
+
+  const canExportAuditLogs = useMemo(
+    () => Boolean(auditFilters.startDate && auditFilters.endDate),
+    [auditFilters.startDate, auditFilters.endDate]
+  );
+
+  const validateAuditExportDateRange = () => {
+    const { startDate, endDate } = auditFilters;
+    if (!startDate || !endDate) {
+      showSnackbar(
+        "Select a start and end date, then click Apply, before exporting.",
+        "warning"
+      );
+      return false;
+    }
+    if (startDate > endDate) {
+      showSnackbar("Start date must be on or before end date.", "warning");
+      return false;
+    }
+    return true;
   };
 
   const fetchAuditExportPage = async (exportPage, signal) => {
@@ -210,7 +227,7 @@ export default function SystemLogsPage() {
       {
         ...buildAuditExportParams(),
         exportPage,
-        exportPageSize: AUDIT_EXPORT_ROWS_PER_FILE,
+        exportPageSize: AUDIT_EXPORT_PAGE_SIZE,
       },
       signal
     );
@@ -220,12 +237,12 @@ export default function SystemLogsPage() {
     };
   };
 
-  const fetchAllAuditExportPages = async () => {
+  const fetchAllAuditExportRows = async () => {
     exportAbortRef.current?.abort();
     const controller = new AbortController();
     exportAbortRef.current = controller;
 
-    const pages = [];
+    const allRows = [];
     let exportPage = 1;
 
     while (exportPage <= AUDIT_EXPORT_MAX_PAGES) {
@@ -236,25 +253,14 @@ export default function SystemLogsPage() {
       if (rows.length === 0) {
         break;
       }
-      pages.push(rows);
+      allRows.push(...rows);
       if (!hasMore) {
         break;
       }
       exportPage += 1;
     }
 
-    return pages;
-  };
-
-  const maybeShowExportDateHint = () => {
-    const { startDate, endDate } = auditFilters;
-    if (!startDate && !endDate && logs.length > 0 && !exportHintShownRef.current) {
-      exportHintShownRef.current = true;
-      showSnackbar(
-        "Tip: set a start and end date for faster full export.",
-        "info"
-      );
-    }
+    return allRows;
   };
 
   const shouldFallbackToPageExport = (err) => {
@@ -272,110 +278,64 @@ export default function SystemLogsPage() {
     );
   };
 
-  const buildExportPartSuffix = (partIndex, totalParts) => {
-    if (totalParts <= 1) {
-      return "";
-    }
-    return `_part${String(partIndex).padStart(2, "0")}_of_${String(totalParts).padStart(2, "0")}`;
-  };
-
-  const exportAuditRowsToFile = (
-    format,
-    rows,
-    { partIndex = 1, totalParts = 1, partial = false } = {}
-  ) => {
+  const exportAuditRowsToFile = (format, rows, { partial = false } = {}) => {
     const filenameBase = getAuditExportFilenameBase();
-    const partSuffix = buildExportPartSuffix(partIndex, totalParts);
     const labelRows = buildLabelKeyedExportRows(AUDIT_EXPORT_COLUMNS, rows);
     const { startDate, endDate } = auditFilters;
-    const dateSubtitle = `Period: ${startDate || "all"} to ${endDate || "all"}${
-      totalParts > 1 ? ` — Part ${partIndex} of ${totalParts}` : ""
-    }${partial ? " (current page only)" : ""}`;
+    const dateSubtitle = `Period: ${startDate} to ${endDate}${
+      partial ? " (current page only — export failed)" : ""
+    }`;
 
     if (format === "csv") {
-      exportRowsToCsv(labelRows, `${filenameBase}${partSuffix}.csv`);
+      exportRowsToCsv(labelRows, `${filenameBase}.csv`);
     } else if (format === "excel") {
-      exportRowsToExcel(
-        labelRows,
-        `${filenameBase}${partSuffix}.xlsx`,
-        totalParts > 1 ? `Audit Logs ${partIndex}` : "Audit Logs"
-      );
+      exportRowsToExcel(labelRows, `${filenameBase}.xlsx`, "Audit Logs");
     } else if (format === "pdf") {
       exportRowsToPdf({
         title: "Audit Logs",
         subtitle: dateSubtitle,
         columns: AUDIT_EXPORT_COLUMNS,
         rows,
-        filename: `${filenameBase}${partSuffix}.pdf`,
+        filename: `${filenameBase}.pdf`,
         landscape: true,
       });
     }
   };
 
-  const exportAuditRowChunks = async (format, rowChunks, { partial = false } = {}) => {
-    const totalParts = rowChunks.length;
-    if (totalParts === 0) {
+  const exportAuditRows = (format, rows, { partial = false } = {}) => {
+    if (rows.length === 0) {
       showSnackbar("No audit logs to export for the current filters", "warning");
-      return { fileCount: 0, rowCount: 0 };
+      return { rowCount: 0 };
     }
 
-    let rowCount = 0;
-    for (let i = 0; i < rowChunks.length; i += 1) {
-      const chunk = rowChunks[i];
-      rowCount += chunk.length;
-      exportAuditRowsToFile(format, chunk, {
-        partIndex: i + 1,
-        totalParts,
-        partial,
-      });
-      if (i < rowChunks.length - 1) {
-        await delay(EXPORT_DOWNLOAD_GAP_MS);
-      }
-    }
-
-    return { fileCount: totalParts, rowCount };
+    exportAuditRowsToFile(format, rows, { partial });
+    return { rowCount: rows.length };
   };
 
   const handleExportAuditLogs = async (format) => {
-    if (format === "pdf" && logs.length > 0) {
-      setExporting(true);
-      try {
-        const rowChunks = chunkArray(
-          logs.map(mapAuditLogToExportRow),
-          AUDIT_EXPORT_ROWS_PER_FILE
-        );
-        const { fileCount, rowCount } = await exportAuditRowChunks(format, rowChunks, {
-          partial: true,
-        });
-        if (fileCount > 0) {
-          const filesNote =
-            fileCount > 1 ? ` in ${fileCount} file(s)` : "";
-          showSnackbar(
-            `Exported ${rowCount} audit log(s) to PDF${filesNote} (current page only)`
-          );
-        }
-      } finally {
-        setExporting(false);
-      }
+    if (!validateAuditExportDateRange()) {
       return;
     }
 
+    const { startDate, endDate } = auditFilters;
+
     try {
       setExporting(true);
-      maybeShowExportDateHint();
-      const pages = await fetchAllAuditExportPages();
-      const { fileCount, rowCount } = await exportAuditRowChunks(format, pages);
+      const rows = await fetchAllAuditExportRows();
+      const { rowCount } = exportAuditRows(format, rows);
 
-      if (fileCount === 0) {
-        showSnackbar("No audit logs to export for the current filters", "warning");
+      if (rowCount === 0) {
+        showSnackbar(
+          `No audit logs to export for ${startDate} to ${endDate}`,
+          "warning"
+        );
         return;
       }
 
-      const filesNote = fileCount > 1 ? ` in ${fileCount} file(s)` : "";
       const formatLabel =
         format === "csv" ? "CSV" : format === "excel" ? "Excel" : "PDF";
       showSnackbar(
-        `Exported ${rowCount} audit log(s) to ${formatLabel}${filesNote} (max ${AUDIT_EXPORT_ROWS_PER_FILE} rows per file)`
+        `Exported ${rowCount} audit log(s) to a single ${formatLabel} file for ${startDate} to ${endDate}`
       );
     } catch (err) {
       if (err.name === "CanceledError" || err.code === "ERR_CANCELED") {
@@ -385,18 +345,15 @@ export default function SystemLogsPage() {
       console.error("Failed to export audit logs", err);
 
       if (shouldFallbackToPageExport(err)) {
-        const rowChunks = chunkArray(
+        const { rowCount } = exportAuditRows(
+          format,
           logs.map(mapAuditLogToExportRow),
-          AUDIT_EXPORT_ROWS_PER_FILE
+          { partial: true }
         );
-        const { fileCount, rowCount } = await exportAuditRowChunks(format, rowChunks, {
-          partial: true,
-        });
-        if (fileCount > 0) {
-          const filesNote = fileCount > 1 ? ` in ${fileCount} file(s)` : "";
+        if (rowCount > 0) {
           const timeoutNote = err.isExportTimeout ? ` ${err.message}` : "";
           showSnackbar(
-            `Exported ${rowCount} audit log(s)${filesNote} (current page only).${timeoutNote}`,
+            `Exported ${rowCount} audit log(s) (current page only).${timeoutNote}`,
             err.isExportTimeout ? "warning" : "success"
           );
         }
@@ -425,14 +382,47 @@ export default function SystemLogsPage() {
 
   const renderAuditExportActions = () => (
     <div className="system-logs-export-toolbar">
-      <span className="system-logs-export-label">Export audit logs</span>
+      <span className="system-logs-export-label">
+        Export audit logs (selected date range)
+      </span>
       <button
         type="button"
         className="system-logs-export-btn"
         onClick={() => handleExportAuditLogs("pdf")}
-        disabled={exporting}
+        disabled={exporting || !canExportAuditLogs}
+        title={
+          canExportAuditLogs
+            ? "Export all audit logs in the selected date range"
+            : "Set start and end dates, then click Apply"
+        }
       >
         Export PDF
+      </button>
+      <button
+        type="button"
+        className="system-logs-export-btn"
+        onClick={() => handleExportAuditLogs("excel")}
+        disabled={exporting || !canExportAuditLogs}
+        title={
+          canExportAuditLogs
+            ? "Export all audit logs in the selected date range"
+            : "Set start and end dates, then click Apply"
+        }
+      >
+        Export Excel
+      </button>
+      <button
+        type="button"
+        className="system-logs-export-btn"
+        onClick={() => handleExportAuditLogs("csv")}
+        disabled={exporting || !canExportAuditLogs}
+        title={
+          canExportAuditLogs
+            ? "Export all audit logs in the selected date range"
+            : "Set start and end dates, then click Apply"
+        }
+      >
+        Export CSV
       </button>
       {exporting && (
         <span className="system-logs-export-status">Preparing export…</span>

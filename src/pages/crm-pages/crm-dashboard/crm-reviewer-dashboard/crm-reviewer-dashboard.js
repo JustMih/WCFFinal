@@ -40,6 +40,7 @@ import TicketUpdates from "../../../../components/ticket/TicketUpdates";
 
 // Config
 import { baseURL } from "../../../../config";
+import { getTicketEmployeeDisplayName } from "../../../../utils/ticketDisplayName";
 
 // Styles
 import "./crm-reviewer-dashboard.css";
@@ -853,13 +854,7 @@ export default function ReviewerDashboard() {
         </td>
       )}
       {activeColumns.includes("employee") && (
-        <td>
-          {ticket.first_name && ticket.first_name.trim() !== ""
-            ? `${ticket.first_name || ""} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim()
-            : ticket.representative_name && ticket.representative_name.trim() !== ""
-              ? ticket.representative_name
-              : "N/A"}
-        </td>
+        <td>{getTicketEmployeeDisplayName(ticket)}</td>
       )}
       {activeColumns.includes("employer") && (
         <td>
