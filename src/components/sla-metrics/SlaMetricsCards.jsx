@@ -58,7 +58,7 @@ export default function SlaMetricsCards({ metrics = DEFAULT_SLA_METRICS }) {
           value={`${data.serviceLevel}%`}
           badge={null}
           title="Service Level"
-          sublabel="Current"
+          sublabel="Within 20 seconds"
         />
         <SlaMetricCard
           period="SLA"

@@ -384,18 +384,8 @@ export default function PublicDashboard({
       lost: 0,
     };
 
-  const lostCallsCount = Number(
-    dashboardData.callStatistics?.lost ??
-    dashboardData.callStatusSummary?.lost ??
-    day.lost ??
-    0
-  );
-  const droppedCallsCount = Number(
-    dashboardData.callStatistics?.dropped ??
-    dashboardData.callStatusSummary?.dropped ??
-    day.dropped ??
-    0
-  );
+  const lostCallsCount = Number(day.lost ?? 0);
+  const droppedCallsCount = Number(day.dropped ?? 0);
   const answeredCallsCount = day.answered ?? 0;
 
   const dailyAnswered = day.answered ?? 0;
