@@ -143,10 +143,16 @@ export default function PublicDashboard({
   useEffect(() => {
     const fetchCallSummary = async () => {
       try {
-        const res = await fetch(`${baseURL}/call-summary/call-summary?excludeDestS=1`);
+        const res = await fetch(
+          `${baseURL}/call-summary/call-summary?excludeDestS=1&_=${Date.now()}`,
+          { cache: "no-store" }
+        );
         if (res.ok) {
           const data = await res.json();
           setCallSummaryData(data);
+          if (data.slaMetrics) {
+            setSlaMetrics({ ...DEFAULT_SLA_METRICS, ...data.slaMetrics });
+          }
         }
       } catch (err) {
         console.error("Error fetching call summary:", err);
@@ -193,24 +199,8 @@ export default function PublicDashboard({
       }
     };
 
-    const fetchSlaMetrics = async () => {
-      try {
-        const response = await fetch(
-          `${baseURL}/calls/sla-metrics?_=${Date.now()}`,
-          { cache: "no-store" }
-        );
-        if (response.ok) {
-          const data = await response.json();
-          setSlaMetrics({ ...DEFAULT_SLA_METRICS, ...data });
-        }
-      } catch (error) {
-        console.error("Error fetching SLA metrics:", error);
-      }
-    };
-
     fetchDashboardData();
     fetchCallSummary();
-    fetchSlaMetrics();
     fetchLostCallsToday();
     fetchDroppedCallsToday();
 
@@ -264,8 +254,7 @@ export default function PublicDashboard({
     // Periodic fetch for live calls, dashboard, and call summary every 2 seconds
     const liveCallsInterval = setInterval(async () => {
       try {
-        const [dashboardResponse, callSummaryResponse, slaResponse] =
-          await Promise.all([
+        const [dashboardResponse, callSummaryResponse] = await Promise.all([
             fetch(`${baseURL}/public/dashboard?_=${Date.now()}`, {
               cache: "no-store",
             }),
@@ -273,9 +262,6 @@ export default function PublicDashboard({
               `${baseURL}/call-summary/call-summary?excludeDestS=1&_=${Date.now()}`,
               { cache: "no-store" }
             ),
-            fetch(`${baseURL}/calls/sla-metrics?_=${Date.now()}`, {
-              cache: "no-store",
-            }),
           ]);
         if (dashboardResponse.ok) {
           const data = await dashboardResponse.json();
@@ -307,10 +293,9 @@ export default function PublicDashboard({
         if (callSummaryResponse.ok) {
           const summaryData = await callSummaryResponse.json();
           setCallSummaryData(summaryData);
-        }
-        if (slaResponse.ok) {
-          const slaData = await slaResponse.json();
-          setSlaMetrics({ ...DEFAULT_SLA_METRICS, ...slaData });
+          if (summaryData.slaMetrics) {
+            setSlaMetrics({ ...DEFAULT_SLA_METRICS, ...summaryData.slaMetrics });
+          }
         }
         fetchLostCallsToday();
         fetchDroppedCallsToday();
