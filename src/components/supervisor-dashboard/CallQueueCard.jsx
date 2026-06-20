@@ -3,18 +3,43 @@ import io from "socket.io-client";
 import "./CallQueueCard.css";
 import { baseURL } from "../../config";
 
-const formatDuration = (startTime) => {
-  if (!startTime) return "00:00";
-  const startMs = new Date(startTime).getTime();
-  if (!Number.isFinite(startMs)) return "00:00";
-  const diff = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
-  const mins = Math.floor(diff / 60);
-  const secs = diff % 60;
-  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+/** Live queue card only — MM:SS from elapsed seconds (does not use report formatSecondsToMinutes). */
+const formatWaitMmSs = (totalSeconds) => {
+  const seconds = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+  const minutes = Math.floor(seconds / 60);
+  const remainder = seconds % 60;
+  return `${minutes}:${String(remainder).padStart(2, "0")}`;
+};
+
+/** Use the newest start time so an old AMI/CEL stamp cannot show 180:52 for a ~3 min call. */
+const pickLiveStartTime = (call) => {
+  if (call.status === "active" && call.call_answered) {
+    return call.call_answered;
+  }
+  const candidates = [call.queue_entry_time, call.call_start].filter(Boolean);
+  let best = null;
+  let bestMs = -Infinity;
+  for (const value of candidates) {
+    const ms = new Date(value).getTime();
+    if (!Number.isFinite(ms)) continue;
+    if (ms > bestMs) {
+      bestMs = ms;
+      best = value;
+    }
+  }
+  return best;
+};
+
+const getWaitSeconds = (call) => {
+  const start = pickLiveStartTime(call);
+  if (!start) return 0;
+  const startMs = new Date(start).getTime();
+  if (!Number.isFinite(startMs)) return 0;
+  return Math.max(0, Math.floor((Date.now() - startMs) / 1000));
 };
 
 const getWaitTimeClass = (waitTime) => {
-  const [minutes, seconds] = waitTime.split(":").map(Number);
+  const [minutes, seconds] = String(waitTime).split(":").map(Number);
   const totalMinutes = minutes + (seconds || 0) / 60;
   if (totalMinutes < 2) return "wait-time-normal";
   if (totalMinutes < 4) return "wait-time-warning";
@@ -30,23 +55,18 @@ const getCallType = (caller) => {
 
 const getStatusLabel = (call) => {
   if (call.status === "active") return "Active";
-  if (call.status === "ringing") return "Ringing";
   if (call.status === "calling") return "In Queue";
   return call.status || "Unknown";
 };
 
 const isLiveQueueCall = (call) =>
   !call.call_end &&
-  (call.status === "calling" ||
-    call.status === "ringing" ||
-    call.status === "active");
+  (call.status === "calling" || call.status === "active");
 
 const sortQueueCalls = (rows) =>
   [...rows].sort((a, b) => {
-    const order = { calling: 0, ringing: 1, active: 2 };
-    const ao = order[a.status] ?? 9;
-    const bo = order[b.status] ?? 9;
-    if (ao !== bo) return ao - bo;
+    if (a.status === "active" && b.status !== "active") return 1;
+    if (b.status === "active" && a.status !== "active") return -1;
     return (
       new Date(a.queue_entry_time || a.call_start || 0) -
       new Date(b.queue_entry_time || b.call_start || 0)
@@ -59,9 +79,9 @@ const CallQueueCard = () => {
   const [error, setError] = useState(null);
   const [, setTick] = useState(0);
 
-  const applyLiveRows = useCallback((data) => {
-    const rows = Array.isArray(data) ? data.filter(isLiveQueueCall) : [];
-    setLiveCalls(sortQueueCalls(rows));
+  const applyLiveRows = useCallback((rows) => {
+    const list = Array.isArray(rows) ? rows.filter(isLiveQueueCall) : [];
+    setLiveCalls(sortQueueCalls(list));
   }, []);
 
   const fetchQueueData = useCallback(async () => {
@@ -93,14 +113,8 @@ const CallQueueCard = () => {
       transports: ["websocket", "polling"],
       reconnection: true,
     });
-
-    socket.on("public_dashboard_update", () => {
-      fetchQueueData();
-    });
-
-    return () => {
-      socket.disconnect();
-    };
+    socket.on("live_call_update", () => fetchQueueData());
+    return () => socket.disconnect();
   }, [fetchQueueData]);
 
   useEffect(() => {
@@ -144,15 +158,7 @@ const CallQueueCard = () => {
           <tbody>
             {liveCalls.length > 0 ? (
               liveCalls.map((call) => {
-                const durationStart =
-                  call.queue_entry_time || call.call_start;
-                const duration = formatDuration(durationStart);
-                const statusClass =
-                  call.status === "active"
-                    ? "active"
-                    : call.status === "ringing"
-                      ? "ringing"
-                      : "calling";
+                const waitMmSs = formatWaitMmSs(getWaitSeconds(call));
                 return (
                   <tr key={call.linkedid || call.id}>
                     <td className="queue-id">{call.caller || "Unknown"}</td>
@@ -160,15 +166,21 @@ const CallQueueCard = () => {
                       {call.callee || call.agent_name || "—"}
                     </td>
                     <td>
-                      <span className={`status-badge ${statusClass}`}>
+                      <span
+                        className={`status-badge ${
+                          call.status === "active" ? "active" : "calling"
+                        }`}
+                      >
                         {getStatusLabel(call)}
                       </span>
                     </td>
                     <td>
                       <span
-                        className={`wait-time-badge ${getWaitTimeClass(duration)}`}
+                        className={`wait-time-badge ${getWaitTimeClass(
+                          waitMmSs
+                        )}`}
                       >
-                        {duration}
+                        {waitMmSs}
                       </span>
                     </td>
                     <td className="call-type">{getCallType(call.caller)}</td>
