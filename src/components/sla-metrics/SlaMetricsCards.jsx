@@ -7,6 +7,11 @@ import {
 } from "react-icons/fa";
 import "./SlaMetricsCards.css";
 
+const formatMinutesLabel = (seconds) => {
+  const sec = Number(seconds) || 0;
+  return `${(sec / 60).toFixed(2)} min`;
+};
+
 export const DEFAULT_SLA_METRICS = {
   averageResponseTime: 0,
   averageHandleTime: 0,
@@ -64,19 +69,19 @@ export default function SlaMetricsCards({ metrics = DEFAULT_SLA_METRICS }) {
           period="SLA"
           variant="sla-avg-response"
           icon={FaClock}
-          value={`${data.averageResponseTime}s`}
+          value={formatMinutesLabel(data.averageResponseTime)}
           badge={null}
           title="Avg Response Time"
-          sublabel="Seconds"
+          sublabel="Minutes"
         />
         <SlaMetricCard
           period="SLA"
           variant="sla-avg-handle"
           icon={FaHeadphones}
-          value={`${data.averageHandleTime}s`}
+          value={formatMinutesLabel(data.averageHandleTime)}
           badge={null}
           title="Avg Handle Time"
-          sublabel="Seconds"
+          sublabel="Minutes"
         />
         <SlaMetricCard
           period="SLA"

@@ -66,9 +66,9 @@ const DAILY_EXPORT_COLUMNS = [
   { key: "abandonmentRate", label: "Abandonment %" },
 ];
 
-const formatSecondsLabel = (seconds) => {
+const formatMinutesLabel = (seconds) => {
   const sec = Number(seconds) || 0;
-  return `${sec}s`;
+  return `${(sec / 60).toFixed(2)} min`;
 };
 
 const formatMinutesFromSeconds = (seconds) => {
@@ -202,7 +202,7 @@ export default function CallCenterSlaReport({ embedded = false }) {
     doc.text(`Period: ${startDate || "—"} to ${endDate || "—"}`, 14, 24);
     if (summary) {
       doc.text(
-        `Summary — Service Level: ${summary.serviceLevel}% (answered within 20s) | Avg Response: ${formatSecondsLabel(summary.averageResponseTime)} | Avg Handle: ${formatSecondsLabel(summary.averageHandleTime)} | Abandonment: ${summary.abandonmentRate}%`,
+        `Summary — Service Level: ${summary.serviceLevel}% (answered within 20s) | Avg Response: ${formatMinutesLabel(summary.averageResponseTime)} | Avg Handle: ${formatMinutesLabel(summary.averageHandleTime)} | Abandonment: ${summary.abandonmentRate}%`,
         14,
         30
       );
@@ -298,17 +298,17 @@ export default function CallCenterSlaReport({ embedded = false }) {
               period="SLA"
               variant="sla-avg-response"
               icon={FaClock}
-              value={formatSecondsLabel(summary.averageResponseTime)}
+              value={formatMinutesLabel(summary.averageResponseTime)}
               title="Avg Response Time"
-              sublabel="Queue wait (seconds)"
+              sublabel="Queue wait (minutes)"
             />
             <SlaMetricCard
               period="SLA"
               variant="sla-avg-handle"
               icon={FaChartBar}
-              value={formatSecondsLabel(summary.averageHandleTime)}
+              value={formatMinutesLabel(summary.averageHandleTime)}
               title="Avg Handle Time"
-              sublabel="Talk time (seconds)"
+              sublabel="Talk time (minutes)"
             />
             <SlaMetricCard
               period="SLA"
