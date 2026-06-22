@@ -102,12 +102,34 @@ const RecordedAudio = () => {
     localStorage.setItem("playedRecordings", JSON.stringify(updated));
   };
 
-  /* 🔊 AUTO PLAY */
+  /* 🔊 AUTO PLAY — start at agent conversation (skip queue/IVR at file start) */
   useEffect(() => {
-    if (currentRec && audioRef.current) {
-      audioRef.current.load();
-      audioRef.current.play().catch(() => {});
+    if (!currentRec || !audioRef.current) return undefined;
+
+    const audio = audioRef.current;
+    const skipSec = Math.max(0, Number(currentRec.conversation_start_sec) || 0);
+
+    const startPlayback = () => {
+      if (
+        skipSec > 0 &&
+        Number.isFinite(audio.duration) &&
+        skipSec < audio.duration
+      ) {
+        audio.currentTime = skipSec;
+      }
+      audio.play().catch(() => {});
+    };
+
+    audio.load();
+    if (audio.readyState >= 1) {
+      startPlayback();
+    } else {
+      audio.addEventListener("loadedmetadata", startPlayback, { once: true });
     }
+
+    return () => {
+      audio.removeEventListener("loadedmetadata", startPlayback);
+    };
   }, [currentRec]);
 
   /* 🔍 FILTER LOGIC (ADDITIVE ONLY) */
@@ -259,8 +281,8 @@ const RecordedAudio = () => {
     <div className="recording-container">
       <h2 className="recording-title">Agent Call Recordings</h2>
       <p className="recording-subtitle">
-        Answered calls with a recording file from CDR. Agent extension and name
-        are shown when detected from the call leg.
+        Answered agent conversations only (queue/IVR wait is skipped on play).
+        Duration shows talk time after the agent received the call.
       </p>
 
       {/* 🔍 FILTERS */}

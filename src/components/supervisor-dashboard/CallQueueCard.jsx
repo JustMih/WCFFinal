@@ -4,47 +4,11 @@ import "./CallQueueCard.css";
 import { baseURL } from "../../config";
 import { formatElapsedMmSs } from "../../utils/dateTimeFormat";
 
-<<<<<<< HEAD
-/** Live queue card only — MM:SS from elapsed seconds (does not use report formatSecondsToMinutes). */
-const formatWaitMmSs = (totalSeconds) => {
-  const seconds = Math.max(0, Math.floor(Number(totalSeconds) || 0));
-  const minutes = Math.floor(seconds / 60);
-  const remainder = seconds % 60;
-  return `${minutes}:${String(remainder).padStart(2, "0")}`;
-};
-
-/** Use the newest start time so an old AMI/CEL stamp cannot show 180:52 for a ~3 min call. */
-const pickLiveStartTime = (call) => {
-  if (call.status === "active" && call.call_answered) {
-    return call.call_answered;
-  }
-  const candidates = [call.queue_entry_time, call.call_start].filter(Boolean);
-  let best = null;
-  let bestMs = -Infinity;
-  for (const value of candidates) {
-    const ms = new Date(value).getTime();
-    if (!Number.isFinite(ms)) continue;
-    if (ms > bestMs) {
-      bestMs = ms;
-      best = value;
-    }
-  }
-  return best;
-};
-
-const getWaitSeconds = (call) => {
-  const start = pickLiveStartTime(call);
-  if (!start) return 0;
-  const startMs = new Date(start).getTime();
-  if (!Number.isFinite(startMs)) return 0;
-  return Math.max(0, Math.floor((Date.now() - startMs) / 1000));
-=======
 const getDurationStart = (call) => {
   if (call.status === "active") {
     return call.call_answered || call.queue_entry_time || call.call_start;
   }
   return call.queue_entry_time || call.call_start;
->>>>>>> d180d767e03631b51d2db1702daf6b235a658a8c
 };
 
 const getWaitTimeClass = (waitTime) => {
@@ -167,9 +131,6 @@ const CallQueueCard = () => {
           <tbody>
             {liveCalls.length > 0 ? (
               liveCalls.map((call) => {
-<<<<<<< HEAD
-                const waitMmSs = formatWaitMmSs(getWaitSeconds(call));
-=======
                 const duration = formatElapsedMmSs(getDurationStart(call));
                 const statusClass =
                   call.status === "active"
@@ -177,7 +138,6 @@ const CallQueueCard = () => {
                     : call.status === "ringing"
                       ? "ringing"
                       : "calling";
->>>>>>> d180d767e03631b51d2db1702daf6b235a658a8c
                 return (
                   <tr key={call.linkedid || call.id}>
                     <td className="queue-id">{call.caller || "Unknown"}</td>
@@ -186,20 +146,16 @@ const CallQueueCard = () => {
                     </td>
                     <td>
                       <span
-                        className={`status-badge ${
-                          call.status === "active" ? "active" : "calling"
-                        }`}
+                        className={`status-badge ${statusClass}`}
                       >
                         {getStatusLabel(call)}
                       </span>
                     </td>
                     <td>
                       <span
-                        className={`wait-time-badge ${getWaitTimeClass(
-                          waitMmSs
-                        )}`}
+                        className={`wait-time-badge ${getWaitTimeClass(duration)}`}
                       >
-                        {waitMmSs}
+                        {duration}
                       </span>
                     </td>
                     <td className="call-type">{getCallType(call.caller)}</td>
