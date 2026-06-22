@@ -1,29 +1,24 @@
 import React, { useState, useEffect } from "react";
 import { MdPhoneInTalk, MdAccessTime } from "react-icons/md";
 import { baseURL } from "../../config";
+import { formatElapsedMmSs } from "../../utils/dateTimeFormat";
 import "./ActiveCalls.css";
 
-export default function ActiveCalls({ 
-  liveCalls = null, 
+const getDurationStart = (call) => {
+  if (call.status === "active") {
+    return call.call_answered || call.queue_entry_time || call.call_start;
+  }
+  return call.queue_entry_time || call.call_start;
+};
+
+export default function ActiveCalls({
+  liveCalls = null,
   refreshInterval = 2000,
-  showTitle = true 
+  showTitle = true,
 }) {
   const [activeCalls, setActiveCalls] = useState([]);
   const [loading, setLoading] = useState(true);
-
-  const formatDuration = (startTime) => {
-    if (!startTime) return "00:00";
-    const diff = Math.floor((new Date() - new Date(startTime)) / 1000);
-    const mins = Math.floor(diff / 60);
-    const secs = diff % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  };
-
-  const extractAgentFromChannel = (channel) => {
-    if (!channel) return "Unassigned";
-    const match = channel.match(/\/(\d+)/);
-    return match ? match[1] : channel;
-  };
+  const [, setTick] = useState(0);
 
   const extractPhoneFromClid = (clid) => {
     if (!clid) return "Unknown";
@@ -35,7 +30,7 @@ export default function ActiveCalls({
     const fetchActiveCalls = async () => {
       try {
         let calls = [];
-        
+
         const isOnDashboard = (call) =>
           !call.call_end &&
           (call.status === "active" || call.status === "calling");
@@ -51,7 +46,7 @@ export default function ActiveCalls({
             calls = Array.isArray(data) ? data.filter(isOnDashboard) : [];
           }
         }
-        
+
         setActiveCalls(calls);
       } catch (error) {
         console.error("Error fetching active calls:", error);
@@ -62,7 +57,6 @@ export default function ActiveCalls({
 
     fetchActiveCalls();
 
-    // Set up interval if refreshInterval is provided and no liveCalls prop
     let intervalId = null;
     if (!liveCalls && refreshInterval > 0) {
       intervalId = setInterval(fetchActiveCalls, refreshInterval);
@@ -73,7 +67,6 @@ export default function ActiveCalls({
     };
   }, [liveCalls, refreshInterval]);
 
-  // Update activeCalls when liveCalls prop changes
   useEffect(() => {
     if (liveCalls) {
       const calls = Array.isArray(liveCalls)
@@ -86,6 +79,12 @@ export default function ActiveCalls({
       setActiveCalls(calls);
     }
   }, [liveCalls]);
+
+  useEffect(() => {
+    if (activeCalls.length === 0) return undefined;
+    const timer = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(timer);
+  }, [activeCalls.length]);
 
   if (loading && activeCalls.length === 0) {
     return (
@@ -120,68 +119,43 @@ export default function ActiveCalls({
                   {call.status === "calling" ? "IN QUEUE" : "ACTIVE"}
                 </div>
                 <div className="call-duration">
-                  <MdAccessTime />{" "}
-                  {formatDuration(
-                    call.call_answered || call.queue_entry_time || call.call_start
-                  )}
+                  <MdAccessTime /> {formatElapsedMmSs(getDurationStart(call))}
                 </div>
               </div>
-              {/* <div className="call-details">
+              <div className="call-details">
                 <div className="call-info-row">
                   <span className="call-label">Caller:</span>
-                  <span className="call-value">{extractPhoneFromClid(call.caller) || "Unknown"}</span>
+                  <span className="call-value">
+                    {extractPhoneFromClid(call.caller) || "Unknown"}
+                  </span>
                 </div>
+
                 <div className="call-info-row">
-                  <span className="call-label">Receiver:</span>
-                  <span className="call-value">{call.callee || call.cid_dnid || extractAgentFromChannel(call.channel) || "Unknown"}</span>
+                  <span className="call-label">Queue:</span>
+                  <span className="call-value">{call.callee || "Unknown"}</span>
                 </div>
-                {call.agent && (
-                  <div className="call-info-row">
-                    <span className="call-label">Agent:</span>
-                    <span className="call-value">{call.agent}</span>
-                  </div>
-                )}
+
+                <div className="call-info-row">
+                  <span className="call-label">Agent:</span>
+                  <span className="call-value">
+                    {call.agent_name && call.agent_name !== "Unknown Agent"
+                      ? call.agent_name +
+                        (call.agent_extension
+                          ? ` (${call.agent_extension})`
+                          : "")
+                      : "Waiting for agent"}
+                  </span>
+                </div>
+
                 {call.call_answered && (
                   <div className="call-info-row">
                     <span className="call-label">Started:</span>
-                    <span className="call-value">{new Date(call.call_answered).toLocaleTimeString()}</span>
+                    <span className="call-value">
+                      {new Date(call.call_answered).toLocaleTimeString()}
+                    </span>
                   </div>
                 )}
-              </div> */}
-              <div className="call-details">
-  <div className="call-info-row">
-    <span className="call-label">Caller:</span>
-    <span className="call-value">
-      {extractPhoneFromClid(call.caller) || "Unknown"}
-    </span>
-  </div>
-
-  <div className="call-info-row">
-    <span className="call-label">Queue:</span>
-    <span className="call-value">
-      {call.callee || "Unknown"}
-    </span>
-  </div>
-
-  <div className="call-info-row">
-    <span className="call-label">Agent:</span>
-    <span className="call-value">
-      {call.agent_name && call.agent_name !== "Unknown Agent"
-        ? call.agent_name + (call.agent_extension ? ` (${call.agent_extension})` : "")
-        : "Waiting for agent"}
-    </span>
-  </div>
-
-  {call.call_answered && (
-    <div className="call-info-row">
-      <span className="call-label">Started:</span>
-      <span className="call-value">
-        {new Date(call.call_answered).toLocaleTimeString()}
-      </span>
-    </div>
-  )}
-</div>
-
+              </div>
             </div>
           ))
         ) : (
@@ -191,4 +165,3 @@ export default function ActiveCalls({
     </div>
   );
 }
-

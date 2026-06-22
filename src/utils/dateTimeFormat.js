@@ -67,3 +67,16 @@ export function formatDbTimeLocal(value) {
     hour12: false,
   });
 }
+
+/**
+ * Elapsed mm:ss since a WCF DB datetime (queue wait / talk time).
+ * @param {string|Date|null|undefined} startTime
+ */
+export function formatElapsedMmSs(startTime) {
+  const start = parseDbDateTime(startTime);
+  if (!start) return "00:00";
+  const diff = Math.max(0, Math.floor((Date.now() - start.getTime()) / 1000));
+  const mins = Math.floor(diff / 60);
+  const secs = diff % 60;
+  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+}

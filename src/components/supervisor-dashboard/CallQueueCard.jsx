@@ -2,15 +2,13 @@ import React, { useEffect, useState, useCallback } from "react";
 import io from "socket.io-client";
 import "./CallQueueCard.css";
 import { baseURL } from "../../config";
+import { formatElapsedMmSs } from "../../utils/dateTimeFormat";
 
-const formatDuration = (startTime) => {
-  if (!startTime) return "00:00";
-  const startMs = new Date(startTime).getTime();
-  if (!Number.isFinite(startMs)) return "00:00";
-  const diff = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
-  const mins = Math.floor(diff / 60);
-  const secs = diff % 60;
-  return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+const getDurationStart = (call) => {
+  if (call.status === "active") {
+    return call.call_answered || call.queue_entry_time || call.call_start;
+  }
+  return call.queue_entry_time || call.call_start;
 };
 
 const getWaitTimeClass = (waitTime) => {
@@ -144,9 +142,7 @@ const CallQueueCard = () => {
           <tbody>
             {liveCalls.length > 0 ? (
               liveCalls.map((call) => {
-                const durationStart =
-                  call.queue_entry_time || call.call_start;
-                const duration = formatDuration(durationStart);
+                const duration = formatElapsedMmSs(getDurationStart(call));
                 const statusClass =
                   call.status === "active"
                     ? "active"
