@@ -4,6 +4,7 @@ import "./CallQueueCard.css";
 import { baseURL } from "../../config";
 import { formatElapsedMmSs } from "../../utils/dateTimeFormat";
 
+<<<<<<< HEAD
 /** Live queue card only — MM:SS from elapsed seconds (does not use report formatSecondsToMinutes). */
 const formatWaitMmSs = (totalSeconds) => {
   const seconds = Math.max(0, Math.floor(Number(totalSeconds) || 0));
@@ -37,6 +38,13 @@ const getWaitSeconds = (call) => {
   const startMs = new Date(start).getTime();
   if (!Number.isFinite(startMs)) return 0;
   return Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+=======
+const getDurationStart = (call) => {
+  if (call.status === "active") {
+    return call.call_answered || call.queue_entry_time || call.call_start;
+  }
+  return call.queue_entry_time || call.call_start;
+>>>>>>> d180d767e03631b51d2db1702daf6b235a658a8c
 };
 
 const getWaitTimeClass = (waitTime) => {
@@ -159,7 +167,13 @@ const CallQueueCard = () => {
           <tbody>
             {liveCalls.length > 0 ? (
               liveCalls.map((call) => {
-                const waitMmSs = formatWaitMmSs(getWaitSeconds(call));
+                const duration = formatElapsedMmSs(getDurationStart(call));
+                const statusClass =
+                  call.status === "active"
+                    ? "active"
+                    : call.status === "ringing"
+                      ? "ringing"
+                      : "calling";
                 return (
                   <tr key={call.linkedid || call.id}>
                     <td className="queue-id">{call.caller || "Unknown"}</td>
