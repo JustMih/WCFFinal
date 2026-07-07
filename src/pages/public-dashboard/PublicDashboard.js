@@ -50,6 +50,62 @@ const DEFAULT_AGENT_STATUS = {
   pausePercent: 0,
 };
 
+const DEFAULT_CURRENT_DAY = {
+  answered: 0,
+  dropped: 0,
+  lost: 0,
+  total: 0,
+};
+
+const CALL_SUMMARY_POLL_MS = 20000;
+
+const resolveCurrentDay = (data) => {
+  if (data?.currentDay) {
+    return {
+      answered: Number(data.currentDay.answered ?? 0),
+      dropped: Number(data.currentDay.dropped ?? 0),
+      lost: Number(data.currentDay.lost ?? 0),
+      total: Number(data.currentDay.total ?? 0),
+    };
+  }
+  const lost = Number(
+    data?.callStatistics?.lost ?? data?.callStatusSummary?.lost ?? 0
+  );
+  const dropped = Number(
+    data?.callStatistics?.dropped ?? data?.callStatusSummary?.dropped ?? 0
+  );
+  return {
+    answered: 0,
+    lost,
+    dropped,
+    total: lost + dropped,
+  };
+};
+
+const mapDashboardPayload = (data) => ({
+  agentStatus: data.agentStatus || { ...DEFAULT_AGENT_STATUS },
+  liveCalls: Array.isArray(data.liveCalls) ? data.liveCalls : [],
+  callStats: data.callStats || {
+    totalCounts: [],
+    monthlyCounts: [],
+    dailyCounts: [],
+    totalRows: 0,
+  },
+  queueStatus: Array.isArray(data.queueStatus) ? data.queueStatus : [],
+  callStatusSummary: data.callStatusSummary || {
+    active: 0,
+    inQueue: 0,
+    answered: 0,
+    dropped: 0,
+    lost: 0,
+  },
+  callStatistics: data.callStatistics || {
+    lost: 0,
+    dropped: 0,
+  },
+  currentDay: resolveCurrentDay(data),
+});
+
 export default function PublicDashboard({
   suppressLoadingUI = false,
   onInitialLoadComplete,
@@ -67,6 +123,7 @@ export default function PublicDashboard({
     queueStatus: [],
     callStatusSummary: { active: 0, inQueue: 0, answered: 0, dropped: 0, lost: 0 },
     callStatistics: { lost: 0, dropped: 0 },
+    currentDay: { ...DEFAULT_CURRENT_DAY },
   });
   const [callSummaryData, setCallSummaryData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -167,30 +224,7 @@ export default function PublicDashboard({
         );
         if (response.ok) {
           const data = await response.json();
-          setDashboardData({
-            agentStatus: data.agentStatus || { ...DEFAULT_AGENT_STATUS },
-            liveCalls: Array.isArray(data.liveCalls) ? data.liveCalls : [],
-            callStats: data.callStats || {
-              totalCounts: [],
-              monthlyCounts: [],
-              dailyCounts: [],
-              totalRows: 0,
-            },
-            queueStatus: Array.isArray(data.queueStatus)
-              ? data.queueStatus
-              : [],
-            callStatusSummary: data.callStatusSummary || {
-              active: 0,
-              inQueue: 0,
-              answered: 0,
-              dropped: 0,
-              lost: 0,
-            },
-            callStatistics: data.callStatistics || {
-              lost: 0,
-              dropped: 0,
-            },
-          });
+          setDashboardData(mapDashboardPayload(data));
         }
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
@@ -199,10 +233,7 @@ export default function PublicDashboard({
       }
     };
 
-    fetchDashboardData();
-    fetchCallSummary();
-    fetchLostCallsToday();
-    fetchDroppedCallsToday();
+    Promise.all([fetchDashboardData(), fetchCallSummary()]);
 
     const socketUrl = baseURL.replace(/\/api$/, "") || "https://192.168.21.69";
     const socket = io(socketUrl, {
@@ -215,11 +246,7 @@ export default function PublicDashboard({
     socket.on("connect", () => console.log("Connected to dashboard socket"));
     socket.on("public_dashboard_update", (data) => {
       setDashboardData((prev) => ({
-        ...prev,
-        agentStatus: data.agentStatus || prev.agentStatus,
-        liveCalls: Array.isArray(data.liveCalls)
-          ? data.liveCalls
-          : prev.liveCalls,
+        ...mapDashboardPayload({ ...prev, ...data }),
         callStats: {
           ...prev.callStats,
           totalCounts:
@@ -228,17 +255,6 @@ export default function PublicDashboard({
             data.callStats?.monthlyCounts || prev.callStats.monthlyCounts,
           dailyCounts:
             data.callStats?.dailyCounts || prev.callStats.dailyCounts,
-        },
-        queueStatus: Array.isArray(data.queueStatus)
-          ? data.queueStatus
-          : prev.queueStatus,
-        callStatusSummary: {
-          ...prev.callStatusSummary,
-          ...(data.callStatusSummary || {}),
-        },
-        callStatistics: data.callStatistics || {
-          lost: Number(data.callStatusSummary?.lost ?? 0),
-          dropped: Number(data.callStatusSummary?.dropped ?? 0),
         },
       }));
     });
@@ -251,58 +267,26 @@ export default function PublicDashboard({
       console.error("Socket connection error:", error);
     });
 
-    // Periodic fetch for live calls, dashboard, and call summary every 2 seconds
-    const liveCallsInterval = setInterval(async () => {
+    // Dashboard poll: live status + today's call statistics card (2s)
+    const dashboardPollInterval = setInterval(async () => {
       try {
-        const [dashboardResponse, callSummaryResponse] = await Promise.all([
-            fetch(`${baseURL}/public/dashboard?_=${Date.now()}`, {
-              cache: "no-store",
-            }),
-            fetch(
-              `${baseURL}/call-summary/call-summary?excludeDestS=1&_=${Date.now()}`,
-              { cache: "no-store" }
-            ),
-          ]);
+        const dashboardResponse = await fetch(
+          `${baseURL}/public/dashboard?_=${Date.now()}`,
+          { cache: "no-store" }
+        );
         if (dashboardResponse.ok) {
           const data = await dashboardResponse.json();
-          setDashboardData({
-            agentStatus: data.agentStatus || { ...DEFAULT_AGENT_STATUS },
-            liveCalls: Array.isArray(data.liveCalls) ? data.liveCalls : [],
-            callStats: data.callStats || {
-              totalCounts: [],
-              monthlyCounts: [],
-              dailyCounts: [],
-              totalRows: 0,
-            },
-            queueStatus: Array.isArray(data.queueStatus)
-              ? data.queueStatus
-              : [],
-            callStatusSummary: data.callStatusSummary || {
-              active: 0,
-              inQueue: 0,
-              answered: 0,
-              dropped: 0,
-              lost: 0,
-            },
-            callStatistics: data.callStatistics || {
-              lost: 0,
-              dropped: 0,
-            },
-          });
+          setDashboardData(mapDashboardPayload(data));
         }
-        if (callSummaryResponse.ok) {
-          const summaryData = await callSummaryResponse.json();
-          setCallSummaryData(summaryData);
-          if (summaryData.slaMetrics) {
-            setSlaMetrics({ ...DEFAULT_SLA_METRICS, ...summaryData.slaMetrics });
-          }
-        }
-        fetchLostCallsToday();
-        fetchDroppedCallsToday();
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
       }
-    }, 2000); // Fetch every 2 seconds
+    }, 2000);
+
+    // Call summary poll: charts + SLA only (less frequent)
+    const callSummaryPollInterval = setInterval(() => {
+      fetchCallSummary();
+    }, CALL_SUMMARY_POLL_MS);
 
     // Fallback: periodic fetch every 10 seconds if socket fails
     const fallbackInterval = setInterval(() => {
@@ -313,11 +297,12 @@ export default function PublicDashboard({
 
     return () => {
       socket.disconnect();
-      clearInterval(liveCallsInterval);
+      clearInterval(dashboardPollInterval);
+      clearInterval(callSummaryPollInterval);
       clearInterval(fallbackInterval);
     };
 
-  }, [fetchLostCallsToday, fetchDroppedCallsToday]);
+  }, []);
 
   const formatTime = (seconds) => {
     if (!seconds || seconds <= 0) return "00:00";
@@ -366,7 +351,8 @@ export default function PublicDashboard({
 
   // Call summary from API: answered, dropped, lost; total = sum of those three
   const day =
-    callSummaryData?.currentDay || {
+    dashboardData.currentDay ??
+    callSummaryData?.currentDay ?? {
       answered: 0,
       dropped: 0,
       lost: 0,
@@ -391,7 +377,8 @@ export default function PublicDashboard({
   const dailyAnswered = day.answered ?? 0;
   const dailyDropped = droppedCallsCount;
   const dailyLost = lostCallsCount;
-  const dailyTotal = dailyAnswered + dailyDropped + dailyLost;
+  const dailyTotal =
+    day.total ?? dailyAnswered + dailyDropped + dailyLost;
 
   const monthlyAnswered = month.answered ?? 0;
   const monthlyDropped = month.dropped ?? 0;
