@@ -128,6 +128,10 @@
   background: #d3adf7;
   color: #391085;
 }
+.status-badge.ivr {
+  background: #b7eb8f;
+  color: #135200;
+}
 .status-badge.dropped {
   background: #faad14;
 }
