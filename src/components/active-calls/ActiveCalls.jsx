@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { MdPhoneInTalk, MdAccessTime } from "react-icons/md";
 import { baseURL } from "../../config";
-import { formatElapsedMmSs } from "../../utils/dateTimeFormat";
+import { formatDbTimeLocal, formatElapsedMmSs } from "../../utils/dateTimeFormat";
 import "./ActiveCalls.css";
 
 const getDurationStart = (call) => {
@@ -151,7 +151,7 @@ export default function ActiveCalls({
                   <div className="call-info-row">
                     <span className="call-label">Started:</span>
                     <span className="call-value">
-                      {new Date(call.call_answered).toLocaleTimeString()}
+                      {formatDbTimeLocal(call.call_answered)}
                     </span>
                   </div>
                 )}
