@@ -99,6 +99,47 @@
   font-size: 1rem;
 }
 
+/* Call cards — centered answered stat */
+.call-summary-content {
+  align-items: center;
+  justify-content: center;
+}
+
+.answered-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 16px 28px;
+  background: rgba(255, 255, 255, 0.75);
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  min-width: 110px;
+}
+
+.answered-value {
+  font-size: 2.25rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.inbound-box .answered-value {
+  color: #2563eb;
+}
+
+.outbound-box .answered-value {
+  color: #059669;
+}
+
+.answered-label {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
 /* Chart Container */
 .chart-container {
   flex: 1;
@@ -358,6 +399,15 @@
   
   .status-row .count {
     font-size: 0.9rem;
+  }
+
+  .answered-value {
+    font-size: 1.75rem;
+  }
+
+  .answered-stat {
+    padding: 12px 20px;
+    min-width: 90px;
   }
   
   .chart-container {

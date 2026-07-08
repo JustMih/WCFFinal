@@ -66,6 +66,11 @@ const DAILY_EXPORT_COLUMNS = [
   { key: "abandonmentRate", label: "Abandonment %" },
 ];
 
+const formatMinutesLabel = (seconds) => {
+  const sec = Number(seconds) || 0;
+  return `${(sec / 60).toFixed(2)} min`;
+};
+
 const formatMinutesFromSeconds = (seconds) => {
   const sec = Number(seconds) || 0;
   return (sec / 60).toFixed(2);
@@ -197,7 +202,7 @@ export default function CallCenterSlaReport({ embedded = false }) {
     doc.text(`Period: ${startDate || "—"} to ${endDate || "—"}`, 14, 24);
     if (summary) {
       doc.text(
-        `Summary — Service Level: ${summary.serviceLevel}% | Avg Response: ${formatMinutesFromSeconds(summary.averageResponseTime)} min | Avg Handle: ${formatMinutesFromSeconds(summary.averageHandleTime)} min | Abandonment: ${summary.abandonmentRate}%`,
+        `Summary — Service Level: ${summary.serviceLevel}% (answered within 20s) | Avg Response: ${formatMinutesLabel(summary.averageResponseTime)} | Avg Handle: ${formatMinutesLabel(summary.averageHandleTime)} | Abandonment: ${summary.abandonmentRate}%`,
         14,
         30
       );
@@ -293,17 +298,17 @@ export default function CallCenterSlaReport({ embedded = false }) {
               period="SLA"
               variant="sla-avg-response"
               icon={FaClock}
-              value={`${formatMinutesFromSeconds(summary.averageResponseTime)} min`}
+              value={formatMinutesLabel(summary.averageResponseTime)}
               title="Avg Response Time"
-              sublabel="Ring time to answer"
+              sublabel="Queue wait (minutes)"
             />
             <SlaMetricCard
               period="SLA"
               variant="sla-avg-handle"
               icon={FaChartBar}
-              value={`${formatMinutesFromSeconds(summary.averageHandleTime)} min`}
+              value={formatMinutesLabel(summary.averageHandleTime)}
               title="Avg Handle Time"
-              sublabel="Talk time (billsec)"
+              sublabel="Talk time (minutes)"
             />
             <SlaMetricCard
               period="SLA"
@@ -311,7 +316,7 @@ export default function CallCenterSlaReport({ embedded = false }) {
               icon={FaExclamationCircle}
               value={`${summary.abandonmentRate}%`}
               title="Abandonment Rate"
-              sublabel={`${summary.totalCalls ?? 0} total calls`}
+              sublabel="Lost + dropped ÷ total"
             />
           </div>
 

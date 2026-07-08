@@ -33,10 +33,12 @@ import {
 import { baseURL } from "../../config";
 import io from "socket.io-client";
 import ActiveCalls from "../../components/active-calls/ActiveCalls";
+import SlaMetricsCards, {
+  DEFAULT_SLA_METRICS,
+} from "../../components/sla-metrics/SlaMetricsCards";
 import ReactApexChart from "react-apexcharts";
 import "./PublicDashboard.css";
 
-import { LOST_MIN_DURATION_SECONDS } from "../../utils/callClassification";
 import { formatDbTimeLocal } from "../../utils/dateTimeFormat";
 
 const DEFAULT_AGENT_STATUS = {
@@ -48,6 +50,62 @@ const DEFAULT_AGENT_STATUS = {
   pausePercent: 0,
 };
 
+const DEFAULT_CURRENT_DAY = {
+  answered: 0,
+  dropped: 0,
+  lost: 0,
+  total: 0,
+};
+
+const CALL_SUMMARY_POLL_MS = 20000;
+
+const resolveCurrentDay = (data) => {
+  if (data?.currentDay) {
+    return {
+      answered: Number(data.currentDay.answered ?? 0),
+      dropped: Number(data.currentDay.dropped ?? 0),
+      lost: Number(data.currentDay.lost ?? 0),
+      total: Number(data.currentDay.total ?? 0),
+    };
+  }
+  const lost = Number(
+    data?.callStatistics?.lost ?? data?.callStatusSummary?.lost ?? 0
+  );
+  const dropped = Number(
+    data?.callStatistics?.dropped ?? data?.callStatusSummary?.dropped ?? 0
+  );
+  return {
+    answered: 0,
+    lost,
+    dropped,
+    total: lost + dropped,
+  };
+};
+
+const mapDashboardPayload = (data) => ({
+  agentStatus: data.agentStatus || { ...DEFAULT_AGENT_STATUS },
+  liveCalls: Array.isArray(data.liveCalls) ? data.liveCalls : [],
+  callStats: data.callStats || {
+    totalCounts: [],
+    monthlyCounts: [],
+    dailyCounts: [],
+    totalRows: 0,
+  },
+  queueStatus: Array.isArray(data.queueStatus) ? data.queueStatus : [],
+  callStatusSummary: data.callStatusSummary || {
+    active: 0,
+    inQueue: 0,
+    answered: 0,
+    dropped: 0,
+    lost: 0,
+  },
+  callStatistics: data.callStatistics || {
+    lost: 0,
+    dropped: 0,
+  },
+  currentDay: resolveCurrentDay(data),
+});
+
 export default function PublicDashboard({
   suppressLoadingUI = false,
   onInitialLoadComplete,
@@ -56,9 +114,16 @@ export default function PublicDashboard({
   const [dashboardData, setDashboardData] = useState({
     agentStatus: { ...DEFAULT_AGENT_STATUS },
     liveCalls: [],
-    callStats: { dailyCounts: [], totalRows: 0 },
+    callStats: {
+      totalCounts: [],
+      monthlyCounts: [],
+      dailyCounts: [],
+      totalRows: 0,
+    },
     queueStatus: [],
     callStatusSummary: { active: 0, inQueue: 0, answered: 0, dropped: 0, lost: 0 },
+    callStatistics: { lost: 0, dropped: 0 },
+    currentDay: { ...DEFAULT_CURRENT_DAY },
   });
   const [callSummaryData, setCallSummaryData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -69,11 +134,15 @@ export default function PublicDashboard({
   const [droppedCalls, setDroppedCalls] = useState([]);
   const [showDroppedCallsModal, setShowDroppedCallsModal] = useState(false);
   const [droppedCallsLoading, setDroppedCallsLoading] = useState(false);
+  const [slaMetrics, setSlaMetrics] = useState({ ...DEFAULT_SLA_METRICS });
 
   const fetchLostCallsToday = useCallback(async (forModal = false) => {
     if (forModal) setLostCallsLoading(true);
     try {
-      const response = await fetch(`${baseURL}/calls/lost-calls-today`);
+      const response = await fetch(
+        `${baseURL}/calls/lost-calls-today?_=${Date.now()}`,
+        { cache: "no-store" }
+      );
       if (response.ok) {
         const data = await response.json();
         const list = Array.isArray(data) ? data : [];
@@ -84,11 +153,7 @@ export default function PublicDashboard({
           const key = `${phone}:${t}`;
           if (seen.has(key)) return false;
           seen.add(key);
-          const wait = Number(call.wait_seconds);
-          return (
-            call.status === "LOST" ||
-            (Number.isFinite(wait) && wait >= LOST_MIN_DURATION_SECONDS)
-          );
+          return true;
         });
         setLostCalls(deduped);
       } else if (forModal) {
@@ -104,7 +169,10 @@ export default function PublicDashboard({
   const fetchDroppedCallsToday = useCallback(async (forModal = false) => {
     if (forModal) setDroppedCallsLoading(true);
     try {
-      const response = await fetch(`${baseURL}/calls/dropped-calls-today`);
+      const response = await fetch(
+        `${baseURL}/calls/dropped-calls-today?_=${Date.now()}`,
+        { cache: "no-store" }
+      );
       if (response.ok) {
         const data = await response.json();
         setDroppedCalls(Array.isArray(data) ? data : []);
@@ -132,10 +200,16 @@ export default function PublicDashboard({
   useEffect(() => {
     const fetchCallSummary = async () => {
       try {
-        const res = await fetch(`${baseURL}/call-summary/call-summary?excludeDestS=1`);
+        const res = await fetch(
+          `${baseURL}/call-summary/call-summary?excludeDestS=1&_=${Date.now()}`,
+          { cache: "no-store" }
+        );
         if (res.ok) {
           const data = await res.json();
           setCallSummaryData(data);
+          if (data.slaMetrics) {
+            setSlaMetrics({ ...DEFAULT_SLA_METRICS, ...data.slaMetrics });
+          }
         }
       } catch (err) {
         console.error("Error fetching call summary:", err);
@@ -144,33 +218,13 @@ export default function PublicDashboard({
 
     const fetchDashboardData = async () => {
       try {
-        const response = await fetch(`${baseURL}/public/dashboard`);
+        const response = await fetch(
+          `${baseURL}/public/dashboard?_=${Date.now()}`,
+          { cache: "no-store" }
+        );
         if (response.ok) {
           const data = await response.json();
-          setDashboardData({
-            agentStatus: data.agentStatus || { ...DEFAULT_AGENT_STATUS },
-            liveCalls: Array.isArray(data.liveCalls) ? data.liveCalls : [],
-            callStats: data.callStats || {
-              totalCounts: [],
-              monthlyCounts: [],
-              dailyCounts: [],
-              totalRows: 0,
-            },
-            queueStatus: Array.isArray(data.queueStatus)
-              ? data.queueStatus
-              : [],
-            callStatusSummary: data.callStatusSummary || {
-              active: 0,
-              inQueue: 0,
-              answered: 0,
-              dropped: 0,
-              lost: 0,
-            },
-            callStatistics: data.callStatistics || {
-              lost: 0,
-              dropped: 0,
-            },
-          });
+          setDashboardData(mapDashboardPayload(data));
         }
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
@@ -179,10 +233,7 @@ export default function PublicDashboard({
       }
     };
 
-    fetchDashboardData();
-    fetchCallSummary();
-    fetchLostCallsToday();
-    fetchDroppedCallsToday();
+    Promise.all([fetchDashboardData(), fetchCallSummary()]);
 
     const socketUrl = baseURL.replace(/\/api$/, "") || "https://192.168.21.69";
     const socket = io(socketUrl, {
@@ -195,11 +246,7 @@ export default function PublicDashboard({
     socket.on("connect", () => console.log("Connected to dashboard socket"));
     socket.on("public_dashboard_update", (data) => {
       setDashboardData((prev) => ({
-        ...prev,
-        agentStatus: data.agentStatus || prev.agentStatus,
-        liveCalls: Array.isArray(data.liveCalls)
-          ? data.liveCalls
-          : prev.liveCalls,
+        ...mapDashboardPayload({ ...prev, ...data }),
         callStats: {
           ...prev.callStats,
           totalCounts:
@@ -209,14 +256,6 @@ export default function PublicDashboard({
           dailyCounts:
             data.callStats?.dailyCounts || prev.callStats.dailyCounts,
         },
-        queueStatus: Array.isArray(data.queueStatus)
-          ? data.queueStatus
-          : prev.queueStatus,
-        callStatusSummary: {
-          ...prev.callStatusSummary,
-          ...(data.callStatusSummary || {}),
-        },
-        callStatistics: data.callStatistics || prev.callStatistics,
       }));
     });
 
@@ -228,50 +267,26 @@ export default function PublicDashboard({
       console.error("Socket connection error:", error);
     });
 
-    // Periodic fetch for live calls, dashboard, and call summary every 2 seconds
-    const liveCallsInterval = setInterval(async () => {
+    // Dashboard poll: live status + today's call statistics card (2s)
+    const dashboardPollInterval = setInterval(async () => {
       try {
-        const [dashboardResponse, callSummaryResponse] = await Promise.all([
-          fetch(`${baseURL}/public/dashboard`),
-          fetch(`${baseURL}/call-summary/call-summary?excludeDestS=1`),
-        ]);
+        const dashboardResponse = await fetch(
+          `${baseURL}/public/dashboard?_=${Date.now()}`,
+          { cache: "no-store" }
+        );
         if (dashboardResponse.ok) {
           const data = await dashboardResponse.json();
-          setDashboardData({
-            agentStatus: data.agentStatus || { ...DEFAULT_AGENT_STATUS },
-            liveCalls: Array.isArray(data.liveCalls) ? data.liveCalls : [],
-            callStats: data.callStats || {
-              totalCounts: [],
-              monthlyCounts: [],
-              dailyCounts: [],
-              totalRows: 0,
-            },
-            queueStatus: Array.isArray(data.queueStatus)
-              ? data.queueStatus
-              : [],
-            callStatusSummary: data.callStatusSummary || {
-              active: 0,
-              inQueue: 0,
-              answered: 0,
-              dropped: 0,
-              lost: 0,
-            },
-            callStatistics: data.callStatistics || {
-              lost: 0,
-              dropped: 0,
-            },
-          });
+          setDashboardData(mapDashboardPayload(data));
         }
-        if (callSummaryResponse.ok) {
-          const summaryData = await callSummaryResponse.json();
-          setCallSummaryData(summaryData);
-        }
-        fetchLostCallsToday();
-        fetchDroppedCallsToday();
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
       }
-    }, 2000); // Fetch every 2 seconds
+    }, 2000);
+
+    // Call summary poll: charts + SLA only (less frequent)
+    const callSummaryPollInterval = setInterval(() => {
+      fetchCallSummary();
+    }, CALL_SUMMARY_POLL_MS);
 
     // Fallback: periodic fetch every 10 seconds if socket fails
     const fallbackInterval = setInterval(() => {
@@ -280,13 +295,14 @@ export default function PublicDashboard({
       }
     }, 10000);
 
-return () => {
-  socket.disconnect();
-  clearInterval(liveCallsInterval);
-  clearInterval(fallbackInterval);
-};
+    return () => {
+      socket.disconnect();
+      clearInterval(dashboardPollInterval);
+      clearInterval(callSummaryPollInterval);
+      clearInterval(fallbackInterval);
+    };
 
-  }, [fetchLostCallsToday, fetchDroppedCallsToday]);
+  }, []);
 
   const formatTime = (seconds) => {
     if (!seconds || seconds <= 0) return "00:00";
@@ -335,7 +351,8 @@ return () => {
 
   // Call summary from API: answered, dropped, lost; total = sum of those three
   const day =
-    callSummaryData?.currentDay || {
+    dashboardData.currentDay ??
+    callSummaryData?.currentDay ?? {
       answered: 0,
       dropped: 0,
       lost: 0,
@@ -353,28 +370,15 @@ return () => {
       lost: 0,
     };
 
-  const pickStatCount = (summaryVal, dashboardDataRef) =>
-    Math.max(
-      Number(summaryVal ?? 0),
-      Number(dashboardDataRef.callStatistics?.lost ?? 0),
-      Number(dashboardDataRef.callStatusSummary?.lost ?? 0)
-    );
-
-  const pickDroppedCount = (summaryVal, dashboardDataRef) =>
-    Math.max(
-      Number(summaryVal ?? 0),
-      Number(dashboardDataRef.callStatistics?.dropped ?? 0),
-      Number(dashboardDataRef.callStatusSummary?.dropped ?? 0)
-    );
-
-  const lostCallsCount = pickStatCount(day.lost, dashboardData);
-  const droppedCallsCount = pickDroppedCount(day.dropped, dashboardData);
+  const lostCallsCount = Number(day.lost ?? 0);
+  const droppedCallsCount = Number(day.dropped ?? 0);
   const answeredCallsCount = day.answered ?? 0;
 
   const dailyAnswered = day.answered ?? 0;
-  const dailyDropped = pickDroppedCount(day.dropped, dashboardData);
-  const dailyLost = pickStatCount(day.lost, dashboardData);
-  const dailyTotal = dailyAnswered + dailyDropped + dailyLost;
+  const dailyDropped = droppedCallsCount;
+  const dailyLost = lostCallsCount;
+  const dailyTotal =
+    day.total ?? dailyAnswered + dailyDropped + dailyLost;
 
   const monthlyAnswered = month.answered ?? 0;
   const monthlyDropped = month.dropped ?? 0;
@@ -669,7 +673,7 @@ return () => {
           />
         </Card>
         {/* Back Arrow Button */}
-            <IconButton
+        <IconButton
           onClick={() => window.history.back()}
           sx={{
             position: "absolute",
@@ -687,10 +691,10 @@ return () => {
             },
             transition: "all 0.3s ease",
           }}
-              aria-label="go back"
-            >
+          aria-label="go back"
+        >
           <ArrowBackIcon />
-            </IconButton>
+        </IconButton>
       </Box>
 
       {/* Stats Grid - Two Combined Cards */}
@@ -775,7 +779,7 @@ return () => {
                   </Grid>
                   <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "25%" }}>
                     <Box textAlign="center" sx={{ width: "100%", px: 0.5 }}>
-                          <Typography variant="h4" sx={{ fontWeight: 700, color: "#4caf50", mb: 0.5 }}>
+                      <Typography variant="h4" sx={{ fontWeight: 700, color: "#4caf50", mb: 0.5 }}>
                         {answeredCallsCount}
                       </Typography>
                       <Typography variant="body2" color="textSecondary" sx={{ fontSize: "0.875rem" }}>
@@ -785,41 +789,41 @@ return () => {
                   </Grid>
                   <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "25%" }}>
                     <Box textAlign="center" sx={{ width: "100%", px: 0.5 }}>
-                          <Typography variant="h4" sx={{ fontWeight: 700, color: "#f44336", mb: 0.5 }}>
-                            {lostCallsCount}
-                          </Typography>
-                          <Typography variant="body2" color="textSecondary" sx={{ fontSize: "0.875rem" }}>
-                            Lost Calls
-                          </Typography>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            startIcon={<MdVisibility />}
-                            onClick={handleShowLostCalls}
-                            sx={{ mt: 0.5, fontSize: "0.7rem" }}
-                          >
-                            View Details
-                          </Button>
-                        </Box>
-                      </Grid>
-                      <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "25%" }}>
-                        <Box textAlign="center" sx={{ width: "100%", px: 0.5 }}>
-                          <Typography variant="h4" sx={{ fontWeight: 700, color: "#ff9800", mb: 0.5 }}>
-                            {droppedCallsCount}
-                          </Typography>
-                          <Typography variant="body2" color="textSecondary" sx={{ fontSize: "0.875rem" }}>
-                            Dropped Calls
-                          </Typography>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            startIcon={<MdVisibility />}
-                            onClick={handleShowDroppedCalls}
-                            sx={{ mt: 0.5, fontSize: "0.7rem" }}
-                          >
-                            View Details
-                          </Button>
-                        </Box>
+                      <Typography variant="h4" sx={{ fontWeight: 700, color: "#f44336", mb: 0.5 }}>
+                        {lostCallsCount}
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary" sx={{ fontSize: "0.875rem" }}>
+                        Lost Calls
+                      </Typography>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<MdVisibility />}
+                        onClick={handleShowLostCalls}
+                        sx={{ mt: 0.5, fontSize: "0.7rem" }}
+                      >
+                        View Details
+                      </Button>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={3} sx={{ flex: "1 1 25%", maxWidth: "25%" }}>
+                    <Box textAlign="center" sx={{ width: "100%", px: 0.5 }}>
+                      <Typography variant="h4" sx={{ fontWeight: 700, color: "#ff9800", mb: 0.5 }}>
+                        {droppedCallsCount}
+                      </Typography>
+                      <Typography variant="body2" color="textSecondary" sx={{ fontSize: "0.875rem" }}>
+                        Dropped Calls
+                      </Typography>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<MdVisibility />}
+                        onClick={handleShowDroppedCalls}
+                        sx={{ mt: 0.5, fontSize: "0.7rem" }}
+                      >
+                        View Details
+                      </Button>
+                    </Box>
                   </Grid>
                 </Grid>
               </CardContent>
@@ -831,7 +835,11 @@ return () => {
       {/* Active Calls */}
       <div className="dashboard-section">
         <ActiveCalls liveCalls={dashboardData.liveCalls} refreshInterval={2000} showTitle={true} />
-        </div>
+      </div>
+
+      <div className="dashboard-section" style={{ width: "100%", boxSizing: "border-box" }}>
+        <SlaMetricsCards metrics={slaMetrics} />
+      </div>
 
 
 
@@ -1068,7 +1076,7 @@ return () => {
             </Card>
           </Grid>
         </Grid>
-        </div>
+      </div>
 
       {/* Lost Calls Modal */}
       <Dialog

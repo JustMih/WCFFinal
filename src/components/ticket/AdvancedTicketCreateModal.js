@@ -1658,6 +1658,10 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
       requiredFields.relationshipToEmployee = "Representative Position/Role";
     }
 
+    if (formData.requester === "Employee") {
+      requiredFields.firstName = "First Name";
+    }
+
     const errors = {};
     const missing = [];
     Object.entries(requiredFields).forEach(([key, label]) => {
@@ -2856,10 +2860,16 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
                   )}
 
                   {/* Existing form fields */}
-                  {formSearchType !== "employer" && (
+                  {(formSearchType !== "employer" || formData.requester === "Employee") && (
                     <div className="modal-form-row">
                       <div className="modal-form-group" style={{ flex: 1 }}>
-                        <label style={{ fontSize: "0.875rem" }}>First Name: <span style={{ color: "red" }}>*</span></label>
+                        <label style={{ fontSize: "0.875rem" }}>
+                          First Name
+                          {formData.requester === "Employee" && (
+                            <span style={{ color: "red" }}> *</span>
+                          )}
+                          :
+                        </label>
                         <input
                           name="firstName"
                           value={formData.firstName}

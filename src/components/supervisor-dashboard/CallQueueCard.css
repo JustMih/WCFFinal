@@ -114,6 +114,23 @@
 }
 .status-badge.active {
   background: #a8e48a;
+  color: #1a4d0a;
+}
+.status-badge.calling {
+  background: #ffd591;
+  color: #874d00;
+}
+.status-badge.ringing {
+  background: #91d5ff;
+  color: #003a8c;
+}
+.status-badge.dialing {
+  background: #d3adf7;
+  color: #391085;
+}
+.status-badge.ivr {
+  background: #b7eb8f;
+  color: #135200;
 }
 .status-badge.dropped {
   background: #faad14;

@@ -33,6 +33,7 @@ import DialogContent from "@mui/material/DialogContent";
 import { styled } from "@mui/material/styles";
 import ChatIcon from '@mui/icons-material/Chat';
 import { baseURL } from "../../../../config";
+import { getTicketEmployeeDisplayName } from "../../../../utils/ticketDisplayName";
 import "./crm-agent-dashboard.css";
 import TicketFilters from "../../../../components/ticket/TicketFilters";
 import AdvancedTicketCreateModal from "../../../../components/ticket/AdvancedTicketCreateModal";
@@ -972,13 +973,7 @@ const AgentCRM = () => {
         </td>
       )}
       {activeColumns.includes("employee") && (
-        <td>
-          {ticket.first_name && ticket.first_name.trim() !== ""
-            ? `${ticket.first_name || ""} ${ticket.middle_name || ""} ${ticket.last_name || ""}`.trim()
-            : ticket.representative_name && ticket.representative_name.trim() !== ""
-              ? ticket.representative_name
-              : "N/A"}
-        </td>
+        <td>{getTicketEmployeeDisplayName(ticket)}</td>
       )}
       {activeColumns.includes("employer") && (
         <td>
