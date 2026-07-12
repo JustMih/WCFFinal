@@ -5,6 +5,11 @@ import { baseURL } from "../../../config";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import WcfLoader from "../../../components/shared/WcfLoader";
+import {
+  formatDbDateTimeLocal,
+  parseDbDateOnlyRange,
+  parseDbDateTime,
+} from "../../../utils/dateTimeFormat";
 
 const RecordedAudio = () => {
   const [recordings, setRecordings] = useState([]);
@@ -65,8 +70,7 @@ const RecordedAudio = () => {
     fetchData();
   }, []);
 
-  const formatDate = (dt) =>
-    dt ? new Date(dt.replace(" ", "T")).toLocaleString() : "N/A";
+  const formatDate = (dt) => formatDbDateTimeLocal(dt, { fallback: "N/A" });
 
   const formatDuration = (seconds) => {
     const s = Number(seconds) || 0;
@@ -86,7 +90,8 @@ const RecordedAudio = () => {
   const getRowColor = (rec) => {
     if (playedStatus[rec.filename]) return "#d4edda";
 
-    const start = new Date(rec.cdrstarttime.replace(" ", "T"));
+    const start = parseDbDateTime(rec.cdrstarttime);
+    if (!start) return "#fff3cd";
     const hours = (Date.now() - start.getTime()) / 36e5;
 
     if (hours >= 24) return "#f8d7da";
@@ -113,7 +118,7 @@ const RecordedAudio = () => {
   /* 🔍 FILTER LOGIC (ADDITIVE ONLY) */
   const filteredRecordings = useMemo(() => {
     return recordings.filter((rec) => {
-      const createdAt = new Date(rec.cdrstarttime.replace(" ", "T"));
+      const createdAt = parseDbDateTime(rec.cdrstarttime);
 
       const matchSearch =
         search === "" ||
@@ -140,13 +145,14 @@ const RecordedAudio = () => {
           ? playedStatus[rec.filename]
           : !playedStatus[rec.filename];
 
-      const matchFromDate = fromDate
-        ? createdAt >= new Date(fromDate)
+      const fromDateStart = parseDbDateOnlyRange(fromDate);
+      const toDateEnd = parseDbDateOnlyRange(toDate, true);
+
+      const matchFromDate = fromDateStart
+        ? createdAt && createdAt >= fromDateStart
         : true;
 
-      const matchToDate = toDate
-        ? createdAt <= new Date(toDate + "T23:59:59")
-        : true;
+      const matchToDate = toDateEnd ? createdAt && createdAt <= toDateEnd : true;
 
       return (
         matchSearch &&

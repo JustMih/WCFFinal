@@ -39,6 +39,12 @@ import {
   useMarkNotificationRead,
   useMarkManyNotificationsRead,
 } from "../../../api/wcfNotificationQueries";
+import {
+  formatDbDateTime12h,
+  formatDbDateTimeLocal,
+  parseDbDateOnlyRange,
+  parseDbDateTime,
+} from "../../../utils/dateTimeFormat";
 
 export default function Crm() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -566,7 +572,7 @@ export default function Crm() {
       <div className="notification-list" style={{ padding: 0, width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
         {notificationHistory.notifications.map((notification, index) => {
           const dateStr = notification.created_at
-            ? new Date(notification.created_at).toLocaleDateString("en-US")
+            ? formatDbDateTimeLocal(notification.created_at, { showSeconds: false })
             : "—";
           return (
             <Box
@@ -658,32 +664,11 @@ export default function Crm() {
                   </Typography>
                   <Typography variant="caption" sx={{ color: '#666', fontSize: '0.7rem' }}>
                     {ticketCreatedAt
-                      ? new Date(ticketCreatedAt).toLocaleString("en-GB", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hour12: true
-                        })
+                      ? formatDbDateTime12h(ticketCreatedAt)
                       : notification.ticket?.created_at
-                      ? new Date(notification.ticket.created_at).toLocaleString("en-GB", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hour12: true
-                        })
+                      ? formatDbDateTime12h(notification.ticket.created_at)
                       : notification.created_at
-                      ? new Date(notification.created_at).toLocaleString("en-GB", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          hour12: true
-                        })
+                      ? formatDbDateTime12h(notification.created_at)
                       : "N/A"}
                   </Typography>
                 </Box>
@@ -1049,13 +1034,13 @@ export default function Crm() {
     const matchesCategory = !filters.category || ticketData.category === filters.category;
     let matchesDate = true;
     if (filters.startDate) {
-      const ticketDate = new Date(ticketData.created_at);
-      if (ticketDate < filters.startDate) matchesDate = false;
+      const ticketDate = parseDbDateTime(ticketData.created_at);
+      const startDate = parseDbDateOnlyRange(filters.startDate);
+      if (ticketDate < startDate) matchesDate = false;
     }
     if (filters.endDate) {
-      const ticketDate = new Date(ticketData.created_at);
-      const endDate = new Date(filters.endDate);
-      endDate.setHours(23, 59, 59, 999);
+      const ticketDate = parseDbDateTime(ticketData.created_at);
+      const endDate = parseDbDateOnlyRange(filters.endDate, true);
       if (ticketDate > endDate) matchesDate = false;
     }
     const shouldInclude = matchesSearch && matchesStatus && matchesPriority && matchesCategory && matchesDate;
@@ -1155,16 +1140,7 @@ export default function Crm() {
       )}
       {activeColumns.includes("createdAt") && (
         <td>
-          {ticket.ticket?.created_at
-            ? new Date(ticket.ticket?.created_at).toLocaleString("en-GB", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-                hour12: true
-              })
-            : "N/A"}
+          {formatDbDateTime12h(ticket.ticket?.created_at, { fallback: "N/A" })}
         </td>
       )}
       {activeColumns.includes("employee") && (
@@ -1569,18 +1545,10 @@ export default function Crm() {
                     ],
                     [
                       "Created At",
-                      selectedTicket.ticket?.created_at
-                        ? new Date(
-                            selectedTicket.ticket?.created_at
-                          ).toLocaleString("en-US", {
-                            month: "numeric",
-                            day: "numeric",
-                            year: "numeric",
-                            hour: "numeric",
-                            minute: "2-digit",
-                            hour12: true
-                          })
-                        : "N/A"
+                      formatDbDateTime12h(
+                        selectedTicket.ticket?.created_at,
+                        { fallback: "N/A" }
+                      )
                     ]
                   ].map(([label, value], index) => (
                     <div

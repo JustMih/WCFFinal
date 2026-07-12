@@ -1,6 +1,6 @@
 /**
- * WCF CDR / MissedCalls datetimes are stored in MySQL as East Africa Time (+03:00).
- * Parse with that offset, then display in the viewer's local timezone.
+ * WCF datetimes are stored in MySQL as East Africa Time (+03:00).
+ * Parse with that offset and always display in East Africa Time.
  */
 export const WCF_DB_UTC_OFFSET = "+03:00";
 export const WCF_DB_TIMEZONE = "Africa/Dar_es_Salaam";
@@ -33,8 +33,21 @@ export function parseDbDateTime(value) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+function formatInEat(date, options = {}) {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: WCF_DB_TIMEZONE,
+    year: options.year ?? "numeric",
+    month: options.month ?? "2-digit",
+    day: options.day ?? "2-digit",
+    hour: options.hour ?? "2-digit",
+    minute: options.minute ?? "2-digit",
+    second: options.showSeconds ? "2-digit" : undefined,
+    hour12: options.hour12 ?? false,
+  }).format(date);
+}
+
 /**
- * Full date/time in the user's local timezone.
+ * Full date/time in East Africa Time.
  * @param {string|Date|null|undefined} value
  * @param {{ fallback?: string, showSeconds?: boolean }} [options]
  */
@@ -43,29 +56,40 @@ export function formatDbDateTimeLocal(value, options = {}) {
   if (!date) return options.fallback ?? "—";
 
   const { showSeconds = true } = options;
-  return date.toLocaleString(undefined, {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: showSeconds ? "2-digit" : undefined,
-    hour12: false,
-  });
+  return formatInEat(date, { showSeconds, hour12: false });
 }
 
 /**
- * Time only in the user's local timezone (for tables like Missed At).
+ * Time only in East Africa Time.
  */
 export function formatDbTimeLocal(value) {
   const date = parseDbDateTime(value);
   if (!date) return "—";
-  return date.toLocaleTimeString(undefined, {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
+  return formatInEat(date, {
+    year: undefined,
+    month: undefined,
+    day: undefined,
+    showSeconds: true,
     hour12: false,
   });
+}
+
+export function formatDbDateTime12h(value, options = {}) {
+  const date = parseDbDateTime(value);
+  if (!date) return options.fallback ?? "—";
+  return formatInEat(date, {
+    month: "short",
+    day: "2-digit",
+    year: "numeric",
+    showSeconds: false,
+    hour12: true,
+  });
+}
+
+export function parseDbDateOnlyRange(dateValue, endOfDay = false) {
+  if (!dateValue) return null;
+  const suffix = endOfDay ? "T23:59:59" : "T00:00:00";
+  return parseDbDateTime(`${dateValue}${suffix}`);
 }
 
 /**

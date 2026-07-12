@@ -137,15 +137,15 @@ export default function CallCenterSidebar({
               <NavLink
                 to="/system-logs"
                 className={({ isActive }) =>
-                  isActive ? "menu-item active-link" : "menu-item"
+                  isActive ? "sidebar-nav-link active-link" : "sidebar-nav-link"
                 }
               >
-                <div className="menu-item">
+                <span className="sidebar-nav-row">
                   <TbLogs className="menu-icon" />
                   {isSidebarOpen && (
                     <span className="menu-text">System Logs</span>
                   )}
-                </div>
+                </span>
               </NavLink>
               {/* Lookup Tables Management - Super Admin Only */}
               {/* <NavLink
