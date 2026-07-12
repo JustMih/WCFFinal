@@ -60,19 +60,17 @@ export function useSipPhone({
       sessionDescriptionHandlerFactoryOptions: {
         constraints: { audio: true, video: false },
         codecs: ["PCMU", "opus"],
+        // sip.js reads this at factory-options level (not inside peerConnectionConfiguration)
+        iceGatheringTimeout: 2000,
         peerConnectionConfiguration: {
           iceServers: [
+            // Prefer PBX/LAN STUN first; public STUN as fallback only
+            { urls: `stun:${SIP_DOMAIN}:3478` },
             { urls: "stun:stun.l.google.com:19302" },
-            {
-              urls: "turn:openrelay.metered.ca:80",
-              username: "openrelayproject",
-              credential: "openrelayproject",
-            },
           ],
           iceTransportPolicy: "all",
           rtcpMuxPolicy: "require",
           bundlePolicy: "balanced",
-          iceGatheringTimeout: 500,
         },
       },
       hackIpInContact: true,
@@ -184,7 +182,11 @@ export function useSipPhone({
     wasAnsweredRef.current = true;
 
     try {
-      await invitation.accept();
+      await invitation.accept({
+        sessionDescriptionHandlerOptions: {
+          constraints: { audio: true, video: false },
+        },
+      });
       attachMediaStream(invitation);
       setSession(invitation);
       setIncomingCall(null);
@@ -286,8 +288,22 @@ export function useSipPhone({
 
     setUserAgent(ua);
 
+    const prewarmMic = async () => {
+      try {
+        if (!navigator?.mediaDevices?.getUserMedia) return;
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: false,
+        });
+        stream.getTracks().forEach((t) => t.stop());
+      } catch (err) {
+        console.warn("Mic pre-warm skipped:", err?.message || err);
+      }
+    };
+
     ua.start()
-      .then(() => {
+      .then(async () => {
+        await prewarmMic();
         registerer.register();
         setPhoneStatus("Idle");
       })

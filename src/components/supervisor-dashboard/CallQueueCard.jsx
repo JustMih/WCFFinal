@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import io from "socket.io-client";
 import "./CallQueueCard.css";
 import { baseURL } from "../../config";
@@ -51,6 +51,8 @@ const CallQueueCard = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [, setTick] = useState(0);
+  const fetchingRef = useRef(false);
+  const socketDebounceRef = useRef(null);
 
   const applyLiveRows = useCallback((rows) => {
     const list = Array.isArray(rows) ? rows.filter(isLiveQueueCall) : [];
@@ -58,6 +60,8 @@ const CallQueueCard = () => {
   }, []);
 
   const fetchQueueData = useCallback(async () => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     setError(null);
     try {
       const response = await fetch(
@@ -67,12 +71,24 @@ const CallQueueCard = () => {
       const data = await response.json();
       applyLiveRows(data);
     } catch (err) {
+      console.error("Failed to fetch queue data:", err);
       setError("Failed to load queue data");
       setLiveCalls([]);
     } finally {
+      fetchingRef.current = false;
       setLoading(false);
     }
   }, [applyLiveRows]);
+
+  const scheduleSocketRefresh = useCallback(() => {
+    if (socketDebounceRef.current) {
+      clearTimeout(socketDebounceRef.current);
+    }
+    socketDebounceRef.current = setTimeout(() => {
+      socketDebounceRef.current = null;
+      fetchQueueData();
+    }, 750);
+  }, [fetchQueueData]);
 
   useEffect(() => {
     fetchQueueData();
@@ -86,9 +102,15 @@ const CallQueueCard = () => {
       transports: ["websocket", "polling"],
       reconnection: true,
     });
-    socket.on("live_call_update", () => fetchQueueData());
-    return () => socket.disconnect();
-  }, [fetchQueueData]);
+    socket.on("live_call_update", scheduleSocketRefresh);
+    return () => {
+      if (socketDebounceRef.current) {
+        clearTimeout(socketDebounceRef.current);
+        socketDebounceRef.current = null;
+      }
+      socket.disconnect();
+    };
+  }, [scheduleSocketRefresh]);
 
   useEffect(() => {
     if (liveCalls.length === 0) return undefined;

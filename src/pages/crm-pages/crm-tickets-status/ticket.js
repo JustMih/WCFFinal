@@ -30,6 +30,10 @@ import TableControls from "../../../components/TableControls";
 import TicketFilters from '../../../components/ticket/TicketFilters';
 import { useWcfTicketList } from "../../../api/wcfTicketQueries";
 import { getTicketEmployeeDisplayName } from "../../../utils/ticketDisplayName";
+import {
+  formatDbDateTime12h,
+  formatDbDateTimeLocal,
+} from "../../../utils/dateTimeFormat";
 
 export default function Crm() {
   const [authError, setAuthError] = useState(null);
@@ -233,7 +237,7 @@ export default function Crm() {
       const steps = [
         {
           title: "Created by Agent",
-          details: `${ticket.created_by} - ${ticket.created_at ? new Date(ticket.created_at).toLocaleString() : "N/A"}`
+          details: `${ticket.created_by} - ${formatDbDateTimeLocal(ticket.created_at, { fallback: "N/A" })}`
         },
         {
           title: "Reviewer Review",
@@ -244,13 +248,13 @@ export default function Crm() {
         {
           title: "Attendee Review",
           details: ticket.assigned_to_role === "attendee"
-            ? `${ticket.assigned_to_role} - ${ticket.assigned_at ? new Date(ticket.assigned_at).toLocaleString() : "N/A"}`
+            ? `${ticket.assigned_to_role} - ${formatDbDateTimeLocal(ticket.assigned_at, { fallback: "N/A" })}`
             : "Pending Attendee Review"
         },
         {
           title: "Attendee Review",
           details: ticket.assigned_to_role === "focal-person"
-            ? `${ticket.assigned_to_role} - ${ticket.assigned_at ? new Date(ticket.assigned_at).toLocaleString() : "N/A"}`
+            ? `${ticket.assigned_to_role} - ${formatDbDateTimeLocal(ticket.assigned_at, { fallback: "N/A" })}`
             : "Pending Attendee Review"
         },
         // Add more steps as needed...
@@ -337,7 +341,7 @@ export default function Crm() {
           renderWorkflowStep(
             idx + 1,
             `${a.assigned_to_name} (${a.assigned_to_role})`,
-            `${a.action} - ${a.created_at ? new Date(a.created_at).toLocaleString() : ''}`,
+            `${a.action} - ${formatDbDateTimeLocal(a.created_at, { fallback: "" })}`,
             getStepStatus(idx, currentAssigneeIdx)
           )
         )}
@@ -406,15 +410,7 @@ export default function Crm() {
       )}
       {activeColumns.includes("createdAt") && (
         <td>
-          {ticket.created_at
-            ? new Date(ticket.created_at).toLocaleString("en-GB", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })
-            : "N/A"}
+          {formatDbDateTime12h(ticket.created_at, { fallback: "N/A" })}
         </td>
       )}
       {activeColumns.includes("employee") && (
@@ -467,15 +463,7 @@ export default function Crm() {
       )}
       {activeColumns.includes("createdAt") && (
         <td>
-          {ticket.created_at
-            ? new Date(ticket.created_at).toLocaleString("en-GB", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })
-            : "N/A"}
+          {formatDbDateTime12h(ticket.created_at, { fallback: "N/A" })}
         </td>
       )}
       <td>
@@ -717,7 +705,7 @@ export default function Crm() {
                   {message}
                 </Typography>
                 <Typography variant="caption" sx={{ color: "#888" }}>
-                  {a.created_at ? new Date(a.created_at).toLocaleString() : ""}
+                  {formatDbDateTimeLocal(a.created_at, { fallback: "" })}
                 </Typography>
               </Paper>
             </Box>

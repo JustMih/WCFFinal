@@ -62,7 +62,7 @@
 .admin-value {
   font-size: 1.35rem;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--text-color);
 }
 
 .admin-card h4 {
@@ -70,7 +70,7 @@
   font-weight: 500;
   padding: 0;
   margin: 4px 0 0;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-color);
 }
 
 .admin-panels-row {

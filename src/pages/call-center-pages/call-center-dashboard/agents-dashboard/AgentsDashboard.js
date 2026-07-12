@@ -451,33 +451,33 @@ const markMissedCallAsCalledBack = async (missedCallId) => {
   }
 };
 
-  // ---------- Missed calls ----------
-  useEffect(() => {
-    fetchMissedCallsFromBackend();
-  }, []);
  const fetchMissedCallsFromBackend = async () => {
   // ❗ DO NOT refresh while calling back
   if (callingBackId) return;
 
   const ext = localStorage.getItem("extension");
+  const token = localStorage.getItem("authToken");
+  if (!ext || !token) return;
 
-  const response = await fetch(
-    `${baseURL}/missed-calls?agentId=${ext}&status=pending`,
-    {
-      headers: {
-        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-      },
+  try {
+    const response = await fetch(
+      `${baseURL}/missed-calls?agentId=${encodeURIComponent(ext)}&status=pending`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (!response.ok) {
+      console.error("Missed calls fetch failed:", response.status);
+      return;
     }
-  );
-
-  const data = await response.json();
-
-  setMissedCalls(
-    (data || []).map(call => ({
-      ...call,
-      time: new Date(call.time),
-    }))
-  );
+    const data = await response.json();
+    setMissedCalls(
+      (Array.isArray(data) ? data : []).map((call) => ({
+        ...call,
+        time: new Date(call.time),
+      }))
+    );
+  } catch (err) {
+    console.error("Failed to fetch missed calls:", err);
+  }
 };
 
 

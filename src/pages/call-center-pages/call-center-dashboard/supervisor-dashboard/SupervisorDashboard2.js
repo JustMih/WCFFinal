@@ -217,13 +217,6 @@ export default function SupervisorDashboard2() {
       setMonthlyData(data.monthlyCounts);
       setWeeklyData(data.weeklyCounts);
       setDailyData(data.dailyCounts);
-      
-      // Fetch live calls data
-      const liveCallsResponse = await fetch(`${baseURL}/livestream/live-calls`);
-      if (liveCallsResponse.ok) {
-        const liveCallsData = await liveCallsResponse.json();
-        setLiveCalls(liveCallsData);
-      }
 
       const queueResponse = await fetch(`${baseURL}/queue-call-stats`);
       if (queueResponse.ok) {

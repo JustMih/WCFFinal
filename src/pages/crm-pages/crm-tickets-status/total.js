@@ -30,6 +30,12 @@ import TableControls from "../../../components/TableControls";
 import TicketFilters from '../../../components/ticket/TicketFilters';
 import { useWcfTicketList } from "../../../api/wcfTicketQueries";
 import { getTicketEmployeeDisplayName } from "../../../utils/ticketDisplayName";
+import {
+  formatDbDateTime12h,
+  formatDbDateTimeLocal,
+  parseDbDateOnlyRange,
+  parseDbDateTime,
+} from "../../../utils/dateTimeFormat";
 
 export default function Crm() {
   const [authError, setAuthError] = useState(null);
@@ -203,15 +209,13 @@ export default function Crm() {
       (ticket.id && ticket.id.toLowerCase().includes(filters.ticketId.toLowerCase()));
     let matchesDate = true;
     if (filters.startDate) {
-      const ticketDate = new Date(ticket.created_at);
-      const startDate = new Date(filters.startDate);
-      startDate.setHours(0, 0, 0, 0); // Set to start of day
+      const ticketDate = parseDbDateTime(ticket.created_at);
+      const startDate = parseDbDateOnlyRange(filters.startDate);
       if (ticketDate < startDate) matchesDate = false;
     }
     if (filters.endDate) {
-      const ticketDate = new Date(ticket.created_at);
-      const endDate = new Date(filters.endDate);
-      endDate.setHours(23, 59, 59, 999); // Set to end of day
+      const ticketDate = parseDbDateTime(ticket.created_at);
+      const endDate = parseDbDateOnlyRange(filters.endDate, true);
       if (ticketDate > endDate) matchesDate = false;
     }
     return matchesSearch && matchesStatus && matchesPriority && matchesCategory && matchesRegion && matchesDistrict && matchesTicketId && matchesDate;
@@ -251,16 +255,7 @@ export default function Crm() {
         )}
         {activeColumns.includes("createdAt") && (
           <td>
-            {ticket.created_at
-              ? new Date(ticket.created_at).toLocaleString("en-GB", {
-                  day: "2-digit",
-                  month: "short",
-                  year: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  hour12: true,
-                })
-              : "N/A"}
+            {formatDbDateTime12h(ticket.created_at, { fallback: "N/A" })}
           </td>
         )}
         {activeColumns.includes("employee") && (
@@ -532,7 +527,7 @@ function AssignmentFlowChat({ assignmentHistory, selectedTicket }) {
                   {message}
                 </Typography>
                 <Typography variant="caption" sx={{ color: "#888" }}>
-                  {a.created_at ? new Date(a.created_at).toLocaleString() : ""}
+                  {formatDbDateTimeLocal(a.created_at, { fallback: "" })}
                 </Typography>
               </Paper>
             </Box>
