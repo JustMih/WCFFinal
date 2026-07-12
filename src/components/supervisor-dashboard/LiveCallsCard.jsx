@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   FaHeadphones,
   FaUserShield,
@@ -34,10 +34,17 @@ export default function LiveCallsCard({
   const extension = localStorage.getItem("extension");
   const sipPassword = localStorage.getItem("sipPassword");
   const sipReady = Boolean(extension && sipPassword);
+  const fetchingRef = useRef(false);
 
   const fetchLiveCalls = useCallback(async () => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
     try {
       const response = await fetch(`${baseURL}/livestream/live-calls`);
+      if (!response.ok) {
+        console.error("Live calls fetch failed:", response.status);
+        return;
+      }
       const data = await response.json();
 
       const calls = Array.isArray(data)
@@ -49,7 +56,9 @@ export default function LiveCallsCard({
       setLiveCalls(calls);
       setActiveCalls(calls.filter((c) => c.status === "active"));
     } catch (error) {
-      console.error("❌ Error fetching live calls:", error);
+      console.error("Error fetching live calls:", error);
+    } finally {
+      fetchingRef.current = false;
     }
   }, []);
 

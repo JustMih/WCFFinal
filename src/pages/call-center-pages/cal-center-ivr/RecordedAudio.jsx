@@ -22,7 +22,7 @@ const RecordedAudio = () => {
     const uidQ = rec.uniqueid
       ? `?uniqueid=${encodeURIComponent(rec.uniqueid)}`
       : "";
-    // API first — works when nginx only proxies /api (democc.wcf.go.tz)
+    // API first — works when nginx only proxies /api (contactcenter.wcf.go.tz)
     const primary = rec.stream_url
       ? `${origin}${rec.stream_url}${uidQ}`
       : `${baseURL}/recorded-audio/${encoded}${uidQ}`;

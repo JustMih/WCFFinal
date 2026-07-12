@@ -13,7 +13,7 @@ import "./CallCenterAgentsChat.css";
 // Get socket URL from baseURL
 const getSocketUrl = () => {
   try {
-    // baseURL is like "http://127.0.0.1:5070/api" or "http://192.168.21.70/api"
+    // baseURL is like "http://127.0.0.1:5070/api" or "http://192.168.21.69/api"
     const url = new URL(baseURL);
     return `${url.protocol}//${url.host}`;
   } catch (e) {

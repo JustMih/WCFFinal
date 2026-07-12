@@ -545,39 +545,28 @@ export default function AgentsDashboard() {
   };
 
   const fetchMissedCallsFromBackend = async () => {
+    const ext = extension || localStorage.getItem("extension");
+    const token = localStorage.getItem("authToken");
+    if (!ext || !token) return;
+
     try {
-      console.log("🔍 Fetching missed calls for agent:", extension);
       const response = await fetch(
-        `${baseURL}/missed-calls?agentId=${extension}&status=pending`,
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-          },
-        }
+        `${baseURL}/missed-calls?agentId=${encodeURIComponent(ext)}&status=pending`,
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-
-      if (!response.ok) throw new Error("Failed to fetch missed calls");
-
+      if (!response.ok) {
+        console.error("Missed calls fetch failed:", response.status);
+        return;
+      }
       const data = await response.json();
-      console.log("📥 Received missed calls from backend:", data);
-      console.log("📊 Total pending missed calls:", data.length);
-
-      const formatted = data.map((call) => ({
+      const formatted = (Array.isArray(data) ? data : []).map((call) => ({
         ...call,
         time: new Date(call.time),
       }));
-
       setMissedCalls(formatted);
       localStorage.setItem("missedCalls", JSON.stringify(formatted));
-      console.log(
-        "✅ Updated missedCalls state with",
-        formatted.length,
-        "calls"
-      );
-    } catch (error) {
-      console.error("❌ Error fetching missed calls:", error);
+    } catch (err) {
+      console.error("Failed to fetch missed calls:", err);
     }
   };
 
