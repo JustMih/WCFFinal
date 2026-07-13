@@ -52,7 +52,7 @@ const ClaimRedirectButton = ({
   const ensureAbsoluteUrl = (url) => {
     if (!url) return url;
     if (/^https?:\/\//i.test(url)) return url;
-    const macHost = 'https://contactcenter.wcf.go.tz/';
+    const macHost = 'https://democc.wcf.go.tz/';
     if (url.startsWith('/')) return macHost.replace(/\/$/, '') + url;
     return macHost + url;
   };
@@ -332,14 +332,14 @@ const ClaimRedirectButton = ({
           window.open(url, '_blank', 'noopener,noreferrer');
         } else {
           // Fallback: construct URL manually if API call fails
-          const macHost = 'https://contactcenter.wcf.go.tz/';
+          const macHost = 'https://democc.wcf.go.tz/';
           const profileUrl = `${macHost}employer/profile/${registrationNumber}`;
           window.open(profileUrl, '_blank', 'noopener,noreferrer');
         }
       } catch (error) {
         console.error('💥 Profile redirect error occurred:', error);
         // Fallback: construct URL manually if API call fails
-        const macHost = 'https://contactcenter.wcf.go.tz/';
+        const macHost = 'https://democc.wcf.go.tz/';
         const profileUrl = `${macHost}employer/profile/${registrationNumber}`;
         window.open(profileUrl, '_blank', 'noopener,noreferrer');
       }
