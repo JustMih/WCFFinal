@@ -53,6 +53,7 @@ import PublicDashboard from "../public-dashboard/PublicDashboard";
 import HandoverPage from "../handover/HandoverPage";
 import HandoverInitiatorBanner from "../../components/handover/HandoverInitiatorBanner";
 import { useInitiatorHandoverLock } from "../../hooks/useInitiatorHandoverLock";
+import AgentSipPhoneProvider from "../../context/AgentSipPhoneProvider";
 
 export default function Dashboard() {
   const [isDarkMode, setDarkMode] = useState(false);
@@ -143,7 +144,7 @@ export default function Dashboard() {
     );
   }
 
-  return (
+  const shell = (
     <div className={`dashboard ${currentTheme}`}>
       <Navbar
         toggleTheme={toggleTheme}
@@ -417,4 +418,10 @@ export default function Dashboard() {
       </div>
     </div>
   );
+
+  if (role === "agent") {
+    return <AgentSipPhoneProvider>{shell}</AgentSipPhoneProvider>;
+  }
+
+  return shell;
 }

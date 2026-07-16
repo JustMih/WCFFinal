@@ -9,7 +9,7 @@ import {
 } from "react-icons/md";
 import { GiExplosiveMeeting, GiTrafficLightsReadyToGo } from "react-icons/gi";
 import { TbEmergencyBed } from "react-icons/tb";
-import { FiPhoneOff, FiPhoneCall, FiPhoneIncoming } from "react-icons/fi";
+import { FiPhoneOff, FiPhoneCall } from "react-icons/fi";
 import {
   Button,
   Dialog,
@@ -22,20 +22,14 @@ import {
   MenuItem,
   ListItemIcon,
   ListItemText,
-  Alert,
-  Snackbar,
 } from "@mui/material";
 
 import { baseURL } from "../../../../config";
 import "./agentsDashboard.css";
 
-// Sub-components
-import SingleAgentDashboardCard from "../../../../components/agent-dashboard/SingleAgentDashboardCard";
 import CallQueueCard from "../../../../components/supervisor-dashboard/CallQueueCard";
 import OnlineAgentsTable from "../../../../components/agent-dashboard/OnlineAgentsTable";
 import OnlineSupervisorsTable from "../../../../components/agent-dashboard/OnlineSupervisorsTable";
-import AgentPerformanceScore from "../../../../components/agent-dashboard/AgentPerformanceScore";
-import AdvancedTicketCreateModal from "../../../../components/ticket/AdvancedTicketCreateModal";
 import VoiceNotesReport from "../../cal-center-ivr/VoiceNotesReport";
 import {
   fetchVoiceNotes,
@@ -45,11 +39,7 @@ import {
 } from "../../../../utils/voiceNotePlayed";
 import TotalContactSummary from "../../../../components/agent-dashboard/TotalContactSummary";
 import ContactSummaryGrid from "../../../../components/agent-dashboard/ContactSummaryGrid";
-
-// Phone components
-import { useSipPhone } from "./useSipPhone";
-import PhonePopup from "./PhonePopup";
-import { SIP_DOMAIN_CONFIG } from "../../../../config";
+import { useAgentSipPhone } from "../../../../context/AgentSipPhoneContext";
 import {
   getTimeIntervalsSeconds,
   getRemainingSecondsFromStart,
@@ -58,7 +48,6 @@ import {
   formatPauseDuration,
   PAUSE_MENU_ITEMS,
 } from "../../../../utils/pauseActivities";
-import { useSupervisorInterventionSocket } from "../../../../hooks/useSupervisorInterventionSocket";
 
 const PAUSE_MENU_ICONS = {
   ready: <GiTrafficLightsReadyToGo fontSize="large" />,
@@ -73,20 +62,19 @@ const PAUSE_MENU_ICONS = {
 };
 
 export default function AgentsDashboard() {
-  // --------- Phone popup state ---------
-  const [showPhonePopup, setShowPhonePopup] = useState(false);
-  const [showKeypad, setShowKeypad] = useState(false);
+  const {
+    agentStatus,
+    setAgentStatus,
+    togglePhonePopup,
+    openTicketModal,
+    openPhoneAndRedial,
+    setPhoneNumber,
+    showAlert,
+    missedCallTick,
+  } = useAgentSipPhone();
 
-  // --------- Config ---------
-  const extension = localStorage.getItem("extension");
-  const sipPassword = localStorage.getItem("sipPassword");
-  const SIP_DOMAIN = SIP_DOMAIN_CONFIG;
-
-
-  // --------- Status / break menu ---------
   const [anchorEl, setAnchorEl] = useState(null);
   const openStatus = Boolean(anchorEl);
-  const [agentStatus, setAgentStatus] = useState("ready");
   const [timeRemaining, setTimeRemaining] = useState(0);
   const [pauseExceeded, setPauseExceeded] = useState(false);
   const [exceededSeconds, setExceededSeconds] = useState(0);
@@ -95,145 +83,15 @@ export default function AgentsDashboard() {
     emergency: 0,
   });
 
-  // --------- Timers (separate refs!) ---------
   const statusTimerRef = useRef(null);
   const exceededMarkedRef = useRef(false);
 
-  // --------- Missed calls ---------
   const [missedCalls, setMissedCalls] = useState([]);
   const [missedOpen, setMissedOpen] = useState(false);
   const [callingBackId, setCallingBackId] = useState(null);
 
-
-  // --------- Tickets / MAC lookup ---------
-  const [userData, setUserData] = useState(null);
-  const [showUserForm, setShowUserForm] = useState(true);
-  const [functionData, setFunctionData] = useState([]);
-  const [showTicketModal, setShowTicketModal] = useState(false);
-  const [ticketPhoneNumber, setTicketPhoneNumber] = useState("");
-
-  // Ticket form data preservation
-  const [ticketFormData, setTicketFormData] = useState({});
-  const [ticketType, setTicketType] = useState(null); // 'employer' or 'employee'
-  const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
-
-  // --------- Voice notes ---------
-  const [voiceNotes, setVoiceNotes] = useState([]);
   const [unplayedVoiceNotes, setUnplayedVoiceNotes] = useState(0);
   const [showVoiceNotesModal, setShowVoiceNotesModal] = useState(false);
-
-  // --------- Snackbars ---------
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState("");
-  const [snackbarSeverity, setSnackbarSeverity] = useState("warning");
-
-  // --------- Helper functions for hook callbacks ---------
-  const showAlert = useCallback((message, severity = "warning") => {
-    setSnackbarMessage(message);
-    setSnackbarSeverity(severity);
-    setSnackbarOpen(true);
-  }, []);
-
-  const { intervention, clearIntervention } = useSupervisorInterventionSocket({
-    onNotify: showAlert,
-  });
-
-  const fetchUserByPhoneNumber = useCallback(async (phone) => {
-    try {
-      const response = await fetch(
-        `${baseURL}/mac-system/search-by-phone-number?phone_number=${encodeURIComponent(
-          phone
-        )}`
-      );
-      if (!response.ok) {
-        setUserData(null);
-        setShowUserForm(false);
-        return;
-      }
-      const data = await response.json();
-      setUserData(data);
-      setShowUserForm(true);
-    } catch (error) {
-      console.error("Failed to fetch user data:", error);
-      setUserData(null);
-      setShowUserForm(false);
-    }
-  }, []);
-
-  const addMissedCall = useCallback((raw) => {
-    const agentId = localStorage.getItem("extension");
-    if (!raw || raw.trim() === "") return;
-    let formattedCaller = raw.startsWith("+255") ? `0${raw.substring(4)}` : raw;
-    const time = new Date();
-    const newCall = { caller: formattedCaller, time };
-    setMissedCalls((prev) => [newCall, ...prev]);
-
-    showAlert(`Missed Call from ${formattedCaller}`, "warning");
-
-    fetch(`${baseURL}/missed-calls`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-      },
-      body: JSON.stringify({
-        caller: formattedCaller,
-        time: time.toISOString(),
-        agentId,
-      }),
-    }).catch((err) => console.error("Failed to post missed call:", err));
-  }, [showAlert]);
-
-  // --------- Use SIP Phone Hook ---------
-  const {
-    phoneStatus,
-    incomingCall,
-    lastIncomingNumber,
-    callDuration,
-    isMuted,
-    isSpeakerOn,
-    isOnHold,
-    phoneNumber,
-    setPhoneNumber,
-    manualTransferExt,
-    setManualTransferExt,
-    remoteAudioRef,
-    session,
-    consultSession,
-    isConsulting,
-    formatDuration,
-    acceptCall,
-    rejectCall,
-    endCall,
-    dial,
-    redial,
-    blindTransfer,
-    startConsult,
-    completeConsultTransfer,
-    cancelConsult,
-    toggleMute,
-    toggleSpeaker,
-    toggleHold,
-  } = useSipPhone({
-    extension,
-    sipPassword,
-    SIP_DOMAIN,
-    onIncomingCall: useCallback((number) => {
-      setShowPhonePopup(true);
-      if (number) fetchUserByPhoneNumber(number);
-    }, [fetchUserByPhoneNumber]),
-    onMissedCall: addMissedCall,
-    onCallAccepted: useCallback((number) => {
-      if (number) setTicketPhoneNumber(number);
-    }, []),
-    onCallEnded: useCallback(() => {
-      setShowUserForm(false);
-      setUserData(null);
-      clearIntervention();
-    }, [clearIntervention]),
-    showAlert,
-    allowIncomingRinging: agentStatus === "ready",
-  });
 
   const timeIntervals = getTimeIntervalsSeconds(userDefinedTimes);
 
@@ -356,11 +214,7 @@ export default function AgentsDashboard() {
               userDefinedTimes,
               allowed
             );
-            startStatusTimer(
-              data.pause_activity,
-              remaining,
-              allowed
-            );
+            startStatusTimer(data.pause_activity, remaining, allowed);
           }
         } else if (data.status === "online") {
           setAgentStatus("ready");
@@ -372,46 +226,56 @@ export default function AgentsDashboard() {
     };
 
     restorePauseState();
-  }, []);
+  }, [setAgentStatus]);
 
-useEffect(() => {
-  // initial load
-  fetchMissedCallsFromBackend();
+  const fetchMissedCallsFromBackend = useCallback(async () => {
+    if (callingBackId) return;
 
-  // auto refresh every 10 seconds
-  const interval = setInterval(() => {
-    fetchMissedCallsFromBackend();
-  }, 10000);
+    const ext = localStorage.getItem("extension");
+    const token = localStorage.getItem("authToken");
+    if (!ext || !token) return;
 
-  return () => clearInterval(interval);
-}, []);
-
-
-  // ---------- Fetch function data (ticket modal) ----------
-  useEffect(() => {
-    (async () => {
-      try {
-        const token = localStorage.getItem("authToken");
-        const res = await fetch(`${baseURL}/section/functions-data`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const json = await res.json();
-        setFunctionData(json.data || []);
-      } catch (err) {
-        console.error("Fetch functionData error:", err);
+    try {
+      const response = await fetch(
+        `${baseURL}/missed-calls?agentId=${encodeURIComponent(ext)}&status=pending`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (!response.ok) {
+        console.error("Missed calls fetch failed:", response.status);
+        return;
       }
-    })();
-  }, []);
+      const data = await response.json();
+      setMissedCalls(
+        (Array.isArray(data) ? data : []).map((call) => ({
+          ...call,
+          time: new Date(call.time),
+        }))
+      );
+    } catch (err) {
+      console.error("Failed to fetch missed calls:", err);
+    }
+  }, [callingBackId]);
 
-  // ---------- Voice notes (badge: unplayed only; inbox modal removes on play) ----------
+  useEffect(() => {
+    fetchMissedCallsFromBackend();
+    const interval = setInterval(() => {
+      fetchMissedCallsFromBackend();
+    }, 10000);
+    return () => clearInterval(interval);
+  }, [fetchMissedCallsFromBackend]);
+
+  useEffect(() => {
+    if (missedCallTick > 0) {
+      fetchMissedCallsFromBackend();
+    }
+  }, [missedCallTick, fetchMissedCallsFromBackend]);
+
   const refreshVoiceNoteBadge = useCallback(async () => {
     try {
       const notes = await fetchVoiceNotes({ unplayedOnly: true });
       const unplayed = notes.filter(isVoiceNoteUnplayed);
-      setVoiceNotes(unplayed);
       setUnplayedVoiceNotes(unplayed.length);
     } catch (error) {
-      setVoiceNotes([]);
       setUnplayedVoiceNotes(0);
     }
   }, []);
@@ -431,251 +295,25 @@ useEffect(() => {
       window.removeEventListener(VOICE_NOTE_PLAYED_EVENT, handlePlayed);
     };
   }, [refreshVoiceNoteBadge]);
-const markMissedCallAsCalledBack = async (missedCallId) => {
-  if (!missedCallId) return;
 
-  try {
-    await fetch(`${baseURL}/missed-calls/${missedCallId}/status`, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("authToken")}`,
-      },
-      body: JSON.stringify({ status: "called_back" }),
-    });
+  const markMissedCallAsCalledBack = async (missedCallId) => {
+    if (!missedCallId) return;
 
-    // Refresh badge immediately
-    await fetchMissedCallsFromBackend();
-  } catch (err) {
-    console.error("Failed to update missed call status:", err);
-  }
-};
-
- const fetchMissedCallsFromBackend = async () => {
-  // ❗ DO NOT refresh while calling back
-  if (callingBackId) return;
-
-  const ext = localStorage.getItem("extension");
-  const token = localStorage.getItem("authToken");
-  if (!ext || !token) return;
-
-  try {
-    const response = await fetch(
-      `${baseURL}/missed-calls?agentId=${encodeURIComponent(ext)}&status=pending`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    if (!response.ok) {
-      console.error("Missed calls fetch failed:", response.status);
-      return;
-    }
-    const data = await response.json();
-    setMissedCalls(
-      (Array.isArray(data) ? data : []).map((call) => ({
-        ...call,
-        time: new Date(call.time),
-      }))
-    );
-  } catch (err) {
-    console.error("Failed to fetch missed calls:", err);
-  }
-};
-
-
-
-  // ---------- Phone controls ----------
-  const togglePhonePopup = () => setShowPhonePopup((v) => !v);
-
-  const handleDial = () => {
-    dial(phoneNumber);
-  };
-
-  const handleAcceptCall = () => {
-    // Open ticket modal immediately so the agent isn't blocked by SIP/WebRTC setup
-    setTicketPhoneNumber(lastIncomingNumber || phoneNumber || "");
-    setShowTicketModal(true);
-    setIsTicketModalOpen(true);
-    setShowPhonePopup(false);
-    acceptCall();
-  };
-
-  const handleRejectCall = () => {
-    rejectCall();
-  };
-
-  const handleEndCall = () => {
-    endCall();
-  };
-
-  const handleBlindTransfer = (targetExt) => {
-    blindTransfer(targetExt);
-  };
-
-  const handleStartConsult = (targetExt) => {
-    startConsult(targetExt);
-  };
-
-  const handleCompleteConsultTransfer = () => {
-    completeConsultTransfer();
-  };
-
-  const handleCancelConsult = () => {
-    cancelConsult();
-  };
-
-  // Modal swap functionality
-  const swapToTicketModal = () => {
-    if (showTicketModal) return; // Already open
-
-    console.log("=== SWAP TO TICKET MODAL ===");
-    console.log("Current showTicketModal:", showTicketModal);
-    console.log("Current showPhonePopup:", showPhonePopup);
-    console.log("Current phoneStatus:", phoneStatus);
-
-    // Close phone popup and open ticket modal
-    setShowPhonePopup(false);
-    setShowTicketModal(true);
-    setIsTicketModalOpen(true);
-
-    console.log(
-      "After setting showTicketModal to true and closing phone popup"
-    );
-
-    // Preserve current call context in ticket form data
-    if (phoneStatus === "In Call" || phoneStatus === "Ringing") {
-      setTicketFormData((prev) => ({
-        ...prev,
-        phoneNumber: lastIncomingNumber || phoneNumber,
-        callStatus: phoneStatus,
-        callDuration: callDuration,
-        timestamp: new Date().toISOString(),
-      }));
-      console.log("Call context preserved in ticket form data");
+    try {
+      await fetch(`${baseURL}/missed-calls/${missedCallId}/status`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        },
+        body: JSON.stringify({ status: "called_back" }),
+      });
+      await fetchMissedCallsFromBackend();
+    } catch (err) {
+      console.error("Failed to update missed call status:", err);
     }
   };
 
-  const swapToPhoneModal = () => {
-    if (showPhonePopup) return; // Already open
-
-    console.log("Swapping to phone modal, closing ticket modal");
-    setShowTicketModal(false);
-    setIsTicketModalOpen(false);
-    // Phone modal is already open, so no need to setShowPhonePopup(true)
-  };
-
-  const closeTicketModal = () => {
-    console.log("=== CLOSE TICKET MODAL CALLED ===");
-    console.log("Current showTicketModal:", showTicketModal);
-    console.log("Current isTicketModalOpen:", isTicketModalOpen);
-    console.log("Current phoneStatus:", phoneStatus);
-
-    setShowTicketModal(false);
-    setIsTicketModalOpen(false);
-
-    console.log("After setting to false - showTicketModal:", false);
-    console.log("After setting to false - isTicketModalOpen:", false);
-
-    // Form data is preserved in state for next time
-    // If there's an active call, the call status banner will show
-    // Phone modal remains open in background if call is active
-  };
-
-  // Function to handle ticket modal cancellation
-  const handleTicketCancel = () => {
-    console.log("=== TICKET MODAL CANCELLED ===");
-    closeTicketModal();
-  };
-
-  // Function to restore ticket form data when reopening
-  const restoreTicketFormData = () => {
-    if (Object.keys(ticketFormData).length > 0) {
-      console.log("Restoring preserved ticket form data:", ticketFormData);
-      // The AdvancedTicketCreateModal will receive this data via props
-    }
-  };
-
-  // Function to capture form data changes from ticket modal
-  const handleTicketFormDataChange = (formData) => {
-    console.log("Ticket form data changed:", formData);
-    setTicketFormData(formData);
-  };
-
-  // Function to handle opening ticket modal
-  const openTicketModal = (type = null) => {
-    console.log("Opening ticket modal with type:", type);
-
-    // If type is provided, set it
-    if (type) {
-      handleTicketTypeSelect(type);
-    }
-
-    // If we have preserved data and type, use that
-    if (Object.keys(ticketFormData).length > 0 && ticketType && !type) {
-      console.log("Using preserved ticket type:", ticketType);
-    }
-
-    setShowTicketModal(true);
-    setIsTicketModalOpen(true);
-  };
-
-  // Function to handle ticket type selection
-  const handleTicketTypeSelect = (type) => {
-    console.log("Ticket type selected:", type);
-    setTicketType(type);
-
-    // Clear previous form data when switching types
-    if (ticketType && ticketType !== type) {
-      console.log("Switching ticket type - clearing previous form data");
-      setTicketFormData({});
-    }
-
-    // Set initial form data based on type
-    const initialData = {
-      ticketType: type,
-      phoneNumber: lastIncomingNumber || phoneNumber,
-      callStatus: phoneStatus,
-      callDuration: callDuration,
-      timestamp: new Date().toISOString(),
-    };
-
-    setTicketFormData(initialData);
-    console.log("Initial form data set for type:", type, initialData);
-  };
-
-  // Function to handle ticket submission success
-  const handleTicketSubmitted = () => {
-    console.log("Ticket submitted successfully - clearing preserved data");
-    setTicketFormData({});
-    setTicketType(null);
-    closeTicketModal();
-    showAlert("Ticket created successfully!", "success");
-  };
-
-  // Keyboard shortcut to close ticket modal (Escape key)
-  useEffect(() => {
-    const handleKeyDown = (event) => {
-      if (event.key === "Escape" && showTicketModal) {
-        console.log("Escape key pressed - closing ticket modal");
-        event.preventDefault();
-        closeTicketModal();
-      }
-    };
-
-    if (showTicketModal) {
-      document.addEventListener("keydown", handleKeyDown);
-      console.log("Escape key listener added");
-    }
-
-    return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      console.log("Escape key listener removed");
-    };
-  }, [showTicketModal]);
-
-  const handleRedial = (number, missedCallId = null) => {
-    redial(number, missedCallId);
-  };
-
-  // ---------- Status menu ----------
   const handleClick = (event) => setAnchorEl(event.currentTarget);
   const handleClose = () => setAnchorEl(null);
 
@@ -750,128 +388,15 @@ const markMissedCallAsCalledBack = async (missedCallId) => {
     }
   };
 
-  // Determine if there's an active call
-  const hasActiveCall = phoneStatus === "In Call" && session !== null;
-useEffect(() => {
-  localStorage.setItem("missedCalls", JSON.stringify(missedCalls));
-}, [missedCalls]);
+  useEffect(() => {
+    localStorage.setItem("missedCalls", JSON.stringify(missedCalls));
+  }, [missedCalls]);
 
   return (
     <div className="agents-dashboard-root">
-      {intervention && (
-        <Alert
-          severity={intervention.severity || "info"}
-          onClose={clearIntervention}
-          sx={{
-            mb: 2,
-            fontWeight: 500,
-            "& .MuiAlert-message": { width: "100%" },
-          }}
-        >
-          <strong>{intervention.title}</strong> — {intervention.message}
-        </Alert>
-      )}
-
-      {/* Call Status Banner - Shows when on a call even if ticket modal is closed */}
-      {hasActiveCall && !showTicketModal && (
-        <div
-          style={{
-            position: "sticky",
-            top: 0,
-            zIndex: 1000,
-            backgroundColor: "#4caf50",
-            color: "white",
-            padding: "12px 20px",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            boxShadow: "0 2px 4px rgba(0,0,0,0.2)",
-            marginBottom: "16px",
-            borderRadius: "8px",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <FiPhoneCall style={{ fontSize: "20px" }} />
-            <div>
-              <div style={{ fontWeight: "bold", fontSize: "16px" }}>
-                Call in Progress
-              </div>
-              <div style={{ fontSize: "14px", opacity: 0.9 }}>
-                {ticketPhoneNumber ||
-                  lastIncomingNumber ||
-                  phoneNumber ||
-                  "Unknown"}{" "}
-                • Duration: {formatDuration(callDuration)}
-              </div>
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: "8px" }}>
-            <Button
-              variant="contained"
-              size="small"
-              onClick={() => {
-                setShowTicketModal(true);
-                setIsTicketModalOpen(true);
-              }}
-              sx={{
-                backgroundColor: "white",
-                color: "#4caf50",
-                "&:hover": {
-                  backgroundColor: "#f5f5f5",
-                },
-              }}
-            >
-              📝 Return to Ticket
-            </Button>
-            <Button
-              variant="contained"
-              size="small"
-              onClick={handleEndCall}
-              sx={{
-                backgroundColor: "#f44336",
-                color: "white",
-                "&:hover": {
-                  backgroundColor: "#d32f2f",
-                },
-              }}
-            >
-              End Call
-            </Button>
-          </div>
-        </div>
-      )}
-
       <div className="agent-body">
         <div style={{ display: "flex", alignItems: "center", gap: "20px" }}>
           <h3>Agent</h3>
-          {/* <Tooltip title="View Missed Calls" arrow>
-            <div
-              style={{ position: "relative", cursor: "pointer" }}
-              onClick={() => setMissedOpen(true)}
-            >
-              <FiPhoneIncoming size={20} />
-              {missedCalls.length > 0 && (
-                <span
-                  style={{
-                    position: "absolute",
-                    top: -5,
-                    right: -5,
-                    background: "red",
-                    color: "white",
-                    fontSize: "12px",
-                    borderRadius: "50%",
-                    width: "18px",
-                    height: "18px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  {missedCalls.length}
-                </span>
-              )}
-            </div>
-          </Tooltip> */}
           <Tooltip title="Voice Notes" arrow>
             <div
               style={{ position: "relative", cursor: "pointer" }}
@@ -979,27 +504,17 @@ useEffect(() => {
         <div className="dashboard-single-agent">
           <CallQueueCard />
         </div>
-        {/* Total Contact Summary */}
         <div className="dashboard-single-agent">
           <TotalContactSummary />
-          {/* Contact Summary Grid - 4 Equal Boxes */}
           <ContactSummaryGrid />
         </div>
-        {/* <div className="dashboard-single-agent">
-          <SingleAgentDashboardCard />
-        </div> */}
 
         <div className="dashboard-single-agent-row_two">
           <OnlineAgentsTable />
           <OnlineSupervisorsTable />
         </div>
-
-        {/* <div className="dashboard-single-agent-row_four">
-          <AgentPerformanceScore />
-        </div> */}
       </div>
 
-      {/* Status menu */}
       <Menu
         anchorEl={anchorEl}
         id="account-menu"
@@ -1053,42 +568,6 @@ useEffect(() => {
         })}
       </Menu>
 
-      {/* Phone popup */}
-      <PhonePopup
-        showPhonePopup={showPhonePopup}
-        extension={extension}
-        phoneStatus={phoneStatus}
-        incomingCall={incomingCall}
-        lastIncomingNumber={lastIncomingNumber}
-        callDuration={callDuration}
-        phoneNumber={phoneNumber}
-        setPhoneNumber={setPhoneNumber}
-        showKeypad={showKeypad}
-        setShowKeypad={setShowKeypad}
-        isMuted={isMuted}
-        isSpeakerOn={isSpeakerOn}
-        isOnHold={isOnHold}
-        manualTransferExt={manualTransferExt}
-        setManualTransferExt={setManualTransferExt}
-        remoteAudioRef={remoteAudioRef}
-        formatDuration={formatDuration}
-        isConsulting={isConsulting}
-        onClose={togglePhonePopup}
-        onAccept={handleAcceptCall}
-        onReject={handleRejectCall}
-        onEnd={handleEndCall}
-        onDial={handleDial}
-        onToggleMute={toggleMute}
-        onToggleSpeaker={toggleSpeaker}
-        onToggleHold={toggleHold}
-        onBlindTransfer={handleBlindTransfer}
-        onStartConsult={handleStartConsult}
-        onCompleteConsultTransfer={handleCompleteConsultTransfer}
-        onCancelConsult={handleCancelConsult}
-        onSwapToTicket={swapToTicketModal}
-      />
-
-      {/* Missed calls dialog */}
       <Dialog
         open={missedOpen}
         onClose={() => setMissedOpen(false)}
@@ -1102,7 +581,6 @@ useEffect(() => {
           ) : (
             <ul style={{ listStyle: "none", padding: 0 }}>
               {missedCalls.map((call) => (
-
                 <li
                   key={call.id}
                   style={{
@@ -1119,37 +597,26 @@ useEffect(() => {
                     <br />
                     <small>{new Date(call.time).toLocaleTimeString()}</small>
                   </div>
-                 
-                 <Button
-                  variant="contained"
-                  size="small"
-                  color={callingBackId === call.id ? "success" : "primary"}
-                  disabled={callingBackId === call.id}
-                  startIcon={<FiPhoneCall />}
-                  onClick={() => {
-                    // 🔴 VISUAL STATE FIRST
-                    setCallingBackId(call.id);
 
-                    // 🔴 REMOVE FROM UI
-                    setMissedCalls(prev =>
-                      prev.filter(c => c.id !== call.id)
-                    );
-
-                    // 🔴 BACKEND UPDATE
-                    markMissedCallAsCalledBack(call.id);
-
-                    // 🔴 PHONE FLOW
-                    setMissedOpen(false);
-                    setShowPhonePopup(true);
-                    setPhoneNumber(call.caller);
-                    handleRedial(call.caller, call.id);
-                  }}
-                >
-                  {callingBackId === call.id ? "Calling..." : "Call Back"}
-                </Button>
-
-
-
+                  <Button
+                    variant="contained"
+                    size="small"
+                    color={callingBackId === call.id ? "success" : "primary"}
+                    disabled={callingBackId === call.id}
+                    startIcon={<FiPhoneCall />}
+                    onClick={() => {
+                      setCallingBackId(call.id);
+                      setMissedCalls((prev) =>
+                        prev.filter((c) => c.id !== call.id)
+                      );
+                      markMissedCallAsCalledBack(call.id);
+                      setMissedOpen(false);
+                      setPhoneNumber(call.caller);
+                      openPhoneAndRedial(call.caller, call.id);
+                    }}
+                  >
+                    {callingBackId === call.id ? "Calling..." : "Call Back"}
+                  </Button>
                 </li>
               ))}
             </ul>
@@ -1169,23 +636,6 @@ useEffect(() => {
         </DialogContent>
       </Dialog>
 
-      {/* Snackbar */}
-      <Snackbar
-        open={snackbarOpen}
-        autoHideDuration={4000}
-        onClose={() => setSnackbarOpen(false)}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
-      >
-        <Alert
-          onClose={() => setSnackbarOpen(false)}
-          severity={snackbarSeverity}
-          sx={{ width: "100%" }}
-        >
-          {snackbarMessage}
-        </Alert>
-      </Snackbar>
-
-      {/* Create Ticket quick button */}
       <Button
         variant="contained"
         color="primary"
@@ -1194,7 +644,6 @@ useEffect(() => {
         Create Ticket
       </Button>
 
-      {/* Create Employer Ticket Button */}
       <Button
         variant="contained"
         color="primary"
@@ -1202,10 +651,9 @@ useEffect(() => {
         style={{ marginLeft: "10px" }}
         title="Create ticket for employer"
       >
-        🏢 Employer Ticket
+        Employer Ticket
       </Button>
 
-      {/* Create Employee Ticket Button */}
       <Button
         variant="contained"
         color="primary"
@@ -1213,21 +661,9 @@ useEffect(() => {
         style={{ marginLeft: "10px" }}
         title="Create ticket for employee"
       >
-        👤 Employee Ticket
+        Employee Ticket
       </Button>
 
-      {/* Ticket modal with custom wrapper for better control */}
-      <div style={{ position: "relative" }}>
-        <AdvancedTicketCreateModal
-          open={showTicketModal}
-          onClose={closeTicketModal}
-          onOpen={openTicketModal}
-          initialPhoneNumber={ticketPhoneNumber}
-          functionData={functionData}
-        />
-      </div>
-
-      {/* Voice notes modal */}
       <Dialog
         open={showVoiceNotesModal}
         onClose={() => {

@@ -86,7 +86,10 @@ function App() {
           {/* Public routes - must be defined before catch-all */}
           <Route path="/" element={<Login />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/public-dashboard" element={<PublicDashboard />} />
+          {/* Guests only — logged-in users use Dashboard shell (keeps agent SIP alive) */}
+          {!role && (
+            <Route path="/public-dashboard" element={<PublicDashboard />} />
+          )}
           <Route path="/crm-tickets" element={<CrmTicketsAssigned />} />
 
           {/* Authenticated routes - Dashboard handles all nested routes */}
