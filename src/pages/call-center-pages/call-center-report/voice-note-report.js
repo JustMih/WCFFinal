@@ -178,7 +178,7 @@ export default function VoiceNoteReport() {
     }
 
     setSnackbarMessage(
-      "Audio not found. If using local API, set serverURL in config.js to the server that hosts voice files (e.g. 192.168.21.70:5070)."
+      "Audio not found. If using local API, set serverURL in config.js to the server that hosts voice files (e.g. 192.168.21.69:5070)."
     );
     setSnackbarSeverity("error");
     setSnackbarOpen(true);

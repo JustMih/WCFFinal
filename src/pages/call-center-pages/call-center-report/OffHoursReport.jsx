@@ -50,7 +50,7 @@ import {
   exportRowsToExcel,
 } from "../../../utils/reportExportHelpers";
 
-const SIP_DOMAIN = "192.168.21.70";
+const SIP_DOMAIN = "192.168.21.69";
 
 const authHeaders = () => ({
   "Content-Type": "application/json",
