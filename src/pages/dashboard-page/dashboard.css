@@ -45,3 +45,37 @@
   padding-left: 10px;
   border-left: 3px solid var(--wcf-green);
 }
+
+/* Full-bleed Live/Public Dashboard — no navbar/sidebar chrome */
+.dashboard.public-dashboard-shell {
+  overflow: auto;
+}
+
+.public-dashboard-layout {
+  display: flex;
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  margin-top: 0;
+  overflow: visible;
+  position: relative;
+}
+
+.public-dashboard-main {
+  display: flex;
+  flex: 1 1 0%;
+  width: 100%;
+  flex-direction: column;
+  min-width: 0;
+  position: relative;
+  padding: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+.public-dashboard-main > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
