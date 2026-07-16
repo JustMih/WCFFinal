@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { Route, Routes, useNavigate, useLocation, Navigate } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Route, Routes, useLocation, Navigate } from "react-router-dom";
 import { WcfLoadingOverlay } from "../../components/shared/WcfLoader";
 import Navbar from "../../components/nav-bar/Navbar";
 import CallCenterSidebar from "../../components/side-bar/side-bar-call-center/CallCenterSidebar";
@@ -53,39 +53,17 @@ import PublicDashboard from "../public-dashboard/PublicDashboard";
 import HandoverPage from "../handover/HandoverPage";
 import HandoverInitiatorBanner from "../../components/handover/HandoverInitiatorBanner";
 import { useInitiatorHandoverLock } from "../../hooks/useInitiatorHandoverLock";
+import AgentSipPhoneProvider from "../../context/AgentSipPhoneProvider";
 
 export default function Dashboard() {
   const [isDarkMode, setDarkMode] = useState(false);
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [activeSystem, setActiveSystem] = useState("");
-  const navigate = useNavigate();
   const location = useLocation();
-  const lastNonPublicLocationRef = useRef(location);
-  const [publicDashboardPending, setPublicDashboardPending] = useState(false);
   const { locked, checking, refreshAfterRevoke } = useInitiatorHandoverLock();
 
   const role = localStorage.getItem("role");
-
-  const handlePublicDashboardReady = useCallback(() => {
-    setPublicDashboardPending(false);
-  }, []);
-
-  useEffect(() => {
-    if (location.pathname === "/public-dashboard") {
-      if (lastNonPublicLocationRef.current.pathname !== "/public-dashboard") {
-        setPublicDashboardPending(true);
-      }
-    } else {
-      lastNonPublicLocationRef.current = location;
-      setPublicDashboardPending(false);
-    }
-  }, [location]);
-
-  const routesLocation = publicDashboardPending
-    ? lastNonPublicLocationRef.current
-    : location;
   const isPublicDashboardRoute = location.pathname === "/public-dashboard";
-  const showFrozenRoutes = !isPublicDashboardRoute || publicDashboardPending;
 
   useEffect(() => {
     const storedSystem = localStorage.getItem("activeSystem");
@@ -143,47 +121,60 @@ export default function Dashboard() {
     );
   }
 
-  return (
-    <div className={`dashboard ${currentTheme}`}>
-      <Navbar
-        toggleTheme={toggleTheme}
-        isDarkMode={isDarkMode}
-        isSidebarOpen={isSidebarOpen}
-        role={role}
-        setActiveSystem={setActiveSystem}
-        activeSystem={activeSystem}
-      />
-      <div className="layout">
-        {activeSystem === "call-center" && (
+  const shell = (
+    <div
+      className={`dashboard ${currentTheme}${
+        isPublicDashboardRoute ? " public-dashboard-shell" : ""
+      }`}
+    >
+      {!isPublicDashboardRoute && (
+        <Navbar
+          toggleTheme={toggleTheme}
+          isDarkMode={isDarkMode}
+          isSidebarOpen={isSidebarOpen}
+          role={role}
+          setActiveSystem={setActiveSystem}
+          activeSystem={activeSystem}
+        />
+      )}
+      <div
+        className={
+          isPublicDashboardRoute ? "public-dashboard-layout" : "layout"
+        }
+      >
+        {!isPublicDashboardRoute && activeSystem === "call-center" && (
           <CallCenterSidebar
             isSidebarOpen={isSidebarOpen}
             onToggleSidebar={toggleSidebar}
             role={role}
           />
         )}
-        {/* where side bar seen according to role */}
-        {activeSystem === "crm" && (
+        {!isPublicDashboardRoute && activeSystem === "crm" && (
           <CRMSidebar
             isSidebarOpen={isSidebarOpen}
             onToggleSidebar={toggleSidebar}
             role={role}
           />
         )}
-        <div className="main-content">
-          {showFrozenRoutes && (
-          <Routes location={routesLocation}>
+        <div
+          className={
+            isPublicDashboardRoute ? "public-dashboard-main" : "main-content"
+          }
+        >
+          {isPublicDashboardRoute ? (
+            <PublicDashboard />
+          ) : (
+          <Routes location={location}>
             {activeSystem === "call-center" && (
               <>
                 <Route
                   path="/dashboard"
                   element={<PrivateRoute element={<Dashboard2 />} />}
                 />
-                {!isPublicDashboardRoute && (
                 <Route
                   path="/public-dashboard"
                   element={<PrivateRoute element={<PublicDashboard />} />}
                 />
-                )}
                 {(role === "admin" || role === "super-admin") && (
                   <Route
                     path="/system-logs"
@@ -398,23 +389,14 @@ export default function Dashboard() {
             )}
           </Routes>
           )}
-          {isPublicDashboardRoute && (
-            <PublicDashboard
-              suppressLoadingUI={publicDashboardPending}
-              onInitialLoadComplete={handlePublicDashboardReady}
-            />
-          )}
-          {publicDashboardPending && (
-            <div className="wcf-route-loading-overlay" aria-live="polite">
-              <WcfLoadingOverlay
-                transparent
-                message="Loading dashboard..."
-                label="Loading live dashboard"
-              />
-            </div>
-          )}
         </div>
       </div>
     </div>
   );
+
+  if (role === "agent") {
+    return <AgentSipPhoneProvider>{shell}</AgentSipPhoneProvider>;
+  }
+
+  return shell;
 }

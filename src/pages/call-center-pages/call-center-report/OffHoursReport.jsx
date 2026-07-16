@@ -39,6 +39,7 @@ import {
   formatOutboundNumber,
 } from "../../../utils/missedCallActions";
 import { useSipPhone } from "../call-center-dashboard/agents-dashboard/useSipPhone";
+import { useAgentSipPhoneOptional } from "../../../context/AgentSipPhoneContext";
 import "./OffHoursReport.css";
 import WcfLoader from "../../../components/shared/WcfLoader";
 import ReportTablePagination from "../../../components/shared/ReportTablePagination";
@@ -236,14 +237,28 @@ export default function OffHoursReport() {
 
   const extension = localStorage.getItem("extension");
   const sipPassword = localStorage.getItem("sipPassword");
-  const sipReady = Boolean(extension && sipPassword);
+  const agentSip = useAgentSipPhoneOptional();
+  const useSharedAgentSip = Boolean(agentSip);
+  const localSipReady = Boolean(extension && sipPassword) && !useSharedAgentSip;
 
-  const { phoneStatus, remoteAudioRef, redial, endCall } = useSipPhone({
-    extension: sipReady ? extension : null,
-    sipPassword: sipReady ? sipPassword : null,
+  const localSip = useSipPhone({
+    extension: localSipReady ? extension : null,
+    sipPassword: localSipReady ? sipPassword : null,
     SIP_DOMAIN,
     allowIncomingRinging: false,
   });
+
+  const phoneStatus = useSharedAgentSip
+    ? agentSip.phoneStatus
+    : localSip.phoneStatus;
+  const remoteAudioRef = useSharedAgentSip
+    ? agentSip.remoteAudioRef
+    : localSip.remoteAudioRef;
+  const redial = useSharedAgentSip ? agentSip.redial : localSip.redial;
+  const endCall = useSharedAgentSip ? agentSip.endCall : localSip.endCall;
+  const sipReady = useSharedAgentSip
+    ? agentSip.sipReady
+    : Boolean(extension && sipPassword);
 
   useEffect(() => {
     if (phoneStatus === "Idle" || phoneStatus === "Call Failed") {
@@ -347,7 +362,7 @@ export default function OffHoursReport() {
 
     if (!sipReady) {
       setSnackbarMessage(
-        "SIP phone not ready. Open the Agent Dashboard and log in with your extension first."
+        "SIP phone not ready. Ensure you are logged in with your extension."
       );
       setSnackbarSeverity("warning");
       setSnackbarOpen(true);
@@ -370,7 +385,11 @@ export default function OffHoursReport() {
             : r
         )
       );
-      redial(formatOutboundNumber(phone) || phone);
+      if (useSharedAgentSip && agentSip.openPhoneAndRedial) {
+        agentSip.openPhoneAndRedial(formatOutboundNumber(phone) || phone);
+      } else {
+        redial(formatOutboundNumber(phone) || phone);
+      }
       setSnackbarMessage(`Calling back ${phone}...`);
       setSnackbarSeverity("info");
       setSnackbarOpen(true);
@@ -735,7 +754,9 @@ export default function OffHoursReport() {
         </div>
       )}
 
-      <audio ref={remoteAudioRef} autoPlay style={{ display: "none" }} />
+      {!useSharedAgentSip && (
+        <audio ref={remoteAudioRef} autoPlay style={{ display: "none" }} />
+      )}
 
       <div className="off-hours-table-wrapper">
         {loading && (

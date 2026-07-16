@@ -1,0 +1,131 @@
+.agent-sip-intervention {
+  position: fixed;
+  top: 72px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1400;
+  max-width: min(640px, calc(100vw - 32px));
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.agent-sip-call-banner {
+  position: fixed;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1350;
+  width: min(720px, calc(100vw - 24px));
+  background-color: #4caf50;
+  color: white;
+  padding: 12px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  border-radius: 8px;
+}
+
+.agent-sip-call-banner-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.agent-sip-call-banner-title {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.agent-sip-call-banner-meta {
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.agent-sip-call-banner-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.agent-sip-fab {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 1300;
+  width: 56px;
+  height: 56px;
+  border: none;
+  border-radius: 50%;
+  background: #1976d2;
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(25, 118, 210, 0.45);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.agent-sip-fab:hover {
+  transform: scale(1.06);
+  background: #1565c0;
+}
+
+.agent-sip-fab--busy {
+  background: #2e7d32;
+  box-shadow: 0 4px 14px rgba(46, 125, 50, 0.5);
+}
+
+.agent-sip-fab--busy:hover {
+  background: #1b5e20;
+}
+
+.agent-sip-fab--paused {
+  background: #c62828;
+  box-shadow: 0 4px 14px rgba(198, 40, 40, 0.45);
+}
+
+.agent-sip-fab--paused:hover {
+  background: #b71c1c;
+}
+
+.agent-sip-fab-pulse {
+  position: absolute;
+  inset: -4px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  opacity: 0.6;
+  animation: agent-sip-pulse 1.4s ease-out infinite;
+  pointer-events: none;
+}
+
+@keyframes agent-sip-pulse {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(1.25);
+    opacity: 0;
+  }
+}
+
+@media (max-width: 600px) {
+  .agent-sip-call-banner {
+    top: auto;
+    bottom: 88px;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .agent-sip-call-banner-actions {
+    justify-content: stretch;
+  }
+
+  .agent-sip-call-banner-actions .MuiButton-root {
+    flex: 1;
+  }
+}
