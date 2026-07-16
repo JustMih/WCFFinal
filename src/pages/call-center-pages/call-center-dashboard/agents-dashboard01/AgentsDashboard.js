@@ -119,7 +119,7 @@ export default function AgentsDashboard() {
   // --------- Config ---------
   const extension = localStorage.getItem("extension");
   const sipPassword = localStorage.getItem("sipPassword");
-  const SIP_DOMAIN = "democc.wcf.go.tz"; // unify here (adjust if needed)
+  const SIP_DOMAIN = "contactcenter.wcf.go.tz"; // unify here (adjust if needed)
 
   const sipConfig = useMemo(() => {
     if (!extension || !sipPassword) return null;
