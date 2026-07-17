@@ -30,7 +30,7 @@ export const REPORTS = [
   { slug: "dtmf-usage", label: "DTMF Usage Report", type: REPORT_TYPES.DTMF_USAGE },
   { slug: "livestream", label: "Live Streaming", type: REPORT_TYPES.LIVESTREAM },
   { slug: "ticket-assignments", label: "Ticket Assignments", type: REPORT_TYPES.TICKET_ASSIGNMENTS },
-  { slug: "missed-call", label: "Missed Call Report", type: REPORT_TYPES.MISSED_CALL },
+  // { slug: "missed-call", label: "Missed Call Report", type: REPORT_TYPES.MISSED_CALL },
   { slug: "dropped-calls", label: "Dropped Calls Report", type: REPORT_TYPES.DROPPED_CALL },
   { slug: "escalation", label: "Escallation", type: REPORT_TYPES.ESCALLATION },
   { slug: "notifications", label: "Notifications", type: REPORT_TYPES.NOTIFICATIONS },

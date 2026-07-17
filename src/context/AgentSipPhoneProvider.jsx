@@ -27,6 +27,8 @@ export default function AgentSipPhoneProvider({ children }) {
   const [ticketFormData, setTicketFormData] = useState({});
   const [ticketType, setTicketType] = useState(null);
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
+  // Bumped on close/success so the ticket modal remounts with a clean form
+  const [ticketSessionId, setTicketSessionId] = useState(0);
 
   const [snackbarOpen, setSnackbarOpen] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState("");
@@ -193,9 +195,22 @@ export default function AgentSipPhoneProvider({ children }) {
     endCall();
   }, [endCall]);
 
+  // Clear call-related ticket context without closing (used on submit success,
+  // so the modal can still show its success message before onClose fires).
+  const clearTicketCallContext = useCallback(() => {
+    setTicketPhoneNumber("");
+    setTicketFormData({});
+    setTicketType(null);
+  }, []);
+
+  // Full reset: close + clear + remount modal so the next open is an empty form
   const closeTicketModal = useCallback(() => {
     setShowTicketModal(false);
     setIsTicketModalOpen(false);
+    setTicketPhoneNumber("");
+    setTicketFormData({});
+    setTicketType(null);
+    setTicketSessionId((id) => id + 1);
   }, []);
 
   const swapToTicketModal = useCallback(() => {
@@ -530,11 +545,13 @@ export default function AgentSipPhoneProvider({ children }) {
       />
 
       <AdvancedTicketCreateModal
+        key={ticketSessionId}
         open={showTicketModal}
         onClose={closeTicketModal}
         onOpen={openTicketModal}
         initialPhoneNumber={ticketPhoneNumber}
         functionData={functionData}
+        onSuccess={clearTicketCallContext}
       />
 
       <Snackbar
