@@ -1914,34 +1914,7 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
         });
         
         // Reset form data completely
-        setFormData({
-          firstName: "",
-          middleName: "",
-          lastName: "",
-          phoneNumber: "",
-          nidaNumber: "",
-          requester: "",
-          institution: "",
-          region: "",
-          district: "",
-          channel: "",
-          category: "",
-          functionId: "",
-          description: "",
-          status: "Open",
-          requesterName: "",
-          requesterPhoneNumber: "",
-          requesterEmail: "",
-          requesterAddress: "",
-          relationshipToEmployee: "",
-          employerName: "",
-          allocated_user_username: "",
-          allocated_user_name: "",
-          allocated_user_id: "",
-          claimNumber: "",
-          employerRegistrationNumber: "",
-          is_new_registration: false
-        });
+        setFormData({ ...defaultFormData, phoneNumber: "" });
         
         // Reset all form-related state
         setFormErrors({});
@@ -2273,7 +2246,20 @@ function AdvancedTicketCreateModal({ open, onClose, onOpen, initialPhoneNumber =
         setResolutionType("");
         setResolutionDetails("");
         setAttachment(null);
-        onClose();
+
+        // Clear the form so the next open starts empty
+        setFormData({ ...defaultFormData, phoneNumber: "" });
+        setFormErrors({});
+        resetSearch();
+
+        if (onSuccess) {
+          onSuccess(data);
+        }
+
+        // Close after a short delay so the success message is visible
+        setTimeout(() => {
+          onClose();
+        }, 2000);
       } else {
         const closeData = await closeResponse.json();
         throw new Error(closeData.message || "Failed to close ticket");

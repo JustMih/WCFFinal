@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { UserAgent, Inviter, Registerer, SessionState } from "sip.js";
+import { baseURL } from "../../../../config";
 
 export function useSipPhone({
   extension,
@@ -43,6 +44,84 @@ export function useSipPhone({
   const callTimerRef = useRef(null);
   const autoRejectTimerRef = useRef(null);
   const wasAnsweredRef = useRef(false);
+
+  // Refs so unmount / beforeunload can hang up the live dialog
+  const sessionRef = useRef(null);
+  const incomingCallRef = useRef(null);
+  const consultSessionRef = useRef(null);
+  const extensionRef = useRef(extension);
+  extensionRef.current = extension;
+
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
+  useEffect(() => {
+    incomingCallRef.current = incomingCall;
+  }, [incomingCall]);
+  useEffect(() => {
+    consultSessionRef.current = consultSession;
+  }, [consultSession]);
+
+  /** Best-effort AMI hangup so customer/wallboard don't stay ACTIVE after tab death. */
+  const beaconAmiHangup = () => {
+    const ext = extensionRef.current;
+    const token = localStorage.getItem("authToken");
+    if (!ext || !token || !baseURL) return;
+    try {
+      fetch(`${baseURL}/ami/hangup-agent-call`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ extension: String(ext) }),
+        keepalive: true,
+      }).catch(() => {});
+    } catch (_) {
+      /* unload path — ignore */
+    }
+  };
+
+  /** Hang up / reject any in-memory SIP dialogs (used on unmount). */
+  const hangupLiveSipDialogs = () => {
+    const liveSession = sessionRef.current;
+    const liveIncoming = incomingCallRef.current;
+    const liveConsult = consultSessionRef.current;
+
+    if (liveConsult) {
+      try {
+        liveConsult.bye?.().catch(() => {});
+        liveConsult.cancel?.().catch(() => {});
+      } catch (_) {
+        /* ignore */
+      }
+      consultSessionRef.current = null;
+    }
+
+    if (liveSession) {
+      try {
+        liveSession.bye?.().catch(() => {});
+        liveSession.cancel?.().catch(() => {});
+      } catch (_) {
+        /* ignore */
+      }
+      sessionRef.current = null;
+    } else if (liveIncoming) {
+      try {
+        liveIncoming.reject?.().catch(() => {});
+        liveIncoming.cancel?.().catch(() => {});
+      } catch (_) {
+        /* ignore */
+      }
+      incomingCallRef.current = null;
+    }
+
+    try {
+      localStorage.removeItem("activeCallState");
+    } catch (_) {
+      /* ignore */
+    }
+  };
 
   // ---------- SIP config ----------
   const sipConfig = useMemo(() => {
@@ -313,6 +392,9 @@ export function useSipPhone({
       });
 
     return () => {
+      // Explicit BYE/reject so customer + wallboard don't stay ACTIVE orphaned
+      hangupLiveSipDialogs();
+      beaconAmiHangup();
       registerer.unregister().catch(console.error);
       ua.stop();
       stopRingtone();
@@ -326,6 +408,54 @@ export function useSipPhone({
       stopCallTimer();
     };
   }, []);
+
+  // Drop stale localStorage call hints when remounted idle (no recoverable SIP session)
+  useEffect(() => {
+    if (phoneStatus === "Idle" && !session && !incomingCall) {
+      try {
+        localStorage.removeItem("activeCallState");
+      } catch (_) {
+        /* ignore */
+      }
+    }
+  }, [phoneStatus, session, incomingCall]);
+
+  // Warn before page refresh/close while a call is active or ringing,
+  // so an accidental F5 doesn't silently hang up on the customer.
+  const hasLiveCall =
+    session !== null ||
+    incomingCall !== null ||
+    phoneStatus === "In Call" ||
+    phoneStatus === "Ringing" ||
+    phoneStatus === "Dialing" ||
+    phoneStatus === "Consulting";
+
+  useEffect(() => {
+    if (!hasLiveCall) return;
+
+    const handleBeforeUnload = (event) => {
+      event.preventDefault();
+      // Required for the browser to show the leave-page confirmation
+      event.returnValue =
+        "You are on an active call. Leaving or refreshing will end the call.";
+      return event.returnValue;
+    };
+
+    // pagehide fires when the document is actually being unloaded (not on Stay).
+    // Use it to BYE + AMI hangup while the tab still has a brief window to send.
+    const handlePageHide = (event) => {
+      if (event.persisted) return; // bfcache — page may come back
+      hangupLiveSipDialogs();
+      beaconAmiHangup();
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("pagehide", handlePageHide);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("pagehide", handlePageHide);
+    };
+  }, [hasLiveCall]);
 
   // ---------- Actions ----------
   const acceptCall = async () => {
