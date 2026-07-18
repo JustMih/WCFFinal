@@ -52,7 +52,7 @@ export default function Login() {
 
       if (response.ok) {
         const token = data.token;
-        // Use backend expiresAt (agents: DAILY_LOGOUT_TIME; others: 24h) or fallback to 1 hour
+        // Use backend expiresAt (all roles: DAILY_LOGOUT_TIME) or fallback to 1 hour
         const tokenExpiration =
           typeof data.expiresAt === "number"
             ? data.expiresAt
