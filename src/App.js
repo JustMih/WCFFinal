@@ -20,8 +20,6 @@ const queryClient = new QueryClient({
 });
 
 function clearSessionAndRedirect() {
-  const role = localStorage.getItem("role");
-  const isAgent = role === "agent";
   localStorage.removeItem("authToken");
   localStorage.removeItem("username");
   localStorage.removeItem("role");
@@ -35,9 +33,7 @@ function clearSessionAndRedirect() {
   clearDomainCredentials();
   sessionStorage.setItem(
     "logoutMessage",
-    isAgent
-      ? "Session ended (daily logout at 2:00 AM)."
-      : "Session ended (24 hour session limit)."
+    "Session ended (daily automatic logout)."
   );
   window.location.href = "/login";
 }
@@ -45,7 +41,7 @@ function clearSessionAndRedirect() {
 function App() {
   const role = localStorage.getItem("role");
 
-  // Global check: if token expired (e.g. daily 2 PM for agents, 24h for others), clear session and redirect
+  // Global check: if token expired at the daily logout time, clear session and redirect
   useEffect(() => {
     const checkTokenExpiration = () => {
       const token = localStorage.getItem("authToken");

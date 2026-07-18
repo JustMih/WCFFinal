@@ -113,7 +113,7 @@ import { getDtmfActionLabel, DTMF_DIGIT_LABELS } from "../../../utils/dtmfReport
 import "./comprehensiveReports.css";
 import "./OffHoursReport.css";
 
-const SIP_DOMAIN = "192.168.21.69";
+const SIP_DOMAIN = "192.168.21.70";
 
 const EXCLUDED_CDR_DESTINATIONS = new Set(["S", "I", "T"]);
 const isExcludedCdrDestination = (value) =>
