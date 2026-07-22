@@ -1,10 +1,12 @@
 {
   "$schema": "https://json.schemastore.org/jsconfig.json",
   "compilerOptions": {
-    "baseUrl": "src",
+    "paths": {
+      "config": ["./src/config.js"]
+    },
     "target": "es2020",
     "module": "esnext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "jsx": "react-jsx",
     "allowJs": true,
     "checkJs": false,
