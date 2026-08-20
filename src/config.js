@@ -1,8 +1,17 @@
 // on development
+// export const baseURL="http://127.0.0.1:5070/api"
+// export const amiURL = "http://127.0.0.1:5075";
+// export const SIP_DOMAIN_CONFIG = "contactcenter.wcf.go.tz";
+// export const serverURL = "http://127.0.0.1:5070";
 
-export const baseURL="https://contactcenter.wcf.go.tz/api"
-export const amiURL = "http://127.0.0.1:5075";
+// on server test
+export const baseURL = "http://192.168.21.70:5070/api";  
+export const amiURL = "http://192.168.21.70:5075";
 export const SIP_DOMAIN_CONFIG = "contactcenter.wcf.go.tz";
-export const serverURL = "http://192.168.21.69:5070";
+export const serverURL = "http://192.168.21.70:5070";
 
-// export const baseURL = "http://localhost:5070/api";
+// on server production
+// export const baseURL = "https://contactcenter.wcf.go.tz/api";
+// export const amiURL = "https://contactcenter.wcf.go.tz/ami";
+// export const SIP_DOMAIN_CONFIG = "contactcenter.wcf.go.tz";
+// export const serverURL = "https://contactcenter.wcf.go.tz";
