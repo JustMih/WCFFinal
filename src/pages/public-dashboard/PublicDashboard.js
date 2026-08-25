@@ -235,7 +235,7 @@ export default function PublicDashboard({
 
     Promise.all([fetchDashboardData(), fetchCallSummary()]);
 
-    const socketUrl = baseURL.replace(/\/api$/, "") || "https://192.168.21.69";
+    const socketUrl = baseURL.replace(/\/api$/, "") || "https://192.168.1.70";
     const socket = io(socketUrl, {
       transports: ["websocket", "polling"],
       reconnection: true,

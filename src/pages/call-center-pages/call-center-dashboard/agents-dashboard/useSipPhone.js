@@ -5,7 +5,7 @@ import { baseURL } from "../../../../config";
 export function useSipPhone({
   extension,
   sipPassword,
-  SIP_DOMAIN = "192.168.21.69",
+  SIP_DOMAIN = "192.168.1.70",
   onIncomingCall,
   onMissedCall,
   onCallAccepted,
@@ -311,6 +311,10 @@ export function useSipPhone({
     }
 
     if (!allowRingingRef.current) {
+      showAlert?.(
+        "Phone is paused — set Ready to receive calls",
+        "warning"
+      );
       invitation.reject().catch(console.error);
       return;
     }
