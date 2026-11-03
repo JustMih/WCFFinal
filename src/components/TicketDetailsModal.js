@@ -1444,6 +1444,7 @@ export default function TicketDetailsModal({
   const [assignReason, setAssignReason] = useState("");
   const [assignLoading, setAssignLoading] = useState(false);
   const [attendees, setAttendees] = useState([]);
+  const [assignTargetRole, setAssignTargetRole] = useState("attendee");
   
   // State for clarifications
   const [clarifications, setClarifications] = useState([]);
@@ -1553,11 +1554,15 @@ export default function TicketDetailsModal({
         });
         if (!response.ok) return;
         const data = await response.json();
+        const ticketHandoverId =
+          selectedTicket?.handover?.handover_id || selectedTicket?.handover_id;
         const active = (data?.handovers || []).find(
           (h) =>
             h?.status === "active" &&
             String(h?.from_user_id) === String(userId) &&
-            String(h?.to_user_id) === String(selectedTicket?.assigned_to_id)
+            (ticketHandoverId
+              ? String(h?.id) === String(ticketHandoverId)
+              : String(h?.to_user_id) === String(selectedTicket?.assigned_to_id))
         );
         setActiveHandoverId(active?.id || null);
       } catch (error) {
@@ -1566,7 +1571,14 @@ export default function TicketDetailsModal({
     };
 
     fetchMyActiveHandover();
-  }, [isOriginalOwnerBlocked, selectedTicket?.id, selectedTicket?.assigned_to_id, userId]);
+  }, [
+    isOriginalOwnerBlocked,
+    selectedTicket?.id,
+    selectedTicket?.assigned_to_id,
+    selectedTicket?.handover_id,
+    selectedTicket?.handover?.handover_id,
+    userId,
+  ]);
 
   const handleRevokeMyHandover = async () => {
     if (!activeHandoverId) return;
@@ -1584,6 +1596,7 @@ export default function TicketDetailsModal({
       showSnackbar("Handover revoked. You can now continue ticket actions.", "success");
       if (typeof refreshTickets === "function") refreshTickets();
       if (typeof refreshDashboardCounts === "function") refreshDashboardCounts();
+      // Close so next open loads ticket without stale handover_* flags
       onClose();
     } catch (error) {
       showSnackbar(error.message || "Failed to revoke handover.", "error");
@@ -2251,6 +2264,14 @@ export default function TicketDetailsModal({
     (selectedTicket?.responsible_unit_name && 
      !selectedTicket.responsible_unit_name.toLowerCase().includes("directorate"));
 
+  // Converted Inquiry may still have category Complaint / leftover complaint_type
+  const isEffectiveInquiry =
+    String(selectedTicket?.category || "").toLowerCase() === "inquiry" ||
+    String(selectedTicket?.converted_to || "").toLowerCase() === "inquiry";
+  const isTrueComplaint =
+    !isEffectiveInquiry &&
+    String(selectedTicket?.category || "").toLowerCase() === "complaint";
+
   const showAttendButton =
     selectedTicket &&
     selectedTicket.status !== "Closed" &&
@@ -2270,13 +2291,14 @@ export default function TicketDetailsModal({
     // Exclude these roles
     userRole !== "director-general" &&
     // Focal roles: no Attend/Close for Complaints (like agent/attendee) — use Reverse with Recommendation → manager
+    !(isFocalPersonRole && isTrueComplaint) &&
+    // Hide attend for attendee/agent only on true Complaints with Minor/Major (not converted Inquiry)
     !(
-      isFocalPersonRole &&
-      String(selectedTicket.category || "").toLowerCase() === "complaint"
+      (userRole === "attendee" || userRole === "agent") &&
+      isTrueComplaint &&
+      (selectedTicket.complaint_type === "Minor" ||
+        selectedTicket.complaint_type === "Major")
     ) &&
-    // Hide attend button for attendee/agent if complaint_type is Minor or Major
-    !((userRole === "attendee" || userRole === "agent") && 
-      (selectedTicket.complaint_type === "Minor" || selectedTicket.complaint_type === "Major")) &&
     // Hide attend button for director if category is Compliment or Suggestion
     !(userRole === "director" && 
       (selectedTicket.category === "Compliment" || selectedTicket.category === "Suggestion" || selectedTicket.category === "Complement")) &&
@@ -2289,10 +2311,12 @@ export default function TicketDetailsModal({
           !selectedTicket.complaint_type
         ) && 
         !(selectedTicket.category === "Compliment" || selectedTicket.category === "Suggestion" || selectedTicket.category === "Complement")) ||
-        // For attendee: show attend button for normal tickets (Inquiry/other non-complaint categories)
-        (userRole === "attendee" && selectedTicket.category !== "Complaint") ||
-        // For agent: show attend button for normal tickets (Inquiry/other non-complaint categories)
-        (userRole === "agent" && selectedTicket.category !== "Complaint") ||
+        // For attendee: Inquiry (incl. converted) and other non-complaint categories
+        (userRole === "attendee" &&
+          (isEffectiveInquiry || selectedTicket.category !== "Complaint")) ||
+        // For agent: Inquiry (incl. converted) and other non-complaint categories
+        (userRole === "agent" &&
+          (isEffectiveInquiry || selectedTicket.category !== "Complaint")) ||
         // For head-of-unit (incl. PR reviewer acting as head): show attend for Minor / Suggestion / etc.
         (effectiveActionRole === "head-of-unit" && (
           selectedTicket.complaint_type === "Minor" ||
@@ -2399,8 +2423,8 @@ export default function TicketDetailsModal({
       console.log('DEBUG: complaint_type value:', selectedTicket.complaint_type);
       console.log('DEBUG: ticket category:', selectedTicket.category);
       
-      // For Inquiry tickets, use close endpoint directly
-      if (selectedTicket.category === 'Inquiry') {
+      // For Inquiry tickets (including converted_to Inquiry), use close endpoint directly
+      if (isEffectiveInquiry) {
         console.log('DEBUG: Inquiry ticket - using close endpoint');
         const token = localStorage.getItem("authToken");
         const formData = new FormData();
@@ -3175,6 +3199,8 @@ export default function TicketDetailsModal({
             : Array.isArray(data.data)
             ? data.data
             : [];
+          const targetRole = String(data.targetRole || "attendee").toLowerCase();
+          setAssignTargetRole(targetRole);
 
           // Filter attendees based on user role
           const currentUserRole = localStorage.getItem("role") || "";
@@ -3184,7 +3210,7 @@ export default function TicketDetailsModal({
           const filtered = raw.filter(a => {
             // For focal persons, backend filters by ticket sub_section (if ticketId provided) or report_to
             // For head-of-unit, manager, and director, backend already filters by report_to/designation
-            if (currentUserRole === "focal-person" || currentUserRole === "head-of-unit" || currentUserRole === "manager" || currentUserRole === "director") {
+            if (targetRole === "director" || currentUserRole === "focal-person" || currentUserRole === "head-of-unit" || currentUserRole === "manager" || currentUserRole === "director") {
               return true;
             }
             
@@ -5231,9 +5257,10 @@ export default function TicketDetailsModal({
                   </Tooltip>
                 )}
 
-                {/* Agent Reverse button for rated tickets */}
+                {/* Agent Reverse button for rated tickets (not converted Inquiry) */}
                 {(effectiveActionRole === "agent" || effectiveActionRole === "attendee") && 
                  canActOnCurrentTicket &&
+                 !isEffectiveInquiry &&
                  selectedTicket?.complaint_type && 
                  ["Major", "Minor"].includes(selectedTicket.complaint_type) && (
                   <Tooltip title="Reverse this ticket with a recommendation">
@@ -5942,7 +5969,7 @@ export default function TicketDetailsModal({
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
             <Box>
               <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold", color: "#333" }}>
-                Select Attendee:
+                Select {assignTargetRole === "director" ? "Director" : "Attendee"}:
               </Typography>
               <Autocomplete
                 value={selectedAttendee || null}
@@ -5950,7 +5977,7 @@ export default function TicketDetailsModal({
                 options={attendees}
                 getOptionLabel={(o) => o?.full_name || o?.name || o?.username || ""}
                 renderInput={(params) => (
-                  <TextField {...params} size="small" placeholder="Type to search attendee..." />
+                  <TextField {...params} size="small" placeholder={`Type to search ${assignTargetRole}...`} />
                 )}
                 renderOption={(props, a) => (
                   <li {...props} key={a.id}>
@@ -6075,7 +6102,7 @@ export default function TicketDetailsModal({
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
             <Box>
               <Typography variant="body2" sx={{ mb: 1, fontWeight: "bold", color: "#333" }}>
-                Select Attendee:
+                Select {assignTargetRole === "director" ? "Director" : "Attendee"}:
               </Typography>
               <Autocomplete
                 value={selectedReassignAttendee || null}
@@ -6083,7 +6110,7 @@ export default function TicketDetailsModal({
                 options={attendees}
                 getOptionLabel={(o) => o?.full_name || o?.name || o?.username || ""}
                 renderInput={(params) => (
-                  <TextField {...params} size="small" placeholder="Type to search attendee..." />
+                  <TextField {...params} size="small" placeholder={`Type to search ${assignTargetRole}...`} />
                 )}
                 renderOption={(props, a) => (
                   <li {...props} key={a.id}>

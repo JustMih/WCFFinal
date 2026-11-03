@@ -72,10 +72,14 @@ export default function CallCenterUsers() {
   const [actionType, setActionType] = useState(""); // Type of action (activate, deactivate, etc.)
   const [userIdForAction, setUserIdForAction] = useState(null); // ID of the user for the action
 
-  // States for sections and functions (for focal-person)
+  // States for sections and functions (for focal-person / manager)
   const [sectionsList, setSectionsList] = useState([]); // Directorates and units
   const [functionsList, setFunctionsList] = useState([]); // Functions (sub-sections)
   const [selectedSection, setSelectedSection] = useState(""); // Selected section (directorate/unit)
+  const [reportToList, setReportToList] = useState([]); // Report To lookup entries
+
+  const needsSectionFields = (role) =>
+    role === "focal-person" || role === "manager";
   const [showHandoverModal, setShowHandoverModal] = useState(false);
   const [activeHandovers, setActiveHandovers] = useState([]);
   const [handoverParticipants, setHandoverParticipants] = useState([]);
@@ -107,9 +111,60 @@ export default function CallCenterUsers() {
     }
   };
 
+  const fetchReportToList = async () => {
+    try {
+      const response = await fetch(`${baseURL}/lookup-tables/report-to`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("authToken")}`,
+        },
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      const entries = (data.data || [])
+        .slice()
+        .sort((a, b) =>
+          String(a.name || "").localeCompare(String(b.name || ""))
+        );
+      setReportToList(entries);
+    } catch (err) {
+      console.error("Failed to fetch report-to list:", err);
+    }
+  };
+
   useEffect(() => {
     fetchUsers();
+    fetchReportToList();
   }, []);
+
+  // Refetch lookup when modal opens so newly seeded/admin-added entries appear
+  useEffect(() => {
+    if (showModal) {
+      fetchReportToList();
+    }
+  }, [showModal]);
+
+  const currentReportToValue = (
+    isEditing ? currentUser?.report_to || "" : newUserData.report_to || ""
+  ).trim();
+
+  // Full dropdown: lookup table + distinct values already used on users + current value
+  const reportToOptions = useMemo(() => {
+    const seen = new Map(); // lowercased -> display spelling
+    const addName = (raw) => {
+      const name = String(raw || "").trim();
+      if (!name) return;
+      const key = name.toLowerCase();
+      if (!seen.has(key)) seen.set(key, name);
+    };
+
+    reportToList.forEach((entry) => addName(entry.name));
+    users.forEach((user) => addName(user.report_to));
+    addName(currentReportToValue);
+
+    return Array.from(seen.values()).sort((a, b) =>
+      a.localeCompare(b, undefined, { sensitivity: "base" })
+    );
+  }, [reportToList, users, currentReportToValue]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -185,14 +240,11 @@ export default function CallCenterUsers() {
     [users, effectiveFromUserId, blockedUserIds]
   );
 
-  // Fetch sections and functions when modal opens and role is focal-person
+  // Fetch sections and functions when modal opens for focal-person or manager
   useEffect(() => {
     const fetchSectionsAndFunctions = async () => {
-      if (
-        showModal &&
-        (newUserData.role === "focal-person" ||
-          (currentUser && currentUser.role === "focal-person"))
-      ) {
+      const role = isEditing ? currentUser?.role : newUserData.role;
+      if (showModal && needsSectionFields(role)) {
         try {
           const token = localStorage.getItem("authToken");
 
@@ -228,7 +280,7 @@ export default function CallCenterUsers() {
     };
 
     fetchSectionsAndFunctions();
-  }, [showModal, newUserData.role, currentUser]);
+  }, [showModal, newUserData.role, currentUser, isEditing]);
 
   // When editing and selectedSection is set, ensure sub_section is preserved
   useEffect(() => {
@@ -236,7 +288,7 @@ export default function CallCenterUsers() {
       isEditing &&
       currentUser &&
       selectedSection &&
-      currentUser.role === "focal-person"
+      needsSectionFields(currentUser.role)
     ) {
       // If selectedSection is set and matches user's unit_section, preserve sub_section
       // The sub_section value is already set in currentUser, so it will display automatically
@@ -756,8 +808,8 @@ export default function CallCenterUsers() {
                           const { password, ...userWithoutPassword } = user;
                           setCurrentUser(userWithoutPassword);
 
-                          // Fetch sections and functions if role is focal-person
-                          if (user.role === "focal-person") {
+                          // Fetch sections and functions for focal-person / manager
+                          if (needsSectionFields(user.role)) {
                             try {
                               const token = localStorage.getItem("authToken");
 
@@ -825,7 +877,7 @@ export default function CallCenterUsers() {
                               );
                             }
                           } else {
-                            // For non-focal-person roles, ensure unit_section is preserved
+                            // Other roles do not use section/sub-section dropdowns
                             setSelectedSection("");
                           }
 
@@ -1085,26 +1137,78 @@ export default function CallCenterUsers() {
               }}
             />
 
-            <TextField
-              label="Report To"
-              fullWidth
-              size="small"
-              name="report_to"
-              value={
-                isEditing ? currentUser?.report_to || "" : newUserData.report_to
-              }
-              onChange={isEditing ? handleUpdateInputChange : handleInputChange}
-              sx={{
-                "& .MuiOutlinedInput-root": {
-                  "&:hover fieldset": {
+            <FormControl fullWidth size="small">
+              <InputLabel shrink={Boolean(currentReportToValue) || undefined}>
+                Report To
+              </InputLabel>
+              <Select
+                label="Report To"
+                name="report_to"
+                displayEmpty
+                value={currentReportToValue}
+                renderValue={(selected) =>
+                  selected ? (
+                    selected
+                  ) : (
+                    <em style={{ color: "#9e9e9e" }}>None</em>
+                  )
+                }
+                onChange={
+                  isEditing ? handleUpdateInputChange : handleInputChange
+                }
+                MenuProps={{
+                  PaperProps: {
+                    style: {
+                      maxHeight: 300,
+                      width: "400px",
+                      maxWidth: "400px",
+                      overflow: "auto",
+                    },
+                  },
+                  anchorOrigin: {
+                    vertical: "bottom",
+                    horizontal: "left",
+                  },
+                  transformOrigin: {
+                    vertical: "top",
+                    horizontal: "left",
+                  },
+                  getContentAnchorEl: null,
+                }}
+                sx={{
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    "&:hover": {
+                      borderColor: "#1976d2",
+                    },
+                  },
+                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
                     borderColor: "#1976d2",
                   },
-                  "&.Mui-focused fieldset": {
-                    borderColor: "#1976d2",
-                  },
-                },
-              }}
-            />
+                }}
+              >
+                <MenuItem
+                  value=""
+                  sx={{ fontSize: "14px", maxWidth: "380px" }}
+                >
+                  None
+                </MenuItem>
+                {reportToOptions.map((name) => (
+                  <MenuItem
+                    key={name}
+                    value={name}
+                    sx={{
+                      fontSize: "14px",
+                      maxWidth: "380px",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {name}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
 
             <TextField
               label="Designation"
@@ -1129,6 +1233,116 @@ export default function CallCenterUsers() {
               }}
             />
 
+            <FormControl fullWidth size="small">
+              <InputLabel>Role</InputLabel>
+              <Select
+                label="Role"
+                name="role"
+                value={
+                  isEditing ? currentUser?.role || "admin" : newUserData.role
+                }
+                onChange={
+                  isEditing ? handleUpdateInputChange : handleInputChange
+                }
+                MenuProps={{
+                  PaperProps: {
+                    style: {
+                      maxHeight: "auto",
+                      width: "400px",
+                      maxWidth: "400px",
+                      overflow: "hidden",
+                    },
+                  },
+                  anchorOrigin: {
+                    vertical: "bottom",
+                    horizontal: "left",
+                  },
+                  transformOrigin: {
+                    vertical: "top",
+                    horizontal: "left",
+                  },
+                  getContentAnchorEl: null,
+                }}
+                sx={{
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    "&:hover": {
+                      borderColor: "#1976d2",
+                    },
+                  },
+                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "#1976d2",
+                  },
+                }}
+              >
+                <MenuItem
+                  value="super-admin"
+                  sx={{ fontSize: "14px", maxWidth: "380px" }}
+                >
+                  Super Admin
+                </MenuItem>
+                <MenuItem
+                  value="admin"
+                  sx={{ fontSize: "14px", maxWidth: "380px" }}
+                >
+                  Admin
+                </MenuItem>
+                <MenuItem
+                  value="supervisor"
+                  sx={{ fontSize: "14px", maxWidth: "380px" }}
+                >
+                  Supervisor
+                </MenuItem>
+                <MenuItem
+                  value="agent"
+                  sx={{ fontSize: "14px", maxWidth: "380px" }}
+                >
+                  Agent
+                </MenuItem>
+                <MenuItem
+                  value="attendee"
+                  sx={{ fontSize: "14px", maxWidth: "380px" }}
+                >
+                  Attendee
+                </MenuItem>
+                <MenuItem
+                  value="reviewer"
+                  sx={{ fontSize: "14px", maxWidth: "380px" }}
+                >
+                  Reviewer
+                </MenuItem>
+                <MenuItem
+                  value="focal-person"
+                  sx={{ fontSize: "14px", maxWidth: "380px" }}
+                >
+                  Focal Person
+                </MenuItem>
+                <MenuItem
+                  value="head-of-unit"
+                  sx={{ fontSize: "14px", maxWidth: "380px" }}
+                >
+                  Head of Unit
+                </MenuItem>
+                <MenuItem
+                  value="manager"
+                  sx={{ fontSize: "14px", maxWidth: "380px" }}
+                >
+                  Manager
+                </MenuItem>
+                <MenuItem
+                  value="director"
+                  sx={{ fontSize: "14px", maxWidth: "380px" }}
+                >
+                  Director
+                </MenuItem>
+                <MenuItem
+                  value="director-general"
+                  sx={{ fontSize: "14px", maxWidth: "380px" }}
+                >
+                  Director General
+                </MenuItem>
+              </Select>
+            </FormControl>
+
             {/* Section and Sub-Section dropdowns for focal-person */}
             {(isEditing ? currentUser?.role : newUserData.role) ===
             "focal-person" || (isEditing ? currentUser?.role : newUserData.role) === "manager" ? (
@@ -1140,12 +1354,21 @@ export default function CallCenterUsers() {
                     name="section"
                     value={selectedSection}
                     onChange={(e) => {
-                      setSelectedSection(e.target.value);
-                      // Clear unit_section when section changes
+                      const selectedValue = e.target.value;
+                      setSelectedSection(selectedValue);
+                      // Auto-fill unit_section from selected section; clear sub_section
                       if (isEditing) {
-                        setCurrentUser({ ...currentUser, unit_section: "" });
+                        setCurrentUser({
+                          ...currentUser,
+                          unit_section: selectedValue || "",
+                          sub_section: "",
+                        });
                       } else {
-                        setNewUserData({ ...newUserData, unit_section: "" });
+                        setNewUserData({
+                          ...newUserData,
+                          unit_section: selectedValue || "",
+                          sub_section: "",
+                        });
                       }
                     }}
                     MenuProps={{
@@ -1562,116 +1785,6 @@ export default function CallCenterUsers() {
                 </Select>
               </FormControl>
             )}
-
-            <FormControl fullWidth size="small">
-              <InputLabel>Role</InputLabel>
-              <Select
-                label="Role"
-                name="role"
-                value={
-                  isEditing ? currentUser?.role || "admin" : newUserData.role
-                }
-                onChange={
-                  isEditing ? handleUpdateInputChange : handleInputChange
-                }
-                MenuProps={{
-                  PaperProps: {
-                    style: {
-                      maxHeight: "auto",
-                      width: "400px",
-                      maxWidth: "400px",
-                      overflow: "hidden",
-                    },
-                  },
-                  anchorOrigin: {
-                    vertical: "bottom",
-                    horizontal: "left",
-                  },
-                  transformOrigin: {
-                    vertical: "top",
-                    horizontal: "left",
-                  },
-                  getContentAnchorEl: null,
-                }}
-                sx={{
-                  "& .MuiOutlinedInput-notchedOutline": {
-                    "&:hover": {
-                      borderColor: "#1976d2",
-                    },
-                  },
-                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
-                    borderColor: "#1976d2",
-                  },
-                }}
-              >
-                <MenuItem
-                  value="super-admin"
-                  sx={{ fontSize: "14px", maxWidth: "380px" }}
-                >
-                  Super Admin
-                </MenuItem>
-                <MenuItem
-                  value="admin"
-                  sx={{ fontSize: "14px", maxWidth: "380px" }}
-                >
-                  Admin
-                </MenuItem>
-                <MenuItem
-                  value="supervisor"
-                  sx={{ fontSize: "14px", maxWidth: "380px" }}
-                >
-                  Supervisor
-                </MenuItem>
-                <MenuItem
-                  value="agent"
-                  sx={{ fontSize: "14px", maxWidth: "380px" }}
-                >
-                  Agent
-                </MenuItem>
-                <MenuItem
-                  value="attendee"
-                  sx={{ fontSize: "14px", maxWidth: "380px" }}
-                >
-                  Attendee
-                </MenuItem>
-                <MenuItem
-                  value="reviewer"
-                  sx={{ fontSize: "14px", maxWidth: "380px" }}
-                >
-                  Reviewer
-                </MenuItem>
-                <MenuItem
-                  value="focal-person"
-                  sx={{ fontSize: "14px", maxWidth: "380px" }}
-                >
-                  Focal Person
-                </MenuItem>
-                <MenuItem
-                  value="head-of-unit"
-                  sx={{ fontSize: "14px", maxWidth: "380px" }}
-                >
-                  Head of Unit
-                </MenuItem>
-                <MenuItem
-                  value="manager"
-                  sx={{ fontSize: "14px", maxWidth: "380px" }}
-                >
-                  Manager
-                </MenuItem>
-                <MenuItem
-                  value="director"
-                  sx={{ fontSize: "14px", maxWidth: "380px" }}
-                >
-                  Director
-                </MenuItem>
-                <MenuItem
-                  value="director-general"
-                  sx={{ fontSize: "14px", maxWidth: "380px" }}
-                >
-                  Director General
-                </MenuItem>
-              </Select>
-            </FormControl>
 
             {/* Extension field - available for all roles, optional */}
             <TextField

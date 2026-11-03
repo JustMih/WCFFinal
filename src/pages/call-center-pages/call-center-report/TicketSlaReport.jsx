@@ -39,6 +39,7 @@ const STATUS_FILTER_OPTIONS = [
   { value: "approaching", label: "Approaching" },
   { value: "on-time", label: "On Time" },
   { value: "no-sla", label: "No SLA" },
+  { value: "not-in-workflow", label: "Not in workflow" },
 ];
 
 const EXPORT_COLUMNS = [
@@ -324,6 +325,10 @@ export default function TicketSlaReport({ embedded = false }) {
             <div className="sla-summary-chip">
               <strong>{summary.unknown ?? 0}</strong>
               <span>Unknown</span>
+            </div>
+            <div className="sla-summary-chip">
+              <strong>{summary.notInWorkflow ?? 0}</strong>
+              <span>Not in workflow</span>
             </div>
           </div>
 
